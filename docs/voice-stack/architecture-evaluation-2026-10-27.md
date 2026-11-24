@@ -1,4 +1,300 @@
-# VRCT-VOX 音声統合のアーキテクチャ評価
+# Architecture evaluation of VRCT-VOX voice integration
+
+[日本語版](#vrct-vox-音声統合のアーキテクチャ評価日本語版)
+
+Evaluation date: 2026-10-27. Code evaluated: `1f7900ef`. Status: **design proposal. This is not approval or completion of an implementation, and not a performance guarantee.**
+
+The requirements come from the provided `codex-implementation-spec.md`, `codex-start.md` and `imozuru-evidence-map.md`. This evaluation also reconsiders the implementation order and boundaries in those files. It does not change product code, dependencies or running audio routes, and no new experiments were run on real hardware.
+
+Related outputs: the PoCs and their pass criteria, [the ADR 004 proposal](../adr/adr-004-audio-integration-boundaries.md), and the sources and research notes. The existing implementation records and [measurement records](benchmarks.md) are kept as history.
+
+## 1. Conclusion and scope of the decision
+
+**This evaluation recommends option B, "keep the existing VRCT at the center of control, run inference in external processes, and leave audio connection and mixing to the OS", as the first thing to verify.** This is not an unconditional endorsement of the current P1. The design of the following needs to change: original-text TTS waiting for translation, the queue that stop requests wait in, how the output target is identified, and the lifetime and reconnection of the virtual microphone.
+
+Direct VC does not pass through ASR, translation or TTS. Captions and translation are processed in parallel from the original audio. Keep a boundary so that changing an inference engine does not drag in the existing OSC, translation and history. Unifying the implementation language and reducing network traffic are not goals in themselves.
+
+B is not, however, treated as adopted for every mode on both OSes. **If the contracts for stopping, silencing and mixing cannot be demonstrated on the OS side, move to option C, a small dedicated audio process.** C also needs the OS virtual devices and the inference engines, and an extra process alone does not solve fallback when a device disappears, or GPU contention. There is not enough evidence to build a general media service, a plugin framework or a shared-memory protocol from the start.
+
+The decision this time is a choice of order: "verify B first". The VC engine and the final distribution layout are chosen after the PoC. A B that does not meet the safety conditions must not be enabled in the product on the grounds of a staged rollout.
+
+## 2. Classes of facts
+
+| Label | Meaning |
+|---|---|
+| Confirmed: code | Confirmed from the implementation at the target HEAD. Does not mean it works on real hardware |
+| Confirmed: records | Saved measurements and past test records. Not rerun this time |
+| Stated in the source | Statements in official specifications, the authors' measurements and model cards. Separate from a demonstration in VRCT |
+| Inference or proposal | Risks, options and proposed changes derived from the evidence |
+| Unverified | Cannot be concluded from the current material; needs testing |
+
+The user's reports "I heard it" and "the meter did not move after stopping" are records of manual observation and are not converted into measured acoustic latency.
+
+## 3. Current structure
+
+At this point VRCT-VOX is not a single C++ application. Its main parts are a React/Jotai UI, a Tauri Rust shell and a Python sidecar, and P1 calls an external speech.cpp.
+
+```mermaid
+flowchart TB
+    UI["React / Jotai UI"] --> SHELL["Tauri 2 / Rust shell"]
+    SHELL -->|"stdin/stdout JSON"| DISPATCH["Python Main: Queue / 3 workers"]
+    DISPATCH --> CTRL["Controller / message pipeline"]
+    MIC["Existing mic and speaker ASR / OCR"] --> CTRL
+    CTRL --> TRANS["Existing translation / transliteration"]
+    TRANS --> TEXT["OSC / overlay / UI / WebSocket / history"]
+    TEXT -->|"chat only / end of pipeline"| BUS["VoiceEventBus / 4 waiting / dedicated thread"]
+    BUS -->|"localhost HTTP"| SPEECH["External speech.cpp"]
+    SPEECH -->|"s16le mono / actual sample rate"| ROUTER["Current AudioRouter: output only"]
+    ROUTER --> OUTPUT["Linux: pw-cat / Windows: PyAudioWPatch"]
+    OUTPUT --> VIRTUAL["OS virtual recording device"]
+    VIRTUAL --> VRCHAT["VRChat input"]
+```
+
+The main evidence: [UI sidecar startup](https://github.com/kein5/astarot/blob/637a2576099d39ecd722f3882242caeb199bae22/src-ui/views/app/_app_controllers/StartPythonController.jsx), [UI IPC](../../src-ui/logics/common/useStdoutToPython.ts), [Main](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py#L688), [Controller](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py#L976), [scheduler](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py), [AudioRouter](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py).
+
+| Responsibility or boundary | Implementation confirmed | Assessment |
+|---|---|---|
+| UI and Python | The sidecar is driven by JSON messages that name an endpoint. The main window owns the sidecar | Keeping the UI separate from inference is worth it. Processing delays inside Python need to be managed separately |
+| Controller / Model / Config | `MessageDirectionSpec` gathers the differences between routes, but much of Controller reads the global model/config directly | Cutting out a small boundary for the new features makes compatibility easier to verify than a large rework of the whole |
+| General commands | Main's queue has no limit, and the default worker count is 3. `/run/stop_voice` goes through the same dispatch path | Bounding only the TTS queue cannot limit the stop delay from the UI. Not yet measured with the workers saturated |
+| Chat speech | Snapshots settings, generation and time before translation, and publishes after translation, each delivery and history | Original-text mode also waits for translation. After a translation (or similar) that takes more than 5 seconds, the speech can be dropped by the waiting-age limit. Asynchronous workers alone cannot remove this time dependency |
+| TTS intake | 4 waiting, old waiting entries discarded, age 5 seconds, request 30 seconds, cancellation by generation | There is a base for handling count, staleness and cancellation. PCM residence time, general dispatch and the server's queue are separate boundaries |
+| Deduplication | Utterance IDs are remembered for a limited retention time and count | Suppresses duplicates within a session. Not a persistent exactly-once guarantee across process restarts |
+| Current AudioRouter | Opens the output per utterance, splits the PCM into pieces of 10 ms or less, writes them, and closes at the end | Not a shared audio foundation that implements capture, fan-out, mix, duck and correction for independent clocks |
+| Linux output | Explicit target, with fallback and reconnect suppressed. Drives `pw-cat` as a child process | Prevents unintended reconnection on the writing side. VRChat's capture link is outside what this protects |
+| Windows output | Checks the match by host API name plus device name, and uses a blocking `stream.write` | There is a guard against wrong connections from reused indexes, but it is not the endpoint GUID. If the driver blocks in write, there is no guarantee that a token alone can interrupt it |
+| Existing ASR and Linux | The existing final-phrase ASR is kept. Windows-specific dependencies remain | Success of the Linux CLI cannot be taken as complete support for the whole Linux GUI. The new Realtime adapter is not implemented |
+
+The Linux pipe capacity of 4096 bytes corresponds to about 42.7 ms of mono s16le at 48 kHz and about 85.3 ms at 24 kHz. This is an **arithmetic value** from the capacity, not the actual occupancy or E2E latency. HTTP, the engine, the OS and VRChat also have their own buffers. [Linux implementation](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py)
+
+Split by kind of dependency, static dependencies concentrate in Controller and model/config, time dependencies in TTS after translation, runtime dependencies in the GPU and OS audio, and distribution dependencies in the Windows modules, models and drivers on the Python side. The organizational division of responsibility and the maintenance effort are unconfirmed because there is no material on them. Separate folders alone are not taken as loose coupling.
+
+## 4. Assumptions revisited against the sources
+
+1. **Running speech.cpp as a separate process does not make concurrent requests to the same model run in parallel.** The server holds at most one model per task, and each model processes requests one at a time in FIFO order. Even with separate WebSockets for mic and speaker ASR, they share the wait for inference. [server specification](https://github.com/nyosegawa/speech.cpp/blob/main/docs/server.md)
+2. **Embedding is a real option.** speech.cpp has a C API that specifies serialization of shared models and cooperative cancel. Removing HTTP does not remove the wait for the model or GPU contention. [C API](https://github.com/nyosegawa/speech.cpp/blob/main/docs/c-api.md)
+3. **A PCM stream is not the same as incremental generation by the model.** Irodori generates sentence by sentence. Qwen's first chunk can include leading silence. Do not reuse the authors' fast chunk figures as the time "until speech starts". [Irodori](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md), [Qwen](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/qwen3-tts.md)
+4. **Device connection for VC and a PCM API are different capabilities.** The old VCClient server has `POST /test`, but whether it applies to the current v2 binary is unconfirmed. Seed's engine is a Python class that opens devices itself and cannot be treated as a published, stable PCM service. [Old VCClient API](https://github.com/w-okada/voice-changer/blob/master/server/restapi/MMVC_Rest_VoiceChanger.py), [Seed engine](https://github.com/jiaheguo521/seed-vc-realtime/blob/main/realtime_vc_engine.py)
+5. **Check OS support down to the edition and the model.** VCClient's standard Linux edition includes Beatrice, and the Windows CUDA/ONNX editions include RVC. That the same RVC setup runs on Linux cannot be derived from this table. [Support table](https://github.com/w-okada/voice-changer/blob/master/README.md)
+6. **Handing audio to the OS does not bring latency to zero.** A PipeWire latency setting is a requested value, and an async link adds one quantum as a rule. Clock differences between separate devices remain even with the same 48 kHz setting. [properties](https://docs.pipewire.org/page_man_pipewire-props_7.html), [latency](https://docs.pipewire.org/page_latency.html)
+7. **Fallback protection is needed along the whole route.** WirePlumber's suppression flags apply to a stream, and a low priority does not forbid selection as the default. VRChat's own reselection after the virtual source disappears is unconfirmed. [linking](https://pipewire.pages.freedesktop.org/wireplumber/policies/linking.html), [priorities](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/priorities.html)
+
+## 5. The three candidates
+
+### A: Embedding inference and audio processing in the existing Python sidecar
+
+```mermaid
+flowchart LR
+    UIA["UI / Tauri"] --> PA["Python sidecar"]
+    subgraph PROCESS["Same address space"]
+        PA --> CA["speech C API + VC bindings"]
+        MA["mic"] --> GA["capture / resample / mix / gate"]
+        GA <--> CA
+    end
+    GA --> VA["OS virtual mic"] --> RA["VRChat"]
+```
+
+It can cut HTTP and some copies, and it makes owning capture in one place easier. On the other hand, native exceptions, driver stalls and heavy dependencies affect the existing features. It also ties the C API's ABI, CUDA/Vulkan, Python distribution and licenses more tightly together. A full rewrite in C++ is not required for these benefits and would be a separate, large migration cost.
+
+### B: External inference, OS audio routes and a small control layer inside the existing VRCT
+
+```mermaid
+flowchart TB
+    UIB["UI / Tauri"] --> CB["Python: settings, mode, generation, intake limits"]
+    CB --> LEG["Existing translation / OSC / history"]
+    CB -->|"text / cancel"| TB["External speech.cpp TTS"]
+    MB["Explicitly chosen original-audio mic"] --> VB["External VC: owns capture and conversion"]
+    MB --> AB["ASR capture / dedicated session"]
+    AB --> SB["External speech.cpp ASR"]
+    SB -->|"only final results are committed"| CB
+    TB --> PB["TTS output worker"]
+    PB --> GB["Per-OS mix and mute route / must be verified"]
+    VB --> GB
+    CB -.->|"control / state check"| GB
+    CB -.->|"supported controls only"| VB
+    GB --> EB["Virtual mic independent of inference lifetime"] --> RB["VRChat"]
+```
+
+The candidates are shared audio output plus the existing virtual cable on Windows, and PipeWire on Linux. **Do not assume that the Windows virtual cable itself provides mixing, ducking or muting of all streams.** The PoC checks the actual session and endpoint control. On Linux, too, connecting several streams to the same sink is a different matter from proving that every route is silent after a stop.
+
+With shared capture, VC and ASR may open the same original-audio device separately. This differs from a design that captures once and fans the same frames out. Evaluate compatibility and clock drift, and withdraw B's premise if an engine requires exclusive capture or a single frame supply.
+
+### C: A small dedicated audio process and external inference
+
+```mermaid
+flowchart TB
+    UIC["UI / Tauri"] --> CC["Python: existing features / speech policy"]
+    CC -->|"mode / generation / priority stop"| AC["Dedicated audio process: gate, mix, buffer, device lifecycle"]
+    MC["mic"] --> AC
+    AC -->|"raw audio / engine-specific connection"| VC["External VC"]
+    VC -->|"converted audio"| AC
+    AC --> ASRC["External ASR"]
+    ASRC -->|"partial / final"| CC
+    CC --> TTSC["External TTS"]
+    TTSC --> AC
+    AC --> EC["OS virtual mic: kept even when the process stops"] --> RC["VRChat"]
+```
+
+It gathers ownership of audio in one place and makes it easier to isolate failures in Python's translation processing and in driver calls. Control traffic and PCM traffic are kept apart, so a stop is not held up behind queued PCM. On the other hand, it adds problems of process supervision, contract versions, buffers, clocks, generations across restarts and double ownership.
+
+If the VC has only a device API, C also needs an intermediate virtual device or engine-specific changes. The arrows in the diagram do not mean that a common PCM API exists today. First measure whether a local connection such as a named pipe or Unix socket is enough, and use shared memory only if copying is confirmed to dominate. The implementation language is chosen after the PoC. Adding native audio features to the existing Tauri shell is also a separation of responsibilities close to C, but failure propagation into the UI shell needs a separate evaluation.
+
+### Comparison on the same criteria
+
+The table below gives design predictions. It does not score comparison benchmarks, which have not been run.
+
+| Aspect | A: embedded | B: external inference + OS routes | C: dedicated audio process |
+|---|---|---|---|
+| Low latency | Room to cut hops. Waits for the model and the GPU remain | OS buffers and buffers inside the engine tend to be opaque. Partial P1 measurements exist | Own buffers are easier to track, but IPC and intermediate routes may increase |
+| Resources | Easier to share the runtime and capture. Actual VRAM savings not measured | A runtime per engine and resident models can multiply | An audio process and buffers on top of B. GPU contention is the same |
+| Maintainability | More simultaneous updates of the ABI, inference dependencies and distribution | Close to today's boundaries, so changes are easier to contain. Supporting OS settings is a burden | More maintenance of contracts and supervision. It is clear where audio responsibility lies |
+| Loose coupling | APIs can be separated, but the same process's failures and dependencies are shared | Engine changes are easier to isolate. Coupling to device names and OS settings remains | Control and data can be separated. Watch for the audio process bloating by taking on everything |
+| Fault tolerance | A native crash spreads to the whole sidecar | Engine crashes are isolated. A stopped Python process, Windows blocking writes and consumer fallback are unsolved | The audio worker is easier to restart. OS failures and fallback in external consumers remain |
+| Windows/Linux | Every native binding and all dependencies must support both OSes | Per-OS adapters and manually set up virtual devices. Edition differences are not hidden | A new audio backend to maintain on both OSes. A virtual driver is still needed |
+| License | Linking and bundling widen the scope of obligations to evaluate | Easier to keep user-managed engines independent. Not an exemption, and not an automatic separation from the GPL | IPC, SDK and audio libraries on top of B. A separate process alone does not settle the terms |
+| Evidence so far | speech.cpp C API specification. No comparison inside VRCT | Partial Linux TTS route, manual VRChat test | Design hypothesis only |
+| Selection | Not adopted for now | **Conditionally recommended as the first PoC target** | First alternative if B's failure conditions are met |
+
+A separate TTS companion that subscribes to the existing WebSocket would also be a small alternative for P1 alone. But it cannot consistently own utterance commitment, stopping and mode, and it does not take on direct VC or original-audio ASR either, so it is not chosen as the base for all features. Compatibility of the old WebSocket is kept.
+
+## 6. Contracts to define for the recommended setup
+
+### Ownership of control and audio
+
+| Subject | Sole policy owner / executor | Contract |
+|---|---|---|
+| User settings, mode | A small voice coordinator in Python | The UI issues requests. Opening devices and inference do not run in UI callbacks |
+| Original-text chat TTS | coordinator | Branch off after input validation and ID assignment, without waiting for translation. The change that reads the original text even when translation fails is stated in the regression tests as the intent of original-text mode |
+| Translated-text TTS | The coordinator that receives final results | Only the final text for the selected target language. If the translation is missing, do not fall back to the original text |
+| Direct VC | External VC engine | Independent of ASR and translation. Fallback to the raw voice is not allowed |
+| ASR | Separate mic and speaker sessions and resampler state | 24 kHz mono is the input contract for speech.cpp ASR. Do not drop the whole VC/TTS route to 24 kHz |
+| Actual gate/mix | The OS adapter in B, the audio process in C | Distinguish the separate TTS and VC gates from the overall gate. Every enabled output goes through the managed path. A connection in which VC bypasses the overall gate is rejected as unsupported |
+| endpoint | The OS or an external virtual driver in B | Not removed when an inference request ends or an engine crashes. Stays silent. OS service failures are tested separately |
+| Existing text features | Existing Controller/pipeline | An audio failure does not undo the success of OSC or history. New speech from received audio is OFF by default |
+
+A minimal generated event with `session_id / utterance_id / source / generation / finality` is enough. It does not replace the existing SENT/CHAT/RECEIVED payloads. Partial recognition only updates the display, and completed replaces the whole text. Bounded dedupe and no automatic resend suppress double speech, and past audio is not played after a restart.
+
+Stopping is split by the scope of the operation. The existing `/run/stop_voice` **keeps its meaning of TTS cancellation** and stops the current and waiting TTS. Direct VC and original-audio ASR continue. The next new TTS request the user sends is accepted. A TTS settings change or a failure of TTS alone also stops only the TTS route and does not drag VC in.
+
+Muting all output is a separate, explicit operation that closes the **overall gate** that TTS, VC and explicit Passthrough go through. No new speech is held back while muted, and output resumes only after an explicit unmute and a device check. Restoring a connection or a new TTS request alone does not lift the overall mute. What is controlled is the virtual microphone route that VRCT manages; the design does not operate VRChat's mic toggle through OSC.
+
+The stop order is **request to close the target route's gate → update the target generation → discard the target's waiting entries → cancel HTTP/engine → drop old PCM → confirm the target is silent**. A full mute applies this to every route. Keep the mode generation apart from the TTS-cancel generation, so that a TTS cancel does not expire VC's active generation. None of these steps waits on congestion in the general queue. Control-accepted ACK, generation-stopped ACK and confirmed output silence are separate states. On an OS setup where TTS alone cannot be stopped once TTS and VC are mixed, treat running them together as unsupported and compare with C. Do not assume that killing the engine instantly removes PCM already handed to the OS.
+
+On a mode change, restart or device reconnection, first silence the affected routes. When the output target or mode changes, close the overall gate, and resume with the new mode generation once an explicit selection has completed the check. During a full mute, completing the selection alone does not lift it. After an unexpected disconnection or restart, require an explicit operation to resume. Even where automatic reconnection is allowed, it covers only restoring the connection; it does not resend old utterances or switch to the raw voice. Passthrough is a separate explicit choice.
+
+### Queues and resources
+
+TTS handles expiry and overload per utterance and shows overload results in the UI. VC monitors the frame count, audio duration and oldest capture time. Dropping arbitrary frames breaks the continuity of stateful conversion, so choose a catch-up/reset that the engine supports, together with silencing. ASR treats final and partial results separately and does not pile up finals without limit.
+
+The GPU is a resource shared by every process. Before adding more separate processes, measure simultaneously resident models, VC hop, ASR frequency and language switching. In direct conversation mode, give priority to VC continuity and compare options that lower the speaker caption frequency or TTS intake. In mic translated-speech mode, give priority to that route. Do not make either of these the default: a settings change that silently lowers quality, or keeping models for every language resident.
+
+Keep the default that suppresses direct VC during translated speech. Layering or ducking text TTS over VC is a separate capability, enabled only on OS setups where it has been confirmed to work. A PoC with features turned off does not count as achieving all P4 modes.
+
+## 7. Latency audit
+
+| Group and evidence | Boundary | Subject and result | p50 / p95 / p99 | What cannot be concluded |
+|---|---|---|---|---|
+| Linux speech.cpp 0.9.0 / Irodori MF F16, saved CSV | backend event created → first non-zero PCM write completed | warm 30/30. The 2 preceding requests in a separate group. 4080 SUPER/Vulkan, same sentence | 60.419 / 62.493 / 63.526 ms | UI dispatch, start of audible sound, arrival on the normal desktop or in VRChat |
+| Same test | backend event created → read from the dedicated PipeWire source | warm 30/30, dedicated graph with no physical device | 85.094 / 125.998 / 127.239 ms | HMD, Windows, sending to the other party. GPU load not controlled |
+| Synthetic PCM stop test | cancel call → last non-zero read | 30/30, dedicated graph, capture buffer included | 39.943 / 41.885 / 42.184 ms | UI stop press → silence in VRChat, the upper bound for real device failures |
+| VRChat desktop, manual | CLI → host virtual mic → built-in record and playback | Of 3 speech attempts, 1 confirmed by listening. The first was not heard, and the next was a transport error. Separately, 1 stop observation | No E2E percentile | Network peers, VR, quality over repeated runs |
+
+Sources: TTS JSON, CSV, stop JSON, manual JSON. The 2 failures are not mixed into the distribution of successful values, and missing measurements are not treated as 0 ms. They are also not mixed with the single 0.8.11 value or the single value after the timeout fix.
+
+The existing instrumentation above detects non-zero bytes, not a perceptible voice or the first meaningful speech. With n=30, the nearest-rank p99 is the maximum, not a stable estimate of the tail. Warmup also includes 20.60 seconds of model load and warmup, so the warm short-sentence values cannot assess the startup experience.
+
+The authors' measurements are kept in separate groups too. The description of the modified version at the top of Seed's README gives about 690 ms mic → speaker at a block of 0.3 seconds. The table with different conditions further down gives latency 430 ms / inference 150 ms on an RTX 3060 Laptop at a block of 0.18 seconds and 10 steps. **Do not write 430 ms and 690 ms as a distribution or a range under the same conditions.** According to the author, the Windows display is a fallback to an estimate, not a measurement in this environment. [Seed README](https://github.com/jiaheguo521/seed-vc-realtime/blob/main/README.md)
+
+The boundaries to measure are split as follows.
+
+| Symbol | Boundary and use |
+|---|---|
+| T0 | UI submit → backend accepts. Calibrate the mapping and error between the browser and backend clocks |
+| T1 | backend accepts → HTTP start → first byte → first non-silent PCM write. Queue waits and translation waits go in separate spans |
+| T2 | submit or capture trigger → first valid sample at the virtual source. Record the frame position and clock |
+| T3 | VRChat input → built-in test / output at another peer. A separate test that includes game processing, network and playback buffers |
+| V | Audio features of the physical input → converted output. VC changes the waveform, so also check where simple waveform correlation fails, and use feature matching or approved test utterances |
+| A / X | End of an utterance in real audio → ASR final, → translation shown, → start of translated speech. Do not measure only from the server's speech-end notification |
+| S | UI stop → accepted → target gate closed → target's last valid sample → silence continues. For a TTS cancel, also confirm that the VC signal continues. Only a full mute requires silence on the whole endpoint. Worker idle is a separate metric |
+
+Break VC latency down into the capture buffer, the model's input block and lookahead, inference wait, conversion, alignment and resampling, the output buffer and the virtual device. Streaming has overlapping execution, so evaluate from the timeline of one utterance. **Do not build an E2E percentile by adding per-component medians or p95 values.** An RTF below 1 does not rule out short GPU stalls or underruns.
+
+The specification's TTS target is p50 < 350 ms / p95 < 800 ms from UI submit to the first non-silent write toward the virtual microphone. For VC the aim is p50 < 250 ms / p95 < 400 ms from input to virtual output. Caption final p95 < 1.2 seconds, translation shown < 2 seconds and translated speech start < 3 seconds are measured from the end of the utterance. None of these are values newly achieved this time. Report both the write and the arrival at the endpoint, and do not move the end point of a target earlier for convenience.
+
+## 8. Scenario evaluation based on ATAM
+
+Following CMU's original ATAM report, this evaluation distinguishes risks, sensitivity points that drive a quality response, and tradeoff points where several qualities conflict. The six parts of a scenario follow the original QAW report. This time it is a lightweight evaluation using documents and code; it does not claim that a formal workshop with stakeholders or a performance proof was carried out. [ATAM §1.1/7](https://www.sei.cmu.edu/documents/629/2000_005_001_13706.pdf), [QAW §3.8](https://www.sei.cmu.edu/documents/716/2003_005_001_14249.pdf)
+
+Priorities rest on the user's priority on compatibility, latency and licensing: **must-preserve = preventing wrong output, existing compatibility and distribution terms; primary quality = conversation latency and stability; supporting quality = ease of change**. A numerically weighted total score does not offset the safety conditions.
+
+| ID / priority | Source of stimulus | Stimulus | Environment | Artifact | Response | Response measure |
+|---|---|---|---|---|---|---|
+| Q1 primary | User | Sends a Japanese chat | warm, translation ON/OFF, by VRChat load | UI → TTS → output | Starts exactly once, and text features continue | The specification's 350/800 ms, with counts, missing measurements and failures alongside |
+| Q2 must-preserve | User | TTS cancel, full mute, mode change | General workers saturated, HTTP stall, late PCM | control / target gate / output | Stops the target's old generation. On TTS cancel VC continues, and a full mute waits for an explicit unmute | Proposed: target signal gone UI → endpoint p95 ≤ 100 ms, worst ≤ 250 ms, then 0 re-speech from the target for 2 seconds. Full mute: every signal silent. Unapproved PoC pass values |
+| Q3 must-preserve | OS/device/engine | Endpoint disappears, engine crash, reconnection | mic / earphones / HMD / VRChat restart | Whole graph and VRChat input | Does not send raw voice or game audio by mistake; recovery is explicit | 0 forbidden signals during the test, 0 wrong targets. A timing check alone cannot substitute |
+| Q4 primary | User and GPU load | VC + mic/speaker ASR + TTS | VRChat + WiVRn + HMD, 30 minutes | All runtimes / GPU | Bounded queuing, stays operable, shows overload | VC target 250/400 ms, 0 crashes, 0 ever-growing queues; report drops, FPS and VRAM |
+| Q5 primary | Speaker | End of speech, resuming, short backchannels | mic and speaker at once, by selected language | VAD/ASR/translation | Partial is display only; final once | final p95 < 1.2 seconds, translation shown < 2 seconds, translated voice < 3 seconds, with the false cut rate and misrecognitions alongside |
+| Q6 must-preserve | OS/driver | Device change and clock difference | Both OSes, 24/44.1/48 kHz, 30 minutes | capture/resample/output | Correct speed, clock correction, safe recovery | Drift and occupancy trends, xruns, coexistence with existing apps. Unsupported OS builds stated explicitly |
+| Q7 supporting | Maintainer | Engine API or edition update | Existing providers alongside | Adapter / capability check / distribution | Local change; unsupported cases detected | 0 changes to the old message contracts, 0 regression failures. Effort measured on real changes |
+| Q8 must-preserve | Release manager | Builds the distribution | Windows/Linux, CPU/GPU builds | The full set of code, weights and drivers | Artifacts with unknown terms are not bundled | 0 forbidden OCR files included; origin, hash, terms and notice present for every bundled item |
+
+Q2's 100/250 ms are new **proposed values** for the stop experience. They are not the earlier Linux figure of around 42 ms extrapolated to both OSes. They are kept or revised after the PoC confirms feasibility and the perceptual margin needed. The safety requirement "0 forbidden signals" does not change.
+
+| Point | Sensitivity and tradeoff | Effect on A | Effect on B | Effect on C |
+|---|---|---|---|---|
+| S1/T1 | Smaller blocks, queues and quantum may reduce latency, but they also reduce the underrun margin | Callback and inference must be separated | The actual OS and engine buffers must be checked | Own buffers are easier to control, but the right values need measuring |
+| S2/T2 | Number of resident models and concurrent ASR requests: shorter warmup vs. VRAM/VC contention | GPU contention even in the same process | Adding a server per language has a cost | No guaranteed improvement from separating processes |
+| S3/T3 | Waiting for the VAD end: caption speed vs. wrongly cut sentences | Common to all options | The server's default of about 0.6 seconds uses up budget | When adding a custom VAD, beware of double endpointing |
+| S4/T4 | Failure boundary: ability to force-kill vs. complexity of IPC and supervision | Most tightly coupled | Engines are isolated; stopping the audio thread is an open problem | Benefit of worker isolation; more restart and generation management |
+| S5/T5 | Reconnection: automatic recovery vs. unintended audio output | Remains in every option | OS policy has a large effect | A stable endpoint helps, but a guarantee on the consumer side remains open |
+| S6/T6 | Single capture: branching the same frames vs. engine changes or intermediate buffers | Easy to do, but couples to native code | May not work with engines that own the device | Depends on the engine contract. Do not implement ahead on the assumption of a general API |
+
+As limited non-risks, these have support in code and tests: the existing OFF default, P1's explicit device selection, no automatic HTTP resend, and rejection of old events by generation. But this is an evaluation within P1's chat route and does not extend to new VC or to VRChat's own reconnection.
+
+## 9. Priority risks and verification
+
+| ID / priority | Risk and current evidence | Action and judgment needed |
+|---|---|---|
+| R1 top | When the virtual endpoint disappears, the consumer may pick another mic. VRChat's contract is unconfirmed | Separate the endpoint lifetime from inference. In PoC-1, watch the consumer's actual target and forbidden signals. Retest under C too |
+| R2 top | Stop may wait in the general dispatch, and a Windows write may not be interruptible. Structure confirmed in the code | Priority control and gates. If PoC-1/2 miss the limits, go to C. Do not judge silence by a kill alone |
+| R3 high | speech.cpp serializes per model, and VC, ASR, TTS and VRChat contend on the same GPU | PoC-3/4; compare intake limits, resident counts and speaker caption frequency. Record it if a model change is needed |
+| R4 high | Unverified whether B's mixing/ducking and shared capture work on both OSes | PoC-1/3/5. Compare with the extra cost of C. Do not hide unsupported cases behind a silent fallback |
+| R5 high | Even original-text TTS waits for translation and uses up queue age | Revisit where the original text branches off, and PoC-2. Keep the order of the old text features |
+| R6 high | VCClient's per-version APIs and model differences; Seed's fallback to the default device | Pin versions/hashes and measure capabilities. Setups that cannot refuse default fallback are not adopted |
+| R7 high | Judging the GPL, models, vocoders, Beatrice and drivers by the main program's license alone | The PoC-6 artifact ledger. Do not decide distribution obligations on the basis of a separate process alone |
+| R8 medium | Mistaking the first byte or a non-zero write for audible sound; claiming performance from small samples or successes only | Make measurement boundaries, total attempts, failures and missing data, and clock error mandatory |
+| R9 medium | Own TTS or monitor output comes back into speaker capture and causes a translation loop | Separate the game output, source provenance, re-speech OFF by default. PoC-4/5 |
+| R10 medium | Putting off the Linux UI and existing ASR dependencies concentrates porting cost at the end | Investigate import and startup boundaries early. Report Linux CLI and GUI achievements separately |
+
+## 10. License and distribution decisions
+
+| Subject | Terms confirmed in the source | Handling at this stage |
+|---|---|---|
+| VRCT / speech.cpp code | MIT. VRCT has a separate NOTICE | Keep attribution. speech.cpp is a candidate as a user-managed external engine |
+| Existing OCR weights | Terms that do not allow bundling into the fork's own outputs | Keep the existing exclusion check. The restriction remains even if the audio setup changes |
+| Irodori Small MF | Labeled MIT, and the model card also has statements on consent and use | Do not confuse with Large's Gemma terms. Check voice and model rights individually |
+| Qwen CustomVoice | The card for the 0.6B model in question is Apache-2.0 | Keep the port's feature scope apart from the weights' terms |
+| Seed-VC-Realtime / default weight card | Code GPLv3; the Plachta/Seed-VC card is also gpl-3.0 | Examine the integration method, distribution and extra models separately. Internal copy or link is not chosen for now |
+| VCClient / Beatrice / vocoder | The main program's MIT does not cover everything. Terms differ by edition and model | Do not apply the beta terms to rc0 automatically. Hold distribution while the terms of the artifacts actually adopted are unsettled |
+| Windows virtual driver | WASAPI grants no permission to distribute a virtual mic driver | The initial candidate is separate installation by the user; if it is bundled, check the actual driver's terms |
+
+Sources: [existing ledger](licensing.md), [NOTICE](../../NOTICE.md), [speech license](https://github.com/nyosegawa/speech.cpp/blob/main/LICENSE), [Irodori card](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF), [Qwen card](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice), [Seed license](https://github.com/jiaheguo521/seed-vc-realtime/blob/main/LICENSE), [Seed card](https://huggingface.co/Plachta/Seed-VC), [VCClient notice](https://github.com/w-okada/voice-changer/blob/master/LICENSE-NOTICE).
+
+The GNU FAQ also explains that deciding whether something is a separate program or a combined work looks at what is communicated as well as how. Moving to an external process is technical isolation and is not used to assert a legal exemption. [GNU FAQ: Mere aggregation](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation)
+
+## 11. Proposed changes to the plan
+
+1. Keep the P0/P1 evidence, and verify first the stop route, the original-text TTS branch and ownership of the whole graph. The existing record of 83 PASS is useful but does not stand in for Windows, VRChat or GPU load.
+2. Before starting the next implementation, confirm the routes on both OSes, the VC candidates and the mixing contract with PoC-1 and PoC-3. Do not hide that product acceptance on Windows is incomplete, but do not make it a stage gate that also stops read-only investigation and isolated PoCs on Linux.
+3. Add features in the order P2 direct VC, P3 ASR with final/partial separation, P4 translated speech. However, verify GPU contention between ASR and VC and the separation of received audio on a small scale from the P2 stage.
+4. The full port of the Linux GUI can come later, but bring forward the portability investigation of startup imports, settings and device enumeration. Do not make a plan in which dependencies are first discovered at the final stage.
+5. If B meets every contract, do not build C. Move to C only if B cannot meet safety, stopping and mixing and C can show an improvement. If inference itself is slow, reconsider the model, settings and requests before adding or removing IPC layers.
+
+This proposal does not change the history of the existing ADRs 001 to 003. The adoption decision and the conditions that would overturn it are recorded in [the ADR 004 proposal](../adr/adr-004-audio-integration-boundaries.md). Whoever implements next does not replace unmeasured cells with "achieved"; they update the decision by adding the raw PoC records and the versions tested.
+
+---
+
+# VRCT-VOX 音声統合のアーキテクチャ評価（日本語版）
 
 評価日: 2026-10-27。対象コード: `1f7900ef`。状態: **設計提案。実装の承認・完了・性能保証ではない。**
 

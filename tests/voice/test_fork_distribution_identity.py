@@ -10,11 +10,13 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_fork_identity_and_backend_contract():
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     # The installer's title, install folder, shortcuts, the Apps list and the executable's
-    # version information show productName (Issue #535). The identifiers below stay.
+    # version information show productName (Issue #535). The executable moved with its own step of
+    # ADR-014 (2.5 and 2.6): the installer replaces vrct-vox.exe, and the window class follows it.
     assert conf["productName"] == "ASTAROT"
-    assert conf["mainBinaryName"] == "vrct-vox"
-    # Changing it moves Tauri data and desktop integration (portal, app id).
-    assert conf["identifier"] == "io.github.kein5.vrct-vox"
+    assert conf["mainBinaryName"] == "astarot"
+    # The app ID moved with the desktop integration's migration (ADR-014, 2.6): Tauri's data
+    # folder, the portals' app id and the desktop file follow it.
+    assert conf["identifier"] == "io.github.kein5.astarot"
     assert conf["bundle"]["publisher"] == "kein5"
     assert "m's software" in conf["bundle"]["copyright"]
     # The window title is the display name (ADR-011 P1).
@@ -32,15 +34,18 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
     lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     cargo = tomllib.loads((ROOT / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
     cargo_lock = tomllib.loads((ROOT / "src-tauri/Cargo.lock").read_text(encoding="utf-8"))
-    # The packages are astarot (ADR-014, PR 12); the executable keeps its name until its own step.
+    # The packages are astarot (ADR-014, PR 12), and so is the executable (PR 6).
     assert package["name"] == lock["name"] == lock["packages"][""]["name"] == cargo["package"]["name"] == "astarot"
     assert any(p["name"] == "astarot" and p["version"] == cargo["package"]["version"] for p in cargo_lock["package"])
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-    assert [b["name"] for b in cargo["bin"]] == ["vrct-vox"] == [conf["mainBinaryName"]]
-    desktop = (ROOT / "packaging/appimage/vrct-vox.desktop").read_text(encoding="utf-8")
+    assert [b["name"] for b in cargo["bin"]] == ["astarot"] == [conf["mainBinaryName"]]
+    desktop = (ROOT / "packaging/appimage/astarot.desktop").read_text(encoding="utf-8")
     # Name is only shown in menus (ADR-011 P1); the file name, Exec, Icon and StartupWMClass identify the app.
-    assert "Name=ASTAROT\n" in desktop and "Exec=vrct-vox\n" in desktop
-    assert "Icon=vrct-vox\n" in desktop and "StartupWMClass=vrct-vox\n" in desktop
+    # Exec and StartupWMClass follow the executable (ADR-014, 2.6); the file name and the icon are
+    # the Linux package's (2.7). All of them are astarot from 0.7.0.
+    assert not (ROOT / "packaging/appimage/vrct-vox.desktop").exists()
+    assert "Name=ASTAROT\n" in desktop and "Exec=astarot\n" in desktop
+    assert "Icon=astarot\n" in desktop and "StartupWMClass=astarot\n" in desktop
     # The AppImage starts the GUI only; the backend core runs inside it.
     assert not (ROOT / "packaging/appimage/sidecar").exists()
     assert not (ROOT / "spec").exists(), "no PyInstaller build is left"
@@ -48,9 +53,13 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
 
 def test_windows_installer_identity_finds_previous_install_location():
     script = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
-    assert '!define INSTALLREGNAME "VRCT-VOX"' in script
+    # ADR-014, 2.5: the keys moved to ASTAROT; an install recorded under VRCT-VOX is still found.
+    assert '!define INSTALLREGNAME "ASTAROT"' in script
+    assert '!define OLDINSTALLREGNAME "VRCT-VOX"' in script
     assert 'Uninstall\\${INSTALLREGNAME}"' in script
     assert 'Software\\${MANUFACTURER}\\${INSTALLREGNAME}"' in script
+    assert 'Uninstall\\${OLDINSTALLREGNAME}"' in script
+    assert 'Software\\${MANUFACTURER}\\${OLDINSTALLREGNAME}"' in script
     assert 'WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"' in script
     install = script[script.index("\nSection Install\n"):script.index("SectionEnd", script.index("\nSection Install\n"))]
     assert 'Delete "$INSTDIR\\config.json"' not in install
@@ -105,5 +114,6 @@ def test_release_workflow_cannot_publish_or_inject_upstream_keys():
     for forbidden in ("HF_TOKEN", "TELEMETRY_KEY", "hf upload", "create-release", "upload-release-asset", "ms-software/VRCT"):
         assert forbidden not in text
     assert "--nsis" in text
-    # One Windows package since #288; VRCT-VOX_cuda.zip was released up to 0.5.
-    assert "VRCT-VOX.zip" in text and "VRCT-VOX_cuda.zip" not in text
+    # One Windows package since #288; VRCT-VOX_cuda.zip was released up to 0.5. It is ASTAROT.zip
+    # from 0.7.0 (ADR-014, 2.10); tools/release_candidate.py adds the copy under the old name.
+    assert "ASTAROT.zip" in text and "VRCT-VOX.zip" not in text and "_cuda.zip" not in text

@@ -70,7 +70,7 @@
     "ja-unit-space|6GB": 2
   },
   "docs/adr/README.md": {
-    "ja-long-vowel-er|ドライバ": 5
+    "ja-long-vowel-er|ドライバ": 4
   },
   "docs/agent-tools.md": {
     "ja-terms|VRパネル": 1
@@ -447,9 +447,8 @@
     "en-contraction|Don't": 2,
     "en-contraction|isn't": 1,
     "en-contraction|wasn't": 2,
-    "en-curly-quotes|’": 1,
-    "en-curly-quotes|“": 10,
-    "en-curly-quotes|”": 10,
+    "en-curly-quotes|“": 9,
+    "en-curly-quotes|”": 9,
     "en-eg-ie|e.g.": 8,
     "en-exclamation|y!": 1,
     "en-promotional|powerful": 1
@@ -468,7 +467,7 @@
     "ja-latin-spacing|版 1": 1,
     "ja-long-vowel-er|インストーラ": 2,
     "ja-long-vowel-er|ドライバ": 4,
-    "ja-long-vowel-er|フォルダ": 13,
+    "ja-long-vowel-er|フォルダ": 11,
     "ja-long-vowel-er|ブラウザ": 2,
     "ja-okurigana|切替": 1,
     "ja-okurigana|取消": 1,

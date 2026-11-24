@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 
 import { useOcr } from "@logics_configs";
 import { useSaveButtonLogic } from "@logics_configs";
@@ -211,15 +211,18 @@ const Performance_Container = () => {
     );
 };
 
-const OcrWindowTitle_Box = () => {
+export const OcrWindowTitle_Box = () => {
     const { t } = useI18n();
     const { currentOcrWindowTitle, setOcrWindowTitle } = useOcr();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    // Saved by itself (#1111): the core keeps a title that is not empty once trimmed.
+    const { variable, onChangeFunction, saveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOcrWindowTitle.data,
         state: currentOcrWindowTitle.state,
         setFunction: setOcrWindowTitle,
         label: t("config_page.ocr.window_title.label"),
+        autoSave: true,
+        validate: value => value.trim() ? null : t("config_page.ocr.window_title.errors.empty"),
     });
 
     return (
@@ -229,6 +232,9 @@ const OcrWindowTitle_Box = () => {
             variable={entryValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
+            autoSave
+            onRevert={revert}
+            error={error}
             state={currentOcrWindowTitle.state}
             remove_border_bottom={true}
         />

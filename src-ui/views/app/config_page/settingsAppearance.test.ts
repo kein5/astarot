@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import { styleOf } from "../../../logics/test/styleSource.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 // The first group of a pattern that has to be in the text.
@@ -48,13 +49,15 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
 }
 
 test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
-    assert.match(read("topbar/Topbar.module.scss"), /\.state\.is_failed\s*{\s*color: var\(--vox_state_failed\)/);
-    assert.match(read(box + "advanced_settings/VoiceSettings.module.scss"), /button:hover:enabled\s*{\s*background: var\(--vox_secondary_hover\)/);
-    assert.equal((read(box + "ocr/Ocr.module.scss").match(/background: var\(--vox_secondary_hover\)/g) ?? []).length, 2);
-    const word = read(box + "_components/word_filter/WordFilter.module.scss");
-    assert.match(word, /\.delete_svg\s*{[^}]*color: var\(--vox_state_failed\)/);
-    assert.match(word, /&\.delete\s*{[^}]*&:hover\s*{\s*background-color: var\(--dark_825_color\)/);
-    assert.match(word, /\.add_button\s*{[^}]*color: var\(--vox_on_primary\)[^}]*&:hover\s*{\s*background-color: var\(--primary_650_color\)/);
+    assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
+    assert.match(read(box + "advanced_settings/VoiceSettings.css.ts"), /inForm\("button:hover:enabled"\), \{ background: vars\.vox_secondary_hover \}/);
+    // The OCR page's reset, share and refresh are the kit's plain Button, which hovers on the same token.
+    assert.match(read("../../kit/Button.css.ts"), /plain: \{[\s\S]*?"&:hover:not\(:disabled\):not\(\[aria-disabled='true'\]\)": \{ background: vars\.vox_secondary_hover \}/);
+    // The word filter's delete and Add are the kit's danger and primary Buttons: red words, and
+    // Dark Plum words on Lilac.
+    const kitButton = read("../../kit/Button.css.ts");
+    assert.match(kitButton, /danger: \{[^}]*color: vars\.vox_state_failed,/);
+    assert.match(kitButton, /primary: \{\s*background: vars\.primary_600_color,\s*color: vars\.vox_on_primary,/);
     for (const [token, expected] of Object.entries({
         "--error_bc_color": "#bb4448", "--vox_state_failed": "#e4938e",
         "--dark_200_color": "#eeebf1", "--dark_600_color": "#988ba5", "--dark_800_color": "#4e3d5d",
@@ -67,33 +70,38 @@ test("the repaired selectors use the measured tokens; shared token values are th
 });
 
 test("NLLB consent restores a native checkbox and visible keyboard focus", () => {
-    const css = read(box + "translation/Translation.module.scss").split(".license_check {")[1].split(".license_actions")[0];
-    assert.match(css, /appearance: auto/);
-    assert.match(css, /-webkit-appearance: checkbox/);
-    assert.match(css, /&:focus-visible\s*{\s*outline: \.2rem solid var\(--primary_200_color\)/);
-    assert.match(css, /flex-shrink: 0/);
+    const page = read(box + "translation/Translation.css.ts");
+    const css = page.slice(page.indexOf("export const license_check"), page.indexOf("export const license_actions"));
+    assert.match(css, /appearance: "auto"/);
+    assert.match(css, /WebkitAppearance: "checkbox"/);
+    assert.match(css, /input:focus-visible`, \{ outline: `\.2rem solid \$\{vars\.primary_200_color\}`/);
+    assert.match(css, /flexShrink: 0/);
 });
 
 test("available-width breakpoints stack rows at 400px/100% and 800px/200%, including fieldset padding", () => {
-    const voice = read(box + "advanced_settings/VoiceSettings.module.scss");
-    const row = read(box + "_components/form_row/FormRow.module.scss");
-    const legacy = read(box + "_templates/Templates.module.scss");
-    const breakpoint = (css: string) => Number(group(/@container \(max-width: ([\d.]+)rem\)/, css));
+    const voice = read(box + "advanced_settings/VoiceSettings.css.ts");
+    const row = read(box + "_components/form_row/FormRow.css.ts");
+    const legacy = read(box + "_templates/Templates.css.ts");
+    // The container width a row stacks under: the first `"(max-width: …rem)"` of the .css.ts.
+    const breakpoint = (css: string) => Number(group(/"\(max-width: ([\d.]+)rem\)/, css));
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
     // The legacy row has no side padding, so its label starts on the heading's edge. It has the
     // form rows' columns and gap (#567), and stacks once a 16rem label and a 24rem field do not fit.
     assert.equal(breakpoint(legacy), 16 + 24 + 1.6);
-    assert.match(legacy, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.6fr\)/);
-    assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
-    assert.match(read("setting_section/SettingSection.module.scss"), /container-type: inline-size/);
-    assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
-    for (const css of [voice, row]) {
-        assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
-        assert.match(css, /overflow-wrap: anywhere/);
-        assert.ok(css.includes("@media (max-width: 700px)"), "preserve DESIGN.md's narrow-window stacking");
-    }
-    assert.match(legacy, /\.container\s*{\s*grid-template-columns: minmax\(0, 1fr\); align-items: stretch/);
+    assert.match(legacy, /gridTemplateColumns: "minmax\(0, 1fr\) minmax\(0, 1\.6fr\)"/);
+    assert.match(styleOf(legacy, "container"), /padding: "2rem 0",/);
+    assert.match(styleOf(read("setting_section/SettingSection.css.ts"), "container"), /containerType: "inline-size"/);
+    assert.match(voice, /inForm\("form", "fieldset"\), \{[^}]*containerType: "inline-size"/);
+    assert.match(voice, /gridTemplateColumns: "minmax\(0, 1fr\)"/);
+    assert.match(voice, /overflowWrap: "anywhere"/);
+    assert.ok(voice.includes('const NARROW_WINDOW = "(max-width: 700px)";'), "preserve DESIGN.md's narrow-window stacking");
+    assert.match(row, /const stackedRow = \{ gridTemplateColumns: "minmax\(0, 1fr\)"/);
+    assert.match(styleOf(row, "row"), /overflowWrap: "anywhere"/);
+    assert.match(row, /const NARROW_WINDOW = "\(max-width: 700px\)";/, "preserve DESIGN.md's narrow-window stacking");
+    assert.match(styleOf(row, "row"), /"@media": \{ \[NARROW_WINDOW\]: stackedRow \}/);
+    assert.match(legacy, /const stacked = \{ gridTemplateColumns: "minmax\(0, 1fr\)", alignItems: "stretch" \}/);
+    assert.match(styleOf(legacy, "container"), /"@container": \{ "\(max-width: 41\.6rem\)": stacked \}/);
     for (const [width, scale] of [[400, 1], [800, 2]]) {
         const rem = 10 * scale; // root.css: 62.5% of the default 16px, then UI scale.
         const available = width - (5.6 + 2 * 1.6) * rem;
@@ -111,31 +119,32 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
 });
 
 test("legacy fixed-width inputs are capped by their row and can shrink beside the color swatch", () => {
-    const entry = read(box + "_components/_atoms/_entry/_Entry.module.scss");
-    assert.match(entry, /\.entry_container\s*{[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(entry, /\.entry_input_area\s*{[^}]*min-width: 0/);
+    const entry = read(box + "_components/_atoms/_entry/_Entry.css.ts");
+    assert.match(styleOf(entry, "entry_container"), /minWidth: 0,\s*maxWidth: "100%"/);
+    assert.match(styleOf(entry, "entry_input_area"), /minWidth: 0/);
     for (const path of ["entry_with_save_button/EntryWithSaveButton", "auth_key/AuthKey", "color_entry_with_save_button/ColorEntryWithSaveButton"]) {
-        assert.match(read(box + "_components/" + path + ".module.scss"), /\.container\s*{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex-shrink: 1/);
+        assert.match(styleOf(read(box + "_components/" + path + ".css.ts"), "container"), /minWidth: 0,\s*maxWidth: "100%",\s*flexShrink: 1/, path);
     }
-    assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_section_wrapper\s*{[^}]*max-width: 100%/);
-    assert.match(read(box + "_components/label_component/LabelComponent.module.scss"), /overflow-wrap: anywhere/);
+    assert.match(styleOf(read(box + "_components/auth_key/AuthKey.css.ts"), "entry_section_wrapper"), /maxWidth: "100%"/);
+    assert.match(read(box + "_components/label_component/LabelComponent.css.ts"), /overflowWrap: "anywhere"/);
 });
 
 test("legacy model information wraps above its action inside the padded row, including Japanese button text", () => {
-    const radio = read(box + "_components/radio_button/RadioButton.module.scss");
-    const column = radio.slice(radio.indexOf("&.column {"), radio.indexOf("&.has_desc:not(.column)"));
-    const download = read(box + "_components/_atoms/_download_button/_DownloadButton.module.scss");
-    assert.match(column, /width: 100%;\s*min-width: 0/);
-    assert.match(column, /\.radio_button_container\s*{[^}]*flex-wrap: wrap/);
-    assert.match(column, /\.radio_button_wrapper\s*{[^}]*flex: 1 1 24rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(column, /\.label_heading_wrapper\s*{\s*flex-wrap: wrap/);
-    assert.match(column, /\.radio_button_label\s*{[^}]*flex-shrink: 1;[^}]*overflow-wrap: anywhere/);
-    assert.match(column, /\.radio_button_desc\s*{[^}]*overflow-wrap: anywhere/);
-    assert.match(download, /\.download_container\s*{[^}]*width: 10.4rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(download, /\.download_button_label\s*{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere/);
-    const labelBasis = Number(group(/flex: 1 1 ([\d.]+)rem/, column));
-    const actionWidth = Number(group(/width: ([\d.]+)rem/, download.split(".download_container {")[1]));
-    const gap = Number(group(/gap: ([\d.]+)rem/, radio.split("\n.radio_button_container {")[1]));
+    const radio = read(box + "_components/radio_button/RadioButton.css.ts");
+    // The rules of a column of options (\`.container.column ...\`), in the order they are written.
+    const column = radio.slice(radio.indexOf("globalStyle(`$" + "{container}.$" + "{column}`"), radio.indexOf("globalStyle(`$" + "{container}.$" + "{has_desc}"));
+    const download = read(box + "_components/_atoms/_download_button/_DownloadButton.css.ts");
+    assert.match(column, /width: "100%", minWidth: 0/);
+    assert.match(column, /\$\{radio_button_container\}`, \{[^}]*flexWrap: "wrap"/);
+    assert.match(column, /\$\{radio_button_wrapper\}`, \{ flex: "1 1 24rem", minWidth: 0, maxWidth: "100%" \}/);
+    assert.match(column, /\$\{label_heading_wrapper\}`, \{ flexWrap: "wrap" \}/);
+    assert.match(column, /\$\{radio_button_label\}`, \{[^}]*flexShrink: 1, overflowWrap: "anywhere"/);
+    assert.match(column, /\$\{radio_button_desc\}`, \{ overflowWrap: "anywhere" \}/);
+    assert.match(styleOf(download, "download_container"), /width: "10\.4rem",[\s\S]*minWidth: 0,\s*maxWidth: "100%"/);
+    assert.match(styleOf(download, "download_button_label"), /whiteSpace: "normal",\s*overflowWrap: "anywhere"/);
+    const labelBasis = Number(group(/flex: "1 1 ([\d.]+)rem"/, column));
+    const actionWidth = Number(group(/width: "([\d.]+)rem"/, styleOf(download, "download_container")));
+    const gap = Number(group(/gap: "([\d.]+)rem"/, radio.split("globalStyle(radio_button_container, {")[1]));
     assert.equal(Math.round((labelBasis + actionWidth + gap) * 10) / 10, 35.6);
     assert.ok(actionWidth >= 7 * 1.2 + 2 * .8, "取得内容を確認 and its padding fit the action");
     // The reviewer measured a 672px scroller at 800px / 200%. The other
@@ -150,52 +159,46 @@ test("legacy model information wraps above its action inside the padded row, inc
     }
 });
 
-test("word-filter input/Add and export controls wrap within the actual available width", () => {
-    const word = read(box + "_components/word_filter/WordFilter.module.scss");
-    const entry = word.split(".entry_section_wrapper {")[1].split(".add_button")[0];
-    assert.match(entry, /flex-wrap: wrap/);
-    assert.match(entry, /width: 100%;\s*min-width: 0/);
-    assert.match(entry, /> :first-child\s*{\s*flex: 1 1 18rem; min-width: 0; max-width: 30rem/);
-    assert.match(word, /\.add_button\s*{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere/);
-    const shared = read(box + "shared_items/SharedItems.module.scss");
-    for (const selector of ["auto_export_message_logs_container", "auto_export_message_logs_switch_section_container"]) {
-        const rules = shared.split("." + selector + " {")[1].split("}")[0];
-        assert.match(rules, /flex-wrap: wrap/);
-        assert.match(rules, /min-width: 0/);
-        assert.match(rules, /max-width: 100%/);
-    }
+test("word-filter input/Add wraps within the actual available width and auto-export logs uses the shared checkbox row", () => {
+    const word = read(box + "_components/word_filter/WordFilter.css.ts");
+    const entry = styleOf(word, "entry_section_wrapper");
+    assert.match(entry, /flexWrap: "wrap"/);
+    assert.match(entry, /width: "100%",\s*minWidth: 0/);
+    assert.match(word, /globalStyle\(`\$\{entry_section_wrapper\} > :first-child`, \{ flex: "1 1 18rem", minWidth: 0, maxWidth: "30rem" \}\)/);
+    // Add keeps its width beside the entry; the kit's Button wraps long words inside itself.
+    assert.match(styleOf(word, "add_button"), /flexShrink: 0/);
+    assert.match(read("../../kit/Button.css.ts"), /maxWidth: "100%",[\s\S]*?overflowWrap: "anywhere",/);
+    const shared = read(box + "shared_items/SharedItems.tsx");
+    assert.match(shared, /export const AutoExportMessageLogsContainer = \(\) => \{[\s\S]*?<CheckboxContainer[\s\S]*?setting_id="auto_export_message_logs"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {
         const row = scroller - (3.2 + 4) * rem;
         const add = (2 * 1.4 + 2 * 1.2) * rem; // 追加 + button padding.
         assert.ok(18 * rem + 2 * rem + add <= row, "input yields space to Add");
         assert.ok(30 * rem + 2 * rem + add > row, "old fixed preference would overflow");
-        const exportActions = (2.4 + 4 + 2.8 + 4 + 1.2) * rem;
-        assert.ok(exportActions <= row);
-        assert.ok(16 * rem + 2 * rem + exportActions > row, "export actions must wrap below their label");
     }
 });
 
 test("search and every top-bar action occupy disjoint shared-grid areas with automatically reserved height", () => {
-    const page = read("ConfigPage.module.scss"), top = read("topbar/Topbar.module.scss");
-    const search = read("search_bar/SearchBar.module.scss"), sidebar = read("sidebar_section/SidebarSection.module.scss");
-    assert.match(page, /\.content_wrapper\s*{\s*display: contents/);
-    assert.match(top, /\.container\s*{\s*display: contents/);
-    assert.match(search, /\.search_wrapper\s*{\s*grid-area: search;\s*position: relative/);
-    assert.match(search, /&\.is_small\s*{/, "retain the class used by the unchanged SearchBar JSX");
-    assert.match(sidebar, /grid-area: sidebar/);
-    assert.match(page, /\.main_container\s*{\s*grid-area: main;\s*min-width: 0;\s*min-height: 0/);
-    assert.ok(!page.includes("padding-top:"), "content starts below intrinsic header rows, not a fixed estimate");
-    assert.match(sidebar, /padding-top: 0/);
-    assert.match(page, /grid-template-rows: auto minmax\(0, 1fr\)/);
-    assert.equal((page.match(/grid-template-rows: auto auto minmax\(0, 1fr\)/g) ?? []).length, 2);
-    assert.match(page, /@media \(max-width: 800px\)/);
-    assert.match(page, /html\[data-narrow\]/);
-    const areas = [...page.matchAll(/grid-template-areas:\s*((?:"[^"]+"\s*)+);/g)]
+    const page = read("ConfigPage.css.ts"), top = read("topbar/Topbar.css.ts");
+    const search = read("search_bar/SearchBar.css.ts"), sidebar = read("sidebar_section/SidebarSection.css.ts");
+    assert.match(styleOf(page, "content_wrapper"), /display: "contents"/);
+    assert.match(styleOf(top, "container"), /display: "contents"/);
+    assert.match(styleOf(search, "search_wrapper"), /gridArea: "search",\s*position: "relative"/);
+    assert.match(styleOf(search, "search_wrapper"), /\[`&\.\$\{is_small\}`\]: \{/, "retain the class used by the unchanged SearchBar JSX");
+    assert.match(sidebar, /gridArea: "sidebar"/);
+    assert.match(styleOf(page, "main_container"), /gridArea: "main",\s*minWidth: 0,\s*minHeight: 0/);
+    assert.ok(!page.includes("paddingTop:"), "content starts below intrinsic header rows, not a fixed estimate");
+    assert.match(styleOf(sidebar, "scroll_container"), /paddingTop: 0/);
+    assert.match(styleOf(page, "container"), /gridTemplateRows: "auto minmax\(0, 1fr\)"/);
+    // The narrow grid, for a narrow window and for the UI-size-aware breakpoint alike.
+    assert.match(page.slice(page.indexOf("const NARROW_GRID")), /^[^;]*gridTemplateRows: "auto auto minmax\(0, 1fr\)"/);
+    assert.match(styleOf(page, "container"), /"@media": \{ "\(max-width: 800px\)": NARROW_GRID \}/);
+    assert.match(styleOf(page, "container"), /selectors: \{ "html\[data-narrow\] &": NARROW_GRID \}/);
+    const areas = [...page.matchAll(/gridTemplateAreas: '((?:"[^"]+"\s*)+)'/g)]
         .map(([, value]) => [...value.matchAll(/"([^"]+)"/g)].map(([, row]) => row.split(" ")));
     assert.deepEqual(areas, [
+        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
         [["search", "stop", "save", "back"], ["sidebar", "main", "main", "main"]],
-        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
-        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
     ]);
     for (const grid of areas) {
         for (const area of ["search", "stop", "save", "back", "sidebar", "main"]) {
@@ -209,15 +212,18 @@ test("search and every top-bar action occupy disjoint shared-grid areas with aut
         }
     }
     for (const [selector, area] of [["stop_actions", "stop"], ["save_slot", "save"], ["back", "back"]]) {
-        assert.match(top, new RegExp("\\." + selector + "\\s*\\{\\s*grid-area: " + area));
+        assert.match(styleOf(top, selector), new RegExp(`style\\(\\{\\s*gridArea: "${area}"`));
     }
-    assert.match(top, /\.save_bar\s*{[^}]*min-width: 0;[^}]*flex-wrap: wrap/);
-    assert.match(top, /\.summary\s*{[^}]*min-width: 0;[^}]*flex-wrap: wrap/);
-    assert.match(top, /\.stop\s*{[^}]*flex-wrap: wrap;[^}]*max-width: 100%;[^}]*white-space: normal/);
-    assert.match(top, /\.stop_actions\s*{[^}]*flex-wrap: wrap/);
-    assert.match(top.split("@mixin narrow_header")[1], /\.stop_actions\s*{[^}]*max-width: 24rem/);
-    assert.match(top, /@media \(max-width: 800px\)\s*{\s*@include narrow_header/);
-    assert.match(top, /html\[data-narrow\][^}]*@include narrow_header/);
+    assert.match(styleOf(top, "save_bar"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
+    assert.match(styleOf(top, "summary"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
+    assert.match(styleOf(top, "stop"), /flexWrap: "wrap",[\s\S]*maxWidth: "100%",[\s\S]*whiteSpace: "normal"/);
+    assert.match(styleOf(top, "stop_actions"), /flexWrap: "wrap"/);
+    // The narrow header, for a narrow window and for the UI-size-aware breakpoint alike.
+    assert.match(top.slice(top.indexOf("const stopActionsNarrow")), /^[^;]*maxWidth: "24rem"/);
+    assert.match(styleOf(top, "stop_actions"), /selectors: \{ \[`\$\{NARROW_PAGE\} &`\]: stopActionsNarrow \}/);
+    assert.match(styleOf(top, "stop_actions"), /"@media": \{ \[NARROW\]: stopActionsNarrow \}/);
+    assert.match(top, /const NARROW = "\(max-width: 800px\)";/);
+    assert.match(top, /const NARROW_PAGE = "html\[data-narrow\]";/);
 });
 
 test("header width budgets leave search usable even with queued/muted actions at both requested scales", () => {
@@ -252,17 +258,18 @@ test("header width budgets leave search usable even with queued/muted actions at
 });
 
 test("the forms' primary action is Lilac: the plain class name primary is matched globally", () => {
-    const css = read(box + "advanced_settings/VoiceSettings.module.scss");
-    // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
-    assert.doesNotMatch(css, /button\.primary/);
-    assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
+    const css = read(box + "advanced_settings/VoiceSettings.css.ts");
+    // The forms write className="primary", so the rule names the plain class: a style() class
+    // would be given a generated name and never match.
+    assert.doesNotMatch(css, /export const primary\b/);
+    assert.match(css, /inForm\("button\.primary"\), \{ background: "var\(--primary_600_color/);
     const downloads = read(box + "advanced_settings/ModelDownloads.tsx");
     assert.match(downloads, /className="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
 });
 
 test("a guide link reads as a link wherever it sits", () => {
-    const css = read(box + "_components/custom_model_link/CustomModelLink.module.scss");
-    assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
+    const css = read(box + "_components/custom_model_link/CustomModelLink.css.ts");
+    assert.match(css, /globalStyle\(`\$\{container\} a`, \{ color: vars\.primary_300_color, textDecoration: "underline" \}\)/);
 });
 test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
     const source = read(box + "ocr/Ocr.tsx");
@@ -270,87 +277,87 @@ test("the saved chat reading language is named like the list's entries, so auto 
     assert.match(source, /const label = \(id: string\) => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
 test("#436: the legacy dropdown is the same field as the forms' select, so an empty one still shows", () => {
-    const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss");
-    const field = legacy.split(".dropdown_toggle_button {")[1].split("\n}")[0];
-    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
-    assert.match(form, /input, select, textarea \{ width: 100%; min-width: 0; background: var\(--vox_surface, #18253b\); border: \.1rem solid var\(--vox_field_border, #5e6570\); \}/);
-    assert.match(field, /background-color: var\(--vox_surface, #18253b\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border, #5e6570\)/);
-    assert.match(field, /border-radius: var\(--vox_radius, 0\.8rem\)/);
-    assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
-    assert.match(field, /&:focus-visible\s*{\s*outline: 0\.2rem solid var\(--primary_200_color\)/);
-    const list = legacy.split(".dropdown_content {")[1].split("\n}")[0];
-    assert.match(list, /background-color: var\(--vox_surface, #18253b\)/);
-    assert.match(list, /border-radius: var\(--vox_radius, 0\.8rem\)/);
+    const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts");
+    const field = styleOf(legacy, "dropdown_toggle_button");
+    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
+    assert.match(form, /inForm\("input", "select", "textarea"\), \{\s*width: "100%",\s*minWidth: 0,\s*background: "var\(--vox_surface, #18253b\)",\s*border: "\.1rem solid var\(--vox_field_border, #5e6570\)",\s*\}\);/);
+    assert.match(field, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
+    assert.match(field, /border: "0\.1rem solid var\(--vox_field_border, #5e6570\)"/);
+    assert.match(field, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
+    assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
+    assert.match(field, /"&:focus-visible": \{ outline: `0\.2rem solid \$\{vars\.primary_200_color\}`/);
+    const list = styleOf(legacy, "dropdown_content");
+    assert.match(list, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
+    assert.match(list, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
 });
 test("the settings text entry is the same field as the kit's text field and the forms' inputs", () => {
     // docs/design/components/shadcn-alignment.md: _Entry takes the kit's fill, border, radius and
     // height, and names its input as shadcn/ui's Input does.
-    const entry = read(box + "_components/_atoms/_entry/_Entry.module.scss");
-    const field = entry.split(".entry_wrapper {")[1].split("\n}")[0];
-    assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
-    assert.match(field, /background-color: var\(--vox_surface\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
-    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    const entry = read(box + "_components/_atoms/_entry/_Entry.css.ts");
+    const field = styleOf(entry, "entry_wrapper");
+    assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
+    assert.match(field, /backgroundColor: vars\.vox_surface/);
+    assert.match(field, /border: `0\.1rem solid \$\{vars\.vox_field_border\}`/);
+    assert.match(field, /borderRadius: vars\.vox_radius/);
     assert.ok(contrast("--vox_field_border", "--vox_surface") >= 3.5, "the field's edge is visible on its fill");
     // The input fills the box, so a click anywhere in it reaches the input.
-    assert.match(entry, /\.entry_input_area\s*{[^}]*flex: 1 1 auto/);
+    assert.match(styleOf(entry, "entry_input_area"), /flex: "1 1 auto"/);
     assert.match(read(box + "_components/_atoms/_entry/_Entry.tsx"), /<input\s+data-slot="input"/);
     // The API key's edit cover lies over the field, so it has the field's corners.
-    assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
+    assert.match(styleOf(read(box + "_components/auth_key/AuthKey.css.ts"), "entry_edit_cover"), /borderRadius: vars\.vox_radius/);
 });
 test("the settings search is the same field as the other inputs, with InputGroup's parts", () => {
     // docs/design/components/shadcn-alignment.md, Combobox, Command and InputGroup.
-    const css = read("search_bar/SearchBar.module.scss");
-    const field = css.split(".search_input_container {")[1].split("\n}")[0];
-    assert.match(field, /background-color: var\(--vox_surface\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
-    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    const css = read("search_bar/SearchBar.css.ts");
+    const field = styleOf(css, "search_input_container");
+    assert.match(field, /backgroundColor: vars\.vox_surface/);
+    assert.match(field, /border: `0\.1rem solid \$\{vars\.vox_field_border\}`/);
+    assert.match(field, /borderRadius: vars\.vox_radius/);
     // Hover makes the edge lighter, never darker than the field border.
-    assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
+    assert.match(field, /"&:hover": \{ borderColor: vars\.dark_550_color \}/);
     const jsx = read("search_bar/SearchBar.tsx");
     assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
     assert.match(jsx, /data-slot="input-group-control"/);
     assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
     // The results open on the surface, like the other lists that drop from a field.
-    assert.match(css.split(".dropdown_results {")[1].split("\n}")[0], /background-color: var\(--vox_surface\)/);
+    assert.match(styleOf(css, "dropdown_results"), /backgroundColor: vars\.vox_surface/);
     // A search that finds nothing says so in shadcn/ui's Empty, inside the status the list becomes.
     assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
-    assert.doesNotMatch(css, /\.no_results/);
+    assert.doesNotMatch(css, /no_results/);
 });
 test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
-    const css = read(box + "_components/slider/Slider.module.scss");
-    const rule = (name: string) => css.split(`\n${name} {`)[1].split("\n}")[0];
+    const css = read(box + "_components/slider/Slider.css.ts");
+    const rule = (name: string) => styleOf(css, name);
     // The filled part (shadcn/ui's Range) is drawn in the primary colour.
-    assert.match(rule(".track"), /\n {4}background-color: var\(--primary_600_color\);/);
+    assert.match(rule("track"), /\n {4}backgroundColor: vars\.primary_600_color,/);
     // The groove and its filled part are .6rem (h-1.5), across or along.
-    for (const name of [".rail", ".track"]) {
-        assert.match(rule(name), /height: 0\.6rem;/, name);
-        assert.match(rule(name), /width: 0\.6rem;/, name);
+    for (const name of ["rail", "track"]) {
+        assert.match(rule(name), /height: "0\.6rem"/, name);
+        assert.match(rule(name), /width: "0\.6rem"/, name);
     }
     // The pointer still reaches 3rem around the groove.
-    assert.match(rule(".sliderRoot"), /height: 0\.6rem;\s*padding: 1\.2rem 0;/);
-    assert.match(rule(".sliderRoot"), /width: 0\.6rem;\s*padding: 0 1\.2rem;/);
+    assert.match(rule("sliderRoot"), /height: "0\.6rem", padding: "1\.2rem 0"/);
+    assert.match(rule("sliderRoot"), /width: "0\.6rem", padding: "0 1\.2rem"/);
     // A disabled slider is half as strong (data-[disabled]:opacity-50), as the other controls are.
-    assert.match(rule(".sliderRoot"), /&\[data-disabled\] \{\s*opacity: 0\.5;/);
+    assert.match(rule("sliderRoot"), /"&\[data-disabled\]": \{ opacity: 0\.5,/);
     // The forms' range control looks the same: a .6rem groove painted up to --range-fill, which
     // the monitor volume sets to its value's share.
-    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
-    assert.match(form, /input\[type="range"\]::-webkit-slider-runnable-track \{ height: \.6rem;[^}]*linear-gradient\(to right, var\(--primary_600_color\) var\(--range-fill, 0%\), var\(--dark_825_color\) var\(--range-fill, 0%\)\)/);
-    assert.match(form, /input\[type="range"\]::-webkit-slider-thumb \{[^}]*height: 1\.8rem; margin-top: -\.6rem;/);
-    assert.match(form, /input\[type="range"\]::-moz-range-progress \{ height: \.6rem;[^}]*background: var\(--primary_600_color\)/);
+    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
+    assert.match(form, /input\[type="range"\]::-webkit-slider-runnable-track'\), \{\s*height: "\.6rem",[^}]*linear-gradient\(to right, \$\{vars\.primary_600_color\} var\(--range-fill, 0%\), \$\{vars\.dark_825_color\} var\(--range-fill, 0%\)\)/);
+    assert.match(form, /input\[type="range"\]::-webkit-slider-thumb'\), \{[^}]*height: "1\.8rem",\s*marginTop: "-\.6rem",/);
+    assert.match(form, /input\[type="range"\]::-moz-range-progress'\), \{ height: "\.6rem",[^}]*background: vars\.primary_600_color/);
     assert.match(read(box + "advanced_settings/VoiceSettings.tsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
 });
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
-    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
+    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
     const kit = group(/<path d="([^"]+)"/, read("../../kit/Select.tsx"));
-    const selectRule = /\n {4}select \{[^}]*\}/.exec(form);
+    const selectRule = /globalStyle\(inForm\("select"\), \{[^}]*\}/.exec(form);
     assert.ok(selectRule);
     const select = selectRule[0];
     assert.ok(select.includes(`viewBox='0 0 12 12'%3E%3Cpath d='${kit}'`), "the same chevron as the kit's");
-    assert.match(select, /padding-right: 3\.6rem;/);
-    assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
+    assert.match(select, /paddingRight: "3\.6rem",/);
+    assert.match(select, /backgroundPosition: "right 1\.4rem center",\s*backgroundSize: "1\.6rem",/);
 });
 test("download dialogs write byte counts in the display language", () => {
     for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.tsx"]) {
@@ -360,8 +367,11 @@ test("download dialogs write byte counts in the display language", () => {
     }
 });
 test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
-    for (const file of [box + "advanced_settings/VoiceSettings.module.scss", box + "translation/Translation.module.scss", "topbar/Topbar.module.scss"]) {
-        const rules = [...read(file).matchAll(/::backdrop\s*{([^}]*)}/g)].map(match => match[1].trim());
-        assert.deepEqual(rules, ["background: #00000080;"], file);
+    // The forms' dialogs.
+    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
+    assert.deepEqual([...form.matchAll(/::backdrop"\), \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
+    // The settings' leave dialog and the translation's license dialog.
+    for (const file of ["topbar/Topbar.css.ts", box + "translation/Translation.css.ts"]) {
+        assert.deepEqual([...read(file).matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"'], file);
     }
 });

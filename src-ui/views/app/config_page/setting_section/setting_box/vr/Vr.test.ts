@@ -105,6 +105,8 @@ test("closing settings stops the overlay sample text, and reopening does not res
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" },
+            currentIsEnabledOverlaySmallLog: { data: true, state: "ok" },
+            currentIsEnabledOverlayLargeLog: { data: false, state: "ok" },
             sendTextToOverlay: (text: string) => sent.push(text) }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
     });
@@ -183,4 +185,74 @@ test("the position and rotation diagram and the sample text are rows of the labe
     assert.ok(find(axes, item => componentName(item) === "PageSwitcherContainer"), "so is the position/rotation switch");
     const sample = row("config_page.vr.sample_text_button.label");
     assert.ok(sample && find(sample, item => componentName(item) === "SendSampleTextToggleButton"));
+});
+
+test("sample text button stays disabled with a hint while both caption overlays are off, and stops if both turn off (#1110)", async context => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const runtimes = { vr: hooks(), overlay: hooks(), button: hooks() }, sent: string[] = [];
+    let active = runtimes.vr, smallOn = false, largeOn = false;
+    const delegate = (name: string) => (...args: unknown[]): unknown => Reflect.apply(hookOf(active, name), undefined, args);
+    const api = { ...runtimes.button.api };
+    for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) Reflect.set(api, name, delegate(name));
+    context.onTestFinished(() => Object.values(runtimes).forEach(runtime => { runtime.unmount(); }));
+    const saved = { tracker: "HMD" };
+    const { Vr } = await loadModule<typeof import("./Vr.tsx")>(new URL("./Vr.tsx", import.meta.url), { ...runtimes.button, api }, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
+        "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
+        "./OverlayFontFamily": { OverlayFontFamily: "font" },
+        "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
+        "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
+        "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
+        "@logics_configs": { useVr: () => ({
+            currentOverlaySmallLogSettings: { data: saved, state: "ok" },
+            currentIsEnabledOverlaySmallLog: { data: smallOn, state: "ok" },
+            currentIsEnabledOverlayLargeLog: { data: largeOn, state: "ok" },
+            sendTextToOverlay: (text: string) => sent.push(text),
+        }) },
+        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
+    });
+    const overlay = findIn(runtimes.vr.render(Vr), item => componentName(item) === "OverlaySettingsContainer");
+    active = runtimes.overlay;
+    const sample = findIn(drawWith(runtimes.overlay, overlay), item => componentName(item) === "SendSampleTextToggleButton");
+    active = runtimes.button;
+    const draw = () => drawWith(runtimes.button, sample, {});
+    const button = () => findIn(draw(), item => item.type === "button");
+    const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
+
+    // Both off: button is disabled, explains why, and clicking never enters sending.
+    const initialTree = draw();
+    const initialButton = findIn(initialTree, item => item.type === "button");
+    const hint = find(initialTree, item => item.type === "p" && item.props.children === "config_page.vr.sample_text_button.needs_overlay");
+    assert.equal(initialButton.props.disabled, true);
+    assert.ok(hint && initialButton.props["aria-describedby"] === hint.props.id);
+    initialButton.props.onClick();
+    assert.equal(button().props["aria-label"], START);
+    vi.advanceTimersByTime(3000);
+    assert.equal(sent.length, 0);
+
+    // Turning on large log enables the button and removes the hint.
+    largeOn = true;
+    const enabledTree = draw();
+    const enabledButton = findIn(enabledTree, item => item.type === "button");
+    assert.equal(enabledButton.props.disabled, false);
+    assert.equal(enabledButton.props["aria-describedby"], undefined);
+    assert.equal(find(enabledTree, item => item.type === "p"), null);
+    enabledButton.props.onClick();
+    assert.equal(button().props["aria-label"], STOP);
+    vi.advanceTimersByTime(1000);
+    assert.equal(sent.length, 1);
+
+    // Turning both overlays off while sending stops samples immediately; re-enabling does not auto-restart.
+    largeOn = false;
+    assert.equal(button().props.disabled, true);
+    assert.equal(button().props["aria-label"], START);
+    vi.advanceTimersByTime(3000);
+    assert.equal(sent.length, 1);
+
+    smallOn = true;
+    assert.equal(button().props.disabled, false);
+    assert.equal(button().props["aria-label"], START);
+    vi.advanceTimersByTime(3000);
+    assert.equal(sent.length, 1);
 });

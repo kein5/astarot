@@ -15,6 +15,12 @@ MODEL_SUFFIXES = tuple(sorted(f".{extension}" for extension in MODEL_EXTENSIONS)
 # lower case, with "/") and why, for example the license that allows it. A code owner reviews
 # each entry (.github/CODEOWNERS lists this file). None is allowed today.
 ALLOWED_MODELS = {}
+# Tracked repository files that match MODEL_EXTENSIONS without being shipped models, allowed only
+# when checking a git source archive (`--source-archive` in release.yml) and never in binary
+# packages: hk.pkl is Apple Pkl configuration for hk git hooks (not a Python pickle), and
+# native/rvc-runtime/tests/data/ holds tiny synthetic test fixtures for unit/integration tests.
+SOURCE_ARCHIVE_ALLOWED_FILES = frozenset({"hk.pkl"})
+SOURCE_ARCHIVE_ALLOWED_PREFIXES = ("native/rvc-runtime/tests/data/",)
 ARCHIVE_SUFFIXES = (".zip", ".7z", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".rar")
 NATIVE_LIBRARY_SUFFIXES = (".dll", ".pyd", ".so", ".dylib")
 
@@ -44,7 +50,13 @@ def _model_file(base):
     return bool(MODEL_EXTENSIONS.intersection(base.split(".")[1:]))
 
 
-def violation(name):
+def _allowed_in_source_archive(parts):
+    rel_parts = parts[1:] if len(parts) > 1 and parts[0].endswith(".zip") else parts
+    rel = "/".join(rel_parts)
+    return rel in SOURCE_ARCHIVE_ALLOWED_FILES or rel.startswith(SOURCE_ARCHIVE_ALLOWED_PREFIXES)
+
+
+def violation(name, *, source_archive=False):
     parts = str(name).replace("\\", "/").lower().split("/")
     base = parts[-1]
     folders = set(parts[:-1])
@@ -69,5 +81,7 @@ def violation(name):
     if base.startswith("chatbox_yolo") or "chatbox_yolox" in base:
         return "Restricted OCR model"
     if _model_file(base) and "/".join(parts) not in ALLOWED_MODELS:
+        if source_archive and _allowed_in_source_archive(parts):
+            return None
         return "Model file"
     return None

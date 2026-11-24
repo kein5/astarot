@@ -149,7 +149,7 @@ impl App {
 }
 
 fn options(wait_ms: u64) -> Options {
-    Options { network: Network::LoopbackOnly, wait: Duration::from_millis(wait_ms), keep_images: 1 }
+    Options { network: Network::LoopbackOnly, wait: Duration::from_millis(wait_ms), keep_images: 1, image_detail: None }
 }
 
 fn service(fake: &FakeService) -> Service {

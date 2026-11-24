@@ -17,8 +17,9 @@ async function setup(context: TestContext) {
     const runtime = hooks(), requests: PendingSave[] = [];
     context.onTestFinished(() => runtime.unmount());
     let entry: SaveBarEntry | null | undefined;
+    let saveNotices = 0;
     const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {},
+        "@store": {}, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) }, "@utils": {},
         "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
     });
     const props: SaveButtonLogicOptions = { variable: "old", state: "ok", label: "Field",
@@ -29,7 +30,7 @@ async function setup(context: TestContext) {
         return runtime.render(useSaveButtonLogic, props);
     };
     render();
-    return { props, requests, render, get entry() { return entry; } };
+    return { props, requests, render, get entry() { return entry; }, get saveNotices() { return saveNotices; } };
 }
 
 for (const result of [false, { status: 400, result: { data: "old" } }]) {
@@ -43,14 +44,57 @@ for (const result of [false, { status: 400, result: { data: "old" } }]) {
         assert.equal(s.render().variable, "attempted");
         assert.equal(s.entry?.saveState, "save_failed");
         assert.equal(s.entry?.edited, true);
+        assert.equal(s.saveNotices, 0);
         const retry = s.entry?.save();
         assert.equal(s.requests[1].value, "attempted");
         s.props.variable = "canonical"; s.render();
         s.requests[1].resolve({ status: 200, result: "canonical" }); await retry;
         assert.equal(s.render().variable, "canonical");
         assert.equal(s.entry?.saveState, "saved");
+        assert.equal(s.saveNotices, 1);
     });
 }
+
+// #1111: a field that saves by itself is out of the save bar, sends only a changed value that its
+// check accepts, says a refused value or a failed save under it, and shows no "saved" notice.
+test("a field that saves by itself checks a changed value before sending it and shows no saved notice", async context => {
+    const s = await setup(context);
+    s.props.autoSave = true;
+    s.props.validate = value => value.trim() ? null : "empty";
+    s.render();
+    assert.equal(s.entry, null);
+    await s.render().saveFunction();
+    assert.equal(s.requests.length, 0, "an unchanged value has nothing to save");
+    s.render().onChangeFunction("  ");
+    await s.render().saveFunction();
+    assert.equal(s.requests.length, 0, "a refused value is not sent");
+    assert.equal(s.render().error, "empty");
+    s.render().onChangeFunction("new");
+    assert.equal(s.render().error, null, "editing takes the problem away");
+    const saving = s.render().saveFunction();
+    assert.equal(s.requests[0].value, "new");
+    s.props.variable = "new";
+    s.requests[0].resolve({ status: 200, result: "new" }); await saving;
+    assert.equal(s.render().variable, "new");
+    assert.equal(s.render().error, null);
+    assert.equal(s.saveNotices, 0);
+    assert.equal(s.entry, null);
+});
+
+test("a field that saves by itself says a failed save under it and keeps the value until it is put back", async context => {
+    const s = await setup(context);
+    s.props.autoSave = true;
+    s.render();
+    s.render().onChangeFunction("attempted");
+    const saving = s.render().saveFunction();
+    s.requests[0].resolve({ status: 400, result: { data: "old" } }); await saving;
+    assert.equal(s.render().variable, "attempted");
+    assert.equal(s.render().error, "config_page.auto_save.save_failed");
+    s.render().revert();
+    assert.equal(s.render().variable, "old");
+    assert.equal(s.render().error, null);
+    assert.equal(s.entry, null);
+});
 
 test("batched transport failure and thrown saves preserve text until explicit discard", async context => {
     const s = await setup(context);

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useStore_SelectedConfigTabId } from "@store";
 import { FormRow } from "../form_row/FormRow";
-import styles from "./PagePointer.module.scss";
+import * as styles from "./PagePointer.css.ts";
 import { revealSetting } from "../../../../../../../logics/configs/revealSetting.ts";
 import { TabIcon } from "../../../../sidebar_section/SidebarSection";
 

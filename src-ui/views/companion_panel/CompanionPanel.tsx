@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge } from "../../logics/companion/bridge.ts";
 import { panelState, type CompanionStatus, type Switch } from "../../logics/companion/status.ts";
+import { applyThemeTokens, themeSetting, themeTokens } from "../../logics/theme/themes.ts";
 import * as styles from "./CompanionPanel.css.ts";
 
 // The tray companion's control panel (experimental feature "tray_companion", Issue #355): the
@@ -12,6 +13,11 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
     const [status, setStatus] = useState<CompanionStatus | null>(null);
     const first = useRef<HTMLButtonElement>(null);
     const titleId = useId();
+    const savedTheme = JSON.stringify(status?.theme ?? null);
+
+    useLayoutEffect(() => {
+        applyThemeTokens(document.documentElement.style, themeTokens(themeSetting(JSON.parse(savedTheme))));
+    }, [savedTheme]);
 
     useEffect(() => {
         let disposed = false, revision = 0;

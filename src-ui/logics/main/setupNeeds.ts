@@ -69,7 +69,6 @@ export const setupNeeds = ({ translationEngine, translationWeights, translationW
 
 // The download catalog, as far as it is read here.
 export interface TranslationCatalog {
-    legacy_models?: readonly { kind?: unknown; weight_type?: unknown }[] | null;
     models?: readonly { id?: unknown; target?: unknown }[] | null;
 }
 
@@ -87,12 +86,11 @@ export const translationCatalogIds = (weightType: unknown): string[] => {
     return VARIANTS.map(variant => `${model}-onnx-${variant}`);
 };
 
-// Whether a translation model can be downloaded: the catalog reviews this CTranslate2
-// weight, or lists a translation model made from it (a variant of the same model).
+// Whether a translation model can be downloaded: the catalog lists a translation model made
+// from this CTranslate2 weight (a variant of the same model).
 // null while the catalog is unknown, so nothing is hidden before it arrives.
 export const translationDownloadable = (catalog: TranslationCatalog | null | undefined, weightType: unknown): boolean | null => {
     if (!catalog) return null;
-    if ((catalog.legacy_models ?? []).some(item => item.kind === "ctranslate2" && item.weight_type === weightType)) return true;
     const ids = translationCatalogIds(weightType);
     return (catalog.models ?? []).some(model => model.target === "translation" && typeof model.id === "string" && ids.includes(model.id));
 };

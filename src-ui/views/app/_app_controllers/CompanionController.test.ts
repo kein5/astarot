@@ -31,6 +31,7 @@ interface State {
     monitorSaved: unknown[];
     hinted: boolean;
     hintedSaved: unknown[];
+    theme: unknown;
     tray: boolean;
 }
 
@@ -39,7 +40,7 @@ async function setup(context: TestContext, { on = false }: { on?: boolean } = {}
         toggles: string[] = [], notices: [string, unknown][] = [];
     const state: State = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null, blocks: {}, notice: null,
         startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [], monitor: "", monitorSaved: [],
-        hinted: false, hintedSaved: [],
+        hinted: false, hintedSaved: [], theme: null,
         // Whether the app has a tray icon to put the main window away in.
         tray: true };
     const store: { companion_hide?: () => Promise<void> } = {};
@@ -59,7 +60,8 @@ async function setup(context: TestContext, { on = false }: { on?: boolean } = {}
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
             useWindow: () => ({ asyncQuitApp: () => { state.quits++; } }),
             useNotificationStatus: () => ({ showNotification_Error: (message: string, options: unknown) => notices.push([message, options]) }) },
-        "@logics_configs": { useExperimentalFeature: (id: string) => id === "tray_companion" && state.on,
+        "@logics_configs": { useAppearance: () => ({ currentTheme: { state: "ok", data: state.theme } }),
+            useExperimentalFeature: (id: string) => id === "tray_companion" && state.on,
             useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge },
                 setTrayCompanionEdge: (value: unknown) => { state.edgeSaved.push(value); },
                 currentTrayCompanionMonitor: { state: "ok", data: state.monitor },
@@ -189,6 +191,9 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     s.state.hinted = true;
     await s.render();
     assert.equal(s.published().hinted, true);
+    s.state.theme = { preset: "lagoon", custom: { base: "#10272b", accent: "#3fc8c2" } };
+    await s.render();
+    assert.deepEqual(s.published().theme, s.state.theme, "a changed theme is reported to the panel");
     s.listener("companion-quit")();
     assert.equal(s.state.quits, 1);
 });

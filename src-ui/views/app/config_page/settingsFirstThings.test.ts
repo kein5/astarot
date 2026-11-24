@@ -111,14 +111,23 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     const button = find(tree, node => node.type === "button");
     assert.ok(button);
     assert.equal(button.props["aria-label"], "Speech recognition (ASR)");
-    assert.equal(button.props.title, "Speech recognition (ASR)");
+    assert.equal(button.props["aria-current"], undefined, "not the page open now");
+    // The full name is the app's tooltip beside the rail, not the native title.
+    assert.equal(button.props.title, undefined);
+    const tip = find(tree, node => node.type === "tooltip");
+    assert.ok(tip);
+    assert.deepEqual([tip.props.title, tip.props.placement, tip.props.bare], ["Speech recognition (ASR)", "right", true]);
     assert.ok(find(tree, node => node.type === "p" && node.props?.children === "Speech recognition"));
     assert.equal(find(tree, node => node.type === "span"), null, "the short name has no second line");
     // A tab without a short name needs no tooltip: its text is its whole name.
     const [device] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "device");
-    const deviceButton = find(drawWith(runtime, device), node => node.type === "button");
+    const deviceTree = drawWith(runtime, device);
+    const deviceButton = find(deviceTree, node => node.type === "button");
     assert.ok(deviceButton);
     assert.equal(deviceButton.props.title, undefined);
+    assert.equal(find(deviceTree, node => node.type === "tooltip")?.props.title, undefined);
+    // The page open now is marked as the current page.
+    assert.equal(deviceButton.props["aria-current"], "page");
 });
 
 test("speech recognition opens on the engine choice and its two systems; the rest is in 「詳細設定」, the timing numbers folded under a line that shows them", async () => {

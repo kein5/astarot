@@ -3,6 +3,7 @@ import { useI18n } from '@useI18n';
 import { quickChatBridge } from '../../logics/quickChat/bridge';
 import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
+import { applyThemeTokens, themeSetting, themeTokens } from '../../logics/theme/themes.ts';
 import * as styles from './QuickChat.css.ts';
 
 // The bridge to the main window. A host without a resizable window leaves out growBy.
@@ -18,6 +19,7 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
     const field = useRef<HTMLTextAreaElement>(null), composing = useRef(false), sending = useRef(false);
     const lengthWarningId = useId(), overflowLength = chatboxOverflowLength(value);
     const container = useRef<HTMLElement>(null), warning = useRef<HTMLParagraphElement>(null), grown = useRef(0), isOverflowing = overflowLength !== null;
+    const savedTheme = JSON.stringify(context.theme ?? null);
     useLayoutEffect(() => {
         // This document has its own root. Font names stay a single CSS string,
         // with the local Noto/system fallbacks supplied by root.css.
@@ -26,6 +28,9 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
             document.documentElement.style.setProperty('--font_family', JSON.stringify(context.font_family));
         }
     }, [context.ui_scaling, context.font_family]);
+    useLayoutEffect(() => {
+        applyThemeTokens(document.documentElement.style, themeTokens(themeSetting(JSON.parse(savedTheme))));
+    }, [savedTheme]);
     // The warning gets room below the field: grow the window by its height and
     // shrink back when it goes, so the field itself never gets smaller.
     useLayoutEffect(() => {

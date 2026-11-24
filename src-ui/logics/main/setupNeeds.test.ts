@@ -62,19 +62,18 @@ test("a model the catalog does not offer asks for another translator instead of 
     assert.equal(pending[0].action, "review");
 });
 
-test("a translation model is downloadable when the catalog reviews its weight or lists a variant of it", () => {
+test("a translation model is downloadable when the catalog lists a variant of it", () => {
     assert.equal(translationDownloadable(null, "small"), null);
-    assert.equal(translationDownloadable({ legacy_models: [], models: [] }, "small"), false);
-    assert.equal(translationDownloadable({ legacy_models: [{ kind: "ctranslate2", weight_type: "large" }], models: [{ target: "rvc" }] }, "small"), false);
-    assert.equal(translationDownloadable({ legacy_models: [{ kind: "ctranslate2", weight_type: "small" }] }, "small"), true);
+    assert.equal(translationDownloadable({ models: [] }, "small"), false);
+    assert.equal(translationDownloadable({ models: [{ target: "rvc" }] }, "small"), false);
     const m2m100 = { id: "m2m100-418m-onnx-int8", target: "translation" };
-    assert.equal(translationDownloadable({ legacy_models: [], models: [m2m100] }, "m2m100_418M-ct2-int8"), true);
-    assert.equal(translationDownloadable({ legacy_models: [], models: [{ id: "m2m100-418m-onnx-float16", target: "translation" }] }, "m2m100_418M-ct2-int8"), true);
+    assert.equal(translationDownloadable({ models: [m2m100] }, "m2m100_418M-ct2-int8"), true);
+    assert.equal(translationDownloadable({ models: [{ id: "m2m100-418m-onnx-float16", target: "translation" }] }, "m2m100_418M-ct2-int8"), true);
     // Another model's entry does not offer this one: its review would only lead elsewhere.
-    assert.equal(translationDownloadable({ legacy_models: [], models: [m2m100] }, "nllb-200-distilled-600M-ct2-int8"), false);
-    assert.equal(translationDownloadable({ legacy_models: [], models: [{ ...m2m100, target: "rvc" }] }, "m2m100_418M-ct2-int8"), false);
+    assert.equal(translationDownloadable({ models: [m2m100] }, "nllb-200-distilled-600M-ct2-int8"), false);
+    assert.equal(translationDownloadable({ models: [{ ...m2m100, target: "rvc" }] }, "m2m100_418M-ct2-int8"), false);
     // A user's model is never downloaded from the catalog.
-    assert.equal(translationDownloadable({ legacy_models: [], models: [m2m100] }, "custom:m2m100_418M-ct2-int8"), false);
+    assert.equal(translationDownloadable({ models: [m2m100] }, "custom:m2m100_418M-ct2-int8"), false);
 });
 
 test("a built-in weight names its catalog entries the way the core does", () => {

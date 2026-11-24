@@ -120,15 +120,14 @@ voice:
     loading: "Loading voice settings…"
     mode: "Chat voice"
     mic_mode: "Realtime microphone speech"
-    mic_translated: "Speak final translations"
-    direct_policy: "Direct input while translating"
+    direct_policy: "Direct input while speaking"
     direct_suppress: "Suppress direct input"
     direct_mix: "Mix direct input and speech"
     conversion: "Speak through voice conversion"
     conversion_off: "Off"
     conversion_on: "On"
     conversion_hint: "While RVC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
-    mic_hint: "Enable translation and start Realtime microphone captions separately. Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Press \"Unmute\" after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
+    mic_hint: "Start Realtime microphone captions separately. For \"Translated text\", turn on translation too (\"Original text\" is spoken even when translation is off). Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Press \"Unmute\" after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
     off: "Off / silent send"
     original: "Original text"
     translated: "Translated text"
@@ -450,12 +449,12 @@ main_page:
     updating: "Now updating..."
 
 config_page:
+    # A setting that saves by itself, said under its field when the save does not go through (#1111).
+    auto_save:
+        save_failed: "This could not be saved, so the saved value stays. Check the value, then press Enter or leave the field to try again."
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
-            dev_misya_x: "みしゃ (misyaguziya) on X"
-            dev_misya_github: "みしゃ (misyaguziya) on GitHub"
-            dev_shiina_x: "Shiina on X"
             project_link_documents: "Original VRCT documentation"
             project_link_vrct_github: "Original VRCT repository on GitHub"
             contributors_done_san_x: "どね (done_san) on X"
@@ -466,9 +465,6 @@ config_page:
             contributors_kumaguma_x: "クマグマ (KUMAGUMA) on X"
             contributors_riku_x: "RIKU_730 on X"
         credits:
-            dev_section_title: "The developers"
-            dev_misya: "みしゃ (misyaguziya): backend, main development. “When will I ever go to sleep?”"
-            dev_shiina: "Shiina (Shiina Sakamoto): frontend, UI/UX. “Um... You’ll sleep when you pass out, sir ;)”"
             contributors_section_title: "Contributors"
             contributor_done: "どね (done_san): logo design"
             contributor_iya: "IYA: PR poster and manga"
@@ -480,11 +476,12 @@ config_page:
             special_thanks_members: "いちや / トサカひよ / あじ / MiuJepang / キャサリン / ちぱ / ちゃかもと / NOEEEEE / HayaTikaze / こねこにゃん / ふながし / よちょたち / みくちゅ / 星さん / 八葉そるち / チャヤカチー / べるすけ / りょうらん / Voyage Voyage / 夜桜 蓮（聾_deaf） / マリオ / faketuna / Ekas / potaya / 空き部屋 / キャリア / nao71332 / ざらざらめ / ことは しろ / みねたけ / ちゅんた / flizeee / Heart-Breezer / ggg123124"
             special_thanks_message: "Thank you very much to everyone who is supporting this software in various ways."
         summary: "Speech recognition (ASR), text to speech (TTS), a voice changer (RVC), chat reading (OCR) and translation for VRChat, in one app."
-        fork_notice: "ASTAROT (formerly VRCT-VOX) is an independent fork of VRCT developed by kein5. It is not an official VRCT release. Please report problems and questions to ASTAROT Issues, not to the original VRCT developers."
+        fork_notice: "ASTAROT (formerly VRCT-VOX) is an independent fork of VRCT developed by kein5. It is not an official VRCT release. Please report bugs on ASTAROT Issues, and bring questions, requests and chat to the official Discord server, not to the original VRCT developers."
         links:
             repository: "GitHub"
             releases: "Releases"
             issues: "Report a problem (Issues)"
+            discord: "Official Discord"
             licenses: "Licenses and notices"
         original_heading: "Original VRCT"
         original_desc: "ASTAROT is built on VRCT. Thanks to the VRCT developers, contributors and everyone who supported it."
@@ -808,6 +805,37 @@ config_page:
             desc: "Added after the prompt the LLM engines are sent. For example: \"Translate casually, without honorifics\" or \"Keep VRChat terms in English\". One line, up to 500 characters. The engines still return only the translation. This text is sent to the engine too."
 
     transcription:
+        # The speech recognition APIs the user adds (#414), under the providers of the API group.
+        api_entries:
+            add: "Add a speech recognition API"
+            add_help: "Add a speech recognition API of Whisper's shape (OpenAI-compatible /audio/transcriptions) under a name. It can be an online service or a server on your PC or LAN. The key is kept in the app's key store, not in the settings file. Adding sends nothing."
+            placeholder_name: "For example: Whisper server at home"
+            protocol:
+                openai_compatible: "OpenAI-compatible (Whisper)"
+            url_lead: "Once used, the API key is sent to this address to check it, and then the audio to recognize goes there."
+            use: "Make it the custom Whisper server"
+            use_help: "Replaces the address, key and model of the custom Whisper server above with this API's. The selected speech recognition engine does not change."
+            remove_confirm: "Removes the entry and its API key from the app. The custom Whisper server's settings stay as they are."
+            errors:
+                other: "The speech recognition API entries could not be changed ({{code}})."
+                backend_unavailable: "The app's core is not connected, so nothing was changed."
+                transcription_catalog_failed: "The speech recognition API entries could not be changed."
+                transcription_catalog_key_required: "Enter the API key."
+                transcription_catalog_key_missing: "This entry has no API key. Remove it and add it again."
+                transcription_catalog_key_unreadable: "The app's key store cannot be read right now. Wait a moment and try again."
+                transcription_catalog_unusable: "This entry cannot be used in this version."
+                transcription_catalog_connect_failed: "The address did not answer, or did not accept the API key. The custom Whisper server's settings were not changed."
+                transcription_catalog_model_not_listed: "The model you named is not in the server's list, so another model from the list was chosen."
+                transcription_catalog_exists: "An entry with the same name, or with the same address and model, already exists."
+                transcription_catalog_limit: "You can add up to 100 entries."
+                transcription_catalog_unknown: "That entry was not found."
+                transcription_catalog_unreadable: "The file of the speech recognition API entries cannot be read. It is left as it is and not overwritten."
+                transcription_catalog_write_failed: "The file of the speech recognition API entries could not be written."
+                transcription_catalog_name_invalid: "Check the name."
+                transcription_catalog_url_invalid: "This address cannot be used. http:// is for your PC and LAN only."
+                transcription_catalog_model_invalid: "Check the model name."
+                transcription_catalog_protocol_unsupported: "This kind of API cannot be used in this version."
+                transcription_catalog_invalid: "Check what you entered."
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
         section_label_transcription_engines: "Transcription engines"
@@ -922,6 +950,7 @@ config_page:
             start: "Send sample text to the subtitle overlay"
             stop: "Stop sending"
             sample_text: "Sample text."
+            needs_overlay: "Turn on the single-line or multi-line subtitle overlay above to send sample text."
         opacity: "Opacity"
         ui_scaling: "UI scaling"
         display_duration: "Display duration"
@@ -978,14 +1007,24 @@ config_page:
             label: "Send only translated messages"
         auto_export_message_logs:
             label: "Auto save message logs"
-            desc: "Automatically saves the conversation messages as text files."
-            open_folder: "Open the logs folder"
+            desc: "Automatically saves conversation messages as text files."
+            destination_label: "Conversation log destination"
+            open_folder: "Open conversation logs folder"
+            choose_folder: "Choose folder"
+            reset_folder: "Reset to default"
+            errors:
+                log_directory_invalid: "This path is empty or invalid. Enter an existing folder's full path, or reset to the default."
+                log_directory_not_absolute: "Relative paths cannot be used. Enter a full path starting from the drive or root."
+                log_directory_missing: "This folder does not exist, so the default folder is used. Choose or enter an existing folder."
+                log_directory_not_directory: "This path points to a file, not a folder. Choose or enter a folder path."
+                log_directory_unwritable: "This folder cannot be written to, so the default folder is used. Choose or enter a writable folder."
+                folder_picker_unavailable: "Could not open the folder picker. Enter an existing folder's full path instead."
         vrc_mic_mute_sync:
             label: "VRC mic mute sync"
             desc: "Microphone transcription pauses while VRChat's mic is muted. It resumes after VRChat confirms the mic is unmuted. If this cannot be confirmed, transcription stays paused.\n*There may be a slight delay. Push-To-Talk is not supported."
         send_message_to_vrc:
             label: "Send message to VRChat"
-            desc: "Sends messages to the VRChat chatbox. When this is off, ASTAROT works without sending to VRChat, but that way of using it is not supported."
+            desc: "Sends messages to the VRChat chatbox. When this is off, ASTAROT works without sending to VRChat."
         notification_vrc_sfx:
             label: "Enable notification sound when sending chat"
             desc: "When this feature is disabled, messages will be sent silently without playing the chatbox notification sound that others can hear."
@@ -1049,6 +1088,8 @@ config_page:
         window_title:
             label: "Window name"
             desc: "Substring match (case-insensitive) against visible window titles. Change this if you run a client whose window isn't titled 'VRChat' (e.g. a modified launcher)."
+            errors:
+                empty: "The window name is empty. Enter part of the title of the window to read, such as VRChat."
         source_language:
             auto: "Automatic (Japanese, English, Chinese and Latin scripts)"
             label: "Source language"
@@ -1251,7 +1292,8 @@ config_page:
             label: "Use OSCQuery"
             desc: "Finds VRChat and reads its mute state. When it is off, VRC mic mute sync and the VRChat check are unavailable. Messages are still sent."
         open_config_filepath:
-            label: "Open config file"
+            label: "Config file location"
+            open_folder: "Open config file folder"
         enable_websocket:
             label: "Enable WebSocket server"
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"
@@ -1665,7 +1707,7 @@ app_update:
     release_page: "Release notes for {{version}}"
     check_at_start: "Check for updates at start"
     check_at_start_lead: "Each start asks for a new version."
-    check_at_start_desc: "A stable version asks GitHub Releases through the developer's server (Cloudflare), a beta asks the GitHub API directly. This sends what any download sends; no conversation or voice."
+    check_at_start_desc: "The check asks the developer's server (Cloudflare) for the newest version on your update channel: on Stable, the latest stable release on GitHub Releases; on Beta, the newest release, beta or stable. The GitHub API is used only to list releases. This sends what any download sends; no conversation or voice."
     status:
         checking: "Checking for updates…"
         up_to_date: "You have the latest version."
@@ -2385,7 +2427,7 @@ translation_catalog:
     group_help:
         engine: "Translation models that an inference engine runs on your PC. Add a model you have by its folder."
         api: "Translation services the app calls over the network, including servers on your PC or your local network. Add one by its address, model and key."
-    none_added: "You have not added any yet."
+    none_added: "No items added by you yet. Add one under \"{{add}}\" below."
     shipped_title: "Included with the app ({{count}})"
     # llama.cpp's server for translation LLMs such as TranslateGemma (ADR-015).
     llamacpp:
@@ -2565,29 +2607,11 @@ legacy_model_downloads:
     progress_finalizing: "Finishing the download of {{model}}."
     progress_complete: "{{model}} download complete."
     progress_stopped: "{{model}} download stopped."
-    included_tokenizer: "Tokenizer files are included in the size above and verified with the model."
-    provider: "Provider"
-    exact_bytes: "{{bytes}} bytes"
-    plus_tokenizer: "plus tokenizer files (their size is not included)"
-    tokenizer: "Tokenizer provider and model"
-    non_commercial: "Non-commercial use only (CC-BY-NC-4.0). This restriction also applies to the tokenizer."
-    revision: "Model revision"
     review_unavailable: "Model details could not be loaded. Close this dialog and try again."
     translation_not_published: "No translation model can be downloaded yet. The models for the new translation engine have not been published."
     translation_own_model: "To use a model of your own, add it with \"Add a model of your own\" in the translation catalog under Settings > Translation. The model's folder can be anywhere. You are responsible for that model's license."
     close: "Close"
     startup_skipped: "{{model}} was not downloaded at startup because consent for this model version is missing. Review its license and size in Settings > Translation or Speech recognition (ASR) to download it."
-    consent: "I have reviewed the provider, license and size information and agree to download, including the additional files shown."
-    no_start: "Downloading does not change the selected model or turn on translation or the microphone."
-    model: "Model"
-    license: "License"
-    size: "Size"
-    additional_files: "Additional files"
-    revision_label: "Revision"
-    terms: "Terms of use"
-    tokenizer_label: "Tokenizer"
-    size_with_approx: "{{bytes}} (about {{size}})"
-    consent_without_extra_files: "I have reviewed the provider, license and size information and agree to download."
 message_outputs:
     osc: "VRChat chatbox"
     overlay_small: "Subtitles (single line)"
@@ -2756,7 +2780,7 @@ io_flow:
     reason:
         vrchat_off: "Not sent to VRChat by your setting"
         setting_off: "Off in the settings"
-        mic_speech_off: "Translations of what you say are not spoken"
+        mic_speech_off: "What you say is not spoken"
         chat_speech_off: "Chat is not spoken"
         translation_off: "Translation is off"
         not_realtime: "Spoken only with realtime speech recognition"

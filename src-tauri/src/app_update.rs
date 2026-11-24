@@ -53,7 +53,7 @@ pub enum InstallKind {
     /// Installed by the NSIS installer (`uninstall.exe` beside the binary). There is one package
     /// (#288): a CUDA install from 0.4 or earlier updates as any other.
     WindowsInstaller,
-    /// Extracted from VRCT-VOX.zip (or VRCT-VOX_cuda.zip up to 0.5).
+    /// Extracted from ASTAROT.zip (VRCT-VOX.zip up to 0.6.x, and VRCT-VOX_cuda.zip up to 0.5).
     WindowsPortable,
     /// A writable AppImage.
     AppImage,
@@ -313,9 +313,42 @@ const CHECK_REUSE: Duration = Duration::from_secs(30);
 
 type LatestCheck = Result<Option<Update>, String>;
 
+/// What `app_update_install` installs: the update the check of the channel asked for last found
+/// (#1017). A check of another channel drops the update at once, also when it is refused
+/// (`update_busy`) or fails; a check that ends after another channel was asked for keeps nothing.
+/// So the version of the channel set before is never installed, whatever the page shows.
+struct Pending<U> {
+    /// The channel the newest check asked about.
+    channel: Option<&'static str>,
+    update: Option<U>,
+}
+
+impl<U> Default for Pending<U> {
+    fn default() -> Self {
+        Self { channel: None, update: None }
+    }
+}
+
+impl<U> Pending<U> {
+    /// A check of `channel` starts.
+    fn ask(&mut self, channel: &'static str) {
+        if self.channel != Some(channel) {
+            self.update = None;
+        }
+        self.channel = Some(channel);
+    }
+
+    /// The check of `channel` found `update` (none: nothing newer, or nothing to install here).
+    fn found(&mut self, channel: &'static str, update: Option<U>) {
+        if self.channel == Some(channel) {
+            self.update = update;
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct AppUpdateState {
-    pending: Mutex<Option<Update>>,
+    pending: Mutex<Pending<Update>>,
     busy: AtomicBool,
     /// The last check of a channel's newest release, with the channel. Held while a check runs, so
     /// that a second one waits for it instead of asking again.
@@ -368,7 +401,7 @@ fn build_updater<R: Runtime>(
     endpoints: Vec<Url>,
     exactly: Option<semver::Version>,
 ) -> Result<Updater, String> {
-    // The Windows installer fetches VRCT-VOX.zip again; there is no edition to name (#288).
+    // The Windows installer fetches its package again; there is no edition to name (#288).
     let mut builder = app
         .updater_builder()
         .target(target)
@@ -651,9 +684,10 @@ pub async fn app_update_check<R: Runtime>(
     let Some(target) = kind.checking_target() else {
         return Err("update_unsupported".into());
     };
-    let _busy = acquire(&state)?;
     // The update channel the settings name (#466); the build's without one.
     let channel = update_channel(channel.as_deref(), &app.package_info().version);
+    state.pending.lock().map_err(|_| "update_check_failed".to_string())?.ask(channel);
+    let _busy = acquire(&state)?;
     let update = check_latest(&app, &state, target, channel).await?;
     let result = CheckResult {
         available: update.is_some(),
@@ -662,8 +696,11 @@ pub async fn app_update_check<R: Runtime>(
             .as_ref()
             .map(|update| format!("https://github.com/{REPOSITORY}/releases/tag/v{}", update.version)),
     };
-    *state.pending.lock().map_err(|_| "update_check_failed".to_string())? =
-        update.filter(|_| kind.mode() == "install");
+    state
+        .pending
+        .lock()
+        .map_err(|_| "update_check_failed".to_string())?
+        .found(channel, update.filter(|_| kind.mode() == "install"));
     Ok(result)
 }
 
@@ -694,6 +731,7 @@ pub async fn app_update_install<R: Runtime>(
         .pending
         .lock()
         .map_err(|_| "update_install_failed".to_string())?
+        .update
         .clone()
         .ok_or_else(|| "update_not_checked".to_string())?;
     download_and_install(&update, replaced_appimage(&app).as_deref(), |progress| {
@@ -887,8 +925,8 @@ mod tests {
 
     fn release(tag: &str, prerelease: bool, manifest: bool) -> GithubRelease {
         let mut assets = vec![GithubAsset {
-            name: "VRCT-VOX.zip".into(),
-            browser_download_url: format!("https://github.com/{REPOSITORY}/releases/download/{tag}/VRCT-VOX.zip"),
+            name: "ASTAROT.zip".into(),
+            browser_download_url: format!("https://github.com/{REPOSITORY}/releases/download/{tag}/ASTAROT.zip"),
         }];
         if manifest {
             assets.push(GithubAsset {
@@ -901,6 +939,33 @@ mod tests {
 
     fn versions(entries: &[ReleaseEntry]) -> Vec<&str> {
         entries.iter().map(|entry| entry.version.as_str()).collect()
+    }
+
+    /// #1017: the version of the channel set before is never what an install takes.
+    #[test]
+    fn only_the_channel_asked_for_last_keeps_its_update_for_the_install() {
+        let mut pending = Pending::<&str>::default();
+        pending.ask("stable");
+        pending.found("stable", Some("0.6.1"));
+        assert_eq!(pending.update, Some("0.6.1"));
+
+        // The same channel again keeps the update until its own answer, which a failure never gives.
+        pending.ask("stable");
+        assert_eq!(pending.update, Some("0.6.1"));
+
+        // Another channel drops it at once: the check may be refused (update_busy) or fail.
+        pending.ask("beta");
+        assert_eq!(pending.update, None);
+        pending.found("beta", Some("0.7.0-beta.1"));
+        assert_eq!(pending.update, Some("0.7.0-beta.1"));
+
+        // A stable check that ends after beta was asked for keeps nothing.
+        pending.ask("stable");
+        pending.ask("beta");
+        pending.found("stable", Some("0.6.1"));
+        assert_eq!(pending.update, None);
+        pending.found("beta", None);
+        assert_eq!(pending.update, None, "nothing newer on beta");
     }
 
     #[test]
@@ -1057,7 +1122,7 @@ mod tests {
 
     #[test]
     fn debug_builds_never_check() {
-        let kind = detect_install(Path::new("/nowhere/vrct-vox"), None, true);
+        let kind = detect_install(Path::new("/nowhere/astarot"), None, true);
         assert_eq!(kind, InstallKind::Development);
         assert_eq!(kind.mode(), "disabled");
     }
@@ -1073,7 +1138,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn linux_install_kinds() {
         let directory = scratch("linux");
-        let binary = directory.join("vrct-vox");
+        let binary = directory.join("astarot");
         assert_eq!(detect_install(&binary, None, false), InstallKind::LinuxArchive);
 
         let appimage = directory.join("VRCT-VOX.AppImage");
@@ -1097,7 +1162,7 @@ mod tests {
         let appimage = directory.join("VRCT-VOX.AppImage");
         std::fs::write(&appimage, b"").unwrap();
         std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o555)).unwrap();
-        let kind = detect_install(Path::new("/tmp/.mount_x/usr/bin/vrct-vox"), Some(&appimage), false);
+        let kind = detect_install(Path::new("/tmp/.mount_x/usr/bin/astarot"), Some(&appimage), false);
         std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::remove_dir_all(&directory).unwrap();
         // root can write anywhere; the probe then rightly reports a writable folder.
@@ -1111,7 +1176,7 @@ mod tests {
     #[cfg(windows)]
     fn windows_install_kinds() {
         let directory = scratch("windows");
-        let binary = directory.join("vrct-vox.exe");
+        let binary = directory.join("astarot.exe");
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsPortable);
         std::fs::write(directory.join("uninstall.exe"), b"").unwrap();
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);

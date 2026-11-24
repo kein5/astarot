@@ -13,6 +13,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import {
     UiLanguageController,
     FontFamilyController,
+    ThemeController,
 } from "../app/_app_controllers";
 
 import { useVr } from "@logics_configs";
@@ -31,7 +32,7 @@ import type { VrWindows } from "./VrLauncher";
 import type { VrPopup } from "./VrPopupWindow";
 import type { VrPanelLayout } from "../../logics/configs/config_page_setter/settingTypes.ts";
 
-import styles from "./VrApp.module.scss";
+import * as styles from "./VrApp.css.ts";
 
 // VR UI は1枚の画面外ウィンドウ (vr_layout.json の atlas) に各ウィンドウを並べて描く。
 // Python 側 (models/overlay/overlay.py) が1回だけ撮影し、領域ごとに別のオーバーレイとして表示する。
@@ -111,6 +112,7 @@ export const VrApp = () => {
             <VrPointerHover atlasRef={atlas} />
             <UiLanguageController />
             <FontFamilyController />
+            <ThemeController />
 
             <Region layout={layout} name="panel" hidden={!windows.log}><VrLogWindow open={windows.log} onClose={toggleLog} /></Region>
             <Region layout={layout} name="launcher"><VrLauncher windows={windows} toggleLog={toggleLog} openLog={openLog} togglePopup={togglePopup} /></Region>

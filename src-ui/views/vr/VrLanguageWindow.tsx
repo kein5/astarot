@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import type { TranslatorStatus } from '@ui_configs';
 import type { LanguageNames } from '../../logics/common/languageNames.ts';
 import { VrWindow } from './VrWindow';
-import settingsStyles from './VrSettingsWindow.module.scss';
+import * as settingsStyles from './VrSettingsWindow.css.ts';
 import LanguageSvg from '@images/mui_language.svg?react';
 import XMarkSvg from '@images/x_mark.svg?react';
 import WarningSvg from '@images/warning.svg?react';
@@ -17,7 +17,7 @@ import { languageJumpGroups } from '../../logics/common/languageJumpGroups.ts';
 import { LOCAL_TRANSLATION_ENGINE_NAME_KEY, translatorLabel } from '../../logics/main/translatorLabel.ts';
 import { VrPickerList, VR_PICKER_WINDOW_THRESHOLD } from './VrPickerList';
 import type { VrPickerNavigation } from './VrPickerList';
-import styles from './VrLanguageWindow.module.scss';
+import * as styles from './VrLanguageWindow.css.ts';
 
 type Translate = ReturnType<typeof useI18n>['t'];
 type Wording = (key: string, variables?: Record<string, unknown>) => string;

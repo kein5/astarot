@@ -1104,6 +1104,9 @@ impl Overlay {
                 restart = true;
             }
             if enabled != state.vr_panel_enabled {
+                if !enabled {
+                    self.cancel_panel_inputs(state);
+                }
                 state.capture_generation += 1;
                 self.reset_tooltip_epoch(state, true);
                 self.set_intro(state, if enabled { Intro::Pending } else { Intro::Idle });
@@ -1127,6 +1130,7 @@ impl Overlay {
         }
         if restart && state.vr_panel_enabled {
             state.panel_window = None;
+            state.panel_image_size = None;
             state.panel_last_find = None;
             state.panel_last_capture = None;
             state.window_fitted = None;
@@ -1246,17 +1250,14 @@ impl Overlay {
         let (log, popup) = state.vr_windows_wanted;
         for (surface, wanted) in [(Surface::Panel, log), (Surface::Popup, popup), (Surface::Launcher, true)] {
             let Some(&handle) = state.handles.get(&surface) else { continue };
-            let wanted = wanted && state.vr_panel_enabled;
-            if wanted && state.panel_image_size.is_none() {
-                continue;
-            }
+            let wanted = wanted && state.vr_panel_enabled && state.panel_image_size.is_some();
             let hidden = state.vr_windows_hidden.contains(&surface);
             if wanted && hidden {
                 if surface == Surface::Popup {
                     self.place_popup(state, pose_of)?;
                 }
-                state.vr_windows_hidden.remove(&surface);
                 self.submit(state, handle, "visibility", "show".into(), |s| s.show(handle))?;
+                state.vr_windows_hidden.remove(&surface);
                 state.panel_last_raw = None;
                 if surface == Surface::Panel {
                     self.update_position(state, Surface::Panel)?;
@@ -1268,8 +1269,8 @@ impl Overlay {
                 if matches!(surface, Surface::Panel | Surface::Launcher) {
                     self.reset_tooltip_epoch(state, true);
                 }
-                state.vr_windows_hidden.insert(surface);
                 self.submit(state, handle, "visibility", "hide".into(), |s| s.hide(handle))?;
+                state.vr_windows_hidden.insert(surface);
                 self.window_hidden(state, surface);
             }
         }
@@ -1557,9 +1558,9 @@ impl Overlay {
         let (tw, th) = (f64::from(texture.0), f64::from(texture.1));
         let bounds = [
             (f64::from(tx) * scale / tw) as f32,
-            (1.0 - (f64::from(ty) + 8.0) * scale / th) as f32,
+            ((f64::from(ty) + 8.0) * scale / th) as f32,
             ((f64::from(tx) + bw) * scale / tw) as f32,
-            (1.0 - (f64::from(ty) + 8.0 + bh + 6.0) * scale / th) as f32,
+            ((f64::from(ty) + 8.0 + bh + 6.0) * scale / th) as f32,
         ];
         let width = bw * mpp;
         let result = (|| -> Result<(), VrError> {
@@ -1594,7 +1595,7 @@ impl Overlay {
                 self.log("overlay: the VR page's capture came back");
                 state.layout_requested_at = state.layout_requested_at.max(Instant::now());
             }
-            if job.generation != state.capture_generation || job.layout != state.layout {
+            if job.generation != state.capture_generation || job.layout != state.layout || !surface.alive(job.window) {
                 return None;
             }
             self.start_capture(state, surface, now);
@@ -1619,6 +1620,9 @@ impl Overlay {
         state.panel_last_capture = Some(now);
         if state.panel_window.is_none_or(|window| !surface.alive(window)) {
             if state.panel_window.take().is_some() {
+                state.panel_image_size = None;
+                state.panel_last_raw = None;
+                self.cancel_panel_inputs(state);
                 self.reset_tooltip_epoch(state, true);
             }
             if state.panel_last_find.is_some_and(|last| now.duration_since(last) < PANEL_FIND_INTERVAL) {
@@ -1789,7 +1793,7 @@ impl Overlay {
         regions.extend(state.input.toolbar_handle.map(|h| (h, Region::Toolbar)));
         for (handle, region) in regions {
             let (u_min, u_max, v_min, v_max) = state.layout.region_bounds(region);
-            let bounds = [(u_min * fu) as f32, (1.0 - (1.0 - v_min) * fv) as f32, (u_max * fu) as f32, (1.0 - (1.0 - v_max) * fv) as f32];
+            let bounds = [(u_min * fu) as f32, (v_min * fv) as f32, (u_max * fu) as f32, (v_max * fv) as f32];
             self.submit(state, handle, "bounds", format!("{bounds:?}"), |s| s.set_texture_bounds(handle, bounds))?;
         }
         if state.initialized {

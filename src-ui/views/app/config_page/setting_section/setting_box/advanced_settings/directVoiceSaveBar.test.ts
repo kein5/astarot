@@ -105,7 +105,7 @@ test("the monitor row says what it plays now and leads to the TTS page's setting
         const row = nodesIn(page.tree).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
         assert.ok(row, variant);
         assert.deepEqual([row.props.description, row.props.group], ["voice.vc_monitor_help", true]);
-        const state = nodesIn(row).find(node => node.props?.["data-vc-monitor"] !== undefined);
+        const state = nodesIn(row.props.status).find(node => node.props?.["data-vc-monitor"] !== undefined);
         assert.equal(state?.props.children, value, variant);
         const link = nodesIn(row).find(node => node.type === "page-link");
         assert.deepEqual([link?.props.tab, link?.props.action, link?.props.target], ["tts", "voice.vc_monitor_action", "tts_monitor"]);
@@ -165,10 +165,10 @@ for (const [variant, heading, intro] of forms) test(`${variant}: the form's desc
     page.runtime.unmount();
 });
 
-test("#614: that the input does not use RVC yet stays in sight beside its button", async () => {
+test("#614: that the input does not use RVC yet is the row's hint", async () => {
     const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
     const [row] = all(page.tree, node => node.type === "row" && node.props.label === "voice_ui.select_rvc_label");
     assert.equal(row.props.description, "voice_ui.select_rvc_pending");
-    assert.equal(row.props.keepDescription, true);
+    assert.equal(row.props.keepDescription, undefined);
     page.runtime.unmount();
 });

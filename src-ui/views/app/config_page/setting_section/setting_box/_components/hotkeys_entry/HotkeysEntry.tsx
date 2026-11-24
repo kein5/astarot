@@ -1,4 +1,4 @@
-import styles from "./HotkeysEntry.module.scss";
+import * as styles from "./HotkeysEntry.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect } from "react";
@@ -7,6 +7,7 @@ import type { Hotkeys } from "@store";
 import DeleteSvg from "@images/cancel.svg?react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
+import { Button } from "../../../../../../kit/index.ts";
 
 // The symbol keys by their code, as the global shortcut parser names them without Shift.
 const SYMBOL_KEYS: Readonly<Record<string, string>> = { Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
@@ -181,10 +182,10 @@ export const HotkeysEntry = (props: HotkeysEntryProps) => {
                 is_disabled={is_pending}
                 readOnly
             />
-            {/* Nothing to clear while no key is set. */}
-            <button type="button" aria-label={t("quick_chat.clear_shortcut", { action: props.label })} disabled={is_pending || !is_assigned} className={clsx(styles.delete_button, { [styles.is_pending]: is_pending })} onClick={handleDelete}>
+            {/* Nothing to clear while no key is set. The kit's danger icon Button. */}
+            <Button tone="danger" size="icon" aria-label={t("quick_chat.clear_shortcut", { action: props.label })} disabled={is_pending || !is_assigned} className={clsx({ [styles.is_pending]: is_pending })} onClick={handleDelete}>
                 <DeleteSvg className={styles.delete_svg}/>
-            </button>
+            </Button>
         </div>
     );
 };

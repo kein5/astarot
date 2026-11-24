@@ -262,6 +262,7 @@ for (const success of [true, false]) test(`Quick Chat handoff resets typing and 
         "@tauri-apps/api/event": { listen: async (_: string, callback: () => Promise<unknown>) => { receive = callback; return () => {}; } },
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },
         "../../../logics/common/useMessage": { useMessage: () => subject.message },
+        "../../../logics/theme/themes.ts": { themeSetting: () => null },
         "@logics_common": {
             useIsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
             useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: false } }),

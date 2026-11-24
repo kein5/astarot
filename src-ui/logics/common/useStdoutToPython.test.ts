@@ -19,6 +19,7 @@ interface StandInStore {
     backend_subprocess: { write: (line: string) => unknown } | null;
     backend_session: ExitExpectingSession;
     backend_stopped?: boolean;
+    is_vr_panel?: boolean;
     rejectLanguage?: boolean;
 }
 
@@ -26,7 +27,7 @@ async function setup() {
     settingsWriteResponses.stop();
     // Exercise the actual transport adapter; only Tauri, hooks and the language owner are stubs.
     const store: StandInStore = { backend_subprocess: null, backend_session: { expectedExits: new Map() } };
-    const events: unknown[][] = [], notices: unknown[][] = [];
+    const events: unknown[][] = [], notices: unknown[][] = [], languageRequests: LanguageMutationRequest[] = [];
     const { useStdoutToPython } = await loadModule<typeof import("./useStdoutToPython.ts")>(new URL("./useStdoutToPython.ts", import.meta.url), hooks(), {
         "@store": { store },
         "js-base64": { encode: (value: string) => Buffer.from(value).toString("base64") },
@@ -37,9 +38,13 @@ async function setup() {
         "./vrPanelSend.ts": { sendToMain: async (...args: unknown[]) => events.push(["relay", ...args]) },
         "../main/languageMutations": {
             isLanguageMutation: (path: string) => path === "/set/data/selected_target_languages",
-            beginLanguageMutation: (request: LanguageMutationRequest) => { events.push(["begin", request.requestId]); return !store.rejectLanguage; },
+            beginLanguageMutation: (request: LanguageMutationRequest) => {
+                events.push(["begin", request.requestId]);
+                languageRequests.push(request);
+                return !store.rejectLanguage;
+            },
             createLanguageRequestId: () => "language-request",
-            getLanguageSnapshot: () => ({}),
+            getLanguageSnapshot: () => ({ current: true }),
             failLanguageMutationBeforeSend: (id: string) => events.push(["before-send", id]),
             languageMutationWriteUnconfirmed: (id: string) => events.push(["unconfirmed", id]),
             failLanguageRead: (endpoint: string) => events.push(["read-failed", endpoint]),
@@ -49,7 +54,7 @@ async function setup() {
     pendingRequestRecovery.register({ endpoints: ["/set/data/osc_port", "/get/data/osc_port"], read: "/get/data/osc_port",
         restore: () => { const changed = value.state === "pending"; value = { ...value, state: "ok" }; return changed; } });
     // biome-ignore lint/correctness/useHookAtTopLevel: the adapter's hook uses no React hook; the test calls it outside a drawing, as code outside React does.
-    return { store, events, notices, send: useStdoutToPython().asyncStdoutToPython, get value() { return value; } };
+    return { store, events, notices, languageRequests, send: useStdoutToPython().asyncStdoutToPython, get value() { return value; } };
 }
 
 test("settings transport returns its canonical write response, never a matching GET", async () => {
@@ -119,6 +124,7 @@ for (const mode of ["missing", "false", "throw", "reject"]) test(`actual transpo
     assert.equal(await subject.send("/set/data/osc_port", 9001), false);
     assert.deepEqual(subject.value, { state: "ok", data: 9000 });
     assert.deepEqual(subject.notices.map(([key]: unknown[]) => key), ["common_error.request_send_failed"]);
+    assert.deepEqual(subject.notices.map(([, options]: unknown[]) => options), [{ category_id: "request_send_failed" }]);
 });
 
 test("successful transport preserves the wire format and stays pending until response", async () => {
@@ -232,3 +238,61 @@ test("overlapping update writes that both fail leave no expected exit", async ()
     assert.equal(await second, false);
     assert.equal(subject.store.backend_session.expectedExits.size, 0);
 });
+
+test("a language write from the main window is its own, for the settings shown unless the request says otherwise", async () => {
+    const subject = await setup(), endpoint = "/set/data/selected_target_languages";
+    subject.store.backend_subprocess = { write: async () => true };
+    await subject.send(endpoint, {});
+    await subject.send(endpoint, {}, { requestId: "relayed", source: "vr", expectedSnapshot: { given: true } });
+    assert.deepEqual(subject.languageRequests, [
+        { endpoint, requestId: "language-request", source: "pc", expectedSnapshot: { current: true } },
+        { endpoint, requestId: "relayed", source: "vr", expectedSnapshot: { given: true } },
+    ]);
+});
+
+test("the VR panel hands its requests to the main window and does not wait for a settings response", async () => {
+    const subject = await setup(), endpoint = "/set/data/selected_target_languages";
+    subject.store.is_vr_panel = true;
+    subject.store.backend_subprocess = { write: () => assert.fail("the VR panel never writes to the backend") };
+    assert.equal(await subject.send(endpoint, { 1: "English" }), true);
+    const waiting = new Promise(resolve => setTimeout(() => resolve("still waiting"), 50));
+    assert.equal(await Promise.race([subject.send("/set/data/osc_port", 9001), waiting]), true);
+    assert.deepEqual(subject.events, [
+        ["relay", "vr-panel-stdout", { path: endpoint, value: { 1: "English" }, languageRequest: { endpoint,
+            requestId: "language-request", source: "vr", expectedSnapshot: { current: true } } }],
+        ["relay", "vr-panel-stdout", { path: "/set/data/osc_port", value: 9001, languageRequest: undefined }],
+    ]);
+});
+
+test("a failed send of any other request is a failed read, not a language write", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const subject = await setup();
+    assert.equal(await subject.send("/set/data/osc_port", 9001), false);
+    assert.deepEqual(subject.events, [["read-failed", "/set/data/osc_port"]]);
+});
+
+for (const replaced of ["session", "backend process"]) {
+    test(`a write that finishes after the ${replaced} was replaced is not reported as sent`, async () => {
+        const subject = await setup();
+        subject.store.backend_subprocess = { write: async () => {
+            if (replaced === "session") subject.store.backend_session = { expectedExits: new Map() };
+            else subject.store.backend_subprocess = { write: () => assert.fail("must never replay") };
+            return true;
+        } };
+        assert.equal(await subject.send("/set/enable/translation"), false);
+    });
+
+    test(`a write that fails after the ${replaced} was replaced leaves the new one's pending value alone`, async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const subject = await setup();
+        subject.store.backend_subprocess = { write: async () => {
+            if (replaced === "session") subject.store.backend_session = { expectedExits: new Map() };
+            else subject.store.backend_subprocess = { write: () => assert.fail("must never replay") };
+            return false;
+        } };
+        assert.equal(await subject.send("/set/data/osc_port", 9001), false);
+        assert.equal(subject.value.state, "pending");
+        assert.deepEqual(subject.notices, []);
+        assert.deepEqual(subject.events, []);
+    });
+}

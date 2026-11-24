@@ -120,11 +120,19 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/selectable_release_channels", OPEN, "SELECTABLE_RELEASE_CHANNEL_LIST");
     b.get("/get/data/release_channel", OPEN, "SELECTED_RELEASE_CHANNEL");
     // A channel the user sets is theirs from then on: it no longer follows the version (#466).
+    // Another channel than before is checked for updates again (#1017).
     b.with("/set/data/release_channel", OPEN, |core, data| {
         let channel = json!(super::settings::python_str(data));
         let config = core.config();
+        let before = config.get("SELECTED_RELEASE_CHANNEL");
         match config.set_many(&[("SELECTED_RELEASE_CHANNEL", channel), ("RELEASE_CHANNEL_CHOSEN", json!(true))]) {
-            Ok(()) => ok(config.get("SELECTED_RELEASE_CHANNEL")),
+            Ok(()) => {
+                let now = config.get("SELECTED_RELEASE_CHANNEL");
+                if now != before {
+                    core.release_channel_set();
+                }
+                ok(now)
+            }
             Err(_) => super::error("VALIDATION_CONFIG_VALUE_INVALID", config.get("SELECTED_RELEASE_CHANNEL")),
         }
     });
@@ -139,7 +147,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Turning translation on loads the local model and waits for the translation pipeline;
     // turning it off clears the switch and the microphone's queued speech of translations.
     b.with("/set/disable/translation", WAIT, |core, _| {
-        core.cancel_mic_voice();
+        core.cancel_translated_mic_voice();
         let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
         ok(core.config().get("ENABLE_TRANSLATION"))
     });
@@ -259,7 +267,14 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/hotkeys", OPEN, hotkeys);
     b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
     let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
-    b.add("/set/data/experimental_features", OPEN, experimental);
+    b.with("/set/data/experimental_features", OPEN, move |core, data| {
+        let mut session = core.talk_ai.lock().unwrap();
+        let reply = experimental(data);
+        if reply.status == 200 && reply.result["talk_ai"].as_bool() != Some(true) {
+            session.stop();
+        }
+        reply
+    });
     b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
     let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/usage_presets", OPEN, presets);
@@ -463,6 +478,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::downloads::add,
     super::adapters::add,
     super::credentials::add,
+    super::talk_ai::add,
     super::ocr::add,
     super::overlay::add,
     super::speakers::add,
@@ -470,6 +486,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::gpu_check::add,
     super::translation::add,
     super::translation_catalog::add,
+    super::transcription_catalog::add,
     super::messages::add,
     super::audio_devices::add,
     super::updates::add,

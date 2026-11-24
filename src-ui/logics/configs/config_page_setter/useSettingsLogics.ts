@@ -4,6 +4,7 @@ import type { AtomState, UpdateOptions } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import type { StdoutResult } from "@useStdoutToPython";
 import { useNotificationStatus } from "@logics_common";
+import { useI18n } from "@useI18n";
 import { deviceOptionsToObject, arrayToObject, arrayToIdLabel, transformToIndexedArray } from "@utils";
 import type { DeviceOption } from "@utils";
 import { setSaveBarEntry } from "../../voice/saveBar";
@@ -69,7 +70,6 @@ const transformResponse = (transformName: SettingResponseTransform | null, paylo
 
 export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], Category: string): { settings: SettingFields } => {
     const { asyncStdoutToPython } = useStdoutToPython();
-    const { showNotification_SaveSuccess } = useNotificationStatus();
 
     const filtered = settingsArray.filter((s) => s.Category === Category);
     const result: SettingFields = {};
@@ -142,11 +142,12 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
 
 
         // To use a response from backend------------------------------------
+        // Immediate settings, view preferences, and background flags persist without a "saved"
+        // toast; only explicit saves (useSaveButtonLogic below) raise showNotification_SaveSuccess.
         const buildSuccessHandler = (transformName: SettingResponseTransform | null) => {
             return (payload: unknown) => {
                 const transformed = transformResponse(transformName, payload);
                 if (updateValue) updateValue(transformed);
-                showNotification_SaveSuccess();
             };
         };
 
@@ -434,7 +435,7 @@ export const useSliderLogic = ({
 
 // A text field saved from the config page top bar, like every other settings
 // form; `label` names it in the bar's list of changes. Enter still saves the
-// one field.
+// one field. With `autoSave` the field saves by itself instead (#1111).
 export interface SaveButtonLogicOptions {
     // The saved value; after a save, the value the backend answered with.
     variable: unknown;
@@ -443,6 +444,13 @@ export interface SaveButtonLogicOptions {
     // Saves an empty field by deleting the value (credentials).
     deleteFunction?: () => Promise<StdoutResult> | StdoutResult;
     label?: string;
+    // Saves by itself (#1111): on Enter, or when focus leaves the field, a changed value that
+    // passes `validate` is sent. Escape puts the saved value back (`revert`). The field is not in
+    // the save bar, and no "saved" notice is shown.
+    autoSave?: boolean;
+    // What is wrong with a value and what kind of value would do, said beside the field; null when
+    // the value may be saved. A value it refuses is never sent.
+    validate?: (value: string) => string | null;
 }
 
 export const useSaveButtonLogic = ({
@@ -451,9 +459,16 @@ export const useSaveButtonLogic = ({
     setFunction,
     deleteFunction,
     label,
+    autoSave = false,
+    validate,
 }: SaveButtonLogicOptions) => {
+    const { t } = useI18n();
+    const { showNotification_SaveSuccess } = useNotificationStatus();
     const [input_value, setInputValue] = useState<unknown>(variable);
     const [saveState, setSaveState] = useState<SaveState>("saved");
+    // What the field says under it: a refused value, or a save that did not go through (#1111).
+    const [problem, setProblem] = useState<string | null>(null);
+    const saveFailed = () => { if (autoSave) setProblem(t("config_page.auto_save.save_failed")); };
     const submitted = useRef<{ value: unknown } | null>(null);
     const previous = useRef<unknown>(variable);
     const same = (a: unknown, b: unknown) => String(a ?? "") === String(b ?? "");
@@ -461,6 +476,7 @@ export const useSaveButtonLogic = ({
     const onChangeFunction = (value: unknown) => {
         setInputValue(value);
         if (!submitted.current) setSaveState("unsaved");
+        setProblem(null);
     };
     const saveFunction = async (): Promise<StdoutResult | undefined> => {
         if (saveState === "saving" || state === "pending") return;
@@ -478,18 +494,35 @@ export const useSaveButtonLogic = ({
                 previous.current = reply.result;
                 setSaveState("saved");
                 submitted.current = null;
+                if (!autoSave) showNotification_SaveSuccess();
             } else if (response === false || reply?.status) {
                 setSaveState("save_failed");
                 submitted.current = null;
+                saveFailed();
             }
             return response;
         } catch {
             if (submitted.current === request) {
                 setSaveState("save_failed");
                 submitted.current = null;
+                saveFailed();
             }
             return false;
         }
+    };
+    // Enter, or focus leaving the field: a changed value is checked and then saved; an unchanged
+    // one has nothing to save.
+    const commit = async (): Promise<StdoutResult | undefined> => {
+        if (saveState === "saving" || state === "pending") return;
+        if (same(input_value, variable)) {
+            setSaveState("saved");
+            setProblem(null);
+            return;
+        }
+        const refused = validate?.(String(input_value ?? "")) ?? null;
+        setProblem(refused);
+        if (refused) return;
+        return saveFunction();
     };
 
     useEffect(() => {
@@ -501,7 +534,7 @@ export const useSaveButtonLogic = ({
     }, [variable]);
     useEffect(() => {
         if (saveState !== "saving") return;
-        const timer = setTimeout(() => setSaveState("save_failed"), 5000);
+        const timer = setTimeout(() => { setSaveState("save_failed"); saveFailed(); }, 5000);
         return () => clearTimeout(timer);
     }, [saveState]);
     useEffect(() => () => { submitted.current = null; }, []);
@@ -514,17 +547,25 @@ export const useSaveButtonLogic = ({
         submitted.current = null;
         setInputValue(variable);
         setSaveState("saved");
+        setProblem(null);
     };
     const latest = useRef({ saveFunction, discard });
     latest.current = { saveFunction, discard };
     useEffect(() => {
+        // A field that saves by itself has nothing for the save bar to save or discard.
+        if (autoSave) {
+            setSaveBarEntry(id, null);
+            return;
+        }
         setSaveBarEntry(id, {
             dirty, edited: dirty, saving, saveState: status,
             changes: dirty && label ? [label] : [], canSave: state !== "pending",
             save: () => latest.current.saveFunction(), discard: () => latest.current.discard(),
         });
-    }, [id, dirty, saving, status, label, state]);
+    }, [id, dirty, saving, status, label, state, autoSave]);
     useEffect(() => () => setSaveBarEntry(id, null), [id]);
 
-    return { variable: input_value, onChangeFunction, saveFunction };
+    // With autoSave, Enter and leaving the field call `saveFunction`, which checks first (commit),
+    // and Escape calls `revert`. `error` is what to say under the field.
+    return { variable: input_value, onChangeFunction, saveFunction: autoSave ? commit : saveFunction, revert: discard, error: problem };
 };

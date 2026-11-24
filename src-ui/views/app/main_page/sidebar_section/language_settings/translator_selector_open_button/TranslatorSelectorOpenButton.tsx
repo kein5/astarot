@@ -1,5 +1,6 @@
+import { useId, useRef } from "react";
 import { useI18n } from "@useI18n";
-import styles from "./TranslatorSelectorOpenButton.module.scss";
+import * as styles from "./TranslatorSelectorOpenButton.css.ts";
 import { TranslatorSelector } from "./translator_selector/TranslatorSelector";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
@@ -53,14 +54,16 @@ export const TranslatorSelectorOpenButton = () => {
 
     const is_opened = currentIsOpenedTranslatorSelector.data === true;
     const title = t("main_page.translator");
+    const buttonRef = useRef<HTMLDivElement>(null);
+    const panelId = useId();
 
     // Like a language above it: its role as a small heading, then the engine as a
-    // field-like button whose arrow says the list opens below it.
+    // field-like button whose arrow points right where the engine popover opens.
     return (
         <div className={styles.container}>
             <p className={styles.title}>{title}</p>
-            <div className={styles.translator_selector_button} onClick={openTranslatorSelector}
-                role="button" tabIndex={0} aria-expanded={is_opened}
+            <div ref={buttonRef} className={styles.translator_selector_button} onClick={openTranslatorSelector}
+                role="button" tabIndex={0} aria-expanded={is_opened} aria-controls={is_opened ? panelId : undefined}
                 aria-label={selected_label ? `${title}: ${selected_label.replace(/\s+/g, " ")}` : title}
                 onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; openTranslatorSelector(); } }}>
                 <span className={styles.label} data-skeleton="">{selected_label}</span>
@@ -72,6 +75,8 @@ export const TranslatorSelectorOpenButton = () => {
             </div>
             {currentIsOpenedTranslatorSelector.data &&
                 <TranslatorSelector
+                    id={panelId}
+                    anchorRef={buttonRef}
                     selected_id={selected_engine_id}
                     translation_engines={translation_engines}
                     is_selected_same_language={is_selected_same_language}

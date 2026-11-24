@@ -32,6 +32,9 @@ ${StrLoc}
 ; installer still stops and removes the one an older install left behind.
 !define SIDECARBINARYNAME "vrct-vox-sidecar"
 !define BUNDLEID "{{bundle_id}}"
+; The app ID up to 0.6.x (ADR-014, 2.6). Its data folders are removed with the app's own when
+; the user asks to delete the app data (2.5); native/app-identity's tests keep it in step.
+!define OLDBUNDLEID "io.github.kein5.vrct-vox"
 !define COPYRIGHT "{{copyright}}"
 !define OUTFILE "{{out_file}}"
 !define ARCH "{{arch}}"
@@ -42,19 +45,35 @@ ${StrLoc}
 !define WEBVIEW2INSTALLERARGS "{{webview2_installer_args}}"
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
-; Stable registry identity: upgrades find the stored install location by this key.
-; It keeps the old name on purpose (Issue #535): the Apps list shows DisplayName
-; (${PRODUCTNAME}), so an install made under the name VRCT-VOX is found, updated in its
-; folder and renamed in the list, without a second entry. Settings and models live in the
-; install folder on Windows, which is why an update never moves it.
-!define INSTALLREGNAME "VRCT-VOX"
-; Shortcuts carry the display name. Up to 0.5.0 they carried the binary's name; an update
-; replaces those (MigrateOldShortcuts) and the uninstaller removes both.
+; Registry identity: upgrades find the stored install location by this key, and the Apps list
+; entry has the same name (ADR-014, 2.5). Up to 0.6.x both were VRCT-VOX (OLDINSTALLREGNAME).
+; An update reads the new key first and then the old one, writes the new keys, and only then
+; removes the old ones (RemoveOldKeys), so the Apps list keeps one entry.
+; Settings and models live in the install folder on Windows. The only folder an update moves is
+; the default one up to 0.5.0, $LOCALAPPDATA\${OLDINSTALLFOLDER}, to $LOCALAPPDATA\${PRODUCTNAME}
+; (MoveInstallFolder); a folder the user chose stays. native/app-identity's tests keep these
+; names in step with WINDOWS_INSTALL and INSTALLER_MOVED_FROM there.
+!define INSTALLREGNAME "ASTAROT"
+!define OLDINSTALLREGNAME "VRCT-VOX"
+!define OLDINSTALLFOLDER "VRCT-VOX"
+; Left in the moved folder for the app, which rewrites the paths saved under the old folder at
+; its next start and removes it (astarot_core::storage::installer).
+!define MOVEDFROMFILE "installer_moved_from.txt"
+; Shortcuts carry the display name. Up to 0.5.0 they carried the binary's name of then
+; (vrct-vox); an update replaces those (MigrateOldShortcuts) and the uninstaller removes both.
 !define SHORTCUTNAME "${PRODUCTNAME}"
-!define OLDSHORTCUTNAME "${MAINBINARYNAME}"
+!define OLDSHORTCUTNAME "vrct-vox"
 !define OLDSTARTMENUFOLDER "VRCT-VOX"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${INSTALLREGNAME}"
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${INSTALLREGNAME}"
+!define OLDUNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${OLDINSTALLREGNAME}"
+!define OLDMANUPRODUCTKEY "Software\${MANUFACTURER}\${OLDINSTALLREGNAME}"
+; The main binary's name up to 0.6.x (ADR-014, 2.5, 3 and 8; ${MAINBINARYNAME} from 0.7.0).
+; An install may still run it while it is updated, and a package of another version (/VERSION)
+; may carry it in place of ${MAINBINARYNAME}.exe. The package's own name is the one installed
+; ($main_binary), and the binary under the other name is removed once the shortcuts lead to it.
+; native/app-identity's tests keep it in step with EXECUTABLE there.
+!define OTHERBINARYNAME "vrct-vox"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 ; One run of this installer at a time in the user's session (.onInit): the in-app update and a
@@ -156,6 +175,113 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 ; There is one app package. Apps up to 0.5 pass /EDITION=cpu|gpu when they
 ; update themselves; the installer accepts the option and ignores it (#288).
 Var UpdateMode
+
+; ADR-014, 2.5: where the install is ($PrevInstallLocation), read from the key this version
+; writes or else from the one up to 0.6.x, and the Apps list entry that goes with it
+; ($PrevUninstKey). An install in the default folder up to 0.5.0 ($MoveFrom) moves to the
+; default folder of today ($MoveTo): RestorePreviousInstallLocation, MoveInstallFolder.
+Var PrevInstallLocation
+Var PrevUninstKey
+Var MoveFrom
+Var MoveTo
+; ADR-014, 2.5, 3 and 8: the main binary, without .exe, of the package this run installs
+; (${MAINBINARYNAME}, or ${OTHERBINARYNAME} in a package of another version), and the other name,
+; which the update removes. The shortcuts, the Apps list and /R start $main_binary.
+Var main_binary
+Var stale_binary
+; "1" when the install had the main binary under $stale_binary before this update.
+Var binary_renamed
+; The running main binary the user is asked to close (CheckIfAppIsRunning).
+Var running_binary
+; What NormalizeFolderPath reads and writes.
+Var folder_path
+
+!macro FOLDER_FUNCTIONS un
+; $folder_path in the form two folders are compared in: the full path with \ between names, the
+; long form of each name when the folder exists (an 8.3 name typed on the directory page), and
+; no \ at the end but for a drive's root. StrCmp then compares without case, as Windows does.
+Function ${un}NormalizeFolderPath
+  Push $0
+  Push $1
+  Push $2
+  StrCpy $0 $folder_path
+  ${If} $0 != ""
+    System::Call 'kernel32::GetFullPathName(t r0, i ${NSIS_MAX_STRLEN}, t .r1, p 0) i .r2'
+    ${If} $2 > 0
+    ${AndIf} $2 < ${NSIS_MAX_STRLEN}
+      StrCpy $0 $1
+    ${EndIf}
+    System::Call 'kernel32::GetLongPathName(t r0, t .r1, i ${NSIS_MAX_STRLEN}) i .r2'
+    ${If} $2 > 0
+    ${AndIf} $2 < ${NSIS_MAX_STRLEN}
+      StrCpy $0 $1
+    ${EndIf}
+    StrLen $1 $0
+    StrCpy $2 $0 1 -1
+    ${If} $1 > 3
+    ${AndIf} $2 == "\"
+      StrCpy $0 $0 -1
+    ${EndIf}
+  ${EndIf}
+  StrCpy $folder_path $0
+  ClearErrors
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+!macroend
+!insertmacro FOLDER_FUNCTIONS ""
+!insertmacro FOLDER_FUNCTIONS "un."
+
+; Sets ${same_result} to "1" when ${same_first} and ${same_second} name the same folder
+; (NormalizeFolderPath), else to "0". ${un} is "" in the installer and "un." in the uninstaller.
+!macro SameFolder un same_first same_second same_result
+  StrCpy $folder_path "${same_first}"
+  Call ${un}NormalizeFolderPath
+  Push $folder_path
+  StrCpy $folder_path "${same_second}"
+  Call ${un}NormalizeFolderPath
+  Exch $folder_path
+  Pop ${same_result}
+  ${If} ${same_result} == $folder_path
+    StrCpy ${same_result} "1"
+  ${Else}
+    StrCpy ${same_result} "0"
+  ${EndIf}
+!macroend
+
+!macro OLD_KEYS_FUNCTION un
+; ADR-014, 2.5, 6: removes the keys an installer up to 0.6.x wrote (the install location and the
+; Apps list entry) once the keys of this version record the install, so that the Apps list shows
+; one entry. Keys that record another install, in another folder that still has its
+; uninstaller, stay with it.
+Function ${un}RemoveOldKeys
+  Push $0
+  Push $1
+  ReadRegStr $0 SHCTX "${OLDMANUPRODUCTKEY}" ""
+  ${If} $0 == ""
+    ReadRegStr $0 SHCTX "${OLDUNINSTKEY}" "InstallLocation"
+    StrCpy $1 $0 1
+    ${IfThen} $1 == '"' ${|} StrCpy $0 $0 -1 1 ${|}
+  ${EndIf}
+  ${If} $0 != ""
+    !insertmacro SameFolder "${un}" "$0" "$INSTDIR" $1
+    ${If} $1 != "1"
+    ${AndIf} ${FileExists} "$0\uninstall.exe"
+      DetailPrint "Kept the registry keys of another install"
+      Goto old_keys_done
+    ${EndIf}
+  ${EndIf}
+  DeleteRegKey SHCTX "${OLDUNINSTKEY}"
+  DeleteRegKey SHCTX "${OLDMANUPRODUCTKEY}"
+  old_keys_done:
+  ClearErrors
+  Pop $1
+  Pop $0
+FunctionEnd
+!macroend
+!insertmacro OLD_KEYS_FUNCTION ""
+!insertmacro OLD_KEYS_FUNCTION "un."
 
 ; Installer pages, must be ordered as they appear
 ; 1. Welcome Page
@@ -270,9 +396,10 @@ Function PageReinstall
     Goto compare_version
   wix_done:
 
-  ; Check if there is an existing installation, if not, abort the reinstall page
-  ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
-  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ; Check if there is an existing installation, if not, abort the reinstall page. Its entry may
+  ; still have the name up to 0.6.x (ReadPreviousInstall).
+  ReadRegStr $R0 SHCTX "$PrevUninstKey" ""
+  ReadRegStr $R1 SHCTX "$PrevUninstKey" "UninstallString"
   ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
 
   ; Compare this installar version with the existing installation
@@ -282,7 +409,7 @@ Function PageReinstall
   ${If} $R7 == "wix"
     ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
   ${Else}
-    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+    ReadRegStr $R0 SHCTX "$PrevUninstKey" "DisplayVersion"
   ${EndIf}
   ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
 
@@ -387,8 +514,8 @@ Function PageLeaveReinstall
         ReadRegStr $deferred_location HKLM "$R6" "InstallLocation"
       ${Else}
         StrCpy $deferred_kind "nsis"
-        ReadRegStr $deferred_uninstall SHCTX "${UNINSTKEY}" "UninstallString"
-        ReadRegStr $deferred_location SHCTX "${MANUPRODUCTKEY}" ""
+        ReadRegStr $deferred_uninstall SHCTX "$PrevUninstKey" "UninstallString"
+        StrCpy $deferred_location $PrevInstallLocation
       ${EndIf}
     ${EndIf}
     Return
@@ -398,12 +525,15 @@ Function PageLeaveReinstall
     HideWindow
     ClearErrors
 
+    ; $4: the folder the uninstaller runs in. The install there may be in the default folder up
+    ; to 0.5.0 while $INSTDIR is the one it moves to (RestorePreviousInstallLocation).
+    StrCpy $4 $INSTDIR
     ${If} $R7 == "wix"
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
       ExecWait '$R1' $0
     ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+      ${IfThen} $PrevInstallLocation != "" ${|} StrCpy $4 $PrevInstallLocation ${|}
+      ReadRegStr $R1 SHCTX "$PrevUninstKey" "UninstallString"
       ExecWait '$R1 /P _?=$4' $0
     ${EndIf}
 
@@ -412,7 +542,8 @@ Function PageLeaveReinstall
     ${IfThen} ${Errors} ${|} StrCpy $0 2 ${|} ; ExecWait failed, set fake exit code
 
     ${If} $0 <> 0
-    ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$4\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$4\${OTHERBINARYNAME}.exe"
       ${If} $0 = 1 ; User aborted uninstaller?
         StrCmp $R5 "2" 0 +2 ; Is the existing install the same version?
           Quit ; ...yes, already installed, we are done
@@ -424,7 +555,7 @@ Function PageLeaveReinstall
       StrCpy $0 $R1 1
       ${IfThen} $0 == '"' ${|} StrCpy $R1 $R1 -1 1 ${|} ; Strip quotes from UninstallString
       Delete $R1
-      RMDir $INSTDIR
+      RMDir $4
     ${EndIf}
   reinst_done:
 FunctionEnd
@@ -459,7 +590,7 @@ Var AppStartMenuFolder
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
-  nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  nsis_tauri_utils::RunAsUser "$INSTDIR\$main_binary.exe" ""
 FunctionEnd
 
 ; Uninstaller Pages
@@ -565,7 +696,7 @@ Function .onInit
     StrCpy $UpdateMode 1
 
   ; /EDITION= (cpu or gpu, from apps up to 0.5) is not read: every edition
-  ; installs the same package, VRCT-VOX.zip.
+  ; installs the same package, ASTAROT.zip (VRCT-VOX.zip up to 0.6.x).
 
   ; Pin the downloaded app package to a specific released version instead of
   ; always fetching the latest from the HF "main" revision (e.g.
@@ -600,6 +731,13 @@ Function .onInit
   ; (via MUI_LANGDLL_REGISTRY_VALUENAME) and the initial value of the
   ; custom PageChooseLanguage default to it. The page is still shown so
   ; the user can change their mind before installing.
+  ; Before that, the language an installer up to 0.6.x kept under its own key (ADR-014, 2.5, 1)
+  ; moves to the key the chrome reads, unless that key has one.
+  ReadRegStr $0 HKCU "${MANUPRODUCTKEY}" "Installer Language"
+  ${If} $0 == ""
+    ReadRegStr $0 HKCU "${OLDMANUPRODUCTKEY}" "Installer Language"
+    ${IfThen} $0 != "" ${|} WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" $0 ${|}
+  ${EndIf}
   ${GetOptions} $CMDLINE "/UILANG=" $UILang
   ClearErrors
   ${If} $UILang == "en"
@@ -622,6 +760,10 @@ Function .onInit
   !endif
 
   !insertmacro SetContext
+
+  ; Where the install is, under the keys of this version or of one up to 0.6.x. Read with /D=
+  ; too: the reinstall page and the old keys' removal need it.
+  Call ReadPreviousInstall
 
   ${If} $INSTDIR == ""
     ; Set default install location
@@ -752,21 +894,62 @@ Section WebView2
   webview2_done:
 SectionEnd
 
-!macro CheckIfAppIsRunning
+; Stops a process an install runs besides the main app. Aborts when it stays.
+!macro StopLeftoverProcess name
   !if "${INSTALLMODE}" == "currentUser"
-    nsis_tauri_utils::FindProcessCurrentUser "${MAINBINARYNAME}.exe"
+    nsis_tauri_utils::FindProcessCurrentUser "${name}"
   !else
-    nsis_tauri_utils::FindProcess "${MAINBINARYNAME}.exe"
+    nsis_tauri_utils::FindProcess "${name}"
   !endif
   Pop $R0
+  ${If} $R0 = 0
+    !if "${INSTALLMODE}" == "currentUser"
+      nsis_tauri_utils::KillProcessCurrentUser "${name}"
+    !else
+      nsis_tauri_utils::KillProcess "${name}"
+    !endif
+    Pop $R0
+    Sleep 500
+    ${If} $R0 <> 0
+      ; It may have ended by itself between the two calls (a sidecar's watchdog).
+      !if "${INSTALLMODE}" == "currentUser"
+        nsis_tauri_utils::FindProcessCurrentUser "${name}"
+      !else
+        nsis_tauri_utils::FindProcess "${name}"
+      !endif
+      Pop $R0
+      ${IfThen} $R0 = 0 ${|} Abort "$(failedToKillApp)" ${|}
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+!macro FindAppProcess name
+  !if "${INSTALLMODE}" == "currentUser"
+    nsis_tauri_utils::FindProcessCurrentUser "${name}"
+  !else
+    nsis_tauri_utils::FindProcess "${name}"
+  !endif
+  Pop $R0
+!macroend
+
+!macro CheckIfAppIsRunning
+  ; ADR-014, 2.5, 3: the app is the main binary under this version's name or under the other
+  ; one (an install of 0.6.x being updated runs vrct-vox.exe). Either is what the user is asked
+  ; to close.
+  StrCpy $running_binary "${MAINBINARYNAME}.exe"
+  !insertmacro FindAppProcess "$running_binary"
+  ${If} $R0 <> 0
+    StrCpy $running_binary "${OTHERBINARYNAME}.exe"
+    !insertmacro FindAppProcess "$running_binary"
+  ${EndIf}
   ${If} $R0 = 0
       IfSilent kill 0
       ${IfThen} $PassiveMode != 1 ${|} MessageBox MB_OKCANCEL "$(appRunningOkKill)" IDOK kill IDCANCEL cancel ${|}
       kill:
         !if "${INSTALLMODE}" == "currentUser"
-          nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
+          nsis_tauri_utils::KillProcessCurrentUser "$running_binary"
         !else
-          nsis_tauri_utils::KillProcess "${MAINBINARYNAME}.exe"
+          nsis_tauri_utils::KillProcess "$running_binary"
         !endif
         Pop $R0
         Sleep 500
@@ -789,37 +972,22 @@ SectionEnd
         Abort "$(appRunning)"
   ${EndIf}
   app_check_done:
+  ; The main app is gone at this point: it was not running, or the user agreed to stop it
+  ; above. What else runs from the install goes too, without asking.
   ; Updating an install from before 0.5.0: killing its main process skipped the
   ; shell plugin's exit handler, so its Python sidecar keeps running until its own
   ; watchdog stops it (1-2 min).
   ; Meanwhile its exe and loaded libraries cannot be deleted, and its final
-  ; save can write config.json again. The main app is gone at this point:
-  ; it was not running, or the user agreed to stop it above.
-  !if "${INSTALLMODE}" == "currentUser"
-    nsis_tauri_utils::FindProcessCurrentUser "${SIDECARBINARYNAME}.exe"
-  !else
-    nsis_tauri_utils::FindProcess "${SIDECARBINARYNAME}.exe"
-  !endif
-  Pop $R0
-  ${If} $R0 = 0
-    !if "${INSTALLMODE}" == "currentUser"
-      nsis_tauri_utils::KillProcessCurrentUser "${SIDECARBINARYNAME}.exe"
-    !else
-      nsis_tauri_utils::KillProcess "${SIDECARBINARYNAME}.exe"
-    !endif
-    Pop $R0
-    Sleep 500
-    ${If} $R0 <> 0
-      ; Its watchdog may have ended it between the two calls.
-      !if "${INSTALLMODE}" == "currentUser"
-        nsis_tauri_utils::FindProcessCurrentUser "${SIDECARBINARYNAME}.exe"
-      !else
-        nsis_tauri_utils::FindProcess "${SIDECARBINARYNAME}.exe"
-      !endif
-      Pop $R0
-      ${IfThen} $R0 = 0 ${|} Abort "$(failedToKillApp)" ${|}
-    ${EndIf}
-  ${EndIf}
+  ; save can write config.json again.
+  !insertmacro StopLeftoverProcess "${SIDECARBINARYNAME}.exe"
+  ; ADR-014, 2.5, 3: the main binary under its other name (when both ran, the check above
+  ; stopped only the first), and the RVC worker under its names before and after ADR-014,
+  ; whose files are replaced below and whose folder may move. The
+  ; speech.cpp servers (speech.exe, llama-server.exe) have names other programs use too: they
+  ; end with the app, which holds them in a job object that kills them when it closes.
+  !insertmacro StopLeftoverProcess "${OTHERBINARYNAME}.exe"
+  !insertmacro StopLeftoverProcess "vrct-rvc-worker.exe"
+  !insertmacro StopLeftoverProcess "astarot-rvc-worker.exe"
 !macroend
 
 Function CheckAppIsRunning
@@ -834,16 +1002,40 @@ Var upd_entry
 Var stale_sidecar
 Var upd_find
 Var upd_failed
+; "1" when this install moves to $MoveTo once its files are in (Section Install).
+Var move_pending
+; What MoveInstallFolder did: moved, destination_not_empty, marker_failed or rename_failed.
+Var move_result
 
 
 Section Install
+  StrCpy $install_started "1"
+  ; Until the package says otherwise (install_ready).
+  StrCpy $main_binary "${MAINBINARYNAME}"
+  StrCpy $stale_binary "${OTHERBINARYNAME}"
+  StrCpy $binary_renamed "0"
+  ; ADR-014, 2.5: an install in the default folder up to 0.5.0 is updated where it is, and the
+  ; folder moves to $MoveTo once the new files are in (MoveInstallFolder). That is when $INSTDIR
+  ; is still $MoveTo: always in passive mode, and when the user kept it on the directory page.
+  ; Another folder chosen there is installed into as before, and nothing moves.
+  StrCpy $move_pending "0"
+  StrCpy $move_result ""
+  ${If} $MoveFrom != ""
+    !insertmacro SameFolder "" "$INSTDIR" "$MoveTo" $0
+    ${If} $0 == "1"
+    ${AndIf} ${FileExists} "$MoveFrom\*.*"
+      StrCpy $INSTDIR $MoveFrom
+      StrCpy $move_pending "1"
+    ${EndIf}
+  ${EndIf}
+
   ; Remember whether this is an update before SetOutPath can create the
   ; directory.  A failed update must not remove an existing installation or
   ; user data that the installer did not create.
-  StrCpy $install_started "1"
   StrCpy $existing_install "0"
   ${If} ${FileExists} "$INSTDIR\uninstall.exe"
   ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+  ${OrIf} ${FileExists} "$INSTDIR\${OTHERBINARYNAME}.exe"
   ${OrIf} ${FileExists} "$INSTDIR\config.json"
     StrCpy $existing_install "1"
   ${EndIf}
@@ -870,7 +1062,11 @@ Section Install
   ; 指定のURLからファイルをダウンロード
   ; The one app package. Releases up to 0.5 also had VRCT-VOX_cuda.zip (the same
   ; files since 0.5.0); /EDITION=gpu installs this package too, also with /VERSION.
-  !define SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
+  ; ADR-014, 2.10: it is ASTAROT.zip from 0.7.0. A release up to 0.6.x, which /VERSION may
+  ; name, has it as VRCT-VOX.zip; tools/release_candidate.py keeps that name as a copy for a
+  ; while, but only on the releases from 0.7.0.
+  !define SOFTWARE_DOWNLOAD_FILENAME "ASTAROT.zip"
+  !define OLD_SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
 
   ; Free-space budget (MiB). The compressed archive is written to this
   ; run's folder in %TEMP% ($download_dir), the new tree to $INSTDIR\.upd\new.
@@ -963,6 +1159,23 @@ Section Install
     StrCpy $effective_version "${VERSION}"
   ${EndIf}
   StrCpy $release_revision "v$effective_version"
+  ; Another version (/VERSION) from 0.0 to 0.6 has the package under its name of then. This
+  ; installer's own version always has it under the new name, whatever its number.
+  ${If} $effective_version != "${VERSION}"
+    StrCpy $0 $effective_version 2
+    ${If} $0 == "0."
+      StrCpy $1 $effective_version "" 2
+      ${StrLoc} $2 $1 "." ">"
+      ${If} $2 != ""
+        StrCpy $1 $1 $2
+        IntOp $3 $1 + 0
+        ${If} "$3" == "$1"
+        ${AndIf} $3 < 7
+          StrCpy $file_name "${OLD_SOFTWARE_DOWNLOAD_FILENAME}"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
   StrCpy $cmder_dl "https://github.com/kein5/astarot/releases/download/$release_revision/$file_name"
   DetailPrint "Got URL : $cmder_dl"
 
@@ -1367,12 +1580,24 @@ Section Install
     ${EndIf}
     ; Never hold a working directory inside the tree being replaced.
     SetOutPath "$TEMP"
+    ; The package's main binary: this version's name, or the other one in a package of a version
+    ; from before or after ADR-014's step 6 (/VERSION).
+    StrCpy $main_binary ""
+    ${If} ${FileExists} "$INSTDIR\.upd\new\${MAINBINARYNAME}.exe"
+      StrCpy $main_binary "${MAINBINARYNAME}"
+      StrCpy $stale_binary "${OTHERBINARYNAME}"
+    ${ElseIf} ${FileExists} "$INSTDIR\.upd\new\${OTHERBINARYNAME}.exe"
+      StrCpy $main_binary "${OTHERBINARYNAME}"
+      StrCpy $stale_binary "${MAINBINARYNAME}"
+    ${EndIf}
     ${If} $0 == 0
-    ${AndIf} ${FileExists} "$INSTDIR\.upd\new\${MAINBINARYNAME}.exe"
+    ${AndIf} $main_binary != ""
     ${AndIf} ${FileExists} "$INSTDIR\.upd\new\_internal\*.*"
       Delete "$INSTDIR\.upd\$file_name"
       Goto install_ready
     ${EndIf}
+    StrCpy $main_binary "${MAINBINARYNAME}"
+    StrCpy $stale_binary "${OTHERBINARYNAME}"
     DetailPrint "Unpack failed (tar exit $0; $INSTDIR\.upd\new package incomplete) -- archive likely corrupt"
     ; Retries work from this run's folder, and the kept .bad archive goes from there to $TEMP.
     Rename "$INSTDIR\.upd\$file_name" "$download_dir\$file_name"
@@ -1456,7 +1681,7 @@ Section Install
 
   ; Replace the executable first, making dependency-rename failures exercise
   ; rollback of an already replaced executable as well.
-  StrCpy $upd_entry "${MAINBINARYNAME}.exe"
+  StrCpy $upd_entry "$main_binary.exe"
   Call CommitStagedEntry
   ${IfThen} $upd_failed == "1" ${|} Goto commit_failed ${|}
   commit_next:
@@ -1485,6 +1710,12 @@ Section Install
   ${If} $stale_sidecar == "1"
     Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
   ${EndIf}
+  ; ADR-014, 2.5, 7 and 8: the commit above replaced only what the package has, so the main
+  ; binary under the other name (vrct-vox.exe of an install up to 0.6.x) is still there. It goes
+  ; once the shortcuts lead to the package's binary (below).
+  ${If} ${FileExists} "$INSTDIR\$stale_binary.exe"
+    StrCpy $binary_renamed "1"
+  ${EndIf}
 
   ; An in-place NSIS uninstall would delete the newly committed app. When
   ; moving locations, uninstall only after the replacement is ready, and
@@ -1509,6 +1740,36 @@ Section Install
     ${EndIf}
   ${EndIf}
 
+  ; The new files are in. ADR-014, 2.5: now the install in the default folder up to 0.5.0 moves.
+  ${If} $move_pending == "1"
+    Call MoveInstallFolder
+    DetailPrint "Install folder: $move_result"
+  ${EndIf}
+  ; 2.5, 7: an install that came from the default folder up to 0.5.0 and is in the new one,
+  ; moved now or by a run that stopped before it got this far, has its shortcuts pointed there
+  ; first. The keys below then record where the install is, moved or not. A run that stops in
+  ; between leaves keys that bring the next update back here.
+  ; 2.5, 8: so has an install whose main binary had the other name. Its binary under that name
+  ; goes only after this, so that a run that stops in between finds it at the next update and
+  ; points the shortcuts again.
+  StrCpy $0 "0"
+  ${If} $MoveFrom != ""
+    !insertmacro SameFolder "" "$INSTDIR" "$MoveTo" $0
+  ${EndIf}
+  ${If} $0 == "1"
+  ${OrIf} $binary_renamed == "1"
+    ; A shortcut's working directory.
+    SetOutPath "$INSTDIR"
+    Call RepointShortcuts
+  ${EndIf}
+  ${If} $binary_renamed == "1"
+    Delete "$INSTDIR\$stale_binary.exe"
+    ; Removed at the next update when something still holds it.
+    ${If} ${FileExists} "$INSTDIR\$stale_binary.exe"
+      DetailPrint "Main binary under the other name: not removed"
+    ${EndIf}
+  ${EndIf}
+
   ; Save $INSTDIR in registry for future installations
   WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
 
@@ -1518,12 +1779,12 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" $MultiUser.InstallMode 1
   !endif
 
-  ; Save current MAINBINARYNAME for future updates from v2 updater
-  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "${MAINBINARYNAME}.exe"
+  ; Save current MAINBINARYNAME for future updates from v2 updater: the package's own.
+  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "$main_binary.exe"
 
   ; Registry information for add/remove programs
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\$main_binary.exe$\""
   ; The version installed, which /VERSION may make another than this installer's own.
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "$effective_version"
   WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
@@ -1532,6 +1793,8 @@ Section Install
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "EstimatedSize" "${ESTIMATEDSIZE}"
+  ; ADR-014, 2.5, 6: the keys up to 0.6.x go only now that the new ones record this install.
+  Call RemoveOldKeys
 
   ; Preserve the shortcut working directory after staging and cleanup.
   SetOutPath "$INSTDIR"
@@ -1710,7 +1973,8 @@ Function .onInstSuccess
     ${GetOptions} $CMDLINE "/R" $R0
     IfErrors run_done 0
       ${GetOptions} $CMDLINE "/ARGS" $R0
-      nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+      ; ADR-014, 2.5, 8: the binary just installed, under its new name after the rename.
+      nsis_tauri_utils::RunAsUser "$INSTDIR\$main_binary.exe" "$R0"
   run_done:
 
   ; インストーラで選んだ UI 言語を config.json に直接書き込まない。
@@ -1966,8 +2230,10 @@ Section Uninstall
   !insertmacro CheckIfAppIsRunning
 
   ; Delete the app directory and its content from disk
-  ; Copy main executable
+  ; Copy main executable, under either name (ADR-014, 2.5): an install of another version's
+  ; package (/VERSION) has it under the other one.
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  Delete "$INSTDIR\${OTHERBINARYNAME}.exe"
 
   ; Delete resources
   {{#each resources}}
@@ -2000,12 +2266,15 @@ Section Uninstall
     Delete "$INSTDIR\secrets.json.*"
     Delete "$INSTDIR\voice_mute_state.json"
     Delete "$INSTDIR\.voice-mute-*"
-    ; The lists of registered models and of the translation catalog's entries only: the model
-    ; files stay where the user keeps them. A leading dot names a temporary file.
+    ; The lists of registered models, of the translation catalog's entries and of the speech
+    ; recognition APIs the user added only: the model files stay where the user keeps them. A
+    ; leading dot names a temporary file. The entries' keys went with the other API keys above.
     Delete "$INSTDIR\user_models.json"
     Delete "$INSTDIR\.user_models.json.*"
     Delete "$INSTDIR\translation_catalog.json"
     Delete "$INSTDIR\.translation_catalog.json.*"
+    Delete "$INSTDIR\transcription_catalog.json"
+    Delete "$INSTDIR\.transcription_catalog.json.*"
     Delete "$INSTDIR\telemetry_state.json"
     Delete "$INSTDIR\telemetry_state.json.*"
     RmDir /r "$INSTDIR\downloaded_models"
@@ -2032,6 +2301,8 @@ Section Uninstall
   ; 有無に関わらず常に削除する (アプリを一度も起動せずアンインストール
   ; された場合、Python 側の消費・自己削除が走らず残るケアも兼ねる)。
   Delete "$INSTDIR\installer_language.txt"
+  ; The same for the file a moved install leaves for the app (ADR-014, 2.5, 5).
+  Delete "$INSTDIR\${MOVEDFROMFILE}"
 
   ; Delete update.exe
   Delete "$INSTDIR\update.exe"
@@ -2084,6 +2355,9 @@ Section Uninstall
   !else
     DeleteRegKey HKCU "${UNINSTKEY}"
   !endif
+  ; ADR-014, 2.5: and the keys up to 0.6.x when they record this install, as an update that
+  ; stopped half way may leave them.
+  Call un.RemoveOldKeys
 
   DeleteRegValue HKCU "${MANUPRODUCTKEY}" "Installer Language"
 
@@ -2092,6 +2366,8 @@ Section Uninstall
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
     RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+    RmDir /r "$APPDATA\${OLDBUNDLEID}"
+    RmDir /r "$LOCALAPPDATA\${OLDBUNDLEID}"
   ${EndIf}
 
   ${GetOptions} $CMDLINE "/P" $R0
@@ -2099,10 +2375,97 @@ Section Uninstall
     SetAutoClose true
 SectionEnd
 
+; ADR-014, 2.5, 1: where the install is, from the key this version writes, else from the one
+; up to 0.6.x; and the Apps list entry to read with it.
+Function ReadPreviousInstall
+  Push $0
+  ReadRegStr $PrevInstallLocation SHCTX "${MANUPRODUCTKEY}" ""
+  ${If} $PrevInstallLocation == ""
+    ReadRegStr $PrevInstallLocation SHCTX "${OLDMANUPRODUCTKEY}" ""
+  ${EndIf}
+  StrCpy $PrevUninstKey "${UNINSTKEY}"
+  ReadRegStr $0 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} $0 == ""
+    ReadRegStr $0 SHCTX "${OLDUNINSTKEY}" "UninstallString"
+    ${IfThen} $0 != "" ${|} StrCpy $PrevUninstKey "${OLDUNINSTKEY}" ${|}
+  ${EndIf}
+  ClearErrors
+  Pop $0
+FunctionEnd
+
 Function RestorePreviousInstallLocation
-  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-  StrCmp $4 "" +2 0
-    StrCpy $INSTDIR $4
+  ; MultiUser's "both" mode calls this again once it has chosen the mode, and so SHCTX.
+  Call ReadPreviousInstall
+  ${IfThen} $PrevInstallLocation != "" ${|} StrCpy $INSTDIR $PrevInstallLocation ${|}
+  ; ADR-014, 2.5, 2: an install in the default folder up to 0.5.0 moves to the default folder of
+  ; today, which the directory page shows; one in a folder the user chose stays. An install
+  ; made by 0.5.1 or later is in the new default folder already: only its keys move.
+  StrCpy $MoveFrom ""
+  StrCpy $MoveTo "$LOCALAPPDATA\${PRODUCTNAME}"
+  Push $0
+  !insertmacro SameFolder "" "$INSTDIR" "$LOCALAPPDATA\${OLDINSTALLFOLDER}" $0
+  ${If} $0 == "1"
+    StrCpy $MoveFrom $INSTDIR
+    StrCpy $INSTDIR $MoveTo
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
+; ADR-014, 2.5, 2-5 and 9: the install in the default folder up to 0.5.0, updated in place in
+; Section Install, moves to $MoveTo by renaming the folder on the same drive. Nothing is copied
+; or deleted, and nothing (no link, no junction) is left at the old place: an older uninstaller
+; that does not expect one could reach the data through it. When $MoveTo holds anything, or the
+; rename fails (a file is open), the install stays where it is; the keys then record that place,
+; and the next update tries again. $move_result says what happened.
+Function MoveInstallFolder
+  Push $0
+  Push $1
+  ; Never hold a working directory inside the folder being renamed.
+  SetOutPath "$TEMP"
+  ; An empty folder in its place is taken over; anything else there stays untouched.
+  ${If} ${FileExists} "$MoveTo"
+    RMDir "$MoveTo"
+    ${If} ${FileExists} "$MoveTo"
+      StrCpy $move_result "destination_not_empty"
+      Goto move_done
+    ${EndIf}
+  ${EndIf}
+  ; The app takes this file at its next start and rewrites the paths it saved under the old
+  ; folder. Written before the rename, it travels with the files, so a run that stops right
+  ; after the rename still hands it over. UTF-16 after a byte order mark: the folder's name may
+  ; be outside the ANSI code page.
+  ClearErrors
+  FileOpen $0 "$INSTDIR\${MOVEDFROMFILE}" w
+  IfErrors move_marker_failed
+  FileWriteWord $0 65279
+  FileWriteUTF16LE $0 "$INSTDIR"
+  FileClose $0
+  IfErrors move_marker_failed
+  ; Processes that have just ended (WebView2's, the app's helpers) may still hold the folder.
+  StrCpy $1 0
+  move_retry:
+    ClearErrors
+    Rename "$INSTDIR" "$MoveTo"
+    IfErrors 0 move_renamed
+    IntOp $1 $1 + 1
+    ${If} $1 < 10
+      Sleep 500
+      Goto move_retry
+    ${EndIf}
+    StrCpy $move_result "rename_failed"
+    Delete "$INSTDIR\${MOVEDFROMFILE}"
+    Goto move_done
+  move_renamed:
+    StrCpy $INSTDIR $MoveTo
+    StrCpy $move_result "moved"
+    Goto move_done
+  move_marker_failed:
+    StrCpy $move_result "marker_failed"
+    Delete "$INSTDIR\${MOVEDFROMFILE}"
+  move_done:
+  ClearErrors
+  Pop $1
+  Pop $0
 FunctionEnd
 
 Function SkipIfPassive
@@ -2136,13 +2499,13 @@ FunctionEnd
 !macroend
 
 Function CreateDesktopShortcut
-  CreateShortcut "$DESKTOP\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  CreateShortcut "$DESKTOP\${SHORTCUTNAME}.lnk" "$INSTDIR\$main_binary.exe"
   !insertmacro SetLnkAppUserModelId "$DESKTOP\${SHORTCUTNAME}.lnk"
 FunctionEnd
 
 Function CreateStartMenuShortcut
   CreateDirectory "$SMPROGRAMS\$AppStartMenuFolder"
-  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk" "$INSTDIR\$main_binary.exe"
   !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
 FunctionEnd
 
@@ -2155,11 +2518,34 @@ FunctionEnd
   ${If} ${FileExists} "${old}"
     Delete "${old}"
     ${IfNot} ${FileExists} "${new}"
-      CreateShortcut "${new}" "$INSTDIR\${MAINBINARYNAME}.exe"
+      CreateShortcut "${new}" "$INSTDIR\$main_binary.exe"
       !insertmacro SetLnkAppUserModelId "${new}"
     ${EndIf}
   ${EndIf}
 !macroend
+
+; ADR-014, 2.5, 7 and 8: once the install folder moved or the main binary took its new name, the
+; shortcuts the installer made that are still there lead to the new place and name; one the user
+; removed is not made again. Pinned items are not touched: a program cannot pin them again (the
+; release notes ask to).
+!macro RepointShortcut shortcut
+  ${If} ${FileExists} "${shortcut}"
+    CreateShortcut "${shortcut}" "$INSTDIR\$main_binary.exe"
+    !insertmacro SetLnkAppUserModelId "${shortcut}"
+  ${EndIf}
+!macroend
+
+Function RepointShortcuts
+  !insertmacro RepointShortcut "$DESKTOP\${SHORTCUTNAME}.lnk"
+  ; A passive install puts it at the top of the Start menu.
+  !insertmacro RepointShortcut "$SMPROGRAMS\${SHORTCUTNAME}.lnk"
+  ; The Start menu folder: the default one, and the one chosen on the wizard's page. (The
+  ; shortcut there is made again further on in any case.)
+  !insertmacro RepointShortcut "$SMPROGRAMS\${PRODUCTNAME}\${SHORTCUTNAME}.lnk"
+  ${If} $AppStartMenuFolder != ""
+    !insertmacro RepointShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
+  ${EndIf}
+FunctionEnd
 
 Function MigrateOldShortcuts
   !insertmacro MigrateOldShortcut "$DESKTOP\${OLDSHORTCUTNAME}.lnk" "$DESKTOP\${SHORTCUTNAME}.lnk"

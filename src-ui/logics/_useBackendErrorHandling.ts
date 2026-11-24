@@ -32,7 +32,6 @@ import {
     useAdvancedSettings,
 } from "@logics_configs";
 import { ui_configs } from "./ui_configs";
-import { clearLegacyConsentPending } from "./configs/legacyModelConsent";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./configs/cloudTranscription";
 import type { CloudTranscriptionBase } from "./configs/cloudTranscription";
 
@@ -350,9 +349,6 @@ export const _useBackendErrorHandling = () => {
             // ウェイトダウンロード関連エラー (WEIGHT_*)
             // ============================================================================
             case "WEIGHT_DOWNLOAD_CONSENT_REQUIRED":
-                if (endpoint === "/run/download_ctranslate2_weight") {
-                    updateCTranslate2WeightTypeStatus(old => clearLegacyConsentPending(old.data, fieldOf(data, "weight_type")));
-                }
                 showNotification_Warning(t(fieldOf(data, "startup") ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
                     { model: fieldOf(data, "weight_type") }), { category_id: `${error_code}:${fieldOf(data, "kind")}:${fieldOf(data, "weight_type")}`, hide_duration: null });
                 return;

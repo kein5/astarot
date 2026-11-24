@@ -1,7 +1,7 @@
 {
   "name": "astarot",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0-beta.1",
   "type": "module",
   "scripts": {
     "build-resources": "bat\\build.bat",
@@ -21,7 +21,7 @@
     "dev-ui": "npm run task-kill && npm-run-all --parallel vite tauri-dev",
     "analyze-error": "node utils/analyze_ui_error.js",
     "build": "npm run task-kill && npm run clean-soft && npm run update-version && npm run build-resources && npm run vite-build && npm run tauri build",
-    "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX.zip",
+    "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name ASTAROT.zip",
     "dev:web": "vite",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tests/integration/tsconfig.json",
     "test": "vitest run",
@@ -67,7 +67,6 @@
     "@vitejs/plugin-react": "6.3.0",
     "@vitest/coverage-v8": "5.1.0",
     "npm-run-all2": "9.0.4",
-    "sass": "1.108.2",
     "source-map": "0.8.0",
     "typescript": "7.0.2",
     "vite": "8.3.8",

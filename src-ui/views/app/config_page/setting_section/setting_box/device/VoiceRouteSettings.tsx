@@ -4,7 +4,7 @@ import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { usesOutputDevice } from "../../../../../../logics/voice/routeState";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
@@ -12,6 +12,7 @@ import { PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
 import type { VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import { Button } from "../../../../../kit/index.ts";
 
 // The route the saved settings name: "external" or "managed", as the core sends it.
 const routingOf = (settings: VoiceSettings): string | undefined => typeof settings.routing === "string" ? settings.routing : undefined;
@@ -39,11 +40,12 @@ export const VoiceRouteControls = () => {
     return <>
         {renamed && <div role="status">
             <p>{t("voice_ui.managed_route_renamed")}</p>
-            <button type="button" onClick={() => send("/set/disable/managed_route_rename_notice")}>{t("common.close_button_label")}</button>
+            <Button onClick={() => send("/set/disable/managed_route_rename_notice")}>{t("common.close_button_label")}</Button>
         </div>}
         <FormRow group label={t("voice_ui.mute_row")} description={t("voice_ui.mute_row_description", { scope: t(route.managed ? "voice.mute_scope_managed" : route.covers_direct ? "voice.mute_scope_device" : "voice.mute_scope_external") })}>
-            <button type="button" onClick={() => send("/run/mute_voice")}>{t("voice.mute")}</button>
-            <button type="button" disabled={!route.ready || !!route.pending || !route.requested_muted} onClick={() => send("/run/resume_voice")}>{t("voice.resume")}</button>
+            {/* The kit's plain Buttons; the form's rules for its own buttons leave them alone (VoiceSettings.css.ts). */}
+            <Button onClick={() => send("/run/mute_voice")}>{t("voice.mute")}</Button>
+            <Button disabled={!route.ready || !!route.pending || !route.requested_muted} onClick={() => send("/run/resume_voice")}>{t("voice.resume")}</Button>
         </FormRow>
         <EnvReadout tone={route.error ? "failed" : route.preparing || route.pending || !route.ready || route.observed_muted == null ? "neutral" : route.observed_muted ? "warning" : "active"}>
             {/* A device route has no OS gate to read back, so it cannot say "confirmed". */}

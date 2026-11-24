@@ -230,3 +230,40 @@ for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
         detach();
     });
 }
+
+test("settings routes update state without raising the saved notice (only explicit save-bar saves notify)", async () => {
+    let saveNotices = 0;
+    const s = await loadBridgeRoutes(async () => ({
+        useNotificationStatus: () => ({
+            showNotification_Error() {},
+            showNotification_Warning() {},
+            showNotification_Success() {},
+            showNotification_SaveSuccess: () => { saveNotices += 1; },
+            dismissNotification() {},
+        }),
+    }));
+    const silentCases: readonly [string, string, unknown][] = [
+        // View preferences, direct manipulation, and internal flags
+        ["/set/data/ocr_portal_restore_token", "Atom_OcrPortalRestoreToken", "tok-1"],
+        ["/set/data/catalog_layout", "Atom_CatalogLayout", "list"],
+        ["/set/data/usage_presets", "Atom_UsagePresets", ["translation"]],
+        ["/set/data/tray_companion_wheel_hint_shown", "Atom_TrayCompanionWheelHintShown", true],
+        ["/set/data/overlay_desktop_placement", "Atom_OverlayDesktopPlacement", { x: 120, y: 80 }],
+        ["/set/data/overlay_vr_panel_anchor", "Atom_OverlayVrPanelAnchor", "HMD"],
+        ["/set/enable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", true],
+        ["/set/disable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", false],
+        ["/set/data/overlay_vr_panel_font_size", "Atom_OverlayVrPanelFontSize", 20],
+        // Immediate settings controls and shared endpoints
+        ["/set/data/theme", "Atom_Theme", { preset: "custom", custom: { base: "#112233", accent: "#445566" } }],
+        ["/set/enable/osc_query", "Atom_EnableOscQuery", true],
+        ["/set/disable/vrc_mic_mute_sync", "Atom_EnableVrcMicMuteSync", false],
+        ["/set/data/overlay_vr_panel_opacity", "Atom_OverlayVrPanelOpacity", 0.8],
+        ["/set/data/tray_companion_edge", "Atom_TrayCompanionEdge", "left"],
+        ["/set/data/telemetry_notice", "Atom_TelemetryNotice", { pending: false, enabled: false }],
+    ];
+    for (const [endpoint, atomName, result] of silentCases) {
+        s.receiveRoutes({ endpoint, status: 200, result });
+        assert.deepEqual(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, atomName)).data, result, endpoint);
+    }
+    assert.equal(saveNotices, 0);
+});

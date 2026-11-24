@@ -2,8 +2,10 @@
 
     python -m tools.updater_manifest --payload build/release-draft/payload --version 0.4.0
 
-The release draft job signs VRCT-VOX_setup.exe and the AppImage with `tauri signer sign
---app-version <version>` first; each gets a `.sig` beside it. This writes latest.json into the
+The release draft job signs ASTAROT_setup.exe and the AppImage (ASTAROT-<version>-linux-x64-release
+.AppImage) with `tauri signer sign --app-version <version>` first; each gets a `.sig` beside it.
+latest.json names these files only, never their copies under the names up to 0.6.x
+(tools/release_candidate.py, ADR-014 2.10). This writes latest.json into the
 payload, pointing at the files where the published release will serve them, and removes the
 `.sig` files, whose contents are now in latest.json.
 
@@ -22,9 +24,9 @@ import hashlib
 import json
 from pathlib import Path
 
-from tools.release_candidate import REPOSITORY, ROOT
+from tools.release_candidate import REPOSITORY, ROOT, WINDOWS_INSTALLER, linux_stem
 
-WINDOWS_ASSET = "VRCT-VOX_setup.exe"
+WINDOWS_ASSET = WINDOWS_INSTALLER
 MANIFEST = "latest.json"
 
 
@@ -112,22 +114,26 @@ def check_signature(path, sig_text, version, key, require_verification=False):
     return True
 
 
-def updater_files(payload):
+def linux_asset(version):
+    return linux_stem(version) + ".AppImage"
+
+
+def updater_files(payload, version):
     """{platform key: file} the app reads from latest.json (src-tauri/src/app_update.rs)."""
     windows = payload / WINDOWS_ASSET
-    appimages = sorted(payload.glob("*.AppImage"))
+    appimage = payload / linux_asset(version)
     if not windows.is_file():
         raise ManifestError(f"The payload has no {WINDOWS_ASSET}")
-    if len(appimages) != 1:
-        raise ManifestError("The payload needs exactly one AppImage")
-    return {"windows-x86_64": windows, "linux-x86_64": appimages[0]}
+    if not appimage.is_file():
+        raise ManifestError(f"The payload has no {appimage.name}")
+    return {"windows-x86_64": windows, "linux-x86_64": appimage}
 
 
 def write(payload, version, now=None, key=None, require_verification=False):
     payload = Path(payload)
     key = key or public_key()
     platforms = {}
-    for platform, path in updater_files(payload).items():
+    for platform, path in updater_files(payload, version).items():
         sig = path.with_name(path.name + ".sig")
         if not sig.is_file():
             raise ManifestError(f"{path.name} has no .sig: sign it with tauri signer sign --app-version")
@@ -145,7 +151,7 @@ def write(payload, version, now=None, key=None, require_verification=False):
         platforms=platforms,
     )
     (payload / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    for path in updater_files(payload).values():
+    for path in updater_files(payload, version).values():
         path.with_name(path.name + ".sig").unlink()
     return manifest
 

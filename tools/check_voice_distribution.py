@@ -59,13 +59,13 @@ class _InspectionBudget:
         self.entries -= 1
 
 
-def _check_name(name, context):
-    reason = violation(name)
+def _check_name(name, context, *, source_archive=False):
+    reason = violation(name, source_archive=source_archive)
     if reason:
         raise ValueError(f"{reason} in fork distribution: {context}: {name}")
 
 
-def _inspect_member(source, size, name, context, depth, budget):
+def _inspect_member(source, size, name, context, depth, budget, *, source_archive=False):
     # Read each member once, including renamed/preamble-prefixed ZIPs. Keep
     # large DLLs off disk: ZIP recognition only needs the end record/comment.
     with tempfile.TemporaryFile() as nested:
@@ -85,12 +85,12 @@ def _inspect_member(source, size, name, context, depth, budget):
             if size > MAX_NESTED_ZIP:
                 raise ValueError(f"Cannot inspect oversized nested ZIP: {context}: {name}")
             nested.seek(0)
-            _zip(nested, f"{context}!{name}", depth + 1, prefix=name, budget=budget)
+            _zip(nested, f"{context}!{name}", depth + 1, prefix=name, budget=budget, source_archive=source_archive)
         elif name.lower().endswith(ARCHIVE_SUFFIXES):
             raise ValueError(f"Cannot inspect unsupported nested archive: {context}: {name}")
 
 
-def _zip(stream, context, depth=0, *, prefix="", budget=None):
+def _zip(stream, context, depth=0, *, prefix="", budget=None, source_archive=False):
     if depth > 4:
         raise ValueError(f"Cannot inspect excessive ZIP nesting: {context}")
     if budget is None:
@@ -100,30 +100,30 @@ def _zip(stream, context, depth=0, *, prefix="", budget=None):
             for entry in archive.infolist():
                 name = f"{prefix}/{entry.filename}" if prefix else entry.filename
                 budget.consume(entry.file_size, context)
-                _check_name(name, context)
+                _check_name(name, context, source_archive=source_archive)
                 if entry.flag_bits & 1:
                     raise ValueError(f"Cannot inspect encrypted ZIP: {context}")
                 if entry.is_dir():
                     continue
                 with archive.open(entry) as source:
-                    _inspect_member(source, entry.file_size, name, context, depth, budget)
+                    _inspect_member(source, entry.file_size, name, context, depth, budget, source_archive=source_archive)
     except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
         raise ValueError(f"Cannot inspect ZIP: {context}") from exc
 
 
-def check(paths, *, root=None):
+def check(paths, *, root=None, source_archive=False):
     for path in map(Path, paths):
         artifact_root = Path(root) if root is not None else (path if path.is_dir() else path.parent)
         name = path.relative_to(artifact_root).as_posix()
-        _check_name(name, path)
+        _check_name(name, path, source_archive=source_archive)
         if not path.exists():
             raise ValueError(f"Artifact does not exist: {path}")
         if path.is_symlink():
             raise ValueError(f"Cannot inspect symlink in distribution: {path}")
         if path.is_dir():
-            check(path.iterdir(), root=artifact_root)
+            check(path.iterdir(), root=artifact_root, source_archive=source_archive)
         elif path.suffix.lower() == ".zip" or _has_zip_end_record(_file_tail(path)):
-            _zip(path, path, prefix=name)
+            _zip(path, path, prefix=name, source_archive=source_archive)
         elif str(path).lower().endswith(ARCHIVE_SUFFIXES):
             raise ValueError(f"Cannot inspect unsupported archive: {path}")
 
@@ -161,6 +161,8 @@ if __name__ == "__main__":
     parser.add_argument("--seven-zip", default="7z")
     parser.add_argument("--allow-internal-links", action="store_true",
                         help="Linux onedir trees only: allow links to regular files within each root")
+    parser.add_argument("--source-archive", action="store_true",
+                        help="Git source archive only: allow reviewed non-model config and test fixtures")
 
     args = parser.parse_args()
     if not args.paths and not args.nsis:
@@ -171,7 +173,7 @@ if __name__ == "__main__":
             for path in args.paths:
                 check_tree(path)
         else:
-            check(args.paths)
+            check(args.paths, source_archive=args.source_archive)
         check_nsis(args.nsis, args.seven_zip)
 
     except (ValueError, OSError) as exc:

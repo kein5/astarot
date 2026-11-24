@@ -79,7 +79,6 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) }, ...imports };
     const require = (name: string): unknown => {
-        if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return icon;
         if (name in dependencies) return dependencies[name];

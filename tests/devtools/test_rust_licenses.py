@@ -69,7 +69,7 @@ class CollectTest(unittest.TestCase):
                   "native/rvc-runtime/Cargo.toml": meta(worker["id"], [worker, shared],
                                                         {worker["id"]: [(shared["id"], NORMAL)]})}
         crates = rl.collect("x86_64-pc-windows-msvc", load=self.load_for(graphs))
-        self.assertEqual(crates[("shared", "1.0.0")]["binaries"], ["vrct-vox", "astarot-rvc-worker"])
+        self.assertEqual(crates[("shared", "1.0.0")]["binaries"], ["astarot", "astarot-rvc-worker"])
         self.assertEqual(set(crates[("shared", "1.0.0")]["files"]), {"LICENSE-MIT", "LICENSE-APACHE"})
         self.assertTrue(crates[("app", "1.0.0")]["local"])
         self.assertEqual(crates[("app", "1.0.0")]["files"], {})
@@ -98,15 +98,15 @@ class WriteTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = package(tmp, "shared")
             crates = {("shared", "1.0.0"): {"name": "shared", "version": "1.0.0", "license": "MIT", "repository": None,
-                                            "local": False, "binaries": ["vrct-vox"],
+                                            "local": False, "binaries": ["astarot"],
                                             "files": {"LICENSE": Path(source["manifest_path"]).parent / "LICENSE"}},
                       ("app", "0.0.0"): {"name": "app", "version": "0.0.0", "license": None, "repository": None,
-                                         "local": True, "binaries": ["vrct-vox"], "files": {}}}
+                                         "local": True, "binaries": ["astarot"], "files": {}}}
             output = Path(tmp) / "out"
             rl.write(output, crates, "x86_64-unknown-linux-gnu")
             self.assertEqual((output / "shared-1.0.0/LICENSE").read_text(), "shared LICENSE\n")
             self.assertFalse((output / "app-0.0.0").exists())
-            self.assertIn("| app | 0.0.0 | VRCT-VOX | vrct-vox |", (output / "README.md").read_text(encoding="utf-8"))
+            self.assertIn("| app | 0.0.0 | VRCT-VOX | astarot |", (output / "README.md").read_text(encoding="utf-8"))
             self.assertEqual(rl.missing_files(output), [])
             (output / "shared-1.0.0/LICENSE").unlink()
             self.assertEqual(rl.missing_files(output), ["shared-1.0.0/LICENSE"])
@@ -116,7 +116,7 @@ class WriteTest(unittest.TestCase):
 
     def test_the_list_carries_the_attribution_of_a_crate_in_the_build(self):
         row = {"name": "webpki-roots", "version": "1.0.11", "license": "CDLA-Permissive-2.0", "local": False,
-               "binaries": ["vrct-vox"], "files": ["webpki-roots-1.0.11/LICENSE"]}
+               "binaries": ["astarot"], "files": ["webpki-roots-1.0.11/LICENSE"]}
         self.assertIn("Common CA Database (CCADB)", rl.readme([row], "x86_64-pc-windows-msvc"))
         other = dict(row, name="shared", license="MIT")
         self.assertNotIn("## Attributions", rl.readme([other], "x86_64-pc-windows-msvc"))

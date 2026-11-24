@@ -3,7 +3,7 @@ import type { RefObject } from "react";
 import { useAtomValue } from "jotai";
 import { Virtualizer } from "virtua";
 import type { CacheSnapshot, VirtualizerHandle } from "virtua";
-import styles from "./LogBox.module.scss";
+import * as styles from "./LogBox.css.ts";
 import { MessageContainer } from "./message_container/MessageContainer";
 import { EmptyState } from "./EmptyState";
 import { useMessageActions, nextLogView, rowsBetween, speakerContinuations, useSpeakerNaming } from "@logics_common";

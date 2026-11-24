@@ -12,7 +12,75 @@ evidence:
   - docs/adr/adr-013-secret-store.md
   - native/talk-ai
 ---
-# ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない
+# ADR-018: Talk AI connects to external conversation services, and the app does not run conversation models
+
+[日本語版](#adr-018-おしゃべりaiは外部の対話サービスにつなぎアプリは対話のモデルを動かさない日本語版)
+
+Decision owners: The repository's maintainers
+Related: Issue #388, [ADR-012](adr-012-audio-ai-runtime-consolidation.md), [ADR-013](adr-013-secret-store.md), [ADR-015](adr-015-translation-llm-runtime-exception.md), [the license register](../voice-stack/licensing.md)
+Status: Accepted (2026-11-22). The decision is recorded under "What was decided" in PR #969. Implementation proceeds from stage 1 (the connection component that talks in the OpenAI Realtime form).
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT (ADR-011). The layout at the time of writing is that of 0.6.0, in which the Rust core runs inside the app process (`rust-core`).
+
+## 1. Context
+
+"Talk AI" in Issue #388 is a feature for talking with an AI by voice while showing it the screen. Uses include asking about what you are looking at and having the AI describe the screen by voice, and accessibility uses are expected as well. It needs to hear a voice and answer by voice, to let the user interrupt in the middle of a reply, and to accept images of the screen.
+
+As of 2026-11-22, the services that meet these needs fall into two families:
+
+- **Cloud realtime APIs**: OpenAI Realtime and Gemini Live. They handle audio input and output, image input and interruption over WebSocket. They are used with the user's API key.
+- **Local models**: Qwen3-Omni (Apache-2.0) takes images and audio, answers with audio, and supports Japanese speech. Running it needs at least a GPU with video memory in the 24 GB class, and even quantized the model is 18 to 26 GB. The runtime that can run the whole pipeline is vLLM-Omni (Python), which has `/v1/realtime` in the same form as part of OpenAI Realtime.
+
+ADR-012 gathered the inference of audio AI into speech.cpp and required an exception ADR to add an inference runtime specific to the app. Its table in 2.2 counted external translation services and LLM services as "connections to existing providers", and left the app responsible for consent, credentials, control of the data sent, and the handling of failures. Where Talk AI fits in this table depends on whether its counterpart runs inside the app or is an outside service the app connects to.
+
+## 2. Decision
+
+1. **The app does not run conversation models itself.** Talk AI's counterpart is an external conversation service that the app connects to.
+   - **API family**: the app connects to cloud realtime APIs with the user's API key. The key is stored in the place set by ADR-013.
+   - **Local family**: the app connects to a server that the user set up on their own PC or in their LAN (vLLM-Omni first). The app neither bundles nor downloads that server or the model. It gives guidance on the recommended models and on the hardware needed.
+2. **This is not an exception to ADR-012.** It is treated the same as "external translation services and LLM services" in 2.2, and the way it connects follows the practice of the local LLMs for translation (LM Studio, Ollama) and of the external speech synthesis engines (ADR-008). Local destinations are limited to this PC and the LAN.
+3. **The same communication form uses the same connection component.** OpenAI Realtime and the `/v1/realtime` of vLLM-Omni are spoken to by the same component. A service with a different form, such as Gemini Live, gets a component of its own.
+4. **The app's responsibilities are those in 2.2 of ADR-012**: explicit consent before the screen and voice are sent outside, an indication that makes sending visible while it happens, control of the interval and size of the screen images sent, a stop that reliably ends sending, and control of the microphone and output routes.
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not chosen |
+|---|---|---|
+| Bundle vLLM-Omni with the app | Put local inference in the distribution | The app would carry a whole Python runtime, which goes against the policy that stopped bundling Python in 0.6.0 (#285). The model is also 18 to 26 GB, beyond the size of what goes into a distribution |
+| Run local conversation on llama.cpp (GGML) | The app runs a GGML derivative of MiniCPM-o | As of 2026-11-22, MiniCPM-o speaks only English and Chinese, so it cannot hold a spoken conversation in Japanese. No GGML support covers Qwen3-Omni including its audio output |
+| Run it on ONNX Runtime | Put it on the same base as OCR and translation | There is no ONNX form that can run Qwen3-Omni's listening, seeing and speaking |
+| Put a conversation model into speech.cpp | Gather it upstream, following the principle of ADR-012 | speech.cpp has no conversation model that takes images and audio and answers by voice. Adding one is not on a scale that fits upstream either, and it would not be ready in time for Issue #388. If a conversation model enters speech.cpp, this is reconsidered under 6 |
+
+## 4. Consequences
+
+- The distribution does not grow. No new runtime is added for the inference of conversation models, so the distribution, resource and maintenance burden of ADR-012 does not grow either.
+- To use it locally, users need to set up a server themselves and provide a GPU in the 24 GB class. For that reason, the local catalog centers on guidance about the recommended models and the hardware needed.
+- Cloud APIs may change their communication form. The connection component is protected by tests against a fake server, and follows changes in the form.
+- The screen and voice leave the app. Consent, the indication while sending, and the control of the amount sent are built as the app's responsibility for every counterpart.
+- Gemini Live is an API meant for server-to-server authentication, and it does not recommend direct use from clients. The app connects directly from the user's PC with the user's own key. This point is included in the explanation given to users.
+
+## 5. Verification and acceptance criteria
+
+| Aspect | What to check | How |
+|---|---|---|
+| No inference | The distribution contains no conversation model and no runtime for its inference | The distribution check (`tools/check_voice_distribution.py`) |
+| Connection | Audio, images and interruptions make the round trip in the OpenAI Realtime form and in the Gemini Live form | Tests of the core and the crate against a fake server |
+| Consent and indication | The screen and voice are not sent before consent or after a stop. While sending, an indication is shown | Tests of the core and of the screens |
+| Local destinations | Plain-text connections go only to this PC and the LAN | The same destination check tests as for translation |
+
+## 6. Revisit triggers
+
+- When speech.cpp or ONNX Runtime can run a model that takes images and audio and answers in a Japanese voice with fewer resources than the 24 GB class. In that case, return to the principle of ADR-012 and evaluate running it inside the app.
+- When vLLM-Omni drops its endpoint in the same form as OpenAI Realtime.
+- When the recommended local models can no longer be recommended, for license or other reasons.
+
+## 7. Open questions
+
+The scope of the feature, the source the screen is captured from, the interval and size of what is sent, the output for the reply voice, and the models listed in the catalog are decided in Issue #388 and in "Decisions needed" in the PR of this ADR. What is decided is written in `docs/spec/`.
+
+---
+
+# ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない（日本語版）
 
 Decision owners: リポジトリの保守担当者
 Related: Issue #388、[ADR-012](adr-012-audio-ai-runtime-consolidation.md)、[ADR-013](adr-013-secret-store.md)、[ADR-015](adr-015-translation-llm-runtime-exception.md)、[ライセンス台帳](../voice-stack/licensing.md)

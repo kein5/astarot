@@ -5,6 +5,7 @@ import i18next from "i18next";
 import clsx from "clsx";
 import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt, branchAt } from "../../../../../../logics/test/locales.ts";
+import { astarot_discord_invite_url } from "../../../../../../logics/ui_configs.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { ColorEntryWithSaveButtonProps } from "../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx";
 
@@ -25,11 +26,18 @@ for (const language of ["en", "ja"]) {
             ...images, "@useI18n": { useI18n: () => translation },
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
-            "@ui_configs": { upstream_vrct_document_url: () => "https://example.test/docs" },
+            "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
         });
         const tree = runtime.render(AboutVrct);
+        const topLinks = all(tree, node => node.type === "a" && node.props?.className === "vrct_vox_link");
+        const discordLink = topLinks.find(node => node.props.href === astarot_discord_invite_url);
+        assert.ok(discordLink, "official Discord link is rendered on About");
+        assert.equal(discordLink.props.target, "_blank");
+        assert.equal(discordLink.props.rel, "noreferrer");
+        assert.equal(discordLink.props.children, translation.t("config_page.about_vrct.links.discord"));
+        assert.ok(String(discordLink.props.children).length > 0 && !String(discordLink.props.children).startsWith("config_page."));
         const links = all(tree, node => node.props?.href_id);
-        assert.equal(links.length, 12);
+        assert.equal(links.length, 9);
         const names = [];
         for (const component of links) {
             // A link of the page's own: what it draws is the anchor.
@@ -40,11 +48,14 @@ for (const language of ["en", "ja"]) {
             assert.equal(name, translation.t(`config_page.about_vrct.image_links.${component.props.href_id}`));
             names.push(name);
         }
-        assert.equal(new Set(names).size, 12);
+        assert.equal(new Set(names).size, 9);
+        // Upstream VRCT developer cards are removed (#1097); VRCT logo, links, and Contributors remain.
+        assert.ok(!links.some(node => String(node.props.href_id).startsWith("dev_")));
         const creditImages = all(tree, node => node.type === "img");
-        assert.equal(creditImages.length, 15);
+        assert.equal(creditImages.length, 12);
         for (const image of creditImages) {
             assert.ok(image.props.alt && !image.props.alt.startsWith("config_page."), image.props.src);
+            assert.ok(!String(image.props.src).includes("dev_"), image.props.src);
         }
         const disclaimer = findIn(tree, node => node.props?.className === "vrchat_disclaimer");
         // The trademark notice keeps its original English wording in every locale.
@@ -141,7 +152,7 @@ test("every picture of the About page carries the natural size of its file", asy
         return [Number(/\swidth="(\d+)"/.exec(svg)?.[1]), Number(/\sheight="(\d+)"/.exec(svg)?.[1])];
     };
     const pictures = [...source.matchAll(/<img src=\{(\w+)\}([^>]*)\/>/g)];
-    assert.ok(pictures.length >= 16, String(pictures.length));
+    assert.ok(pictures.length >= 13, String(pictures.length));
     for (const [, name, rest] of pictures.filter(([, name]) => name in files)) {
         const size = /width=\{(\d+)\} height=\{(\d+)\}/.exec(rest);
         assert.ok(size, `${name} has no width and height`);
@@ -149,7 +160,12 @@ test("every picture of the About page carries the natural size of its file", asy
     }
     // The link pictures: their size beside each link, and on their img.
     const links = [...source.matchAll(/\{ img: (\w+), size: \[(\d+), (\d+)\], href:/g)];
-    assert.ok(links.length >= 12, String(links.length));
+    assert.ok(links.length >= 9, String(links.length));
     for (const [, name, width, height] of links) assert.deepEqual([Number(width), Number(height)], sizeOf(files[name]), name);
     assert.match(source, /src=\{img\} width=\{link\.size\[0\]\} height=\{link\.size\[1\]\}/);
+    // Width-constrained credit images keep height: "auto" so HTML width/height attributes do not distort aspect ratio.
+    const css = readFileSync(new URL("./AboutVrct.css.ts", import.meta.url), "utf8");
+    for (const name of ["vrct_vox_logo", "about_vrct_logo", "contributors_img", "special_thanks_members_img", "special_thanks_message_img"]) {
+        assert.match(css, new RegExp(`export const ${name} = style\\(\\{[^}]*height: "auto"`), name);
+    }
 });

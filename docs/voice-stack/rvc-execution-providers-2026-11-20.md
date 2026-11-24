@@ -1,4 +1,207 @@
-# RVC の推論の実行方式の比較（2026-11-20）
+# Comparison of execution providers for RVC inference (2026-11-20)
+
+[日本語版](#rvc-の推論の実行方式の比較2026-11-20日本語版)
+
+This is a record of measuring the three RVC graphs (HuBERT, RMVPE and the synthesizer) with each ONNX Runtime execution provider. These results led to adding DirectML to the RVC worker (PR #788, "Application worker" in [`native/rvc-runtime/README.md`](../../native/rvc-runtime/README.md)). The steps for the decisions that wait for measurements on a desktop PC are also collected here.
+
+All values were measured on the one PC below. They do not guarantee the speed on other PCs.
+
+## Main points
+
+- In graph-only time, DirectML was the fastest and had the smallest spread. With 80 ms blocks, p50 was 35.9 ms and p95 was 41.2 ms, and no block went over 80 ms.
+- With every GPU provider, convolutions, matrix multiplications and the GRU stayed off the CPU. Only small int64 operations that compute shapes were placed on the CPU, and they took less than 0.6% of the graphs' wall time.
+- Through the worker as well, DirectML was about 10 ms per packet faster than CUDA, and its p95 and maximum were also smaller when packets were sent at the send interval.
+- On this PC, neither CUDA nor DirectML can keep up with the default 40 ms block. At 80 ms, both keep up.
+- DirectML on the integrated GPU (Intel Iris Xe) takes about 240 ms for one 40 ms block and does not reach real time.
+- With CUDA on the desktop PC (Linux, RTX 4080 SUPER), the p95 round trip for a 40 ms block was about 19 ms, well within the time ("Measurement results on the desktop PC").
+
+## Measurement environment
+
+- PC: Intel Core i7-1255U (2 performance cores, 8 efficiency cores, 12 threads), 32 GB of memory, on AC power, power plan Balanced
+- OS: Windows 11 Home Insider Preview 26H2 (build 26320.9877)
+- GPU: NVIDIA GeForce RTX 3060 Ti 8 GB (Thunderbolt external enclosure, PCIe x4), integrated Intel Iris Xe
+- Drivers: NVIDIA 617.42 (supports CUDA 13.4), Intel 32.0.101.7085
+- ONNX Runtime: 1.31.0 for CPU, CUDA and WebGPU. CUDA uses CUDA runtime 13.4.92, cuBLAS 13.8.0.4 and cuDNN 9.26.1.1 (the same versions as the RVC runtime). DirectML is 1.24.4 (DirectML.dll 1.15.4). WebGPU uses the plugin `onnxruntime-ep-webgpu` 0.6.0
+- Model: Saisho Utane from the catalog (RVC v2, 48 kHz, with pitch). The SHA-256 of `model.pth`, HuBERT and `rmvpe.onnx` matched the pinned values
+
+## Graph-only comparison
+
+### Method
+
+- The synthesizer and HuBERT graphs are the same ones the worker builds when it loads (`synth::build_graph`, `HubertCheckpoint::build_graph`). They were written out to ONNX files and run with ONNX Runtime for Python. RMVPE is the same `rmvpe.onnx` the worker uses.
+- The inputs are random tensors in the shape the worker passes to the GPU for an 80 ms packet (block 8, crossfade 4, search 1, context 200 frames). No real audio or text was used. Every provider read the same files.
+- One block is the time to run the three graphs once each, one after another. After 30 warm-up blocks, 3 processes × 300 blocks were collected for each provider (3 × 200 for the CPU). The order of the processes changed in each round.
+- The thread counts match the worker: 6 for the CPU and 1 for the GPU providers. As in the worker, Windows power throttling was turned off.
+- Each GPU provider was confirmed to run on the RTX 3060 Ti from the loaded driver DLLs and the GPU usage.
+
+### Results (80 ms blocks)
+
+| Provider | ONNX Runtime | p50 | p95 | Over 80 ms |
+|---|---|---|---|---|
+| CPU (6 threads) | 1.31.0 | 899.5 ms | 1364.6 ms | 600 / 600 |
+| CUDA | 1.31.0 | 49.7 ms | 70.7 ms | 3 / 900 |
+| DirectML | 1.24.4 | 35.9 ms | 41.2 ms | 0 / 900 |
+| WebGPU (Vulkan) | 1.31.0 and EP 0.6.0 | 69.0 ms | 86.2 ms | 95 / 900 |
+| WebGPU (Direct3D 12, for reference) | 1.31.0 and EP 0.6.0 | 84.2 ms | 93.1 ms | 749 / 900 |
+
+The p50 and p95 of each graph are as follows (ms).
+
+| Provider | HuBERT | RMVPE | Synthesizer |
+|---|---|---|---|
+| CPU | 412.9 / 616.6 | 85.1 / 261.6 | 366.1 / 674.3 |
+| CUDA | 12.3 / 16.6 | 15.3 / 26.6 | 20.5 / 31.0 |
+| DirectML | 12.9 / 14.7 | 7.9 / 9.1 | 15.0 / 17.6 |
+| WebGPU (Vulkan) | 20.9 / 23.0 | 21.0 / 33.1 | 23.3 / 35.7 |
+| WebGPU (Direct3D 12) | 21.9 / 22.7 | 32.1 / 34.1 | 29.8 / 38.3 |
+
+- On the CPU, the p50 of each round varied widely, from 799 to 1110 ms.
+- The WebGPU plugin 0.6.0 does not start on Vulkan as distributed. Dawn tries to load `vulkan-1.dll` by a relative name and fails with Windows error 87. The measurement was made with the system's Vulkan loader placed next to the plugin.
+
+### Operations that fell back to the CPU
+
+The ONNX Runtime profiler collected 50 runs of each graph after 10 warm-up runs.
+
+| Provider | HuBERT | RMVPE | Synthesizer | Share of the graph's wall time (RMVPE / synthesizer) |
+|---|---|---|---|---|
+| CUDA | 0 | 6 | 10 | 0.38% / 0.44% |
+| DirectML | 0 | 6 | 10 | 0.42% / 0.35% |
+| WebGPU (Vulkan) | 0 | 8 | 10 | 0.57% / 0.54% |
+| WebGPU (Direct3D 12) | 0 | 8 | 10 | 0.29% / 0.29% |
+
+- In RMVPE, the operations placed on the CPU were `/Slice`, `/Concat`, `Gather`, `/fc/fc.0/gru/Gather`, `/fc/fc.0/gru/Unsqueeze` and `/fc/fc.0/gru/Concat`. With WebGPU, `/fc/fc.0/gru/ConstantOfShape` and `Gather_token_702` were also placed on the CPU. They compute the GRU batch size and the output shape from the input shape.
+- In the synthesizer, the operations placed on the CPU were `Slice_29`, `Concat_783`, `Concat_801`, `Concat_808`, `Concat_825`, `Concat_832`, `Add_796`, `Add_798`, `Add_806` and `Add_830`. They are int64 computations on 1 to 8 elements that build the shape passed to Reshape from the input shape.
+- With the setting that forbids falling back to the CPU (`session.disable_cpu_ep_fallback`), HuBERT loaded with every GPU provider. RMVPE and the synthesizer do not load.
+
+### Output differences
+
+The relative error (L2) against the CPU output was 7 × 10⁻⁵ or less with DirectML and WebGPU, and 1.0 to 2.3 × 10⁻³ with CUDA. The CUDA difference comes from TF32, which ONNX Runtime turns on by default. With `use_tf32=0` the error went down to 5 × 10⁻⁶, but one HuBERT run took 11.4 seconds and used up the GPU memory (8 GB).
+
+### 40 ms blocks
+
+The shape of the app's default 40 ms packet (block 4, crossfade 2, search 1, context 200 frames) was measured too, with 2 processes × 300 blocks.
+
+| Provider | p50 | p95 | Over 40 ms |
+|---|---|---|---|
+| CUDA | 47.1 ms | 65.2 ms | 600 / 600 |
+| DirectML (RTX 3060 Ti) | 33.7 ms | 38.2 ms | 18 / 600 |
+| DirectML (Iris Xe) | 240.9 ms | 273.4 ms | 600 / 600 |
+
+## Measurement through the worker
+
+The worker from PR #788 was run over the VVC1 pipe, as the app runs it (the same method as `tools/rvc_worker_bench.py`). The audio was synthesized sound. "Per-packet processing time" is the time when the next packet is sent after the previous answer arrives, and shows how long the worker spends on one block. "Round trip at the send interval" is the round trip when a packet is sent every block length, as the microphone sends them. A range gives the spread of the values over 2 or 3 runs.
+
+| Provider | Block | Per-packet processing time p50 / p95 | Round trip at the send interval p50 / p95 / max | Over the block length (round trip) |
+|---|---|---|---|---|
+| CUDA | 40 ms | 49.1–50.2 / 61.6–65.4 ms | 271–281 ms (delay builds up) | All |
+| DirectML | 40 ms | 40.0–41.2 / 51.3–52.1 ms | 205–242 ms (delay builds up) | All |
+| CUDA | 80 ms | 53.8–54.1 / 66.4–66.8 ms | 55.3–56.5 / 68.8–76.9 / 79.2–86.8 ms | 5 / 870 |
+| DirectML | 80 ms | 44.0–46.1 / 53.7–55.2 ms | 57.1–60.0 / 64.8–67.7 / 69.8–74.6 ms | 0 / 870 |
+
+- `auto` chose CUDA when both the CUDA runtime and the DirectML runtime were present, DirectML when only the DirectML runtime was present, and the CPU when neither was. DirectML chose the RTX 3060 Ti, whose `Discrete` is `1` in ONNX Runtime's device detection.
+- At 40 ms, one packet takes longer than the block length, so sending at the send interval makes the delay build up. The app drops blocks older than 240 ms and stops when half or more of the recent blocks are late.
+
+## Decisions
+
+### Round 1 (2026-11-20, in response to this measurement)
+
+1. Add DirectML to the RVC worker. Deal with two points during the implementation: the DirectML build of ONNX Runtime has stopped at 1.24.4, and the ranking on a desktop PC is not confirmed (PR #788).
+2. Keep CUDA's TF32 at its default.
+3. Stop considering WebGPU.
+4. Do not offer CPU conversion on PCs with a CPU of this class. Before the worker starts converting on the CPU, it converts a 0.5-second block of test audio and measures the time. If the conversion does not finish within the block length, it does not start and reports `vc_cpu_too_slow` ("CPU speed check" in `native/rvc-runtime/README.md`). On this PC's CPU, one block took 1.07 seconds, and conversion did not start.
+5. Do not add CUDA Graph for now.
+
+### Round 2 (2026-11-20, on the points in PR #788 that needed a decision)
+
+1. Do not change the default 40 ms block for now. On a strong PC, 40 ms gives less delay, so decide together with the measurement on a desktop PC.
+2. Keep the `auto` order at CUDA, DirectML, CPU for now. Decide after measuring on a desktop PC.
+3. Take DirectML on an integrated GPU out of `auto`. Iris Xe does not reach real time; this is the same reasoning as 4. When the worker starts converting under `auto`, it converts on the CPU if the GPU that DirectML uses (the first in DXGI's high-performance order) has `Discrete` set to `0`. `--device directml` and the check when downloading the runtime also use the integrated GPU.
+4. Accept the limits of the DirectML build of ONNX Runtime 1.24.4 for now. DirectML is in maintenance only, and 1.24.4 is its last version. The worker's `ort` (2.0.0-rc.15) requires API 22 on Windows and runs on 1.24.4. Decide what to do when `ort` starts to require ONNX Runtime newer than 1.24.
+5. Keep the comparison tables of the measurements as this measurement record.
+
+### Round 3 (2026-11-20, on the PC to measure on and item 4 of round 1)
+
+1. The measurements for items 1 and 2 of round 2 are made on a Linux desktop PC with an RTX 4080 SUPER. It has CUDA only, so it can measure item 1 of round 2 (the default 40 ms block). Proceed on the assumption that item 2 of round 2 (the `auto` order) cannot be measured on this PC.
+2. Implement item 4 of round 1 (PR #791).
+
+## Measurement on a desktop PC (plan)
+
+Items 1 and 2 of the round 2 decisions wait for measurements on a desktop PC. The steps are as follows.
+
+### PCs to measure
+
+| PC | Providers to measure | What it tells |
+|---|---|---|
+| Windows desktop, NVIDIA GPU | CUDA and DirectML, 40 ms and 80 ms | The `auto` order (decision 2), and whether 40 ms is enough (decision 1) |
+| Windows desktop, AMD or Intel discrete GPU | DirectML, 40 ms and 80 ms | Whether DirectML reaches real time on GPUs other than NVIDIA's |
+| Linux desktop, NVIDIA GPU | CUDA, 40 ms and 80 ms | Whether 40 ms is enough (decision 1). DirectML is Windows only. Measured on the RTX 4080 SUPER PC ("Measurement results on the desktop PC" below) |
+
+### What to prepare
+
+- The app with PR #788 (the bundled `astarot-rvc-worker`)
+- The RVC runtime (download it from the RVC page; on an NVIDIA PC it is the CUDA build)
+- On Windows, "ONNX Runtime · DirectML" (download it from "Models and runtime" on the RVC page)
+- The Saisho Utane model from the catalog (`model.pth`)
+
+### Steps
+
+```sh
+python tools/rvc_worker_bench.py --worker <app>/_internal/build/astarot-rvc-worker.exe \
+    --runtime <state>/vc_runtimes/rvc --directml <state>/vc_runtimes/onnxruntime-directml/lib \
+    --model <model.pth> --devices cuda,directml --block-ms 40,80 --packets 300 --rounds 3 --json result.json
+```
+
+- `<state>` is the folder that holds the settings (`config.json`). On Linux, leave out `--directml` and use `--devices cuda`.
+- Each run uses one worker, which takes about 5 seconds to get ready. The options above make 24 runs (3 rounds × 2 blocks × 2 providers × 2 methods), which take about 10 minutes.
+- While measuring, close other apps that use the GPU (VRChat, SteamVR, games).
+- Keep the output table and `result.json` together with the CPU, GPU, driver and OS versions.
+
+### Guide for the decisions (proposal)
+
+- Decision 1: If the p95 of the round trip at the send interval at 40 ms is below 40 ms, 40 ms is enough on that PC. If it is not enough on a desktop either, propose returning the default to 80 ms or setting a separate default for each provider.
+- Decision 2: If, on an NVIDIA desktop too, DirectML's per-packet processing time and round-trip p95 are at or below CUDA's, propose putting DirectML first in `auto`. If CUDA is faster, keep the current order.
+
+## Measurement results on the desktop PC (2026-11-20, Linux, RTX 4080 SUPER, CUDA)
+
+Following the steps above, CUDA was measured at 40 ms and 80 ms with `tools/rvc_worker_bench.py` (3 rounds × 300 packets, 870 packets counted for each condition). The model was Saisho Utane from the catalog, and the audio was synthesized sound.
+
+### Desktop PC environment
+
+- OS: Linux (CachyOS). 32 logical CPUs.
+- GPU: NVIDIA GeForce RTX 4080 SUPER (CUDA)
+- During the measurement, other work was using about 8 cores' worth of CPU (load average 8.5 to 9.9). It was not measured again without that load.
+- The CPU model and the versions of the GPU driver and ONNX Runtime are not in the results that were received.
+
+### Results
+
+#### Round trip at the send interval (ms)
+
+| Block | p50 | p95 | Max | Over the block length | Over 240 ms |
+|---|---|---|---|---|---|
+| 40 ms | 16.6–17.0 | 18.1–20.1 | 23.7–24.2 | 0 / 870 | 0 / 870 |
+| 80 ms | 21.7–24.6 | 45.1–46.6 | 51.7–52.0 | 0 / 870 | 0 / 870 |
+
+#### Per-packet processing time (ms)
+
+| Block | p50 | p95 | Max | Over the block length |
+|---|---|---|---|---|
+| 40 ms | 11.2–14.4 | 14.4–15.5 | 15.7–22.6 | 0 / 870 |
+| 80 ms | 11.8–14.3 | 12.0–15.6 | 15.1–23.7 | 0 / 870 |
+
+- All 12 runs returned `ready`, and every packet was converted. It took 2.2 to 3.2 seconds to reach `ready`.
+- The p95 of the round trip at 40 ms was 18.1 to 20.1 ms, which meets the guide for decision 1 (below 40 ms).
+- The p50 of the per-packet processing time at 40 ms was 11.2 to 14.4 ms, against 49.1 to 50.2 ms with CUDA on the laptop (RTX 3060 Ti over Thunderbolt).
+- The p95 of the round trip at 80 ms (about 46 ms) was larger than at 40 ms (about 19 ms). The log from the measurement shows the GPU clock dropping to P3 to P5 at 80 ms. Our guess is that a longer send interval let the GPU clock drop and made the round trip longer. This was not isolated by locking the clock.
+- Decision 2 (the `auto` order) is not settled by this result, because DirectML cannot be measured on this PC.
+
+## What was not measured
+
+- Conversion through the app, and checking by ear.
+- AMD GPUs, and a Windows desktop PC.
+- CUDA Graph, WebGPU graph capture, fp16.
+
+---
+
+# RVC の推論の実行方式の比較（2026-11-20）（日本語版）
 
 RVC の3つのグラフ（HuBERT、RMVPE、合成器）を、ONNX Runtime の実行方式ごとに測った記録です。この結果から、RVC の worker に DirectML を足しました（PR #788、[`native/rvc-runtime/README.md`](../../native/rvc-runtime/README.md) の「Application worker」）。デスクトップ PC での計測を待っている判断の段取りも、ここにまとめます。
 

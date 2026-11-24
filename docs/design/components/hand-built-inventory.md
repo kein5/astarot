@@ -1,8 +1,224 @@
-# 手作りの部品の棚卸し: 画面ごとの一覧
+# Inventory of hand-built components: a list per screen
+
+[日本語版](#手作りの部品の棚卸し-画面ごとの一覧日本語版)
+
+This document lists, screen by screen, the places where a screen builds a control by hand from native elements or a `div` even though a shared component exists. It is groundwork for deciding the order of two pieces of work: replacing those controls with components aligned with shadcn/ui (new-york-v4), and moving the styles to vanilla-extract (#957). At the time of the inventory, no code was changed.
+
+- Status: inventory (2026-11-23). How to carry out the replacement (H-01 to H-03) was decided on the same day, and the look of a replaced element (H-04) on 2026-11-24. The replacement started on 2026-11-24. When an element is replaced, write "replaced" in its row with the pull request number.
+- App checked: develop (after #983 was merged, `7a4b684`)
+- Related documents: [Component inventory: comparison with shadcn/ui](shadcn-alignment.md) (decision items D-xx), [Settings screen component experiment](README.md) (the kit and open questions K-xx), [ADR-010](../../adr/adr-010-frontend-stack.md)
+
+## How to read this document
+
+- **Shared components** are the ones in "List of shared components" below. They come in 3 layers: the kit aligned with shadcn/ui (`src-ui/views/kit/`), the app-wide `common_components`, and the settings' `_components` and `_templates`.
+- **Hand-built** means that a screen does not use a shared component: it writes native elements (`<button>`, `<select>`, `<input>`, `<dialog>` and so on) or a `div role="button"` directly and styles them with the SCSS of that screen or of a nearby module.
+- **Replacement** names a component that exists among the shared components now. An element that no shared component matches has "no shared component", and its replacement is given as its number (U-xx) in "Elements with no shared component" below.
+- **Difficulty** has 3 levels.
+  - Low: The shared component fits as it is. Any visual difference is small enough to need no decision.
+  - Medium: A shared component exists, but the shape of the props, the tests and styles shared with other screens also need changes. The look changes, so the screen has to be checked.
+  - High: The replacement is not settled until decision items (D-xx, K-xx) are decided. Or keyboard operation, the way waiting is shown or focus behavior changes.
+- The VR UI, the subtitle overlay and the companion handle are outside the comparison with shadcn/ui ("Other components" in [the comparison document](shadcn-alignment.md)). This document only lists where their hand-built elements are. The VR UI, the companion handle, the error screen and the startup failure dialog are not replaced with shared components either. Within the VR UI only, the language window's filter and collapsible section are brought in line with the VR UI's components (H-03).
+- The replacement goes component by component after the styles move to vanilla-extract (#957), as H-01 decided.
+
+## List of shared components
+
+### kit (`src-ui/views/kit/`)
+
+Components aligned with shadcn/ui. The sample page (`src-ui/kit-lab.html`) shows all of them. From 2026-11-24 the app's screens use them too, in the rows marked "replaced" below (open question K-01; H-04).
+
+| Component | What it is | shadcn/ui counterpart |
+|---|---|---|
+| `Button` | `tone` (primary, plain, quiet, danger) and `size` (regular, compact, icon) | Button |
+| `TextField` | A native `<input>`, with `invalid` and `mono` | Input |
+| `Select`, `SelectOption`, `SelectOptGroup` | Wraps a native `<select>` | NativeSelect |
+| `Switch` | Radix UI's Switch | Switch |
+| `Dialog`, `DialogHeader`, `DialogFooter`, `DialogTitle`, `DialogDescription` | A native `<dialog>` (`showModal()`), opened and closed through `open` and `onOpenChange` | Dialog |
+| `SettingGroup`, `SettingRow` | A group with a heading, and one row of name, description and control | Close to Field (D-34) |
+
+### `common_components` (`src-ui/views/common_components/`)
+
+| Component | What it is | Screens that use it |
+|---|---|---|
+| `Checkbox` | Hides the native input and draws a box | Many settings pages through the settings' `CheckboxContainer`; "Device" |
+| `Tooltip` | A tooltip (not Radix, #766) | The main rail, the top bar, the title bar, the input field, stop and mute, the resend button |
+| `ToggleSwitch` | A `div` switch that does not take focus | Only the main feature switches |
+| `Empty`, `EmptyDescription` | "No results" | Settings search, the language list |
+| `CircularProgress` | Circular progress | Download buttons, the updating indicator |
+| `ResetButton`, `CloseButton` | Icon-only buttons | `ResetButton`: message formats and "Captions and VR"; `CloseButton`: notifications and the error screen |
+| `MarqueeText` | Scrolling text | None (no screen uses it) |
+
+### Settings components (`setting_box/_components/` and `_templates/`)
+
+The settings components fall into 2 families.
+
+- **The row family.** `DropdownMenuContainer`, `CheckboxContainer`, `SliderContainer`, `RadioButtonContainer`, `EntryWithSaveButtonContainer`, `ActionButtonContainer` and others in `_templates/Templates.tsx` put a name, a description and a control in one row. The components inside are `_DropdownMenu` (a custom combobox), `_Entry`, `Slider`, `RadioButton`, `ActionButton`, `ConnectionCheckButton`, `ColorEntryWithSaveButton`, `HotkeysEntry`, `AuthKey`, `WordFilter` and `MessageFormat`. "Appearance", "Device", "Captions and VR", "Hotkeys", "Advanced", "Experimental", "Updater", "Chat reading (OCR)" and "Other" use it, and so do parts of "Translation" and "Speech recognition (ASR)".
+- **The form family.** `FormRow`, `SetupSection`, `Fold`, `Lead` and `Hint` build the frame and the descriptions, and the controls inside are native `<select>`, `<input>` and `<button>` elements written directly. The classes in `advanced_settings/VoiceSettings.module.scss` (`primary`, `quiet`, `actions`, `card`, `badge`, `progress`, `checkLabel`, `dialog_text` and others) draw them. It is a set of classes, not components. "Text to speech (TTS)", "Voice changer (RVC)", the audio routes in "Device", the catalog in "Translation", the realtime part of "Speech recognition (ASR)", model downloads and the OCR models use it.
+
+In both families, the components are written with native elements, not with the kit (for example, `ActionButton` and `ConnectionCheckButton` contain a `<button>`).
+
+Both families also use `Fold` (open and close, #820), `FormRow`, `SetupSection`, `AdvancedSection`, `PagePointer`, `EnvReadout`, `FileDropZone` and `ThresholdComponent` (a threshold built into the volume meter; outside the comparison under D-41).
+
+### VR UI (`src-ui/views/vr/`)
+
+Components used only in the VR UI: `VrWindow` (the window frame), `VrPickerList` (a list of choices), `VrSettingsRows` (switch rows, rows of choices, the `Disclosure` that opens and closes, the `Picker` for choices) and `VrTooltip` (passes the tooltip text to the Python side). The VR UI is a separate screen drawn in px steps, so it is outside the comparison.
+
+## Points that affect every screen
+
+Before the per-screen tables, these are the hand-built elements that every screen has in common. The per-screen tables do not repeat them.
+
+| Element | Current state | Replacement | Difficulty | Complications |
+|---|---|---|---|---|
+| Buttons | No screen uses the kit's `Button`. Outside the kit, 78 files hold 198 `<button>` elements, drawn with the form's `primary` and `quiet` classes or with each module's SCSS | The kit's `Button` | High | The height (D-03) and the variant names (D-10) are not decided. Icon-only buttons (the title bar, opening and closing the rail, `ActionButton`, `ResetButton`, `CloseButton`) move to `size="icon"`, but their sizes differ from place to place. Buttons that stay pressed (`aria-pressed`) are Toggle (U-03), not Button |
+| Dialogs | 14 `<dialog>` elements are written screen by screen. Of these, 7 share the classes of `LegacyModelDownloadDialog.module.scss`, and the 3 download consent dialogs are drawn with the `dialog` rule of the form SCSS (`VoiceSettings.module.scss`) | The kit's `Dialog` and its parts | Medium | Under decision 3 of #764, a dialog is replaced with the part components the next time it is rebuilt. The base (D-23), the button order (D-24) and the details (D-43) are not decided. The shared SCSS cannot be removed until all 7 move together |
+| Form select fields | 33 native `<select>` elements in 11 files, drawn with the form classes | The kit's `Select` | Medium | The row family uses its own `_DropdownMenu`, so there are 2 kinds of select field. D-14 decides which one to align on, and K-04 when to remove it. The rule that uses `appearance: base-select` in engines that support it (detected with `@supports`) is not in the kit's `Select`, so it has to be moved there |
+| Form input fields | Native `<input>` elements for text, numbers, URLs and passwords | The kit's `TextField` | Medium | They differ from the row family's `_Entry` in horizontal padding and in how the disabled state looks (D-37). `FormRow` clones its child to pass `id` and `aria-describedby`, so check that the kit's `TextField` accepts them |
+| Form checkboxes | 13 native checkboxes (`accent-color`) in 10 files. The form family's shared `HintCheck` is one of them | `Checkbox` from `common_components`. Settings that turn on and off become switches (K-02) | Medium | The proposal in K-02 is "switches for on and off, checkboxes only to confirm consent". Which of the two looks the consent checkboxes get is not decided. The base (native or Radix) is D-16 |
+| The native `title` attribute | Short names in the settings rail, usage presets, the save summary, ruby and speaker names in the conversation log, model versions, the voice sample buttons | `Tooltip` from `common_components` | Low to medium | The ruby and the version labels are elements that do not take focus. `Tooltip` opens on focus and on hover, so how to handle elements that do not take focus has to be decided (D-21) |
+
+## Screen by screen
+
+### Main screen
+
+| Location | Hand-built elements | Replacement | Difficulty | Complications |
+|---|---|---|---|---|
+| Language selection (`main_section/language_selector/LanguageSelector.tsx`, `LanguageSelectorTopBar.tsx`) | The filter `<input type="search">` (with only `data-slot="input"` added), the grid of language buttons, the back button | The filter field: the kit's `TextField`. The filter and the grid together: U-01. The back button: the kit's `Button` | High | Enter selects the first match. The grid is two-dimensional, so it does not fit the arrow-key rules of a listbox. The VR UI's language window builds the same pattern separately |
+| The button that opens the language window (`language_selector_open_button/LanguageSelectorOpenButton.tsx`) | A `<button>` with `aria-expanded` | The kit's `Button` | Medium | What opens is not a popover but the language selection, which takes the place of the conversation area. The open and close relationship stays as it is |
+| Swapping languages, and adding and removing target languages (`LanguageSwapButton.tsx`, `AddRemoveTargetLanguageButtons.tsx`) | `div role="button"` | The kit's `Button` (`size="icon"`) (replaced, #1123) | Low | Turning the `div` into a `button` needs no decision (the same reasoning as item 11 of "Differences that can be aligned without a decision" in the comparison document) |
+| Translation engine selection (`TranslatorSelectorOpenButton.tsx`, `translator_selector/TranslatorSelector.tsx`) | The open button is a `div role="button"` with `aria-expanded`. Each engine in the opened list is a `div role="button"` with `aria-pressed` | The open button: the kit's `Button`. The opened list: U-04; choosing an engine: U-03 | High | Only one engine can be chosen, so radio behavior fits better than a group of `aria-pressed` buttons. Engines that cannot be used are taken out of the focus order |
+| Preset switching (`preset_tab_selector/PresetTabSelector.tsx`) | 3 `div role="button"` elements with `aria-pressed` | U-03 | High | Item 11 of "Differences that can be aligned without a decision" in the comparison document (turning the `div` into a `button`) is not applied yet |
+| Main feature switches (`main_function_switch/MainFunctionSwitch.tsx`) | The whole row is `role="switch"`, drawn inside with `ToggleSwitch`. The "Other features" and settings buttons | The kit's `Switch` (D-19); the buttons: the kit's `Button` | High | The pressable whole row, the way waiting is shown, the tooltip with the reason a feature cannot be used and the display in the compact rail have to be kept |
+| Quick settings (`QuickSettingsMenu` in `top_bar/right_side_components/RightSideComponents.tsx`, `_buttons/OpenQuickSettingButton.tsx`) | Custom opening and closing (it closes on Esc, on a press outside and when focus leaves) and a `role="group"` panel. The items inside are `aria-pressed` buttons | The panel: U-04; the items: U-03 | High | The contents are a set of toggles, not a menu (`role="menu"`) (D-25) |
+| The "Inputs and outputs" panel (the open button in `RightSideComponents.tsx`, `io_flow_panel/IoFlowPanel.tsx`) | An open button with `aria-expanded` and `aria-controls`, a close button | The kit's `Button` (replaced, #1122) | Low | The open and close relationship stays as it is |
+| The update notice button (`RightSideComponents.tsx`) | `<button>` | The kit's `Button` (replaced, #1122) | Low | Its tooltip uses `Tooltip` |
+| Rail controls (`sidebar_section/SidebarSection.tsx`, `open_settings/OpenSettings.tsx`, `sidebar_compact_mode_button/SidebarCompactModeButton.tsx`, `language_readout/LanguageReadout.tsx`, `engine_readout/EngineReadout.tsx`) | Icon-only `<button>` elements, and buttons that double as readouts | The kit's `Button` (`size="icon"`). The readouts stay as they are | Medium | The tooltips use `Tooltip`. The rail's width (DESIGN.md, "Layout") sets their size |
+| Conversation log (`log_box/message_container/MessageContainer.tsx`, `SpeakerNames.tsx`) | The speaker name button (`aria-expanded`) and the name field that opens in place (a native `<input>`, save and cancel `<button>` elements). The descriptions of ruby and speaker names use the native `title` | The field: the kit's `TextField`; the buttons: the kit's `Button`; the descriptions: `Tooltip` | Medium | Ruby is an element inside the text, and one utterance can carry many. A tooltip on each one adds rendering work when the log is long |
+| Resend button (`message_sub_menu_container/MessageSubMenuContainer.tsx`) | A `<button>` that resends on a long press | The kit's `Button` | Medium | Keep the long-press detection (pointer events) |
+| Log display settings (`message_log_settings_container/MessageLogSettingsContainer.tsx`) | The open button is a `div role="button"` with `aria-expanded`. A panel that closes on Esc | The open button: the kit's `Button`; the panel: U-04 | High | — |
+| Input field (`message_input_box/MessageInputBox.tsx`) | `<textarea>`, the send `<button>` | The input field: U-06; send: the kit's `Button` | High | The input field has a 12 px corner radius (DESIGN.md). Whether its growing height is written with `field-sizing` is D-13 |
+| Empty state (`log_box/EmptyState.tsx`) | "Open setup" and the `<button>` elements that start features | The kit's `Button` (replaced, #1121) | Low | The comparison document marks the screen's layout as "keep" |
+| Realtime controls (`realtime_controls/RealtimeControls.tsx`) | The stop `<button>` | The kit's `Button` (replaced, #1121) | Low | — |
+| Stop and mute (`others/stop_actions/StopActions.tsx`) | The stop `<button>`, and the mute `<button>` with `aria-pressed` (amber when pressed) | Stop: the kit's `Button` (whether it is danger is D-10); mute: U-03 | High | Stop and mute stay separate controls (PRODUCT.md, DESIGN.md) |
+| Title bar (`others/window_title_bar/WindowTitleBar.tsx`) | The minimize, maximize and close `<button>` elements | The kit's `Button` (`size="icon"`) | Medium | They overlap the area that moves the window. Their size matches the OS title bar |
+
+### Settings screen (parts on every page)
+
+| Location | Hand-built elements | Replacement | Difficulty | Complications |
+|---|---|---|---|---|
+| Top bar (`config_page/topbar/Topbar.tsx`) | The save, cancel and back `<button>` elements. The `<dialog>` that confirms leaving. The native `title` of the save summary (the list of changes joined with line breaks) | The kit's `Button`, the kit's `Dialog`, `Tooltip` | Medium | The summary tooltip has several lines, so check that `Tooltip` keeps the line breaks |
+| Settings rail (`config_page/sidebar_section/SidebarSection.tsx`) | The page-switching `<button>` elements (`aria-current="page"`). The native `title` shown with short names | The buttons stay as they are (they are navigation, so not Tabs, D-35). The descriptions of short names: `Tooltip` (replaced, #1132) | Low | The rail widens on hover and focus, and the short names appear only when it is narrow |
+| Usage presets (`sidebar_section/usage_presets/UsagePresetSelector.tsx`) | An open and close button with `aria-expanded`, the native `title` in the compact rail, native checkboxes | Open and close: `Fold` or Collapsible (D-26); descriptions: `Tooltip`; checkboxes: `Checkbox` | Medium | Keep the rule that the last one cannot be cleared (`last`) and the way waiting is shown |
+| Settings search (`config_page/search_bar/SearchBar.tsx`) | A custom `role="combobox"` and its result list (`role="option"`), a clear button | U-02 | High | D-36, D-40 |
+
+### Settings pages
+
+Page names are the names the app shows (here in English).
+
+| Page | Location | Hand-built elements | Replacement | Difficulty | Complications |
+|---|---|---|---|---|---|
+| Text to speech (TTS) | `advanced_settings/VoiceSettings.tsx` | 10 `<select>` elements, a text field (`<input>`), the monitor volume `<input type="range">`, the reload button | The kit's `Select`, the kit's `TextField`, the settings `Slider`, the kit's `Button` | Medium | A draft is saved through the save bar. Select fields wrapped in a `<label>` also carry an `aria-label`, so make the naming consistent when moving to the kit's `Select` |
+|  | `tts/TtsEngine.tsx` | A number `<input type="number">`, 3 `<select>` elements, a URL field, the reset-to-default and check-again buttons | The kit's `TextField`, the kit's `Select`, the kit's `Button` | Medium | Check that the number field's `min`, `max` and `step` can be passed through as they are |
+|  | `tts/GenerationOptions.tsx` | `<select>`, the seed `<input>`, `<textarea>`, the button that checks the values that can be chosen | The kit's `Select`, the kit's `TextField`, U-06, the kit's `Button` | Medium | — |
+|  | `tts/VirtualMicEntry.tsx`, `advanced_settings/StopVoiceButton.tsx` | The button that opens the guide, the stop button | The kit's `Button` | Medium | The stop button has its own look while stopping and after stopping |
+|  | `advanced_settings/SpeechServers.tsx` | The path `<input>`, `<select>`, the start, stop and reload buttons | The kit's `TextField`, the kit's `Select`, the kit's `Button` | Medium | The "Speech recognition (ASR)" page uses the same component |
+|  | `advanced_settings/ModelDownloads.tsx`, `EngineCatalog.tsx`, `UserModels.tsx`, `VoiceAudition.tsx`, `catalogLayout.tsx` | The memory headroom `<select>`, the version `<select>`, `<progress>`, the consent `<dialog>` and its checkbox, the name and path `<input>` elements, the delete confirmation inside a row, the native `title` of the sample buttons, the grid and list switch (`aria-pressed`) | The kit's `Select`, the kit's `TextField`, the kit's `Dialog`, the kit's `Button`, `Tooltip`. Progress: U-05; the switch: U-03; cards: U-09; the confirmation inside a row: U-10 | High | The cards have the same shape as those of the "Voice changer (RVC)" and OCR models and of the translation catalog. Cards and badges (Badge) are drawn with the form classes |
+| Voice changer (RVC) | `advanced_settings/DirectVoiceSettings.tsx` | 3 `<select>` elements, number and text `<input>` elements, the high-pass filter checkbox, the choose, start, stop and save buttons | The kit's `Select`, the kit's `TextField`, a switch (K-02), the kit's `Button` | Medium | The start button gives the reason it cannot be used through `aria-describedby` |
+|  | `advanced_settings/VcRuntimeSetup.tsx` | `<progress>`, the consent `<dialog>` and its checkbox, the download and use buttons | The kit's `Dialog`, the kit's `Button`, U-05 | Medium | The GPU runtime in "Translation" uses the same component |
+| Device | `device/VoiceRouteSettings.tsx` | The audio route `<select>`, the mute and resume `<button>` elements | The kit's `Select`, the kit's `Button` (the buttons replaced, #1135; the select waits for D-14) | Medium | The other rows use the row family and `Checkbox` |
+| Appearance | `appearance/ThemePicker.tsx` | Theme tiles (native `<input type="radio">` elements drawn as cards) | U-07 | High | The color fields use `ColorEntryWithSaveButton` |
+| Translation | `translation/Translation.tsx` | The license confirmation `<dialog>` (with its own classes) and its checkbox, the button that opens the fields for adding an entry | The kit's `Dialog`, the kit's `Button` | Medium | — |
+|  | `translation/TranslationCatalog.tsx` | `<input>` elements for the name, folder, languages, URL, model and key, 3 `<select>` elements, the delete confirmation inside a row, the add and use buttons | The kit's `TextField`, the kit's `Select`, the kit's `Button`. Cards: U-09; the confirmation inside a row: U-10 | Medium | The key field keeps `type="password"` and `autoComplete="off"` |
+| Speech recognition (ASR) | `transcription/RealtimeASRSettings.tsx` | 6 `<select>` elements, a URL field, the built-in vocabulary checkbox, the refresh, start, stop and save buttons (a `<form>` submit) | The kit's `Select`, the kit's `TextField`, a switch (K-02), the kit's `Button` | Medium | Saving submits a `<form>`, a different pattern from the save bar on the other pages |
+|  | `transcription/VocabularyList.tsx`, `VocabularyFiles.tsx` | A list of rows with `<input>` fields for the spelling and the reading, a quiet button on each row, a hidden file `<input>` with import and export buttons | The kit's `TextField`, the kit's `Button`. The row list: U-11 | Medium | Choosing a file this way differs from the shared `FileDropZone` (where you drop the file) |
+| Captions and VR | `vr/Vr.tsx` | Switches for which settings are shown ("Single line" and "Multiple lines", "Position" and "Rotation"; each is 2 `div role="button"` elements with `aria-pressed`), the reset-to-default button, the test send button | The switches: U-03; the buttons: the kit's `Button` | High | The test send button keeps the width of its longer label, so that its width does not change when it is pressed (#912) |
+| Hotkeys | `hotkeys/Hotkeys.tsx`, `_components/hotkeys_entry/HotkeysEntry.tsx` | The button that opens Quick Chat, the button that clears a hotkey | The kit's `Button` (replaced, #1131) | Low | The rest uses the row family |
+| Advanced | `advanced_settings/AdvancedSettings.tsx`, `GpuCheck.tsx` | The `<dialog>` that confirms re-creating the connection key, the GPU check's start, stop, copy and report buttons | The kit's `Dialog`, the kit's `Button` | Medium | The GPU check's table corresponds to Table ("Other components" in the comparison document) |
+| Experimental | `experimental_features/ExperimentalFeatures.tsx` | None (only the row family) | — | — | — |
+| Updater | `updater/Updater.tsx` | The install and check `<button>` elements (with their own classes) | The kit's `Button` (replaced, #1129) | Low | — |
+| Chat reading (OCR) | `ocr/OcrModels.tsx` | `<progress>`, the consent `<dialog>` and its checkbox, the download and cancel buttons | The kit's `Dialog`, the kit's `Button`, U-05 | Medium | — |
+|  | `ocr/OcrSharedWindow.tsx`, `OcrRegions.tsx`, `OcrStatus.tsx` | The share, stop sharing and reset `<button>` elements (the `resetButton` class, `aria-disabled`) | The kit's `Button` (replaced, #1133) | Medium | The share button uses `aria-disabled`, not `disabled`, so that focus stays on the button while the desktop's share confirmation is open (related to D-07) |
+| Other (VRChat) | `vrchat/Vrchat.tsx`, `_components/word_filter/WordFilter.tsx`, `_components/message_format/MessageFormat.tsx` | The add and delete `<button>` elements of the word filter, the `div role="button"` that swaps parts of the message format | The kit's `Button` (replaced, #1127) | Low | Both are inside shared components. The word filter is on the "Speech recognition (ASR)" page, and the message format on this page |
+| About ASTAROT | `about_vrct/AboutVrct.tsx` | Only images and links | — | — | Outside the comparison |
+
+### Dialogs
+
+Dialogs that open over a screen. Each one is a native `<dialog>` written on its own screen. The replacement is the kit's `Dialog` and its parts; as decision 3 of #764 says, they are replaced together the next time they are rebuilt. The difficulty of every one is "Medium", the same as the dialog row in "Points that affect every screen". The startup failure dialog is not replaced (H-03).
+
+| Dialog | Location | Hand-built elements in the dialog | Complications |
+|---|---|---|---|
+| Setup | `_app_controllers/FirstRunSetupController.tsx` | `<select>`, 3 checkboxes, 2 `<progress>` elements, 12 `<button>` elements. The rows of "What was found" (in Item's shape, `data-slot` only) | The row shape is U-08. Its own `FirstRunSetupController.css.ts` is added to the shared dialog classes. Keep the rule that sets apart the rows that need action by placement and shape (DESIGN.md, "Components", #759) |
+| Chat reading setup | `_app_controllers/OcrSetupController.tsx` | 2 `<button>` elements | The shared dialog classes |
+| Usage data notice | `_app_controllers/TelemetryNoticeController.tsx` | 3 `<button>` elements | Its own SCSS is added to the shared dialog classes |
+| Speech recognition consent | `_app_controllers/TranscriptionConsentController.tsx` | 3 `<button>` elements | The shared dialog classes |
+| Virtual microphone guide | `_app_controllers/VirtualMicGuideController.tsx` | `<select>`, 5 `<button>` elements | The shared dialog classes |
+| Legacy model download | `_components/download_models/LegacyModelDownloadDialog.tsx` | A checkbox, the native `title` of the model version | This file's SCSS gives 6 other dialogs their look (`dialogStyles`) |
+| Model download confirmation | `advanced_settings/ModelDownloads.tsx` | Checkboxes to confirm consent and restrictions | The `dialog` rule of the form SCSS. A restricted license is confirmed for each kind separately |
+| Runtime download confirmation | `advanced_settings/VcRuntimeSetup.tsx` | The consent checkbox | The `dialog` rule of the form SCSS |
+| OCR model download confirmation | `ocr/OcrModels.tsx` | The consent checkbox | The `dialog` rule of the form SCSS |
+| Translation license confirmation | `translation/Translation.tsx` | The consent checkbox | Its own class (`license_dialog`) |
+| Confirmation of re-creating the connection key | `advanced_settings/AdvancedSettings.tsx` | 2 `<button>` elements | The shared dialog classes |
+| Confirmation on leaving the settings | `config_page/topbar/Topbar.tsx` | 2 `<button>` elements | Its own class (`leave_dialog`) |
+| Update modal | `others/modal_controller/ModalController.tsx` | The close button, the area outside that closes it when pressed | It opens from the update button in the top bar and shows the "Updater" page inside. It is the exception that does not darken the background to 50% black (decision 2 of #764) |
+| Startup failure | `others/startup/StartupFailedDialog.tsx` | `<dialog open>` (not modal) with `role="alertdialog"`, the retry and quit buttons | Not replaced (H-03). It also appears when the other parts cannot render, so it is safer not to add dependencies. The kit has no AlertDialog either (U-12) |
+
+### Other windows
+
+| Window | Location | Hand-built elements | Replacement | Difficulty | Complications |
+|---|---|---|---|---|---|
+| Quick Chat | `quick_chat/QuickChat.tsx` (`quick-chat.html`) | `<textarea>`, the send `<button>` | The input field: U-06; send: the kit's `Button` | Medium | It waits for the same shared component (U-06) as the main input field |
+| Tray companion | `companion_panel/CompanionPanel.tsx` | The feature `<button role="switch">` elements, the buttons that open and hide the main window | The kit's `Switch`, the kit's `Button` | Medium | Keep the way waiting (`aria-busy`) is shown |
+| Companion handle | `companion_handle/CompanionHandle.tsx` | The feature buttons (`aria-pressed`), the choice of the edge to place it on (`aria-pressed`), the menu items, the hexagonal `polygon role="button"` | Not replaced (H-03) | — | It stays outside the comparison. It is not replaced even after U-03 and U-04 are added to the kit |
+| Error screen | `others/error_boundary/AppErrorBoundary.tsx` | The button that copies the error and the update button (the close button is `CloseButton`) | Not replaced (H-03) | — | This screen appears when rendering breaks, so it is safer not to add dependencies |
+| Subtitle overlay | `caption_overlay/` | No controls | — | — | Outside the comparison |
+
+### VR UI
+
+The VR UI is outside the comparison and is not replaced with shared components (the kit) either. These are the places in the VR UI that are written without the VR UI's own components. Under decision H-03, the filter and the collapsible section of the language window among them are brought in line with the VR UI's components.
+
+| Location | Hand-built elements | Matching VR UI component | Handling (H-03) | Complications |
+|---|---|---|---|---|
+| Language window (`vr/VrLanguageWindow.tsx`) | The filter `<input type="search">`, the `<details>` that collapses the translation engines that cannot be used, the preset buttons with `aria-pressed`, the language buttons | The list uses `VrPickerList`. The collapsible section corresponds to `Disclosure` (`VrSettingsRows.tsx`). No component corresponds to the filter field yet | Bring the filter and the collapsible section in line with the VR UI's components | `Disclosure` keeps its open state only inside itself and has no disabled state. The language window's collapsible section keeps its open state outside, does not open or close while waiting or while controls are locked out, and shows a count, so that form is added to `Disclosure`. The filter field is built as a VR UI component, together with the behavior of Enter selecting the first match. The window still builds the same pattern as the main language selection (U-01) separately |
+| Settings window (`vr/VrSettingsWindow.tsx`, `VrSettingsRows.tsx`) | The category buttons with `aria-pressed`, the `role="switch"` rows, `aria-pressed` in the rows of choices | The `VrSettingsRows` components themselves | As it is | — |
+| Launcher buttons and toolbar (`vr/VrLauncher.tsx`, `VrToolbar.tsx`) | Buttons with `aria-pressed` | — | As it is | They are pressed with the VR pointer, so the VR rules decide their pressable area and their look |
+
+## Elements with no shared component
+
+These are elements that no component among the shared components can replace. Where shadcn/ui has a matching component, its name and the comparison document's decision item are given.
+
+Under decision H-02, a shared component is made for every one of U-01 to U-12 and added to the kit. One with a related decision item is made after that item is decided. U-08, U-10 and U-11 have no related decision item. The screens that are not replaced (H-03) do not use the added components. The "Add to the kit" column of the table shows where that line falls.
+
+| ID | Element | Where it is used | shadcn/ui counterpart | Related decision | Add to the kit |
+|---|---|---|---|---|---|
+| U-01 | Language selection (a filter field paired with a grid of language buttons) | The main language selection, the VR UI's language window | Command (cmdk). There is none written with Radix | D-36 | Add (H-02). The VR UI's language window does not use it and is brought in line with the VR UI's components instead (H-03) |
+| U-02 | A search that shows a result list (combobox) | Settings search | Combobox (Base UI), Command (cmdk), InputGroup | D-36, D-40 | Add (H-02) |
+| U-03 | Buttons that stay pressed, and groups of buttons where only one can be chosen | Preset switching, translation engine selection, mute, the quick settings items, the catalog's grid and list, the "Captions and VR" switches for which settings are shown, the volume check (`VolumeCheckButton`), the companion handle's edges (not replaced, H-03) | Toggle, ToggleGroup (Radix). The "Captions and VR" switches change panels within the same page, so they also correspond to Tabs (Radix) | D-27 | Add (H-02). The companion handle does not use it (H-03) |
+| U-04 | A small panel that opens from a button | Quick settings, log display settings, the translation engine list, the color popover, the companion handle's menu (not replaced, H-03) | Popover, DropdownMenu (Radix) | D-25 | Add (H-02). The companion handle does not use it (H-03) |
+| U-05 | A horizontal progress bar | Setup, model downloads, the runtime download, the OCR model download | Progress (Radix) | D-32. For circular progress there is `CircularProgress` | Add (H-02) |
+| U-06 | A multi-line input field | The main input field, Quick Chat, the TTS generation options | Textarea | D-13 | Add (H-02) |
+| U-07 | Choices shaped as cards (radio) | Theme selection | No component. One of the Field examples has choice cards that wrap a RadioGroupItem in a FieldLabel | D-16 | Add (H-02) |
+| U-08 | A status row (badge, name, description, control) | "What was found" in setup | Item | "Other components" in the comparison document. Not split out as a component yet | Add (H-02) |
+| U-09 | Cards and badges | Model downloads, the translation catalog, the OCR models, the engine catalog | Card, Badge | D-28, D-29 | Add (H-02) |
+| U-10 | A delete confirmation shown inside a row | Models you added yourself, the translation catalog | AlertDialog or Popover come close | No established pattern | Add (H-02) |
+| U-11 | A list of rows with fields and controls that can be edited in place (`<ul>`) | The term dictionary list | Table (without Radix) or Item | "Other components" in the comparison document | Add (H-02) |
+| U-12 | A non-modal alert dialog | Startup failure | AlertDialog (Radix) | D-23 | Add (H-02). The place that would use it now, the startup failure dialog, is not replaced (H-03), so no screen uses it |
+
+## Decisions made
+
+These are the decisions on how to carry out the replacement that came out of this inventory. H-01 to H-03 were decided as below on 2026-11-23, and H-04 on 2026-11-24. The comparison document's decision items (D-xx) and the open questions of the settings screen component experiment (K-xx) are decided in their own documents.
+
+| ID | Question | Decision | Date decided | Reason |
+|---|---|---|---|---|
+| H-01 | In which order to replace hand-built elements with shared components and to move the styles to vanilla-extract (#957) | #957 moves the styles without changing the look, and the replacement follows, one component at a time | 2026-11-23 | #957 compares the screens before and after the move pixel by pixel to confirm that the look does not change. Mixing in the replacement would make this check unusable. Much of the replacement is waiting for decision items (D-03, D-10, D-14, D-23 and others), so mixing the two would stall #957 as well. The styles of the elements to be replaced also have to be moved once, which is extra work |
+| H-02 | Which of the elements with no shared component get a shared component | Make a shared component for every one of U-01 to U-12 and add it to the kit. Make one with a related decision item after that item is decided | 2026-11-23 | The hand-built elements of the screens, including those with no shared component, are brought in line with shared components. Components used in only 1 or 2 places (language selection, settings search, the theme tiles and so on) are also built to the same rules as the shared components (`data-slot`, color tokens, tests) |
+| H-03 | Whether to include the VR UI, the companion handle, the error screen and the startup failure dialog in the replacement | Keep them outside the comparison and do not replace them with shared components. Within the VR UI only, bring things in line with the VR UI's components (the filter and the collapsible section of the language window) | 2026-11-23 | The VR UI is a separate screen shaped by px steps and the VR pointer, so it is not aligned with the shared components. In the VR UI, only the language window writes its own filter and collapsible section; the other windows use the VR UI's components. The error screen and the startup failure dialog appear when other parts have broken, so it is safer not to add dependencies |
+| H-04 | Whether a replaced element keeps the screen's current look or takes the kit's | It takes the kit's look (size, border, fill) as it is: the screens are aligned with the kit, which is aligned with shadcn/ui. The behavior (what a press does, what opens and closes, keyboard operation) does not change; a row whose behavior would change is stopped and listed as a question in its pull request. Each pull request records what looks different | 2026-11-24 | The replacement exists to bring the screens to the kit's look, so a changed look is its aim, not a side effect. A screen's look fixed before its replacement would have to be redone at the replacement |
+
+---
+
+# 手作りの部品の棚卸し: 画面ごとの一覧（日本語版）
 
 共通の部品があるのに、画面ごとにネイティブの要素や `div` で手作りしている箇所を、画面ごとに一覧にした文書です。shadcn/ui（new-york-v4）に寄せた部品へ置き換える作業と、スタイルの vanilla-extract への移行（#957）の順序を決めるための下調べです。棚卸しの時点では、コードを変えていません。
 
-- 状態: 棚卸し（2026-11-23）。置き換えの進め方（H-01〜H-03）は同じ日に決まりました。置き換えはまだ始めていません。置き換えたら、その行に PR の番号を添えて「置き換えた」と書きます。
+- 状態: 棚卸し（2026-11-23）。置き換えの進め方（H-01〜H-03）は同じ日に、置き換えた要素の見た目（H-04）は 2026-11-24 に決まりました。置き換えは 2026-11-24 に始めました。置き換えたら、その行に PR の番号を添えて「置き換えた」と書きます。
 - 照合したアプリ: develop（#983 のマージ後、`7a4b684`）
 - 関係する文書: [部品の棚卸し: shadcn/ui との照合](shadcn-alignment.md)（判断項目 D-xx）、[設定画面の部品の実験](README.md)（kit と残課題 K-xx）、[ADR-010](../../adr/adr-010-frontend-stack.md)
 
@@ -22,7 +238,7 @@
 
 ### kit（`src-ui/views/kit/`）
 
-shadcn/ui に寄せた部品です。いまは見本のページ（`src-ui/kit-lab.html`）だけが使い、アプリの画面で使っている箇所はありません。画面で使うかは残課題 K-01 で決めます。
+shadcn/ui に寄せた部品です。見本のページ（`src-ui/kit-lab.html`）が全部を並べています。2026-11-24 からは、アプリの画面も、下の表で「置き換えた」と書いた行で使っています（残課題 K-01、H-04）。
 
 | 部品 | 中身 | shadcn/ui で当たるもの |
 |---|---|---|
@@ -81,20 +297,20 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 |---|---|---|---|---|
 | 言語の選択（`main_section/language_selector/LanguageSelector.tsx`、`LanguageSelectorTopBar.tsx`） | 絞り込みの `<input type="search">`（`data-slot="input"` だけを付けた）、言語のボタンの格子、戻るボタン | 絞り込みの欄は kit の `TextField`。絞り込みと格子の組は U-01。戻るボタンは kit の `Button` | 高 | Enter で最初の候補を選ぶ振る舞いがあります。格子は 2 次元に並ぶので、listbox の矢印キーの規則と合いません。VR パネルの言語の窓が同じ形を別に作っています |
 | 言語の窓を開くボタン（`language_selector_open_button/LanguageSelectorOpenButton.tsx`） | `aria-expanded` の `<button>` | kit の `Button` | 中 | 開くのはポップオーバーではなく、会話の場所を置き換える言語の選択です。開閉の関係は今のまま残します |
-| 言語の入れ替えと、訳す言語の足し引き（`LanguageSwapButton.tsx`、`AddRemoveTargetLanguageButtons.tsx`） | `div role="button"` | kit の `Button`（`size="icon"`） | 低 | `div` を `button` にするのは判断なしで寄せられます（照合の文書の「判断なしで寄せられる差」の 11 と同じ考え方） |
+| 言語の入れ替えと、訳す言語の足し引き（`LanguageSwapButton.tsx`、`AddRemoveTargetLanguageButtons.tsx`） | `div role="button"` | kit の `Button`（`size="icon"`）（置き換えた、#1123） | 低 | `div` を `button` にするのは判断なしで寄せられます（照合の文書の「判断なしで寄せられる差」の 11 と同じ考え方） |
 | 翻訳エンジンの選択（`TranslatorSelectorOpenButton.tsx`、`translator_selector/TranslatorSelector.tsx`） | 開くボタンが `div role="button"` と `aria-expanded`。開いた一覧の各エンジンが `div role="button"` と `aria-pressed` | 開くボタンは kit の `Button`。開いた一覧は U-04、エンジンの選択は U-03 | 高 | 一つだけを選ぶ選択なので、`aria-pressed` のボタンの集まりより radio の振る舞いが合います。使えないエンジンはフォーカスから外しています |
 | プリセットの切り替え（`preset_tab_selector/PresetTabSelector.tsx`） | 3 つの `div role="button"` と `aria-pressed` | U-03 | 高 | 照合の文書の「判断なしで寄せられる差」の 11（`div` を `button` にする）は、まだ入っていません |
 | メインの機能のスイッチ（`main_function_switch/MainFunctionSwitch.tsx`） | 行全体が `role="switch"`。中の見た目は `ToggleSwitch`。「ほかの機能」と設定のボタン | kit の `Switch`（D-19）、ボタンは kit の `Button` | 高 | 行全体を押せる形、待ちの表し方、使えない理由の吹き出し、小さいレールでの表示を保つ必要があります |
 | クイック設定（`top_bar/right_side_components/RightSideComponents.tsx` の `QuickSettingsMenu`、`_buttons/OpenQuickSettingButton.tsx`） | 自作の開閉（Esc、外を押す、フォーカスが外に出ると閉じる）と `role="group"` の面。中の項目は `aria-pressed` のボタン | 面は U-04、中の項目は U-03 | 高 | 中身はトグルの集まりで、メニュー（`role="menu"`）ではありません（D-25） |
-| 入出力の流れのパネル（`RightSideComponents.tsx` の開くボタン、`io_flow_panel/IoFlowPanel.tsx`） | `aria-expanded` と `aria-controls` の開くボタン、閉じるボタン | kit の `Button` | 低 | 開閉の関係は今のまま残します |
-| 更新の知らせのボタン（`RightSideComponents.tsx`） | `<button>` | kit の `Button` | 低 | 吹き出しは `Tooltip` を使っています |
+| 「入力と出力」のパネル（`RightSideComponents.tsx` の開くボタン、`io_flow_panel/IoFlowPanel.tsx`） | `aria-expanded` と `aria-controls` の開くボタン、閉じるボタン | kit の `Button`（置き換えた、#1122） | 低 | 開閉の関係は今のまま残します |
+| 更新の知らせのボタン（`RightSideComponents.tsx`） | `<button>` | kit の `Button`（置き換えた、#1122） | 低 | 吹き出しは `Tooltip` を使っています |
 | レールの操作（`sidebar_section/SidebarSection.tsx`、`open_settings/OpenSettings.tsx`、`sidebar_compact_mode_button/SidebarCompactModeButton.tsx`、`language_readout/LanguageReadout.tsx`、`engine_readout/EngineReadout.tsx`） | アイコンだけの `<button>` と、読み上げの欄を兼ねるボタン | kit の `Button`（`size="icon"`）。読み上げの欄は今のまま | 中 | 吹き出しは `Tooltip` を使っています。レールの幅（DESIGN.md「Layout」）で大きさが決まっています |
 | 会話のログ（`log_box/message_container/MessageContainer.tsx`、`SpeakerNames.tsx`） | 話者の名前のボタン（`aria-expanded`）と、その場で開く名前の欄（ネイティブの `<input>`、保存と取り消しの `<button>`）。ルビと話者の名前の説明はネイティブの `title` | 欄は kit の `TextField`、ボタンは kit の `Button`、説明は `Tooltip` | 中 | ルビは文の中の要素で、1 つの発言に何個も付きます。吹き出しを 1 つずつ付けると、ログが長いときの描画の量が増えます |
 | 再送のボタン（`message_sub_menu_container/MessageSubMenuContainer.tsx`） | 長押しで再送する `<button>` | kit の `Button` | 中 | 長押しの判定（ポインタのイベント）を保ちます |
 | ログの表示の設定（`message_log_settings_container/MessageLogSettingsContainer.tsx`） | 開くボタンが `div role="button"` と `aria-expanded`。Esc で閉じる面 | 開くボタンは kit の `Button`、面は U-04 | 高 | — |
 | 入力欄（`message_input_box/MessageInputBox.tsx`） | `<textarea>`、送信の `<button>` | 入力欄は U-06、送信は kit の `Button` | 高 | 入力欄の角丸は 12px（DESIGN.md）。高さの伸び方を `field-sizing` で書くかは D-13 |
-| 空の画面（`log_box/EmptyState.tsx`） | 「初期設定を開く」と機能を始める `<button>` | kit の `Button` | 低 | 画面の置き方は照合の文書で「残す」にしています |
-| リアルタイムの操作（`realtime_controls/RealtimeControls.tsx`） | 止める `<button>` | kit の `Button` | 低 | — |
+| 空の画面（`log_box/EmptyState.tsx`） | 「初期設定を開く」と機能を始める `<button>` | kit の `Button`（置き換えた、#1121） | 低 | 画面の置き方は照合の文書で「残す」にしています |
+| リアルタイムの操作（`realtime_controls/RealtimeControls.tsx`） | 止める `<button>` | kit の `Button`（置き換えた、#1121） | 低 | — |
 | 停止とミュート（`others/stop_actions/StopActions.tsx`） | 停止の `<button>`、ミュートの `aria-pressed` の `<button>`（押したときは琥珀色） | 停止は kit の `Button`（danger かは D-10）、ミュートは U-03 | 高 | 停止とミュートは独立した操作として保ちます（PRODUCT.md、DESIGN.md） |
 | タイトルバー（`others/window_title_bar/WindowTitleBar.tsx`） | 最小化、最大化、閉じるの `<button>` | kit の `Button`（`size="icon"`） | 中 | ウィンドウを動かす領域と重なります。OS のタイトルバーに合わせた大きさです |
 
@@ -103,7 +319,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 場所 | 手作りしている要素 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|
 | 上のバー（`config_page/topbar/Topbar.tsx`） | 保存、取り消し、戻るの `<button>`。離れるときの確認の `<dialog>`。保存の要約のネイティブの `title`（変更の一覧を改行でつなぐ） | kit の `Button`、kit の `Dialog`、`Tooltip` | 中 | 要約の吹き出しは複数行なので、`Tooltip` で改行を保てるかを確かめます |
-| 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip` | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
+| 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip`（置き換えた、#1132） | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
 | 使い方のプリセット（`sidebar_section/usage_presets/UsagePresetSelector.tsx`） | `aria-expanded` の開閉のボタン、小さいレールでのネイティブの `title`、ネイティブのチェックボックス | 開閉は `Fold` か Collapsible（D-26）、説明は `Tooltip`、チェックボックスは `Checkbox` | 中 | 最後の 1 つは外せない規則（`last`）と待ちの表し方を保ちます |
 | 設定の検索（`config_page/search_bar/SearchBar.tsx`） | 自作の `role="combobox"` と結果の一覧（`role="option"`）、消すボタン | U-02 | 高 | D-36、D-40 |
 
@@ -118,23 +334,23 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 |  | `tts/GenerationOptions.tsx` | `<select>`、シードの `<input>`、`<textarea>`、選べる値を確かめるボタン | kit の `Select`、kit の `TextField`、U-06、kit の `Button` | 中 | — |
 |  | `tts/VirtualMicEntry.tsx`、`advanced_settings/StopVoiceButton.tsx` | 案内を開くボタン、止めるボタン | kit の `Button` | 中 | 止めるボタンは、止めている途中と止めた後の見た目を持ちます |
 |  | `advanced_settings/SpeechServers.tsx` | パスの `<input>`、`<select>`、起動と停止と再読み込みのボタン | kit の `TextField`、kit の `Select`、kit の `Button` | 中 | 「音声認識（ASR）」のページも同じ部品を使います |
-|  | `advanced_settings/ModelDownloads.tsx`、`EngineCatalog.tsx`、`UserModels.tsx`、`VoiceAudition.tsx`、`catalogLayout.tsx` | 余裕の `<select>`、版の `<select>`、`<progress>`、同意の `<dialog>` とチェックボックス、名前とパスの `<input>`、行の中の削除の確認、試聴のボタンのネイティブの `title`、グリッドとリストの切り替え（`aria-pressed`） | kit の `Select`、kit の `TextField`、kit の `Dialog`、kit の `Button`、`Tooltip`。進み具合は U-05、切り替えは U-03、カードは U-09、行の中の確認は U-10 | 高 | 「ボイスチェンジャー（RVC）」と OCR のモデル、翻訳のカタログと同じカードの形です。カードと印（Badge）はフォームのクラスで描いています |
-| ボイスチェンジャー（RVC） | `advanced_settings/DirectVoiceSettings.tsx` | 3 個の `<select>`、数と文字の `<input>`、高域の除去のチェックボックス、選ぶ・始める・止める・保存のボタン | kit の `Select`、kit の `TextField`、スイッチ（K-02）、kit の `Button` | 中 | 始めるボタンは使えない理由を `aria-describedby` で示しています |
+|  | `advanced_settings/ModelDownloads.tsx`、`EngineCatalog.tsx`、`UserModels.tsx`、`VoiceAudition.tsx`、`catalogLayout.tsx` | メモリの余裕の `<select>`、版の `<select>`、`<progress>`、同意の `<dialog>` とチェックボックス、名前とパスの `<input>`、行の中の削除の確認、試聴のボタンのネイティブの `title`、グリッドとリストの切り替え（`aria-pressed`） | kit の `Select`、kit の `TextField`、kit の `Dialog`、kit の `Button`、`Tooltip`。進み具合は U-05、切り替えは U-03、カードは U-09、行の中の確認は U-10 | 高 | 「ボイスチェンジャー（RVC）」と OCR のモデル、翻訳のカタログと同じカードの形です。カードと印（Badge）はフォームのクラスで描いています |
+| ボイスチェンジャー（RVC） | `advanced_settings/DirectVoiceSettings.tsx` | 3 個の `<select>`、数と文字の `<input>`、ハイパスフィルターのチェックボックス、選ぶ・始める・止める・保存のボタン | kit の `Select`、kit の `TextField`、スイッチ（K-02）、kit の `Button` | 中 | 始めるボタンは使えない理由を `aria-describedby` で示しています |
 |  | `advanced_settings/VcRuntimeSetup.tsx` | `<progress>`、同意の `<dialog>` とチェックボックス、取得と使うボタン | kit の `Dialog`、kit の `Button`、U-05 | 中 | 「翻訳」の GPU の実行環境も同じ部品を使います |
-| デバイス | `device/VoiceRouteSettings.tsx` | 音声経路の `<select>`、ミュートと再開の `<button>` | kit の `Select`、kit の `Button` | 中 | ほかの行は行の部品の系統と `Checkbox` を使っています |
+| デバイス | `device/VoiceRouteSettings.tsx` | 音声経路の `<select>`、ミュートと再開の `<button>` | kit の `Select`、kit の `Button`（ボタンは置き換えた、#1135。選択欄は D-14 を待つ） | 中 | ほかの行は行の部品の系統と `Checkbox` を使っています |
 | デザイン | `appearance/ThemePicker.tsx` | テーマのタイル（ネイティブの `<input type="radio">` をカードの形に描く） | U-07 | 高 | 色の欄は `ColorEntryWithSaveButton` を使っています |
 | 翻訳 | `translation/Translation.tsx` | ライセンスの確認の `<dialog>`（独自のクラス）とチェックボックス、追加の欄を開くボタン | kit の `Dialog`、kit の `Button` | 中 | — |
 |  | `translation/TranslationCatalog.tsx` | 名前、フォルダー、言語、URL、モデル、鍵の `<input>`、3 個の `<select>`、行の中の削除の確認、追加と使うボタン | kit の `TextField`、kit の `Select`、kit の `Button`。カードは U-09、行の中の確認は U-10 | 中 | 鍵の欄は `type="password"` と `autoComplete="off"` を保ちます |
 | 音声認識（ASR） | `transcription/RealtimeASRSettings.tsx` | 6 個の `<select>`、URL の欄、組み込みの語彙のチェックボックス、更新・始める・止める・保存のボタン（`<form>` の送信） | kit の `Select`、kit の `TextField`、スイッチ（K-02）、kit の `Button` | 中 | 保存は `<form>` の送信で、ほかのページの保存バーとは別の形です |
 |  | `transcription/VocabularyList.tsx`、`VocabularyFiles.tsx` | 書き方と読みの `<input>` が並ぶ行の一覧、行ごとの quiet のボタン、隠したファイルの `<input>` と読み込み・書き出しのボタン | kit の `TextField`、kit の `Button`。行の一覧は U-11 | 中 | ファイルを選ぶ形は、共通の `FileDropZone`（落とす形）とは違います |
 | 字幕とVR | `vr/Vr.tsx` | 表示する設定の切り替え（「1 行」と「複数行」、「位置」と「回転」。それぞれ 2 つの `div role="button"` と `aria-pressed`）、既定に戻すボタン、試しに送るボタン | 切り替えは U-03、ボタンは kit の `Button` | 高 | 試しに送るボタンは、押しても幅が変わらないように長い方の文言の幅を保っています（#912） |
-| ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | Quick Chat を開くボタン、ショートカットを消すボタン | kit の `Button` | 低 | ほかは行の部品の系統です |
-| 高度な設定 | `advanced_settings/AdvancedSettings.tsx`、`GpuCheck.tsx` | 作り直しの確認の `<dialog>`、GPU の確認の始める・止める・写す・報告するボタン | kit の `Dialog`、kit の `Button` | 中 | GPU の確認の表は Table に当たります（照合の文書の「そのほか」） |
+| ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | Quick Chat を開くボタン、ショートカットを消すボタン | kit の `Button`（置き換えた、#1131） | 低 | ほかは行の部品の系統です |
+| 高度な設定 | `advanced_settings/AdvancedSettings.tsx`、`GpuCheck.tsx` | 接続用のキーを作り直すかを確かめる `<dialog>`、GPU の確認の始める・止める・写す・報告するボタン | kit の `Dialog`、kit の `Button` | 中 | GPU の確認の表は Table に当たります（照合の文書の「そのほか」） |
 | 実験的機能 | `experimental_features/ExperimentalFeatures.tsx` | なし（行の部品の系統だけ） | — | — | — |
-| アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button` | 低 | — |
+| アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button`（置き換えた、#1129） | 低 | — |
 | チャット読み取り（OCR） | `ocr/OcrModels.tsx` | `<progress>`、同意の `<dialog>` とチェックボックス、取得と取り消しのボタン | kit の `Dialog`、kit の `Button`、U-05 | 中 | — |
-|  | `ocr/OcrSharedWindow.tsx`、`OcrRegions.tsx`、`OcrStatus.tsx` | 共有と解除と戻すの `<button>`（`resetButton` のクラス、`aria-disabled`） | kit の `Button` | 中 | 共有のボタンは `disabled` ではなく `aria-disabled` です。デスクトップの共有の確認が開いている間も、フォーカスをボタンに残すためです（D-07 と関係します） |
-| その他（VRChat） | `vrchat/Vrchat.tsx`、`_components/word_filter/WordFilter.tsx`、`_components/message_format/MessageFormat.tsx` | ワードフィルターの追加と削除の `<button>`、メッセージの形の入れ替えの `div role="button"` | kit の `Button` | 低 | どちらも共通の部品の中にあり、使うページが複数あります |
+|  | `ocr/OcrSharedWindow.tsx`、`OcrRegions.tsx`、`OcrStatus.tsx` | 共有と解除と戻すの `<button>`（`resetButton` のクラス、`aria-disabled`） | kit の `Button`（置き換えた、#1133） | 中 | 共有のボタンは `disabled` ではなく `aria-disabled` です。デスクトップの共有の確認が開いている間も、フォーカスをボタンに残すためです（D-07 と関係します） |
+| その他（VRChat） | `vrchat/Vrchat.tsx`、`_components/word_filter/WordFilter.tsx`、`_components/message_format/MessageFormat.tsx` | ワードフィルターの追加と削除の `<button>`、メッセージの形の入れ替えの `div role="button"` | kit の `Button`（置き換えた、#1127） | 低 | どちらも共通の部品の中にあります。ワードフィルターは「音声認識（ASR）」のページに、メッセージの形はこのページにあります |
 | ASTAROTについて | `about_vrct/AboutVrct.tsx` | 画像とリンクだけ | — | — | 照合の外 |
 
 ### ダイアログ
@@ -153,7 +369,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 実行環境の取得の確認 | `advanced_settings/VcRuntimeSetup.tsx` | 同意のチェックボックス | フォームの SCSS の `dialog` の規則 |
 | OCR のモデルの取得の確認 | `ocr/OcrModels.tsx` | 同意のチェックボックス | フォームの SCSS の `dialog` の規則 |
 | 翻訳のライセンスの確認 | `translation/Translation.tsx` | 同意のチェックボックス | 独自のクラス（`license_dialog`） |
-| 設定の作り直しの確認 | `advanced_settings/AdvancedSettings.tsx` | 2 個の `<button>` | 共有のダイアログのクラス |
+| 接続用のキーの作り直しの確認 | `advanced_settings/AdvancedSettings.tsx` | 2 個の `<button>` | 共有のダイアログのクラス |
 | 設定から離れるときの確認 | `config_page/topbar/Topbar.tsx` | 2 個の `<button>` | 独自のクラス（`leave_dialog`） |
 | アップデートのモーダル | `others/modal_controller/ModalController.tsx` | 閉じるボタン、外を押すと閉じる領域 | 上のバーの更新のボタンから開き、「アップデート」のページを中に出します。背景を 50% の黒にしていない例外です（#764 の判断 2） |
 | 起動の失敗 | `others/startup/StartupFailedDialog.tsx` | `<dialog open>`（モーダルでない）と `role="alertdialog"`、再試行と終了のボタン | 置き換えの対象にしません（H-03）。ほかの部分が描けないときにも出すので、依存を増やさない方が安全です。kit に AlertDialog もありません（U-12） |
@@ -201,10 +417,11 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 
 ## 決まった判断
 
-この棚卸しから出た、置き換えの進め方の判断です。3 件とも、2026-11-23 に下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。
+この棚卸しから出た、置き換えの進め方の判断です。H-01〜H-03 は 2026-11-23 に、H-04 は 2026-11-24 に、下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。
 
 | ID | 問い | 決定 | 決めた日 | 理由 |
 |---|---|---|---|---|
 | H-01 | 手作りの要素を共通の部品に置き換える作業と、スタイルの vanilla-extract への移行（#957）を、どの順で進めるか | #957 は見た目を変えずに移し、置き換えはそのあとに部品ごとに進める | 2026-11-23 | #957 は、移す前と後の画面を画素で比べて見た目が変わらないことを確かめます。置き換えを混ぜると、この確かめ方が使えません。置き換えの多くは判断項目（D-03、D-10、D-14、D-23 など）を待っているので、混ぜると #957 も止まります。置き換える要素のスタイルも一度は移すことになり、その分の手間は増えます |
 | H-02 | 受け皿がない要素のうち、どれに共通の部品を作るか | U-01〜U-12 のすべてに共通の部品を作り、kit に足す。関係する判断項目があるものは、それが決まってから作る | 2026-11-23 | 受け皿がない要素も含めて、画面の手作りの要素を共通の部品にそろえます。使う場所が 1〜2 か所のもの（言語の選択、設定の検索、テーマのタイルなど）も、共通の部品と同じ規則（`data-slot`、色のトークン、試験）で作ります |
 | H-03 | VR パネル、コンパニオンの取っ手、エラーの画面、起動の失敗を、置き換えの対象に含めるか | 照合の外のままにし、共通の部品への置き換えの対象にしない。そのうえで、VR パネルの中だけで VR パネルの部品にそろえる（言語の窓の絞り込みと畳み） | 2026-11-23 | VR パネルは px の段と VR のポインタで決まる別の画面なので、共通の部品には寄せません。VR パネルの中では、言語の窓だけが絞り込みと畳みを自分で書いていて、ほかの窓は VR パネルの部品を使っています。エラーの画面と起動の失敗は、ほかの部分が壊れたときに出すので、依存を増やさない方が安全です |
+| H-04 | 置き換えた要素は、画面の今の見た目を保つか、kit の見た目にするか | kit の見た目（寸法、枠、塗り）をそのまま使う。画面を、shadcn/ui に寄せた kit の見た目にそろえる。挙動（押したときの動き、開閉の関係、キーボードの操作）は変えない。挙動が変わる行は止めて、その PR の「判断が要ること」に挙げる。PR ごとに、見た目の変わったところを記録する | 2026-11-24 | 置き換えは、画面を kit の見た目にそろえるためのものです。見た目が変わるのは副作用ではなく、そろえる先そのものです。置き換えの前に画面の見た目を直すと、置き換えのときにやり直しになります |

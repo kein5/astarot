@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - run: python tools/changelog.py check
 
-  # The build job makes the one Windows package, VRCT-VOX.zip, and the NSIS installer, which has
+  # The build job makes the one Windows package, ASTAROT.zip, and the NSIS installer, which has
   # the package's SHA-256 built in (tools/installer_package_hashes.py): the installer refuses a
   # package that was replaced on the release page, even with its .sha256.
   # The candidate job below inspects everything together and records the candidate.
@@ -43,18 +43,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build and inspect VRCT-VOX.zip
+      - name: Build and inspect ASTAROT.zip
         uses: ./.github/actions/windows-package
         with:
           script: release
-          package: VRCT-VOX.zip
+          package: ASTAROT.zip
 
       - name: Inspect source archive without OCR weights
         shell: pwsh
         run: |
           git archive --format=zip --output=VRCT-VOX-source.zip HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/check_voice_distribution.py VRCT-VOX-source.zip
+          python tools/check_voice_distribution.py --source-archive VRCT-VOX-source.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # The installer from `npm run release` above has no hash built in. Bundle it again now
@@ -64,7 +64,7 @@ jobs:
         env:
           ASTAROT_REQUIRE_PACKAGE_HASHES: '1'
         run: |
-          python tools/installer_package_hashes.py write --package VRCT-VOX.zip
+          python tools/installer_package_hashes.py write --package ASTAROT.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # The Tauri CLI directly: through npm, pwsh runs npm.ps1 and drops the "--", so npm
           # takes --bundles as its own option and Tauri gets "bundle nsis".
@@ -75,7 +75,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force build/windows-output | Out-Null
-          Move-Item VRCT-VOX.zip build/windows-output/
+          Move-Item ASTAROT.zip build/windows-output/
           Move-Item "src-tauri/target/release/bundle/nsis/ASTAROT_$($env:VERSION)_x64-setup.exe" build/windows-output/
           Copy-Item src-tauri/nsis/package-hashes.nsh build/windows-output/
 
@@ -155,14 +155,14 @@ jobs:
       - name: Check the installer's built-in package hash
         shell: pwsh
         run: |
-          python tools/installer_package_hashes.py check --package build/windows-output/VRCT-VOX.zip --include build/windows-output/package-hashes.nsh
+          python tools/installer_package_hashes.py check --package build/windows-output/ASTAROT.zip --include build/windows-output/package-hashes.nsh
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Inspect the ZIP and the completed NSIS installer
         shell: pwsh
         run: |
           $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
-          python tools/check_voice_distribution.py build/windows-output/VRCT-VOX.zip --nsis $installer
+          python tools/check_voice_distribution.py build/windows-output/ASTAROT.zip --nsis $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Stage release names and candidate identity
@@ -171,7 +171,7 @@ jobs:
         shell: pwsh
         run: |
           $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
-          python tools/release_candidate.py stage build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT --asset build/windows-output/VRCT-VOX.zip --asset $installer
+          python tools/release_candidate.py stage build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT --asset build/windows-output/ASTAROT.zip --asset $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/release_candidate.py verify build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -189,7 +189,7 @@ jobs:
       - name: Preserve inspected candidates for review
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-windows-candidate
+          name: ASTAROT-windows-candidate
           if-no-files-found: error
           retention-days: 7
           path: build/release-candidate/*
