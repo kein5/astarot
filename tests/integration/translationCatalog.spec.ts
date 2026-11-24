@@ -57,7 +57,7 @@ test("an API entry is added, used against its server and removed, and its key is
     }
 });
 
-test("switching catalog layout persists without showing the saved toast, while explicit saves still show it", async ({ app }) => {
+test("switching catalog layout persists without showing the saved toast, and so do settings that save by themselves", async ({ app }) => {
     const page = app.page;
     await app.openSettings("Translation");
     const switcher = page.getByRole("group", { name: "Catalog layout" });
@@ -102,11 +102,13 @@ test("switching catalog layout persists without showing the saved toast, while e
     await page.waitForTimeout(250);
     expect(await readToasts()).toEqual([]);
 
-    // Explicit save in settings still raises the saved toast.
+    // A field that saves by itself (#1111) saves without the toast too. Since the advanced settings
+    // save by themselves, no settings save raises it; the toast itself goes with the save bar.
     const portInput = page.getByLabel("OSC port");
     await app.unfold(portInput);
     await portInput.fill("9005");
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await expect.poll(readToasts).toContain("Settings have been saved.");
+    await portInput.press("Tab");
     await expect.poll(() => app.settings().OSC_PORT).toBe(9005);
+    await page.waitForTimeout(250);
+    expect(await readToasts()).toEqual([]);
 });

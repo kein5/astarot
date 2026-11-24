@@ -71,3 +71,54 @@ test("a server address the core refuses is said under the field, without a notic
     const toasts = await page.evaluate(() => JSON.parse(document.documentElement.dataset.seenToasts ?? "[]") as string[]);
     expect(toasts.filter(text => text.includes("could not be reached"))).toEqual([]);
 });
+
+// #1111: the advanced settings save by themselves. A number out of range is refused by the field's
+// own check; a host the core refuses is said under the field; the certificate and key save as one
+// pair when focus leaves both (decided 3), and one path without the other is refused under the pair.
+test("the advanced settings save by themselves, and the certificate and key save as a pair", async ({ app }) => {
+    const page = app.page;
+    await app.openSettings("Advanced");
+
+    // A number out of range: the field says the range, and nothing is written.
+    const fontSize = page.getByLabel("Font size (px)", { exact: true });
+    await app.unfold(fontSize);
+    const savedSize = app.settings().OBS_BROWSER_SOURCE_FONT_SIZE;
+    await fontSize.fill("300");
+    await fontSize.press("Tab");
+    await expect(page.getByRole("alert").filter({ hasText: "Enter a whole number from 10 to 200." })).toBeVisible();
+    expect(app.settings().OBS_BROWSER_SOURCE_FONT_SIZE).toBe(savedSize);
+    await fontSize.fill("48");
+    await fontSize.press("Tab");
+    await expect.poll(() => app.settings().OBS_BROWSER_SOURCE_FONT_SIZE).toBe(48);
+
+    // A LAN address without a certificate: the core refuses it, and says so under the field.
+    const host = page.getByLabel("WebSocket host (IPv4)", { exact: true });
+    await app.unfold(host);
+    const savedHost = String(app.settings().WEBSOCKET_HOST ?? "127.0.0.1");
+    await host.fill("192.0.2.10");
+    await host.press("Tab");
+    await expect(page.getByRole("alert").filter({ hasText: "needs a certificate and key" })).toBeVisible();
+    await expect(host).toHaveAttribute("aria-invalid", "true");
+    expect(app.settings().WEBSOCKET_HOST ?? "127.0.0.1").toBe(savedHost);
+    await host.press("Escape");
+    await expect(host).toHaveValue(savedHost);
+
+    // The pair: moving from the certificate to the key saves nothing; leaving the pair with one path
+    // is refused under it; a pair the core cannot load is refused by the core.
+    const cert = page.getByLabel("Certificate file", { exact: true });
+    const key = page.getByLabel("Private key file", { exact: true });
+    await app.unfold(cert);
+    await cert.fill("/nonexistent/vox-cert.pem");
+    await cert.press("Tab");
+    await expect(key).toBeFocused();
+    await expect(page.getByRole("alert").filter({ hasText: "Enter both the certificate and the private key" })).toHaveCount(0);
+    await key.press("Tab");
+    await expect(page.getByRole("alert").filter({ hasText: "Enter both the certificate and the private key" })).toBeVisible();
+    expect(app.settings().WEBSOCKET_TLS_CERT_FILE ?? "").toBe("");
+    await key.fill("/nonexistent/vox-key.pem");
+    await key.press("Tab");
+    await expect(page.getByRole("alert").filter({ hasText: "This certificate and key cannot be used." })).toBeVisible();
+    expect(app.settings().WEBSOCKET_TLS_CERT_FILE ?? "").toBe("");
+    // The page has nothing left for the save bar.
+    await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+});

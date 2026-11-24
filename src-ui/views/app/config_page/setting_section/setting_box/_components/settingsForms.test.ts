@@ -221,6 +221,12 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     props.state = "pending";
     entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur();
     assert.equal(saves, 1);
+    // A field with its own leave function gets the blur, which says where focus goes (a field of a pair).
+    const left: unknown[] = [], blur = { relatedTarget: "the other field" };
+    props.state = "ok"; props.leaveFunction = event => { left.push(event); };
+    entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur(blur);
+    assert.deepEqual([saves, left], [1, [blur]]);
+    props.leaveFunction = undefined;
     // A field saved from the bar keeps its old behaviour: leaving it saves nothing, no problem is drawn.
     props.autoSave = false; props.state = "ok";
     const plain = runtime.render(EntryWithSaveButton, props);
@@ -258,6 +264,54 @@ test("an API key field that saves by itself leaves, reverts and says its problem
     const plain = runtime.render(AuthKey, props);
     assert.equal(entryOf(plain).props.onBlur, undefined);
     assert.equal(all(plain, node => node.type === "field-problem").length, 0);
+    runtime.unmount();
+});
+
+// #1111: a color field that saves by itself saves when focus leaves it and when the picker closes
+// after a color is chosen. Escape in the field puts the saved color back, but with the picker open
+// it only closes the picker, which keeps the chosen color.
+test("a color field that saves by itself saves on leaving and on closing the picker", async t => {
+    const runtime = hooks(), document = eventTarget();
+    stubGlobals(t, { document, window: eventTarget() });
+    const { ColorEntryWithSaveButton } = await loadModule<typeof import("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx")>(
+        new URL("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
+            clsx: { clsx }, "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
+            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
+            "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    let saves: string[] = [], reverts = 0;
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "ok",
+        saveFunction: () => saves.push("first"), onRevert: () => reverts++, autoSave: true, error: null };
+    const entryOf = (tree: unknown) => findIn(tree, node => node.type === "entry");
+    const swatchOf = (tree: unknown) => findIn(tree, node => node.type === "button");
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    entryOf(tree).props.onBlur();
+    assert.deepEqual(saves, ["first"], "leaving the field saves");
+    entryOf(tree).props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1, "Escape in the field puts the saved color back");
+    // Open the picker, choose a color (the page's save now reads it), and close the picker.
+    swatchOf(tree).props.onClick();
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.equal(swatchOf(tree).props["aria-expanded"], true);
+    entryOf(tree).props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1, "with the picker open, Escape does not revert");
+    saves = []; props.saveFunction = () => saves.push("chosen");
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    document.dispatch("keydown", { key: "Escape" });
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.equal(swatchOf(tree).props["aria-expanded"], false);
+    assert.deepEqual(saves, ["chosen"], "closing the picker saves the chosen color with the latest save");
+    // The problem is said under the field and tied to it.
+    props.error = "Enter # and six characters.";
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    const problem = findIn(tree, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
+    assert.equal(entryOf(tree).props["aria-invalid"], true);
+    assert.equal(entryOf(tree).props["aria-describedby"], problem.props.id);
+    // A color field saved from the bar keeps its old behaviour.
+    props.autoSave = false;
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.equal(entryOf(tree).props.onBlur, undefined);
+    assert.equal(all(tree, node => node.type === "field-problem").length, 0);
     runtime.unmount();
 });
 

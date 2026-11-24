@@ -278,7 +278,7 @@ backend_errors:
     TRANSCRIPTION_API_TIMEOUT: "The speech recognition service did not answer in time, so recognition stopped. Check the network connection, then turn it on again."
     TRANSCRIPTION_API_SERVER_ERROR: "The speech recognition service had an error, so recognition stopped. Wait a while and turn it on again, or choose another engine."
     CLEANUP_TIMEOUT: "Audio capture did not stop in time. Wait a moment, then try again. If this keeps happening, restart ASTAROT."
-    VALIDATION_INVALID_IP: "That IP address is not in a valid format."
+    VALIDATION_INVALID_IP: "That is not an IP address. Enter one such as 127.0.0.1, without spaces."
     VALIDATION_CANNOT_SET_IP: "That IP address cannot be used."
     VALIDATION_OSC_PORT_INVALID: "Enter an OSC port from 1 to 65535 using whole numbers."
     AUTH_PLAMO_LENGTH: "The Plamo API key is too short. Paste the key the PLaMo API console shows, which is at least 72 characters."
@@ -315,7 +315,7 @@ backend_errors:
     AUTH_GOOGLE_CLOUD_FAILED: "The Google Cloud API key could not be verified. Check the key, and that Cloud Translation API and billing are enabled for its project."
     AUTH_PAPAGO_INVALID: "Enter the Papago Client ID first, then the Client Secret, both without spaces."
     AUTH_PAPAGO_FAILED: "The Papago Client ID and Client Secret could not be verified. Check both values, and that Papago Translation is enabled for the application in NAVER Cloud Platform."
-    WEBSOCKET_HOST_INVALID: "That host cannot be used for the WebSocket server."
+    WEBSOCKET_HOST_INVALID: "The WebSocket server cannot listen on that address. Enter 127.0.0.1, or an IP address your PC has on its LAN."
     WEBSOCKET_PORT_UNAVAILABLE: "Another app is using the WebSocket port. Choose a different port."
     WEBSOCKET_PORT_INVALID: "Enter a WebSocket port from 1 to 65535 using whole numbers."
     WEBSOCKET_SERVER_UNAVAILABLE: "The WebSocket server cannot start. Check that no other app is using its host and port."
@@ -331,6 +331,8 @@ backend_errors:
     OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID: "Enter a whole number from 0 to 120."
     OBS_BROWSER_SOURCE_FONT_SIZE_INVALID: "Enter a whole number from 10 to 200."
     OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID: "Enter a whole number from 0 to 20."
+    OBS_BROWSER_SOURCE_FONT_COLOR_INVALID: "Enter the font color as # and six characters from 0 to 9 and A to F, such as #FFFFFF."
+    OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID: "Enter the outline color as # and six characters from 0 to 9 and A to F, such as #000000."
     VRC_MIC_MUTE_SYNC_OSC_DISABLED: "VRC mic mute sync is unavailable because OSC reception or OSCQuery advertisement is not ready. Check that the OSC destination is 127.0.0.1 or localhost, then save the OSC settings again."
 
 common_warning:
@@ -1291,6 +1293,8 @@ config_page:
             link_failed: "The browser could not be opened. Open this address:"
         osc_ip_address:
             label: "OSC IP address"
+            errors:
+                invalid: "Enter an IPv4 address such as 127.0.0.1, or an IPv6 address such as ::1, without spaces."
         osc_port:
             label: "OSC port"
         osc_query:
@@ -1305,12 +1309,16 @@ config_page:
         websocket_host:
             label: "WebSocket host (IPv4)"
             desc: "With 127.0.0.1 it works on your PC only. To use it from other PCs, enter your PC's LAN IP address, after setting the certificate and key below."
+            errors:
+                invalid: "Enter an IPv4 address without spaces: 127.0.0.1 for your PC only, or your PC's LAN IP address for other PCs. 0.0.0.0 cannot be used."
         websocket_tls_cert_file:
             label: "Certificate file"
             desc: "Needed only for use from other PCs: the path to a PEM certificate. Traffic to other PCs is then encrypted (wss://, https://). The PCs and OBS that connect must trust this certificate."
         websocket_tls_key_file:
             label: "Private key file"
             desc: "The path to the PEM private key that goes with the certificate. A key with a passphrase cannot be used. If the key is in the certificate file, enter the same path."
+        websocket_tls_errors:
+            one_side: "Enter both the certificate and the private key, or leave both empty to use the server on your PC only."
         websocket_token:
             label: "Make a new connection key"
             desc: "Use this if someone else may have seen a copied URL. The old URLs stop working at once."
