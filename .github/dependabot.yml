@@ -48,6 +48,11 @@ updates:
       npm-tauri-major:
         patterns: ["@tauri-apps/*"]
         update-types: [major]
+      # @storybook/react-vite asks for the storybook of its own version as a peer (the component
+      # catalog, src-ui/views/kit_catalog/).
+      npm-storybook-major:
+        patterns: [storybook, "@storybook/*"]
+        update-types: [major]
       npm-minor-and-patch:
         update-types: [minor, patch]
     commit-message:
