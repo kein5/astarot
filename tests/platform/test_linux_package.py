@@ -76,5 +76,5 @@ def test_relocated_desktop_captions(installation, tmp_path):
 @pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
 @pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_ROUTE') != '1', reason='opt-in private PipeWire/WirePlumber 0.5 graph')
 def test_relocated_managed_route_restart_muted(installation, tmp_path):
-    from test_native_ui import test_native_voice_settings_survive_restart_with_managed_route_muted
-    test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path)
+    from test_native_ui import test_native_managed_route_unmutes_and_is_muted_again_after_a_restart
+    test_native_managed_route_unmutes_and_is_muted_again_after_a_restart(tmp_path)

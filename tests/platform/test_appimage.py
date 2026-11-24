@@ -56,8 +56,8 @@ def test_appimage_settings_open_save_and_fit_a_small_window(appimage, tmp_path, 
 
 @pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_ROUTE') != '1', reason='private WirePlumber0.5 graph')
 def test_appimage_settings_restart_muted(appimage, tmp_path):
-    from test_native_ui import test_native_voice_settings_survive_restart_with_managed_route_muted
-    test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path)
+    from test_native_ui import test_native_managed_route_unmutes_and_is_muted_again_after_a_restart
+    test_native_managed_route_unmutes_and_is_muted_again_after_a_restart(tmp_path)
 
 
 def test_normal_launch_keeps_window_painted_after_idle_and_hover(appimage, tmp_path):
