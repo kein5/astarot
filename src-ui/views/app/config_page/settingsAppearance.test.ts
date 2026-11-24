@@ -166,11 +166,14 @@ test("word-filter input/Add and export controls wrap within the actual available
     assert.match(styleOf(word, "add_button"), /maxWidth: "100%",\s*overflowWrap: "anywhere"/);
     const shared = read(box + "shared_items/SharedItems.css.ts");
     const sharedRules = styleOf(shared, "auto_export_message_logs_container");
-    assert.match(sharedRules, /flexWrap: "wrap"/);
+    assert.match(sharedRules, /gridTemplateColumns: "minmax\(0, 1fr\) minmax\(0, 1\.6fr\)"/);
+    assert.match(sharedRules, /"@container": \{ "\(max-width: 41\.6rem\)": stacked \}/);
+    assert.match(sharedRules, /"@media": \{ "\(max-width: 700px\)": stacked \}/);
     assert.match(sharedRules, /minWidth: 0/);
-    assert.match(shared, /globalStyle\(`\$\{auto_export_message_logs_container\} > \*`, \{ maxWidth: "100%" \}\)/);
+    assert.match(shared, /globalStyle\(`\$\{auto_export_message_logs_container\} > \*`, \{ minWidth: 0, maxWidth: "100%" \}\)/);
     const switchRules = styleOf(shared, "auto_export_message_logs_switch_section_container");
     assert.match(switchRules, /flexWrap: "wrap"/);
+    assert.match(switchRules, /justifyContent: "flex-start"/);
     assert.match(switchRules, /minWidth: 0/);
     assert.match(switchRules, /maxWidth: "100%"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {

@@ -47,7 +47,7 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its end (a checkbox) or its start (a lone button).
+    // Where the control sits in the field column: its start (checkboxes, lone buttons, radios) or end.
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -163,8 +163,8 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: a checkbox at its right end (#473),
-        // a lone button at its start; everything else fills it (#567).
+        // Where the control sits in the field column: checkboxes, lone buttons and radios start at
+        // the column's left edge, matching FormRow (#567, #1096); everything else fills it.
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
     });
@@ -243,7 +243,7 @@ export const SliderContainer = (props: SliderContainerProps) => (
 export type CheckboxContainerProps = TemplateRowProps & Omit<CheckboxProps, "aria-describedby">;
 
 export const CheckboxContainer = (props: CheckboxContainerProps) => (
-    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="end" />
+    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="start" />
 );
 
 export type EntryWithSaveButtonContainerProps = TemplateRowProps & EntryWithSaveButtonProps;

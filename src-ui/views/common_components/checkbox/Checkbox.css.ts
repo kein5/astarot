@@ -10,7 +10,7 @@ const SIZE = "var(--checkbox-size, 2.8rem)";
 export const checkbox_container = style({
     height: "100%",
     display: "flex",
-    justifyContent: "end",
+    justifyContent: "flex-start",
     alignItems: "center",
 });
 
@@ -22,10 +22,11 @@ export const checkbox_wrapper = style({
     display: "inline-block",
     cursor: "pointer",
     padding: "var(--checkbox-padding, 2rem)",
-    // The box ends where the row's fields end; the target keeps its padding on the other sides (#474).
-    paddingInlineEnd: 0,
     position: "relative",
     selectors: {
+        // Without a label beside it, the box starts flush on the field column's left edge (#1096);
+        // the target keeps its padding on the other sides.
+        [`&:not(.${has_label})`]: { paddingInlineStart: 0 },
         [`&.${is_pending}`]: { pointerEvents: "none" },
         [`&.${is_disabled}`]: { pointerEvents: "none" },
         // A checkbox with its label beside it: the label is part of the target.
@@ -33,6 +34,7 @@ export const checkbox_wrapper = style({
             display: "inline-flex",
             alignItems: "center",
             gap: "0.8rem",
+            paddingInlineEnd: 0,
         },
     },
 });

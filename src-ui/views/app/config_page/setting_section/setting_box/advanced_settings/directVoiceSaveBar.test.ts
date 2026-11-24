@@ -105,7 +105,7 @@ test("the monitor row says what it plays now and leads to the TTS page's setting
         const row = nodesIn(page.tree).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
         assert.ok(row, variant);
         assert.deepEqual([row.props.description, row.props.group], ["voice.vc_monitor_help", true]);
-        const state = nodesIn(row).find(node => node.props?.["data-vc-monitor"] !== undefined);
+        const state = nodesIn(row.props.status).find(node => node.props?.["data-vc-monitor"] !== undefined);
         assert.equal(state?.props.children, value, variant);
         const link = nodesIn(row).find(node => node.type === "page-link");
         assert.deepEqual([link?.props.tab, link?.props.action, link?.props.target], ["tts", "voice.vc_monitor_action", "tts_monitor"]);
