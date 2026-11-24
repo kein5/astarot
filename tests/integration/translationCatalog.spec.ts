@@ -56,3 +56,49 @@ test("an API entry is added, used against its server and removed, and its key is
         await server.stop();
     }
 });
+
+test("switching catalog layout persists without showing the saved toast, while explicit saves still show it", async ({ app }) => {
+    const page = app.page;
+    await app.openSettings("Translation");
+    const switcher = page.getByRole("group", { name: "Catalog layout" });
+    const listButton = switcher.getByRole("button", { name: "List", exact: true });
+    const gridButton = switcher.getByRole("button", { name: "Grid", exact: true });
+
+    // Record every toast that opens so even a short 1 s save toast cannot slip past the check.
+    await page.evaluate(() => {
+        const seen: string[] = [];
+        document.documentElement.dataset.seenToasts = "[]";
+        const record = () => {
+            for (const toast of document.querySelectorAll(".Toastify__toast")) {
+                const text = toast.textContent?.trim();
+                if (text && !seen.includes(text)) {
+                    seen.push(text);
+                    document.documentElement.dataset.seenToasts = JSON.stringify(seen);
+                }
+            }
+        };
+        record();
+        new MutationObserver(record).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await listButton.click();
+    await expect(listButton).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("list");
+
+    await gridButton.click();
+    await expect(gridButton).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("grid");
+    // SnackbarController waits 100 ms before opening a toast; give it time to fire if it were going to.
+    await page.waitForTimeout(250);
+    const readToasts = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.seenToasts ?? "[]") as string[]);
+    expect(await readToasts()).toEqual([]);
+
+    // Explicit save in settings still raises the saved toast.
+    await page.getByRole("button", { name: "Advanced", exact: true }).first().click();
+    const portInput = page.getByLabel("OSC port");
+    await app.unfold(portInput);
+    await portInput.fill("9005");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect.poll(readToasts).toContain("Settings have been saved.");
+    await expect.poll(() => app.settings().OSC_PORT).toBe(9005);
+});

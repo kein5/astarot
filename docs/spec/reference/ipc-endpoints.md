@@ -118,9 +118,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/experimental_features` | 取得 | 可 | useExperimentalFeatures.updateFromBackendExperimentalFeatures |  |
 | `/set/data/experimental_features` | 設定 | 可 | useExperimentalFeatures.setSuccessExperimentalFeatures |  |
 | `/get/data/usage_presets` | 取得 | 可 | useUsagePresets.updateFromBackendUsagePresets |  |
-| `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.setSuccessUsagePresets |  |
+| `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.updateFromBackendUsagePresets |  |
 | `/get/data/catalog_layout` | 取得 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
-| `/set/data/catalog_layout` | 設定 | 可 | useAppearance.setSuccessCatalogLayout |  |
+| `/set/data/catalog_layout` | 設定 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
 | `/get/data/theme` | 取得 | 可 | useAppearance.updateFromBackendTheme |  |
 | `/set/data/theme` | 設定 | 可 | useAppearance.setSuccessTheme |  |
 | `/get/data/llm_translation_temperature` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationTemperature |  |
@@ -132,7 +132,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/tray_companion_monitor` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionMonitor |  |
 | `/set/data/tray_companion_monitor` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionMonitor |  |
 | `/get/data/tray_companion_wheel_hint_shown` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionWheelHintShown |  |
-| `/set/data/tray_companion_wheel_hint_shown` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionWheelHintShown |  |
+| `/set/data/tray_companion_wheel_hint_shown` | 設定 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionWheelHintShown |  |
 | `/get/data/mic_avg_logprob` | 取得 | 可 | useTranscription.updateFromBackendMicAvgLogprob |  |
 | `/set/data/mic_avg_logprob` | 設定 | 可 | useTranscription.setSuccessMicAvgLogprob |  |
 | `/get/data/mic_no_speech_prob` | 取得 | 可 | useTranscription.updateFromBackendMicNoSpeechProb |  |
@@ -174,7 +174,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/overlay_vr_tooltip` | 取得 | 可 | useVr.updateFromBackendOverlayVrTooltip |  |
 | `/set/enable/overlay_vr_tooltip` | 有効化 | 可 | useVr.setSuccessOverlayVrTooltip |  |
 | `/set/disable/overlay_vr_tooltip` | 無効化 | 可 | useVr.setSuccessOverlayVrTooltip |  |
-| `/set/data/overlay_vr_panel_font_size` | 設定 | 可 | useVr.setSuccessOverlayVrPanelFontSize |  |
+| `/set/data/overlay_vr_panel_font_size` | 設定 | 可 | useVr.updateFromBackendOverlayVrPanelFontSize |  |
 | `/get/data/overlay_small_log` | 取得 | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |
 | `/get/data/overlay_small_log_settings` | 取得 | 可 | useVr.updateFromBackendOverlaySmallLogSettings |  |
 | `/get/data/overlay_large_log` | 取得 | 可 | useVr.updateFromBackendIsEnabledOverlayLargeLog |  |
@@ -186,7 +186,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/overlay_desktop_settings` | 取得 | 可 | useVr.updateFromBackendOverlayDesktopSettings |  |
 | `/set/data/overlay_desktop_settings` | 設定 | 可 | useVr.setSuccessOverlayDesktopSettings |  |
 | `/get/data/overlay_desktop_placement` | 取得 | 可 | useVr.updateFromBackendOverlayDesktopPlacement |  |
-| `/set/data/overlay_desktop_placement` | 設定 | 可 | useVr.setSuccessOverlayDesktopPlacement |  |
+| `/set/data/overlay_desktop_placement` | 設定 | 可 | useVr.updateFromBackendOverlayDesktopPlacement |  |
 | `/get/data/io_flow_overlay_settings` | 取得 | 可 | useVr.updateFromBackendIoFlowOverlaySettings |  |
 | `/set/data/io_flow_overlay_settings` | 設定 | 可 | useVr.setSuccessIoFlowOverlaySettings |  |
 | `/get/data/overlay_show_only_translated_messages` | 取得 | 可 | useVr.updateFromBackendOverlayShowOnlyTranslatedMessages |  |
@@ -379,12 +379,12 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/vr_launcher_reset` | 実行 | 待つ | （受け取るだけ） |  |
 | `/get/data/vr_panel_layout` | 取得 | 可 | useVr.updateFromBackendVrPanelLayout |  |
 | `/run/vr_panel_layout_rendered` | 実行 | 可 | （受け取るだけ） |  |
-| `/set/data/overlay_vr_panel_anchor` | 設定 | 可 | useVr.setSuccessOverlayVrPanelAnchor |  |
+| `/set/data/overlay_vr_panel_anchor` | 設定 | 可 | useVr.updateFromBackendOverlayVrPanelAnchor |  |
 | `/set/data/overlay_vr_launcher_hand` | 設定 | 可 | useVr.setSuccessOverlayVrLauncherHand |  |
 | `/set/enable/overlay_vr_launcher_auto_hide` | 有効化 | 可 | useVr.setSuccessOverlayVrLauncherAutoHide |  |
-| `/set/enable/overlay_vr_panel_locked` | 有効化 | 可 | useVr.setSuccessOverlayVrPanelLocked |  |
+| `/set/enable/overlay_vr_panel_locked` | 有効化 | 可 | useVr.updateFromBackendOverlayVrPanelLocked |  |
 | `/set/disable/overlay_vr_launcher_auto_hide` | 無効化 | 可 | useVr.setSuccessOverlayVrLauncherAutoHide |  |
-| `/set/disable/overlay_vr_panel_locked` | 無効化 | 可 | useVr.setSuccessOverlayVrPanelLocked |  |
+| `/set/disable/overlay_vr_panel_locked` | 無効化 | 可 | useVr.updateFromBackendOverlayVrPanelLocked |  |
 | `/set/data/overlay_vr_panel_opacity` | 設定 | 可 | useVr.setSuccessOverlayVrPanelOpacity |  |
 | `/set/data/overlay_small_log_settings` | 設定 | 可 | useVr.setSuccessOverlaySmallLogSettings |  |
 | `/set/enable/overlay_vr_panel` | 有効化 | 可 | useVr.setSuccessIsEnabledOverlayVrPanel |  |

@@ -230,7 +230,8 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "send_message_button_type",
     },
     // How the model catalogs lay out their cards (the settings' catalogs, catalogLayout.tsx):
-    // "grid" or "list", one for every catalog and saved. A new install starts with the grid.
+    // "grid" or "list", one for every catalog and saved without a "saved" notice (useReceiveRoutes.ts).
+    // A new install starts with the grid.
     {
         Category: "Appearance",
         Base_Name: "CatalogLayout",
@@ -1012,7 +1013,7 @@ export const SETTINGS_ARRAY = [
     },
     {
         // Where the caption window was dragged with Ctrl held; x and y are null on the band
-        // the "position" setting picks.
+        // the "position" setting picks. Saved without a "saved" notice (useReceiveRoutes.ts).
         Category: "Vr",
         Base_Name: "OverlayDesktopPlacement",
         default_value: ui_configs.overlay_desktop_default_placement,
@@ -1068,7 +1069,7 @@ export const SETTINGS_ARRAY = [
     },
     {
         // VR UIのログウィンドウの固定先 (Playspace / LeftHand / RightHand / HMD)。操作バーで変える。
-        // 掴みや呼び戻しで変わったときもバックエンドから届く
+        // 掴みや呼び戻しで変わったときもバックエンドから届く。保存通知は出さない (useReceiveRoutes.ts)
         Category: "Vr",
         Base_Name: "OverlayVrPanelAnchor",
         default_value: "Playspace",
@@ -1078,7 +1079,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "overlay_vr_panel_anchor",
     },
     {
-        // VR UIのログウィンドウのロック (掴めなくする)。操作バーで変える
+        // VR UIのログウィンドウのロック (掴めなくする)。操作バーで変える。保存通知は出さない (useReceiveRoutes.ts)
         Category: "Vr",
         Base_Name: "OverlayVrPanelLocked",
         default_value: false,
@@ -1087,7 +1088,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "overlay_vr_panel_locked",
     },
     {
-        // VR UIのログの文字の大きさ (14〜28px)。操作バーの A−／A＋ で変える
+        // VR UIのログの文字の大きさ (14〜28px)。操作バーの A−／A＋ で変える。保存通知は出さない (useReceiveRoutes.ts)
         Category: "Vr",
         Base_Name: "OverlayVrPanelFontSize",
         default_value: 17,
@@ -1486,6 +1487,7 @@ export const SETTINGS_ARRAY = [
     },
     {
         // The hexagram has told, the first time it came out, that the wheel turns it (#536).
+        // Saved automatically without a "saved" notice (useReceiveRoutes.ts).
         Category: "ExperimentalFeatures",
         Base_Name: "TrayCompanionWheelHintShown",
         default_value: false,
@@ -1495,7 +1497,7 @@ export const SETTINGS_ARRAY = [
     },
 
     // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:
-    // nothing is hidden while it is not known.
+    // nothing is hidden while it is not known. Saved without a "saved" notice (useReceiveRoutes.ts).
     {
         Category: "UsagePresets",
         Base_Name: "UsagePresets",

@@ -230,3 +230,45 @@ for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
         detach();
     });
 }
+
+test("silent preference and internal-flag saves update state without raising the saved notice", async () => {
+    let saveNotices = 0;
+    const s = await loadBridgeRoutes(async () => ({
+        useNotificationStatus: () => ({
+            showNotification_Error() {},
+            showNotification_Warning() {},
+            showNotification_Success() {},
+            showNotification_SaveSuccess: () => { saveNotices += 1; },
+            dismissNotification() {},
+        }),
+    }));
+    const silentCases: readonly [string, string, unknown][] = [
+        ["/set/data/ocr_portal_restore_token", "Atom_OcrPortalRestoreToken", "tok-1"],
+        ["/set/data/catalog_layout", "Atom_CatalogLayout", "list"],
+        ["/set/data/usage_presets", "Atom_UsagePresets", ["translation"]],
+        ["/set/data/tray_companion_wheel_hint_shown", "Atom_TrayCompanionWheelHintShown", true],
+        ["/set/data/overlay_desktop_placement", "Atom_OverlayDesktopPlacement", { x: 120, y: 80 }],
+        ["/set/data/overlay_vr_panel_anchor", "Atom_OverlayVrPanelAnchor", "HMD"],
+        ["/set/enable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", true],
+        ["/set/disable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", false],
+        ["/set/data/overlay_vr_panel_font_size", "Atom_OverlayVrPanelFontSize", 20],
+    ];
+    for (const [endpoint, atomName, result] of silentCases) {
+        s.receiveRoutes({ endpoint, status: 200, result });
+        assert.deepEqual(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, atomName)).data, result, endpoint);
+    }
+    assert.equal(saveNotices, 0);
+
+    // Explicit settings saves keep raising the saved notice.
+    s.receiveRoutes({ endpoint: "/set/data/osc_port", status: 200, result: 9005 });
+    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_OscPort")).data, 9005);
+    assert.equal(saveNotices, 1);
+
+    s.receiveRoutes({ endpoint: "/set/data/deepl_auth_key", status: 200, result: "key-1" });
+    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_DeepLAuthKey")).data, "key-1");
+    assert.equal(saveNotices, 2);
+
+    s.receiveRoutes({ endpoint: "/delete/data/deepl_auth_key", status: 200, result: null });
+    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_DeepLAuthKey")).data, null);
+    assert.equal(saveNotices, 3);
+});
