@@ -1268,10 +1268,10 @@ test("asking for the hotkeys marks them pending and asks the backend", async () 
     assert.deepEqual(state.events, ["pending", "/get/data/hotkeys"]);
 });
 
-test("an acknowledged save is kept and said", async () => {
+test("an acknowledged save is kept without raising the saved notice", async () => {
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
     hook.setSuccessHotkeys({ open_quick_chat: ["Ctrl", "W"] });
     assert.deepEqual(state.hotkeys, { open_quick_chat: ["Ctrl", "W"] });
-    assert.deepEqual(state.events, ["saved"]);
+    assert.deepEqual(state.events, []);
 });
