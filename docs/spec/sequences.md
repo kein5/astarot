@@ -156,7 +156,7 @@ sequenceDiagram
 ```
 
 - The speaker side (Listening) follows the same flow: it recognizes in the target languages and translates into your language. It sends to VRChat only when "Send received message to VRChat" is on, and the notification is `/run/transcription_receive_speaker_message`.
-- On Linux, and on Windows with the bundled server chosen for real-time captions, the Mic input switch starts real-time speech recognition, and the results arrive as `/run/realtime_caption`.
+- On Linux, and on Windows with the bundled server chosen for real-time captions, the Mic input switch starts real-time speech recognition, and the results arrive as `/run/realtime_caption`. With the bundled server, the switch starts it when it is not running and waits until it is ready. While it waits, it tells the UI with `/run/realtime_server_starting` (`{source, starting}`), and the switch says the server is starting. The server is stopped once neither switch nor a recording's VAD uses it (#1149). A server started from the settings screen stays, unless `STOP_SPEECH_SERVERS_WITH_SWITCHES` is on: then it stops at that point too (off by default).
 
 ## Text to speech and stopping
 
@@ -378,7 +378,7 @@ sequenceDiagram
 ```
 
 - スピーカー側（聞き取り）は同じ流れで、相手の言語で認識し、自分の言語へ訳す。VRChatへ送るのは「受信したメッセージをVRChatに送信する」がオンのときだけで、通知は`/run/transcription_receive_speaker_message`になる。
-- Linuxと、リアルタイム字幕で同梱サーバーを選んだWindowsでは、マイク入力のスイッチがリアルタイム音声認識を始め、結果は`/run/realtime_caption`で届く。
+- Linuxと、リアルタイム字幕で同梱サーバーを選んだWindowsでは、マイク入力のスイッチがリアルタイム音声認識を始め、結果は`/run/realtime_caption`で届く。同梱サーバーのときは、動いていなければスイッチが起動し、準備ができるまで待つ。待つ間は`/run/realtime_server_starting`（`{source, starting}`）でUIに知らせ、スイッチにサーバーを起動中と出す。どちらのスイッチも録音のVADも使わなくなったら止める（#1149）。設定画面から起動したサーバーは止めない。ただし`STOP_SPEECH_SERVERS_WITH_SWITCHES`がオンのときは、そのときに一緒に止める（既定はオフ）。
 
 ## 読み上げと停止
 

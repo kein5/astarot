@@ -154,6 +154,7 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/get/data/realtime_asr_models", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateModels" },
     { endpoint: "/get/data/builtin_vocabulary", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateBuiltinVocabulary" },
     { endpoint: "/get/data/realtime_asr_state", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
+    { endpoint: "/run/realtime_server_starting", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateServerStarting" },
     { endpoint: "/run/start_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/stop_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/realtime_caption", ns: common, hook_name: "useMessage", method_name: "updateRealtimeCaption" },

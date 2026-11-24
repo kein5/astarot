@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import type { AtomStatus } from "@store";
 import type { SwitchBlockAction, SwitchBlockId } from "../../../../../logics/main/switchBlocks";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
+import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
@@ -69,6 +70,10 @@ export const MainFunctionSwitch = () => {
 
 
     const voice = useVoice();
+    // A speech recognition switch that waits for the bundled server says so, as TTS's does (#1149).
+    const { serverStarting } = useRealtimeASR();
+    const asrServerStarting = (status: { state?: AtomStatus }, source: "mic" | "speaker") =>
+        status.state === "pending" && serverStarting[source] === true ? t("main_page.speech_server_starting") : null;
     const { blocks, prepare } = useSwitchBlocks();
     const { showNotification_Error } = useNotificationStatus();
     // Known codes get their next step; the code stays visible for support.
@@ -123,6 +128,7 @@ export const MainFunctionSwitch = () => {
             SvgComponent: MicSvg,
             currentState: currentTranscriptionSendStatus,
             toggleFunction: toggleTranscriptionSend,
+            statusText: asrServerStarting(currentTranscriptionSendStatus, "mic"),
         },
         {
             switch_id: "transcription_receive",
@@ -130,6 +136,7 @@ export const MainFunctionSwitch = () => {
             SvgComponent: HeadphonesSvg,
             currentState: currentTranscriptionReceiveStatus,
             toggleFunction: toggleTranscriptionReceive,
+            statusText: asrServerStarting(currentTranscriptionReceiveStatus, "speaker"),
         },
         {
             switch_id: "ocr",

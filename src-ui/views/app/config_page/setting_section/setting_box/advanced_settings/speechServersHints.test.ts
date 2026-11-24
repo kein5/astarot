@@ -28,6 +28,8 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
+        "@logics_configs": { useAdvancedSettings: () => ({ currentStopSpeechServersWithSwitches: { data: false, state: "ok" },
+            toggleStopSpeechServersWithSwitches() {} }) },
     });
     return runtime.render(SpeechServers, { profiles: ["japanese", "asr"] });
 }
@@ -42,8 +44,9 @@ test("the servers' descriptions are the fold's, the rows' and the checkbox's; no
         ["speech_servers.diarization_model", "speech_servers.diarization_help"],
         ["speech_servers.device", "speech_servers.device_help\nspeech_servers.cpu_build_separate"],
     ]);
-    const check = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([check.label, check.description, check.checked], ["speech_servers.low_latency", "speech_servers.low_latency_help", false]);
+    const checks = all(tree, node => node.type === "hint-check").map(node => [node.props.label, node.props.description, node.props.checked]);
+    assert.deepEqual(checks, [["speech_servers.low_latency", "speech_servers.low_latency_help", false],
+        ["speech_servers.stop_with_switches", "speech_servers.stop_with_switches_help", false]]);
     assert.ok(!find(tree, node => node.type === "description"));
 });
 
@@ -59,9 +62,10 @@ test("a device row has no description to show when nothing applies; the missing 
 // buttons, and reload is its plain button. Each waits as before: start for a saved model (and the
 // VAD model for speech recognition), stop for something to stop, reload for no unsaved edit.
 interface Server { state?: Record<string, unknown>; pending?: Record<string, unknown>; dirty?: boolean; saving?: boolean;
-    model?: string; vad?: string }
-async function server({ state = {}, pending = {}, dirty = false, saving = false, model = "m.gguf", vad = "v.gguf" }: Server) {
-    const runtime = hooks(), sent: [string, unknown][] = [], edits: unknown[] = [];
+    model?: string; vad?: string; stopWithSwitches?: { data?: unknown; state?: string } }
+async function server({ state = {}, pending = {}, dirty = false, saving = false, model = "m.gguf", vad = "v.gguf",
+    stopWithSwitches = { data: false, state: "ok" } }: Server) {
+    const runtime = hooks(), sent: [string, unknown][] = [], edits: unknown[] = [], toggled: unknown[] = [];
     const profile = { model, voice_file: "", vad_model: vad, diarization_model: "", device: "auto", low_latency: false };
     const settings = { profiles: { japanese: { ...profile }, asr: { ...profile } } };
     const { SpeechServers } = await loadModule<typeof import("./SpeechServers.tsx")>(new URL("./SpeechServers.tsx", import.meta.url), runtime, {
@@ -77,11 +81,14 @@ async function server({ state = {}, pending = {}, dirty = false, saving = false,
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
+        "@logics_configs": { useAdvancedSettings: () => ({ currentStopSpeechServersWithSwitches: stopWithSwitches,
+            toggleStopSpeechServersWithSwitches: () => toggled.push(true) }) },
     });
     const tree = runtime.render(SpeechServers, { profiles: ["japanese", "asr"] });
     const buttons = all(tree, node => node.type === kitStandIns.Button);
     const named = (words: string) => buttons.filter(node => node.props.children === words);
-    return { tree, sent, edits, named, fields: all(tree, node => node.type === kitStandIns.TextField) };
+    const stopCheck = findIn(tree, node => node.type === "hint-check" && node.props.label === "speech_servers.stop_with_switches").props;
+    return { tree, sent, edits, toggled, named, stopCheck, fields: all(tree, node => node.type === kitStandIns.TextField) };
 }
 
 test("a server's paths are the kit's monospaced fields, and they wait while the server is busy", async () => {
@@ -126,4 +133,18 @@ test("start, stop and reload are the kit's primary, quiet and plain buttons and 
     assert.deepEqual(noVad.map(button => button.props.disabled), [false, true]);
     const cleanup = { ...stopped, japanese: { ...stopped.japanese, error_code: "speech_server_cleanup_unconfirmed" } };
     assert.equal((await server({ state: cleanup })).named("speech_servers.start")[0].props.disabled, true);
+});
+
+// #1149: whether the switches also stop a server started here is one setting for every server,
+// saved at once (not with the servers' form). It shows the saved value and waits while it saves.
+test("the choice to stop servers started here with the switches shows the saved value and saves at once", async () => {
+    const off = await server({ state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } });
+    assert.deepEqual([off.stopCheck.checked, off.stopCheck.disabled], [false, false]);
+    off.stopCheck.onChange({ target: { checked: true } });
+    assert.deepEqual([off.toggled.length, off.edits.length, off.sent.filter(([endpoint]) => endpoint.startsWith("/set/")).length], [1, 0, 0]);
+    // A dirty form or a running server does not hold it back: it is not one of the servers' fields.
+    const busy = await server({ dirty: true, state: { japanese: { state: "ready" }, asr: { state: "ready" } }, stopWithSwitches: { data: true, state: "ok" } });
+    assert.deepEqual([busy.stopCheck.checked, busy.stopCheck.disabled], [true, false]);
+    const saving = await server({ state: {}, stopWithSwitches: { data: false, state: "pending" } });
+    assert.deepEqual([saving.stopCheck.disabled, saving.stopCheck["aria-busy"]], [true, true]);
 });

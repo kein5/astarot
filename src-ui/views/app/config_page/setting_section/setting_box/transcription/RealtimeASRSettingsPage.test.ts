@@ -77,7 +77,6 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
         "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => options.hints ?? false },
-        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "./VocabularyFiles.tsx": { VocabularyFiles: "vocabulary-files" },
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
     });
@@ -167,7 +166,8 @@ test("the form names its part, says what the captions are and which server they 
     assert.deepEqual(ofType(tree, "description").map(node => node.props.text).at(-1), "realtime.save_help");
 });
 
-test("an external server needs its address; the bundled one asks whether a main switch may start it", async context => {
+// #1149: the main switches always start the bundled server, so the bundled one asks nothing more.
+test("an external server needs its address; the bundled one needs nothing more", async context => {
     const f = await captionsForm(context, { settings: { ...settings, server: undefined } });
     let tree = f.open();
     const server = selectNamed(tree, "realtime.title".replace("realtime.title", "speech_servers.asr_selection"));
@@ -184,11 +184,8 @@ test("an external server needs its address; the bundled one asks whether a main 
     tree = f.draw();
     assert.equal(selectNamed(tree, "speech_servers.asr_selection").props.value, "bundled");
     assert.equal(find(tree, node => node.props?.["aria-label"] === "realtime.url"), null);
-    const start = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([start.label, start.description, start.disabled, start.checked], ["realtime.start_server", "realtime.start_server_help", false, true]);
-    start.onChange({ target: { checked: false } });
-    assert.equal(findIn(f.draw(), node => node.type === "hint-check").props.checked, false);
-    assert.deepEqual(f.entry().changes, ["speech_servers.asr_selection", "realtime.url", "realtime.title"], "the start switch is named as the captions'");
+    assert.equal(find(tree, node => node.type === "hint-check"), null, "no choice whether a main switch may start it");
+    assert.deepEqual(f.entry().changes, ["speech_servers.asr_selection", "realtime.url"]);
 });
 
 test("the model list offers the server's models only while they are the current server's, and keeps a saved model named as unavailable", async context => {

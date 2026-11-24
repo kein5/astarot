@@ -1470,6 +1470,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "rvc_block_ms",
     },
+    {
+        // Whether turning off the last switch that used a bundled speech server also stops a
+        // server started from Settings (#1149). Off: such a server stays (the default).
+        Category: "AdvancedSettings",
+        Base_Name: "StopSpeechServersWithSwitches",
+        default_value: false,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        base_endpoint_name: "stop_speech_servers_with_switches",
+    },
 
     // { feature_id: bool }, every listed feature off by default (experimentalFeatures.ts).
     {

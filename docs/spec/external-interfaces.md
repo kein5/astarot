@@ -269,7 +269,7 @@ The bundled ASR server always loads the recognition model and the VAD model, and
 
 The bundled ASR server also matches the identifier of each launch with the capture generation of the microphone and of the speaker. Only a capture that uses the run that ended is stopped, and the same exit notification is not processed twice. A notification from an old run does not stop a new capture. When a capture stopped because of a crash, the cause is reported as before.
 
-Turning the TTS switch off stops only the bundled server that this switch started. A server started from the settings screen and the independent RVC switch are kept.
+Turning the TTS switch off stops only the bundled server that this switch started. A server started from the settings screen is kept, unless `STOP_SPEECH_SERVERS_WITH_SWITCHES` is on (off by default; "Also stop servers started here when the features turn off" in the "Models and servers" section of the speech recognition and TTS pages; core only, #1149). Then the switch stops it too, but only the run it used: a server started again since stays. The independent RVC switch is kept either way. The endpoints are `/get/data/stop_speech_servers_with_switches`, `/set/enable/stop_speech_servers_with_switches` and `/set/disable/stop_speech_servers_with_switches`.
 
 The design history is in the ADRs in [`docs/adr/`](../adr/README.md).
 
@@ -714,7 +714,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 同梱ASRサーバーも、起動ごとの識別子とマイク・スピーカーそれぞれの収録世代を照合する。終了した実行を使う収録だけを停止し、同じ終了通知を重ねて処理しない。古い実行の通知で新しい収録を止めない。異常終了で停止した場合は、従来どおり原因を通知する。
 
-TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーと、独立したRVCのスイッチは維持する。
+TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーは維持する。ただし`STOP_SPEECH_SERVERS_WITH_SWITCHES`がオンのときは（既定はオフ。音声認識と読み上げのページの「モデルとサーバー」にある「ここで起動したサーバーも機能と一緒に止める」。中核のみ、#1149）、それも止める。止めるのはスイッチが使った回のサーバーだけで、その後に起動し直したサーバーは止めない。独立したRVCのスイッチは、どちらでも維持する。エンドポイントは`/get/data/stop_speech_servers_with_switches`、`/set/enable/stop_speech_servers_with_switches`、`/set/disable/stop_speech_servers_with_switches`である。
 
 設計の経緯は[`docs/adr/`](../adr/README.md)の ADR にある。
 

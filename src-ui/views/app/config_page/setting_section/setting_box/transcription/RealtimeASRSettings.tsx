@@ -10,7 +10,6 @@ import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyFiles } from "./VocabularyFiles.tsx";
 import { VocabularyList } from "./VocabularyList.tsx";
 import type { TFunction } from "i18next";
@@ -95,10 +94,6 @@ export const RealtimeASRSettings = () => {
                 onChange={event => setDraft({ ...draft, server: event.target.value })}>
                 {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
             </select></label>
-            {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
-            {draft.server === "bundled" && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
-                description={t("realtime.start_server_help")} disabled={saving} checked={draft.start_server !== false}
-                onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
             {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
                 onChange={event => setDraft({ ...draft, base_url: event.target.value })} /></label>}
             {/* The model list's refresh sits under the list, in the control column (#473). */}

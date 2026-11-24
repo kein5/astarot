@@ -108,8 +108,9 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // took the channel from the version. TRAY_COMPANION_WHEEL_HINT_SHOWN (#536) too: the Python
 // backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
 // the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
-// backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 19] = [
+// backend's UI had one look. STOP_SPEECH_SERVERS_WITH_SWITCHES (#1149) too: the Python backend
+// never stopped a server started from Settings.
+const CORE_ONLY_KEYS: [&str; 20] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -129,6 +130,7 @@ const CORE_ONLY_KEYS: [&str; 19] = [
     "TALK_AI_SCREEN_INTERVAL_MS",
     "TALK_AI_SCREEN_LONG_EDGE",
     "TALK_AI_SCREEN_DETAIL",
+    "STOP_SPEECH_SERVERS_WITH_SWITCHES",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
@@ -177,6 +179,14 @@ fn without_local_asr_migration(want: &mut Value, input: &Value) {
     }
 }
 
+/// The seventh intended difference (#1149): the switches always start the bundled realtime
+/// server, so the core leaves out Python's `start_server` of the realtime settings.
+fn without_start_server(settings: &mut Map<String, Value>) {
+    if let Some(Value::Object(realtime)) = settings.get_mut("REALTIME_ASR_SETTINGS") {
+        realtime.shift_remove("start_server");
+    }
+}
+
 /// The fifth intended difference (#560): each key of the input the core does not know must be in
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
@@ -215,6 +225,7 @@ fn check_platform(name: &str, platform: Platform) {
     defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
     // Intended (#288): the notice of the move to speech.cpp went in 0.6.0, with its key.
     defaults.shift_remove("LOCAL_ASR_NOTICE_PENDING");
+    without_start_server(&mut defaults);
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
@@ -222,6 +233,11 @@ fn check_platform(name: &str, platform: Platform) {
         let mut want = want.clone();
         if let Some(changed) = want["changed"].as_object_mut() {
             with_added(changed);
+            without_start_server(changed);
+            // A saved choice that differed only in `start_server` is no change any more.
+            if changed.get("REALTIME_ASR_SETTINGS") == defaults.get("REALTIME_ASR_SETTINGS") {
+                changed.shift_remove("REALTIME_ASR_SETTINGS");
+            }
         }
         let want = &want;
         let dir = tempfile::tempdir().unwrap();

@@ -70,7 +70,6 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
-        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "./VocabularyFiles.tsx": { VocabularyFiles: "vocabulary-files" },
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
@@ -346,8 +345,8 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     // Following the system's default says what that does; the game audio says which output to pick.
     assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
     assert.equal(row("realtime.speaker_input").description, "realtime.speaker_help\nrealtime.follow_default_help");
-    const check = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([check.label, check.description], ["realtime.start_server", "realtime.start_server_help"]);
+    // The switches start the bundled server: there is no choice to make here (#1149).
+    assert.equal(find(tree, node => node.type === "hint-check"), null);
     const descriptions: unknown[] = [];
     find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
     // Saving before Start is what the disabled Start waits for: it stays in sight.

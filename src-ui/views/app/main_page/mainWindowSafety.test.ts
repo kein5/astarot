@@ -32,6 +32,8 @@ interface SwitchSetup {
 type Part = (props?: unknown) => TreeNode;
 
 const MAIN_FUNCTIONS = ["Translation", "TranscriptionSend", "TranscriptionReceive", "OcrCapture"] as const;
+// The sources whose switch waits for the bundled ASR server, as useRealtimeASR keeps them (#1149).
+const realtimeServerStarting: Partial<Record<"mic" | "speaker", boolean>> = {};
 
 const icon = () => null;
 const keydown = (control: TreeNode, key: string, repeat = false) => {
@@ -64,6 +66,7 @@ const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSet
         "@store": b.stores,
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady },
         "../../../../../logics/common/useNotificationStatus": { useNotificationStatus: () => ({ showNotification_Error() {} }) },
+        "../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ serverStarting: realtimeServerStarting }) },
         "../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../../logics/voice/voiceActions.ts": { voiceActions, voiceSwitchStates },
         "../../../../../logics/voice/routeState": routeState,
@@ -191,6 +194,28 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
     }
     assert.deepEqual(s.requests, []);
     assert.deepEqual(sent, []);
+});
+
+test("#1149: a speech recognition switch that waits for the bundled server says the server is starting", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = runningChild();
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: { tts_generation: 1 }, directState: { observation_id: "one" } });
+    b.runtime.store.set(b.stores.Atom_TranscriptionSendStatus, { data: false, state: "pending" });
+    b.runtime.store.set(b.stores.Atom_TranscriptionReceiveStatus, { data: false, state: "pending" });
+    const shown = () => Object.fromEntries(b.runtime.render(s.MainFunctionSwitch).props.children
+        .map((item: TreeNode) => [item.props.switch_id, item.props.statusText]));
+    try {
+        assert.equal(shown().transcription_send, null, "waiting, but not for the server");
+        realtimeServerStarting.mic = true;
+        assert.equal(shown().transcription_send, "main_page.speech_server_starting");
+        assert.equal(shown().transcription_receive, null, "the game audio's switch waits for no server");
+        // Once the switch has its answer, it waits no more.
+        b.runtime.store.set(b.stores.Atom_TranscriptionSendStatus, { data: true, state: "ok" });
+        assert.equal(shown().transcription_send, null);
+    } finally {
+        delete realtimeServerStarting.mic;
+    }
 });
 
 test("while the engine starts, the switches are locked placeholders, not disconnected", async () => {
