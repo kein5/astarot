@@ -2,8 +2,7 @@
 //!
 //! `wss://` goes over TLS with the Mozilla roots, through the system proxy when one is set;
 //! `ws://` only to this PC and the LAN (vLLM-Omni on the user's own machine), as the translation
-//! providers' requests do (`astarot_translation::http`). The key goes only in the `Authorization`
-//! header. No error carries the URL, a header or a body.
+//! providers' requests do (`astarot_translation::http`). The key goes in a sensitive request header. No error carries the URL, a header or a body.
 
 use std::fmt;
 use std::time::Duration;
@@ -16,7 +15,7 @@ use astarot_translation::http::{self, Cancel, HttpError, Stream, Timeouts, Url};
 /// The most one event from the service may hold: an answer's audio comes in small parts.
 const MAX_EVENT: usize = 16 * 1024 * 1024;
 
-/// A service's API key. It shows nowhere but in the `Authorization` header.
+/// A service's API key. Its debug representation hides the value.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Key(String);
 
@@ -121,6 +120,14 @@ fn is_loopback(host: &str) -> bool {
 /// most `wait` for the service; `cancel` gives them up within about 20 ms. The socket's reads
 /// then wait at most `poll`, so that a thread can read and send in turn.
 pub fn open(service: &Service, network: Network, wait: Duration, poll: Duration, cancel: &Cancel) -> Result<Socket, OpenError> {
+    open_socket(service, false, network, wait, poll, cancel)
+}
+
+pub(crate) fn open_gemini(url: &str, key: Key, network: Network, wait: Duration, poll: Duration, cancel: &Cancel) -> Result<Socket, OpenError> {
+    open_socket(&Service { url: url.into(), model: None, key: Some(key) }, true, network, wait, poll, cancel)
+}
+
+fn open_socket(service: &Service, gemini: bool, network: Network, wait: Duration, poll: Duration, cancel: &Cancel) -> Result<Socket, OpenError> {
     let (url, target) = targets(service)?;
     if network == Network::LoopbackOnly && !is_loopback(&url.host) {
         return Err(OpenError::Unreachable);
@@ -137,9 +144,10 @@ pub fn open(service: &Service, network: Network, wait: Duration, poll: Duration,
     })?;
     let mut request = target.into_client_request().map_err(|_| OpenError::Url)?;
     if let Some(Key(key)) = &service.key {
-        let mut value = HeaderValue::from_str(&format!("Bearer {key}")).map_err(|_| OpenError::KeyRefused)?;
+        let (header, value) = if gemini { ("x-goog-api-key", key.clone()) } else { ("authorization", format!("Bearer {key}")) };
+        let mut value = HeaderValue::from_str(&value).map_err(|_| OpenError::KeyRefused)?;
         value.set_sensitive(true);
-        request.headers_mut().insert("Authorization", value);
+        request.headers_mut().insert(header, value);
     }
     request.headers_mut().insert("User-Agent", HeaderValue::from_static("ASTAROT"));
     let config = WebSocketConfig::default().max_message_size(Some(MAX_EVENT)).max_frame_size(Some(MAX_EVENT));

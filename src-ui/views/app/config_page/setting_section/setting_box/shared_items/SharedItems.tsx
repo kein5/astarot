@@ -1,10 +1,8 @@
 // Settings that more than one page shows. A page renders the same container,
 // so the value and its saving stay in one place; only one page is on screen.
 import { useI18n } from "@useI18n";
-import * as styles from "./SharedItems.css.ts";
 
 import {
-    useOpenFolder,
     useIsOscAvailable,
 } from "@logics_common";
 
@@ -16,15 +14,6 @@ import {
     CheckboxContainer,
     MessageFormatContainer,
 } from "../_templates/Templates";
-
-import {
-    LabelComponent,
-    ActionButton,
-} from "../_components";
-import { Checkbox } from "@common_components";
-
-import OpenFolderSvg from "@images/open_folder.svg?react";
-import CheckMarkSvg from "@images/check_mark.svg?react";
 
 export const AutoClearMessageInputBoxContainer = () => {
     const { t } = useI18n();
@@ -55,29 +44,15 @@ export const SendOnlyTranslatedMessagesContainer = () => {
 export const AutoExportMessageLogsContainer = () => {
     const { t } = useI18n();
     const { currentEnableAutoExportMessageLogs, toggleEnableAutoExportMessageLogs } = useOthers();
-    const { openFolder_MessageLogs } = useOpenFolder();
 
     return (
-        <div className={styles.auto_export_message_logs_container} data-setting-id="auto_export_message_logs">
-            <LabelComponent
-                label={t("config_page.others.auto_export_message_logs.label")}
-                desc={t("config_page.others.auto_export_message_logs.desc")}
-                />
-            <div className={styles.auto_export_message_logs_switch_section_container}>
-                <ActionButton
-                    label={t("config_page.others.auto_export_message_logs.open_folder")}
-                    IconComponent={OpenFolderSvg}
-                    ClickedIconComponent={CheckMarkSvg}
-                    clicked_duration={1000}
-                    onclickFunction={openFolder_MessageLogs}
-                />
-                <Checkbox
-                    label={t("config_page.others.auto_export_message_logs.label")}
-                    variable={currentEnableAutoExportMessageLogs}
-                    toggleFunction={toggleEnableAutoExportMessageLogs}
-                />
-            </div>
-        </div>
+        <CheckboxContainer
+            setting_id="auto_export_message_logs"
+            label={t("config_page.others.auto_export_message_logs.label")}
+            desc={t("config_page.others.auto_export_message_logs.desc")}
+            variable={currentEnableAutoExportMessageLogs}
+            toggleFunction={toggleEnableAutoExportMessageLogs}
+        />
     );
 };
 export const VrcMicMuteSyncContainer = () => {

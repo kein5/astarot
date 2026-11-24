@@ -159,6 +159,17 @@ export function loaded(exports: Record<string, unknown>): unknown {
     return exports;
 }
 
+// The kit's parts (views/kit) as a screen draws them, unless the test hands in its own. The kit's
+// looks are vanilla-extract recipes, which only the app's build can make, so each stand-in draws
+// the element the part draws, with the part's data-slot and defaults, and keeps the look it was
+// asked for as data attributes (data-tone, data-size): a test reads which look a control asked
+// for, and the class a screen added for its place, as it reads every other class (hookHarness.test.ts
+// holds the stand-ins to the kit's defaults).
+export const kitStandIns = {
+    Button: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+};
+
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
     // Vite builds the source into a function of require and exports (harnessModules.ts).
     const built: unknown = Reflect.get(await import(/* @vite-ignore */ `${url.href}?${HARNESS_QUERY}`), "default");
@@ -175,6 +186,8 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         // "tooltip" that keeps its words (title), its side and the control it wraps, so a test reads
         // what the bubble says without a page to draw it on.
         if (/^(\.\.?\/)+(views\/)?common_components\/tooltip\/Tooltip(\.tsx)?$/.test(name)) return { Tooltip: "tooltip" };
+        // The kit, by its index (views/kit/index.ts): the stand-ins above.
+        if (/^(\.\.\/)+(views\/)?kit\/index\.ts$/.test(name)) return kitStandIns;
         // While modules move from .js to .ts (ADR-010), a test may still name a dependency
         // with its old extension, or with none, as the importing module once did.
         const base = name.replace(/\.[jt]sx?$/, "");

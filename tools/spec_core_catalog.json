@@ -1947,6 +1947,11 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/path_config",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/open_filepath_config_file",
       "wait_for_init": false,
       "immediate": false
@@ -2169,6 +2174,16 @@
     {
       "endpoint": "/run/send_message_box",
       "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/path_logs",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/path_logs",
+      "wait_for_init": false,
       "immediate": false
     },
     {
@@ -3716,6 +3731,11 @@
       "key": "PATH_LOGS",
       "kind": "readonly",
       "default": "<state>/logs"
+    },
+    {
+      "key": "CONVERSATION_LOG_DIRECTORY",
+      "kind": "saved",
+      "default": null
     },
     {
       "key": "GITHUB_URL",

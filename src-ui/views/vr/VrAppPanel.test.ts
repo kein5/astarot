@@ -17,7 +17,7 @@ type Layout = typeof LAYOUT;
 
 // The windows the panel holds, as stand-ins.
 const VrLauncher = () => null, VrLogWindow = () => null, VrPopupWindow = () => null, VrToolbar = () => null, VrTooltip = () => null;
-const UiLanguageController = () => null, FontFamilyController = () => null;
+const UiLanguageController = () => null, FontFamilyController = () => null, ThemeController = () => null;
 // A setting the main window mirrors that is a hook, not an atom.
 const useSomething = () => null;
 
@@ -54,7 +54,7 @@ async function panel(context: TestContext, { layout = LAYOUT, configOpen = false
             Atom_Something: useSomething } },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args: unknown[]) => { sent.push(args); } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: current.configOpen } }) },
-        "../app/_app_controllers": { UiLanguageController, FontFamilyController },
+        "../app/_app_controllers": { UiLanguageController, FontFamilyController, ThemeController },
         "@logics_configs": { useVr: () => ({ currentVrPanelLayout: { data: current.layout } }) },
         "./VrLauncher": { VrLauncher }, "./VrLogWindow": { VrLogWindow }, "./VrPopupWindow": { VrPopupWindow },
         "./VrToolbar": { VrToolbar }, "./VrTooltip": { VrTooltip },
@@ -119,7 +119,7 @@ test("the atlas is the layout's size, and each window is drawn in the region the
     const tooltip = regions.tooltip.props.children.props;
     assert.deepEqual([tooltip.layout, typeof tooltip.atlasRef], [LAYOUT, "object"]);
     assert.equal(tooltip.atlasRef.current, view.atlas);
-    assert.ok([UiLanguageController, FontFamilyController].every(controller => nodesIn(view.tree).some(node => node.type === controller)));
+    assert.ok([UiLanguageController, FontFamilyController, ThemeController].every(controller => nodesIn(view.tree).some(node => node.type === controller)));
 });
 
 test("two frames after a layout is drawn, the backend is told the log's size", async context => {

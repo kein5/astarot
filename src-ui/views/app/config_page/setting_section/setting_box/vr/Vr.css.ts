@@ -95,10 +95,12 @@ export const position_rotation_controls_box = style({
     transform: "translate(-10%)",
 });
 
-// The sample text has its own row; the button sits where the fields start.
+// The sample text has its own row; the button and its hint align flush at the row's right end.
 export const sample_text_button_wrapper = style({
     display: "flex",
-    alignItems: "center",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: ".6rem",
 });
 export const sample_text_button = style({
     display: "inline-flex",
@@ -115,12 +117,20 @@ export const sample_text_button = style({
     cursor: "pointer",
     selectors: {
         "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_925_color },
+        "&:hover:not(:disabled)": { backgroundColor: vars.dark_800_color },
+        "&:active:not(:disabled)": { backgroundColor: vars.dark_925_color },
+        "&:disabled": { opacity: 0.48, cursor: "not-allowed" },
         [`&.${is_started}`]: { backgroundColor: vars.primary_600_color, color: vars.vox_on_primary },
-        [`&.${is_started}:hover`]: { backgroundColor: vars.primary_500_color },
-        [`&.${is_started}:active`]: { backgroundColor: vars.primary_700_color },
+        [`&.${is_started}:hover:not(:disabled)`]: { backgroundColor: vars.primary_500_color },
+        [`&.${is_started}:active:not(:disabled)`]: { backgroundColor: vars.primary_700_color },
     },
+});
+export const sample_text_hint = style({
+    margin: 0,
+    fontSize: "1.2rem",
+    lineHeight: 1.5,
+    color: vars.dark_400_color,
+    textAlign: "end",
 });
 export const sample_text_button_triangle_svg = style({
     width: "1.4rem",

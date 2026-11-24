@@ -22,7 +22,7 @@ use tungstenite::Message;
 use astarot_translation::http::Cancel;
 
 /// How long one read waits before the thread sends what came meanwhile.
-const POLL: Duration = Duration::from_millis(20);
+pub(crate) const POLL: Duration = Duration::from_millis(20);
 /// Audio and pictures waiting to be sent: 64 parts of 20 ms are 1.3 s.
 const MEDIA_QUEUE: usize = 64;
 
@@ -87,12 +87,12 @@ pub enum Update {
 
 pub type OnUpdate = Box<dyn FnMut(Update) + Send>;
 
-enum Media {
+pub(crate) enum Media {
     Audio(Vec<u8>),
     Image(Vec<u8>),
 }
 
-enum Control {
+pub(crate) enum Control {
     Played { item_id: String, ms: u64 },
     Interrupt,
     EndTurn,
@@ -119,6 +119,10 @@ impl Talk {
     /// Connects and opens the conversation. `on_update` hears [`Event::Ready`] once the settings
     /// were taken, and [`Update::Closed`] when it ends.
     pub fn start(service: Service, settings: SessionSettings, options: Options, on_update: OnUpdate) -> Talk {
+        Self::spawn(move |media, control, cancel| run(service, settings, options, media, control, cancel, on_update))
+    }
+
+    pub(crate) fn spawn(run: impl FnOnce(Receiver<Media>, Receiver<Control>, Cancel) + Send + 'static) -> Talk {
         let (media, media_inbox) = mpsc::sync_channel(MEDIA_QUEUE);
         let (control, control_inbox) = mpsc::channel();
         let cancel = Cancel::new();
@@ -126,7 +130,7 @@ impl Talk {
         // A thread that cannot be made leaves a conversation that takes nothing and never opens.
         let worker = std::thread::Builder::new()
             .name("talk-ai".into())
-            .spawn(move || run(service, settings, options, media_inbox, control_inbox, cancel, on_update))
+            .spawn(move || run(media_inbox, control_inbox, cancel))
             .ok();
         Talk { media, control, stop, worker }
     }

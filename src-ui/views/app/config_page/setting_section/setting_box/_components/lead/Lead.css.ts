@@ -10,6 +10,7 @@ export const lead = style({
     lineHeight: 1.6,
     color: vars.vox_description_text,
     overflowWrap: "anywhere",
+    wordBreak: "auto-phrase",
     textWrap: "pretty",
 });
 // Drawn by itself, between the parts of a page, it keeps a row's distance from them.

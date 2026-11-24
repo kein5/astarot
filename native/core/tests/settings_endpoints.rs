@@ -326,8 +326,10 @@ fn usage_presets_start_with_the_basic_one_and_keep_the_known_ids_in_order() {
     assert_eq!(snapshot["/get/data/usage_presets"], json!(["basic"]));
     let picked = json!(["nonverbal", "voice_changer"]);
     // Several can be picked; each is kept once, in the list's order, and an id this version
-    // does not know is left out.
+    // does not know is left out. "all" and specific presets are mutually exclusive (#1107).
     assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["voice_changer", "nonverbal", "nonverbal", "a_later_one"]))), picked);
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["basic", "all"]))), json!(["all"]));
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(picked.clone())), picked);
     for bad in [json!([]), json!(["a_later_one"]), json!("basic"), json!([1]), json!(null)] {
         let answer = ui.request("/set/data/usage_presets", Some(bad.clone()));
         assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
@@ -351,6 +353,10 @@ fn an_update_from_a_version_without_usage_presets_shows_every_feature() {
     // A saved choice is kept, also when it is not the default.
     let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "multilingual"] })), ..Setup::default() });
     assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["basic", "multilingual"]));
+    ui.stop();
+    // A saved mix of specific presets and "all" collapses to ["all"] (#1107).
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "all"] })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["all"]));
     ui.stop();
 }
 

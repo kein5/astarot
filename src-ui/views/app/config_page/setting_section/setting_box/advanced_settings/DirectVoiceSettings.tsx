@@ -16,7 +16,6 @@ import { Description } from "../_components/description/Description";
 import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
 import { PageLinkButton } from "../_components/page_pointer/PagePointer";
-import * as ownStyles from "./DirectVoiceSettings.css.ts";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
@@ -235,8 +234,8 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 } : { source: source.id })}>{t("voice.input_start")}</button>
             <button type="button" className={styles.quiet} disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t("voice.input_stop")}</button>
         </div>
-        {/* A disabled start says what it waits for. */}
-        {startBlocked && !busy && <p id={reasonId}>{t(`voice_ui.${startBlocked}`)}</p>}
+        {/* A disabled start says what it waits for, under the button in the control column (#1096). */}
+        {startBlocked && !busy && <p id={reasonId} className={styles.control_column}>{t(`voice_ui.${startBlocked}`)}</p>}
         <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}>
             {converted && <fieldset className={styles.fields} disabled={saving}>
                 {/* The RVC page already opens with the RVC hint. */}
@@ -284,10 +283,11 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
         {form.navigationDialog}
         {/* The TTS monitor setting also covers converted voice; it is fixed at Start. The setting
-            has one place, the TTS page: here a row says what it does for this voice now, and its
-            button opens it there (#614, #554). What it covers and when it applies are the hint. */}
-        <FormRow group label={t("voice_ui.monitor_heading")} description={t("voice.vc_monitor_help")} fold={false}>
-            <span data-vc-monitor className={ownStyles.monitorState}>{t(!converted ? "voice.vc_monitor_not_converted" : settings?.monitor === "on" ? "voice.monitor_on" : "voice.monitor_off")}</span>
+            has one place, the TTS page: here a row says what it does for this voice under its
+            label (as VoiceRouteSummary does), and its button starts in the control column (#614, #1096). */}
+        <FormRow group label={t("voice_ui.monitor_heading")}
+            status={<span data-vc-monitor>{t(!converted ? "voice.vc_monitor_not_converted" : settings?.monitor === "on" ? "voice.monitor_on" : "voice.monitor_off")}</span>}
+            description={t("voice.vc_monitor_help")} fold={false}>
             <PageLinkButton tab="tts" action={t("voice.vc_monitor_action")} target="tts_monitor" />
         </FormRow>
         {!!directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}

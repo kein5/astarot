@@ -109,7 +109,7 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
 // the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
 // backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 18] = [
+const CORE_ONLY_KEYS: [&str; 19] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -123,6 +123,7 @@ const CORE_ONLY_KEYS: [&str; 18] = [
     "TRAY_COMPANION_WHEEL_HINT_SHOWN",
     "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
     "THEME",
+    "CONVERSATION_LOG_DIRECTORY",
     "TALK_AI_PROVIDER",
     "TALK_AI_LOCAL_URL",
     "TALK_AI_SCREEN_INTERVAL_MS",

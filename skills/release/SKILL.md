@@ -38,7 +38,7 @@ git worktree add ../<リポジトリ名>-release-<版> -b release/X.Y.Z origin/d
 ```
 
 1. `package.json`の`version`を`X.Y.Z`にし、`npm run update-version`で各ファイルへ反映します。
-2. `npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。節を読み、分かりにくい行はファイルの上で直します。
+2. `npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。節を読み、分かりにくい行はファイルの上で直します。日本語版に足された同じ節の枠は、要約と注記を日本語に訳し、枠の先頭のコメントを消します。
 3. 1と2を`chore(release): version X.Y.Z`の1つのコミットにします。
 4. `python tools/changelog.py scaffold-notes`（`mise run changelog:notes`）で`docs/release-notes/X.Y.Z.md`の雛形を作り、9の書式で書き直します。`docs(release): add the X.Y.Z release notes`でコミットします。
 5. mainへのPRを開きます（`gh pr create --base main`）。本文には、含める変更、確かめたこと、判断が要ることを書きます。
@@ -46,7 +46,7 @@ git worktree add ../<リポジトリ名>-release-<版> -b release/X.Y.Z origin/d
 
 正式版では、mainへのPRをマージするまでに、ミューテーションテストの全体（画面側の全体と、Rustの主なクレートの一覧）を回し、結果を記録のIssue（いまは#550）にコメントします。コマンドと時間の目安は`docs/development.md`の「ミューテーションテストを回す場面」にあります。ベータでは回しません。
 
-版上げのあとにコミットを足したときは、`python tools/changelog.py write --force`で節を書き直します。書き直す前に`python tools/changelog.py print`の結果と比べます。
+版上げのあとにコミットを足したときは、`python tools/changelog.py write --force`で節を書き直します。書き直す前に`python tools/changelog.py print`の結果と比べます。日本語の節は書き直さないので、足したコミットの行を訳して手で足します。
 
 ベータは`release/`を切りません。developからのブランチで`package.json`を`X.Y.Z-beta.N`にして`npm run update-version`を実行し、`chore(release): version X.Y.Z-beta.N`をdevelopへのPRで入れます。ベータは`CHANGELOG.md`にも`docs/release-notes/`にも書きません。変更はプレリリースのノートに載せます。
 
@@ -136,9 +136,11 @@ PRが開かなかったときは、ジョブのSummaryにあるリンクから�
 
 正式版とプレリリースのノートは、毎回[jp-writingスキル](../jp-writing/SKILL.md)の手順で書きます。
 
+正式版のノートは、1つのファイルに英語版を先に、日本語版をそのあとに置き、2つの版に同じことを書きます（2026-11-24の決定）。英語版は`docs/writing/english-guideline.md`の「User-facing text」に従います。食い違うときは英語版が正です。
+
 正本は`docs/release-notes/README.md`です。正式版ごとに`docs/release-notes/<版>.md`を書き、GitHubのリリースの本文にします。
 
-次の順に、見出しをすべて`##`で平らに並べます。
+英語版と日本語版のそれぞれで、次の順に、題（`#`）のほかの見出しをすべて`##`で平らに並べます。
 
 1. 序文。見出しを付けず、その版でいちばん大きな変更を2〜4文で書きます。プライバシーやセキュリティの修正があれば、序文でも触れてその節へ案内します。
 2. 利用者に関係のある変更。項目ごとに「絵文字1つ＋短い題」の見出しを1つ作り（`## 🔄 アプリの中で更新する`）、本文は段落で書きます。絵文字は見出しの先頭にだけ置きます。

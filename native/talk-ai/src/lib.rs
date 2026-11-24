@@ -9,10 +9,11 @@
 //! - [`connection`]: opening the WebSocket under the network policy, through the system proxy.
 //! - [`talk`]: one conversation on a thread of its own, and the right to stop it.
 //!
-//! Not connected to the core yet (stage 1 of #388). Nothing here logs or returns audio, a
-//! picture, what was said or a key; errors are fixed codes.
+//! Gemini Live uses its own protocol. The crate is independent of the application core.
+//! Diagnostics contain fixed codes and no credentials or conversation data.
 
 pub mod connection;
+pub mod gemini;
 pub mod conversation;
 pub mod protocol;
 pub mod talk;

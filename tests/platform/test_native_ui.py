@@ -92,20 +92,17 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
 
 
 def test_native_settings_navigation_observes_open_and_close(tmp_path):
-    from test_native_realtime import open_captions
-    from test_native_spoken_translation import open_voice
-    from tools.private_pipewire import private_graph
-    from native_webdriver import ROOT
-
+    """Settings open and close twenty times over two pages, and the main page comes back each time.
+    The pages are the speech's and the captions' (#811): the VR page's single-line switch shows on
+    every platform, where the desktop captions' switch shows only on X11."""
     state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-astarot-managed.conf'):
-        with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-            ui.wait_main_ready()
-            for _ in range(20):
-                open_voice(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
-                open_captions(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
-            ui.close_app()
+    with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
+        ui.wait_main_ready()
+        for _ in range(20):
+            ui.open_voice_settings()
+            ui.close_settings()
+            ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+            ui.open_voice_page("Captions and VR", '[data-setting-id="overlay_small_log"] input')
+            ui.close_settings()
+            ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+        ui.close_app()

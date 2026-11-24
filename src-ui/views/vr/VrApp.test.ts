@@ -21,7 +21,7 @@ test("closed log region is inert and unpainted while the receiver keeps its data
             typeof value === "function" ? value(atoms.get(atom)) : value) }) },
         "@store": { dynamicStoreRegistry: { Atom_MessageLogs: "logs" } },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }) },
-        "../app/_app_controllers": { UiLanguageController: () => null, FontFamilyController: () => null },
+        "../app/_app_controllers": { UiLanguageController: () => null, FontFamilyController: () => null, ThemeController: () => null },
         "@logics_configs": { useVr: () => ({ currentVrPanelLayout: { data: layout } }) },
         "./VrLauncher": { VrLauncher }, "./VrLogWindow": { VrLogWindow }, "./VrPopupWindow": { VrPopupWindow: () => null },
         "./VrToolbar": { VrToolbar: () => null }, "./VrTooltip": { VrTooltip: () => null }, "./vrPanelHover": {},

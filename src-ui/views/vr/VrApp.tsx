@@ -13,6 +13,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import {
     UiLanguageController,
     FontFamilyController,
+    ThemeController,
 } from "../app/_app_controllers";
 
 import { useVr } from "@logics_configs";
@@ -111,6 +112,7 @@ export const VrApp = () => {
             <VrPointerHover atlasRef={atlas} />
             <UiLanguageController />
             <FontFamilyController />
+            <ThemeController />
 
             <Region layout={layout} name="panel" hidden={!windows.log}><VrLogWindow open={windows.log} onClose={toggleLog} /></Region>
             <Region layout={layout} name="launcher"><VrLauncher windows={windows} toggleLog={toggleLog} openLog={openLog} togglePopup={togglePopup} /></Region>

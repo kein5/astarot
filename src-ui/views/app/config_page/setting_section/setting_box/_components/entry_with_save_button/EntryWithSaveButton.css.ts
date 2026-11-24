@@ -3,7 +3,7 @@ import { style } from "@vanilla-extract/css";
 export const container = style({
     display: "flex",
     width: "100%",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     alignItems: "center",
     gap: "1rem",
     minWidth: 0,

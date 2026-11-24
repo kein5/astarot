@@ -525,15 +525,20 @@ fn experimental_features() -> Check {
 /// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
 pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
 
-/// Several presets can be picked; the menu and the switches show what any of them shows. The
-/// value is kept in the order above, each id once. An id this version does not know is left
-/// out (a later version may have one more), and a list with none it knows is refused.
+/// Several specific presets can be picked; the menu and the switches show what any of them shows.
+/// `"all"` and specific presets are mutually exclusive (#1107): a list that mixes them collapses
+/// to `["all"]` so nothing currently visible disappears unexpectedly. The value is kept in the
+/// order above, each id once. An id this version does not know is left out (a later version may
+/// have one more), and a list with none it knows is refused.
 fn usage_presets() -> Check {
     validated(|value, _| {
         let given = value.as_array()?;
         let mut ids = Vec::with_capacity(given.len());
         for item in given {
             ids.push(item.as_str()?);
+        }
+        if ids.contains(&"all") {
+            return Some(json!(["all"]));
         }
         let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
         (!picked.is_empty()).then_some(Value::Array(picked))
@@ -586,6 +591,7 @@ pub fn keys() -> Vec<Key> {
         readonly("PATH_DATA"),
         readonly("PATH_CONFIG"),
         readonly("PATH_LOGS"),
+        key("CONVERSATION_LOG_DIRECTORY", managed(Ty::Str, true, |_, _| true)),
         readonly("GITHUB_URL"),
         readonly("GITHUB_RELEASES_LIST_URL"),
         readonly("MIN_SUPPORTED_VERSION"),
@@ -861,6 +867,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("PATH_DATA", json!(env.data_dir.to_string_lossy())),
         ("PATH_CONFIG", json!(env.state_dir.join("config.json").to_string_lossy())),
         ("PATH_LOGS", json!(env.state_dir.join("logs").to_string_lossy())),
+        ("CONVERSATION_LOG_DIRECTORY", Value::Null),
         ("GITHUB_URL", json!("https://api.github.com/repos/kein5/astarot/releases/latest")),
         ("GITHUB_RELEASES_LIST_URL", json!("https://api.github.com/repos/kein5/astarot/releases")),
         ("MIN_SUPPORTED_VERSION", json!("0.1.0")),

@@ -4,15 +4,19 @@ import { vars } from "../../../../../../theme/vars.css.ts";
 export const is_selected = style({});
 export const is_available = style({});
 
-// Opens under its button, in the rail's own flow: nothing is laid over the
-// language buttons, it is as tall as its engines, and the rail scrolls to it.
+// Opens as a floating popover beside the rail, out of the rail's flow, so neither the
+// rail's switches and language fields nor the conversation column moves (#1095).
 export const container = style({
-    width: "100%",
-    margin: ".2rem 0 .8rem",
+    position: "fixed",
+    zIndex: 50,
+    width: "min(38rem, calc(100vw - 1.6rem))",
+    overflowY: "auto",
+    overscrollBehavior: "contain",
     border: `.1rem solid ${vars.vox_border}`,
     borderRadius: vars.vox_radius,
     backgroundColor: vars.vox_surface,
-    scrollMarginBlock: ".8rem",
+    boxShadow: vars.vox_shadow_overlay,
+    outline: "none",
 });
 
 export const relative_container = style({
@@ -27,10 +31,10 @@ export const unavailable_hint = style({
     color: vars.vox_description_text,
 });
 
-// Two engines a row in the 24rem rail; more where there is room.
+// Three engines a row in the 38rem popover; fewer when a narrow window shrinks it.
 export const wrapper = style({
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(9rem, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))",
     gap: ".8rem",
     padding: "1rem",
 });

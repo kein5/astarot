@@ -447,3 +447,19 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 設定は `talk_ai_screen_interval_ms`（250〜10000ミリ秒、既定1000）、`talk_ai_screen_long_edge`（256〜2048ピクセル、既定1024）、`talk_ai_screen_detail`（`auto`、`low`、`high`、既定 `auto`）。いずれも `/get/data/` と `/set/data/` の受け口を持つ。画像は縮小してJPEGで送る。次の画像を送ったあとで、前の画像を対話履歴から削除する。
 
 `/get/data/talk_ai_status` は取り込み元を `screen_source`、JPEGの送信状態を `sending_screen` で返す。`/set/disable/talk_ai_screen` は `session_id` が一致する共有を止め、送信待ちの画像も破棄するため対話を終了する。取り込みが失敗したときは対話を終了し、固定のエラーコードを返す。
+
+### 設定ファイルと会話ログの保存先
+
+`/get/data/path_config` は設定ファイルの絶対パスを文字列で返す。`/get/data/path_logs` は有効な会話ログの保存先を `{ "path": "...", "error_code": null }` の形で返す。両方を初期化の応答に含める。
+
+`/set/data/path_logs` は既存の書き込み可能なフォルダーの絶対パスを文字列で受け取る。`null` で既定の保存先に戻す。成功時は取得と同じ形を返す。入力を受け付けられない場合は既定の保存先に戻し、HTTP相当の状態400と `{ "path": "...", "error_code": "..." }` を返す。
+
+| エラーコード | 入力欄に示す理由と対処 |
+|---|---|
+| `log_directory_invalid` | フォルダーのパスを指定するか、既定の保存先に戻す。 |
+| `log_directory_not_absolute` | フォルダーの絶対パスを指定する。 |
+| `log_directory_missing` | 存在するフォルダーを指定する。 |
+| `log_directory_not_directory` | ファイルのパスをフォルダーのパスに直す。 |
+| `log_directory_unwritable` | 書き込み可能なフォルダーを指定する。 |
+
+保存済みのフォルダーが使用できなくなった場合も、既定の保存先へ戻す。取得時は有効なパスと直近のエラーコードを返す。会話ログの書き出しとフォルダーを開く操作は同じ保存先を使う。保存先を変えたあと、新しいメッセージを新しい保存先に書く。

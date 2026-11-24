@@ -69,7 +69,6 @@ const transformResponse = (transformName: SettingResponseTransform | null, paylo
 
 export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], Category: string): { settings: SettingFields } => {
     const { asyncStdoutToPython } = useStdoutToPython();
-    const { showNotification_SaveSuccess } = useNotificationStatus();
 
     const filtered = settingsArray.filter((s) => s.Category === Category);
     const result: SettingFields = {};
@@ -142,11 +141,12 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
 
 
         // To use a response from backend------------------------------------
+        // Immediate settings, view preferences, and background flags persist without a "saved"
+        // toast; only explicit saves (useSaveButtonLogic below) raise showNotification_SaveSuccess.
         const buildSuccessHandler = (transformName: SettingResponseTransform | null) => {
             return (payload: unknown) => {
                 const transformed = transformResponse(transformName, payload);
                 if (updateValue) updateValue(transformed);
-                showNotification_SaveSuccess();
             };
         };
 
@@ -452,6 +452,7 @@ export const useSaveButtonLogic = ({
     deleteFunction,
     label,
 }: SaveButtonLogicOptions) => {
+    const { showNotification_SaveSuccess } = useNotificationStatus();
     const [input_value, setInputValue] = useState<unknown>(variable);
     const [saveState, setSaveState] = useState<SaveState>("saved");
     const submitted = useRef<{ value: unknown } | null>(null);
@@ -478,6 +479,7 @@ export const useSaveButtonLogic = ({
                 previous.current = reply.result;
                 setSaveState("saved");
                 submitted.current = null;
+                showNotification_SaveSuccess();
             } else if (response === false || reply?.status) {
                 setSaveState("save_failed");
                 submitted.current = null;
