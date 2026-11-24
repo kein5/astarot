@@ -6,6 +6,7 @@ import { useMessage } from '../../../logics/common/useMessage';
 import { useIsBackendReady, useIsOpenedConfigPage, useIsSoftwareUpdating } from '@logics_common';
 import { useAppearance, useOthers } from '@logics_configs';
 import type { QuickChatRequest } from '../../../logics/quickChat/bridge';
+import { themeSetting } from '../../../logics/theme/themes.ts';
 import type { StdoutResult } from '@useStdoutToPython';
 
 export const QuickChatController = () => {
@@ -14,9 +15,10 @@ export const QuickChatController = () => {
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentIsSoftwareUpdating } = useIsSoftwareUpdating();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
-    const { currentSendMessageButtonType, currentUiScaling, currentSelectedFontFamily } = useAppearance();
+    const { currentSendMessageButtonType, currentUiScaling, currentSelectedFontFamily, currentTheme } = useAppearance();
     const { currentEnableAutoClearMessageInputBox } = useOthers();
     const ready = currentIsBackendReady.data && !currentIsSoftwareUpdating.data && !currentIsOpenedConfigPage.data;
+    const savedTheme = JSON.stringify(currentTheme?.data ?? null);
     const current = useRef({ ready, sendMessage });
     current.current = { ready, sendMessage };
     useEffect(() => {
@@ -37,9 +39,10 @@ export const QuickChatController = () => {
     useEffect(() => {
         invoke('quick_chat_configure', { context: { ready: !!ready, language: i18n.language,
             ui_scaling: currentUiScaling.data, font_family: currentSelectedFontFamily.data,
+            theme: themeSetting(JSON.parse(savedTheme)),
             enter_to_send: currentSendMessageButtonType.data !== 'show_and_disable_enter_key',
             clear_on_send: !!currentEnableAutoClearMessageInputBox.data } }).catch(console.error);
     }, [ready, i18n.language, currentSendMessageButtonType.data, currentEnableAutoClearMessageInputBox.data,
-        currentUiScaling.data, currentSelectedFontFamily.data]);
+        currentUiScaling.data, currentSelectedFontFamily.data, savedTheme]);
     return null;
 };

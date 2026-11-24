@@ -3,8 +3,8 @@ import { useAppearance } from "@logics_configs";
 import { applyThemeTokens, themeSetting, themeTokens } from "../../../logics/theme/themes.ts";
 
 // The app's theme (#965): the colours of the theme in use, set over variables.css on <html>, or
-// none for the default theme, which is the stylesheet itself. The main window only: its pages,
-// dialogs and menus all read these tokens.
+// none for the default theme, which is the stylesheet itself. Mounted in the main window and the
+// VR panel window, whose mirrored Appearance atoms carry the theme (#1105).
 export const ThemeController = () => {
     const { currentTheme } = useAppearance();
     // The setting is an object; its text is what changes.

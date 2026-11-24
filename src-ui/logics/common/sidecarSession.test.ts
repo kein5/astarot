@@ -381,6 +381,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@logics_common": common,
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },
         "../../../logics/common/useMessage": { useMessage: () => ({ sendMessage: (text: unknown) => { sent.push(text); return true; } }) },
+        "../../../logics/theme/themes.ts": { themeSetting: () => null },
         "@logics_configs": { useAppearance: () => ({ currentSendMessageButtonType: { data: "enter" }, currentUiScaling: { data: 100 },
             currentSelectedFontFamily: { data: "" } }), useOthers: () => ({ currentEnableAutoClearMessageInputBox: { data: true } }) },
         "@tauri-apps/api/event": { listen: async (_: string, handler: () => Promise<unknown>) => { receive = handler; return () => {}; } },
