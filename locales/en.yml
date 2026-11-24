@@ -1695,7 +1695,7 @@ app_update:
     release_page: "Release notes for {{version}}"
     check_at_start: "Check for updates at start"
     check_at_start_lead: "Each start asks for a new version."
-    check_at_start_desc: "A stable version asks GitHub Releases through the developer's server (Cloudflare), a beta asks the GitHub API directly. This sends what any download sends; no conversation or voice."
+    check_at_start_desc: "The check asks the developer's server (Cloudflare) for the newest version on your update channel: on Stable, the latest stable release on GitHub Releases; on Beta, the newest release, beta or stable. The GitHub API is used only to list releases. This sends what any download sends; no conversation or voice."
     status:
         checking: "Checking for updates…"
         up_to_date: "You have the latest version."
