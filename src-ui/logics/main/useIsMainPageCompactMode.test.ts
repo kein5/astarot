@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import type { ComponentType, SVGProps } from "react";
-import { hooks, loadModule, find, eventTarget, setRef, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, setRef, stubGlobals, unchecked, kitStandIns } from "../test/hookHarness.ts";
 
 async function fixture(saved: boolean, context: TestContext) {
     // The opened rail listens on the document for Escape and presses outside it.
@@ -62,7 +62,8 @@ for (const saved of [false, true]) {
         assert.equal(find(tree.sidebar, node => node.type === "languages"), null);
         assert.ok(find(tree.sidebar, node => node.type === "readout"), "the icon rail keeps the language pair in sight");
         assert.ok(!tree.button.props.disabled, "keyboard and pointer activation must remain available");
-        assert.equal(tree.button.props.type, "button");
+        // The kit's icon Button, which is a button that submits nothing.
+        assert.deepEqual([tree.button.type, tree.button.props.size, tree.button.props["aria-label"]], [kitStandIns.Button, "icon", "studio.toggle_sidebar"]);
         assert.equal(tree.button.props["aria-expanded"], false);
         tree.button.props.onClick();
         tree = s.render();
@@ -118,11 +119,13 @@ for (const saved of [false, true]) {
         assert.equal(s.render().button.props["aria-expanded"], false, "a press on the conversation closes it");
 
         // The opened rail carries its own close button, since the toggle is under it.
-        const closeButton = (tree: unknown) => find(tree, node => node.type === "button" && node.props["aria-label"] === "studio.close_sidebar");
+        const closeButton = (tree: unknown) => find(tree, node => node.type === kitStandIns.Button && node.props["aria-label"] === "studio.close_sidebar");
         assert.equal(closeButton(s.render().sidebar), null);
         s.render().button.props.onClick();
         const close = closeButton(s.render().sidebar);
         assert.ok(close);
+        // Its name is also its tooltip, beside the rail.
+        assert.equal(find(s.render().sidebar, node => node.type === "tooltip" && node.props.title === "studio.close_sidebar")?.props.placement, "right");
         close.props.onClick();
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.equal(s.document.focused.length, 2, "and focus goes back to the toggle");
