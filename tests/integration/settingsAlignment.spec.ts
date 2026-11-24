@@ -15,6 +15,7 @@ interface RowControlMeasurement {
     label: string;
     kind: string;
     left: number;
+    expectedLeft: number;
 }
 
 const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
@@ -24,6 +25,15 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             return (style.overflowY === "auto" || style.overflowY === "scroll") && element.getBoundingClientRect().width > 400;
         });
         if (!scroller) return [];
+
+        const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
+        const gapPx = 1.6 * rootFontSize;
+        // Exact field-column start for a 1fr / 1.6fr grid with 1.6rem gap inside this row's own width
+        // (independent of whether a classic scrollbar is shown on a tall vs short page).
+        const columnStartOf = (row: Element) => {
+            const rect = row.getBoundingClientRect();
+            return Math.round(rect.left + (rect.width - gapPx) / 2.6 + gapPx);
+        };
 
         const results: RowControlMeasurement[] = [];
         const isVisible = (element: Element) =>
@@ -56,7 +66,7 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
                         : select ? "select"
                             : formInput ? "input"
                                 : "button";
-            results.push({ label, kind, left: Math.round(target.getBoundingClientRect().left) });
+            results.push({ label, kind, left: Math.round(target.getBoundingClientRect().left), expectedLeft: columnStartOf(row) });
         }
 
         // Plain <label> rows in voice forms (e.g. pitch, index rate) share the same two-column grid.
@@ -65,57 +75,59 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             const input = labelElement.querySelector<HTMLElement>('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select');
             if (!input || !isVisible(input)) continue;
             const label = (labelElement.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 48);
-            results.push({ label, kind: input.tagName.toLowerCase(), left: Math.round(input.getBoundingClientRect().left) });
+            results.push({ label, kind: input.tagName.toLowerCase(), left: Math.round(input.getBoundingClientRect().left), expectedLeft: columnStartOf(labelElement) });
         }
 
         return results;
     });
 
 test("settings row controls share one field-column left edge across Advanced, Experimental, RVC, and Device", async ({ app }) => {
+    const assertPageAligned = (pageName: string, items: RowControlMeasurement[], minCount: number) => {
+        expect(items.length, `${pageName}: measured rows`).toBeGreaterThanOrEqual(minCount);
+        const pageLeft = items[0].expectedLeft;
+        for (const item of items) {
+            expect(Math.abs(item.left - item.expectedLeft), `${pageName} "${item.label}" (${item.kind}): left=${item.left}, expected ${item.expectedLeft}`).toBeLessThanOrEqual(2);
+            expect(Math.abs(item.left - pageLeft), `${pageName} "${item.label}" (${item.kind}): left=${item.left}, page column=${pageLeft}`).toBeLessThanOrEqual(2);
+        }
+        return pageLeft;
+    };
+
     await app.openSettings("Advanced");
     await app.page.waitForTimeout(300);
-
-    const advanced = await measureRowControls(app.page);
-    expect(advanced.length).toBeGreaterThanOrEqual(20);
-    // Use the full-width dropdown on Advanced (RVC block length) as the reference column start.
-    const ref = advanced.find(item => item.kind === "dropdown");
-    expect(ref).toBeDefined();
-    const fieldLeft = ref!.left;
-
-    for (const item of advanced) {
-        expect(Math.abs(item.left - fieldLeft), `Advanced "${item.label}" (${item.kind}): left=${item.left}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
-    }
+    assertPageAligned("Advanced", await measureRowControls(app.page), 20);
 
     // Experimental features: checkboxes, dropdowns, and the lone VR launcher reset button all align.
     await app.page.getByRole("button", { name: "Experimental", exact: true }).click();
     await app.page.waitForTimeout(300);
-    const experimental = await measureRowControls(app.page);
-    expect(experimental.length).toBeGreaterThanOrEqual(5);
-    for (const item of experimental) {
-        expect(Math.abs(item.left - fieldLeft), `Experimental "${item.label}" (${item.kind}): left=${item.left}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
-    }
+    assertPageAligned("Experimental", await measureRowControls(app.page), 5);
 
     // Voice changer (RVC): FormRow buttons (audio route, RVC switch, monitor), numeric inputs,
     // input select + refresh button, Start/Stop buttons, and the disabled-start reason align.
     await app.page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).click();
     await app.page.waitForTimeout(300);
-    const rvc = await measureRowControls(app.page);
-    expect(rvc.length).toBeGreaterThanOrEqual(6);
-    for (const item of rvc) {
-        expect(Math.abs(item.left - fieldLeft), `RVC "${item.label}" (${item.kind}): left=${item.left}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
-    }
+    const rvcLeft = assertPageAligned("RVC", await measureRowControls(app.page), 6);
     const startButtonLeft = await app.page.getByRole("button", { name: "Start input forwarding" }).evaluate(el => Math.round(el.getBoundingClientRect().left));
-    expect(Math.abs(startButtonLeft - fieldLeft), `RVC Start button left=${startButtonLeft}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
+    expect(Math.abs(startButtonLeft - rvcLeft), `RVC Start button left=${startButtonLeft}, expected ${rvcLeft}`).toBeLessThanOrEqual(2);
     const monitorButtonLeft = await app.page.locator('[data-setting-id="rvc_settings"] [data-page-pointer="tts"]').evaluate(el => Math.round(el.getBoundingClientRect().left));
-    expect(Math.abs(monitorButtonLeft - fieldLeft), `RVC Monitor link button left=${monitorButtonLeft}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
+    expect(Math.abs(monitorButtonLeft - rvcLeft), `RVC Monitor link button left=${monitorButtonLeft}, expected ${rvcLeft}`).toBeLessThanOrEqual(2);
 
-    // Device: Auto select checkboxes remain flush with the field column start.
+    // Device: Auto select checkboxes remain flush with their own rows' field column start.
     await app.page.getByRole("button", { name: "Device", exact: true }).click();
     await app.page.waitForTimeout(300);
-    const deviceBoxes = await app.page.locator('[data-setting-id="mic_host_device"] input[type="checkbox"] + span, [data-setting-id="speaker_device"] input[type="checkbox"] + span')
-        .evaluateAll(elements => elements.map(el => Math.round(el.getBoundingClientRect().left)));
+    const deviceBoxes = await app.page.locator('[data-setting-id="mic_host_device"], [data-setting-id="speaker_device"]').evaluateAll(rows => {
+        const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
+        const gapPx = 1.6 * rootFontSize;
+        return rows.map(row => {
+            const box = row.querySelector<HTMLElement>('input[type="checkbox"] + span');
+            const rect = row.getBoundingClientRect();
+            return {
+                left: box ? Math.round(box.getBoundingClientRect().left) : -1,
+                expected: Math.round(rect.left + (rect.width - gapPx) / 2.6 + gapPx),
+            };
+        });
+    });
     expect(deviceBoxes.length).toBe(2);
-    for (const left of deviceBoxes) {
-        expect(Math.abs(left - fieldLeft), `Device auto-select checkbox left=${left}, expected ${fieldLeft}`).toBeLessThanOrEqual(2);
+    for (const { left, expected } of deviceBoxes) {
+        expect(Math.abs(left - expected), `Device auto-select checkbox left=${left}, expected ${expected}`).toBeLessThanOrEqual(2);
     }
 });
