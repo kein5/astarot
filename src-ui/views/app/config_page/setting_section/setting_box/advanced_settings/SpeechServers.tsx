@@ -11,6 +11,7 @@ import { HintCheck } from "../_components/hint/HintCheck";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import type { SpeechProfile, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 // The path fields of a profile.
 type PathField = "model" | "voice_file" | "vad_model" | "diarization_model";
@@ -95,7 +96,8 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
             {profiles.map(name => {
                 const row = draft.profiles[name], owner = state[name], saved = savedSettings(settings).profiles;
                 const busy = saving || !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
-                const pathField = (key: PathField) => <input value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
+                // The kit's TextField; a path is in the monospaced font (#476).
+                const pathField = (key: PathField) => <TextField mono value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
                     placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
                     onChange={event => field(name, key, event.target.value)} />;
                 const input = (key: PathField) => <label key={key}>{t(`speech_servers.${key}`)}{pathField(key)}</label>;
@@ -137,12 +139,12 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                         description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
                         checked={!!row.low_latency} disabled={busy} onChange={event => field(name, "low_latency", event.target.checked)} />}
                     {/* The server's buttons sit in the control column, under its fields (#473). */}
-                    <div className={`${styles.actions} ${styles.control_column}`}><button type="button" className="primary" disabled={dirty || saving || busy || !row.model.trim() ||
+                    <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy || !row.model.trim() ||
                         (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}
-                        onClick={() => send("/run/start_speech_server", { profile: name, generation: owner?.generation })}>{t("speech_servers.start")}</button>
+                        onClick={() => send("/run/start_speech_server", { profile: name, generation: owner?.generation })}>{t("speech_servers.start")}</Button>
                     {/* Nothing to stop while the server is stopped (#473). A start still on its way can be stopped. */}
-                    <button type="button" className={styles.quiet} disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
-                        onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</button></div>
+                    <Button tone="quiet" disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
+                        onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>
                     <EnvReadout tone={serverTone(owner, pending[name])} progress={serverProgress(owner, pending[name])}>
                         <p>{stateText(name)}</p>
                         {owner?.low_latency && <p>{t(`speech_servers.low_latency_${owner.low_latency.state}`)}</p>}
@@ -156,7 +158,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
             })}
         </form>}
         <div className={`${styles.actions} ${styles.control_column}`}>
-            <button type="button" disabled={dirty || saving} onClick={() => { send("/get/data/speech_server_settings"); send("/get/data/speech_server_state"); }}>{t("speech_servers.reload")}</button>
+            <Button disabled={dirty || saving} onClick={() => { send("/get/data/speech_server_settings"); send("/get/data/speech_server_state"); }}>{t("speech_servers.reload")}</Button>
         </div>
         </SetupSection>
         {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}

@@ -11,6 +11,7 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import type { VoiceSettings } from "../../../../../../logics/voice/useVoice";
 import type { DraftState } from "../../../../../../logics/voice/useSettingsDraft";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 export type TtsEngineId = "voicevox" | "coeiroink" | "aivis" | "sharevox";
 // url: the setting that holds the engine's address; example: its own address.
@@ -101,9 +102,9 @@ const numberFields = <F extends ReadingNumber>({ t, numbers, label, value, set, 
     numbers.map(item => {
         const invalid = !validNumber(item, { [item.key]: value(item.key) });
         return <label key={item.key}>{label(item)}
-            <input type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
+            <TextField type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
                 placeholder={t("voice_ui.example", { value: item.fallback })}
-                aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined}
+                invalid={invalid} aria-describedby={invalid ? errorId : undefined}
                 onChange={event => set(item.key, event.target.value)} />
         </label>;
     });
@@ -130,8 +131,8 @@ export const AudioQueryOptions = ({ engine, draft, setDraft }: AudioQueryOptions
         {numberFields({ t, numbers, label: item => t(`voice_ui.engine.audio_query.${item.name}`), value, set, errorId })}
         {!validAudioQueryOptions({ ...defaults, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.audio_query.invalid")}</p>}
         {/* Back to the engine's own values; saved from the save bar. */}
-        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...defaults }))}>
-            {t("voice_ui.engine.audio_query.reset")}</button>
+        <Button disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...defaults }))}>
+            {t("voice_ui.engine.audio_query.reset")}</Button>
     </SetupSection>;
 };
 
@@ -152,8 +153,8 @@ export const CoeiroinkOptions = ({ draft, setDraft }: { draft: VoiceSettings; se
         </label>
         {!validCoeiroinkOptions({ ...COEIROINK_DEFAULTS, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.coeiroink.invalid")}</p>}
         {/* Back to the values the app used before they could be set; saved from the save bar. */}
-        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
-            {t("voice_ui.engine.coeiroink.reset")}</button>
+        <Button disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
+            {t("voice_ui.engine.coeiroink.reset")}</Button>
     </SetupSection>;
 };
 
@@ -215,8 +216,8 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
             </p>
             {linkError && <p role="alert">{t("model_downloads.link_error")} <code>{linkError}</code></p>}
             <FormRow label={t("voice_ui.engine.url")} description={t("voice_ui.engine.url_hint")}
-                actions={<button type="button" disabled={state === "checking" && !!result?.pending} onClick={check}>{t("voice_ui.engine.recheck")}</button>}>
-                <input aria-label={t("voice_ui.engine.url")} value={url} maxLength={512} spellCheck={false}
+                actions={<Button disabled={state === "checking" && !!result?.pending} onClick={check}>{t("voice_ui.engine.recheck")}</Button>}>
+                <TextField mono aria-label={t("voice_ui.engine.url")} value={url} maxLength={512} spellCheck={false}
                     placeholder={t("voice_ui.example", { value: spec.example })}
                     onChange={event => setDraft(current => ({ ...current, [spec.url]: event.target.value }))} />
             </FormRow>
