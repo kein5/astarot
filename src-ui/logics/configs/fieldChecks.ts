@@ -33,9 +33,9 @@ export const wholeNumberProblem = (min: number, max: number, key: string) => (te
     return /^[+-]?\d+$/.test(value) && Number(value) >= min && Number(value) <= max ? null : key;
 };
 
-// A color as # and six hexadecimal digits (the OBS page's colors).
-export const hexColorProblem = (text: string): string | null =>
-    /^#[0-9a-f]{6}$/i.test(text.trim()) ? null : "config_page.advanced_settings.obs_browser_source_color_invalid";
+// A color as # and six hexadecimal digits (the OBS page's colors), said with `key`.
+export const hexColorProblem = (key: string) => (text: string): string | null =>
+    /^#[0-9a-f]{6}$/i.test(text.trim()) ? null : key;
 
 // Four numbers from 0 to 255, without leading zeros, as the core reads an IPv4 address.
 const ipv4 = (text: string): boolean => {

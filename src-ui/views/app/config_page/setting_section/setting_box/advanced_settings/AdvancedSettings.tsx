@@ -930,7 +930,7 @@ const ObsBrowserSourceFontColorContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_font_color.label"),
         autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_color",
-        validate: value => { const key = hexColorProblem(value); return key ? t(key) : null; },
+        validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
 
     return (
@@ -996,7 +996,7 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_font_outline_color.label"),
         autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_outline_color",
-        validate: value => { const key = hexColorProblem(value); return key ? t(key) : null; },
+        validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
 
     return (

@@ -47,8 +47,9 @@ test("a whole number is in its range, with spaces and a sign let through as the 
 });
 
 test("a color is # and six hexadecimal digits", () => {
-    for (const ok of ["#FFFFFF", "#00ff7a", " #ABCDEF "]) assert.equal(hexColorProblem(ok), null, ok);
-    for (const bad of ["", "FFFFFF", "#FFF", "#FFFFFFF", "#GGGGGG", "red"]) assert.equal(hexColorProblem(bad), "config_page.advanced_settings.obs_browser_source_color_invalid", bad);
+    const check = hexColorProblem("key");
+    for (const ok of ["#FFFFFF", "#00ff7a", " #ABCDEF "]) assert.equal(check(ok), null, ok);
+    for (const bad of ["", "FFFFFF", "#FFF", "#FFFFFFF", "#GGGGGG", "red"]) assert.equal(check(bad), "key", bad);
 });
 
 test("OSC is sent to an IPv4 or IPv6 address, as the core reads one", () => {
