@@ -1,6 +1,6 @@
 ---
 name: release
-description: ASTAROTの版を出す手順。ベータ期間の変更凍結、release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_name・実機・テレメトリの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノートを頼まれたときに使う。Use when preparing, drafting, publishing or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
+description: ASTAROTの版を出す手順。ベータ期間の変更凍結、release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_name・実機・テレメトリの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合、問題が見つかったときの配信停止を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノート、配信停止を頼まれたときに使う。Use when preparing, drafting, publishing, halting or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
 ---
 
 # 版を出す
@@ -154,3 +154,12 @@ PRが開かなかったときは、ジョブのSummaryにあるリンクから�
 - 計測した値は条件とあわせて書きます。
 - 日本語は`docs/writing/japanese-guideline.md`に従い、推敲してから出します。読点を減らし、1つの段落には話題を1つだけ入れます。
 - `CHANGELOG.md`と食い違ったら、`CHANGELOG.md`を先に直してからノートを直します。
+
+## 10. 問題が見つかったときの配信停止
+
+公開した版で重大な不具合が見つかったときは、公開済みのリリースとタグを消さず、未更新の利用者への配信を前版へ戻して止めます。自動ダウングレードはせず、修正版を新しいパッチ版（`X.Y.(Z+1)`）として出し直します（ロールフォワード）。コマンドと詳しい注意は`release-candidates.md`の「問題が見つかったときに配信を止める」が正本です。
+
+1. 直前の安全な安定版（`v<前版>`）のリリースへ`make_latest=true`をPATCHし、`releases/latest`、安定版Workerの`/latest.json`、公式サイトのダウンロード先を前版へ戻します。
+2. ベータチャンネルへの配信も止めるときは、`updater-channels`ブランチの`beta/latest.json`を前版の`latest.json`で置き換えてpushします（`update-channels.yml`は自動で戻しません）。
+3. 問題のある版のリリースノート先頭に、問題の内容、配信停止中であること、すでに更新した利用者向けの案内を書き足します。
+4. 修正を`develop`へ入れたあと、ホットフィックス手順（`main`から`release/X.Y.(Z+1)`）で新しいパッチ版を公開します。
