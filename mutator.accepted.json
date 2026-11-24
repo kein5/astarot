@@ -579,6 +579,10 @@
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
   },
+  "2fcg3th5nj8": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:35 props.id === \"mic_threshold\" -> false"
+  },
   "2ffbsw7qz06": {
     "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:43 val === undefined -> false"
@@ -787,6 +791,10 @@
     "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:62 { const restored = lastSavedValueRef.current ?? \"\"; setInpu… -> {}"
   },
+  "i2xhuioylm": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:67:35 props.id === \"mic_threshold\" -> true"
+  },
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
@@ -794,6 +802,10 @@
   "ik87jxkif8": {
     "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:109:47 num < props.min -> num <= props.min"
+  },
+  "ila77b5ctp": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:67:93 \"vr_panel.speaker_threshold\" -> \"\""
   },
   "iy86bs7o2g": {
     "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
@@ -839,9 +851,17 @@
     "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:78:40 num > props.max -> num >= props.max"
   },
+  "mzk5j2bz8a": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:66 \"vr_panel.mic_threshold\" -> \"\""
+  },
   "n0p7w6fey0": {
     "reason": "A missing value only reaches the 24-character test as a short string, and the placeholder is 17 characters, also short.",
     "where": "src-ui/views/vr/VrSettingsRows.tsx:69:37 \"\" -> \"Stryker was here!\""
+  },
+  "nbcbao9eva": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:48 \"mic_threshold\" -> \"\""
   },
   "nenv4pov5z": {
     "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
