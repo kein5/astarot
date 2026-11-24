@@ -109,3 +109,72 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
                 ui.close_settings()
                 ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
             ui.close_app()
+
+
+MANAGED_SOURCE = "astarot.managed.source"
+
+
+def managed_microphone_muted():
+    """Whether the managed microphone is muted in the graph, as the voice gate left it.
+
+    None when the graph holds no single managed microphone with one mute value. Read with
+    pw-dump, so it is what PipeWire holds, not what the app says.
+    """
+    from tools.private_pipewire import nodes
+
+    source = nodes().get(MANAGED_SOURCE)
+    if source is None:
+        return None
+    mutes = [props["mute"] for props in source["info"].get("params", {}).get("Props", []) if "mute" in props]
+    return mutes[0] if len(mutes) == 1 else None
+
+
+def shown(text):
+    """A script that is true once a status line of the page says this text."""
+    return ("return [...document.querySelectorAll('[role=status], [role=status] p')]"
+            f".some(e => e.textContent === {json.dumps(text)})")
+
+
+@pytest.mark.skipif(os.environ.get("ASTAROT_TEST_NATIVE_ROUTE") != "1", reason="opt-in private PipeWire/WirePlumber graph")
+def test_native_managed_route_unmutes_and_is_muted_again_after_a_restart(tmp_path):
+    """The managed route of Linux through the app's window (#838).
+
+    Saved, the route starts muted. Unmute opens the voice gate, and the window says "Voice enabled
+    (confirmed)" only once the core has seen the microphone open in the graph: 0.5.2's core missed
+    that change and stayed at "Muted (confirmed)" (fixed by 03294491e). Closing the app mutes the
+    microphone again, and the next start shows the route muted.
+
+    On a private PipeWire and WirePlumber (tools/private_pipewire.py); the user's own audio is
+    not touched. Build the gate helper first: `python tools/build_voice_gate.py`.
+    """
+    from tools.private_pipewire import private_graph, wait_for
+    from native_webdriver import ROOT
+
+    state = initial_state(tmp_path)
+
+    def saved_routing():
+        return json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("routing")
+
+    with private_graph(config_fragment=ROOT / "config/pipewire/90-astarot-managed.conf"):
+        with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
+            ui.wait_main_ready()
+            ui.open_route_settings()
+            ui.select("Audio route", "managed")
+            ui.click_text("button", "Save changes")
+            wait_for(lambda: saved_routing() == "managed")
+            ui.open_route_settings()
+            ui.wait(shown("Muted (confirmed)"))
+            assert managed_microphone_muted() is True
+            ui.click_text("button", "Unmute")
+            ui.wait(shown("Voice enabled (confirmed)"))
+            assert managed_microphone_muted() is False
+            ui.assert_rendered()
+            ui.close_app()
+        wait_for(lambda: managed_microphone_muted() is True)
+        with NativeWebDriver(tmp_path / "second", {"VRCT_CONFIG_DIR": str(state)}) as ui:
+            ui.wait_main_ready()
+            ui.open_route_settings()
+            ui.wait(shown("Muted (confirmed)"))
+            assert managed_microphone_muted() is True
+            ui.assert_rendered()
+            ui.close_app()
