@@ -15,3 +15,8 @@ test("short or single-sentence text is shown whole", () => {
     assert.deepEqual(splitDescription("Version 1.2 is out"), ["Version 1.2 is out", ""]);
     assert.deepEqual(splitDescription(undefined), ["", ""]);
 });
+
+test("a rest of 24 characters is shown whole, and one of 25 folds", () => {
+    assert.deepEqual(splitDescription("First. 123456789012345678901234"), ["First. 123456789012345678901234", ""]);
+    assert.deepEqual(splitDescription("First. 1234567890123456789012345"), ["First.", "1234567890123456789012345"]);
+});

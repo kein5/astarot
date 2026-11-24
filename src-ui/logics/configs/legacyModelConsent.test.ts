@@ -275,3 +275,8 @@ for (const language of ["en", "ja"]) {
         assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
 }
+test("a size of exactly one gibibyte is shown in GB, and just under it in MB", () => {
+    const t: Translate = (key, values = {}) => key.endsWith("exact_bytes") ? `${values.bytes} bytes` : `${values.bytes} (about ${values.size})`;
+    assert.equal(consentLogic.legacyReviewSize({ total_bytes: 1024 ** 3 }, t), "1,073,741,824 bytes (about 1 GB)");
+    assert.equal(consentLogic.legacyReviewSize({ total_bytes: 1024 ** 3 - 1 }, t), "1,073,741,823 bytes (about 1,020 MB)");
+});
