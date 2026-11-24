@@ -66,25 +66,21 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
     return { runtime, tree, entry, writes, render };
 }
 
-test("#429: opening input forwarding with RVC saved leaves the save bar empty", async () => {
-    const page = await open("legacy", rvcSettings);
-    assert.equal(page.entry.dirty, false);
-    assert.equal(page.entry.edited, false);
-    assert.deepEqual(page.entry.changes, []);
-    page.runtime.unmount();
-});
+// #1111: the form saves by itself, when focus leaves one of its groups. It is not in the save bar,
+// and leaving it with nothing changed writes nothing.
+const leave = (page: { render: () => unknown }) => {
+    // Focus leaves one group at a time: the first, which holds the numbers.
+    const group = nodesIn(page.render()).find(node => node.type === "fieldset" && typeof node.props.onBlur === "function");
+    group?.props.onBlur({ currentTarget: { contains: () => false }, relatedTarget: null });
+    page.render(); page.render();
+};
 
-test("#429: a save from input forwarding keeps the RVC selection", async () => {
+test("#429: opening input forwarding with RVC saved writes nothing, and leaving it writes nothing", async () => {
+    // A write here would have saved forwarding over the RVC selection.
     const page = await open("legacy", rvcSettings);
-    // The save bar saves only forms with changes, so this form is not written at all;
-    // a write that does happen keeps the saved mode and engine.
-    await page.entry.save();
-    assert.equal(page.writes.length, 1);
-    assert.equal(page.writes[0].mode, "converted");
-    assert.equal(page.writes[0].engine, "rvc");
-    assert.equal(page.writes[0].rvc_model, "voice.pth");
-    page.render();
-    assert.deepEqual(page.entry.changes, []);
+    assert.equal(page.entry, undefined, "not in the save bar");
+    leave(page);
+    assert.equal(page.writes.length, 0);
     page.runtime.unmount();
 });
 
@@ -117,8 +113,8 @@ const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type ===
 
 test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
-    assert.equal(forwarding.entry.dirty, false, "opening the page changes nothing");
-    assert.deepEqual(forwarding.entry.changes, []);
+    leave(forwarding);
+    assert.equal(forwarding.writes.length, 0, "opening the page changes nothing");
     const button = selectButton(forwarding.tree);
     assert.ok(button, "the page offers to switch to RVC");
     await button.props.onClick();
@@ -128,15 +124,22 @@ test("#436: opening the RVC page with forwarding saved leaves the save bar empty
     assert.equal(forwarding.writes[0].rvc_model, "voice.pth");
     forwarding.runtime.unmount();
     const converted = await open("rvc", rvcSettings);
-    assert.deepEqual(converted.entry.changes, []);
+    leave(converted);
+    assert.equal(converted.writes.length, 0);
     assert.equal(selectButton(converted.tree), undefined, "no button once RVC is selected");
     converted.runtime.unmount();
 });
 
 test("#436: saving an RVC field with forwarding saved keeps forwarding", async () => {
     const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
-    await page.entry.save();
+    const pitch = nodesIn(page.render()).find(node => node.props?.type === "number" && node.props.min === -24);
+    assert.ok(pitch);
+    pitch.props.onChange({ target: { valueAsNumber: 3 } });
+    page.render();
+    leave(page);
+    await Promise.resolve();
     assert.equal(page.writes.length, 1);
+    assert.equal(page.writes[0].rvc_pitch, 3);
     assert.equal(page.writes[0].mode, "passthrough");
     page.runtime.unmount();
 });

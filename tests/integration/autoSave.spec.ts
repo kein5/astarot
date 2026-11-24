@@ -150,3 +150,27 @@ test("the word filter and the realtime captions save by themselves", async ({ ap
     await address.press("Enter");
     await expect.poll(() => (app.settings().REALTIME_ASR_SETTINGS as Record<string, unknown>)?.base_url).toBe("http://127.0.0.1:8178");
 });
+
+// #1111: the voice forms save by themselves. On the text to speech page a choice is saved at once
+// and a typed address on Enter; the page has nothing left for the save bar.
+test("the text to speech settings save by themselves", async ({ app }) => {
+    const page = app.page;
+    const voice = () => app.settings().VOICE_SETTINGS as Record<string, unknown>;
+    await app.openSettings("Text to speech (TTS)");
+    const mode = page.getByLabel("Chat voice", { exact: true });
+    await app.unfold(mode);
+    // Speech needs somewhere to play: the stand-ins' one speaker first (native/browser-core-bridge/src/services.rs).
+    await page.getByLabel("Output device", { exact: true }).selectOption({ label: "Integration speaker" });
+    await expect.poll(() => voice().output_device).toBeTruthy();
+    await mode.selectOption("original");
+    await expect.poll(() => voice().mode).toBe("original");
+    const server = page.getByLabel("Japanese server", { exact: true });
+    await server.selectOption("external");
+    await expect.poll(() => voice().japanese_server).toBe("external");
+    const address = page.getByLabel("Japanese server URL (Irodori)", { exact: true });
+    await address.fill("http://127.0.0.1:8189");
+    await address.press("Enter");
+    await expect.poll(() => voice().japanese_url).toBe("http://127.0.0.1:8189");
+    await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+    await expect(page.getByText("Changes on this page apply at once")).toBeVisible();
+});

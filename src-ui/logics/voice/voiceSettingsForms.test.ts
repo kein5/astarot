@@ -16,11 +16,6 @@ interface Request {
     endpoint: string;
     data: unknown;
 }
-// A form's save bar entry; a form that has none fails here, as using it would.
-const saved = (entry: SaveBarEntry | null | undefined) => {
-    assert.ok(entry);
-    return entry;
-};
 
 async function setup(context: TestContext) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -68,11 +63,19 @@ async function setup(context: TestContext) {
     }
     context.onTestFinished(() => owners.stop());
     const render = () => { forms.forEach(form => { form(); }); return forms.map(form => form()); };
+    // A choice, as the browser hands it on: the list's own handler, then the form's around it,
+    // which saves it at once (#1111, decided 3).
     const edit = (index: number, value: string) => {
-        const select = find(render()[index], node => node.type === "select");
-        assert.ok(select);
-        select.props.onChange({ target: { value } }); render();
+        const tree = render()[index];
+        const select = find(tree, node => node.type === "select");
+        const group = find(tree, node => typeof node.props?.onChange === "function" && (node.type === "form" || node.type === "fieldset"));
+        assert.ok(select && group);
+        select.props.onChange({ target: { value } });
+        group.props.onChange({ target: { tagName: "SELECT" } });
+        render(); render();
     };
+    // Whether each form's save waits, as its group says.
+    const busy = () => render().map(tree => find(tree, node => node.props?.["aria-busy"] !== undefined)?.props["aria-busy"]);
     const reply = async (index: number, status: number) => {
         const request = requests[index];
         if (status === 200) state.settings = { ...state.settings, ...(isRecord(request.data) ? request.data : {}) };
@@ -81,36 +84,34 @@ async function setup(context: TestContext) {
         await flush(); render();
     };
     render();
-    return { entries, requests, state, edit, render, reply };
+    return { entries, requests, state, edit, render, reply, busy };
 }
 
-for (const reverse of [false, true]) test(`VRChat forms save only their edits and own their responses (reverse=${reverse})`, async context => {
+for (const reverse of [false, true]) test(`VRChat forms save their own choice at once and own their responses (reverse=${reverse})`, async context => {
     const s = await setup(context);
-    s.edit(0, "managed"); s.edit(1, "output-b");
     const order = reverse ? [1, 0] : [0, 1];
-    for (const index of order) saved(s.entries[index]).save();
-    s.render();
+    for (const index of order) s.edit(index, index ? "output-b" : "managed");
     assert.deepEqual(s.requests.map(request => request.data), order.map(index => index ? { output_device: "output-b" } : { routing: "managed" }));
+    assert.ok(s.entries.every(entry => !entry), "not in the save bar");
     await s.reply(0, 200);
-    assert.equal(saved(s.entries[order[0]]).saving, false);
-    assert.equal(saved(s.entries[order[1]]).saving, true, "another form's response cannot confirm this save");
+    const waiting = [false, false];
+    waiting[order[1]] = true;
+    assert.deepEqual(s.busy(), waiting, "another form's response cannot confirm this save");
     await s.reply(1, 200);
     assert.deepEqual(s.state.settings, { routing: "managed", output_device: "output-b", monitor_volume: "35" });
-    assert.ok(s.entries.every(entry => !saved(entry).dirty && saved(entry).saveState === "saved"));
+    assert.deepEqual(s.busy(), [false, false]);
 });
 
-test("a rejected route edit stays dirty when the output form saves successfully", async context => {
+test("a rejected route choice stays chosen when the output form saves successfully", async context => {
     const s = await setup(context);
     s.edit(0, "managed"); s.edit(1, "output-b");
-    s.entries.forEach(entry => { saved(entry).save(); }); s.render();
     await s.reply(0, 409); await s.reply(1, 200);
     assert.equal(s.state.settings.routing, "external");
     assert.equal(s.state.settings.output_device, "output-b");
-    assert.equal(saved(s.entries[0]).dirty, true);
-    assert.equal(saved(s.entries[1]).dirty, false);
     const select = find(s.render()[0], node => node.type === "select");
     assert.ok(select);
     assert.equal(select.props.value, "managed");
+    assert.equal(s.requests.length, 2);
 });
 
 // #614: with the managed microphone chosen, what to do in VRChat stays in view; how the microphone is

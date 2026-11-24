@@ -45,9 +45,14 @@ export const VoiceSettings = () => {
         if (key === `${role}_instructions`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.instruction")}`;
         return t(`voice.${key}`, { defaultValue: key });
     };
+    // Saves by itself (#1111, decided 3): a choice at once, a slider when let go, typed text when
+    // focus leaves the form or on Enter.
     const form = useSettingsDraft(settings, error, updateError, { label,
-        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
-    const { draft, setDraft, saving } = form;
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true, autoSave: true });
+    const { setDraft, saving } = form;
+    // The saved settings until the form's draft is made from them, a render later: the page does
+    // not flash its loading line when they are already known (#912).
+    const draft = form.draft ?? settings;
     useEffect(() => {
         send("/get/data/voice_settings");
         send("/get/data/voice_output_devices");
@@ -89,8 +94,8 @@ export const VoiceSettings = () => {
             {t(status.active ? "voice.playing" : "voice.idle")} · {t("voice.queued")}: {status.queued ?? 0}
         </StatusLine>
         <VoiceRouteSummary />
-        <form onSubmit={e => { e.preventDefault(); if (form.dirty && validVoiceSettings(draft)) form.submit(value => send("/set/data/voice_settings", value)); }}>
-            <fieldset className={styles.fields} disabled={saving}>
+        <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
+            <fieldset className={styles.fields}>
                 <label>{t("voice.mode")}<select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
                     {SPEECH_MODES.map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
                 </select></label>
@@ -112,7 +117,7 @@ export const VoiceSettings = () => {
                 {ROLES.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
                     <legend>{t(`speech_servers.${role}`)}</legend>
                     {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
-                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
+                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />}
                     {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
                 </fieldset>)}
                 {/* Set once to taste (#554): the monitor, how speech.cpp generates, reading the
@@ -176,12 +181,13 @@ export const VoiceSettings = () => {
 };
 
 // The TTS output device on its own, for pages other than TTS (the VRChat
-// page). It edits the same voice settings and saves from the save bar.
+// page). It edits the same voice settings and saves them by itself.
 export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
     const { t } = useI18n();
     const { settings, devices, error, send, updateError } = useVoice();
+    // Saves by itself (#1111): the device is a choice, saved at once.
     const form = useSettingsDraft(settings, error, updateError, { label: ([key]) => t(`voice.${key}`, { defaultValue: key }),
-        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true, autoSave: true });
     const { draft, setDraft, saving } = form;
     useEffect(() => {
         send("/get/data/voice_settings");
@@ -191,7 +197,7 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
     return <section className={styles.container} aria-label={title} data-setting-id="tts_output_device">
         <SectionLabelComponent label={title} />
         {!draft ? <p role="status">{error ? t("voice.error") : t("voice.loading")}</p> :
-            <fieldset className={styles.fields} disabled={saving}>
+            <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
                 <FormRow label={t("voice.output_device")} description={t("voice_ui.output_hint")}
                     actions={<Button onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</Button>}>
                     <select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}

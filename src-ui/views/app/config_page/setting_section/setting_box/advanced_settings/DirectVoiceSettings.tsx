@@ -93,12 +93,15 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
     const validNumbers = (draft: DirectVoiceDraft) => Number.isInteger(draft.rvc_pitch) && Math.abs(draft.rvc_pitch) <= 24 &&
         Number.isFinite(draft.rvc_index_rate) && draft.rvc_index_rate >= 0 && draft.rvc_index_rate <= 1 && validThreads(draft);
     // The RVC page edits converted RVC. Until it is selected the page offers a button for
-    // it; the save bar only saves the edits, with the mode as saved (#436).
+    // it; a save of the edits keeps the mode as saved (#436).
     const needsSelection = (draft: DirectVoiceDraft) => directSelectionPending(draft, directState.settings, variant);
     const label = ([name]: string[]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
     const form = useSettingsDraft(saved, directError, updateDirectError, { label,
         savedFromResponse: value => ({ ...defaults, ...answeredSettings(value) }),
-        write: value => send("/set/data/direct_voice_settings", value), canSave: draft => !busy && validNumbers(draft) });
+        write: value => send("/set/data/direct_voice_settings", value), canSave: draft => !busy && validNumbers(draft),
+        // Saves by itself (#1111, decided 3): a choice at once, numbers and paths when focus leaves
+        // their group or on Enter, a dropped file or a runtime put to use at once.
+        autoSave: true });
     const { draft, setDraft, saving, dirty } = form;
     const [selecting, setSelecting] = useState(false);
     const selectRvc = async () => {
@@ -174,7 +177,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}
         {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
-        <fieldset className={styles.fields} disabled={saving}>
+        <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
         {variant === "all" && <label>{t("voice.direct_mode")}
             <select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
                 <option value="passthrough">{t("voice.direct_passthrough")}</option>
@@ -238,15 +241,15 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {/* A disabled start says what it waits for, under the button in the control column (#1096). */}
         {startBlocked && !busy && <p id={reasonId} className={styles.control_column}>{t(`voice_ui.${startBlocked}`)}</p>}
         <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}>
-            {converted && <fieldset className={styles.fields} disabled={saving}>
+            {converted && <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
                 {/* The RVC page already opens with the RVC hint. */}
                 {variant !== "rvc" && <Description text={t(rvc ? "voice.vc_rvc_hint" : "voice.vc_hint")} />}
-                {/* Dropped files fill the model and index fields like typing them; saving stays with the save bar. */}
+                {/* Dropped files fill the model and index fields and save at once. */}
                 {rvc && <FileDropZone accept={[".pth", ".index"]} disabled={busy || saving} hint={t("voice_ui.rvc_drop_hint")}
                     onFiles={paths => {
                         const model = paths.find(path => extensionOf(path) === ".pth");
                         const index = paths.find(path => extensionOf(path) === ".index");
-                        setDraft(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
+                        form.change(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
                     }} />}
                 {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name => <label key={name}>{t(`voice.vc_${name}`)}
                     <TextField mono value={draft[name]} disabled={busy} maxLength={4096}
@@ -257,7 +260,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 <CustomModelLink section={rvc ? "rvc" : "seed-vc"} />
             </fieldset>}
             {converted && <VcRuntimeSetup engine={rvc ? "rvc" : "seed-vc"} current={rvc ? draft.rvc_runtime : draft.runtime} disabled={busy || saving}
-                onUse={path => setDraft({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
+                onUse={path => form.change({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
             {/* DirectML (Windows) needs its own runtime, shared with the translation; the worker finds it at Start. */}
             {/* What DirectML offers stays in one sentence; what it needs is that sentence's hint (#614). */}
             {converted && rvc && directmlOffered && <>

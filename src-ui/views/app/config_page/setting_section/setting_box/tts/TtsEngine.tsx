@@ -114,9 +114,11 @@ export interface AudioQueryOptionsProps {
     engine: TtsEngineId;
     draft: VoiceSettings;
     setDraft: TtsDraftSetter;
+    // Saves at once (#1111): the reset is a choice, not typing.
+    resetDraft?: TtsDraftSetter;
 }
 
-export const AudioQueryOptions = ({ engine, draft, setDraft }: AudioQueryOptionsProps) => {
+export const AudioQueryOptions = ({ engine, draft, setDraft, resetDraft = setDraft }: AudioQueryOptionsProps) => {
     const { t } = useI18n();
     const errorId = useId();
     const numbers = audioQueryNumbers(engine);
@@ -130,13 +132,13 @@ export const AudioQueryOptions = ({ engine, draft, setDraft }: AudioQueryOptions
         status={t("voice_ui.engine.audio_query.status", { speed: value(`${engine}_speed`) })}>
         {numberFields({ t, numbers, label: item => t(`voice_ui.engine.audio_query.${item.name}`), value, set, errorId })}
         {!validAudioQueryOptions({ ...defaults, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.audio_query.invalid")}</p>}
-        {/* Back to the engine's own values; saved from the save bar. */}
-        <Button disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...defaults }))}>
+        {/* Back to the engine's own values, saved at once. */}
+        <Button disabled={!changed} onClick={() => resetDraft(current => ({ ...current, ...defaults }))}>
             {t("voice_ui.engine.audio_query.reset")}</Button>
     </SetupSection>;
 };
 
-export const CoeiroinkOptions = ({ draft, setDraft }: { draft: VoiceSettings; setDraft: TtsDraftSetter }) => {
+export const CoeiroinkOptions = ({ draft, setDraft, resetDraft = setDraft }: { draft: VoiceSettings; setDraft: TtsDraftSetter; resetDraft?: TtsDraftSetter }) => {
     const { t } = useI18n();
     const errorId = useId();
     const value = (key: string) => draft[key] ?? COEIROINK_DEFAULTS[key];
@@ -152,22 +154,24 @@ export const CoeiroinkOptions = ({ draft, setDraft }: { draft: VoiceSettings; se
             </select>
         </label>
         {!validCoeiroinkOptions({ ...COEIROINK_DEFAULTS, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.coeiroink.invalid")}</p>}
-        {/* Back to the values the app used before they could be set; saved from the save bar. */}
-        <Button disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
+        {/* Back to the values the app used before they could be set, saved at once. */}
+        <Button disabled={!changed} onClick={() => resetDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
             {t("voice_ui.engine.coeiroink.reset")}</Button>
     </SetupSection>;
 };
 
 // Which engine reads Japanese, and for an installed engine its URL, whether it answers and which
 // of its voices to use. The app never installs or starts an engine; checking only asks it for
-// its version and voices. Everything is saved from the save bar, like the rest of the page.
+// its version and voices. It saves with the rest of the page's form, by itself (#1111).
 export interface TtsEngineProps {
     draft: VoiceSettings;
     setDraft: TtsDraftSetter;
+    // What a reset button changes the draft with: saved at once (#1111). setDraft otherwise.
+    resetDraft?: TtsDraftSetter;
     saved: VoiceSettings | null;
 }
 
-export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
+export const TtsEngine = ({ draft, setDraft, resetDraft, saved }: TtsEngineProps) => {
     const { t } = useI18n();
     const { engineVoices, send } = useVoice();
     const [linkError, setLinkError] = useState<string | null>(null);
@@ -244,8 +248,8 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
                 </select>
             </label>
             {state === "connected" && !voices.length && <p>{t("voice_ui.engine.no_voices")}</p>}
-            {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} />}
-            {audioQuery && <AudioQueryOptions key={audioQuery} engine={audioQuery} draft={draft} setDraft={setDraft} />}
+            {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
+            {audioQuery && <AudioQueryOptions key={audioQuery} engine={audioQuery} draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
             {/* The voices' credit and terms: what their licenses ask, kept in sight (#614). */}
             <Description text={t(`voice_ui.engine.credit.${engine}`)} />
         </>}
