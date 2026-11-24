@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（491件: 削除 13、取得 219、実行 52、有効化 42、無効化 45、設定 120）
+## 要求（494件: 削除 13、取得 219、実行 52、有効化 43、無効化 45、設定 122）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -349,6 +349,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/talk_ai_auth_key` | 取得 | 可 | — | ログで伏せる |
 | `/set/data/talk_ai_auth_key` | 設定 | 可 | — | ログで伏せる |
 | `/get/data/talk_ai_status` | 取得 | 可 | — |  |
+| `/set/enable/talk_ai_audio` | 有効化 | 可 | — |  |
+| `/set/data/talk_ai_interrupt` | 設定 | 可 | — |  |
+| `/set/data/talk_ai_end_turn` | 設定 | 可 | — |  |
 | `/set/enable/talk_ai` | 有効化 | 可 | — |  |
 | `/set/disable/talk_ai` | 無効化 | 可 | — |  |
 | `/set/data/ocr_window_title` | 設定 | 可 | useOcr.setSuccessOcrWindowTitle |  |
@@ -509,7 +512,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
 
 
-## 通知（中核からUIへ、90件）
+## 通知（中核からUIへ、91件）
 
 要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。
 
@@ -604,10 +607,11 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `config_save_failed` | `/run/config_save_failed` | （受け取るだけ） |
 | `config_save_recovered` | `/run/config_save_recovered` | （受け取るだけ） |
 | `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
+| `talk_ai_status` | `/run/talk_ai_status` | — |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（26件）
+## UIに受信先がないエンドポイント（30件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -629,14 +633,18 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/error_translation_speaker_vram_overflow`
 - `/run/initialization_complete`
 - `/run/message_output_error`
+- `/run/talk_ai_status`
 - `/run/translation_language_unsupported`
 - `/run/translation_model_retired`
 - `/run/vad_unavailable`
 - `/set/data/talk_ai_auth_key`
+- `/set/data/talk_ai_end_turn`
+- `/set/data/talk_ai_interrupt`
 - `/set/data/talk_ai_local_url`
 - `/set/data/talk_ai_provider`
 - `/set/disable/talk_ai`
 - `/set/enable/talk_ai`
+- `/set/enable/talk_ai_audio`
 
 
 ## UIだけにあるルート（61件）

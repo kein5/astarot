@@ -435,3 +435,9 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 実験的機能 `talk_ai` の初期値はオフ。対話を始めるには、接続先と音声の送信について利用者の同意を取り、`/set/enable/talk_ai` に `provider`、`destination`、`consent: { audio: true }` を渡す。利用者が接続のたびに同意する。接続先の変更、実験的機能の無効化、アプリの終了で対話を停止する。`/set/disable/talk_ai` でも停止できる。
 
 `/get/data/talk_ai_status` は `phase`（`idle`、`connecting`、`ready`、`failed`）、`error`（固定コードまたは `null`）、`sending_audio`、`sending_screen` を返す。接続と同意を扱う段階では音声と画面を取り込まず、送信状態はどちらも `false`。
+
+`/run/talk_ai_status` はセッションの接続完了と切断を通知する。応答と同じ `session_id` が入る。
+
+段階4では、`phase: "ready"` の応答を受けてから、画面に音声の送信表示を出す。その後、現在の `session_id` と `indicator_visible: true` を `/set/enable/talk_ai_audio` へ渡す。応答音声は既定でシステムの再生先へ出す。別の再生先は `output` に指定し、仮想マイクに送るときは `share_output: true` も渡す。対話中はマイクの文字起こしを止める。対話の終了後に、利用者が文字起こしを再開できる。
+
+`/set/data/talk_ai_interrupt` は応答の再生を止める。vLLM-Omni で利用者の発話を区切るには `/set/data/talk_ai_end_turn` を呼ぶ。両方に現在の `session_id` を渡す。

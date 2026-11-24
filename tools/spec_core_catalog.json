@@ -1667,6 +1667,21 @@
       "immediate": false
     },
     {
+      "endpoint": "/set/enable/talk_ai_audio",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_interrupt",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_end_turn",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/set/enable/talk_ai",
       "wait_for_init": false,
       "immediate": false
@@ -2813,6 +2828,10 @@
     {
       "name": "secret_store_failed",
       "endpoint": "/run/secret_store_failed"
+    },
+    {
+      "name": "talk_ai_status",
+      "endpoint": "/run/talk_ai_status"
     },
     {
       "name": "enable_osc_query",

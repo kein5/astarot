@@ -714,6 +714,10 @@ impl Core {
 
     /// `setEnableTranscriptionSend` / `setEnableTranscriptionReceive`.
     pub(crate) fn set_enable_transcription(self: &Arc<Self>, source: Source, data: &Value) -> Reply {
+        let talk = (source == Source::Mic).then(|| self.talk_ai.lock().unwrap());
+        if talk.as_ref().is_some_and(|session| session.owns_microphone()) {
+            return Reply::conflict("talk_microphone_in_use");
+        }
         if self.realtime_toggles() {
             return self.enable_realtime_toggle(source, data);
         }

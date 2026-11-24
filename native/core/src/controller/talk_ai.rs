@@ -6,7 +6,11 @@ use crate::config::Kept;
 use crate::protocol::Reply;
 use astarot_talk_ai::{Closed, Event, Key, Options, Service, SessionSettings, Talk, Turns, Update};
 use serde_json::{Value, json};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+
+mod audio;
+static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
 
 const SECRET: &str = "TALK_AI/openai";
 const OPENAI_URL: &str = "wss://api.openai.com/v1/realtime";
@@ -33,31 +37,59 @@ pub(crate) fn valid_local_url(url: &str) -> bool {
 
 #[derive(Default)]
 pub(super) struct Session {
-    talk: Option<Talk>,
+    talk: Option<Arc<Talk>>,
     state: Option<Arc<Mutex<State>>>,
 }
 
 struct State {
+    id: u64,
+    local: bool,
+    audio: Option<Arc<audio::Audio>>,
     phase: &'static str,
     error: Option<&'static str>,
 }
 
 impl Session {
     pub(super) fn stop(&mut self) {
-        self.talk.take();
-        self.state.take();
+        if let Some(talk) = self.talk.take() {
+            talk.cancel();
+        }
+        if let Some(state) = self.state.take() {
+            state.lock().unwrap().stop_audio();
+        }
     }
 
     fn status(&self) -> Value {
-        match &self.state {
-            Some(state) => {
-                let state = state.lock().unwrap();
-                json!({ "phase": state.phase, "error": state.error, "sending_audio": false, "sending_screen": false })
-            }
-            None => {
-                json!({ "phase": "idle", "error": null, "sending_audio": false, "sending_screen": false })
-            }
+        self.state.as_ref().map_or_else(
+            || json!({ "session_id": null, "phase": "idle", "error": null, "sending_audio": false, "sending_screen": false }),
+            |state| state.lock().unwrap().status(),
+        )
+    }
+}
+
+impl State {
+    fn status(&self) -> Value {
+        json!({
+            "session_id": self.id,
+            "phase": self.phase,
+            "error": self.error,
+            "sending_audio": self.audio.as_ref().is_some_and(|audio| audio.sending()),
+            "sending_screen": false
+        })
+    }
+
+    fn stop_audio(&mut self) {
+        if let Some(audio) = self.audio.take() {
+            audio.stop();
         }
+    }
+}
+
+impl Session {
+    pub(super) fn owns_microphone(&self) -> bool {
+        self.state
+            .as_ref()
+            .is_some_and(|state| state.lock().unwrap().audio.is_some())
     }
 }
 
@@ -75,7 +107,7 @@ fn enabled(core: &Core) -> bool {
     core.config().get("EXPERIMENTAL_FEATURES")["talk_ai"].as_bool() == Some(true)
 }
 
-fn start(core: &Core, data: &Value) -> Reply {
+fn start(core: &Arc<Core>, data: &Value) -> Reply {
     let mut session = core.talk_ai.lock().unwrap();
     if core.shutdown_requested() || !enabled(core) {
         return Reply::conflict("talk_disabled");
@@ -113,10 +145,14 @@ fn start(core: &Core, data: &Value) -> Reply {
     };
     session.stop();
     let state = Arc::new(Mutex::new(State {
+        id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
+        local,
+        audio: None,
         phase: "connecting",
         error: None,
     }));
     let on_update = Arc::clone(&state);
+    let notifier = Arc::downgrade(core);
     let service = Service {
         url: url.as_str().unwrap_or_default().to_owned(),
         model: (!local).then(|| OPENAI_MODEL.to_owned()),
@@ -131,23 +167,48 @@ fn start(core: &Core, data: &Value) -> Reply {
             Turns::server_vad()
         },
     };
-    session.talk = Some(Talk::start(
+    session.talk = Some(Arc::new(Talk::start(
         service,
         settings,
         Options::default(),
         Box::new(move |update| {
+            let report = matches!(update, Update::Event(Event::Ready) | Update::Closed(_));
             let mut state = on_update.lock().unwrap();
             match update {
                 Update::Event(Event::Ready) => state.phase = "ready",
-                Update::Closed(Closed::Failed(error)) => {
-                    state.phase = "failed";
-                    state.error = Some(error.code());
+                Update::Event(Event::StopPlayback) => {
+                    if let Some(audio) = &state.audio {
+                        audio.interrupt();
+                    }
                 }
-                Update::Closed(Closed::Stopped) => state.phase = "idle",
+                Update::Event(Event::Audio { item_id, pcm }) => {
+                    if let Some(audio) = &state.audio {
+                        audio.push(item_id, pcm);
+                    }
+                }
+                Update::Closed(closed) => {
+                    state.stop_audio();
+                    if state.phase != "failed" {
+                        match closed {
+                            Closed::Failed(error) => {
+                                state.phase = "failed";
+                                state.error = Some(error.code());
+                            }
+                            Closed::Stopped => state.phase = "idle",
+                        }
+                    }
+                }
                 _ => {}
             }
+            if report {
+                let status = state.status();
+                drop(state);
+                if let Some(core) = notifier.upgrade() {
+                    core.notify("talk_ai_status", status);
+                }
+            }
         }),
-    ));
+    )));
     session.state = Some(state);
     ok(session.status())
 }
@@ -203,6 +264,13 @@ pub(super) fn add(b: &mut Builder<'_>) {
     });
     b.with("/get/data/talk_ai_status", OPEN, |core, _| {
         ok(core.talk_ai.lock().unwrap().status())
+    });
+    b.with("/set/enable/talk_ai_audio", OPEN, audio::start);
+    b.with("/set/data/talk_ai_interrupt", OPEN, |core, data| {
+        audio::control(core, data, false)
+    });
+    b.with("/set/data/talk_ai_end_turn", OPEN, |core, data| {
+        audio::control(core, data, true)
     });
     b.with("/set/enable/talk_ai", OPEN, |core, data| start(core, data));
     b.with("/set/disable/talk_ai", OPEN, |core, _| {
