@@ -452,9 +452,6 @@ config_page:
     custom_model_link: "自分のモデルを使う方法"
     about_vrct:
         image_links:
-            dev_misya_x: "みしゃ（misyaguziya）のX"
-            dev_misya_github: "みしゃ（misyaguziya）のGitHub"
-            dev_shiina_x: "ShiinaのX"
             project_link_documents: "元のVRCTのドキュメント"
             project_link_vrct_github: "元のVRCTのGitHubリポジトリ"
             contributors_done_san_x: "どね（done_san）のX"
@@ -465,9 +462,6 @@ config_page:
             contributors_kumaguma_x: "クマグマ（KUMAGUMA）のX"
             contributors_riku_x: "RIKU_730のX"
         credits:
-            dev_section_title: "開発者"
-            dev_misya: "みしゃ（misyaguziya）：バックエンド、メイン開発。「いつになったら寝られるんだろう？」"
-            dev_shiina: "Shiina（Shiina Sakamoto）：フロントエンド、UI/UX。「ええと…倒れたら寝られますよ ;)」"
             contributors_section_title: "貢献者"
             contributor_done: "どね（done_san）：ロゴデザイン"
             contributor_iya: "IYA：広報ポスター・漫画"

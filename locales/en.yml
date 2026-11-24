@@ -452,9 +452,6 @@ config_page:
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
-            dev_misya_x: "みしゃ (misyaguziya) on X"
-            dev_misya_github: "みしゃ (misyaguziya) on GitHub"
-            dev_shiina_x: "Shiina on X"
             project_link_documents: "Original VRCT documentation"
             project_link_vrct_github: "Original VRCT repository on GitHub"
             contributors_done_san_x: "どね (done_san) on X"
@@ -465,9 +462,6 @@ config_page:
             contributors_kumaguma_x: "クマグマ (KUMAGUMA) on X"
             contributors_riku_x: "RIKU_730 on X"
         credits:
-            dev_section_title: "The developers"
-            dev_misya: "みしゃ (misyaguziya): backend, main development. “When will I ever go to sleep?”"
-            dev_shiina: "Shiina (Shiina Sakamoto): frontend, UI/UX. “Um... You’ll sleep when you pass out, sir ;)”"
             contributors_section_title: "Contributors"
             contributor_done: "どね (done_san): logo design"
             contributor_iya: "IYA: PR poster and manga"

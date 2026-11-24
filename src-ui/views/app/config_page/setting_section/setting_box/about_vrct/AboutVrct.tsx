@@ -1,9 +1,6 @@
 import * as styles from "./AboutVrct.css.ts";
 import astarot_logo from "@images/brand/logo.svg";
 
-import dev_section_title from "@images/about_vrct/dev_section_title.png";
-import dev_misya from "@images/about_vrct/dev_misya.png";
-import dev_shiina from "@images/about_vrct/dev_shiina.png";
 import vrct_logo_for_about_vrct from "@images/about_vrct/vrct_logo_for_about_vrct.png";
 
 import contributors_section_title from "@images/about_vrct/contributors_section_title.png";
@@ -65,20 +62,6 @@ export const AboutVrct = () => {
 
             <h2 className={styles.original_heading}>{t("config_page.about_vrct.original_heading")}</h2>
             <p className={styles.vrct_vox_text}>{t("config_page.about_vrct.original_desc")}</p>
-            <div className={styles.dev_section}>
-                <img src={dev_section_title} width={208} height={27} alt={t("config_page.about_vrct.credits.dev_section_title")} className={clsx(styles.section_title, styles.the_developers)} />
-                <div className={styles.dev_section_wrapper}>
-                    <div className={styles.dev_card_wrapper}>
-                        <img src={dev_misya} width={692} height={300} alt={t("config_page.about_vrct.credits.dev_misya")} className={styles.dev_card_img} />
-                        <OpenLinkContainer className={styles.dev_misya_x} href_id="dev_misya_x" />
-                        <OpenLinkContainer className={styles.dev_misya_github} href_id="dev_misya_github" />
-                    </div>
-                    <div className={styles.dev_card_wrapper}>
-                        <img src={dev_shiina} width={692} height={300} alt={t("config_page.about_vrct.credits.dev_shiina")} className={styles.dev_card_img} />
-                        <OpenLinkContainer className={styles.dev_shiina_x} href_id="dev_shiina_x" />
-                    </div>
-                </div>
-            </div>
 
             <div className={styles.project_links_and_logo_section}>
                 <div className={styles.about_vrct_logo_wrapper}>
@@ -146,8 +129,6 @@ export const AboutVrct = () => {
     );
 };
 
-import dev_x_icon from "@images/about_vrct/dev_x_icon.png";
-import dev_github_icon from "@images/about_vrct/dev_github_icon.png";
 import contributors_x_icon from "@images/about_vrct/contributors_x_icon.png";
 import contributors_github_icon from "@images/about_vrct/contributors_github_icon.png";
 
@@ -155,10 +136,6 @@ import project_link_documents from "@images/about_vrct/project_link_documents.pn
 import project_link_vrct_github from "@images/about_vrct/project_link_vrct_github.png";
 
 const about_vrct_links = {
-    dev_misya_x: { img: dev_x_icon, size: [40, 40], href: "https://twitter.com/misya_ai" },
-    dev_misya_github: { img: dev_github_icon, size: [40, 40], href: "https://github.com/misyaguziya" },
-    dev_shiina_x: { img: dev_x_icon, size: [40, 40], href: "https://twitter.com/Shiina_12siy" },
-
     project_link_documents: { img: project_link_documents, size: [188, 35], href: upstream_vrct_document_url },
     project_link_vrct_github: { img: project_link_vrct_github, size: [428, 35], href: "https://github.com/misyaguziya/VRCT" },
 
