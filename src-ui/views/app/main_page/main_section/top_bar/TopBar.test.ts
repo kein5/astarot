@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, eventTarget, stubGlobals, findIn, nodesIn, componentName, componentOf, setRef } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, findIn, nodesIn, componentName, componentOf, setRef, kitStandIns } from "../../../../../logics/test/hookHarness.ts";
 import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
@@ -419,8 +419,9 @@ test("stop and mute keep their width in a narrow bar, and nothing runs past it; 
     // The icon and its mark stay in a narrow bar: only the words are clipped.
     for (const name of ["update_icon", "update_mark"]) assert.doesNotMatch(styleOf(right, name), /@container/, name);
     const { control: button, words, side } = tipped((await menu(context, { update: "available", version: "0.6.1" })).updateButton());
-    assert.equal(button.type, "button");
-    assert.equal(button.props.type, "button");
+    // The kit's plain Button at the compact size, which is a button that submits nothing.
+    assert.equal(button.type, kitStandIns.Button);
+    assert.deepEqual([button.props.tone, button.props.size, button.props.type], [undefined, "compact", undefined]);
     assert.equal(button.props.title, undefined);
     // #766: a version being out is a state. It is a mark on the icon and the short word with the
     // version; the sentence that announces it is the tooltip and the button's description.
@@ -467,7 +468,9 @@ test("the inputs and outputs button opens and closes the panel it controls", asy
     const s = await menu(context);
     const drawn = tipped(s.flowButton());
     let button = drawn.control;
-    assert.equal(button.type, "button");
+    // The kit's plain Button at the compact size, as the update button is.
+    assert.equal(button.type, kitStandIns.Button);
+    assert.deepEqual([button.props.tone, button.props.size], [undefined, "compact"]);
     assert.equal(button.props["aria-expanded"], false);
     assert.equal(button.props["aria-controls"], "io_flow_panel");
     // What the panel shows is the button's tooltip and, kept in the page, its description.

@@ -25,6 +25,7 @@ import { useIoFlow } from "../../../../../../logics/flow/useIoFlow";
 import { OpenQuickSettingButton } from "./_buttons/OpenQuickSettingButton";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
+import { Button } from "../../../../../kit/index.ts";
 
 import { generateLocalizedDocumentUrl } from "@ui_configs";
 import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
@@ -150,7 +151,8 @@ const QuickSettingsMenu = () => {
 };
 
 // Opens the panel that shows where the user's voice and chat go, and how long each took.
-// What the panel shows is the button's tooltip and its accessible description.
+// What the panel shows is the button's tooltip and its accessible description. It is the kit's
+// plain Button at the compact size, which the bar's other buttons are close to.
 const IoFlowButton = () => {
     const { t } = useI18n();
     const { isPanelOpen, togglePanel } = useIoFlow();
@@ -158,14 +160,14 @@ const IoFlowButton = () => {
     const hintId = useId();
     return (
         <Tooltip bare placement="bottom" title={hint}>
-            <button type="button" className={clsx(styles.menu_button, { [styles.has_on]: isPanelOpen })}
+            <Button size="compact" className={clsx({ [styles.has_on]: isPanelOpen })}
                 aria-expanded={isPanelOpen} aria-controls="io_flow_panel" aria-describedby={hintId} onClick={togglePanel}>
                 <FlowSvg className={styles.menu_svg} aria-hidden="true" />
                 <span className={styles.menu_text}>
                     <span className={styles.menu_label}>{t("io_flow.open")}</span>
                 </span>
                 <span id={hintId} hidden>{hint}</span>
-            </button>
+            </Button>
         </Tooltip>
     );
 };
@@ -174,6 +176,7 @@ const IoFlowButton = () => {
 // That a version is out is a state, shown by a mark on the update icon and the short word with
 // the version (「更新 0.6.1」, #766); the sentence that announces it is the button's tooltip and its
 // accessible description. A narrow bar keeps the icon and its mark (RightSideComponents.css.ts).
+// It is the kit's plain Button at the compact size, as the inputs and outputs button is.
 const SoftwareUpdateAvailableButton = () => {
     const { t } = useI18n();
     const { appUpdate } = useAppUpdate();
@@ -187,7 +190,7 @@ const SoftwareUpdateAvailableButton = () => {
 
     return (
         <Tooltip bare placement="bottom" title={sentence}>
-            <button type="button" className={styles.software_update_button} aria-describedby={sentenceId}
+            <Button size="compact" className={styles.software_update_button} aria-describedby={sentenceId}
                 onClick={()=>updateOpenedQuickSetting("update_software")}>
                 <span className={styles.update_icon}>
                     <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
@@ -195,7 +198,7 @@ const SoftwareUpdateAvailableButton = () => {
                 </span>
                 <span className={styles.software_update_label}>{label}</span>
                 <span id={sentenceId} hidden>{sentence}</span>
-            </button>
+            </Button>
         </Tooltip>
     );
 };
