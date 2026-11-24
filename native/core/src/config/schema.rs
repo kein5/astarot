@@ -492,7 +492,7 @@ fn hotkeys() -> Check {
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
 ///
 /// [`src-python/models/experimental_features.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py
-pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion", "talk_ai"];
 
 fn experimental_features_default() -> Value {
     Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
@@ -651,6 +651,8 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        key("TALK_AI_PROVIDER", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("openai" | "vllm_omni")))),
+        key("TALK_AI_LOCAL_URL", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(crate::controller::talk_ai::valid_local_url))),
         // What the settings menu and the main switches show (#554). It changes no feature.
         immediate("USAGE_PRESETS", usage_presets()),
         // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
@@ -923,6 +925,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        ("TALK_AI_PROVIDER", json!("openai")),
+        ("TALK_AI_LOCAL_URL", json!("ws://127.0.0.1:8000/v1/realtime")),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
         ("CATALOG_LAYOUT", json!("grid")),

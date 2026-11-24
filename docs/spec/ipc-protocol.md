@@ -425,3 +425,13 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 - UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.ts`）。
 - 応答をJSONにできなかったときは、500をUIへ送り、`process.log`には値を除いた形（型の並び）だけを書く。
 - ログではAPIキーなどの値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。会話の本文は`process.log`に書かない。stdoutのIPCそのものは伏せない。
+
+## おしゃべりAI
+
+`/get/data/talk_ai_catalog` は、接続先ごとに `id`、`name`、`vision`、`cloud`、`destination` を返す。初期選択は `openai`。OpenAI Realtime の送信先は固定し、`vllm_omni` の接続先は `/set/data/talk_ai_local_url` で変更できる。
+
+OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録し、`null` で削除する。取得と登録の応答はキーの有無を `configured`、資格情報ストアに保存済みかを `stored` で返す。キーは設定ファイルに書かない。
+
+実験的機能 `talk_ai` の初期値はオフ。対話を始めるには、接続先と音声の送信について利用者の同意を取り、`/set/enable/talk_ai` に `provider`、`destination`、`consent: { audio: true }` を渡す。利用者が接続のたびに同意する。接続先の変更、実験的機能の無効化、アプリの終了で対話を停止する。`/set/disable/talk_ai` でも停止できる。
+
+`/get/data/talk_ai_status` は `phase`（`idle`、`connecting`、`ready`、`failed`）、`error`（固定コードまたは `null`）、`sending_audio`、`sending_screen` を返す。接続と同意を扱う段階では音声と画面を取り込まず、送信状態はどちらも `false`。

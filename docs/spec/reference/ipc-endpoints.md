@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（481件: 削除 13、取得 214、実行 52、有効化 41、無効化 44、設定 117）
+## 要求（491件: 削除 13、取得 219、実行 52、有効化 42、無効化 45、設定 120）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -341,6 +341,16 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/deepgram_auth_key` | 取得 | 可 | useTranscription.updateFromBackendDeepgramAuthKey | ログで伏せる |
 | `/delete/data/deepgram_auth_key` | 削除 | 可 | useTranscription.deleteSuccessDeepgramAuthKey | ログで伏せる |
 | `/set/data/custom_whisper_url` | 設定 | 可 | useTranscription.setSuccessCustomWhisperURL |  |
+| `/get/data/talk_ai_catalog` | 取得 | 可 | — |  |
+| `/get/data/talk_ai_provider` | 取得 | 可 | — |  |
+| `/get/data/talk_ai_local_url` | 取得 | 可 | — |  |
+| `/set/data/talk_ai_provider` | 設定 | 可 | — |  |
+| `/set/data/talk_ai_local_url` | 設定 | 可 | — |  |
+| `/get/data/talk_ai_auth_key` | 取得 | 可 | — | ログで伏せる |
+| `/set/data/talk_ai_auth_key` | 設定 | 可 | — | ログで伏せる |
+| `/get/data/talk_ai_status` | 取得 | 可 | — |  |
+| `/set/enable/talk_ai` | 有効化 | 可 | — |  |
+| `/set/disable/talk_ai` | 無効化 | 可 | — |  |
 | `/set/data/ocr_window_title` | 設定 | 可 | useOcr.setSuccessOcrWindowTitle |  |
 | `/set/data/ocr_poll_interval_ms` | 設定 | 可 | useOcr.setSuccessOcrPollIntervalMs |  |
 | `/set/data/ocr_min_confidence` | 設定 | 可 | useOcr.setSuccessOcrMinConfidence |  |
@@ -597,10 +607,15 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（16件）
+## UIに受信先がないエンドポイント（26件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
+- `/get/data/talk_ai_auth_key`
+- `/get/data/talk_ai_catalog`
+- `/get/data/talk_ai_local_url`
+- `/get/data/talk_ai_provider`
+- `/get/data/talk_ai_status`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -617,6 +632,11 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/translation_language_unsupported`
 - `/run/translation_model_retired`
 - `/run/vad_unavailable`
+- `/set/data/talk_ai_auth_key`
+- `/set/data/talk_ai_local_url`
+- `/set/data/talk_ai_provider`
+- `/set/disable/talk_ai`
+- `/set/enable/talk_ai`
 
 
 ## UIだけにあるルート（61件）

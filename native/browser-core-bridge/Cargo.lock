@@ -93,6 +93,7 @@ dependencies = [
  "astarot-openvr-client",
  "astarot-ops",
  "astarot-speech-server",
+ "astarot-talk-ai",
  "astarot-transcription",
  "astarot-translation",
  "astarot-tts",
@@ -169,6 +170,16 @@ dependencies = [
  "serde_json",
  "sha2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-talk-ai"
+version = "0.0.0"
+dependencies = [
+ "astarot-translation",
+ "base64",
+ "serde_json",
+ "tungstenite",
 ]
 
 [[package]]

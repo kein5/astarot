@@ -1627,6 +1627,56 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/talk_ai_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_provider",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_local_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_provider",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_local_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_status",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/talk_ai",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/talk_ai",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/set/data/ocr_window_title",
       "wait_for_init": false,
       "immediate": false
@@ -4023,8 +4073,19 @@
       "key": "EXPERIMENTAL_FEATURES",
       "kind": "immediate",
       "default": {
-        "tray_companion": false
+        "tray_companion": false,
+        "talk_ai": false
       }
+    },
+    {
+      "key": "TALK_AI_PROVIDER",
+      "kind": "saved",
+      "default": "openai"
+    },
+    {
+      "key": "TALK_AI_LOCAL_URL",
+      "kind": "saved",
+      "default": "ws://127.0.0.1:8000/v1/realtime"
     },
     {
       "key": "USAGE_PRESETS",
