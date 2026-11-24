@@ -449,6 +449,9 @@ main_page:
     updating: "Now updating..."
 
 config_page:
+    # A setting that saves by itself, said under its field when the save does not go through (#1111).
+    auto_save:
+        save_failed: "This could not be saved, so the saved value stays. Check the value, then press Enter or leave the field to try again."
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
@@ -1085,6 +1088,8 @@ config_page:
         window_title:
             label: "Window name"
             desc: "Substring match (case-insensitive) against visible window titles. Change this if you run a client whose window isn't titled 'VRChat' (e.g. a modified launcher)."
+            errors:
+                empty: "The window name is empty. Enter part of the title of the window to read, such as VRChat."
         source_language:
             auto: "Automatic (Japanese, English, Chinese and Latin scripts)"
             label: "Source language"

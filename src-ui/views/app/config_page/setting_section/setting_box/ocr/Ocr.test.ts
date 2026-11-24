@@ -80,3 +80,38 @@ test("the chatbox detector's part keeps one size before and after the readiness 
     assert.equal(runtime.render(OcrChatboxDetector_Box, {}), null);
     runtime.unmount();
 });
+
+// #1111: the window name saves by itself, and an empty one is said under the field, not sent.
+test("the window name saves by itself and refuses an empty name in words", async () => {
+    const runtime = hooks();
+    let options: { autoSave?: boolean; validate?: (value: string) => string | null } = {};
+    const { OcrWindowTitle_Box } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ language: (id: string) => id }) },
+        "@logics_configs": {
+            useOcr: () => ({ currentOcrWindowTitle: { state: "ok", data: "VRChat" }, setOcrWindowTitle: () => undefined }),
+            useSaveButtonLogic: (given: typeof options) => {
+                options = given;
+                return { variable: "VRChat", onChangeFunction: () => undefined, saveFunction: () => undefined, revert: () => "reverted", error: "problem" };
+            },
+        },
+        "../../../../../../logics/configs/ocrReadiness": {},
+        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
+        "../_components": { SectionLabelComponent: "label" },
+        "./OcrRegions": { OcrRegions: "regions" },
+        "./OcrModels": { OcrModels: "models" },
+        "../../../../../../logics/ocr/useOcrSetup": { OCR_MODELS_SETTING_ID: "ocr_models" },
+        "./OcrStatus": { OcrStatus: "status" },
+        "./OcrSharedWindow": { OcrSharedWindow: "shared-window" },
+        "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
+        "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
+    });
+    const entry = findIn(runtime.render(OcrWindowTitle_Box, {}), (node: TreeNode) => node.type === "entry", "entry").props;
+    assert.equal(options.autoSave, true);
+    assert.equal(entry.autoSave, true);
+    assert.equal(entry.error, "problem");
+    assert.equal(entry.onRevert(), "reverted");
+    assert.equal(options.validate?.("   "), "config_page.ocr.window_title.errors.empty");
+    assert.equal(options.validate?.("VRChat Launcher"), null);
+    runtime.unmount();
+});
