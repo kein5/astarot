@@ -1,5 +1,218 @@
 # P1 Linux / CachyOS / WiVRn
 
+[日本語版](#p1-linux--cachyos--wivrn日本語版)
+
+This page gives the steps for development and CLI tests in a source checkout. For the released Linux app, see the [AppImage guide](appimage.md) and the [Linux build steps](linux-build-pipeline.md).
+
+The verification notes describe the state at the time of each piece of work from 2026-10-27 on. For the CLI → virtual microphone → VRChat desktop route below, the user confirmed the voice by playing back VRChat's built-in microphone test. The meter stopping after a stop partway through was also confirmed. Not verified: the whole sequence of the real VRCT app sending to VRChat's audio and OSC at the same time, reception by other users and an HMD. A single PoC with the already downloaded Irodori MF / speech.cpp 0.8.11 and [30 measurements](benchmarks.md) on a dedicated PipeWire graph with 0.9.0 were confirmed. No new models were downloaded.
+
+## Native startup status
+
+From 0.5.0 the app's backend is the Rust core running inside the app, and the Python sidecar for development is gone ([core integration](core-integration.md)).
+The Python backend, its Python environment (`.venv_linux`, `mise run setup:app`), the CLI and the tests were removed in 0.6.0 (#285).
+
+### Development environment
+
+The versions of Python, uv and Rust are pinned in `mise.toml` ([development guide](../development.md#用意するツール)).
+
+```sh
+mise install
+mise run setup:headless   # dependencies for tests without models (build/dev/headless-venv)
+mise run setup:resources  # src-tauri/bin/_internal, read by tauri dev and cargo check
+```
+
+For `setup:resources`, see the [development guide](../development.md#tauriが読む資源を用意する).
+
+### Prepare the bundled server and the audio helpers
+
+In a development launch, the backend reads the bundled speech.cpp server and the audio route helpers from `build/` in the source tree.
+A new checkout or worktree has no `build/`, so unless you prepare it, pressing "Start server" under "TTS" or "Speech recognition" in Settings fails.
+
+```sh
+mise run build:voice-gate
+python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.2-linux-x64-vulkan.zip --output build/speechcpp
+python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.2-linux-x64-cpu.zip --output build/speechcpp-cpu
+```
+
+`build_voice_gate.py` builds `build/astarot-voice-gate`, `astarot-source-bridge` and `astarot-screen-capture`. It needs `libpipewire-0.3-dev`.
+Without `astarot-screen-capture`, "Share a window…" in chat reading stops with `screencast_helper_missing` (`src-tauri/src/portal_screencast.rs`).
+Up to 0.5.x, `vrct-vc-worker` and `vrct-asr-capture` were also built and bundled. `vrct-vc-worker` was the helper that the Python backend (up to 0.4) used to start the bundled server and voice conversion, and `vrct-asr-capture` was the recording helper for speech recognition on Linux. The core no longer starts either of them, so 0.6.0 removed them together with their source (ADR-014, #809).
+
+`speechcpp_bundle.py` takes an archive with a pinned version and SHA-256 and places the `speech` binary and the bundled license documents in the output folder. As in the release package, the Vulkan build goes in `build/speechcpp` and the CPU build in `build/speechcpp-cpu`. `bundle.json` decides which build a folder holds; the folder's name does not.
+If you do not have the archive locally, give `--download` instead of `--archive` and the tool downloads it. It goes online only when `--download` is given.
+One of the two builds is enough. With only the CPU build, inference runs only on the CPU. With only the Vulkan build you can still choose "CPU", but it needs the Vulkan loader (`libvulkan.so.1`). If the output folder already exists, the tool stops without overwriting it. With `--replace`, it keeps a build of the same version as it is and replaces only the parts of a different version.
+If you have already built a Linux candidate, you may copy `build/linux/build/speechcpp` and `build/linux/build/speechcpp-cpu` with `cp -a`.
+The app checks the version and the hashes at every start and does not accept symbolic links, so copy the files instead of linking them.
+If neither of the two is found or passes the check, starting the bundled server stops with `speech_bundle_missing_or_invalid`.
+
+Models downloaded in a development launch are saved in `downloaded_models/` in the same folder as `config.json`. In a development build, unless `ASTAROT_CONFIG_DIR` is set, that folder is the one that holds the executable (such as `src-tauri/target/debug/`, which git does not track) (`folders` in `src-tauri/src/backend_host.rs`). The Python backend (up to 0.4) saved models in `src-python/downloaded_models/`.
+
+On Linux, chat reading captures the VRChat window through X11/XWayland. While SteamVR runs, it reads the headset image through OpenGL (confirmed only with a fake SteamVR). A native Wayland window can be read once the user shares it under "Chat reading" in Settings (XDG ScreenCast portal; a development build uses `build/astarot-screen-capture`). Recording for the legacy ASR is not supported.
+On 2026-11-11 this was confirmed with the real VRChat running on Proton (two clients in a local test instance) and the real PP-OCR models (CachyOS, KDE Plasma 6.8, Wayland). The X11/XWayland route read the chat that the other client sent. The sharing route read VRChat running inside a nested Xwayland (a native Wayland window as KWin sees it) once that window was shared. At the time this was recorded as "5 of 6 sentences (development build), 4 (AppImage)", but that was a mistake in the checking procedure, not a failure to read (corrected on 2026-11-12). The message log draws only the lines visible on screen, so the lines after the log filled the screen were not counted. VRChat inside gamescope and VRChat on Wine's Wayland driver have not been confirmed (with gamescope 3.17 the window crashed, and the Proton-GE build used did not accept the Wayland driver setting). For pasting in voice typing mode, the text was confirmed to arrive in the real VRChat chat box. Desktops other than KDE, such as GNOME, have not been confirmed.
+On 2026-11-12 the same setup was measured again by sending 12 sentences (Japanese and English, including sentences long enough to wrap to 2 lines) every 10 seconds (development build: develop `5d4b1a16` plus the changes of #196). Both the X11/XWayland route and the sharing route read all 12 sentences, and the time from sending to appearing in the log was 0.6 to 1.5 seconds (4.2 seconds for one sentence on X11). The speech bubble detection model was not installed, so text on signs also mixes into the results. The test world moves the speaker and the camera every few seconds, so the distance and the background differ for each sentence. During the check, the title of the speaker's window was changed so that the search by name would not pick up the speaker's window (both clients are named `VRChat`).
+This procedure downloads only the Python dependencies and does not run the download scripts for ASR/TTS/VC weights.
+Downloading Python and the package traffic need a network connection. For the system GTK/WebKitGTK dependencies, see [Tauri's official prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+Up to 0.4, `VRCT_DEV_VENV=.venv_linux` at app start selected this environment. The 0.5.0 app does not start Python, so it does not read this variable.
+`ASTAROT_CONFIG_DIR=/absolute/path/to/state` (the 0.6.x releases also read `VRCT_CONFIG_DIR`, its name up to 0.5.x) changes where `config.json`, the logs, `downloaded_models/` and `vc_runtimes/` are stored. Without it, the usual locations are used.
+It does not change the location of the bundled resources (`build/`) or the UI resources. You do not need to copy the existing settings into the test directory.
+Up to 0.4, turning on automatic model download under "Other" downloaded the built-in translation model at the next start. 0.5.0 stopped the download at start and removed the switch from Settings (the setting key remains for compatibility). Models are downloaded only through an explicit action on the consent screen.
+
+The automated startup test of the Python backend (`tests/platform/test_native_backend.py`) was removed with the backend in 0.6.0. Tests such as `native/core/tests/lifecycle.rs` check the core's startup, the carry-over of settings and restarts.
+
+## RVC runtime
+
+On Linux (x86-64) too, you can download the RVC runtime from the app. The screens and the flow are the same as on Windows. The Seed-VC runtime belonged to the Python backend up to 0.4 and does not appear in the list in 0.5.0 (`native/voice-conversion/src/runtime.rs`). What this section says about Seed-VC is a record of 0.4 and earlier. On Linux, the app uses the managed audio route and takes the input for voice conversion from PipeWire. The "RVC runtime" field is under "Settings" → "RVC" or under "Input forwarding" in "Advanced". Press "Review download" and check the license, the size and the location. The download starts when you agree. Nothing is downloaded until you agree.
+
+You need the following.
+
+- An x86-64 PC. On any other PC, the download field is not shown.
+- To convert on the GPU, an NVIDIA GPU and the NVIDIA driver. The app checks whether the driver is running by whether `/proc/driver/nvidia/version` exists. Where this file is missing, as with nouveau, it offers the CPU runtime.
+
+RVC conversion is done by `astarot-rvc-worker` (`native/rvc-runtime`), which is in the release package (from 2026-11-15). RVC can be downloaded without the driver. The app offers the GPU runtime on a PC with the driver and the CPU runtime on a PC without it. Once you agree, it does the following in order.
+
+1. For the GPU runtime, it downloads ONNX Runtime 1.31.0 (the CUDA 13 build: `Microsoft.ML.OnnxRuntime.Gpu.Linux`, Microsoft's official package on NuGet) and NVIDIA's CUDA 13.4 and cuDNN 9.26 libraries (the PyPI wheels `nvidia-cuda-runtime`, `nvidia-cublas`, `nvidia-curand`, `nvidia-cuda-nvrtc` and `nvidia-cudnn-cu13`). For the CPU runtime, it downloads only the CPU build of ONNX Runtime 1.31.0 (`Microsoft.ML.OnnxRuntime`). It checks each archive's size and SHA-256, extracts only the `.so` files the worker loads into `lib/`, and deletes the archive. Up to 2026-11-18, ONNX Runtime was downloaded from GitHub releases. A runtime prepared at that time can be used as it is without preparing it again, because the files in `lib/` have the same names.
+2. It downloads the base models (HuBERT's `config.json` and `pytorch_model.bin`, and `rmvpe.onnx`) and verifies their hashes.
+3. It runs the worker's `--probe` to check that the downloaded libraries load and can compute. If the GPU runtime cannot use the GPU (the driver is older than 580, or the GPU is older than Turing, that is, the GTX 16 and RTX 20 series), it shows that conversion will run on the CPU and finishes.
+4. If the same folder holds an earlier PyTorch-based runtime, it deletes that runtime's files (`venv`, `python`, `engine`, `engine.zip`, and the pinned `rmvpe.pt` and `preprocessor_config.json`). It keeps the model and audio files inside `engine` (`.pth`, `.index`, `.wav` and so on).
+
+With Seed-VC up to 0.4, agreeing started the following steps in order. Neither Git nor a development environment was needed.
+
+1. It downloads a pinned version of `uv`: the official release `uv-x86_64-unknown-linux-gnu.tar.gz`, checked against its size and SHA-256.
+2. It installs Python and the hash-pinned dependencies (`integrations/seed_vc/requirements.lock`).
+3. It downloads the engine itself (a GitHub archive) and verifies its contents. Before extracting, it checks the number of entries, the extracted size, the compression ratio, the paths and the entry types (regular files and folders only). After extracting, and after applying the bundled patch for Seed-VC, it compares a digest made from the names and contents of all files with a pinned value. If they do not match, it deletes what it extracted and does not install (security audit SEC-04).
+4. It downloads the base models and verifies their hashes.
+5. It checks `torch.cuda.is_available()` with the runtime's Python.
+
+| | RVC | Seed-VC (up to 0.4) |
+|---|---|---|
+| Approximate download size | GPU about 1.9 GB, CPU about 0.6 GB | About 6.4 GB |
+| Free space needed | GPU about 3.3 GB, CPU about 0.7 GB | About 18 GB |
+| Size when finished | GPU about 2.5 GB, CPU about 0.55 GB | About 9.5 GB |
+| Python it depends on | None | 3.11 |
+
+The RVC column holds values from one download of each runtime on 2026-11-15, on the same PC as below. The download size is the catalog value (the total of the pinned files: 1.87 GB for GPU, 0.56 GB for CPU), the size when finished is from `du -sh`, and the time taken was 260 seconds for GPU and 10 seconds for CPU. The free space needed is an estimate: the extracted files and the base models plus the largest archive (cuDNN for GPU, 0.52 GB), rounded up. The peak during the download was not measured.
+
+The Seed-VC column holds values measured from one download of each runtime on one PC on 2026-11-11 (CachyOS, RTX 4080 SUPER, NVIDIA driver 620.70.06, btrfs, wired connection). The download size is the number of bytes the network device received during the download (4.83 GB for RVC, 6.28 GB for Seed-VC). The free space needed is the peak size of the folder during the download (`du -sb`), rounded up: 15.6 GB for RVC and 17.5 GB for Seed-VC. The `uv` cache and the install location are counted separately. When the file system supports it, `uv` shares data between the two (reflink or hard link), and the space actually used is then smaller. The time taken was 62 seconds for RVC and 139 seconds for Seed-VC, but it varies widely with the connection speed.
+
+The runtime is stored in `vc_runtimes` in the same folder as `config.json`. In the released app this is `~/.config/astarot/vc_runtimes` (`~/.config/vrct-vox/vc_runtimes` up to 0.5.x). In a development launch from source, unless `ASTAROT_CONFIG_DIR` is set, it is `vc_runtimes` in the folder that holds the executable (such as `src-tauri/target/debug/`, which git does not track; with the Python backend up to 0.4, `src-python/vc_runtimes`). If a download fails or is cancelled partway, the finished steps are skipped next time. With Seed-VC up to 0.4, cancelling stopped `uv` together with the processes `uv` had started, and `uv` also ended when the app crashed. When it finishes, press "Use this runtime" to save. To remove the runtime, delete this folder.
+
+Voice models are separate. Download them from the download field on the RVC settings page, or point to one whose rights you have checked. For Seed-VC up to 0.4, you specified a reference voice you had permission to use (a WAV of 1 to 30 seconds).
+
+What was confirmed is the download on the PC above, and starting the RVC and Seed-VC workers with the downloaded runtimes to convert synthesized speech. Audio quality, other distributions and downloading from the released app (AppImage) have not been checked.
+
+To prepare it by hand, RVC uses the `lib/` and `assets/` layout (the same as in the [Windows steps](local-setup-windows.md#手動で用意する場合); the `.so` names follow `ort` and `nvidia_libraries` in `native/voice-conversion/src/runtime.rs`, which `rvc_runtime` combines). Seed-VC up to 0.4 followed the steps in the [Seed-VC README](https://github.com/kein5/astarot/blob/v0.5.2/integrations/seed_vc/README.md). The earlier PyTorch-based RVC runtime can no longer be used.
+
+## Temporary virtual microphone
+
+First connect earphones or the WiVRn audio device, and check with `wpctl status` that VRChat's output goes to that device.
+If there is only `Dummy Output`, connect an audio output before you create a loopback in the normal session.
+This time, the game output moved to a virtual sink that was created with no output connected, so the sink was deleted without playing any speech.
+Setting `priority.session=-100` or a smart filter alone did not prevent the mix-up when no other output existed.
+
+After this preparation, start a temporary loopback in a terminal, without replacing the existing audio settings.
+Use the sink/source setup from the [PipeWire loopback documentation](https://docs.pipewire.org/page_module_loopback.html).
+
+```sh
+pw-loopback --capture-props='media.class=Audio/Sink node.name=vrct.voice.sink node.description="VRCT Voice Input" audio.position=[MONO]' --playback-props='media.class=Audio/Source node.name=vrct.voice.source node.description="VRCT Virtual Microphone" audio.position=[MONO] node.passive=true'
+```
+
+Check with `pw-dump` / `pw-link -l` / `wpctl status` that the sink and the source were created.
+Keep the routes apart: **VRChat output → earphones, ASTAROT output → dedicated sink, dedicated source → VRChat input**.
+If the game output is connected to the dedicated sink, end the loopback without playing any speech and fix the output target.
+While the physical audio device is disconnected, WirePlumber may choose this virtual node as the active default output or input (observed this time too).
+Set other apps' output and the ASR input explicitly, and check `wpctl status` before and after creating the nodes.
+ASTAROT itself does not fall back to the default device.
+Set VRChat's microphone to **VRCT Virtual Microphone**.
+Do not link the physical microphone, the game output or WiVRn audio directly to this sink.
+To finish, press Ctrl-C in the loopback terminal. Only the temporary nodes go away.
+For automated tests only, use the core example that plays through a dedicated PipeWire graph (`--route managed --private-pipewire` in `native/core/examples/live_speech.rs`) and the tests (`spoken_route_live` and `voice_managed_live` in `voice-tests.yml`).
+
+## speech.cpp to the virtual microphone
+
+Start with local models that the user has already prepared after checking their licenses (the paths below are examples).
+Without a reference voice, use `none`. With one, register a voice.gguf whose speaker has given consent.
+
+Up to 0.5, the Python backend's CLI (`tools/voice_cli.py`) played speech into the virtual microphone. It was removed with the backend in 0.6.0 (#285).
+To run and measure the core's text to speech with a real speech.cpp and a real output, use `native/core/examples/live_speech.rs`.
+On Linux, `--route managed --private-pipewire` plays into the managed route on a private PipeWire and measures when the sound starts to be heard on the virtual microphone (usage is at the top of the file).
+
+## Manual acceptance and the P2 entry point
+
+- VRChat's [microphone test](https://wiki.vrchat.com/wiki/Settings#Microphone) records briefly and then plays the recording back.
+  If you wait long between starting the test and sending, the speech may fall outside the recorded span.
+  Match the timing, for example by pressing `New Test` while the input meter moves.
+  Audio is sent once per request. Do not confuse this with the number of playbacks through the recording's `Play Again`.
+- Whether the input meter stops after a stop or Ctrl-C. Playback of a clip that VRChat has already recorded is outside what ASTAROT's stop covers.
+- Delete the loopback → an error, with no fallback to the physical speakers. Restore it → after an explicit reselection, retry with a new sentence.
+- Draw a diagram of the WiVRn input and output, and keep the game audio and the TTS monitor out of future ASR input.
+- P2 external VC: set the other software's input to the physical microphone and its output to a **conversion-only sink**, and check it on its own.
+  Do not connect it to VRChat until you have confirmed a setup with no automatic fallback to the raw microphone.
+  Record the silence when VC stops, the model, OS and version, the latency, the VRAM and the terms of use, then decide whether to adopt it.
+  Mix directly into the P1 TTS sink only after the P2 router has been verified.
+
+## Persistent managed virtual microphone (added after the B verification)
+
+This is an optional feature for source checkouts. Its names differ from those of the temporary microphone above.
+In the later automated host and VRChat acceptance, the configuration was placed temporarily and the services were restarted,
+and the original settings were restored after the test. An agent checked the preparation and restoration of the initial screen and ran the acceptance sequence automatically.
+This does not mean that the whole VRCT GUI is ready on Linux. In the later UI component and stdio integration tests, the production input box,
+the voice settings UI and the production Main/Controller were connected to a real TTS and a separate PipeWire. The Tauri connection and the surrounding services were replaced,
+so the startup of the whole app, settings persistence and the real Model initialization are not verified.
+
+1. Prepare the system C compiler, pkg-config and the PipeWire development headers, and build in the repository root.
+   The CachyOS environment used this time already had them. No Python packages or voice models are added.
+
+   ```sh
+   uv run --no-project python tools/build_voice_gate.py
+   ```
+
+2. At a time when live audio may be interrupted, place the configuration in the user's PipeWire configuration.
+   This restart interrupts audio connections, including VRChat and WiVRn.
+   Do not replace other configuration. If a file with the same name already exists, check its contents before you replace it.
+
+   ```sh
+   mkdir -p ~/.config/pipewire/pipewire.conf.d
+   cp config/pipewire/90-astarot-managed.conf ~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf
+   systemctl --user restart pipewire pipewire-pulse wireplumber
+   ```
+
+   In versions up to 0.6.0, the template is `90-vrct-managed.conf`, which creates `vrct.managed.*` nodes.
+   While a file with that name stays in place, the app does not prepare the route automatically and reports `managed_setup_manual_config_legacy`.
+   Delete the old file, then place the new template (ADR-014, 2.8).
+
+3. With a real output such as earphones connected, check `wpctl status` / `pw-link -l`.
+   Route explicitly: the game audio to the earphones, the TTS output to `astarot.managed.tts`, the VC output to `astarot.managed.vc`,
+   and VRChat's input to **ASTAROT Managed Virtual Microphone** (`astarot.managed.source`).
+   `priority.session=-100` is not a setting that forbids choosing the node as the system-wide default. Automatic selection, such as when the real output
+   disappears, needs a separate check. Do not choose this sink as the default output.
+4. Save "Managed virtual microphone (Linux)" in ASTAROT's text to speech settings.
+   It starts muted. It outputs nothing until "Unmute" confirms it.
+   "Mute now" stops the TTS and VC that enter this route.
+   The existing "Stop" cancels only TTS. The held mute in external cable mode also applies only to TTS.
+   The external cable selection is kept even after you switch to managed.
+5. `voice_mute_state.json` is created in the same directory as the app's `config.json`.
+   Corruption or a failed write is treated as an error and as a mute request, and no success is shown.
+   After repairing it so that it can be written, request a mute, and resume once the mute is confirmed.
+
+Up to 0.5, a CLI (`tools/voice_route.py`) could read or change the state while ASTAROT was stopped, by naming the same state file.
+It used the Python backend's PipeWire parts, so it was removed with the backend in 0.6.0 (#285).
+A running ASTAROT goes back to mute when it detects a state change from outside, so use the UI for normal operation.
+
+To undo this, first confirm the mute, switch ASTAROT back to the external cable setting, and choose a safe input again in VRChat.
+Delete **only** the `~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf` that you placed, and
+restart the user services above at a time when audio may be interrupted. The app's held mute
+remains, so resume explicitly if needed. Do not delete a whole PipeWire configuration directory.
+
+A normal ASTAROT exit mutes the gate and leaves the endpoint in place. If the exit handling does not run, as with SIGKILL or a power loss,
+the gate keeps its last state. Force-quitting ASTAROT while it is unmuted does not by itself stop the external VC's sound.
+ASTAROT mutes again when it restarts. Stopping the PipeWire daemon also removes the virtual microphone,
+so VRChat's input fallback in that case still needs a check on real hardware.
+
+---
+
+# P1 Linux / CachyOS / WiVRn（日本語版）
+
 このページはソースcheckoutでの開発・CLI試験の手順。配布版のLinuxアプリは
 [AppImageガイド](appimage.md)と[Linuxビルド手順](linux-build-pipeline.md)を参照。
 

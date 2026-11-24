@@ -1,4 +1,134 @@
-# ローカル翻訳の GPU とモデルの公開の準備（2026-11-18、#277）
+# Local translation on the GPU and preparing to publish the models (2026-11-18, #277)
+
+[日本語版](#ローカル翻訳の-gpu-とモデルの公開の準備2026-11-18277日本語版)
+
+This is the record of the third piece of work for #277. It covers the fixes for running local translation (`native/translate-onnx`) on the GPU, the tools for publishing models and listing them in the catalog, and a review of how to handle NLLB. Points that need a decision are numbered in "Decisions needed" (判断が要ること) in [core-integration.md](core-integration.md). The license check of the models is in "Candidate models for local translation and how to handle NLLB" (ローカル翻訳のモデルの候補と NLLB の扱い) in [licensing.md](licensing.md).
+
+## Summary
+
+- The current translation graph did not run on the DirectML execution provider of ONNX Runtime. There were two causes, and both were fixed. After the fixes, a small model with random weights gave the same translation IDs as the CPU in all four quantization formats on two GPUs.
+- The tools needed to publish the real models (a publishing folder with a model card, upload, and creating and checking catalog entries) are ready, and so is a data file that holds the catalog's translation entries. The models have not been published yet.
+- Real models, CUDA, OpenVINO, AMD GPUs and Linux have not been checked yet.
+
+## Why it did not run on DirectML and how it was fixed
+
+### How it was checked
+
+To check without downloading the real models, `tools/translation_onnx/tiny.py` was added. It writes a small model with random weights (NLLB architecture, 2 layers, width 64, vocabulary 4400) through the same path as `export.py`, and creates four folders: float32, float16, int8 and int4. `a_device_decodes_as_the_cpu_does` in `native/translate-onnx/tests/real.rs` loads the same folder on the CPU and on the given execution provider, and compares whether the beam search outputs the same IDs. If the execution provider cannot start and the model runs on the CPU, the test fails.
+
+```sh
+python tools/translation_onnx/tiny.py --output <output folder>
+ORT_DYLIB_PATH=<onnxruntime.dll of the DirectML build> \
+VRCT_TRANSLATE_DEVICE=directml:1 VRCT_TRANSLATE_DEVICE_MODEL=<output folder>/tiny-nllb-onnx-float32 \
+cargo test --manifest-path native/translate-onnx/Cargo.toml --test real a_device
+```
+
+For the DirectML build of ONNX Runtime, the check used the `onnxruntime.dll` and `DirectML.dll` from `onnxruntime-directml` 1.24.4 on PyPI. That folder is also added to `PATH` so that `DirectML.dll` can be found.
+
+### Cause 1: `allowzero=1` on `Reshape`
+
+`torch.onnx.export` writes every `Reshape` with `allowzero=1`. DirectML rejects this, and the first `Reshape` in the encoder fails with "The parameter is incorrect".
+
+The values 0 and 1 of `allowzero` behave differently only when the target shape contains a 0. The shapes in this graph are made of the batch, the source and target lengths, and the number and width of the heads, and none of them is 0. So `export_float` in `graphs.py` sets every `Reshape` in the three exported float32 graphs to `allowzero=0` (`clear_reshape_allowzero`). The quantized formats are made from the same graphs, so the change applies to every format. The CPU results do not change. The check against the transformers computation (`verify`) also runs on the graphs after this change.
+
+Folders made with `export.py` before 2026-11-18 still have `allowzero=1`. On DirectML they load, and then fail at the first translation. The fallback to the CPU happens only at load time, so in this case the result is a failed translation (decision 76).
+
+### Cause 2: outputs with no elements
+
+The cached step returns the source-side keys and values (`present.<layer>.encoder.*`) with 0 rows. The ones from the first step are reused, and this shape avoids copying them on every step. When DirectML was asked for these outputs with no elements, the other outputs of the same run (the logits and the cache) got wrong values.
+
+- The first values to diverge were in the check of whether an input ID is padding (`Equal` and `Not`). The error spread from there to the position numbers, the embeddings and the logits, and the logits went above 1e30 or became NaN.
+- The values changed on every run. This happened with every combination of graph optimization level (all, extended, basic, none) and memory pattern.
+- With the outputs with no elements removed from the graph, the difference from the CPU was 1.8e-7 or less in every combination. Leaving the graph unchanged and only not requesting those outputs gave the same result.
+
+The core does not use these outputs in the cached step. So `model.rs` no longer requests them in the cached step (`OutputSelector` in `ort`). The graph's inputs and outputs are unchanged, so folders made earlier and folders that users place can still be read as they are.
+
+### Results
+
+| Format | Intel Iris Xe (DirectML device 0) | NVIDIA GeForce RTX 3060 Ti (device 1) |
+|---|---|---|
+| float32 | Same IDs as the CPU | Same IDs as the CPU |
+| float16 | Same (first 2 IDs compared) | Same (ditto) |
+| int8 | Same | Same |
+| int4 | Same | Same |
+
+- Two sentences were compared: an empty sentence and a sentence of 24 words.
+- In float16, rounding can swap the order of close candidates, so only the first 2 IDs are compared.
+- With the fix for cause 2 removed, the float32 and int8 tests failed (checked on device 1). This also shows that the test goes through the cached step.
+- The four formats were also confirmed to run on the CPU with the official CPU build of ONNX Runtime 1.31.0.
+- Which GPU is DirectML device 0 and which is device 1 was judged from the speeds in an earlier measurement ([Inference runtime comparison](inference-runtime-comparison.md)).
+
+The environment was Windows 11, an Intel Iris Xe and an NVIDIA GeForce RTX 3060 Ti, and the DirectML build of ONNX Runtime 1.24.4. The model is small and random, so the speed and translation quality are unknown.
+
+### int8 and int4 on DirectML
+
+On the small model, int8 and int4 also gave the same IDs as the CPU on DirectML. The table in `accelerate.rs` (`support`), however, does not list these two among the compute types for DirectML. If DirectML does not have a quantized operator, ONNX Runtime silently runs just that operation on the CPU. This test did not check which operations ran on the GPU, or how fast they were. The table was not changed (decision 75).
+
+Addendum of 2026-11-19: decision 75 settled on listing these two among the compute types for DirectML, and the table was changed. With ONNX Runtime profiling (`enable_profiling`), the placement of the nodes executed in the encoder and the first decoder step was counted (NVIDIA GeForce RTX 3060 Ti, DirectML build 1.24.4).
+
+| Format | Nodes run on DirectML | Nodes run on the CPU |
+|---|---:|---|
+| float32 | 205 | 8 (`Concat` 7, `Squeeze` 1) |
+| float16 | 216 | 8 (same as above) |
+| int8 | 203 | 8 (same as above) |
+| int4 | 205 | 8 (same as above) |
+
+Only shape computations ran on the CPU; the quantized operations (`MatMulInteger`, `DynamicQuantizeLinear`, `MatMulNBits`) ran on DirectML. The cached step and the speed on real models were not counted.
+
+## Not checked
+
+- GPU behavior, speed and translation quality with the real models (M2M100, NLLB). Downloading the original models needs consent, and exporting them needs more than 15 GB of memory.
+- The CUDA execution provider. It needs a download of more than 1 GB for the GPU build of ONNX Runtime and the NVIDIA libraries, so it was not done this time. The procedure is the same as for DirectML, with `VRCT_TRANSLATE_DEVICE=cuda:0` and an `ORT_DYLIB_PATH` that points to the `onnxruntime.dll` of the CUDA build. The `lib` folder that the GPU runtime for voice conversion (`runtime.rs` in `native/voice-conversion`) downloads has the CUDA build of ONNX Runtime 1.31.0 and the CUDA 13 and cuDNN 9 libraries.
+- OpenVINO, MIGraphX, WebGPU, AMD GPUs, Linux.
+- The DirectML build of ONNX Runtime has stopped at 1.24.4. Moving to Windows ML has not been looked into.
+
+## How to distribute the GPU execution providers (option (c) of decision 2)
+
+Only the official CPU build 1.31.0 is bundled, so for users to translate on the GPU, they need a separate ONNX Runtime that has a GPU execution provider. For now, the only way is to set `ORT_DYLIB_PATH`. The options and what was learned this time are below. None of them has been chosen.
+
+| Option | What is placed | Advantages | Points to watch |
+|---|---|---|---|
+| (c1) Download the DirectML build with consent | `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 and `Microsoft.AI.DirectML` 1.15.4 from NuGet | One build handles NVIDIA, AMD and Intel GPUs. The small model ran after this fix | It has stopped at 1.24.4. The loaded library is shared with chat reading, so chat reading also runs on 1.24.4 (decision 42). The redistribution terms of DirectML go in the ledger |
+| (c2) For NVIDIA, use the GPU runtime for voice conversion | No extra download. Load the `lib` of the GPU runtime for voice conversion (the CUDA build of 1.31.0 and the NVIDIA libraries, downloaded with consent) | It is 1.31.0, the same as the bundled CPU build, so the version for chat reading does not change | Only people who installed the voice conversion runtime can use it. The translation settings need a way to point to the voice conversion runtime |
+| (c3) Stay on the CPU only | Nothing | Nothing is added | Translation cannot run on the GPU |
+
+With every option, only one library is loaded per process, so switching needs a restart of the app. The library lookup is in one place, `native/onnx-runtime` (#624), so that is where a downloaded folder would be added to the search locations.
+
+## Publishing the models and registering them in the catalog
+
+Publishing is an external operation, so this work did not do it. The tools and the procedure are ready.
+
+1. Create the folder with `export.py` (for a real model, downloading the original model needs consent).
+2. `publish.py stage` checks the files against `manifest.json`, copies them and writes a model card (the original model and its revision, the license, what was changed, how the files were made and the SHA-256 of each file). A model under MIT needs the license text (`--license-file`).
+3. The maintainer checks the publishing folder, the license and the repository name.
+4. `publish.py upload` uses the write token in `HF_TOKEN` to create the repository and uploads the files in one commit.
+5. `publish.py catalog --write` checks the sizes and SHA-256 of the files in the published revision against `manifest.json` and writes an entry to `native/ops/data/translation_models.json`.
+6. Raise `CATALOG_VERSION` (`native/ops/data/README.md`).
+
+What has to be decided: which models and formats to publish (at least the int8 of M2M100 418M, and perhaps float16 for the GPU), the owner and name of the target repository, and whether to publish NLLB (decisions 1 and 78).
+
+## NLLB models
+
+### NLLB 3.3B in the directions into English
+
+In the 2026-11-15 comparison, the int8 of NLLB 3.3B scored 1.12 to 1.90 BLEU lower than CTranslate2 in the four directions into English, so it could not be said that there was no regression (`tools/translation_onnx/README.md`). It was not checked this time, because that needs a download of the original model (more than 17 GB) and an export (more than 50 GB of memory). To check it, raise the number of sentences in each direction to 200 with `compare.py --directions de-en,ja-en,ru-en,zh-en`, or compare against folders made with a different quantization method (per-channel quantization, for example).
+
+Addendum of 2026-11-20: the two directions between English and Japanese were checked on all sentences of WMT20. The BLEU difference between the ONNX and CTranslate2 versions was −0.06 for English to Japanese and −0.09 for Japanese to English, and in both the 95% interval spanned 0. German to English, Russian to English and Chinese to English were not checked. This closed decision 77 (77 in [core-integration.md](core-integration.md)). The results are in "Checking English and Japanese (2026-11-20)" (英語と日本語の確認（2026-11-20）) in `tools/translation_onnx/README.md`.
+
+### Considering replacements
+
+The licenses of the candidates are summarized in [licensing.md](licensing.md). All of them assume ONNX Runtime and, as section 2.5 of ADR-012 says, are not subject to the exception procedure for voice AI. Without changes, the current `native/translate-onnx` can run only the M2M100 and NLLB architectures.
+
+- The only model that allows commercial use and runs in the current form is M2M100 (MIT). The default, M2M100 418M, stays as it is.
+- MADLAD-400 (Apache-2.0, T5 architecture, 3B and 7B) is a candidate that allows commercial use and covers more languages. It needs support for the T5 architecture (relative position bias) and for loading the SentencePiece unigram model. Its translation quality and size (expected to be around 3 GB for the int8 of 3B) have not been measured.
+- SMaLL-100 (MIT, M2M100 architecture, about 330M) differs from M2M100 in that it puts the target-language token on the source side, so that needs mapping.
+- LLMs built for translation (TranslateGemma, Hunyuan-MT, PLaMo 2 translate and others) have licenses with conditions on the regions or purposes they may be used for. All of them can be used through the current Ollama, LM Studio and OpenAI-compatible providers. Building them into the app is handled as adding a runtime to the translation catalog of #413.
+
+The option that changes the least is to keep NLLB as it is: not the default, with the non-commercial license shown and consent asked for when it is chosen (decision 78).
+
+---
+
+# ローカル翻訳の GPU とモデルの公開の準備（2026-11-18、#277）（日本語版）
 
 #277 の 3 本目の作業の記録です。ローカル翻訳（`native/translate-onnx`）を GPU で動かすための修正と、モデルを公開してカタログに載せるための道具、NLLB の扱いの検討をまとめます。判断が要ることは [core-integration.md](core-integration.md) の「判断が要ること」に番号で載せています。モデルのライセンスの確認は [licensing.md](licensing.md) の「ローカル翻訳のモデルの候補と NLLB の扱い」にあります。
 

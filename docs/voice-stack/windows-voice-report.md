@@ -1,4 +1,487 @@
-# Windows音声の検証記録 — 2026-11-07
+# Windows voice verification record (2026-11-07)
+
+[日本語版](#windows音声の検証記録--2026-11-07日本語版)
+
+This is a record of running TTS, the bundled speech.cpp server, realtime captions, RVC, Seed-VC, input passthrough and the VR overlay on Windows. The steps are in [Windows voice features](local-setup-windows.md).
+
+## Environment
+
+| Item | Details |
+|---|---|
+| OS | Windows 11 build 26220 |
+| CPU | Intel Core i7-1255U (2 performance cores, 8 efficiency cores, 12 logical cores). Power plan: High performance |
+| GPU | The integrated Intel Iris Xe (Vulkan0 in speech.cpp) and an NVIDIA GeForce RTX 3060 Ti 8 GB connected over Thunderbolt (Vulkan1, driver 621.14) |
+| speech.cpp | 0.10.0 windows-x64-vulkan (SHA-256 of `speech.exe`: `fa787d70…981b7`) |
+| Torch | 2.11.0+cu128, Python 3.12.14 |
+| Models | Irodori-TTS Q8_0, Qwen3-ASR 0.6B Q8_0, Silero VAD v6.2, Saisho Utane RVC v2, HuBERT, RMVPE. All verified against pinned versions and SHA-256 |
+
+On this PC, both `auto` and `gpu` in speech.cpp choose the Iris Xe (Vulkan0). Unless stated otherwise, the TTS and bundled ASR results are values from this integrated GPU. RVC and Seed-VC run on the RTX with CUDA.
+
+The checks with a real microphone are collected in the "Real microphone" section. The other tests did not use a real microphone or speakers. Audio was written to Steam's silent virtual output and read back through WASAPI loopback. In the RVC tests, the loopback was fed to the input in place of the virtual microphone, which could not be opened. Only the part that opens the input device is specific to the tests.
+
+With the user's permission, a test with the built-in microphones was attempted, but `IAudioClient::Initialize` returned `E_ACCESSDENIED` for all three and none of them could be opened (the same with MME and DirectSound). Steam's virtual microphone failing to open was the same problem.
+
+The cause was the per-app microphone permission for desktop apps in this PC's Insider Beta build 26220. Even with the Windows-wide setting set to allow, programs are treated differently, as follows.
+
+| Program that opened the device | Result |
+|---|---|
+| `powershell.exe`, which comes with Windows and is signed | Succeeds without a prompt |
+| An unsigned exe, the first time | The `PickerHost.exe` prompt appears, and the call waits until it is answered. Without version information, the name is blank: "Allow   to access your microphone?" |
+| The same exe, the second time (it exited without the first prompt being answered) | `E_ACCESSDENIED` without a prompt. The same 30 minutes later |
+| An exe with the same content copied to another location | The prompt appears again |
+| An exe while the firewall prompt is open | `E_ACCESSDENIED` without a prompt. Once that is answered, the prompt appears, and no refusal is left behind |
+| An unsigned exe with a `FileDescription` | The name appears: "Allow VRCT-VOX Probe to access your microphone?" |
+
+Both `python.exe` and the packaged sidecar had been refused, because their first prompts were not answered. The record does not appear in the `ConsentStore\microphone\NonPackaged` list. Version information was added to the sidecar so that the prompt shows the VRCT-VOX name. Whether permission can be granted again from the settings screen has not been checked.
+
+While the prompt is waiting, the thread that opens the device keeps holding PortAudio's shared lock. So operations in the same process that use PortAudio (refreshing the device list, switching automatic selection, starting and stopping the classic recording path) wait until the prompt is answered. The wait is up to 120 seconds for RVC and realtime captions, and until the answer for the classic recording path. The classic recording path gives up starting after 8 seconds and puts the reason in the message log. For the microphone, it tells the user to answer the prompt on the desktop. The prompt stays open. With the real microphone, it was confirmed that the device opens after a restart once permission is granted. Retrying only the start, without a restart, has not been checked. This lock serializes PortAudio's initialization and termination (table below). Removing it could bring back the crash during startup, so it has not been changed.
+
+## Results
+
+The whole sidecar was driven over the stdio IPC.
+
+| Check | Result |
+|---|---|
+| Starting the bundled server with the TTS switch | 7.3 seconds. `speech.exe` ran on Vulkan0 |
+| First sound of speech | 1.2 seconds after sending |
+| Recognizing the same audio with the bundled ASR | "今日はとてもいい天気ですね。一緒に散歩に行きましょう。" ("The weather is very nice today. Let us go for a walk together.") |
+| RVC conversion (retrieval blend 0) | 25.1 seconds of output for 25.0 seconds of input. No errors |
+| RVC conversion (retrieval blend 0.5, a runtime prepared by the app, a path containing Japanese) | 8.46 seconds of output for 8.4 seconds of input. Peak while muted 1/32767, stopped in 0.12 seconds |
+| Seed-VC conversion (same conditions) | Preparation took 33 seconds. 8.52 seconds of output for 8.4 seconds of input. Peak while muted 1/32767, stopped in 0.09 seconds |
+| Recognizing the converted audio with the bundled ASR (Seed-VC) | The original sentence was recognized correctly |
+| Recognizing the converted audio with the bundled ASR | The original sentence was recognized correctly |
+| From the start of speaking to the start of the converted audio | 214 ms and 448 ms (two measurements through the loopback, with a wide spread) |
+| Muting during conversion | Peak 1/32767 (within the audio engine's rounding). Conversion continues |
+| Unmuting | The audio comes back |
+| Stopping RVC | 0.22 seconds |
+| Input passthrough | Correlation of 1.000 with the original audio |
+
+In the real app (Tauri, WebView2), real mouse and key input was sent through the debug port.
+
+| Check | Result |
+|---|---|
+| Resending with a long press | The message is resent, and the draft being typed is kept |
+| A normal click | Starts editing |
+| Recording and registering Ctrl+Space | Saved as "Ctrl + Space" and registered as an OS global shortcut |
+| The width breakpoint at 125% and 150% scaling | Switches at 800 CSS px |
+| The Windows voice page | Does not show the managed route, and RVC asks for an output device |
+
+The following was also confirmed with the frozen sidecar (PyInstaller), over the same IPC.
+
+| Check | Result |
+|---|---|
+| Package check | Passes `check_voice_distribution.py` |
+| Startup | 3.5 seconds |
+| TTS and ASR | Pass with the same steps as above |
+| The router and the RVC worker | Start in the packaged form, finish loading Torch and get as far as just before audio input. The rest is not checked, because this PC has no input it can open |
+| RVC and Seed-VC started from the packaged `voice_worker` | Converted audio sent through the real pipe. See the continuous run table below |
+| License documents | Files for 128 packages in `_internal/licenses/python/`, including the LGPL of `soxr` and the COPYING of `zeroconf` |
+
+The installer was compiled with `tauri build`. No real installation was done. It was confirmed that the same combination of `nsExec` and `tar` as the installer's works from a small NSIS script in a folder outside the ANSI code page.
+
+## Bugs found only on real hardware
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A 440 Hz tone breaks up into about 840 Hz | PortAudio's WASAPI mono playback | Pass stereo |
+| The second audio device cannot start | PortAudio initializes COM only on the first thread | Initialize it on the thread that opens the device |
+| The sidecar crashes with an access violation during startup | PortAudio's initialization and termination are not thread-safe | Serialize them with a shared lock |
+| RVC stops after a few seconds | A PortAudio write blocks for the length of the audio | Move writing to a separate thread |
+| One RVC block takes 150 ms | A process without a window is moved to the efficiency cores | Exclude it from power throttling |
+| The packaged RVC worker exits immediately | The Python 3.11 extension modules in `_internal` hide the worker's Python 3.12 standard library | Run the worker in a separate folder |
+| The RVC retrieval blend cannot start with a Japanese user name | faiss opens the file with the narrow-character C runtime | Read it in Python and pass it to faiss |
+| The Seed-VC worker crashes at the end of an utterance | The fade-out of the voice just before stays in a silent block, and the protocol rejects silence that is not zero | Report that block as converted. Linux has the same path |
+| An unrelated error appears when the microphone cannot be opened | In the handling of the start timeout, an exception from the late cleanup overwrites the reason | Report the timeout |
+
+## Conversion speed
+
+This is the processing time per block (80 ms). It was measured by converting audio data continuously. The GPU was connected over Thunderbolt (PCIe 3.0 x4), and waiting for kernel launches took most of the processing time. Turning on upstream's CUDA Graph removes this wait.
+
+| Condition | Mean | p95 |
+|---|---:|---:|
+| RVC, no CUDA Graph, retrieval blend 0 | 70 ms | 90 ms |
+| RVC, no CUDA Graph, retrieval blend 0.5 | 94 ms | 118 ms |
+| RVC, CUDA Graph, retrieval blend 0 | 18 ms | 20 ms |
+| RVC, CUDA Graph, retrieval blend 0.5 | 20 ms | 22 ms |
+| Seed-VC, no CUDA Graph | 327 ms | 385 ms |
+| Seed-VC, CUDA Graph and convolution search | 72 ms | 75 ms |
+
+The faiss search itself took 1 ms. The retrieval blend was slow because the synchronization that waits for its result keeps GPU processing and CPU launches from overlapping.
+
+Seed-VC's upstream has no CUDA Graph, so the adapter (`integrations/seed_vc/graphs.py`) wraps it from outside. `istft` and the sound source generation cannot go into the Graph, so they run as they are. The convolution search raises the peak of allocated memory to about 5.5 GB, but only during preparation. In steady operation it is about 1 GB.
+
+RVC's CUDA Graph adds 130 MiB of VRAM allocation at capture, and takes about 0.9 seconds at the start.
+
+### Checking that the voice does not change
+
+The same audio was converted, and the spectral correlations were compared. RVC uses noise, so even two runs of the same path do not match.
+
+| Comparison | RVC | Seed-VC |
+|---|---:|---:|
+| Without Graph, two runs | 0.933 | 1.000 (fixed random seed) |
+| With Graph, two runs | 0.938 | 0.982 |
+| Without Graph against with Graph | 0.935 | 0.951 |
+
+The RVC difference is the same size as the difference between two runs of the same path. The Seed-VC difference is larger than that, but the envelope correlation was 0.99, and the bundled ASR recognized every output as the same sentence.
+
+### Continuous run
+
+The engines were started from the packaged `voice_worker`, and audio was sent in real time through the real pipe. The run was about 67 seconds, 840 blocks.
+
+| Engine | Mean round trip | p95 | Max | Preparation |
+|---|---:|---:|---:|---:|
+| RVC (retrieval blend 0.5) | 30 ms | 33 ms | 48 ms | 22 s |
+| Seed-VC | 74 ms | 79 ms | 85 ms | 34 s |
+
+Neither built up delay. With a 3-second reference voice, Seed-VC's round trip averaged 81 ms and overran its slot, so a measurement at the start lightens the reference to 2 seconds. The margin before `vc_capture_overrun` is small. Running together with VRChat may drop it to an even lighter setting or leave it unable to keep up.
+
+These are figures from this laptop. They do not guarantee the performance on another CPU or GPU.
+
+## Runtime preparation
+
+The app's preparation feature was run with real network transfers into a folder whose path contains Japanese, Hangul and emoji.
+
+| Engine | Time taken | Size when done |
+|---|---:|---:|
+| RVC | 165 s | 5.48 GB |
+| Seed-VC | 251 s | 6.86 GB |
+
+The transfer speed is that of this connection. Both worked through loading `speech.exe`, Python, Torch and CUDA. Only `faiss.read_index` could not open a path outside the code page (table below).
+
+## Checks with SteamVR
+
+The real SteamVR was started with the null driver, and settings and logs were redirected to a temporary folder with `VR_CONFIG_PATH` and `VR_LOG_PATH`. The usual SteamVR settings were not changed.
+
+| Check | Result |
+|---|---|
+| Sidecar connection and overlay creation | Succeeded |
+| Japanese text that was sent can be read as pixels from another OpenVR client | Succeeded |
+| 240 consecutive updates | 0 failures, 15.6 seconds |
+| Rendering and error output after the updates | Rendering continued, no errors |
+| The real app's VR UI (window capture and an OpenGL texture) | The launcher button reaches the overlay's pixels |
+
+After the tests, the hashes of `steamvr.vrsettings` and `openvrpaths.vrpath` were confirmed to be unchanged.
+
+## Long runs
+
+The sidecar at commit `412ffc26` ran for 30 minutes from the development environment's `.venv` (2026-11-08). English speech was played to Steam's silent virtual output every 12 seconds and read from the WASAPI loopback through the path that captions the other person's voice. Recognition was Whisper tiny and translation was m2m100_418M (CTranslate2, int8), both on the CPU. A message was sent to the chatbox every 60 seconds, and the VR subtitle overlay was also on. SteamVR was a fake runtime. A test hook kept the microphone from opening.
+
+| Check | Result |
+|---|---|
+| Recognizing utterances | All 150 utterances were recognized. One utterance was sometimes split in two, giving 222 results |
+| Translation | All 222 have a translation |
+| Sending to the chatbox | All 29 got a success response |
+| From starting the audio to the first recognition result | Median 3.73 seconds, 95th percentile 3.88 seconds |
+| Error notifications and tracebacks | 0 |
+| VR captions | The image was updated until just before exit. At exit, no overlay was left behind and no call was made in error |
+| Attempts to open the microphone | 0 |
+
+| Metric (total of 2 processes) | At start | After 5 min | After 29 min 30 s | Slope after 5 min |
+|---|---:|---:|---:|---:|
+| Private memory | 3433.5 MB | 3600.2 MB | 3604.8 MB | +0.11 MB per minute |
+| Handles | 1379 | 1395 | 1395 | -0.002 per minute |
+| Threads | 60 | 60 | 56 | -0.06 per minute |
+
+After 5 minutes, private memory moved up and down between 3599 and 3607 MB, with no sign of steady growth. CPU usage was 21 to 34%, counting one logical core as 100%. This test ran only 30 minutes, and it did not run the microphone, TTS or RVC.
+
+### Running together with VRChat
+
+On 2026-11-09, TTS, RVC, captions, translation, sending to the chatbox and the VR subtitle overlay ran together for 30 minutes while VRChat stayed in a world in desktop mode (`--no-vr`). SteamVR was the real one, started with the null driver. VRChat rendered on the RTX 3060 Ti.
+
+A voice was played every 15 seconds, a message was sent to the chatbox every 60 seconds, and the same sentence was read out with TTS. RVC ran Saisho (retrieval blend 0) on the RTX with CUDA, with the loopback fed to the input as in the test above. Translation was m2m100_418M (int8) on the CPU. A test hook kept the microphone from opening. The number of attempts to open it was 0 in every run.
+
+The speech.cpp device was changed for each condition. When this test ran, the app's settings offered only `auto`, `cpu` and `gpu`, so the RTX (Vulkan1) for B and C was specified with a test hook. Since then, the settings let you choose a GPU by name.
+
+| | A | B | C | D |
+|---|---|---|---|---|
+| Commit | `9a1bb52d` (before the caption fix) | `5b2c3f9a` | `5b2c3f9a` | `5b2c3f9a` |
+| TTS | Iris Xe | RTX | RTX | Iris Xe |
+| Captions | Qwen3-ASR, Iris Xe | Qwen3-ASR, RTX | Qwen3-ASR, RTX | Whisper tiny, RTX with CUDA |
+| Voices played | Japanese and English | Japanese and English | Japanese and English | English only |
+| Utterances recognized | 120/120 | 120/120 | 120/120 | 120/120 |
+| Final results | 240 | 240 | 240 | 180 |
+| Delay to recognition (median / p95) | 3.99 / 6.64 s | 3.13 / 4.42 s | 3.14 / 4.41 s | 3.83 / 5.09 s |
+| TTS | 30/30 | 30/30 | 30/30 | 30/30 |
+| Chatbox sends | 30/30 | 30/30 | 30/30 | 30/30 |
+| RVC | Ran for 30 min | **Stopped between 690 and 720 s** | Ran for 30 min | Ran for 30 min |
+| Tracebacks | 0 | 0 | 0 | 0 |
+| RTX VRAM peak | 2284 MB | 6700 MB | 7248 MB | 3148 MB |
+| RTX usage | 49 to 75% | 41 to 65% (until the stop) | 42 to 86% | 31 to 83% |
+| CPU usage (1 logical core = 100%) | 104 to 144% | 120 to 177% (until the stop) | 90 to 137% | 60 to 100% |
+| VRChat FPS (median / p5 / min) | 68.4 / 40.7 / 32.9 | 84.8 / 53.8 / 43.6 | 98.2 / 65.8 / 51.7 | 90.8 / 28.2 / 17.2 |
+
+The delay is the time from starting to play a voice to the first final result for that voice. VRChat's FPS is the value that VRChat writes to its own log every 10 seconds. For about 11 minutes from the start, D dropped to 26 to 30 once a minute. The cause was not investigated. For the chatbox, only the success responses to sends were counted, and whether the messages appeared on VRChat's screen was not checked.
+
+B's RVC stopped with `vc_capture_overrun` (between 12:27:42 and 12:28:12). This is the designed behavior: conversion stops when more than half of the last 75 blocks (6 seconds) are late. Captions, TTS and the chatbox kept working to the end. VRChat's median FPS was 64.6 while RVC was running and 90.9 after it stopped.
+
+In the same time window, at 12:27:51, the world's video player switched to the next song, and FPS dropped to 45.9. But B had not stopped at the three switches before that. In C, a video was opened right after the test started, and after that the log shows no playback start or switch, so VRChat's load was lighter than in B. These two runs alone cannot tell how often it stops or how the stop relates to the video.
+
+In these two runs, with VRChat, TTS, captions and RVC all on the same RTX, RVC did not last 30 minutes in one of them (the results of two more runs with the same configuration are written below the next table). In A, with speech.cpp on the Iris Xe, and in D, with TTS on the Iris Xe and Whisper on CUDA, RVC did not stop in the single run of each.
+
+Two more runs were made with the same configuration, with warm-up during startup in place (`c3646d47`). As in B and C, the RTX for speech.cpp was specified with a test hook.
+
+| | E | F |
+|---|---|---|
+| Utterances recognized | 120/120 | 120/120 |
+| Final results | 240 | 240 |
+| Delay to recognition (median / p95) | 3.14 / 4.38 s | 3.12 / 4.38 s |
+| TTS | 30/30 | 30/30 |
+| Chatbox sends | 30/30 | 30/30 |
+| RVC | Ran for 30 min | Ran for 30 min |
+| Tracebacks | 0 | 0 |
+| RTX VRAM peak | 6087 MB | 5798 MB |
+| RTX usage | 49 to 77% | 55 to 74% |
+| CPU usage (1 logical core = 100%) | 92 to 160% | 89 to 122% |
+| VRChat FPS (median / p5 / min) | 90.5 / 72.1 / 64.7 | 86.7 / 70.7 / 60.4 |
+| Times VRChat loaded a video URL | 7 | 10 |
+
+Of the four runs with everything on the RTX (B, C, E and F), RVC stopped only once, in B. E and F loaded videos many times and did not stop, so a video switch alone does not stop it. B and C had no warm-up and E and F had it, but the warm-up runs only during startup and the runs are few, so the difference cannot be put down to the warm-up. Four runs cannot settle how often it stops or why. When RVC stops, the block delay and processing time at that moment are now recorded under `voice conversion stopped` in `process.log`. E and F did not stop, so whether this record helps with a real stop has not been checked yet.
+
+The RTX VRAM values are `nvidia-smi`'s usage for the whole GPU, and include VRChat (1011 MB, measured after the test ended). With speech.cpp on the RTX, the dedicated memory of the TTS process grew from 1494 MB at the start to 2389 MB at the end. It grew in steps and stayed flat after each step. In C, the value rose from 5474 MB to 6368 MB at 90 seconds, briefly reached 7248 MB at 480 seconds, and then stayed between 6371 and 6408 MB until the end. The cause of the steps has not been fully investigated.
+
+| Metric (total of the VRCT-VOX processes) | A | C | D |
+|---|---:|---:|---:|
+| Private memory (at start) | 11275.8 MB | 11454.3 MB | 10758.1 MB |
+| Private memory (after 5 min) | 11494.7 MB | 12726.3 MB | 11220.7 MB |
+| Private memory (after 29 min 30 s) | 11512.7 MB | 12765.2 MB | 11238.4 MB |
+| Slope after 5 min | +0.62 MB per minute | +1.21 MB per minute | +0.70 MB per minute |
+| Handles (start / 5 min / 29 min 30 s) | 4445 / 4651 / 4548 | 4557 / 4667 / 4783 | 3825 / 3899 / 3896 |
+| Threads (start / 5 min / 29 min 30 s) | 208 / 203 / 200 | 223 / 229 / 212 | 175 / 182 / 167 |
+
+B is left out of this table because its RVC process ends partway through. The results of running for 2 hours are in the next section.
+
+### 2-hour continuous runs
+
+On 2026-11-09, two 2-hour continuous runs were made from the development environment's `.venv`. TTS and captions (Qwen3-ASR) ran on the RTX 3060 Ti (Vulkan1, specified with a test hook), RVC (Saisho, retrieval blend 0) on the RTX with CUDA, and translation with m2m100_418M (int8) on the CPU. SteamVR was the real one, started with the null driver, and the VR subtitle overlay was on. The first run did not start VRChat. The second ran with VRChat in a world in desktop mode (`--no-vr`). In the second run, VRChat also rendered on the RTX.
+
+A voice was played every 15 seconds, a message was sent to the chatbox every 60 seconds, and the same sentence was read out with TTS. The input was the loopback, and a test hook kept the microphone from opening. The number of attempts to open it was 0.
+
+| | Without VRChat | With VRChat |
+|---|---|---|
+| Commit | `0fc06552` | `e600dc41` |
+| Utterances recognized | 480/480 | 480/480 |
+| Final results | 960 | 960 |
+| Delay to recognition (median / p95) | 3.09 / 4.33 s | 3.16 / 4.42 s |
+| Translation notifications | All 960 | All 960 |
+| TTS | 120/120. 0 dropped, 0 errors | 120/120. 0 dropped, 0 errors |
+| Chatbox sends | 120/120 (success responses) | 120/120 (success responses) |
+| RVC | Ran for 2 hours | Ran for 2 hours |
+| RVC state at the end | Conversion confirmed | Conversion confirmed |
+| Tracebacks | 0 | 0 |
+| RTX VRAM (whole GPU; after 5 min / before the end) | 4779 / 4779 MB | 6045 / 6076 MB (peak 6079 MB) |
+| RTX usage | 18 to 67% | 45 to 75% |
+| CPU usage (1 logical core = 100%) | 63 to 121% | 99 to 137% |
+| VRChat FPS (median / p5 / min) | None | 78.5 / 59.3 / 18.9 |
+| Times VRChat loaded a video URL | None | 31 |
+
+| Metric (total of the VRCT-VOX processes; start / 5 min / 119 min 30 s) | Without VRChat | With VRChat |
+|---|---:|---:|
+| Private memory (MB) | 11565.4 / 12761.2 / 12843.2 | 11564.2 / 13090.1 / 13150.4 |
+| Handles | 4586 / 4712 / 4718 | 4593 / 4703 / 4736 |
+| Threads | 222 / 229 / 212 | 230 / 232 / 212 |
+
+In the run without VRChat, private memory, as 15-minute averages, grew from 12772 MB at 15 to 30 minutes to 12849 MB at 75 to 90 minutes, and was 12839 MB at 105 to 120 minutes. The slope after 5 minutes is +0.88 MB per minute, but memory did not grow in the last 45 minutes.
+
+In the run with VRChat, it grew slowly from 13095 MB at 15 to 30 minutes to 13134 MB at 105 to 120 minutes. The slope after 5 minutes is +0.44 MB per minute. The RTX VRAM also grew slowly, from 6045 MB to 6076 MB. That value covers the whole GPU including VRChat, so it is not known which process grew. For both increases, it is not known whether they continue beyond 2 hours.
+
+VRChat's FPS, as medians per 15 minutes, was 75.1 to 83.8. The drop to 18.9 happened once, in the 90 to 105 minute window, and the cause was not investigated.
+
+The tests with VRChat, TTS, captions and RVC all on the RTX now number five (B, C, E and F above, and this 2-hour run), about 3 hours 40 minutes in total. RVC stopped only once, in B. A single stop cannot settle the frequency or the cause. This 2-hour run did not stop either, so whether the `voice conversion stopped` record helps with a real stop has not been checked yet.
+
+In both runs, the 480 English results were translated into Japanese. For the 480 Japanese results, the translation target is Japanese, so the same text as the source came back. 160 of the 960 are the fragment "行きましょう。" ("let us go."). The test audio made with TTS (8.4 seconds) has a separate burst of sound from 7.6 seconds to the end, and these results are thought to come from recognizing that part, but this was not confirmed by listening to the audio.
+
+In both runs, two VR subtitle overlays were in the shown state at exit. Reading the image from another client gives `OverlayError_InvalidTexture`, so what they displayed was not checked. In both runs, the only entries in `error.log` were the two failures to connect to LM Studio and Ollama at startup.
+
+### Seed-VC continuous runs
+
+On 2026-11-10, Seed-VC ran in place of RVC with the same steps as the 2-hour test. TTS and captions were on the RTX (Vulkan1), Seed-VC on the RTX with CUDA, and translation on the CPU. VRChat was not started. The reference voice was an 8.4-second WAV made with TTS, and the runtime was in a path containing Japanese, Korean and emoji.
+
+| 30-minute test | Before the fix | After the fix |
+|---|---|---|
+| Utterances recognized | 120/120 | 120/120 |
+| Final results | 240 | 240 |
+| Delay to recognition (median / p95) | 3.10 / 4.33 s | 3.08 / 4.31 s |
+| TTS | 30/30 | 30/30 |
+| Chatbox sends | 30/30 (success responses) | 30/30 (success responses) |
+| Seed-VC | Ran for 30 min | Ran for 30 min |
+| Tracebacks | 0 | 0 |
+| CPU usage (1 logical core = 100%) | 411 to 439% | 112 to 132% |
+| RTX usage | 48 to 77% | 48 to 71% |
+| RTX VRAM peak (whole GPU) | 5219 MB | 5554 MB |
+
+Before the fix, four threads of the Seed-VC worker each kept using about 94% of a CPU. The backend sets `KMP_BLOCKTIME=0` and `KMP_USE_YIELD=0`, which keep Intel OpenMP threads from spinning while they wait, but these were not passed to the conversion worker. OpenMP spins for 200 ms after work, so with a block arriving every 80 ms it never stops. Passing the two settings to the worker removed the spinning, so this was judged to be the cause, and the worker now gets them too.
+
+The settings were compared with and without in a 3-minute test with the same steps: Seed-VC twice each, alternating, and RVC once each.
+
+| | CPU usage (median) | Round trip (median) | Blocks converted | Most late blocks (last 75 blocks) |
+|---|---:|---:|---:|---:|
+| Seed-VC, without the settings | 421 / 426% | 78 / 78 ms | 820 / 802 | 14 / 13 |
+| Seed-VC, with the settings | 123 / 124% | 63 / 63 ms | 1003 / 996 | 7 / 10 |
+| RVC, without the settings | 84% | 31 ms | 2336 | 0 |
+| RVC, with the settings | 73% | 31 ms | 2333 | 0 |
+
+The block counts are cumulative from the start of the measurement to the last record.
+
+In the 30 minutes after the fix, 122 of the 362 records taken every 5 seconds had late blocks within the last 75 blocks. The most was 13, which is below the threshold for stopping conversion (38). For each late block, the voice cuts out briefly.
+
+With the same code (`f58b8ddc`), Seed-VC ran for 30 minutes with VRChat in a world in desktop mode (`--no-vr`). VRChat also rendered on the RTX. This is a single test.
+
+| | Without VRChat | With VRChat |
+|---|---|---|
+| Utterances recognized | 120/120 | 120/120 |
+| Final results | 240 | 240 |
+| Delay to recognition (median / p95) | 3.08 / 4.31 s | 3.16 / 4.41 s |
+| TTS | 30/30 | 30/30 |
+| Chatbox sends | 30/30 (success responses) | 30/30 (success responses) |
+| Seed-VC | Ran for 30 min | Ran for 30 min |
+| Tracebacks | 0 | 0 |
+| CPU usage (1 logical core = 100%) | 112 to 132% | 148 to 181% |
+| RTX usage | 48 to 71% | 53 to 78% |
+| RTX VRAM peak (whole GPU) | 5554 MB | 5906 MB |
+| VRChat FPS (median / p5 / min) | None | 76.3 / 61.2 / 52.6 |
+| Times VRChat loaded a video URL | None | 7 |
+| Round trip (median) | 63 ms | 78 ms |
+| Block delay (median of the 5-second medians) | 23 ms | 163 ms |
+| Records with late blocks | 122/362 | 258/357 |
+| Most late blocks (last 75 blocks) | 13 | 19 |
+
+The run with VRChat did not stop, but the round trip came close to one block's 80 ms, and the median block delay reached 163 ms. Blocks more than 240 ms late are dropped, so the margin is smaller. Many records had late blocks, and the voice should cut out more often than without VRChat. How much of this is actually audible has not been checked.
+
+### First recognition with an empty GPU cache
+
+While preparing the test above, putting captions on the RTX made the captions stop 18.5 seconds after the start, with a notice that the device might have been disconnected. The cause was not the device. The driver cache was empty, and the first recognition on the connection went over the 15-second limit. This was reproduced by giving `speech.exe` an empty cache folder (Vulkan1, together with VRChat).
+
+| Condition | Captions | Time to turn on the TTS switch | Time to start captions |
+|---|---|---:|---:|
+| Cache present, before the fix | All 10 utterances recognized, both times | 5.3 s | 3.5 s |
+| No cache, before the fix | Stopped at 18.4 to 18.5 s, all 3 times | 51 to 93 s | 17.6 to 20.4 s |
+| No cache, limit raised to 180 s for investigation | 25.7 s to the first final result. 9 of 10 utterances recognized | | |
+| No cache, after the fix (`5b2c3f9a`) | No stop. 29.4 s to the first final result. 9 of 10 utterances recognized | | |
+
+The one utterance that was not recognized has not been investigated. After the fix, the first result on a connection is awaited for up to 120 seconds, and the wait of the utterances queued behind it is counted again. From the second result on, the limit stays at 15 seconds, and there is no automatic reconnection either. On a timeout, a dedicated notice appears instead of the device notice.
+
+With an empty cache, the first TTS sentence failed with `first_audio_timeout`, and speech started from the next sentence. The policy is not to read out old utterances, so this limit was not changed.
+
+Doing the same on the Iris Xe (`auto`) recognized all 10 utterances, with about 5 seconds to the first result, but whether the cache could be emptied on this GPU has not been checked.
+
+### Warm-up during startup
+
+To prevent the two problems above, the bundled server now runs inference once during startup and discards the result. This was measured by starting `speech.exe` directly with an empty cache (RTX, without VRChat).
+
+| First request | Time taken | Next request |
+|---|---:|---|
+| TTS "あ。" ("Ah.") | 0.08 s | The next ordinary sentence waits 8.0 s (it does not warm up) |
+| TTS "こんにちは、今日はよろしくお願いします。" ("Hello, I look forward to working with you today.") | 7.95 s | Three sentences of different lengths took 0.94 s, 0.14 s and 0.09 s |
+| ASR, 2 s of noise | 1.53 s | The second request took 0.12 s. Whether it warms up has not been checked |
+| ASR, 6 s of noise | 8.33 s | Real speech took 0.08 s |
+| ASR, real speech (for comparison) | 7.59 s | 0.09 s |
+
+The whole app ran for 150 seconds on the RTX with an empty cache (without VRChat). Turning on the TTS switch took 41.4 seconds and starting captions took 19.4 seconds. All 10 utterances were recognized, and it took 5.6 seconds from detecting the first utterance to the first final result (29.4 seconds without warm-up). Both TTS requests succeeded.
+
+Warm-up covers only Japanese TTS and ASR running on the GPU. Multilingual TTS gets no warm-up, because which voices it accepts has not been checked. If warm-up fails, only the first request is slower, and the server goes on starting.
+
+## Frozen build of the current code
+
+On 2026-11-09, the code including #172 to #174 (`fa688770`) was frozen, and TTS, captions of the speaker output and the GPU list were checked. All 15 items succeeded, with 0 tracebacks. The GPU list showed both the Iris Xe and the RTX. Tests that open the microphone were left out, so that the microphone prompt would not open while the user was away from the PC.
+
+## Real microphone
+
+On 2026-11-09, checks were made with the Surface's built-in microphone and the frozen sidecar. The user, sitting at the PC, read "今日はとても良い天気ですね。一緒に散歩に行きましょう。" ("The weather is very good today. Let us go for a walk together.") aloud. The audio was not saved. The frozen build is older than the caption fix (`5b2c3f9a`).
+
+| What was checked | Result |
+|---|---|
+| The Windows microphone prompt | An exe in a new location showed "Allow VRCT-VOX to access your microphone?" |
+| Classic recording while the prompt was unanswered | `AUDIO_OPEN_ERROR` after 9.0 s. Until the prompt was answered, the next start gave `AudioOpenBusy`. What the app's screen showed was not checked |
+| RVC | Converted the voice from the real microphone. 83.9 s until ready, output peak 18832, stopped normally |
+| Captions together with RVC | 9 final results. The text matched what was read |
+| Captions only | 8 final results in 30 s. The text matched what was read |
+| Classic recording (`external`, Whisper tiny) | 2 final results in 30 s. The text was close to what was read, but had misrecognitions ("天気" (weather) as "元気" (well), and "散歩" (walk) as "3本" (three, with a counter word)). 0 tracebacks |
+
+In another run of captions only, 25 seconds gave 0 final results. It is not known whether that run overlapped with the reading, so the cause has not been settled. For classic recording, one run gave 0 final results and it is not known whether it overlapped with the reading, so the test was redone with the user reading on a cue on the screen. The table above shows that result. Two other runs, in which the user was away and did not speak, were left out of the results.
+
+In the table above, the classic recording ran with the microphone threshold still at 40, where an earlier test had lowered it. The energy while reading, including the silences in between, was median 12, p95 1114 and max 1464.
+
+With the default threshold of 300, there were 2 final results in 30 seconds ("どうもとてもいい?" and "どうもとてもいい 天気ですね、一緒に参考にいきましょう"). This run copied the build from 2026-11-08 00:13 to a new location, so it does not include the fix that waits for the microphone prompt (`1797fd77`). It started with the Surface's WASAPI device selected, but while the Windows prompt was open, the selection changed 5 seconds after the start to the Windows default input (MME's `Microsoft Sound Mapper`), and recognition ran on that input. 5 seconds is the same as the time after which this build gives up opening a device, but whether the two are related has not been checked. On this input, the energy while reading was median 12, p95 894 and max 1604.
+
+After the prompt was answered, another try with the same executable kept the input on the Surface's WASAPI device. With threshold 300 there were 2 final results in 30 seconds ("今日はとてもいい天気ですね" and "今日はとてもいい天気ですね。一緒に3本に行きましょう。"). The energy while reading was median 7, p95 1375 and max 2570. The input changed only in the run with the prompt open, so the prompt may be involved, but each result comes from a single run.
+
+## Screen changes after beta.6
+
+On 2026-11-13, the screen changes that went into `develop` after beta.6 (#203 to #223) were checked on Windows. A development build (`3e30223f`) was started with a separate settings folder. The screens were operated through WebView2's debugging connection (CDP), at 125% scaling with the UI language set to Japanese. Keys were sent with `SendInput`. This is not a check with the user pressing a real keyboard.
+
+| What was checked | Result |
+|---|---|
+| Hotkeys for TTS and voice (#218) | F13, F14, Shift+F15 and F16 were assigned. With the main screen in front, with another app (Character Map) in front, and after a restart, each key sent the same request as the button on the screen, and the same notice appeared. They did not work while settings were open |
+| VRChat detection (#221) | With VRChat not running, "Quick settings" and Settings → "VRChat" showed "not found" with the steps. Turning sending off changed this to "Sending messages to VRChat is off." Starting the real VRChat changed both displays to "found", and quitting it returned them to "not found" (times below) |
+| Translation model download (#213) | With no model present, two download notices appeared on the screen with an empty conversation, and "Review download" opened the confirmation screen. It also opened from "Translation" on the main screen, but took 22 seconds after the press (0.1 seconds after the fix below). Checking the consent box made the download button available, and when the download finished, translation turned on (times below) |
+| Main screen bar and sidebar (#216, #217, #222) | At widths from 1200 to 320 CSS pixels, no text was cut off and nothing scrolled sideways. The first window opened at a width of 696 CSS pixels, in the narrow layout (fix below) |
+| Settings page layout (#219, #220, #223) | On 13 pages, no text was cut off and nothing scrolled sideways. "Chat reading" showed a field that exists only on Windows (the reading area for the headset view). "Segmenting and queue" and "Recognition threshold" were collapsed, and could be opened and reached from the settings search. On the RVC page, the save bar showed "Save to apply: Use RVC for direct voice" |
+| Notice position (#203, #206) | At widths of 870 and 696 CSS pixels, notices did not cover the switches, the input field or the send button |
+| ASR server (#210) | `speech.exe` was not running after settings were opened and closed |
+| Mute sync (#208) | It turned on with VRChat not running. The conditions for the notice that gives the reason it cannot be used were not set up |
+| Display of messages that were not sent (#215) | Sending with sending turned off showed "Not sent to VRChat (off in settings)" in the log |
+| Startup screen (#228) | On a normal start, the progress marks and the logo were the VRCT-VOX ones. The screen that downloads models at startup and the screen during an update were not displayed |
+| Desktop caption overlay (#229) | Turning it on under Settings → "VR" opened the caption window, and turning it off closed it. The window stayed on top and passed clicks through, and turning it on and off did not change the foreground window (Character Map). On a 2496×1664 monitor, "Bottom of the screen" appeared at (250, 1011) with a width of 1997 and a height of 545, and "Top of the screen" appeared at y=48. Sent messages appeared with the original and the translation, and disappeared after the display time (6 seconds). The user's own messages appeared in blue text and the other person's in purple. Closing the app also closed the caption window. The results over the real VRChat and on the second monitor are below |
+
+Starting the real VRChat and downloading the translation model were done with the user's approval. The times are single values on this PC. These two, the startup screen and the desktop caption overlay were checked on the same day, on development builds that included each change.
+
+- VRChat detection: VRChat was started in desktop mode (`--no-vr`) from a state with Steam not running. The VRChat process appeared 30.6 seconds after the start action, and 17.7 seconds after that the display changed to "found". When VRChat was closed, the display returned to "not found" 3.5 seconds after the process ended. The display was read every 0.5 seconds.
+- Translation model download: the approved translation model (`m2m100_418M-ct2-int8`, 476 MB for the whole folder) was moved to another place and downloaded again. After "Agree and download" was pressed, progress reached 100% in about 14 seconds, the notice "The translation model is here. Turning Translation on." appeared at about 18 seconds, and the translation switch turned on at about 22 seconds. The screen was read every 2 seconds. Translation from Japanese to English then worked. The downloaded model went into `src-python/weights/ctranslate2` together with the file that records that it passed the check (`.weight_verified.json`). The connection speed was not measured.
+- Desktop caption overlay: VRChat was started in desktop mode, and one line each of the user's own message and the other person's message was passed directly to the caption window. No messages were sent to VRChat. Both with VRChat in a window (2514×1622) and in full screen through Alt+Enter (a 2496×1664 borderless window), the captions appeared over VRChat's screen. The window at the position of the caption text was VRChat, and the foreground window stayed VRChat while the captions were shown. The screen was checked by capturing an image of the whole desktop. In full screen, the captions sit above the bottom edge of the screen by the height of the taskbar, because their position is computed from the work area.
+- Second monitor: this PC has two monitors. The primary one is 2496×1664 (125% scaling), and the other is 1920×1080 (100%). When the main screen was moved to the second monitor and captions were shown again, the band was 80% of the width and 34% of the height of that monitor's work area (1920×1032). "Bottom of the screen" appeared at (192, -430) with a width of 1536 and a height of 351, and "Top of the screen" appeared at (192, -1049). The left and right margins were both 192. The text size stayed at 28px.
+
+The following were found and fixed in this check. The times are single values on this PC.
+
+- Opening the confirmation screen after pressing "Translation" on the main screen took 22 seconds, because `transformers` was loaded before checking whether the model existed. Checking for the model first brought this down to 0.1 seconds.
+- The first window size (870×654) was applied as physical pixels. At 125% scaling this is 696×523 CSS pixels, so the window opened in the narrow layout, and the settings button hid the other person's language in the sidebar. When there is no saved size yet, the scaling factor is now applied, and the window opens at 1088×818 physical pixels (871×655 CSS pixels).
+- The VR UI's startup animation showed the original VRCT icon and logo. They were replaced with the VRCT-VOX icon and a logo in the display language. This was checked with the launcher image that reached the fake SteamVR (`tools/run_with_fake_vr.py`).
+- The startup screen showed the original VRCT face icon, explanation image and logo. They were replaced with the VRCT-VOX icon and logo (#228).
+
+## Simulated GPU configurations (2026-11-13)
+
+This PC has two GPUs, so the behavior on a PC with only one GPU or with no GPU had not been checked. Narrowing the drivers with the Vulkan loader's environment variable `VK_LOADER_DRIVERS_DISABLE` changes the devices that `speech.exe` can see. The app passes its own environment variables to `speech.exe` unchanged, so the same narrowing also applies to the app's bundled server.
+
+Recognition used Qwen3-ASR 0.6B (Q8_0), with the inference device set to "Automatic". A 96-second conversation between a man and a woman (TTS voices) was played at real-time speed. The delay is the time from the end of a voice to the arrival of the finalized sentence.
+
+| Simulated configuration | Narrowing | Device that "Automatic" chose | Result |
+|---|---|---|---|
+| Discrete GPU only | `*ig*,*dzn*` | RTX 3060 Ti | With captions and speaker diarization, the delay was median 1.02 s and 1.33 s at the 90th percentile. GPU memory grew by about 2.1 GB |
+| Integrated GPU only | `*nv*,*dzn*` | Iris Xe | With captions and speaker diarization, the delay was median 1.33 s and 1.63 s at the 90th percentile |
+| No GPU | `*` | CPU | With captions only, the delay was median 2.71 s and 3.88 s at the 90th percentile, with the CPU at about 1.8 cores. Adding speaker diarization could not keep up, and the delay piled up to median 64 s and 122 s at the 90th percentile |
+| No vendor driver, only the Direct3D 12 translation layer | `*nv*,*ig*` | Microsoft Direct3D12 (Intel(R) Iris(R) Xe Graphics) | The model loads, but the first computation fails and the server exits |
+
+The following were found and fixed in this check.
+
+- When the server running on the CPU had a speaker diarization model, captions were delayed by a large amount. When the speaker diarization model is on the CPU, the captions connection no longer asks for diarization. Captions appear without speaker labels. After the fix, the no-GPU configuration was run with a speaker diarization model specified, and the 20 finalized captions arrived without delay.
+- In the configuration with only the Direct3D 12 translation layer, the server's exit showed a generic notice saying it "stopped unexpectedly". The app now tells apart the device errors that speech.cpp reports, and shows a notice (`speech_server_device_failed`) that suggests updating the driver or choosing another inference device.
+
+The simulation shows only how a device is chosen and the speed on this PC's CPU and integrated GPU. AMD GPUs, bugs in other vendors' drivers and GPUs with little VRAM could not be simulated. The Direct3D 12 translation layer was the one present in this PC's Windows (Insider build 26220). Whether other PCs have it has not been checked.
+
+## Not checked
+
+- Downloading the translation model and where it is saved, in the app installed with the installer. The development build saves it to `src-python/weights`
+- Display of the notice when mute sync cannot be used (for example, when the destination is another machine)
+- The warning shown right after startup (#205). It disappears after 10 seconds, so the screen has to be read within a few seconds of startup
+- Seeing captions from speech recognition of the microphone and the speaker in the desktop caption overlay over VRChat's screen. Monitors at 150% scaling or higher and apps in exclusive full screen have not been looked at either
+- Hotkeys pressed on a real keyboard
+- Listening through real speakers, and how close the voice came to the reference
+- Why the selected input changed to another device while the Windows prompt was open. Switching from a device that cannot be opened to another device follows the [spec](../spec/data-and-persistence.md), but at the time the reason the device could not be opened was not logged. It is now recorded in `error.log`
+- Real virtual cables such as VB-CABLE, and reception in VRChat. This PC cannot open recording devices
+- GPU and CPU load with VRChat running in VR. The load in desktop mode is recorded above
+- How the chatbox looks on VRChat's screen
+- How often RVC stops with everything on the same GPU, and why. It stopped once in 5 runs (about 3 hours 40 minutes in total). On a PC with only one GPU, `auto` gives this configuration (in the simulation above, with only the discrete GPU left, `auto` chose that GPU)
+- Whether an exe with a firewall block rule can find the real VRChat. Advertising works even with the rule, and a mock service advertised on the same PC could also be heard
+- The cause of the rare access violation (0xC0000005) in CI's `backend-windows`. Repeating it locally did not reproduce it. On a failure, `crash_trace.log` is now written to the CI log
+- VR operation with a real headset and controllers
+- Real installation and updates. CI runs this test
+- A real CPU-only PC and AMD GPUs. The no-GPU configuration was simulated on this PC by narrowing the drivers
+- Continuous runs longer than 2 hours
+- Long runs that include a real microphone
+- The results of repeating Seed-VC together with VRChat, and how audible the voice cutouts are. The single 30-minute run did not stop
+
+---
+
+# Windows音声の検証記録 — 2026-11-07（日本語版）
 
 TTS、同梱のspeech.cppサーバー、リアルタイム字幕、RVC、Seed-VC、入力の転送、VRオーバーレイをWindowsで動かした記録です。手順は[Windowsの音声機能](local-setup-windows.md)にあります。
 

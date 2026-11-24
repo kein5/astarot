@@ -1,4 +1,189 @@
-# ASTAROT への表示名の移行：棚卸し
+# Moving the display name to ASTAROT: inventory
+
+[日本語版](#astarot-への表示名の移行棚卸し日本語版)
+
+Status: **Carried out; kept as a record** (the inventory of 2026-11-16. The display name moved to ASTAROT in 0.5.0 and 0.5.1. The current names and identifiers are in [Names and identifiers](project-rename.md))
+Date: 2026-11-16
+Related: [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md), [Repository rename procedure](repository-rename.md), [Names and identifiers](project-rename.md)
+
+0.5.0 moves the display name from `VRCT-VOX` to `ASTAROT`. To prepare for that, this document lists the places where the display name appears. It is only an inventory, and nothing has been rewritten yet (as of writing; the rewriting was done in 0.5.0 and 0.5.1).
+
+## In scope and out of scope
+
+| Group | Handling in 0.5.0 |
+|---|---|
+| A. Repository name and public site URL | Switch at the same time as the repository rename ([procedure](repository-rename.md)) |
+| B. Display name in documents and the site | Rewrite to `ASTAROT` in 0.5.0 |
+| C. History and legal notices | As a rule, do not rewrite. Decide case by case |
+| D. UI text | Handle in the UI redesign work. Record only the counts here |
+| E. Internal identifiers | Out of scope. Handle in P2 ([Names and identifiers](project-rename.md)) |
+
+E covers package names, executable names, the storage locations of settings and data, the `VRCT_*` environment variables, the app ID, registry keys and ownership markers. The release file names (`VRCT-VOX.zip`, `VRCT-VOX_cuda.zip`, `VRCT-VOX_setup.exe`, `VRCT-VOX-<version>-linux-*.AppImage` and so on) also go into E, because the installer and the updater look for them by name.
+
+## How the counts were taken
+
+The counts were taken on develop of 2026-11-16 (`722638bd`) with the replacement of the ASTAROT assets added. When lines change, the counts change too. When carrying out the rewrite, count again with the commands below.
+
+```sh
+# Display name (case-sensitive)
+git grep -I -c "VRCT-VOX" -- . ':!*.lock' ':!package-lock.json'
+# URLs tied to the repository name
+git grep -n -I -P "kein5/VRCT-VOX|kein5\.github\.io/VRCT-VOX|base = '/VRCT-VOX/'"
+```
+
+In total there are 1322 occurrences of `VRCT-VOX`. Lower-case `vrct-vox` occurs 477 times, almost all of them in E. Of these, 236 contain `github.com/kein5/VRCT-VOX` and 15 contain `kein5.github.io/VRCT-VOX`.
+
+## A. Repository name and public site URL
+
+Renaming the repository changes where the values listed here point. How to handle them is described in [the repository rename procedure](repository-rename.md).
+
+| Location | Value | Role |
+|---|---|---|
+| `src-tauri/src/app_update.rs` | `REPOSITORY`, `RELEASES_API` | Update check for beta versions (GitHub API) |
+| `src-tauri/tauri.conf.json` | The updater's `endpoints` | Update check for stable versions. A Worker URL that does not contain the repository name |
+| `src-tauri/capabilities/vrct_capability.json` | The opener's allowlist | URLs the app can open (repository and site) |
+| `src-tauri/src/opener_scope_tests.rs` | Tests of allowing and denying | Tests of the allowlist above |
+| `src-tauri/nsis/template.nsi` | `$cmder_dl` | URL from which the installer downloads the main zip |
+| `src-python/config.py` | `_GITHUB_URL`, `_GITHUB_RELEASES_LIST_URL`, the release `base` | URLs of the version list and the release files |
+| `src-ui/logics/ui_configs.ts` | `vrct_document_home_url` | URL of the manual opened from the app |
+| `src-ui/views/.../AboutVrct.jsx`, `Updater.jsx`, `AppErrorBoundary.jsx`, `ContactsContainer.jsx` | URLs of the repository, Releases and Issues | Links in the UI |
+| `src-ui/logics/common/*.test.js`, `src-python/test/test_model_update.py` | URLs in tests | Tests of the values above |
+| `site/.vitepress/config.mts` | `repo`, `site`, `base = '/VRCT-VOX/'`, the favicon's `href` | Site URL and paths |
+| `site/.vitepress/theme/releases.mjs` | `REPO` | Release list shown on the site |
+| `.github/workflows/pages.yml` | `if: github.repository == 'kein5/VRCT-VOX'` | Site publishing. Does not run if the name differs |
+| `.github/workflows/prepare-release.yml` | The same `if:`, `gh release create --repo` | Release draft. Does not run if the name differs |
+| `.github/ISSUE_TEMPLATE/bug_report.yml`, `config.yml` | URL for reporting vulnerabilities | Issue templates |
+| `tools/release_candidate.py` | `REPOSITORY` | Release file URLs in `latest.json` |
+| `tools/changelog.py`, `cog.toml` (`repository`) | `REPO_URL` | Links in CHANGELOG |
+| `tools/linux_packages.py` | `HOMEPAGE`, `Maintainer` | Linux package metadata |
+| README, `docs/`, `site/`, `SECURITY.md`, `SUPPORT.md`, `NOTICE.md` and others | Links in the text | Document links (fixed together with B) |
+
+## B. Display name in documents and the site (rewritten in 0.5.0)
+
+The counts are occurrences of `VRCT-VOX`. They include the URLs of A.
+
+### Repository root and GitHub templates
+
+| File | Count | Note |
+|---|---:|---|
+| `README.md` | 23 | Headings, description, links and badges |
+| `docs/readmes/README.ja.md` | 23 | |
+| `docs/readmes/README.en.md` | 1 | |
+| `SUPPORT.md` | 12 | |
+| `SECURITY.md` | 4 | |
+| `CONTRIBUTING.md` | 3 | |
+| `CODE_OF_CONDUCT.md` | 2 | |
+| `PRODUCT.md` | 2 | Product definition. Updated in P1 under item 5 of section 6 of ADR-011 |
+| `DESIGN.md` | 1 | Same as above |
+| `AGENTS.md` | 2 | Same as above |
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | 4 | |
+| `.github/ISSUE_TEMPLATE/config.yml` | 1 | |
+| `.impeccable/design.json` | 1 | Title of the design system |
+
+### Release note templates
+
+| Location | Count | Note |
+|---|---:|---|
+| `--title 'VRCT-VOX ' + version` in `.github/workflows/prepare-release.yml` | 1 | Title of the GitHub Release. Every past title is "VRCT-VOX x.y.z" |
+| `name:` in `.github/workflows/prepare-release.yml` and `release.yml` | 2 | Display names of the workflows |
+| `docs/release-draft-template.md` | 2 | Mentions of the release file names, with an instruction to keep the names in E. The text is not changed |
+| `tools/changelog.py` | 1 | Link in the note for beta versions (A) |
+
+### Site (GitHub Pages)
+
+| File | Count |
+|---|---:|
+| `site/.vitepress/config.mts` | 12 (`title`, `description`, navigation, footer, the URLs of A) |
+| `site/.vitepress/theme/components/LocalSearchBox.vue` | 8 |
+| `site/.vitepress/theme/releases.mjs` | 5 |
+| `site/index.md` | 3 |
+| `site/package.json` | 1 |
+| `site/en/guide/install.md` / `site/ja/guide/install.md` | 18 / 17 |
+| `site/en/guide/troubleshooting.md` / `site/ja/...` | 9 / 8 |
+| `site/en/guide/license.md` / `site/ja/...` | 6 / 6 |
+| `site/en/features/chat-reading.md` / `site/ja/...` | 6 / 5 |
+| `site/en/guide/linux-audio.md` / `site/ja/...` | 5 / 5 |
+| `site/en/guide/introduction.md` / `site/ja/...` | 4 / 3 |
+| `site/en/guide/first-setup.md` / `site/ja/...` | 4 / 2 |
+| `site/en/features/transcription.md` / `site/ja/...` | 4 / 1 |
+| `site/en/features/vr.md` / `site/ja/...` | 4 / 3 |
+| `site/en/features/quick-chat.md` / `site/ja/...` | 3 / 3 |
+| `site/en/guide/how-it-works.md` / `site/ja/...` | 3 / 3 |
+| `site/en/guide/privacy.md` / `site/ja/...` | 3 / 3 |
+| `site/en/guide/windows-audio.md` / `site/ja/...` | 3 / 3 |
+| `site/en/guide/requirements.md` / `site/ja/...` | 2 / 2 |
+| `site/en/index.md` / `site/ja/index.md` | 2 / 2 |
+| `site/{en,ja}/features/io-flow.md`, `tts.md`, `voice-conversion.md`, `site/{en,ja}/guide/models.md` | 1 each |
+| `site/motion/` | 3 (2 files) |
+
+Some images in `site/` (screenshots and videos) show app screens with the old name. Retaking the images comes after the UI redesign.
+
+### Developer documents and specifications
+
+| File | Count |
+|---|---:|
+| `docs/readme_build.md` | 8 |
+| `docs/development.md` | 1 |
+| `docs/ocr_model_license.md` | 3 |
+| `docs/brand/README.md` | 2 |
+| `docs/spec/external-interfaces.md` | 5 |
+| `docs/spec/overview.md` | 3 |
+| `docs/spec/README.md`, `use-cases.md`, `reference/config-keys.md` | 2 each |
+| `docs/spec/open-issues.md` | 1 |
+| `docs/voice-stack/release-candidates.md` | 12 |
+| `docs/voice-stack/project-rename.md` | 10 |
+| `docs/voice-stack/linux-build-pipeline.md` | 9 |
+| `docs/voice-stack/appimage.md` | 8 |
+| `docs/voice-stack/licensing.md` | 7 |
+| `docs/voice-stack/platform-constraints.md` | 5 |
+| `docs/voice-stack/publication-and-upstream.md` | 3 |
+| `docs/voice-stack/model-downloads.md` | 2 |
+| `docs/adr/README.md`, `local-setup-windows.md` | 1 each |
+
+Some of these mix in explanations of E values (release file names, ownership markers and so on). When rewriting, tell line by line whether it is a display name or an identifier. `project-rename.md` is the authoritative source for names, so rewrite it with separate tables for display names and identifiers.
+
+### Package metadata
+
+| File | Value |
+|---|---|
+| `pyproject.toml` | `description` and comments (4 occurrences) |
+| `src-tauri/Cargo.toml` | `description` |
+| `src-tauri/tauri.conf.json` | `shortDescription` |
+
+`productName` in `tauri.conf.json` decides the names of the release files and the install location, so it goes into E. The window's `title` goes into D.
+
+## C. History and legal notices (not rewritten as a rule)
+
+| Location | Count | Reason |
+|---|---:|---|
+| `CHANGELOG.md` | 142 | Record of shipped versions. Past sections are not changed |
+| `docs/release-notes/0.4.0.md` | 3 | Notes for a version released under the current name |
+| Dated records in `docs/voice-stack/` (`architecture-evaluation-2026-10-27.md`, `windows-voice-report.md`, `windows-pending-checks.md`) and `docs/adr/adr-009-virtual-microphone-and-store.md` | 16 | Records as of the time they were written |
+| `LICENSE` | 4 | The copyright notice "kein5 (VRCT-VOX changes)" and the account of the history |
+| `NOTICE.md` | 18 | Attribution and description of the bundled components |
+| `licenses/speechcpp-models/NOTICE.md`, `licenses/speech.cpp/NOTICE.md`, `licenses/silero-vad/NOTICE.md` | 8 / 1 / 1 | Account of how the components came to be bundled |
+
+Whether `LICENSE` and `NOTICE.md` keep the old name or add the new name next to it needs a decision (an open item in the [procedure](repository-rename.md)).
+
+## D. UI text (handled in the UI redesign work)
+
+| Location | Count |
+|---|---:|
+| `locales/en.yml` | 67 |
+| `locales/ja.yml` | 64 |
+| `src-ui/views/` | 19 (13 files) |
+| `src-ui/logics/` | 14 (9 files). Many are URLs of A |
+| The window `title` in `src-tauri/tauri.conf.json` | 1 |
+| `src-tauri/src/` | 50 (9 files). Logs, the tray and identifiers are mixed together |
+| `src-tauri/nsis/template.nsi` | 11. Installer text and registry keys are mixed together |
+
+## E. Internal identifiers (out of scope, P2)
+
+Most occurrences in `native/`, `tools/`, `tests/`, `src-python/models/`, `bat/`, `utils/` and `packaging/` are executable names, ownership markers, release file names and log prefixes. The P2 migration ADR handles them, so this inventory does not count them one by one. User-visible messages may still be among them, so check with `git grep` during the P1 rewrite.
+
+---
+
+# ASTAROT への表示名の移行：棚卸し（日本語版）
 
 Status: **実行済み。記録**（2026-11-16 の棚卸し。表示名は 0.5.0 と 0.5.1 で ASTAROT に移した。今の名前と識別子は[名称と識別子](project-rename.md)にある）
 Date: 2026-11-16
