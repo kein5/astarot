@@ -59,7 +59,7 @@ for (const timing of ["on_change", "on_change_committed"] as const) test(`slider
     Reflect.set(globalThis, "window", window);
     t.onTestFinished(() => { runtime.unmount(); Reflect.deleteProperty(globalThis, "window"); });
     const settings = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
-        "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
+        "@store": {}, "@logics_common": {}, "@utils": {}, 
     });
     const { Slider } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/slider/Slider.tsx")>(new URL(`${componentRoot}slider/Slider.tsx`, import.meta.url), runtime, {
         "@logics_configs": settings,

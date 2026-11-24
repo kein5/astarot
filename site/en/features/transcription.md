@@ -40,7 +40,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
    ![The "ASR + VAD" section of "Models and servers" in Settings → Speech recognition (ASR)](/screenshots/en/asr-models.webp)
 
-2. Under "Realtime captions" in "More settings" on the same page, choose which sound to turn into text, then press "Save caption settings". Save before you start captions.
+2. Under "Realtime captions" in "More settings" on the same page, choose which sound to turn into text. Your choice is saved at once.
    - "Microphone captions" transcribe the microphone chosen under "Microphone input". At first it follows the system's default input.
    - "Game audio captions" transcribe other players' voices from "Game audio output". Choose an output device that plays only VRChat's sound. If other apps play through the same output, their sound is transcribed too.
 
@@ -95,7 +95,7 @@ Proper nouns such as world names and your friends' names are worth adding. The d
 
 A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
 
-The term dictionary is under "Realtime captions" in "More settings". Enter the "Written form" and the readings, then press "Add term". To add many terms, use "Import from a file" to read a text file; importing replaces the current dictionary with the file's content. "Export to a file" keeps the dictionary in a file, to move it to another PC or keep a copy. Changes are used once you press "Save caption settings". Your own terms and built-in terms with a changed reading can number 100 in all.
+The term dictionary is under "Realtime captions" in "More settings". Enter the "Written form" and the readings, then press "Add term". To add many terms, use "Import from a file" to read a text file; importing replaces the current dictionary with the file's content. "Export to a file" keeps the dictionary in a file, to move it to another PC or keep a copy. Changes are saved at once. Your own terms and built-in terms with a changed reading can number 100 in all.
 
 ## Paste what you say into an input field
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, drawWith, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, drawWith } from "../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
 import type { LocaleBranch } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
@@ -16,7 +16,7 @@ const read = (path: string) => readFileSync(box(path), "utf8");
 const locales: Record<string, LocaleBranch> = Object.fromEntries(["en", "ja"].map(language => [language, readLocale(language)]));
 const loadSearch = (runtime: HookRuntime) => loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
-    "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
+    "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, 
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
 });
 
@@ -110,45 +110,6 @@ test("the TTS page wraps its form and its servers in the hints", async () => {
     assert.deepEqual(servers.props.profiles, ["japanese", "multilingual"]);
 });
 
-test("a fold marks its line while a row inside it has unsaved edits", async () => {
-    // A row or a fold of the page, as far as marking reads it.
-    interface FakeElement {
-        attributes: Set<string>;
-        dataset: Record<string, string>;
-        children: FakeElement[];
-        toggleAttribute(name: string, on: boolean): void;
-        closest: () => null;
-        querySelector(selector: string): FakeElement | null;
-    }
-    const element = (attributes: Record<string, string> = {}, children: FakeElement[] = []): FakeElement => ({
-        attributes: new Set(), dataset: attributes, children,
-        toggleAttribute(name, on) { if (on) this.attributes.add(name); else this.attributes.delete(name); },
-        closest: () => null,
-        querySelector(selector) {
-            assert.equal(selector, "[data-unsaved]");
-            return this.children.find(child => child.attributes.has("data-unsaved")) ?? null;
-        },
-    });
-    const changed = element({ settingLabel: "Pitch" }), untouched = element({ settingLabel: "Threads" });
-    const open = element({}, [changed]), closed = element({}, [untouched]);
-    const root = { querySelectorAll: (selector: string) => {
-        const lists: Record<string, FakeElement[]> = { "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] };
-        return lists[selector];
-    } };
-    const runtime = hooks();
-    const section = await loadModule<typeof import("./setting_section/SettingSection.tsx")>(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
-        "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
-    });
-    // Test data: the page, with only what marking reads.
-    const page = unchecked<ParentNode>(root);
-    section.markUnsavedRows(page, new Set(["Pitch"]));
-    assert.ok(changed.attributes.has("data-unsaved"));
-    assert.ok(open.attributes.has("data-unsaved-inside"));
-    assert.ok(!closed.attributes.has("data-unsaved-inside"));
-    section.markUnsavedRows(page, new Set());
-    assert.ok(!open.attributes.has("data-unsaved-inside"));
-});
-
 // The settings search over the real texts, in Japanese, with the page names as keys.
 const searchOver = async (language: string) => {
     const runtime = hooks();
@@ -163,7 +124,7 @@ const searchOver = async (language: string) => {
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
         "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (name: string) => name, searchText: () => "", uiOptions: () => [] }) },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: (fn: () => void) => fn() },
+        
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
         "@root/locales/config.ts": { getResource: (lng: string) => resources[lng] },

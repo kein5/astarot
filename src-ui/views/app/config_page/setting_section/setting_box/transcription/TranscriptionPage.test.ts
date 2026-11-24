@@ -186,7 +186,7 @@ test("each API provider's key is saved or deleted with its own name and key page
             [label, undefined, engine.webpage_url, `key-${engine.key}`, `state-${engine.key}`, true, "change", "save"], engine.id);
         const save = p.saves.at(-1);
         assert.ok(save);
-        assert.deepEqual([save.label, save.variable, save.state], [label, `key-${engine.key}`, `state-${engine.key}`]);
+        assert.deepEqual([save.variable, save.state], [`key-${engine.key}`, `state-${engine.key}`]);
         save.setFunction("new");
         save.deleteFunction?.();
         assert.deepEqual(actions(p.calls.splice(0)), [[`set${engine.base}AuthKey`, "new"], [`delete${engine.base}AuthKey`]], engine.id);

@@ -43,7 +43,7 @@ interface SearchState {
 const loadSearch = async (options: Partial<SearchState> = {}) => {
     const runtime = hooks();
     const state: SearchState = { language: "en", resources: locales, tab: "device", ocrList: null, ocrLanguage: null, models: {}, settings: null, ...options };
-    const opened: [string, unknown][] = [], revealed: ConfigSearchEntry[] = [], navigations: (() => void)[] = [];
+    const opened: [string, unknown][] = [], revealed: ConfigSearchEntry[] = [];
     const module = await loadModule<typeof import("./useConfigSearch.ts")>(new URL("./useConfigSearch.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: tOf(state.language), i18n: { language: state.language } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: state.tab },
@@ -54,7 +54,7 @@ const loadSearch = async (options: Partial<SearchState> = {}) => {
         "@ui_configs": { ui_configs },
         // i18next gives the whole namespace for the key "".
         "@root/locales/config.ts": { getResource: (language: string, namespace: string, key: string) => namespace === "translation" && key === "" ? state.resources[language] : undefined },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: (navigate: () => void) => { navigations.push(navigate); } },
+        
         "./configSearchTargets.ts": searchTargets,
         "../../revealSetting.ts": { revealSetting: (target: ConfigSearchEntry) => { revealed.push(target); } },
     });
@@ -63,7 +63,7 @@ const loadSearch = async (options: Partial<SearchState> = {}) => {
         hook().setQuery(query);
         return hook().results;
     };
-    return { state, search, hook, opened, revealed, navigations, module };
+    return { state, search, hook, opened, revealed, module };
 };
 type Search = Awaited<ReturnType<typeof loadSearch>>;
 
@@ -338,24 +338,23 @@ test("a query is trimmed, folded and read without case, and a query of nothing f
     assert.deepEqual([s.hook().query, s.hook().results], ["", []]);
 });
 
-test("choosing a result on another page asks before leaving, opens the page and shows the setting; on the same page it shows it at once", async () => {
+test("choosing a result on another page opens the page and shows the setting; on the same page it shows it at once", async () => {
+    // Every setting saves by itself (#1111): nothing waits to ask before the page changes.
     const s = await loadSearch({ tab: "device" });
     const [elsewhere] = s.search("osc").filter(result => result.tab === "advanced_settings");
     assert.ok(elsewhere);
     s.hook().navigateToSetting(elsewhere);
-    assert.deepEqual([s.navigations.length, s.opened, s.revealed], [1, [], []], "nothing happens before the page may be left");
-    s.navigations[0]();
-    assert.deepEqual(s.opened, [["advanced_settings", { voice_navigation_confirmed: true }]]);
+    assert.deepEqual(s.opened.map(([tab]) => tab), ["advanced_settings"]);
     assert.deepEqual(s.revealed, [elsewhere]);
     assert.equal(s.hook().query, "");
     const [here] = s.search("microphone").filter(result => result.tab === "device");
     assert.ok(here);
     s.hook().navigateToSetting(here);
-    assert.deepEqual([s.navigations.length, s.opened.length, s.revealed], [1, 1, [elsewhere, here]]);
+    assert.deepEqual([s.opened.length, s.revealed], [1, [elsewhere, here]]);
     assert.equal(s.hook().query, "");
     s.state.tab = "advanced_settings";
     s.hook().navigateToSetting(elsewhere);
-    assert.deepEqual([s.navigations.length, s.opened.length, s.revealed.length], [1, 1, 3], "the page now open is known");
+    assert.deepEqual([s.opened.length, s.revealed.length], [1, 3], "the page now open is known");
 });
 
 test("the results follow a change of the display language", async () => {

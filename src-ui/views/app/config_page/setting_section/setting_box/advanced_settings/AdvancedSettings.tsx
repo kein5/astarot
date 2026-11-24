@@ -151,8 +151,6 @@ export const OscIpAddressContainer = () => {
         variable: currentOscIpAddress.data,
         state: currentOscIpAddress.state,
         setFunction: setOscIpAddress,
-        label: t("config_page.advanced_settings.osc_ip_address.label"),
-        autoSave: true,
         endpoint: "/set/data/osc_ip_address",
         validate: value => { const key = oscAddressProblem(value); return key ? t(key) : null; },
     });
@@ -162,7 +160,6 @@ export const OscIpAddressContainer = () => {
             label={t("config_page.advanced_settings.osc_ip_address.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -181,8 +178,6 @@ export const OscPortContainer = () => {
         variable: currentOscPort.data,
         state: currentOscPort.state,
         setFunction: (value: unknown) => setOscPort(parsePortInput(value)),
-        label: t("config_page.advanced_settings.osc_port.label"),
-        autoSave: true,
         endpoint: "/set/data/osc_port",
         validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.VALIDATION_OSC_PORT_INVALID")(value); return key ? t(key) : null; },
     });
@@ -196,7 +191,6 @@ export const OscPortContainer = () => {
             label={t("config_page.advanced_settings.osc_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -483,8 +477,6 @@ const WebsocketHostContainer = () => {
         variable: currentWebsocketHost.data,
         state: currentWebsocketHost.state,
         setFunction: setWebsocketHost,
-        label: t("config_page.advanced_settings.websocket_host.label"),
-        autoSave: true,
         endpoint: "/set/data/websocket_host",
         validate: value => { const key = websocketHostProblem(value); return key ? t(key) : null; },
     });
@@ -495,7 +487,6 @@ const WebsocketHostContainer = () => {
             desc={t("config_page.advanced_settings.websocket_host.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -533,7 +524,7 @@ const WebsocketTlsContainer = () => {
     };
     // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter,
     // once both paths are given or both are empty. The core takes the two only together.
-    const form = useSettingsDraft(saved, error, updateError, { label: ([name]) => label(name), autoSave: true });
+    const form = useSettingsDraft(saved, error, updateError, { });
     // The pair's rows, to tell focus moving between the two from focus leaving the pair.
     const group = useRef<TargetHolder>(null);
     const draft = form.draft;
@@ -555,7 +546,6 @@ const WebsocketTlsContainer = () => {
             form.setDraft(previous => previous && ({ ...previous, [name]: value }));
         },
         saveFunction: commit,
-        autoSave: true,
         // Leaving one field for the other saves nothing yet: the group saves when focus leaves it.
         leaveFunction: (event?: FocusEvent<HTMLInputElement>) => {
             if (event?.relatedTarget && group.current?.contains(event.relatedTarget)) return;
@@ -579,8 +569,6 @@ const WebsocketPortContainer = () => {
         variable: currentWebsocketPort.data,
         state: currentWebsocketPort.state,
         setFunction: (value: unknown) => setWebsocketPort(parsePortInput(value)),
-        label: t("config_page.advanced_settings.websocket_port.label"),
-        autoSave: true,
         endpoint: "/set/data/websocket_port",
         validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.WEBSOCKET_PORT_INVALID")(value); return key ? t(key) : null; },
     });
@@ -594,7 +582,6 @@ const WebsocketPortContainer = () => {
             label={t("config_page.advanced_settings.websocket_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -747,8 +734,6 @@ const ObsBrowserSourcePortContainer = () => {
         variable: currentObsBrowserSourcePort.data,
         state: currentObsBrowserSourcePort.state,
         setFunction: (value: unknown) => setObsBrowserSourcePort(parsePortInput(value)),
-        label: t("config_page.advanced_settings.obs_browser_source_port.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_port",
         validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.OBS_BROWSER_SOURCE_PORT_INVALID")(value); return key ? t(key) : null; },
     });
@@ -762,7 +747,6 @@ const ObsBrowserSourcePortContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -783,8 +767,6 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
         variable: currentObsBrowserSourceMaxMessages.data,
         state: currentObsBrowserSourceMaxMessages.state,
         setFunction: setObsBrowserSourceMaxMessages,
-        label: t("config_page.advanced_settings.obs_browser_source_max_messages.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_max_messages",
         validate: value => { const key = wholeNumberProblem(1, 50, "backend_errors.OBS_BROWSER_SOURCE_MAX_MESSAGES_INVALID")(value); return key ? t(key) : null; },
     });
@@ -799,7 +781,6 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_max_messages.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -820,8 +801,6 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
         variable: currentObsBrowserSourceDisplayDuration.data,
         state: currentObsBrowserSourceDisplayDuration.state,
         setFunction: setObsBrowserSourceDisplayDuration,
-        label: t("config_page.advanced_settings.obs_browser_source_display_duration.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_display_duration",
         validate: value => { const key = wholeNumberProblem(1, 120, "backend_errors.OBS_BROWSER_SOURCE_DISPLAY_DURATION_INVALID")(value); return key ? t(key) : null; },
     });
@@ -836,7 +815,6 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_display_duration.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -857,8 +835,6 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
         variable: currentObsBrowserSourceFadeoutDuration.data,
         state: currentObsBrowserSourceFadeoutDuration.state,
         setFunction: setObsBrowserSourceFadeoutDuration,
-        label: t("config_page.advanced_settings.obs_browser_source_fadeout_duration.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_fadeout_duration",
         validate: value => { const key = wholeNumberProblem(0, 120, "backend_errors.OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID")(value); return key ? t(key) : null; },
     });
@@ -873,7 +849,6 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_fadeout_duration.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -894,8 +869,6 @@ const ObsBrowserSourceFontSizeContainer = () => {
         variable: currentObsBrowserSourceFontSize.data,
         state: currentObsBrowserSourceFontSize.state,
         setFunction: setObsBrowserSourceFontSize,
-        label: t("config_page.advanced_settings.obs_browser_source_font_size.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_size",
         validate: value => { const key = wholeNumberProblem(10, 200, "backend_errors.OBS_BROWSER_SOURCE_FONT_SIZE_INVALID")(value); return key ? t(key) : null; },
     });
@@ -910,7 +883,6 @@ const ObsBrowserSourceFontSizeContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_font_size.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -931,8 +903,6 @@ const ObsBrowserSourceFontColorContainer = () => {
         variable: currentObsBrowserSourceFontColor.data,
         state: currentObsBrowserSourceFontColor.state,
         setFunction: setObsBrowserSourceFontColor,
-        label: t("config_page.advanced_settings.obs_browser_source_font_color.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_color",
         validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
@@ -942,7 +912,6 @@ const ObsBrowserSourceFontColorContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_font_color.label")}
             variable={fieldText(variable)}
             saveFunction={saveFunction}
-            autoSave
             onRevert={revert}
             error={error}
             onChangeFunction={onChangeFunction}
@@ -960,8 +929,6 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
         variable: currentObsBrowserSourceFontOutlineThickness.data,
         state: currentObsBrowserSourceFontOutlineThickness.state,
         setFunction: setObsBrowserSourceFontOutlineThickness,
-        label: t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_outline_thickness",
         validate: value => { const key = wholeNumberProblem(0, 20, "backend_errors.OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID")(value); return key ? t(key) : null; },
     });
@@ -976,7 +943,6 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}
@@ -997,8 +963,6 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
         variable: currentObsBrowserSourceFontOutlineColor.data,
         state: currentObsBrowserSourceFontOutlineColor.state,
         setFunction: setObsBrowserSourceFontOutlineColor,
-        label: t("config_page.advanced_settings.obs_browser_source_font_outline_color.label"),
-        autoSave: true,
         endpoint: "/set/data/obs_browser_source_font_outline_color",
         validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
@@ -1008,7 +972,6 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_font_outline_color.label")}
             variable={fieldText(variable)}
             saveFunction={saveFunction}
-            autoSave
             onRevert={revert}
             error={error}
             onChangeFunction={onChangeFunction}

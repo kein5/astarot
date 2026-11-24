@@ -11,8 +11,6 @@ import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.t
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import * as conversionLatency from "../../../../../../logics/voice/conversionLatency.ts";
 import * as fileDrop from "../../../../../../logics/common/fileDrop.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
 
 // The direct voice form (DirectVoiceSettings.tsx) drawn with the real settings draft and the real
@@ -59,7 +57,7 @@ function closeWithTest(context: TestContext, runtime: HookRuntime) {
 }
 
 async function directVoice(context: TestContext, given: Partial<Voice> = {}, options: { directml?: boolean; known?: string[]; send?: (endpoint: string, value?: unknown) => unknown } = {}) {
-    const runtime = hooks(), sent: unknown[][] = [], blocked: boolean[] = [], errors: unknown[] = [], entries = new Map<string, SaveBarEntry>();
+    const runtime = hooks(), sent: unknown[][] = [], blocked: boolean[] = [], errors: unknown[] = [];
     // Every page of the test is closed before the stand-in window goes: the settings draft guards
     // leaving a page with edits through it.
     closeWithTest(context, runtime);
@@ -79,10 +77,18 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
     const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
-        "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
+        
     });
+    // The form saves by itself (#1111): the tests read the form where they read the save bar's
+    // entry, and save it as focus leaving it does.
+    let last: { value: ReturnType<typeof useSettingsDraft>; saved: unknown; canSave: unknown } | undefined;
+    const drafts = { useSettingsDraft: (...args: Parameters<typeof useSettingsDraft>) => {
+        const value = useSettingsDraft(...args);
+        last = { value, saved: args[0], canSave: args[3]?.canSave };
+        return value;
+    } };
     const module = await loadModule<typeof import("./DirectVoiceSettings.tsx")>(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
-        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
+        "../../../../../../logics/voice/useSettingsDraft": drafts,
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ ...voice, ...hook }), sourceKey: (value: unknown) => value },
@@ -113,9 +119,13 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
     // The first drawing makes the draft from the saved settings; the second shows it.
     const open = (next: Partial<DirectVoiceSettingsProps> = {}) => { draw(next); return draw(); };
     const entry = () => {
-        const [only] = entries.values();
-        assert.ok(only, "the form's entry in the save bar");
-        return only;
+        assert.ok(last, "the form");
+        const { value, saved: savedNow, canSave } = last;
+        const before: Record<string, unknown> = savedNow && typeof savedNow === "object" ? { ...savedNow } : {};
+        const draft: Record<string, unknown> = value.draft && typeof value.draft === "object" ? { ...value.draft } : {};
+        return { changes: [...new Set([...Object.keys(before), ...Object.keys(draft)])].filter(key => JSON.stringify(before[key]) !== JSON.stringify(draft[key])),
+            canSave: typeof canSave === "function" ? !!canSave(value.draft) : canSave !== false,
+            save: async () => { value.commit(); for (let i = 0; i < 10; i++) await Promise.resolve(); }, discard: () => value.discard() };
     };
     return { runtime, voice, hook, sent, blocked, errors, draw, open, entry };
 }
@@ -474,12 +484,14 @@ test("RVC's paths are typed or dropped, its runtime is set up in place, and the 
     assert.deepEqual([drop.accept, drop.disabled, drop.hint], [[".pth", ".index"], false, "voice_ui.rvc_drop_hint"]);
     drop.onFiles(["/new/voice.PTH", "/notes.txt", "/new/voice.index"]);
     assert.deepEqual(ofType(setup(), "input").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/new/voice.index"]);
-    assert.equal(catalog().blocked, "edited", "an Apply would replace what the user has typed");
+    // A drop saves at once (#1111); until the saved paths come back, an Apply waits.
+    assert.ok(catalog().blocked, "an Apply would replace what the user has dropped");
     findIn(setup(), node => node.type === "file-drop").props.onFiles(["/other.index"]);
     assert.deepEqual(ofType(setup(), "input").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/other.index"], "only what was dropped");
     ofType(setup(), "input")[0].props.onChange({ target: { value: "/typed" } });
     const runtime = findIn(setup(), node => node.type === "runtime").props;
-    assert.deepEqual([runtime.engine, runtime.current, runtime.disabled], ["rvc", "/typed", false]);
+    // The drop's save waits for its answer here, and the runtime's setup waits with it.
+    assert.deepEqual([runtime.engine, runtime.current, runtime.disabled], ["rvc", "/typed", true]);
     runtime.onUse("/fetched");
     assert.equal(ofType(setup(), "input")[0].props.value, "/fetched");
     // Invalid numbers: the audition has none to use.
@@ -623,24 +635,21 @@ test("a save takes the settings the backend answered with, and an answer that is
     }
 });
 
-test("the save bar names the form's changed settings, and saves only valid numbers while nothing runs", async context => {
+test("the form knows its changed settings, and saves only valid numbers while nothing runs", async context => {
     const v = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, mode: "passthrough" } } });
     v.open({ variant: "all" });
     choose(v.draw(), "voice.direct_mode", "converted");
     v.draw();
-    assert.deepEqual(v.entry().changes, ["voice.direct_mode"]);
+    assert.deepEqual(v.entry().changes, ["mode"]);
     assert.equal(v.entry().canSave, true);
     inputNamed(v.draw(), "voice.vc_rvc_pitch").props.onChange({ target: { valueAsNumber: 30 } });
     v.draw();
-    assert.deepEqual(v.entry().changes, ["voice.direct_mode", "voice.vc_rvc_pitch"]);
+    assert.deepEqual(v.entry().changes, ["mode", "rvc_pitch"]);
     assert.equal(v.entry().canSave, false, "an invalid pitch");
     inputNamed(v.draw(), "voice.vc_rvc_pitch").props.onChange({ target: { valueAsNumber: 3 } });
-    // A setting whose name the locale does not have is named by its field.
-    missingKeys.add("voice.vc_rvc_threads");
-    context.onTestFinished(() => missingKeys.clear());
     inputNamed(v.draw(), "voice.vc_rvc_threads").props.onChange({ target: { valueAsNumber: 2 } });
     v.draw();
-    assert.deepEqual(v.entry().changes, ["voice.direct_mode", "voice.vc_rvc_pitch", "rvc_threads"]);
+    assert.deepEqual(v.entry().changes, ["mode", "rvc_pitch", "rvc_threads"]);
     assert.equal(v.entry().canSave, true);
     v.voice.directPending = { id: "start" };
     v.draw();

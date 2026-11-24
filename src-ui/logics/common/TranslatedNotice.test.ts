@@ -38,17 +38,3 @@ test("a notice raised before the saved language is applied is drawn in that lang
     assert.doesNotMatch(text, /\{\{|Mic input/);
 });
 
-test("the save notice is translated when drawn", async () => {
-    const s = await setup();
-    let raised: { message?: unknown } | undefined;
-    const status = s.runtime.jotai.atom({ state: "ok", data: {} });
-    const common = await loadModule<typeof import("./useNotificationStatus.ts")>(new URL("./useNotificationStatus.ts", import.meta.url), s.runtime, {
-        "@store": { useStore_NotificationStatus: () => ({ currentNotificationStatus: s.runtime.store.get(status),
-            updateNotificationStatus: (value: { message?: unknown }) => { raised = value; } }) },
-        "react-toastify": { toast: { dismiss() {} } }, "./TranslatedNotice": s.translated,
-    });
-    s.runtime.render(common.useNotificationStatus).showNotification_SaveSuccess();
-    await s.i18n.changeLanguage("ja");
-    assert.ok(raised);
-    assert.equal(s.draw(raised.message), textAt(resources.ja.translation, "config_page.notifications.save_success"));
-});

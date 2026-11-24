@@ -91,11 +91,13 @@ test("a server's paths are the kit's monospaced fields, and they wait while the 
     assert.ok(idle.fields.some(field => field.props.value === "m.gguf"));
     idle.fields[0].props.onChange({ target: { value: "other.gguf" } });
     assert.equal(idle.edits.length, 1);
-    for (const busy of [{ state: { japanese: { state: "ready" }, asr: { state: "ready" } } }, { state: {} }, { saving: true,
-        state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } }, { pending: { japanese: true, asr: true },
-        state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } }]) {
+    for (const busy of [{ state: { japanese: { state: "ready" }, asr: { state: "ready" } } }, { state: {} },
+        { pending: { japanese: true, asr: true }, state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } }]) {
         assert.ok((await server(busy)).fields.every(field => field.props.disabled === true), JSON.stringify(busy));
     }
+    // A save that waits leaves the fields usable, so focus stays where it was (#1111).
+    const saving = await server({ saving: true, state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } });
+    assert.ok(saving.fields.every(field => field.props.disabled === false));
 });
 
 test("start, stop and reload are the kit's primary, quiet and plain buttons and wait as before", async () => {

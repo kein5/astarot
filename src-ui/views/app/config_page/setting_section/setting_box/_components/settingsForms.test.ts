@@ -3,9 +3,9 @@ import { test } from "vitest";
 import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
 const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(tree).filter(predicate);
@@ -31,7 +31,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     t.onTestFinished(() => runtime.unmount());
     stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: (fn: () => void) => fn() });
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     type WordList = { data: string[] };
     const state = { currentMicWordFilterList: { data: ["alpha", "日本語", "gamma"] },
@@ -40,7 +40,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },
@@ -200,7 +200,7 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
             "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     let saves = 0, reverts = 0;
     const props: Parameters<typeof EntryWithSaveButton>[0] = { label: "Field", variable: "x", state: "ok", "aria-describedby": "help",
-        saveFunction: () => saves++, onRevert: () => reverts++, autoSave: true, error: null };
+        saveFunction: () => saves++, onRevert: () => reverts++, error: null };
     const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
     let entry = entryOf(runtime.render(EntryWithSaveButton, props));
     entry.props.onBlur();
@@ -227,11 +227,6 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur(blur);
     assert.deepEqual([saves, left], [1, [blur]]);
     props.leaveFunction = undefined;
-    // A field saved from the bar keeps its old behaviour: leaving it saves nothing, no problem is drawn.
-    props.autoSave = false; props.state = "ok";
-    const plain = runtime.render(EntryWithSaveButton, props);
-    assert.equal(entryOf(plain).props.onBlur, undefined);
-    assert.equal(all(plain, node => node.type === "field-problem").length, 0);
     runtime.unmount();
 });
 
@@ -246,7 +241,7 @@ test("an API key field that saves by itself leaves, reverts and says its problem
         "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     let saves = 0, leaves = 0, reverts = 0;
     const props: Parameters<typeof AuthKey>[0] = { label: "Key", variable: "", state: "ok", "aria-describedby": "help",
-        onChangeFunction: () => {}, saveFunction: () => saves++, leaveFunction: () => leaves++, onRevert: () => reverts++, autoSave: true, error: null };
+        onChangeFunction: () => {}, saveFunction: () => saves++, leaveFunction: () => leaves++, onRevert: () => reverts++, error: null };
     const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
     let entry = entryOf(runtime.render(AuthKey, props));
     entry.props.onBlur();
@@ -260,10 +255,6 @@ test("an API key field that saves by itself leaves, reverts and says its problem
     assert.equal(problem.props.text, props.error);
     assert.equal(entry.props["aria-invalid"], true);
     assert.equal(entry.props["aria-describedby"], `help ${problem.props.id}`);
-    props.autoSave = false;
-    const plain = runtime.render(AuthKey, props);
-    assert.equal(entryOf(plain).props.onBlur, undefined);
-    assert.equal(all(plain, node => node.type === "field-problem").length, 0);
     runtime.unmount();
 });
 
@@ -280,7 +271,7 @@ test("a color field that saves by itself saves on leaving and on closing the pic
             "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     let saves: string[] = [], reverts = 0;
     const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "ok",
-        saveFunction: () => saves.push("first"), onRevert: () => reverts++, autoSave: true, error: null };
+        saveFunction: () => saves.push("first"), onRevert: () => reverts++, error: null };
     const entryOf = (tree: unknown) => findIn(tree, node => node.type === "entry");
     const swatchOf = (tree: unknown) => findIn(tree, node => node.type === "button");
     let tree = runtime.render(ColorEntryWithSaveButton, props);
@@ -307,11 +298,6 @@ test("a color field that saves by itself saves on leaving and on closing the pic
     assert.equal(problem.props.text, props.error);
     assert.equal(entryOf(tree).props["aria-invalid"], true);
     assert.equal(entryOf(tree).props["aria-describedby"], problem.props.id);
-    // A color field saved from the bar keeps its old behaviour.
-    props.autoSave = false;
-    tree = runtime.render(ColorEntryWithSaveButton, props);
-    assert.equal(entryOf(tree).props.onBlur, undefined);
-    assert.equal(all(tree, node => node.type === "field-problem").length, 0);
     runtime.unmount();
 });
 

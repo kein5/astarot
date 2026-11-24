@@ -49,7 +49,6 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
 }
 
 test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
-    assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.css.ts"), /inForm\("button:hover:enabled"\), \{ background: vars\.vox_secondary_hover \}/);
     // The OCR page's reset, share and refresh are the kit's plain Button, which hovers on the same token.
     assert.match(read("../../kit/Button.css.ts"), /plain: \{[\s\S]*?"&:hover:not\(:disabled\):not\(\[aria-disabled='true'\]\)": \{ background: vars\.vox_secondary_hover \}/);
@@ -214,8 +213,7 @@ test("search and every top-bar action occupy disjoint shared-grid areas with aut
     for (const [selector, area] of [["stop_actions", "stop"], ["save_slot", "save"], ["back", "back"]]) {
         assert.match(styleOf(top, selector), new RegExp(`style\\(\\{\\s*gridArea: "${area}"`));
     }
-    assert.match(styleOf(top, "save_bar"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
-    assert.match(styleOf(top, "summary"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
+    assert.match(styleOf(top, "applies_now"), /minWidth: 0,[^}]*overflowWrap: "anywhere"/);
     assert.match(styleOf(top, "stop"), /flexWrap: "wrap",[\s\S]*maxWidth: "100%",[\s\S]*whiteSpace: "normal"/);
     assert.match(styleOf(top, "stop_actions"), /flexWrap: "wrap"/);
     // The narrow header, for a narrow window and for the UI-size-aware breakpoint alike.
@@ -370,8 +368,8 @@ test("a modal dialog dims the window with shadcn/ui's 50% black, written as a co
     // The forms' dialogs.
     const form = read(box + "advanced_settings/VoiceSettings.css.ts");
     assert.deepEqual([...form.matchAll(/::backdrop"\), \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
-    // The settings' leave dialog and the translation's license dialog.
-    for (const file of ["topbar/Topbar.css.ts", box + "translation/Translation.css.ts"]) {
+    // The translation's license dialog.
+    for (const file of [box + "translation/Translation.css.ts"]) {
         assert.deepEqual([...read(file).matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"'], file);
     }
 });

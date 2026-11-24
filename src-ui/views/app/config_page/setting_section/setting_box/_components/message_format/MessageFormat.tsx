@@ -11,10 +11,13 @@ import { useAppearance } from "@logics_configs";
 import { ui_configs } from "@ui_configs";
 import { ResetButton } from "@common_components";
 import { Fold } from "../fold/Fold";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
 import { Button } from "../../../../../../kit/index.ts";
+import { FieldProblem } from "../field_problem/FieldProblem";
+import { saveSaidInline } from "../../../../../../../logics/configs/fieldErrors.ts";
+import type { DraftWriteValue } from "../../../../../../../logics/voice/useSettingsDraft";
 import type { DraftWrite } from "../../../../../../../logics/voice/useSettingsDraft";
 import type { MessageFormatParts } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
 
@@ -45,9 +48,14 @@ export const MessageFormat = (props: MessageFormatProps) => {
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
     const { t } = useTranslation();
     const [error, setError] = useState<string | null>(null);
+    // Saves by itself (#1111, decided 3): the texts when focus leaves the format or on Enter, the
+    // order and the reset at once. A refusal is said under the format.
+    const [problem, setProblem] = useState<string[] | null>(null);
+    const problemId = useId();
+    const write = (value: DraftWriteValue<MessageFormatParts>) =>
+        saveSaidInline(`/set/data/${props.format_id}_message_format_parts`, () => props.setFunction(value), setProblem);
     const form = useSettingsDraft(props.variable.data, error, setError, {
-        write: props.setFunction,
-        label: () => props.label ?? t(`config_page.others.${props.format_id}_message_format.label`),
+        write,
     });
     const format = form.draft ?? props.variable.data;
     const message_format_container_class = clsx(styles.container, {
@@ -55,19 +63,22 @@ export const MessageFormat = (props: MessageFormatProps) => {
     });
 
     return (
-        <div className={message_format_container_class} role="group" aria-labelledby={props["aria-labelledby"]} aria-describedby={props["aria-describedby"]}>
+        <div className={message_format_container_class} role="group" aria-labelledby={props["aria-labelledby"]}
+            aria-describedby={[props["aria-describedby"], problem ? problemId : null].filter(Boolean).join(" ") || undefined}
+            ref={form.group} onBlur={form.leave} onKeyDown={form.escape}>
             <ExampleComponent
                 format={format}
                 format_id={props.format_id}
             />
-            {form.navigationDialog}
             <div className={styles.border}></div>
             <InputComponent
                 variable={format}
                 setFunction={form.setDraft}
-                saveFunction={() => form.submit(props.setFunction)}
+                changeFunction={form.change}
+                saveFunction={() => form.commit()}
                 format_id={props.format_id}
             />
+            {problem && <FieldProblem id={problemId} text={t(problem)} />}
         </div>
     );
 };
@@ -189,11 +200,13 @@ const ExampleComponent = ({ format, format_id }: { format: MessageFormatParts; f
 interface InputComponentProps {
     variable: MessageFormatParts;
     setFunction: (value: MessageFormatParts) => void;
+    // A change that saves at once: the order and the reset.
+    changeFunction: (value: MessageFormatParts) => void;
     saveFunction: () => void;
     format_id: MessageFormatId;
 }
 
-const InputComponent = ({ variable: local_var, setFunction, saveFunction, format_id }: InputComponentProps) => {
+const InputComponent = ({ variable: local_var, setFunction, changeFunction, saveFunction, format_id }: InputComponentProps) => {
     const { t } = useTranslation();
 
     const locale_base_path = "config_page.others.message_format_common.settings.";
@@ -241,7 +254,7 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
 
     const resetFunction = () => {
         const new_val = format_id === "send" ? ui_configs.send_message_format_parts : ui_configs.received_message_format_parts;
-        setFunction(new_val);
+        changeFunction(new_val);
     };
 
     // Rendered by a call, not as <SwapButton />, so pressing it keeps the keyboard focus. It is the
@@ -250,7 +263,7 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
     const renderSwapButton = (variable: MessageFormatParts) => {
         const swapMessageAndTranslate = () => {
             const new_var = { ...variable, translation_first: !variable.translation_first };
-            setFunction(new_var);
+            changeFunction(new_var);
         };
 
         return (

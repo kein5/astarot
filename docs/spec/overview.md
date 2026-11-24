@@ -62,22 +62,22 @@ flowchart LR
 
 ### Settings screen
 
-You choose a page in the rail on the left. Stop speech, Mute, the save bar and the back button are always at the top.
+You choose a page in the rail on the left. Stop speech, Mute, the back button and, on every page but About, the note that the page's changes apply at once are always at the top. Every setting saves by itself (#1111).
 
 An item that concerns several pages is placed on every page it concerns (VRC mic mute sync, the audio route, the TTS output destination). Changing it on any page changes the same setting, and settings search shows one result for each page.
 
 | Page | Main contents | How it is saved |
 |---|---|---|
-| Device | Audio route, choice of microphone and speakers, input sensitivity, VRC mic mute sync | Choices at once, the audio route with the save bar |
+| Device | Audio route, choice of microphone and speakers, input sensitivity, VRC mic mute sync | At once |
 | Appearance | UI language, UI size, theme, log text size, transparency, font, send button, clearing the input field after sending, hiragana and romaji | At once |
-| Translation | The built-in translation model and its device, downloading the model at startup, keys and models of external APIs, local LLMs | Choices at once, keys and URLs with the save bar |
-| Speech recognition | Silence time, queued messages, mic word filter, engine (local (speech.cpp), four cloud engines), cloud keys and models, realtime speech recognition, the bundled ASR server | Choices at once, keys, URLs and the server with the save bar |
-| VRChat | Sending to the chatbox (sending, translation only, notification sound, received messages, VRC mic mute sync), message formats, OSC, audio route, TTS output destination, chat reading (source language, recognition models, area to read, capture target) | Choices at once, text fields, the audio route and the output destination with the save bar, model downloads through the consent step |
+| Translation | The built-in translation model and its device, downloading the model at startup, keys and models of external APIs, local LLMs | Choices at once, keys and URLs on Enter or when focus leaves them |
+| Speech recognition | Silence time, queued messages, mic word filter, engine (local (speech.cpp), four cloud engines), cloud keys and models, realtime speech recognition, the bundled ASR server | Choices at once, keys, URLs and the server's paths on Enter or when focus leaves them |
+| VRChat | Sending to the chatbox (sending, translation only, notification sound, received messages, VRC mic mute sync), message formats, OSC, audio route, TTS output destination, chat reading (source language, recognition models, area to read, capture target) | Choices at once, text fields on Enter or when focus leaves them, model downloads through the consent step |
 | VR | The subtitle overlay's position and look, the subtitle typeface, showing subtitles and inputs and outputs on the desktop, VR UI | At once |
 | Hotkeys | Keys for five actions (unassigned by default) | When entered |
-| TTS | The source to read aloud, output device, monitor, server and voice per language, the bundled server, model downloads | Save bar |
-| RVC | Pitch, blend, the input to forward, runtime and model | Save bar |
-| Advanced | Saving the conversation log, the settings file, WebSocket, OBS browser source | Text fields with the save bar, switches at once |
+| TTS | The source to read aloud, output device, monitor, server and voice per language, the bundled server, model downloads | Choices at once, addresses and voices on Enter or when focus leaves the form |
+| RVC | Pitch, blend, the input to forward, runtime and model | Choices at once, numbers and paths on Enter or when focus leaves them |
+| Advanced | Saving the conversation log, the settings file, WebSocket, OBS browser source | Text fields on Enter or when focus leaves them, switches at once |
 | Experimental | Switches and descriptions for features that passed checks on real hardware in the experimental branch (all off by default). When there are no items, the page says so | At once |
 | Updater | Version and release policy | Display only |
 | About ASTAROT | Name, version, links, thanks to the original VRCT | Display only |
@@ -157,22 +157,22 @@ flowchart LR
 
 ### 設定画面
 
-左のレールでページを選ぶ。上部に読み上げ停止、ミュート、保存バー、戻るボタンが常にある。
+左のレールでページを選ぶ。上部に読み上げ停止、ミュート、戻るボタンと、About以外のページでは「このページの変更はすぐに反映されます」の注記が常にある。どの設定も自分で保存する（#1111）。
 
 複数のページに関係する項目は、関係するページすべてに置く（VRCマイクミュート同期、音声経路、読み上げの出力先）。どのページで変えても同じ設定を変え、設定検索ではページごとに結果が出る。
 
 | ページ | 主な内容 | 保存のしかた |
 |---|---|---|
-| デバイス | 音声経路、マイクとスピーカーの選択、入力の感度、VRCマイクミュート同期 | 選択は即時、音声経路は保存バー |
+| デバイス | 音声経路、マイクとスピーカーの選択、入力の感度、VRCマイクミュート同期 | 即時 |
 | デザイン | UIの言語、UIの大きさ、テーマ、ログの文字の大きさ、透明度、フォント、送信ボタン、送信後に入力欄を空にする、ひらがな・ローマ字 | 即時 |
-| 翻訳 | 内蔵翻訳のモデルと実行デバイス、起動時のモデル取得、外部APIのキーとモデル、ローカルLLM | 選択は即時、キーとURLは保存バー |
-| 音声認識 | 無音時間、待機数、ワードフィルター、エンジン（ローカル（speech.cpp）、クラウド4種）、クラウドのキーとモデル、リアルタイム音声認識、同梱ASRサーバー | 選択は即時、キーとURLとサーバーは保存バー |
-| VRChat | チャットボックスへの送信（送信、訳だけ、通知音、受信したメッセージ、VRCマイクミュート同期）、メッセージフォーマット、OSC、音声経路、読み上げの出力先、チャット読み取り（読み取り言語、認識モデル、読み取る範囲、キャプチャの対象） | 選択は即時、文字の欄と音声経路と出力先は保存バー、モデルの取得は同意の操作 |
+| 翻訳 | 内蔵翻訳のモデルと実行デバイス、起動時のモデル取得、外部APIのキーとモデル、ローカルLLM | 選択は即時、キーとURLはEnterか欄を離れたとき |
+| 音声認識 | 無音時間、待機数、ワードフィルター、エンジン（ローカル（speech.cpp）、クラウド4種）、クラウドのキーとモデル、リアルタイム音声認識、同梱ASRサーバー | 選択は即時、キーとURLとサーバーのパスはEnterか欄を離れたとき |
+| VRChat | チャットボックスへの送信（送信、訳だけ、通知音、受信したメッセージ、VRCマイクミュート同期）、メッセージフォーマット、OSC、音声経路、読み上げの出力先、チャット読み取り（読み取り言語、認識モデル、読み取る範囲、キャプチャの対象） | 選択は即時、文字の欄はEnterか欄を離れたとき、モデルの取得は同意の操作 |
 | VR | 字幕オーバーレイの位置と見た目、字幕の書体、デスクトップの字幕と入力と出力の表示、VR UI | 即時 |
 | ホットキー | 5つの動作のキー（既定は未割り当て） | 入力した時点 |
-| TTS | 読み上げの元、出力デバイス、モニター、言語ごとのサーバーと声、同梱サーバー、モデルの取得 | 保存バー |
-| RVC | ピッチ、混合率、転送する入力、実行環境とモデル | 保存バー |
-| 高度な設定 | 会話ログの保存、設定ファイル、WebSocket、OBSブラウザソース | 文字の欄は保存バー、スイッチは即時 |
+| TTS | 読み上げの元、出力デバイス、モニター、言語ごとのサーバーと声、同梱サーバー、モデルの取得 | 選択は即時、アドレスと声はEnterかフォームを離れたとき |
+| RVC | ピッチ、混合率、転送する入力、実行環境とモデル | 選択は即時、数とパスはEnterか欄を離れたとき |
+| 高度な設定 | 会話ログの保存、設定ファイル、WebSocket、OBSブラウザソース | 文字の欄はEnterか欄を離れたとき、スイッチは即時 |
 | 実験的機能 | experimentalブランチで実機の確認を通った機能のスイッチと説明（既定はすべてオフ）。項目がないときはその旨を出す | 即時 |
 | アップデート | 版と配布の方針 | 表示のみ |
 | ASTAROTについて | 名前、版、リンク、本家VRCTへの謝辞 | 表示のみ |

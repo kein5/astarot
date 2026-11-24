@@ -52,7 +52,7 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-40 | Text shown on screen lives in `locales/`, and `en.yml` and `ja.yml` are always kept in step | `AGENTS.md`, "UI" | `tools/i18n_gate/check.mjs` (the string check in `python tools/dev.py check`: every key exists in both languages and no value is empty), `src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | Keep the React 19, CSS Modules, Jotai and i18next stack, and do not add remote fonts | `AGENTS.md`, "UI" | Manual |
 | CT-42 | Each language change is matched to its request, and the state is read again on failure | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`, `languageMutations.test.ts` |
-| CT-43 | Ask for confirmation before leaving with unsaved changes | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts` (the save bar's count), `src-ui/logics/voice/settingsNavigation.test.ts` (the navigation in which the save bar's confirmation asks before the form's), manual (the dialog) |
+| CT-43 | Settings save by themselves; leaving with a refused or unsaved value drops it without asking (#1111) | `cross-cutting.md` | `src-ui/logics/voice/useSettingsDraft.test.ts` (no leave guard), `src-ui/views/app/config_page/topbar/AppliesNow.test.ts` (the top bar), `tests/integration/autoSave.spec.ts` |
 
 ---
 
@@ -108,4 +108,4 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tools/i18n_gate/check.mjs`（`python tools/dev.py check`の文言の検査。全キーが両方の言語にあり、値が空でないこと）、`src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | React 19、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
 | CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`、`languageMutations.test.ts` |
-| CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts`（保存バーの集計）、`src-ui/logics/voice/settingsNavigation.test.ts`（保存バーの確認がフォームの確認より先に尋ねられる送り方）、手動（ダイアログ） |
+| CT-43 | 設定は自分で保存し、断られた値や保存していない値のまま離れると何も聞かずに捨てる（#1111） | `cross-cutting.md` | `src-ui/logics/voice/useSettingsDraft.test.ts`（離れるときの確認がない）、`src-ui/views/app/config_page/topbar/AppliesNow.test.ts`（上のバー）、`tests/integration/autoSave.spec.ts` |
