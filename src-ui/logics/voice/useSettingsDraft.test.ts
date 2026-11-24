@@ -33,7 +33,7 @@ async function setup(context: TestContext, savedFromResponse?: (result: unknown)
     stubGlobals(context, { window: eventTarget() });
     const state: { saved: Vocabulary; error: string | null } = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     // Without patch the form writes its whole draft.
     const write: DraftWrite<Vocabulary> = value => {
@@ -181,24 +181,22 @@ for (const response of [false, { status: 400 }]) test(`a rejected draft remains 
     assert.equal(s.render().saveState, "saved");
 });
 
-// #1111: a group that saves by itself is saved by its page when focus leaves it, so it is not in the
-// save bar, and leaving the page with an edit drops it without asking (decided 4).
-for (const autoSave of [false, true]) test(`a draft ${autoSave ? "that saves by itself is not in the save bar and does not guard leaving" : "saved from the bar is in it and guards leaving"}`, async context => {
-    const runtime = hooks(), window = eventTarget(), entries: string[] = [];
+// #1111, decided 4: a form saves by itself, so leaving the page or the app with an edit drops it
+// without asking first.
+test("a draft with an edit does not guard leaving the page or the app", async context => {
+    const runtime = hooks(), window = eventTarget();
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window });
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [["model"]], setSaveBarEntry: (id: string) => { entries.push(id); } },
+        "./draftRebase": { rebaseDraft },
     });
     const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
     const write: DraftWrite<Vocabulary> = () => new Promise<StdoutResult>(() => {});
-    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave }));
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
     render();
     render().setDraft({ ...saved, model: "new" });
     assert.equal(render().dirty, true);
-    const guards = window.added.filter(([type]) => type === "vrct:settings-leave" || type === "beforeunload");
-    assert.equal(guards.length > 0, !autoSave);
-    assert.equal(entries.length > 0, !autoSave);
+    assert.deepEqual(window.added.filter(([type]) => type === "vrct:settings-leave" || type === "beforeunload"), []);
 });
 
 // #1111, decided 3: a group that saves by itself. A choice saves at once, focus leaving the group
@@ -209,7 +207,7 @@ test("a group that saves by itself saves a choice at once, on leaving, and after
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
     const write: DraftWrite<Vocabulary> = value => {
@@ -218,8 +216,8 @@ test("a group that saves by itself saves a choice at once, on leaving, and after
         return new Promise<StdoutResult>(resolve => answers.push(response => resolve(unchecked<StdoutResult>(response))));
     };
     const canSave = (draft: Vocabulary) => draft.model !== "";
-    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave, autoSave: true }));
-        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave, autoSave: true })); };
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave })); };
     const answer = async (value: Vocabulary) => { saved = value; render(); answers.shift()?.({ status: 200, result: value }); await flush(); return render(); };
     render();
     // A choice: saved at once.
@@ -259,11 +257,11 @@ test("leaving a group twice in one render saves once", async context => {
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
     const write: DraftWrite<Vocabulary> = value => { sent.push(value); return new Promise<StdoutResult>(() => {}); };
-    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true }));
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
     render();
     render().setDraft(previous => previous && { ...previous, model: "new" });
     const form = render();
@@ -282,7 +280,7 @@ test("a group's element saves a choice at once, a slider when let go and a line 
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
     const answers: (() => void)[] = [];
@@ -291,8 +289,8 @@ test("a group's element saves a choice at once, a slider when let go and a line 
         sent.push(value);
         return new Promise<StdoutResult>(resolve => answers.push(() => resolve(unchecked<StdoutResult>({ status: 200, result: value }))));
     };
-    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true }));
-        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true })); };
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write })); };
     const answer = async () => { saved = sent[sent.length - 1]; render(); answers.shift()?.(); await flush(); render(); };
     const edit = (model: string) => render().setDraft(previous => previous && { ...previous, model });
     const target = (tagName: string, type?: string) => unchecked<EventTarget>({ tagName, type });

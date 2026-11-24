@@ -220,8 +220,6 @@ export const OcrWindowTitle_Box = () => {
         variable: currentOcrWindowTitle.data,
         state: currentOcrWindowTitle.state,
         setFunction: setOcrWindowTitle,
-        label: t("config_page.ocr.window_title.label"),
-        autoSave: true,
         endpoint: "/set/data/ocr_window_title",
         validate: value => value.trim() ? null : t("config_page.ocr.window_title.errors.empty"),
     });
@@ -233,7 +231,6 @@ export const OcrWindowTitle_Box = () => {
             variable={entryValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
-            autoSave
             onRevert={revert}
             error={error}
             state={currentOcrWindowTitle.state}

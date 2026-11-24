@@ -4,8 +4,6 @@ import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDra
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
@@ -22,11 +20,11 @@ const rvcSettings = { mode: "converted", engine: "rvc", runtime: "", reference: 
     rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, rvc_device: "auto", rvc_threads: 0, rvc_highpass: true };
 
 async function open(variant: Variant, settings: typeof rvcSettings) {
-    const runtime = hooks(), entries = new Map<string, SaveBarEntry>(), writes: Record<string, unknown>[] = [];
+    const runtime = hooks(), entries = new Map<string, unknown>(), writes: Record<string, unknown>[] = [];
     const ui = { "@useI18n": { useI18n: () => ({ t: (key: string) => key }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
-        "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
+        
     });
     const { DirectVoiceSettings } = await loadModule<typeof import("./DirectVoiceSettings.tsx")>(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },

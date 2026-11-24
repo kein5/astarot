@@ -13,7 +13,6 @@ import {
     translator_status,
 } from "@ui_configs";
 import { keepNewestVrLayout } from "./common/vrPanelTooltip";
-import { requestSettingsNavigation } from "./voice/settingsNavigation";
 
 import { pendingRequestRecovery, restorePendingValue, restoreDownloadPending, staticPendingControls } from "./common/pendingRequestRecovery.ts";
 import { updateMeterValue } from "./common/meterValue.ts";
@@ -72,8 +71,6 @@ export type AtomPayload<T> = T | AtomUpdater<T>;
 
 interface UpdateOptionsBase {
     remain_state?: boolean;
-    // The voice settings have been asked whether the page may change (requestSettingsNavigation).
-    voice_navigation_confirmed?: boolean;
 }
 
 // lock_state sets the state given in set_state, even over an atom whose state is locked.
@@ -172,13 +169,6 @@ export const createAtomWithHook = <T, N extends string>(initialValue: T, base_na
 
         const updateAtom = (payload: AtomPayload<T>, options: UpdateOptions = {}): void => {
             const { remain_state = false, set_state, lock_state } = options;
-
-            if (!options.voice_navigation_confirmed &&
-                ((base_name === "SelectedConfigTabId" && payload !== currentAtom.data) ||
-                 (base_name === "IsOpenedConfigPage" && payload === false))) {
-                requestSettingsNavigation(() => updateAtom(payload, { ...options, voice_navigation_confirmed: true }));
-                return;
-            }
 
             setAtom((currentValue) => {
                 let new_state: AtomStatus;

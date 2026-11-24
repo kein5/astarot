@@ -41,11 +41,9 @@ export interface SpeechServersProps {
 export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }: SpeechServersProps) => {
     const { t } = useI18n();
     const { settings, state, devices, builds, pending, error, send, updateError } = useSpeechServers();
-    // Paths are ["profiles", name, key]; a page shows only its own profiles.
-    const label = ([, name, key]: string[]) => `${t(`speech_servers.${name}`)}: ${t(`speech_servers.${key}`, { defaultValue: key })}`;
     // Saves by itself (#1111, decided 3): a choice at once, a path when focus leaves the form or on Enter.
-    const form = useSettingsDraft(settings, error, updateError, { label,
-        write: value => send("/set/data/speech_server_settings", value), autoSave: true });
+    const form = useSettingsDraft(settings, error, updateError, {
+        write: value => send("/set/data/speech_server_settings", value) });
     const { draft, setDraft, saving, dirty } = form;
     const pendingKey = JSON.stringify(pending);
     // TTS engines on one page share one GPU/memory reading and headroom choice.
@@ -163,8 +161,6 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
             <Button disabled={dirty || saving} onClick={() => { send("/get/data/speech_server_settings"); send("/get/data/speech_server_state"); }}>{t("speech_servers.reload")}</Button>
         </div>
         </SetupSection>
-        {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
-        {form.navigationDialog}
         {error && <p role="alert">{t([`speech_servers.errors.${error}`, `voice_ui.errors.${error}`], { defaultValue: error })}</p>}
     </section>;
 };

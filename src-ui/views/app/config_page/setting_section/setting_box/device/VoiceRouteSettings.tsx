@@ -65,8 +65,8 @@ export const VoiceRouteSettings = ({ subheading = false }: { subheading?: boolea
     // With patch, a write sends the changed fields, never an empty draft.
     const write = (value: DraftWriteValue<VoiceSettings>) => send("/set/data/voice_settings", value ?? undefined);
     // The route is a choice: it saves at once (#1111, decided 3).
-    const form = useSettingsDraft(settings, error, updateError, { label: ([key]) => t(`voice.${key}`, { defaultValue: key }),
-        write, canSave: !busy, patch: true, autoSave: true });
+    const form = useSettingsDraft(settings, error, updateError, {
+        write, canSave: !busy, patch: true });
     useEffect(() => { send("/get/data/voice_settings"); }, [send]);
     return <section className={styles.container} aria-label={t("voice.routing")} data-setting-id="voice_route">
         {/* What the route is shared by and when it can change: the heading's line, or its hint on a page reviewed against #614. */}
@@ -80,7 +80,6 @@ export const VoiceRouteSettings = ({ subheading = false }: { subheading?: boolea
             {/* What to do in VRChat stays in view; how the microphone is prepared is its hint (#614). */}
             {form.draft.routing === "managed" && <Lead text={t("voice.managed_lead")} details={t("voice.managed_details")} />}
         </form>}
-        {form.navigationDialog}
         <VoiceRouteControls />
     </section>;
 };

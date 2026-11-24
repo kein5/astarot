@@ -3,7 +3,15 @@ import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import { directRvcSelection, directSavedDraft, directSelectionPending, directShowsConversion } from "./directVoiceDraft.ts";
 import type { DirectVoiceSelection, DirectVoiceVariant } from "./directVoiceDraft.ts";
-import { changedPaths } from "./saveBar.ts";
+
+const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+// Paths of the leaves that differ, e.g. [["profiles", "asr", "model"]].
+const changedPaths = (saved: unknown, draft: unknown, path: string[] = []): string[][] => {
+    if (JSON.stringify(saved) === JSON.stringify(draft)) return [];
+    if (!isRecord(saved) || !isRecord(draft)) return [path];
+    const keys = new Set([...Object.keys(saved), ...Object.keys(draft)]);
+    return [...keys].flatMap(key => changedPaths(saved[key], draft[key], [...path, key]));
+};
 
 const defaults: DirectVoiceSelection = { mode: "passthrough", engine: "rvc", rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0 };
 const rvcSaved: DirectVoiceSelection = { mode: "converted", engine: "rvc", rvc_runtime: "/rvc", rvc_model: "voice.pth", rvc_index: "", rvc_pitch: 3 };

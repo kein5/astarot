@@ -30,8 +30,6 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
         keys => setProblem(keys && listKeys(keys)));
     const form = useSettingsDraft(currentMicWordFilterList.data, error, setError, {
         write,
-        label: () => t("config_page.transcription.mic_word_filter.label"),
-        autoSave: true,
     });
     useEffect(() => {
         if (form.saveState !== "save_failed") return;
@@ -116,7 +114,6 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
     const opened = currentIsOpenedMicWordFilterList.data === true;
     return (
         <div className={styles.container} role="group" aria-labelledby={props["aria-labelledby"]}>
-            {form.navigationDialog}
             <Fold open={opened} summary={t("config_page.transcription.mic_word_filter.list", { count: words.length })}
                 summaryProps={{ "aria-describedby": props["aria-describedby"] }}
                 onToggle={event => {

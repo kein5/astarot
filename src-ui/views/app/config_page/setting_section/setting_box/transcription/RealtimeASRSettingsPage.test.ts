@@ -5,8 +5,6 @@ import { componentName, componentOf, eventTarget, fieldOf, find, findIn, hooks, 
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../../logics/common/languageNames.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The realtime captions' form (RealtimeASRSettings.tsx) drawn with the real settings draft, which
@@ -47,7 +45,7 @@ function closeWithTest(context: TestContext, runtime: HookRuntime) {
 }
 
 async function captionsForm(context: TestContext, given: Partial<Asr> = {}, options: { hints?: boolean; servers?: Record<string, unknown>; answer?: unknown } = {}) {
-    const runtime = hooks(), sent: unknown[][] = [], entries = new Map<string, SaveBarEntry>();
+    const runtime = hooks(), sent: unknown[][] = [], entries = new Map<string, unknown>();
     closeWithTest(context, runtime);
     // The settings draft guards leaving a page with edits through the window.
     stubGlobals(context, { window: eventTarget() });
@@ -66,7 +64,7 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
     const ui = { "@useI18n": { useI18n: () => ({ t, i18n: { language: "en" } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
-        "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
+        
     });
     const module = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { "../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" }, ...ui,
         "../../../../../../logics/common/languageNames.ts": languageNames,
@@ -158,7 +156,7 @@ test("the models are asked for when there is an address, and again when the serv
     assert.equal(asked(), 6);
 });
 
-test("the form names its part, says what the captions are and which server they use, and marks itself while it has edits", async context => {
+test("the form names its part, says what the captions are and which server they use, and what a change stops", async context => {
     const f = await captionsForm(context);
     let tree = f.open();
     assert.deepEqual([tree.type, tree.props["data-setting-id"], tree.props["aria-label"], tree.props["data-unsaved"]], ["section", "realtime_asr", "realtime.title", undefined]);
@@ -166,8 +164,8 @@ test("the form names its part, says what the captions are and which server they 
     assert.deepEqual([label.sub, label.label, label.desc], [true, "realtime.title", "realtime.scope\nrealtime.server_help"]);
     selectNamed(tree, "realtime.model").props.onChange({ target: { value: "qwen" } });
     tree = f.draw();
-    assert.equal(tree.props["data-unsaved"], true);
-    assert.equal(findIn(tree, node => node.type === "form").props["aria-busy"], false);
+    // The row marks went with the save bar (#1111): a choice saves at once.
+    assert.equal(tree.props["data-unsaved"], undefined);
     assert.deepEqual(ofType(tree, "description").map(node => node.props.text).at(-1), "realtime.save_help");
 });
 

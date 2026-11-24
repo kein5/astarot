@@ -95,13 +95,11 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
     // The RVC page edits converted RVC. Until it is selected the page offers a button for
     // it; a save of the edits keeps the mode as saved (#436).
     const needsSelection = (draft: DirectVoiceDraft) => directSelectionPending(draft, directState.settings, variant);
-    const label = ([name]: string[]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
-    const form = useSettingsDraft(saved, directError, updateDirectError, { label,
+    const form = useSettingsDraft(saved, directError, updateDirectError, {
         savedFromResponse: value => ({ ...defaults, ...answeredSettings(value) }),
-        write: value => send("/set/data/direct_voice_settings", value), canSave: draft => !busy && validNumbers(draft),
         // Saves by itself (#1111, decided 3): a choice at once, numbers and paths when focus leaves
         // their group or on Enter, a dropped file or a runtime put to use at once.
-        autoSave: true });
+        write: value => send("/set/data/direct_voice_settings", value), canSave: draft => !busy && validNumbers(draft) });
     const { draft, setDraft, saving, dirty } = form;
     const [selecting, setSelecting] = useState(false);
     const selectRvc = async () => {
@@ -284,8 +282,6 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 {error && <p role="alert">{errorText(error, ["voice_setup_errors"])}</p>}
             </>}
         </SetupSection>
-        {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
-        {form.navigationDialog}
         {/* The TTS monitor setting also covers converted voice; it is fixed at Start. The setting
             has one place, the TTS page: here a row says what it does for this voice under its
             label (as VoiceRouteSummary does), and its button starts in the control column (#614, #1096). */}

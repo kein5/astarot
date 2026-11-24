@@ -197,11 +197,7 @@ test("the certificate and key are saved together as one pair", async () => {
     cert.props.onChangeFunction("D:/new.pem");
     await key.props.saveFunction();
     assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "D:/new.pem", key_file: "C:/certs/vox-key.pem" }]);
-    // The draft names the field by its own label.
-    assert.equal(s.draftOptions.label?.(["key_file"]), "config_page.advanced_settings.websocket_tls_key_file.label");
     // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields.
-    assert.equal(s.draftOptions.autoSave, true);
-    assert.equal(cert.props.autoSave, true);
     // The pair's rows tell focus moving from one field to the other from focus leaving the pair.
     const other = {}, outside = {};
     s.runtime.render(s.tlsComponent).props.ref({ contains: (target: unknown) => target === other });

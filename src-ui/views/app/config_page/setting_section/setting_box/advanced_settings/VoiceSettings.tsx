@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { GenerationOptions, validGenerationOptions } from "../tts/GenerationOptions";
-import { TtsEngine, TTS_ENGINES, AUDIO_QUERY_ENGINES, validCoeiroinkOptions, validAudioQueryOptions } from "../tts/TtsEngine";
+import { TtsEngine, validCoeiroinkOptions, validAudioQueryOptions } from "../tts/TtsEngine";
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
@@ -32,27 +32,11 @@ export const VoiceSettings = () => {
     const hints = useHintDescriptions();
     const optionsErrorId = useId();
     const { settings, status, devices, error, send, updateError } = useVoice();
-    const label = ([key]: string[]) => {
-        if (key === "japanese_engine") return t("voice_ui.engine.label");
-        if (Object.values(TTS_ENGINES).some(engine => engine.url === key)) return t("voice_ui.engine.url");
-        if (key.startsWith("engine_voice_")) return t("voice_ui.engine.voice");
-        if (key.startsWith("coeiroink_")) return `COEIROINK: ${t(`voice_ui.engine.coeiroink.${key}`)}`;
-        const reader = AUDIO_QUERY_ENGINES.find(engine => key.startsWith(`${engine}_`));
-        if (reader) return `${TTS_ENGINES[reader].name}: ${t(`voice_ui.engine.audio_query.${key.slice(reader.length + 1)}`)}`;
-        const role = ["japanese", "multilingual"].find(name => key.startsWith(`${name}_`));
-        if (key === `${role}_server`) return t(`speech_servers.${role}_selection`);
-        if (key === `${role}_seed`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.seed_mode")}`;
-        if (key === `${role}_instructions`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.instruction")}`;
-        return t(`voice.${key}`, { defaultValue: key });
-    };
     // Saves by itself (#1111, decided 3): a choice at once, a slider when let go, typed text when
     // focus leaves the form or on Enter.
-    const form = useSettingsDraft(settings, error, updateError, { label,
-        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true, autoSave: true });
-    const { setDraft, saving } = form;
-    // The saved settings until the form's draft is made from them, a render later: the page does
-    // not flash its loading line when they are already known (#912).
-    const draft = form.draft ?? settings;
+    const form = useSettingsDraft(settings, error, updateError, {
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
+    const { draft, setDraft, saving } = form;
     useEffect(() => {
         send("/get/data/voice_settings");
         send("/get/data/voice_output_devices");
@@ -173,7 +157,6 @@ export const VoiceSettings = () => {
             </fieldset>
         </form>
         {!validGenerationOptions(draft) && <p id={optionsErrorId} role="alert">{t("voice_ui.invalid_options")}</p>}
-        {form.navigationDialog}
         {/* The sentence says what to do; the code stays for reports. */}
         {!!problem && <p role="alert">{t("voice.error")}: {voiceErrorText(String(problem),
             t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
@@ -186,8 +169,8 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
     const { t } = useI18n();
     const { settings, devices, error, send, updateError } = useVoice();
     // Saves by itself (#1111): the device is a choice, saved at once.
-    const form = useSettingsDraft(settings, error, updateError, { label: ([key]) => t(`voice.${key}`, { defaultValue: key }),
-        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true, autoSave: true });
+    const form = useSettingsDraft(settings, error, updateError, {
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
     const { draft, setDraft, saving } = form;
     useEffect(() => {
         send("/get/data/voice_settings");
@@ -210,6 +193,5 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
                 </FormRow>
                 <VirtualMicEntry />
             </fieldset>}
-        {form.navigationDialog}
     </section>;
 };

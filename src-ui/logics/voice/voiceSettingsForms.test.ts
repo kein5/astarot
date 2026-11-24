@@ -8,8 +8,6 @@ import { hooks, loadModule, stubGlobals, eventTarget, find, componentNamed, isRe
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { flush } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
-import { changedPaths } from "./saveBar.ts";
-import type { SaveBarEntry } from "./saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 
 interface Request {
@@ -22,7 +20,7 @@ async function setup(context: TestContext) {
     const runtimes: HookRuntime[] = [];
     context.onTestFinished(() => runtimes.forEach(runtime => { runtime.unmount(); }));
     stubGlobals(context, { window: eventTarget() });
-    const owners = createSettingsWriteResponses(), requests: Request[] = [], entries: (SaveBarEntry | null)[] = [], forms: (() => ReactElement)[] = [];
+    const owners = createSettingsWriteResponses(), requests: Request[] = [], forms: (() => ReactElement)[] = [];
     // What useVoice answers, as far as the two forms read it.
     const state: { settings: Record<string, unknown>; error: unknown; [key: string]: unknown } = {
         settings: { routing: "external", output_device: "output-a", monitor_volume: "35" }, error: null,
@@ -38,11 +36,11 @@ async function setup(context: TestContext) {
     };
     const views: [number, string, string][] = [[0, "device/VoiceRouteSettings.tsx", "VoiceRouteSettings"],
         [1, "advanced_settings/VoiceSettings.tsx", "TtsOutputDeviceSettings"]];
-    for (const [index, file, name] of views) {
+    for (const [, file, name] of views) {
         const runtime = hooks();
         runtimes.push(runtime);
         const draft = await loadModule(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-            "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_: string, value: SaveBarEntry | null) => { entries[index] = value; } },
+            "./draftRebase": { rebaseDraft }, 
         });
         const components = await loadModule(new URL(`../../views/app/config_page/setting_section/setting_box/${file}`, import.meta.url), runtime, {
             "@store": {}, "../../../../../../logics/voice/useVoice": { useVoice: () => state },
@@ -84,7 +82,7 @@ async function setup(context: TestContext) {
         await flush(); render();
     };
     render();
-    return { entries, requests, state, edit, render, reply, busy };
+    return { requests, state, edit, render, reply, busy };
 }
 
 for (const reverse of [false, true]) test(`VRChat forms save their own choice at once and own their responses (reverse=${reverse})`, async context => {
@@ -92,7 +90,6 @@ for (const reverse of [false, true]) test(`VRChat forms save their own choice at
     const order = reverse ? [1, 0] : [0, 1];
     for (const index of order) s.edit(index, index ? "output-b" : "managed");
     assert.deepEqual(s.requests.map(request => request.data), order.map(index => index ? { output_device: "output-b" } : { routing: "managed" }));
-    assert.ok(s.entries.every(entry => !entry), "not in the save bar");
     await s.reply(0, 200);
     const waiting = [false, false];
     waiting[order[1]] = true;

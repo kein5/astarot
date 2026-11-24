@@ -56,8 +56,6 @@ export const MessageFormat = (props: MessageFormatProps) => {
         saveSaidInline(`/set/data/${props.format_id}_message_format_parts`, () => props.setFunction(value), setProblem);
     const form = useSettingsDraft(props.variable.data, error, setError, {
         write,
-        label: () => props.label ?? t(`config_page.others.${props.format_id}_message_format.label`),
-        autoSave: true,
     });
     const format = form.draft ?? props.variable.data;
     const message_format_container_class = clsx(styles.container, {
@@ -72,7 +70,6 @@ export const MessageFormat = (props: MessageFormatProps) => {
                 format={format}
                 format_id={props.format_id}
             />
-            {form.navigationDialog}
             <div className={styles.border}></div>
             <InputComponent
                 variable={format}

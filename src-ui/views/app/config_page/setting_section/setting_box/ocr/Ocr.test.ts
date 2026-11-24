@@ -107,8 +107,6 @@ test("the window name saves by itself and refuses an empty name in words", async
         "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
     });
     const entry = findIn(runtime.render(OcrWindowTitle_Box, {}), (node: TreeNode) => node.type === "entry", "entry").props;
-    assert.equal(options.autoSave, true);
-    assert.equal(entry.autoSave, true);
     assert.equal(entry.error, "problem");
     assert.equal(entry.onRevert(), "reverted");
     assert.equal(options.validate?.("   "), "config_page.ocr.window_title.errors.empty");
