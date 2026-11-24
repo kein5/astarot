@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
@@ -732,19 +732,20 @@ const CommonSettingsContainer = () => {
 
 const SendSampleTextToggleButton = () => {
     const { t } = useI18n();
-    const { sendTextToOverlay } = useVr();
+    const { sendTextToOverlay, currentIsEnabledOverlaySmallLog, currentIsEnabledOverlayLargeLog } = useVr();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const [is_started, setIsStarted] = useState(false);
-    // Closing settings only hides this page; it stays mounted, so stop the
-    // samples here. Reopening settings does not restart them: only this button
-    // starts sending. The button follows is_sending, the same value as the
-    // interval, so it never says "stop" while nothing is being sent.
+    const note_id = useId();
+    // Samples only appear when at least one VR caption overlay log (small or large) is enabled (#1110).
+    // Closing settings only hides this page; it stays mounted, so stop the samples here too.
+    // Reopening settings or re-enabling a log does not restart them: only this button starts sending.
+    const has_enabled_overlay = currentIsEnabledOverlaySmallLog?.data === true || currentIsEnabledOverlayLargeLog?.data === true;
     const is_settings_open = currentIsOpenedConfigPage.data === true;
-    const is_sending = is_started && is_settings_open;
+    const is_sending = is_started && is_settings_open && has_enabled_overlay;
 
     useEffect(() => {
-        if (!is_settings_open) setIsStarted(false);
-    }, [is_settings_open]);
+        if (!is_settings_open || !has_enabled_overlay) setIsStarted(false);
+    }, [is_settings_open, has_enabled_overlay]);
 
     // t is the UI language's: the samples sent after a change of language (the VR panel's
     // settings can change it while this sends) are in the new one (#904).
@@ -761,6 +762,7 @@ const SendSampleTextToggleButton = () => {
     }, [is_sending, t]);
 
     const toggleFunction = () => {
+        if (!has_enabled_overlay) return;
         setIsStarted(is_settings_open && !is_started);
     };
 
@@ -776,7 +778,9 @@ const SendSampleTextToggleButton = () => {
                 type="button"
                 className={clsx(styles.sample_text_button, { [styles.is_started]: is_sending })}
                 onClick={toggleFunction}
+                disabled={!has_enabled_overlay}
                 aria-label={label}
+                aria-describedby={!has_enabled_overlay ? note_id : undefined}
             >
                 {is_sending ? (
                     <SquareSvg className={styles.sample_text_button_square_svg} aria-hidden="true" />
@@ -785,6 +789,11 @@ const SendSampleTextToggleButton = () => {
                 )}
                 <StableWords current={label} words={[t("config_page.vr.sample_text_button.start"), t("config_page.vr.sample_text_button.stop")]} />
             </button>
+            {!has_enabled_overlay && (
+                <p id={note_id} className={styles.sample_text_hint}>
+                    {t("config_page.vr.sample_text_button.needs_overlay")}
+                </p>
+            )}
         </div>
     );
 };
