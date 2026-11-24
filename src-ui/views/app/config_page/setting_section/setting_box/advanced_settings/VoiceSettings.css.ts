@@ -178,8 +178,9 @@ globalStyle(inForm("button.primary:active:enabled"), { background: vars.primary_
 globalStyle(inForm(":focus-visible"), { outline: ".2rem solid var(--primary_200_color, #80cbc4)", outlineOffset: ".3rem" });
 // A control that cannot be used is half as strong, as in shadcn/ui (disabled:opacity-50).
 globalStyle(inForm(":disabled"), { opacity: .5, cursor: "not-allowed" });
-// General description role: 1.2rem / 400 in the description color.
-globalStyle(inForm("p"), { fontSize: "1.2rem", lineHeight: 1.6, color: vars.vox_description_text, overflowWrap: "anywhere", textWrap: "pretty", maxWidth: "72ch" });
+// General description role: 1.2rem / 400 in the description color. Spans the form column (which
+// SettingSection already bounds) and prefers phrase-aware Japanese wrapping where supported (#1112).
+globalStyle(inForm("p"), { fontSize: "1.2rem", lineHeight: 1.6, color: vars.vox_description_text, overflowWrap: "anywhere", wordBreak: "auto-phrase", textWrap: "pretty" });
 // Links read as links (the same blue as the translation page's), not as the description around them.
 globalStyle(inForm("a"), { color: vars.primary_300_color, textDecoration: "underline" });
 globalStyle(inForm("a:hover"), { color: vars.primary_200_color });

@@ -217,13 +217,16 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    // What to fill in is the title's hint (#614); whose model it is stays in view, as a warning.
+    // What to fill in and the user's responsibility for provenance/terms sit in the fold's hint (#614, #1112).
     const help = t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine");
-    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")} hint={hints ? help : undefined}>
+    const terms = t("translation_catalog.terms_help");
+    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")} hint={hints ? `${help}\n${terms}` : undefined}>
         {/* The note about the translation-models folder leads here (revealSetting). */}
         <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)} data-setting-id={ENGINE_FORM_SETTING_ID}>
-            {!hints && <p>{help}</p>}
-            <p>{t("translation_catalog.terms_help")}</p>
+            {!hints && <>
+                <p>{help}</p>
+                <p>{terms}</p>
+            </>}
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}
             <label>{t("translation_catalog.field.name")}
                 <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
