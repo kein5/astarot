@@ -19,6 +19,10 @@ import type { AnySettingDefinition, CategoryApi, ConfigFunctions, SettingCategor
 
 
 // Each entry's default_value is checked against its setting's type (SettingValues in settingTypes.ts).
+// It is what the page shows before the backend's first answer, and after a read at start-up that
+// failed: the core's default (tools/spec_core_catalog.json), or an empty value where the page waits
+// for the core (a device, a model, a path, a number shown only once known). settingDefaults.test.ts
+// checks it.
 // Tests and tools/spec_catalog.py read these entries as text, so keep their keys in the order written.
 export const SETTINGS_ARRAY = [
     {
@@ -119,7 +123,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "EnableAutomaticMicThreshold",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "mic_automatic_threshold",
@@ -127,7 +131,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "MicThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "mic_threshold",
@@ -182,7 +186,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "EnableAutomaticSpeakerThreshold",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "speaker_automatic_threshold",
@@ -190,7 +194,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "SpeakerThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "speaker_threshold",
@@ -224,7 +228,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Appearance",
         Base_Name: "SendMessageButtonType",
-        default_value: "primary",
+        default_value: "show",
         ui_template_id: "select",
         logics_template_id: "get_set",
         base_endpoint_name: "send_message_button_type",
@@ -252,7 +256,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Appearance",
         Base_Name: "ShowResendButton",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "show_resend_button",
@@ -1155,7 +1159,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Others",
         Base_Name: "EnableAutoClearMessageInputBox",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "auto_clear_message_box",
@@ -1205,7 +1209,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Others",
         Base_Name: "EnableSendMessageToVrc",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "send_message_to_vrc",
@@ -1213,7 +1217,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Others",
         Base_Name: "EnableNotificationVrcSfx",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "notification_vrc_sfx",
@@ -1279,7 +1283,9 @@ export const SETTINGS_ARRAY = [
         // The one-time notice about usage events: {pending, enabled}. Nothing is sent while it is pending.
         Category: "Others",
         Base_Name: "TelemetryNotice",
-        default_value: { pending: false, enabled: true },
+        // What the core answers with its defaults: a notice never answered (TELEMETRY_NOTICE 0) and
+        // ENABLE_TELEMETRY on. The notice itself opens only on the core's answer (TelemetryNoticeController).
+        default_value: { pending: true, enabled: true },
         ui_template_id: "object",
         logics_template_id: "get_set",
         base_endpoint_name: "telemetry_notice",
@@ -1342,7 +1348,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "AdvancedSettings",
         Base_Name: "WebsocketPort",
-        default_value: 9001,
+        default_value: 2231,
         ui_template_id: "input",
         logics_template_id: "get_set",
         base_endpoint_name: "websocket_port",

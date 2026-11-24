@@ -116,6 +116,22 @@ for (const [field, code] of [
     assert.equal(renderToStaticMarkup(notice.key), branchAt(resources.ja.translation, "backend_errors")[code]);
 });
 
+// #1111: the refusal of a field's own save is said under the field, so no notice is shown as well;
+// the kept value is still put back. The same refusal at start-up, which no field waits for, is a notice.
+test("a field that waits for its own save says the refusal itself; otherwise the notice stays", async () => {
+    const fieldErrors = await import("./configs/fieldErrors.ts");
+    const s = await loadBridgeRoutes();
+    const refused = () => s.receiveRoutes({ status: 400, endpoint: "/set/data/lmstudio_url", result: {
+        error_code: "CONNECTION_LMSTUDIO_URL_INVALID", message: "The URL is invalid", data: "http://127.0.0.1:1234/v1",
+    } });
+    fieldErrors.awaitInlineAnswer("/set/data/lmstudio_url");
+    const before = s.notices.length;
+    refused();
+    assert.equal(s.notices.length, before, "no notice for the field's own save");
+    refused();
+    assert.equal(s.notices.length, before + 1, "a refusal no field waits for keeps its notice");
+});
+
 test("other backend notifications still resolve their message when received", async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "en", resources: {

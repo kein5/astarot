@@ -18,6 +18,7 @@ import * as meterValue from "../common/meterValue.ts";
 import * as utils from "../utils.ts";
 import * as uiConfigs from "../ui_configs.ts";
 import type { SettingCategory } from "../configs/config_page_setter/settingTypes.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -74,7 +75,7 @@ export const loadSettingsList = async () => {
         "@store": stores, "@utils": utils,
         "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices++; } }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...request: SentRequest) => { sent.push(request); return true; } }) },
-        "../../voice/saveBar": { setSaveBarEntry: () => {} },
+        "../../voice/saveBar": { setSaveBarEntry: () => {} }, "../fieldErrors.ts": fieldErrors,
     });
     const vrLayout: unknown = JSON.parse(read("../../views/vr/vr_layout.json"));
     const list = await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {

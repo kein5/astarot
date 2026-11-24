@@ -222,6 +222,7 @@ export const OcrWindowTitle_Box = () => {
         setFunction: setOcrWindowTitle,
         label: t("config_page.ocr.window_title.label"),
         autoSave: true,
+        endpoint: "/set/data/ocr_window_title",
         validate: value => value.trim() ? null : t("config_page.ocr.window_title.errors.empty"),
     });
 

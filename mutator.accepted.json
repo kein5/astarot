@@ -11,6 +11,10 @@
     "reason": "The flag set at the start is cleared by the first layout effect that runs while the window is not busy, before any list can open, and the snapshot it takes is taken again by open().",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:102:40 false -> true"
   },
+  "10ydtac908c": {
+    "reason": "A file in use is always prepared (isPrepared), so no button, hint or review reads whether it is downloaded.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:288:43 \"in_use\" -> \"\""
+  },
   "112xv3769bj": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1562:17 typeof settings[downloadKey] === \"function\" -> true"
@@ -35,6 +39,10 @@
     "reason": "No focus is ever given back to the swap by name: its change has no focus key and it opens no list.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:307:99 'swap' -> ''"
   },
+  "13wlj7t6vpy": {
+    "reason": "In the engine list only the user's own Whisper server has an address, and its base is CustomWhisper, so either half of the check picks the same engine.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:328:32 engine.base === \"CustomWhisper\" -> true"
+  },
   "145cbdox73o": {
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:345:8 [] -> [\"Stryker was here!\"]"
@@ -46,6 +54,10 @@
   "14ttwg4pcti": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
+  },
+  "15bmfmvy5bv": {
+    "reason": "Number.isFinite is false for every value that is not a number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:38:55 typeof value === \"number\" -> true"
   },
   "15jzkikf4ps": {
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
@@ -103,6 +115,14 @@
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
     "where": "src-ui/logics/configs/ocrReadiness.ts:34:81 1 - MIN_REGION_SIDE -> 1 + MIN_REGION_SIDE"
   },
+  "1br9ti7yycl": {
+    "reason": "String() returns a string unchanged, so a saved text reads the same either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:496:46 typeof value === \"string\" -> false"
+  },
+  "1bsq1yecy1": {
+    "reason": "A null answer stops at reading its settings either way, and null settings spread into the defaults add nothing, as undefined does.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:47:111 value !== null -> true"
+  },
   "1c147xa0ble": {
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
@@ -139,6 +159,10 @@
     "reason": "portalLostHandler is set only together with portalPaused = false for the current listener and clears itself when called, so a stale listener that calls it makes the one call the current listener would have made.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:122:21 portalListener === listener -> true"
   },
+  "1f8h6smysnc": {
+    "reason": "A placeholder string in place of the empty engine list has no id, so no provider counts as ready either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:80:55 [] -> [\"Stryker was here!\"]"
+  },
   "1fjwa755exf": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
     "where": "src-ui/logics/useReceiveRoutes.ts:880:24 existing.hook_name ?? gen.hook_name -> (existing.hook_name && gen.hook_name)"
@@ -174,6 +198,14 @@
   "1k9y12ngw01": {
     "reason": "The jump buttons are drawn only on the list of all languages, so groups worked out for another list are never shown.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:258:38 view.stage === 'list' -> true"
+  },
+  "1kfs0wk0kol": {
+    "reason": "watchDrag gives the zone the current drag state as soon as it is drawn, and until then nothing is over the zone, so its first paths are never read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.tsx:37:83 [] -> [\"Stryker was here!\"]"
+  },
+  "1l3qtflgmel": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the zone is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.tsx:57:8 [] -> [\"Stryker was here!\"]"
   },
   "1ll84fwbeth": {
     "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
@@ -251,6 +283,10 @@
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same values, so the entry already in the map is the same as the merged one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:883:9 mergedMap.set(ep, merged); -> ;"
   },
+  "1p3026bjvnt": {
+    "reason": "A model registered after the name was sent has a new id, which neither the same-name models nor all models had before.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:127:42 (userModels?.models ?? []).filter(model => sameName(model, … -> (userModels?.models ?? [])"
+  },
   "1pouqqozbmh": {
     "reason": "Download items always have a string id, so an undefined id matches none of them.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:28:22 id !== undefined -> true"
@@ -267,6 +303,10 @@
     "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:436:21 failedHotkeys.length > 0 -> failedHotkeys.length >= 0"
   },
+  "1rcl4beehcr": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:201:74 editVersion.current++ -> editVersion.current--"
+  },
   "1rwl7gcc3lw": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:70:41 ?. -> ."
@@ -274,6 +314,10 @@
   "1rwz6jofrjj": {
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
+  },
+  "1s2g9v9dc1x": {
+    "reason": "Only the speech output parts read the advice's multiple, and the translation is never one of them.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:52:96 false -> true"
   },
   "1sbns8owryj": {
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
@@ -286,6 +330,14 @@
   "1skl2ef3rqc": {
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> (target || dismissed !== target)"
+  },
+  "1suzns1hw39": {
+    "reason": "A placeholder string in place of the empty engine list has no id, so no engine is found for the provider either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:165:55 [] -> [\"Stryker was here!\"]"
+  },
+  "1taa8erx1ec": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:117:57 ?. -> ."
   },
   "1tfb5zpb0bt": {
     "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
@@ -343,6 +395,10 @@
     "reason": "totals is a fresh array made in this render and read nowhere else, and median sorts its own filtered copy, so reversing it in place gives History and the median the same values.",
     "where": "src-ui/views/app/io_flow/IoFlowView.tsx:123:60 totals.slice() -> totals"
   },
+  "1y6nn9jg4dj": {
+    "reason": "isUsersWeight is false for both the empty string and the placeholder, so a model not chosen yet reads the same.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:116:52 \"\" -> \"Stryker was here!\""
+  },
   "1ya2j45ox91": {
     "reason": "registerShortcuts runs pauseShortcuts, which sets portalPaused to true, before it can add the only listeners that read it, so its first value is never read.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:67:20 true -> false"
@@ -350,6 +406,10 @@
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
+  },
+  "1ydmcgr5ysb": {
+    "reason": "Registered is true only for the drawing that clears the form; every other run of the effect would clear a form already in its first state.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:119:13 !registered -> false"
   },
   "1z8ujwunu8k": {
     "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
@@ -363,6 +423,10 @@
     "reason": "pickedPresets reads null as not known and gives null, which is what the condition gives for it.",
     "where": "src-ui/logics/configs/usagePresets.ts:85:22 picked -> true"
   },
+  "20ewephnrds": {
+    "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:103 previous.filter(k => k !== kind) -> previous"
+  },
   "21k2093idx8": {
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
     "where": "src-ui/logics/configs/ocrReadiness.ts:33:17 \"x\" -> \"\""
@@ -371,9 +435,33 @@
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
   },
+  "21wjux6j1rf": {
+    "reason": "A placeholder string in place of the empty engine list is no engine's id, so no API counts as usable either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:289:69 [] -> [\"Stryker was here!\"]"
+  },
+  "22pgmoyzs0d": {
+    "reason": "With the managed microphone no device is left out either way: no device has an empty id or the placeholder as its id.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.tsx:78:117 \"\" -> \"Stryker was here!\""
+  },
+  "2368ydn5pix": {
+    "reason": "A null answer is read through optional chaining either way, so it gives no status and no settings.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:226:59 response !== null -> true"
+  },
+  "23vuj0oclob": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the readout is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:89:8 [] -> [\"Stryker was here!\"]"
+  },
+  "24jo37gggzz": {
+    "reason": "directSelectionPending is false on every page but the RVC page, so the condition is already false there.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:170:10 variant === \"rvc\" -> true"
+  },
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:342:37 !choiceDisabled(languageChoices[0]) -> true"
+  },
+  "24zxu15emhz": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:206:13 editVersion.current++ -> editVersion.current--"
   },
   "25k6f1g2t0u": {
     "reason": "Past the checks for false and true, response is a BackendResponse object (StdoutResult is boolean | BackendResponse), so the optional chain never meets null or undefined.",
@@ -382,6 +470,10 @@
   "25qaju8ilc2": {
     "reason": "Focus and key events always come from an element, which has closest.",
     "where": "src-ui/views/vr/VrPickerList.tsx:30:70 target !== null && \"closest\" in target -> true"
+  },
+  "25sdicfev8g": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:216:9 editVersion.current++ -> editVersion.current--"
   },
   "26n5qtqj0t6": {
     "reason": "A string has no is_downloaded, so the placeholder is filtered out as an empty list is.",
@@ -398,6 +490,18 @@
   "28ou3tlyuax": {
     "reason": "No wait is running when a change is sent: every answer and every outside preset change clears it, and a failed send starts none.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:218:9 clearTimeout(waitTimer.current); -> ;"
+  },
+  "29oq1f9r8wb": {
+    "reason": "The review button sets the consent to false before it opens the dialog, the only place the consent is read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:227:108 false -> true"
+  },
+  "2a5p3kvm66o": {
+    "reason": "The review button empties the acknowledged restrictions before it opens the dialog, the only place they are read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:229:64 [] -> [\"Stryker was here!\"]"
+  },
+  "2avvnkiwgfg": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:40:36 ?. -> ."
   },
   "2b6tgqf8zn0": {
     "reason": "This branch runs only when the platform is not Wayland, and minimizedByHotkey becomes true only after a press that found Wayland, an answer kept once it arrives, so minimized already holds false here.",
@@ -427,9 +531,21 @@
     "reason": "After unmount React drops the field's state updates, so whether a late answer still matches its request changes nothing, and saveFunction returns the answer either way.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:507:27 { submitted.current = null; } -> {}"
   },
+  "2dxpi3hi8px": {
+    "reason": "In the engine list only the user's own Whisper server has an address, and its base is CustomWhisper, so either half of the check picks the same engine.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:328:5 engine.has_url === true && engine.base === \"CustomWhisper\" -> (engine.has_url === true || engine.base === \"CustomWhisper\")"
+  },
   "2e4e7sbhs1t": {
     "reason": "choiceDisabled runs only for a drawn list, which is drawn only while the selectable list is an array.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:266:65 ?. -> ."
+  },
+  "2eezibvwmrf": {
+    "reason": "With no state, neither the empty string nor the placeholder is starting or stopping, so the tone is neutral either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.tsx:166:75 \"\" -> \"Stryker was here!\""
+  },
+  "2er7lurh4u5": {
+    "reason": "In the engine list only the user's own Whisper server has an address, and its base is CustomWhisper, so either half of the check picks the same engine.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:328:5 engine.has_url === true -> true"
   },
   "2f7jk5hea9s": {
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
@@ -471,6 +587,18 @@
     "reason": "The dependencies are constant either way, so the button listens once, from the first render to unmount.",
     "where": "src-ui/views/vr/VrLauncher.tsx:165:8 [] -> [\"Stryker was here!\"]"
   },
+  "3pndej1q12": {
+    "reason": "modelAdvice defaults to the time now and to a reserve, and the readout reads only the device and whether there are several GPUs, which depend on neither.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:91:47 { now: Date.now(), reserveBytes: reserveBytes(reserve) } -> {}"
+  },
+  "4ccr56bwqo": {
+    "reason": "With no saved model the setup line tests an empty name or the placeholder against .pth, and neither ends with it.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:150:61 \"\" -> \"Stryker was here!\""
+  },
+  "4js51107n4": {
+    "reason": "The save catches the error and reports save_unconfirmed, so its message is never shown.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:52:47 \"The answer to the direct voice settings is not an object.\" -> \"\""
+  },
   "4msvnjptkq": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
@@ -499,6 +627,10 @@
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:272:56 [] -> [\"Stryker was here!\"]"
   },
+  "7449xvj4rb": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:444:53 ?. -> ."
+  },
   "79znk3ng2h": {
     "reason": "matches() reads only the type of each default, so any string works.",
     "where": "src-ui/logics/common/initializationFields.ts:60:66 \"\" -> \"Stryker was here!\""
@@ -515,6 +647,18 @@
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
   },
+  "9mu2c7j4nw": {
+    "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:92 \"engine\" -> \"\""
+  },
+  "ad4vcjgb17": {
+    "reason": "Neither the empty string nor the placeholder is INPUT, so a key on a target without a tag registers nothing either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:103:125 \"\" -> \"Stryker was here!\""
+  },
+  "af2w1du4tn": {
+    "reason": "An extra entry that is no restriction kind is never asked for: canStart, startRequest and the boxes look only for the model's own kinds.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:375:37 [] -> [\"Stryker was here!\"]"
+  },
   "ajifqm3rrj": {
     "reason": "A description that is not a text cleans to an empty string, which the search drops, and the desc falls back to empty the same way.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:164:56 typeof (curTab[descKey] ?? enTab[descKey]) === \"string\" -> true"
@@ -530,6 +674,10 @@
   "c6vmy4mb16": {
     "reason": "reportConflict runs only with a key to report: conflict() is false without one and the plugin trial runs only for a key, so the fallback list is never used.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:355:97 [] -> [\"Stryker was here!\"]"
+  },
+  "ce42w7uh1l": {
+    "reason": "String() returns a string unchanged, so a saved key reads the same either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:416:46 typeof value === \"string\" -> false"
   },
   "czax1bhot4": {
     "reason": "default is the last case, so dropping its break changes nothing, and the rest of the block is a console.warn.",
@@ -575,6 +723,14 @@
     "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
     "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
   },
+  "guqzmwhrvi": {
+    "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:124 k !== kind -> true"
+  },
+  "h4g2h8vrz6": {
+    "reason": "A placeholder string in place of the empty file kinds names, letter by letter, no file of the model, so no file row is listed either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:43:51 [] -> [\"Stryker was here!\"]"
+  },
   "h6tvpaeh0v": {
     "reason": "Object.values of a number, a boolean or a function without fields is empty, so the list stays empty as before.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:109:9 typeof obj === \"object\" -> true"
@@ -586,6 +742,10 @@
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "iy86bs7o2g": {
+    "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:250:72 false -> true"
   },
   "iyjd0nsg2k": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
@@ -602,6 +762,10 @@
   "jfevsestlf": {
     "reason": "Only an empty preset makes the key main///, and then the window has no settings and its main screen is hidden and disabled, so the first focus lands nowhere either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:92:33 'main///' -> ''"
+  },
+  "kfu3fy4mla": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the editor is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:201:100 [] -> [\"Stryker was here!\"]"
   },
   "l62kc16xjp": {
     "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
@@ -635,9 +799,17 @@
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
     "where": "src-ui/logics/configs/useOcrSharedWindow.ts:42:9 [] -> [\"Stryker was here!\"]"
   },
+  "oopxwov29y": {
+    "reason": "Left unassigned the list is undefined, which the code reads like null: both make it join the names with commas.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:62:11 { list = null; } -> {}"
+  },
   "otvx9wvlug": {
     "reason": "The preset effect drops a waiting change whenever the preset moves to one it did not ask for, so an answer never finds the preset elsewhere.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:137:13 accepted.preset !== preset && accepted.nextPreset !== preset -> false"
+  },
+  "p4397r7301": {
+    "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:83 name === \"engine\" -> false"
   },
   "papf5i9aml": {
     "reason": "show runs only from the timer that update starts for a target that is not dismissed, and Escape clears that timer when it dismisses the target.",
@@ -683,6 +855,14 @@
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:234:74 -1 -> +1"
   },
+  "sjfitidyhe": {
+    "reason": "Closing leaves no dialog to read the acknowledged restrictions, and the review button empties them before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:250:96 [] -> [\"Stryker was here!\"]"
+  },
+  "sm8mrsxkct": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the controls are first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:815:8 [] -> [\"Stryker was here!\"]"
+  },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
@@ -703,6 +883,14 @@
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
   },
+  "tnp9kufx69": {
+    "reason": "This form never edits the engine (the RVC page's button switches it through the backend), so its label is never asked for.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:103 \"voice.vc_engine\" -> \"\""
+  },
+  "tptu4woutz": {
+    "reason": "The samples are already stopped whenever the settings are closed or no overlay is on, so stopping them on every other change of the two changes nothing.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:747:13 !is_settings_open || !has_enabled_overlay -> true"
+  },
   "tsn1jh1yn3": {
     "reason": "portalLost runs only through portalLostHandler, which a bind sets after registerShortcuts paused and so cleared any reconnect timer, and the timer is set only after the handler is cleared, so none is pending here.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:193:9 clearTimeout(portalReconnectTimer); -> ;"
@@ -715,9 +903,21 @@
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> false"
   },
+  "v674isy3ie": {
+    "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
+  },
+  "vb0q8etmm0": {
+    "reason": "On the RVC page the conversion is always shown and always RVC, so the other half of the condition is already true.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:160:10 variant === \"rvc\" -> false"
+  },
   "vxrnxibex": {
     "reason": "For a null response reply is null either way, so reply?.status reads undefined in both.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:475:59 response !== null -> true"
+  },
+  "w0wswwpeny": {
+    "reason": "Intl.ListFormat joins with \"conjunction\" by default, so the option changes nothing.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:61:48 { type: \"conjunction\" } -> {}"
   },
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",
@@ -746,6 +946,10 @@
   "xtm8t306kj": {
     "reason": "registrationOwner changes only right after pauseShortcuts bumps registrationGeneration, so a registration whose generation still matches always finds its owner in place.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:398:63 registrationOwner === owner -> true"
+  },
+  "xyzub5i6es": {
+    "reason": "A placeholder string in place of the empty engine list is no engine's id, so no API counts as usable either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:351:93 [] -> [\"Stryker was here!\"]"
   },
   "ybbgw54urq": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",

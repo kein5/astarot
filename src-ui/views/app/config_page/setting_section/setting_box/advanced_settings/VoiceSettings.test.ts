@@ -101,3 +101,21 @@ test("original microphone speech enables direct policy and the advanced status, 
         s.runtime.unmount();
     }
 });
+
+test("a language whose server the settings do not name uses the bundled one, and asks for no address", async () => {
+    const addressShown = (tree: unknown, role: string) => find(tree, node => node.type === "fieldset"
+        && node.props["aria-label"] === `speech_servers.${role} · voice.title`
+        && find(node, inner => typeof inner.props?.placeholder === "string" && inner.props.placeholder.startsWith("voice_ui.example")) !== null) !== null;
+    const serverChoice = (tree: unknown, role: string) =>
+        findIn(tree, node => node.type === "select" && node.props["aria-label"] === `speech_servers.${role}_selection`).props.value;
+    const unset = await setup({ japanese_voice: "none", multilingual_voice: "none" });
+    let tree = unset.render();
+    assert.deepEqual([serverChoice(tree, "japanese"), serverChoice(tree, "multilingual")], ["bundled", "bundled"]);
+    assert.deepEqual([addressShown(tree, "japanese"), addressShown(tree, "multilingual")], [false, false]);
+    unset.runtime.unmount();
+    const external = await setup({ japanese_server: "external", japanese_url: "http://x", multilingual_server: "bundled" });
+    tree = external.render();
+    assert.deepEqual([serverChoice(tree, "japanese"), serverChoice(tree, "multilingual")], ["external", "bundled"]);
+    assert.deepEqual([addressShown(tree, "japanese"), addressShown(tree, "multilingual")], [true, false]);
+    external.runtime.unmount();
+});
