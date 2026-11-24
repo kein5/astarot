@@ -49,6 +49,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
+import { Button } from "../../../../../kit/index.ts";
 
 import {
     deepl_auth_key_url,
@@ -149,7 +150,7 @@ export const RetiredModelsFolderNote = () => {
     const key = (name: "label" | "desc" | "open_add_form") => `config_page.translation.retired_models_folder.${name}`;
     return <div data-retired-models-folder>
         <FormRow group label={t(key("label"))} description={t(key("desc"))} fold={false} keepDescription>
-            <button type="button" onClick={() => revealSetting({ setting_id: ENGINE_FORM_SETTING_ID })}>{t(key("open_add_form"))}</button>
+            <Button onClick={() => revealSetting({ setting_id: ENGINE_FORM_SETTING_ID })}>{t(key("open_add_form"))}</Button>
         </FormRow>
     </div>;
 };

@@ -16,6 +16,7 @@ import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 // The two groups of the catalog, and an entry with the group it is in.
 type CatalogGroupId = "engine" | "api";
@@ -161,16 +162,17 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
             {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
                     <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
-                    <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
-                    <button type="button" disabled={busy} onClick={() => {
+                    <Button autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</Button>
+                    {/* The kit's danger Button: it removes something. */}
+                    <Button tone="danger" disabled={busy} onClick={() => {
                         setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
-                    }}>{t("translation_catalog.remove_do")}</button>
+                    }}>{t("translation_catalog.remove_do")}</Button>
                 </div>
                 : <div className={styles.actions}>
-                    {state !== "in_use" && <button type="button" className="primary" disabled={busy || state !== "ready"}
-                        onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</button>}
-                    <button type="button" disabled={busy || (group === "engine" && state === "in_use")}
-                        onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</button>
+                    {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"}
+                        onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</Button>}
+                    <Button tone="danger" disabled={busy || (group === "engine" && state === "in_use")}
+                        onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
                     {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
                 </div>}
         </div>
@@ -229,7 +231,7 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
             </>}
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}
             <label>{t("translation_catalog.field.name")}
-                <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
+                <TextField value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.engine_name")} onChange={set("name")} />
             </label>
             {/* The engine first: it says whether a folder or a file is asked for. */}
@@ -240,7 +242,8 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
                 </select>
             </label>
             <label>{t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}
-                <input type="text" value={form.folder} maxLength={4096} disabled={busy} spellCheck={false}
+                {/* A path, in the kit's monospaced font (#476). */}
+                <TextField mono value={form.folder} maxLength={4096} disabled={busy} spellCheck={false}
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("folder")} />
             </label>
             {llamacpp && <label>{t("translation_catalog.field.device")}
@@ -249,11 +252,11 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
                 </select>
             </label>}
             <label>{t("translation_catalog.field.languages")}
-                <input type="text" value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
+                <TextField value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.languages")} onChange={set("languages")} />
             </label>
             <div className={`${styles.actions} ${styles.control_column}`}>
-                <button type="button" disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</button>
+                <Button disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</Button>
             </div>
             {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
             <div className={styles.problem_slot}>
@@ -289,7 +292,7 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
             {!hints && <p>{t("translation_catalog.add_help.api")}</p>}
             <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
             <label>{t("translation_catalog.field.name")}
-                <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
+                <TextField value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.api_name")} onChange={set("name")} />
             </label>
             <label>{t("translation_catalog.field.protocol")}
@@ -299,7 +302,8 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
                 </select>
             </label>
             <label>{t("translation_catalog.field.url")}
-                <input type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
+                {/* An address, in the kit's monospaced font (#476). */}
+                <TextField mono type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
                     placeholder="http://192.168.1.10:8000/v1" aria-describedby={[`${id}-url`, urlWarning ? `${id}-url-warning` : null].filter(Boolean).join(" ")} onChange={set("url")} />
             </label>
             {/* What leaves the PC is one sentence in view; what the address may be and that it is checked
@@ -308,15 +312,16 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
             <Lead id={`${id}-url`} text={t("translation_catalog.url_lead")} details={t("translation_catalog.url_details")} />
             {urlWarning && <p id={`${id}-url-warning`} role="note">{urlWarning}</p>}
             <label>{t("translation_catalog.field.model")}
-                <input type="text" value={form.model} maxLength={200} disabled={busy} spellCheck={false}
+                <TextField value={form.model} maxLength={200} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.model")} onChange={set("model")} />
             </label>
             <label>{t("translation_catalog.field.key")}
-                <input type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
+                {/* A key, in the kit's monospaced font (#476); still a password field that is never filled in by the browser. */}
+                <TextField mono type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("auth_key")} />
             </label>
             <div className={`${styles.actions} ${styles.control_column}`}>
-                <button type="button" disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</button>
+                <Button disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</Button>
             </div>
             {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
             <div className={styles.problem_slot}>

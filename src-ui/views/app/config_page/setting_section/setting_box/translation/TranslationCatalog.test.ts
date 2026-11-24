@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, drawWith, find, findIn, hooks, loadModule, nodesIn, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, drawWith, find, findIn, hooks, loadModule, nodesIn, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
@@ -97,7 +97,7 @@ test("an added entry's card is what it is, its facts, then its notes and actions
         assert.ok(find(foot, node => classOf(node) === "actions"), `${id}: the actions are in the foot`);
         // What keeps an entry from running is said beside the actions it explains.
         assert.equal(find(foot, node => node.props?.role === "alert") !== null, id === "llm", id);
-        assert.equal(find(blocks[1], node => node.type === "button"), null, `${id}: the facts hold no action`);
+        assert.equal(find(blocks[1], node => node.type === "button" || node.type === kitStandIns.Button), null, `${id}: the facts hold no action`);
     }
     // A shipped entry is its head alone.
     const shipped = cards.get("shipped");
@@ -186,7 +186,7 @@ test("the API form's address says what it sends in one sentence, and warns of pl
     const api = hinted.forms[1];
     const lead = findIn(api, node => node.type === "lead" && node.props.text === "translation_catalog.url_lead");
     assert.equal(lead.props.details, "translation_catalog.url_details");
-    const url = findIn(api, node => node.type === "input" && node.props.type === "url");
+    const url = findIn(api, node => node.type === kitStandIns.TextField && node.props.type === "url");
     assert.equal(url.props["aria-describedby"], lead.props.id);
     assert.ok(!nodesIn(api).some(node => node.props?.role === "note"), "no warning for an empty address");
 });

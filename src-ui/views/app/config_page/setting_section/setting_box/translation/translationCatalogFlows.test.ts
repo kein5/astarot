@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, componentOf, drawWith, find, findIn, hooks, loadModule, nodesIn, treeNode, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, drawWith, find, findIn, hooks, loadModule, nodesIn, treeNode, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { loadBridgeRoutes } from "../../../../../../logics/test/bridgeHarness.ts";
 import { catalogAtom } from "../../../../../../logics/translation/translationCatalogState.ts";
@@ -102,16 +102,18 @@ function textOf(value: unknown): string {
 }
 const labelled = (tree: TreeNode, key: string) => {
     const label = findIn(tree, node => node.type === "label" && textOf(node).startsWith(key), `the field ${key}`);
-    return findIn(label, node => node.type === "input" || node.type === "select", `the control of ${key}`);
+    // The fields are the kit's TextField; the selects are still native (D-14).
+    return findIn(label, node => node.type === kitStandIns.TextField || node.type === "select", `the control of ${key}`);
 };
 const type = (tree: TreeNode, key: string, value: string) => labelled(tree, key).props.onChange({ target: { value } });
-const button = (tree: TreeNode, key: string) => findIn(tree, node => node.type === "button" && textOf(node) === key, `the button ${key}`);
+// The catalog's buttons are the kit's Button.
+const button = (tree: TreeNode, key: string) => findIn(tree, node => node.type === kitStandIns.Button && textOf(node) === key, `the button ${key}`);
 const alerts = (tree: TreeNode) => nodesIn(tree).filter(node => node.props?.role === "alert").map(textOf);
 // #912: a form's problem is said under its button, so the button stays under the pointer when the
 // problem appears.
 const underButton = (tree: TreeNode, words: string) => {
     const nodes = nodesIn(tree);
-    const at = nodes.findIndex(node => node.type === "button" && textOf(node) === words);
+    const at = nodes.findIndex(node => node.type === kitStandIns.Button && textOf(node) === words);
     const alert = nodes.findIndex(node => node.props?.role === "alert");
     assert.ok(at >= 0 && alert > at, `the problem (${alert}) after the button (${at})`);
     // In the line kept for it, which the form has before any problem.
@@ -193,7 +195,7 @@ test("an added engine entry is the user's, names its languages, is used with one
 
     reset(catalogWith([{ ...mine, in_use: true }]));
     const inUse = (await card(context, "engine", "tr-1"))();
-    assert.equal(find(inUse, node => node.type === "button" && textOf(node) === "translation_catalog.use.engine"), null);
+    assert.equal(find(inUse, node => node.type === kitStandIns.Button && textOf(node) === "translation_catalog.use.engine"), null);
     assert.equal(button(inUse, "translation_catalog.remove").props.disabled, true);
     assert.ok(textOf(inUse).includes("translation_catalog.remove_in_use"));
 });
@@ -338,4 +340,30 @@ test("on the translation page the catalog is a section of its own after More set
     const advanced = page.indexOf("</AdvancedSection>"), catalog = page.indexOf("<TranslationCatalogSection />");
     assert.ok(advanced > 0 && catalog > advanced, "the catalog comes after the More settings fold");
     assert.equal(page.indexOf("<TranslationCatalogSection />", catalog + 1), -1, "the catalog is drawn once");
+});
+
+// The forms' fields are the kit's TextField, never spell-checked; a path, an address and a key are
+// in the monospaced font. Add waits while there is no engine to run a model, and the card's actions
+// are the kit's primary Use and danger Remove.
+test("the forms' fields and the cards' actions are the kit's parts", async context => {
+    reset(catalogWith());
+    const engine = (await form(context, "engine"))();
+    const fields = ["translation_catalog.field.name", "translation_catalog.field.folder", "translation_catalog.field.languages"]
+        .map(key => labelled(engine, key));
+    assert.deepEqual(fields.map(field => [field.type === kitStandIns.TextField, field.props.spellCheck, field.props.mono ?? false]),
+        [[true, false, false], [true, false, true], [true, false, false]]);
+    assert.equal(button(engine, "translation_catalog.add_do").props.disabled, false);
+    reset(catalogWith([], [], []));
+    assert.equal(button((await form(context, "engine"))(), "translation_catalog.add_do").props.disabled, true, "no engine to run a model");
+    reset(catalogWith());
+    const api = (await form(context, "api"))();
+    const apiFields = ["translation_catalog.field.name", "translation_catalog.field.url", "translation_catalog.field.model", "translation_catalog.field.key"]
+        .map(key => labelled(api, key));
+    assert.deepEqual(apiFields.map(field => [field.props.type ?? "text", field.props.spellCheck, field.props.mono ?? false]),
+        [["text", false, false], ["url", false, true], ["text", false, false], ["password", false, true]]);
+    const mine: EngineItem = { id: "tr-1", weight: "user:tr-1", origin: "user", name: "My NLLB", runtime: "onnx",
+        folder: "C:\\Models", languages: ["ja"], available: true, in_use: false };
+    reset(catalogWith([mine]));
+    const ready = (await card(context, "engine", "tr-1"))();
+    assert.deepEqual([button(ready, "translation_catalog.use.engine").props.tone, button(ready, "translation_catalog.remove").props.tone], ["primary", "danger"]);
 });
