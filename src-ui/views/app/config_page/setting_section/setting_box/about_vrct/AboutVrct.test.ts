@@ -5,6 +5,7 @@ import i18next from "i18next";
 import clsx from "clsx";
 import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt, branchAt } from "../../../../../../logics/test/locales.ts";
+import { astarot_discord_invite_url } from "../../../../../../logics/ui_configs.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { ColorEntryWithSaveButtonProps } from "../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx";
 
@@ -25,9 +26,16 @@ for (const language of ["en", "ja"]) {
             ...images, "@useI18n": { useI18n: () => translation },
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
-            "@ui_configs": { upstream_vrct_document_url: () => "https://example.test/docs" },
+            "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
         });
         const tree = runtime.render(AboutVrct);
+        const topLinks = all(tree, node => node.type === "a" && node.props?.className === "vrct_vox_link");
+        const discordLink = topLinks.find(node => node.props.href === astarot_discord_invite_url);
+        assert.ok(discordLink, "official Discord link is rendered on About");
+        assert.equal(discordLink.props.target, "_blank");
+        assert.equal(discordLink.props.rel, "noreferrer");
+        assert.equal(discordLink.props.children, translation.t("config_page.about_vrct.links.discord"));
+        assert.ok(String(discordLink.props.children).length > 0 && !String(discordLink.props.children).startsWith("config_page."));
         const links = all(tree, node => node.props?.href_id);
         assert.equal(links.length, 9);
         const names = [];
