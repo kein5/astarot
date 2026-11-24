@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { Dispatch, ReactElement, SetStateAction } from "react";
+import type { Dispatch, KeyboardEvent, ReactElement, SetStateAction } from "react";
+import type { TargetHolder } from "../common/targetHolder.ts";
 import { useI18n } from "@useI18n";
 import type { StdoutResult } from "@useStdoutToPython";
 import { rebaseDraft } from "./draftRebase";
@@ -21,10 +22,18 @@ export interface SettingsDraftOptions<T> {
     // Turns the backend's answer to a write into the saved value.
     savedFromResponse?: (result: unknown) => T;
     patch?: boolean;
-    // Saves by itself (#1111): the caller saves the group when focus leaves it (submit), so
-    // nothing waits for the save bar and leaving the page asks nothing first (decided 4).
+    // Saves by itself (#1111): the group saves when focus leaves it (leave) and a choice in it at
+    // once (change), so nothing waits for the save bar and leaving the page asks nothing first
+    // (decided 3 and 4).
     autoSave?: boolean;
 }
+
+// What takes typed text, where Escape puts the group's saved values back.
+const typesText = (target: unknown): boolean => {
+    if (!isRecord(target)) return false;
+    if (target.tagName === "TEXTAREA") return true;
+    return target.tagName === "INPUT" && !["checkbox", "radio", "range", "button", "submit", "reset", "color", "file"].includes(String(target.type));
+};
 
 export interface SettingsDraft<T> {
     draft: DraftState<T>;
@@ -35,6 +44,17 @@ export interface SettingsDraft<T> {
     submit: (send: DraftWrite<T>) => Promise<void>;
     saveState: SaveState;
     navigationDialog: ReactElement | null;
+    // With autoSave (#1111, decided 3). `commit` saves the draft if it is changed and accepted, or
+    // once the save that waits ends. `change` edits the draft and saves it at once (a choice, a
+    // switch, a word added to a list). `group` is the element around the group's fields: `leave`
+    // (its blur, or a field's) saves when focus goes outside it, and Escape in a text field of the
+    // group (`escape`, its key down) puts the saved values back.
+    commit: (send?: DraftWrite<T>) => void;
+    change: (update: SetStateAction<DraftState<T>>) => void;
+    group: (element: TargetHolder | null) => void;
+    leaves: (event?: { relatedTarget: EventTarget | null }) => boolean;
+    leave: (event?: { relatedTarget: EventTarget | null }) => void;
+    escape: (event: Pick<KeyboardEvent<HTMLElement>, "key" | "target" | "preventDefault">) => void;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
@@ -157,6 +177,35 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
             updateError("save_unconfirmed");
         }
     };
+    // #1111, decided 3: the group saves when focus leaves it, a choice at once, and an edit made
+    // while a save waits once that save ends.
+    const accepted = (value: DraftState<T>) => value !== null && value !== undefined && !!(typeof canSave === "function" ? canSave(value) : canSave);
+    const again = useRef(false);
+    const commit = (send: DraftWrite<T> | undefined = write) => {
+        if (!autoSave || !send || !dirty) return;
+        if (saving) { again.current = true; return; }
+        if (accepted(draft)) void submit(send);
+    };
+    const [changeCount, setChangeCount] = useState(0);
+    const change = (update: SetStateAction<DraftState<T>>) => { setDraft(update); setChangeCount(count => count + 1); };
+    // The render after a change has the changed draft, which this render's commit reads.
+    const latestCommit = useRef(commit);
+    latestCommit.current = commit;
+    useEffect(() => { if (changeCount) latestCommit.current(); }, [changeCount]);
+    useEffect(() => { if (!saving && again.current) { again.current = false; latestCommit.current(); } }, [saving]);
+    const groupElement = useRef<TargetHolder | null>(null);
+    const group = (element: TargetHolder | null) => { groupElement.current = element; };
+    // Whether a blur takes focus outside the group (not from one of its fields to another).
+    const leaves = (event?: { relatedTarget: EventTarget | null }) => {
+        const next = event?.relatedTarget ?? null;
+        return !(next && groupElement.current?.contains(next));
+    };
+    const leave = (event?: { relatedTarget: EventTarget | null }) => { if (leaves(event)) commit(); };
+    const escapeKey = (event: Pick<KeyboardEvent<HTMLElement>, "key" | "target" | "preventDefault">) => {
+        if (!autoSave || event.key !== "Escape" || !dirty || saving || !typesText(event.target)) return;
+        event.preventDefault();
+        discard();
+    };
     const saveState: SaveState = failed || (!saving && awaitingResponse) ? "save_failed" : saving ? "saving" : dirty ? "unsaved" : "saved";
     const id = useId();
     // Fields saved together under one name (an engine voice's id and names) count as one change.
@@ -178,7 +227,7 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     }, [id, entryKey, !write]);
     useEffect(() => () => setSaveBarEntry(id, null), [id]);
     return {
-        draft, setDraft, dirty, saving, discard, submit, saveState,
+        draft, setDraft, dirty, saving, discard, submit, saveState, commit, change, group, leaves, leave, escape: escapeKey,
         // The form's own confirmation, for a page without the save bar's (Topbar.tsx), which asks
         // first where it is. Its two answers are one row, as the save bar's are.
         navigationDialog: leaving ? <dialog ref={dialog} onCancel={() => setLeaving(null)} aria-label={t("voice_ui.leave_title")}>

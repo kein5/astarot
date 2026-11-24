@@ -200,3 +200,54 @@ for (const autoSave of [false, true]) test(`a draft ${autoSave ? "that saves by 
     assert.equal(guards.length > 0, !autoSave);
     assert.equal(entries.length > 0, !autoSave);
 });
+
+// #1111, decided 3: a group that saves by itself. A choice saves at once, focus leaving the group
+// saves it (not focus moving inside it), an edit made while a save waits is saved once that save
+// ends, a refused draft is not sent, and Escape in a text field puts the saved values back.
+test("a group that saves by itself saves a choice at once, on leaving, and after the save that waits", async context => {
+    const runtime = hooks(), sent: Vocabulary[] = [], answers: ((response: unknown) => void)[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+    });
+    let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = value => {
+        assert.ok(isVocabulary(value));
+        sent.push(value);
+        return new Promise<StdoutResult>(resolve => answers.push(response => resolve(unchecked<StdoutResult>(response))));
+    };
+    const canSave = (draft: Vocabulary) => draft.model !== "";
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave, autoSave: true }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave, autoSave: true })); };
+    const answer = async (value: Vocabulary) => { saved = value; render(); answers.shift()?.({ status: 200, result: value }); await flush(); return render(); };
+    render();
+    // A choice: saved at once.
+    render().change(previous => previous && { ...previous, model: "new" });
+    render();
+    assert.deepEqual(sent.map(value => value.model), ["new"]);
+    // Typed while that save waits, and focus leaves: saved once the first save ends.
+    render().setDraft(previous => previous && { ...previous, vocabulary: { terms: ["VRChat"] } });
+    render().leave({ relatedTarget: null });
+    assert.equal(sent.length, 1);
+    await answer({ vocabulary: { terms: [] }, model: "new" });
+    assert.deepEqual(sent.at(-1)?.vocabulary.terms, ["VRChat"]);
+    await answer({ vocabulary: { terms: ["VRChat"] }, model: "new" });
+    // Focus moving inside the group saves nothing; leaving it saves.
+    const form = render(), inside = unchecked<EventTarget>({});
+    form.group({ contains: target => target === inside });
+    form.setDraft(previous => previous && { ...previous, vocabulary: { terms: ["Quest"] } });
+    render().leave({ relatedTarget: inside });
+    assert.equal(sent.length, 2);
+    // Escape in a checkbox does nothing; in a text field it puts the saved values back.
+    let prevented = 0;
+    render().escape({ key: "Escape", target: unchecked<EventTarget>({ tagName: "INPUT", type: "checkbox" }), preventDefault: () => { prevented++; } });
+    assert.deepEqual(render().draft?.vocabulary.terms, ["Quest"]);
+    render().escape({ key: "Escape", target: unchecked<EventTarget>({ tagName: "INPUT", type: "text" }), preventDefault: () => { prevented++; } });
+    assert.deepEqual([render().draft?.vocabulary.terms, prevented], [["VRChat"], 1]);
+    // A draft the form refuses is not sent.
+    render().setDraft(previous => previous && { ...previous, model: "" });
+    render().leave({ relatedTarget: null });
+    render().commit();
+    assert.equal(sent.length, 2);
+});

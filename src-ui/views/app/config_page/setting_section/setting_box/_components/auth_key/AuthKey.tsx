@@ -5,7 +5,7 @@ import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { FieldProblem } from "../field_problem/FieldProblem";
 import * as problemStyles from "../field_problem/FieldProblem.css.ts";
 import { useState, useRef, useEffect, useId } from "react";
-import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
+import type { ChangeEvent, FocusEvent, KeyboardEvent, ReactNode } from "react";
 
 export interface AuthKeyProps {
     label?: ReactNode;
@@ -19,7 +19,8 @@ export interface AuthKeyProps {
     // Saves by itself (#1111): Enter saves (an empty field deletes the key), leaving the field
     // saves through leaveFunction (an empty field keeps the key), and Escape puts the saved key back.
     autoSave?: boolean;
-    leaveFunction?: () => unknown;
+    // It gets the blur, which says where focus goes (a key in a pair).
+    leaveFunction?: (event?: FocusEvent<HTMLInputElement>) => unknown;
     onRevert?: () => void;
     // Why the key was not kept and what would do, said under the field (#1111).
     error?: string | null;
@@ -65,7 +66,7 @@ export const AuthKey = (props: AuthKeyProps) => {
             <div className={styles.entry_section_wrapper}>
                 <_Entry ref={entryRef} label={props.label} spellCheck={false} autoComplete="off" onChange={onChangeEntryAuthKey} onEnterPressed={handleEnterPressed} ui_variable={props.variable} readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={describedBy}
                     aria-invalid={error ? true : undefined}
-                    onBlur={autoSave ? () => { if (!is_disabled) (props.leaveFunction ?? props.saveFunction)(); } : undefined}
+                    onBlur={autoSave ? (event: FocusEvent<HTMLInputElement>) => { if (is_disabled) return; if (props.leaveFunction) props.leaveFunction(event); else props.saveFunction(); } : undefined}
                     onKeyDown={autoSave ? (event: KeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape") props.onRevert?.(); } : undefined} />
                 {is_editable
                 ? null
