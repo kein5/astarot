@@ -105,7 +105,7 @@ Before the per-screen tables, these are the hand-built elements that every scree
 | Location | Hand-built elements | Replacement | Difficulty | Complications |
 |---|---|---|---|---|
 | Top bar (`config_page/topbar/Topbar.tsx`) | The save, cancel and back `<button>` elements. The `<dialog>` that confirms leaving. The native `title` of the save summary (the list of changes joined with line breaks) | The kit's `Button`, the kit's `Dialog`, `Tooltip` | Medium | The summary tooltip has several lines, so check that `Tooltip` keeps the line breaks |
-| Settings rail (`config_page/sidebar_section/SidebarSection.tsx`) | The page-switching `<button>` elements (`aria-current="page"`). The native `title` shown with short names | The buttons stay as they are (they are navigation, so not Tabs, D-35). The descriptions of short names: `Tooltip` | Low | The rail widens on hover and focus, and the short names appear only when it is narrow |
+| Settings rail (`config_page/sidebar_section/SidebarSection.tsx`) | The page-switching `<button>` elements (`aria-current="page"`). The native `title` shown with short names | The buttons stay as they are (they are navigation, so not Tabs, D-35). The descriptions of short names: `Tooltip` (replaced, #1132) | Low | The rail widens on hover and focus, and the short names appear only when it is narrow |
 | Usage presets (`sidebar_section/usage_presets/UsagePresetSelector.tsx`) | An open and close button with `aria-expanded`, the native `title` in the compact rail, native checkboxes | Open and close: `Fold` or Collapsible (D-26); descriptions: `Tooltip`; checkboxes: `Checkbox` | Medium | Keep the rule that the last one cannot be cleared (`last`) and the way waiting is shown |
 | Settings search (`config_page/search_bar/SearchBar.tsx`) | A custom `role="combobox"` and its result list (`role="option"`), a clear button | U-02 | High | D-36, D-40 |
 
@@ -319,7 +319,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 場所 | 手作りしている要素 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|
 | 上のバー（`config_page/topbar/Topbar.tsx`） | 保存、取り消し、戻るの `<button>`。離れるときの確認の `<dialog>`。保存の要約のネイティブの `title`（変更の一覧を改行でつなぐ） | kit の `Button`、kit の `Dialog`、`Tooltip` | 中 | 要約の吹き出しは複数行なので、`Tooltip` で改行を保てるかを確かめます |
-| 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip` | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
+| 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip`（置き換えた、#1132） | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
 | 使い方のプリセット（`sidebar_section/usage_presets/UsagePresetSelector.tsx`） | `aria-expanded` の開閉のボタン、小さいレールでのネイティブの `title`、ネイティブのチェックボックス | 開閉は `Fold` か Collapsible（D-26）、説明は `Tooltip`、チェックボックスは `Checkbox` | 中 | 最後の 1 つは外せない規則（`last`）と待ちの表し方を保ちます |
 | 設定の検索（`config_page/search_bar/SearchBar.tsx`） | 自作の `role="combobox"` と結果の一覧（`role="option"`）、消すボタン | U-02 | 高 | D-36、D-40 |
 

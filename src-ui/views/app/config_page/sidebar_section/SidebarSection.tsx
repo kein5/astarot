@@ -30,6 +30,7 @@ import { visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
 import { isTabShown, pickedPresets } from "../../../../logics/configs/usagePresets.ts";
 import { UsagePresetSelector } from "./usage_presets/UsagePresetSelector.tsx";
 import type { SettingsMenuGroup } from "../../../../logics/configs/settingsMenu.ts";
+import { Tooltip } from "../../../common_components/tooltip/Tooltip";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -163,13 +164,15 @@ const Tab = (props: TabProps) => {
     // Every tab is one line, so the tabs are all the same height and the menu does not change
     // its layout with the language or the font. A feature's short name in brackets (「（ASR）」)
     // did not fit beside its name in the 20.8rem rail and took a second line; the menu shows the
-    // name, and the full name stays in the tooltip, for screen readers and on the page itself.
+    // name, and the full name stays in the app's tooltip (beside the rail, on the pointer and on
+    // keyboard focus), in the accessible name and on the page itself.
     const fullLabel = getLabel();
     const label = splitFeatureLabel(fullLabel);
 
     return (
+        <Tooltip bare placement="right" title={label.abbr ? fullLabel : undefined}>
         <button type="button" className={tab_container_class_names} aria-label={fullLabel} aria-current={is_selected ? "page" : undefined}
-            title={label.abbr ? fullLabel : undefined} onClick={onclickFunction}>
+            onClick={onclickFunction}>
             <div className={styles.tab_icon_wrapper} aria-hidden="true">
                 <TabIcon tab_id={props.tab_id} className={styles.tab_icon} />
             </div>
@@ -178,5 +181,6 @@ const Tab = (props: TabProps) => {
             })}>{label.name}</p>
             <div className={switch_indicator_class_names}></div>
         </button>
+        </Tooltip>
     );
 };
