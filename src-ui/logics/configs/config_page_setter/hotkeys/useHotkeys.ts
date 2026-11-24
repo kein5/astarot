@@ -176,7 +176,7 @@ export const useHotkeys = () => {
         pendingHotkeys();
         asyncStdoutToPython("/get/data/hotkeys");
     };
-    const { showNotification_SaveSuccess, showNotification_Error, showNotification_Warning, closeNotification } = useNotificationStatus();
+    const { showNotification_Error, showNotification_Warning, closeNotification } = useNotificationStatus();
 
     // The desktop's portal ended the session that holds the keys. Say so and bind once more after
     // a moment, when a restarted portal is back; a second loss within a minute is left to the
@@ -457,7 +457,6 @@ export const useHotkeys = () => {
 
     const setSuccessHotkeys = (hotkeys: Hotkeys) => {
         updateHotkeys(hotkeys);
-        showNotification_SaveSuccess();
     };
 
     return {

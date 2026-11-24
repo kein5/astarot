@@ -328,17 +328,8 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
 
     // // Config Page
     // Hotkeys
-    // Saved without an explicit save action (view preferences, direct manipulation, or internal
-    // flags): update the store with no "saved" notice.
+    // Saved after sharing a window, not from a settings control: no "saved" notice.
     { endpoint: "/set/data/ocr_portal_restore_token", ns: configs, hook_name: "useOcr", method_name: "updateFromBackendOcrPortalRestoreToken" },
-    { endpoint: "/set/data/catalog_layout", ns: configs, hook_name: "useAppearance", method_name: "updateFromBackendCatalogLayout" },
-    { endpoint: "/set/data/usage_presets", ns: configs, hook_name: "useUsagePresets", method_name: "updateFromBackendUsagePresets" },
-    { endpoint: "/set/data/tray_companion_wheel_hint_shown", ns: configs, hook_name: "useExperimentalFeatures", method_name: "updateFromBackendTrayCompanionWheelHintShown" },
-    { endpoint: "/set/data/overlay_desktop_placement", ns: configs, hook_name: "useVr", method_name: "updateFromBackendOverlayDesktopPlacement" },
-    { endpoint: "/set/data/overlay_vr_panel_anchor", ns: configs, hook_name: "useVr", method_name: "updateFromBackendOverlayVrPanelAnchor" },
-    { endpoint: "/set/enable/overlay_vr_panel_locked", ns: configs, hook_name: "useVr", method_name: "updateFromBackendOverlayVrPanelLocked" },
-    { endpoint: "/set/disable/overlay_vr_panel_locked", ns: configs, hook_name: "useVr", method_name: "updateFromBackendOverlayVrPanelLocked" },
-    { endpoint: "/set/data/overlay_vr_panel_font_size", ns: configs, hook_name: "useVr", method_name: "updateFromBackendOverlayVrPanelFontSize" },
     { endpoint: "/get/data/hotkeys", ns: configs, hook_name: "useHotkeys", method_name: "updateHotkeys" },
     // A new WebSocket and OBS token; the settings page says so where the button is.
     { endpoint: "/run/regenerate_websocket_auth_token", ns: configs, hook_name: "useAdvancedSettings", method_name: "updateFromBackendWebsocketAuthToken" },

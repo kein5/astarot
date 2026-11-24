@@ -93,8 +93,16 @@ test("switching catalog layout persists without showing the saved toast, while e
     const readToasts = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.seenToasts ?? "[]") as string[]);
     expect(await readToasts()).toEqual([]);
 
-    // Explicit save in settings still raises the saved toast.
+    // Immediate settings controls (such as toggles) also persist without raising the saved toast.
     await page.getByRole("button", { name: "Advanced", exact: true }).first().click();
+    const logToggle = page.getByRole("checkbox", { name: "Auto save message logs" });
+    const wasChecked = await logToggle.isChecked();
+    await logToggle.click();
+    await expect.poll(() => app.settings().LOGGER_FEATURE).toBe(!wasChecked);
+    await page.waitForTimeout(250);
+    expect(await readToasts()).toEqual([]);
+
+    // Explicit save in settings still raises the saved toast.
     const portInput = page.getByLabel("OSC port");
     await app.unfold(portInput);
     await portInput.fill("9005");

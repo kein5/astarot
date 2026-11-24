@@ -231,7 +231,7 @@ for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
     });
 }
 
-test("silent preference and internal-flag saves update state without raising the saved notice", async () => {
+test("settings routes update state without raising the saved notice (only explicit save-bar saves notify)", async () => {
     let saveNotices = 0;
     const s = await loadBridgeRoutes(async () => ({
         useNotificationStatus: () => ({
@@ -243,6 +243,7 @@ test("silent preference and internal-flag saves update state without raising the
         }),
     }));
     const silentCases: readonly [string, string, unknown][] = [
+        // View preferences, direct manipulation, and internal flags
         ["/set/data/ocr_portal_restore_token", "Atom_OcrPortalRestoreToken", "tok-1"],
         ["/set/data/catalog_layout", "Atom_CatalogLayout", "list"],
         ["/set/data/usage_presets", "Atom_UsagePresets", ["translation"]],
@@ -252,23 +253,17 @@ test("silent preference and internal-flag saves update state without raising the
         ["/set/enable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", true],
         ["/set/disable/overlay_vr_panel_locked", "Atom_OverlayVrPanelLocked", false],
         ["/set/data/overlay_vr_panel_font_size", "Atom_OverlayVrPanelFontSize", 20],
+        // Immediate settings controls and shared endpoints
+        ["/set/data/theme", "Atom_Theme", { preset: "custom", custom: { base: "#112233", accent: "#445566" } }],
+        ["/set/enable/osc_query", "Atom_EnableOscQuery", true],
+        ["/set/disable/vrc_mic_mute_sync", "Atom_EnableVrcMicMuteSync", false],
+        ["/set/data/overlay_vr_panel_opacity", "Atom_OverlayVrPanelOpacity", 0.8],
+        ["/set/data/tray_companion_edge", "Atom_TrayCompanionEdge", "left"],
+        ["/set/data/telemetry_notice", "Atom_TelemetryNotice", { pending: false, enabled: false }],
     ];
     for (const [endpoint, atomName, result] of silentCases) {
         s.receiveRoutes({ endpoint, status: 200, result });
         assert.deepEqual(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, atomName)).data, result, endpoint);
     }
     assert.equal(saveNotices, 0);
-
-    // Explicit settings saves keep raising the saved notice.
-    s.receiveRoutes({ endpoint: "/set/data/osc_port", status: 200, result: 9005 });
-    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_OscPort")).data, 9005);
-    assert.equal(saveNotices, 1);
-
-    s.receiveRoutes({ endpoint: "/set/data/deepl_auth_key", status: 200, result: "key-1" });
-    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_DeepLAuthKey")).data, "key-1");
-    assert.equal(saveNotices, 2);
-
-    s.receiveRoutes({ endpoint: "/delete/data/deepl_auth_key", status: 200, result: null });
-    assert.equal(s.runtime.store.get(settingAtom(s.stores.dynamicStoreRegistry, "Atom_DeepLAuthKey")).data, null);
-    assert.equal(saveNotices, 3);
 });

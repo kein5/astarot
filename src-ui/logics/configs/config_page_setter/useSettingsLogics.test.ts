@@ -17,8 +17,9 @@ async function setup(context: TestContext) {
     const runtime = hooks(), requests: PendingSave[] = [];
     context.onTestFinished(() => runtime.unmount());
     let entry: SaveBarEntry | null | undefined;
+    let saveNotices = 0;
     const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {},
+        "@store": {}, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) }, "@utils": {},
         "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
     });
     const props: SaveButtonLogicOptions = { variable: "old", state: "ok", label: "Field",
@@ -29,7 +30,7 @@ async function setup(context: TestContext) {
         return runtime.render(useSaveButtonLogic, props);
     };
     render();
-    return { props, requests, render, get entry() { return entry; } };
+    return { props, requests, render, get entry() { return entry; }, get saveNotices() { return saveNotices; } };
 }
 
 for (const result of [false, { status: 400, result: { data: "old" } }]) {
@@ -43,12 +44,14 @@ for (const result of [false, { status: 400, result: { data: "old" } }]) {
         assert.equal(s.render().variable, "attempted");
         assert.equal(s.entry?.saveState, "save_failed");
         assert.equal(s.entry?.edited, true);
+        assert.equal(s.saveNotices, 0);
         const retry = s.entry?.save();
         assert.equal(s.requests[1].value, "attempted");
         s.props.variable = "canonical"; s.render();
         s.requests[1].resolve({ status: 200, result: "canonical" }); await retry;
         assert.equal(s.render().variable, "canonical");
         assert.equal(s.entry?.saveState, "saved");
+        assert.equal(s.saveNotices, 1);
     });
 }
 
