@@ -3,6 +3,7 @@ import { test, vi } from "vitest";
 import { componentName, componentOf, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as ctranslate2License from "../../../../../../logics/configs/ctranslate2License.ts";
+import * as fieldChecks from "../../../../../../logics/configs/fieldChecks.ts";
 import * as endpointPrivacy from "../../../../../../logics/common/endpointPrivacy.ts";
 import * as setupNeeds from "../../../../../../logics/main/setupNeeds.ts";
 import * as localModelList from "../../../../../../logics/translation/localModelList.ts";
@@ -75,6 +76,7 @@ async function translationPage(options: PageOptions = {}) {
         "@ui_configs": uiConfigs,
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
         "../../../../../../logics/configs/ctranslate2License": ctranslate2License,
+        "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
         "../../../../../../logics/main/setupNeeds": setupNeeds,
         "../../../../../../logics/translation/localModelList": localModelList,
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
