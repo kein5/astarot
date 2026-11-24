@@ -22,8 +22,6 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
 | Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_setup.exe`。0.5.xまでは `VRCT-VOX_cuda.zip` も配布。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる |
-| Linuxデスクトップエントリー | `vrct-vox.desktop`（中の`Exec`と`StartupWMClass`は0.7.0から`astarot`） |
-| debとrpmのパッケージ名と置き場所 | `vrct-vox`、`/opt/vrct-vox`。0.7.0からは実行ファイルの`/opt/vrct-vox/astarot`とコマンド`/usr/bin/astarot`を入れ、0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する |
 
 ## 識別子と保存先
 
@@ -32,6 +30,7 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 | 対象 | 値 |
 |---|---|
 | 本体の実行ファイル | 0.7.0から`astarot`（Windowsは`astarot.exe`）。0.6.xまでは`vrct-vox`（`vrct-vox.exe`）。Cargoの`[[bin]]`と`tauri.conf.json`の`mainBinaryName`で決める（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）も0.6.0より後の版から`astarot`）。Linuxのウィンドウのクラスと`StartupWMClass`はこの名前に従う。Windowsのインストーラーは更新のときに`vrct-vox.exe`を置き換え、自分が作ったショートカットを付け替える（[本体の実行ファイルの名前](../spec/data-and-persistence.md#本体の実行ファイルの名前)） |
+| Linuxのパッケージ | 0.7.0から、debとrpmのパッケージ名は`astarot`で、`/opt/astarot`に入り、コマンド`/usr/bin/astarot`、デスクトップエントリー`astarot.desktop`（`Exec`と`StartupWMClass`も`astarot`）、アイコン`astarot.png`を置く。AppImageの中の同梱のファイルは`usr/lib/astarot`、tar.gzは`ASTAROT`に展開する。0.6.xまではどれも`vrct-vox`（tar.gzは`VRCT-VOX`）。新しいパッケージは旧のパッケージ`vrct-vox`を置き換え、0.7.xの間は`/usr/bin/vrct-vox`も同じ実行ファイルを起動する（[Linuxのパッケージの名前](../spec/data-and-persistence.md#linuxのパッケージの名前)） |
 | TauriアプリID | 0.7.0から`io.github.kein5.astarot`（0.6.xまでは`io.github.kein5.vrct-vox`）。Tauriのデータのフォルダー、Waylandのportalのアプリ、単一起動の名前がこのIDに従う |
 | Linuxの設定保存先 | 0.6.0から`$XDG_CONFIG_HOME/astarot`、既定は`~/.config/astarot`。0.5.xの`vrct-vox`は起動の最初に移し、旧名には新しいフォルダーを指すリンクを0.6.xの間残す（[Linuxの保存先の移動](../spec/data-and-persistence.md#linuxの保存先の移動)） |
 | Linuxのデータ保存先 | 0.6.0から`$XDG_DATA_HOME/astarot`、既定は`~/.local/share/astarot`。移し方は設定保存先と同じ |

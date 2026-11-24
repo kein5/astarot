@@ -11,11 +11,16 @@ Add `--appimage --download-appimage-tools` for an additional inspected AppImage;
 see [AppImage build and acceptance](appimage.md). The CI builds both formats.
 
 The CI then makes a `.deb` and an `.rpm` from the same candidate directory with
-`python3 tools/linux_packages.py --candidate build/linux/candidate/VRCT-VOX --output-dir build/linux/artifacts`
-(needs `dpkg-deb` and `rpmbuild`). They install the unchanged files under `/opt/vrct-vox`,
-add the command `/usr/bin/astarot` (and `/usr/bin/vrct-vox`, the command up to 0.6.x, which
-starts the same executable), a desktop entry, an icon and the license notices, and write
-`/opt/vrct-vox/package-manager` (`deb` or `rpm`) so the app can tell a package-manager install.
+`python3 tools/linux_packages.py --candidate build/linux/candidate/ASTAROT --output-dir build/linux/artifacts`
+(needs `dpkg-deb` and `rpmbuild`). The package is `astarot`. It installs the unchanged files under
+`/opt/astarot`, adds the command `/usr/bin/astarot`, a desktop entry (`astarot.desktop`), an icon
+(`astarot.png`) and the license notices, and writes `/opt/astarot/package-manager` (`deb` or
+`rpm`) so the app can tell a package-manager install. Up to 0.6.x the package was `vrct-vox`, under
+`/opt/vrct-vox`. The new package replaces it: the deb conflicts with, replaces and provides
+`vrct-vox`, and the rpm obsoletes and provides it, so installing the new file removes the old
+package. The command up to 0.6.x, `/usr/bin/vrct-vox`, starts the same executable during 0.7.x
+(`LEGACY_COMMAND_UNTIL` in `tools/linux_packages.py`). The CI installs a stand-in of the old
+package first (`tools/ci/legacy_linux_packages.py`) and checks that it is replaced.
 They require glibc (the highest version the manifest records), GTK 3, WebKitGTK 4.1 and
 libpipewire. The Vulkan loader (`libvulkan1`, `vulkan-loader`), the Mesa Vulkan drivers and the
 PipeWire tools are recommended: the Vulkan build of speech.cpp loads the loader from the system,
@@ -123,10 +128,10 @@ cd build/linux/artifacts
 sha256sum -c ./*.tar.gz.sha256
 # Inspect with tools/linux_package.py before extracting an independently obtained candidate.
 tar -xzf VRCT-VOX-<version>-linux-x64-release.tar.gz
-./VRCT-VOX/astarot
+./ASTAROT/astarot
 ```
 
-The full `VRCT-VOX` directory must stay together. The host supplies WebKitGTK 4.1,
+The archive unpacks to `ASTAROT` (`VRCT-VOX` up to 0.6.x). The full directory must stay together. The host supplies WebKitGTK 4.1,
 GTK3, OpenSSL, PipeWire/tools, the Vulkan loader for the GPU choices and other system
 ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may

@@ -39,12 +39,13 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
     assert any(p["name"] == "astarot" and p["version"] == cargo["package"]["version"] for p in cargo_lock["package"])
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     assert [b["name"] for b in cargo["bin"]] == ["astarot"] == [conf["mainBinaryName"]]
-    desktop = (ROOT / "packaging/appimage/vrct-vox.desktop").read_text(encoding="utf-8")
+    desktop = (ROOT / "packaging/appimage/astarot.desktop").read_text(encoding="utf-8")
     # Name is only shown in menus (ADR-011 P1); the file name, Exec, Icon and StartupWMClass identify the app.
     # Exec and StartupWMClass follow the executable (ADR-014, 2.6); the file name and the icon are
-    # the Linux package's (2.7).
+    # the Linux package's (2.7). All of them are astarot from 0.7.0.
+    assert not (ROOT / "packaging/appimage/vrct-vox.desktop").exists()
     assert "Name=ASTAROT\n" in desktop and "Exec=astarot\n" in desktop
-    assert "Icon=vrct-vox\n" in desktop and "StartupWMClass=astarot\n" in desktop
+    assert "Icon=astarot\n" in desktop and "StartupWMClass=astarot\n" in desktop
     # The AppImage starts the GUI only; the backend core runs inside it.
     assert not (ROOT / "packaging/appimage/sidecar").exists()
     assert not (ROOT / "spec").exists(), "no PyInstaller build is left"

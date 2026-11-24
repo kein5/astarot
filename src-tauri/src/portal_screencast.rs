@@ -153,7 +153,7 @@ fn started(results: &HashMap<String, OwnedVariant>) -> Result<(u32, Started), St
 }
 
 /// Where the helper may be: next to the packaged backend (the archive keeps it beside the app, the
-/// AppImage under `usr/lib/vrct-vox` while the app is in `usr/bin`), or in the checkout a
+/// AppImage under `usr/lib/astarot` while the app is in `usr/bin`), or in the checkout a
 /// development build came from.
 fn helper_candidates(executable: &Path, checkout: Option<&Path>) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
@@ -728,13 +728,13 @@ mod tests {
     #[test]
     fn the_helper_is_looked_for_in_the_package_then_in_the_checkout() {
         // The archive: the app sits beside `_internal`.
-        let packaged = helper_candidates(Path::new("/opt/VRCT-VOX/astarot"), None);
-        assert_eq!(packaged[0], PathBuf::from("/opt/VRCT-VOX/_internal/build/astarot-screen-capture"));
-        // The AppImage: the app is in usr/bin, the backend's files under usr/lib/vrct-vox.
+        let packaged = helper_candidates(Path::new("/opt/astarot/astarot"), None);
+        assert_eq!(packaged[0], PathBuf::from("/opt/astarot/_internal/build/astarot-screen-capture"));
+        // The AppImage: the app is in usr/bin, the backend's files under usr/lib/astarot.
         let appimage = helper_candidates(Path::new("/tmp/.mount_x/usr/bin/astarot"), None);
         assert_eq!(appimage, vec![
             PathBuf::from("/tmp/.mount_x/usr/bin/_internal/build/astarot-screen-capture"),
-            PathBuf::from("/tmp/.mount_x/usr/lib/vrct-vox/_internal/build/astarot-screen-capture"),
+            PathBuf::from("/tmp/.mount_x/usr/lib/astarot/_internal/build/astarot-screen-capture"),
         ]);
         let development = helper_candidates(Path::new("/src/src-tauri/target/debug/astarot"), Some(Path::new("/src")));
         assert_eq!(development.last(), Some(&PathBuf::from("/src/build/astarot-screen-capture")));

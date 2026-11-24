@@ -12,7 +12,7 @@
 //! Linux, on the managed route of a private PipeWire graph:
 //!
 //! cargo run --release --locked --features pipewire --manifest-path native/core/Cargo.toml
-//!     --example live_speech -- --app-dir <extracted package>/usr/lib/vrct-vox
+//!     --example live_speech -- --app-dir <extracted package>/usr/lib/astarot
 //!     --state-dir <empty folder> --model <Irodori GGUF> --route managed --private-pipewire
 //!
 //! The core runs in this process as the application runs it, with the bundled speech.cpp of
