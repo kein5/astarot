@@ -20,30 +20,13 @@ export const channel = style({
     color: vars.vox_description_text,
 });
 
-// Install (primary) before Check; they wrap under each other in a narrow window.
+// Install (the kit's primary Button) before Check (its quiet Button, an outline beside the filled
+// one, Updater.tsx); they wrap under each other in a narrow window.
 export const actions = style({
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
     gap: "1.2rem",
-});
-
-// An outline beside Install: with no fill, its border is its only edge, so it is the field
-// border (DESIGN.md "Colors"), like the forms' quiet buttons.
-export const check_button = style({
-    backgroundColor: "transparent",
-    color: vars.dark_basic_text_color,
-    border: `0.1rem solid ${vars.vox_field_border}`,
-    borderRadius: "0.4rem",
-    padding: "1.2rem 2.4rem",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    selectors: {
-        "&:hover:not(:disabled)": { borderColor: vars.dark_500_color },
-        "&:active:not(:disabled)": { backgroundColor: vars.dark_800_color },
-        "&:disabled": { opacity: 0.5, cursor: "not-allowed" },
-    },
 });
 
 /* ===== Update Summary ===== */
@@ -110,23 +93,6 @@ export const up_to_date_desc = style({
     fontWeight: 500,
     color: vars.dark_basic_text_color,
     lineHeight: 1.3,
-});
-
-export const install_button = style({
-    backgroundColor: vars.primary_600_color,
-    color: vars.vox_on_primary,
-    border: "none",
-    borderRadius: "0.4rem",
-    padding: "1.2rem 3.2rem",
-    fontSize: "1.6rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    marginTop: 0,
-    selectors: {
-        "&:hover": { backgroundColor: vars.primary_500_color },
-        "&:active": { backgroundColor: vars.primary_700_color },
-        "&:disabled": { backgroundColor: vars.dark_800_color, color: vars.dark_500_color, opacity: 0.5, cursor: "not-allowed" },
-    },
 });
 
 /* ===== Change preview (diff table) inside summary ===== */

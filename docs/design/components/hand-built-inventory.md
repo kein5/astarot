@@ -133,7 +133,7 @@ Page names are the names the app shows (here in English).
 | Hotkeys | `hotkeys/Hotkeys.tsx`, `_components/hotkeys_entry/HotkeysEntry.tsx` | The button that opens Quick Chat, the button that clears a hotkey | The kit's `Button` | Low | The rest uses the row family |
 | Advanced | `advanced_settings/AdvancedSettings.tsx`, `GpuCheck.tsx` | The `<dialog>` that confirms re-creating the connection key, the GPU check's start, stop, copy and report buttons | The kit's `Dialog`, the kit's `Button` | Medium | The GPU check's table corresponds to Table ("Other components" in the comparison document) |
 | Experimental | `experimental_features/ExperimentalFeatures.tsx` | None (only the row family) | — | — | — |
-| Updater | `updater/Updater.tsx` | The install and check `<button>` elements (with their own classes) | The kit's `Button` | Low | — |
+| Updater | `updater/Updater.tsx` | The install and check `<button>` elements (with their own classes) | The kit's `Button` (replaced, #1129) | Low | — |
 | Chat reading (OCR) | `ocr/OcrModels.tsx` | `<progress>`, the consent `<dialog>` and its checkbox, the download and cancel buttons | The kit's `Dialog`, the kit's `Button`, U-05 | Medium | — |
 |  | `ocr/OcrSharedWindow.tsx`, `OcrRegions.tsx`, `OcrStatus.tsx` | The share, stop sharing and reset `<button>` elements (the `resetButton` class, `aria-disabled`) | The kit's `Button` | Medium | The share button uses `aria-disabled`, not `disabled`, so that focus stays on the button while the desktop's share confirmation is open (related to D-07) |
 | Other (VRChat) | `vrchat/Vrchat.tsx`, `_components/word_filter/WordFilter.tsx`, `_components/message_format/MessageFormat.tsx` | The add and delete `<button>` elements of the word filter, the `div role="button"` that swaps parts of the message format | The kit's `Button` | Low | Both are inside shared components, and several pages use them |
@@ -347,7 +347,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | Quick Chat を開くボタン、ショートカットを消すボタン | kit の `Button` | 低 | ほかは行の部品の系統です |
 | 高度な設定 | `advanced_settings/AdvancedSettings.tsx`、`GpuCheck.tsx` | 接続用のキーを作り直すかを確かめる `<dialog>`、GPU の確認の始める・止める・写す・報告するボタン | kit の `Dialog`、kit の `Button` | 中 | GPU の確認の表は Table に当たります（照合の文書の「そのほか」） |
 | 実験的機能 | `experimental_features/ExperimentalFeatures.tsx` | なし（行の部品の系統だけ） | — | — | — |
-| アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button` | 低 | — |
+| アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button`（置き換えた、#1129） | 低 | — |
 | チャット読み取り（OCR） | `ocr/OcrModels.tsx` | `<progress>`、同意の `<dialog>` とチェックボックス、取得と取り消しのボタン | kit の `Dialog`、kit の `Button`、U-05 | 中 | — |
 |  | `ocr/OcrSharedWindow.tsx`、`OcrRegions.tsx`、`OcrStatus.tsx` | 共有と解除と戻すの `<button>`（`resetButton` のクラス、`aria-disabled`） | kit の `Button` | 中 | 共有のボタンは `disabled` ではなく `aria-disabled` です。デスクトップの共有の確認が開いている間も、フォーカスをボタンに残すためです（D-07 と関係します） |
 | その他（VRChat） | `vrchat/Vrchat.tsx`、`_components/word_filter/WordFilter.tsx`、`_components/message_format/MessageFormat.tsx` | ワードフィルターの追加と削除の `<button>`、メッセージの形の入れ替えの `div role="button"` | kit の `Button` | 低 | どちらも共通の部品の中にあり、使うページが複数あります |
