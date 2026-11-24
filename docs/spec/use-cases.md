@@ -136,8 +136,8 @@ What the user does with ASTAROT. For each use case, this file gives the trigger,
 ## UC-12 Change and save settings, or discard the change
 
 - Trigger: The user changes a value on the settings screen.
-- Main flow: Switches and selections are saved on the spot. Text fields and voice forms are counted as unsaved in the save bar; "Save" saves them, and "Discard" puts them back.
-- When it goes wrong: A value that fails validation is not saved; it goes back to the original value and the reason is shown. Trying to leave with unsaved changes asks for confirmation.
+- Main flow: Every setting saves by itself (#1111). Switches and selections are saved on the spot; a text field on Enter or when focus leaves it, and a group of fields when focus leaves the group. Escape puts a typed value back.
+- When it goes wrong: A value that fails validation is not sent; the reason and what kind of value would do are shown under the field, and the value stays to be fixed. Leaving the page drops it without asking.
 - Related: [Saving settings](cross-cutting.md#設定の保存).
 
 ## UC-13 View and operate in VR
@@ -365,8 +365,8 @@ What the user does with ASTAROT. For each use case, this file gives the trigger,
 ## UC-12 設定を変えて保存する、またはやめる
 
 - きっかけ: 設定画面で値を変える。
-- 主な流れ: スイッチや選択はその場で保存する。文字の欄と音声のフォームは保存バーに未保存として数え、「保存」で保存、「破棄」で元に戻す。
-- うまくいかないとき: 検証に通らない値は保存せず、元の値に戻して理由を示す。未保存のまま離れようとすると確かめる。
+- 主な流れ: どの設定も自分で保存する（#1111）。スイッチや選択はその場で、文字の欄はEnterか欄を離れたとき、組の欄はフォーカスが組の外に出たときに保存する。打った値はEscで元に戻す。
+- うまくいかないとき: 検証に通らない値は送らず、理由とどんな値ならよいかを欄の下に示し、値は直せるように残す。そのままページを離れると、何も聞かずに捨てる。
 - 関係: [設定の保存](cross-cutting.md#設定の保存)。
 
 ## UC-13 VRの中で見る・操作する

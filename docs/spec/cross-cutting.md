@@ -44,14 +44,18 @@ Errors reach the UI by 4 paths.
 | Kind of control | When it is saved | Examples |
 |---|---|---|
 | Switches, radio buttons, selects, sliders | `/set/data/…` is sent when it is operated | Opacity, the UI language, the translation engine |
-| Text fields (Settings) | When "Save" on the save bar at the top is pressed | The OSC port, API keys, URLs |
-| Voice settings forms (TTS, RVC, speech server, the audio route of a device) | When "Save" on the save bar is pressed | The voice name, the model path |
+| Text fields (Settings) | On Enter, or when focus leaves the field, once the field's check accepts the value | The OSC port, API keys, URLs |
+| Groups of fields (the TLS certificate and key, an address and its key, the TTS, RVC, speech server, audio route, realtime caption and message format forms) | A choice, a switch or a list edit in it at once, a slider when let go; typed text on Enter or when focus leaves the group and every field in it is accepted | The voice name, the model path |
 
-- The save bar is the single place to save, and it is fixed at the top of the screen. It counts unsaved changes and marks the changed rows (`DESIGN.md`).
-- Moving to another page or closing Settings with unsaved changes shows a confirmation dialog. "Keep editing" stays, and "Discard and leave" drops the changes and moves on (`src-ui/views/app/config_page/topbar/Topbar.tsx`).
-- Adding and removing word filter entries, and the formats of sent and received messages, are also saved or discarded with the save bar. Resetting a format and changing the order of original and translation apply to the value being edited, and Enter in the input field saves that format.
-- Text fields, the word filter and message formats confirm a save on a success response to the request they sent. A send failure, a rejection or a response timeout does not mark them "Saved": the edits stay, and they can be retried or discarded. A failed edit does not overwrite a confirmed value.
-- The pending change "Switch to RVC" made when the RVC page opens is not an edit, so it does not ask for confirmation.
+Every setting saves by itself; there is no save button (#1111). The top bar of every settings page but About says that its changes apply at once (`DESIGN.md`).
+
+- Escape in a text field puts the saved value back (in a group, the group's saved values).
+- An API key or another credential left empty keeps the saved value; only Enter on the empty field deletes it.
+- A value a field refuses is not sent. What is wrong and what kind of value would do is said under the field, which is marked invalid. A refusal by the core of a field's own save is said there too, in the words of its error code, and no notice is shown as well; the core's other reports on the same endpoint keep their notice.
+- A field or group confirms a save on a success response to the request it sent. A send failure, a rejection or a response timeout does not confirm it: the edit stays and can be fixed and saved again, or put back with Escape. A failed edit does not overwrite a confirmed value. A word filter whose save failed goes back to the saved list and says so.
+- A field stays usable while a save waits; an edit made meanwhile is saved once that save ends.
+- No "saved" notice is shown. Leaving a page or closing Settings with a refused or unsaved value drops it, and nothing asks first.
+- Selecting RVC on the RVC page is its own button; opening the page saves nothing.
 - The voice, RVC, speech server and real-time speech recognition forms confirm a save on a success response to the save request they sent themselves. If whitespace in the dictionary or similar was normalized, they take the returned value and keep only the fields edited after sending. A state re-read or a response to another save request does not confirm the save. Without a response within 5 seconds, the edits are kept as unconfirmed, and a late success response to that request is still accepted. An old response that arrives after a discard or a new save does not confirm the newer edits.
 
 - The TTS, audio route and TTS output forms send only the changed fields to `/set/data/voice_settings`. Inside the voice settings lock, the sidecar lays them over the current settings, validates the whole and then switches the route and saves. Omitted fields are kept, and the success response returns the full settings. The conditions for stopping direct voice when the route changes do not change.
@@ -308,14 +312,18 @@ Appearance, interaction, keyboard operation, focus indicators, contrast, narrow 
 | 操作の種類 | 保存のタイミング | 例 |
 |---|---|---|
 | スイッチ、ラジオボタン、選択欄、スライダー | 操作した時点で`/set/data/…`を送る | 透明度、UIの言語、翻訳エンジン |
-| 文字の入力欄（設定画面） | 上部の保存バーの「保存」を押したとき | OSCのポート、APIキー、URL |
-| 音声の設定フォーム（TTS、RVC、音声サーバー、デバイスの音声経路） | 保存バーの「保存」を押したとき | 声の名前、モデルのパス |
+| 文字の入力欄（設定画面） | Enterを押すか欄からフォーカスが外れたとき、欄の検査で受け付けた値を保存する | OSCのポート、APIキー、URL |
+| 組の欄（TLSの証明書と秘密鍵、アドレスとそのキー、TTS、RVC、音声サーバー、音声経路、リアルタイム字幕、メッセージ書式のフォーム） | 選択、スイッチ、一覧の変更はすぐ、スライダーは離したとき。打った文字はEnterか、フォーカスが組の外に出て組の全部の欄を受け付けられるとき | 声の名前、モデルのパス |
 
-- 保存バーは保存の入口を1つにまとめたもので、画面の上部に固定されている。未保存の件数を数え、変更した行に印を付ける（`DESIGN.md`）。
-- 未保存の変更があるまま別のページへ移るか設定を閉じると、確認のダイアログを出す。「編集を続ける」なら留まり、「破棄して移動」なら変更を捨てて移る（`src-ui/views/app/config_page/topbar/Topbar.tsx`）。
-- 単語フィルターの追加・削除と送受信メッセージの書式も、保存バーで保存・破棄する。書式のリセットと原文・訳文の順序変更は編集中の値に反映し、入力欄のEnterでその書式を保存できる。
-- 文字入力欄、単語フィルター、メッセージ書式は、送った要求への成功応答で保存を確定する。送信失敗・拒否・応答待ちの期限切れでは「保存済み」にせず、編集内容を残して再試行または破棄できる。確定済みの値は失敗した編集で上書きしない。
-- RVCページを開いたときの「RVCに切り替える」という保留中の変更は、編集ではないので確認しない。
+どの設定も自分で保存し、保存のボタンはない（#1111）。About以外の設定のページは、上のバーで変更がすぐに反映されることを伝える（`DESIGN.md`）。
+
+- 文字の欄でEscを押すと、保存してある値に戻す（組では組の保存してある値）。
+- APIキーなどの認証情報は、空のまま欄を離れても保存してある値を残す。消すのは空の欄でEnterを押したときだけ。
+- 欄が断った値は送らない。何が違い、どんな値ならよいかを欄の下に出し、欄を正しくない印にする。欄自身の保存を中核が断ったときもそのエラーコードの文でそこに出し、通知は重ねて出さない。同じエンドポイントでの中核のほかの知らせは通知のまま。
+- 欄と組は、送った要求への成功応答で保存を確定する。送信失敗・拒否・応答待ちの期限切れでは確定せず、編集内容を残して直してから保存し直すか、Escで戻せる。確定済みの値は失敗した編集で上書きしない。保存に失敗した単語フィルターは保存してある一覧に戻し、そのことを伝える。
+- 保存を待つ間も欄は使え、その間の変更は待っている保存が終わってから保存する。
+- 「保存しました」の通知は出さない。断られた値や保存していない値のままページを移るか設定を閉じると、その値は捨て、先に何も聞かない。
+- RVCページでRVCを選ぶのは専用のボタン。ページを開いただけでは何も保存しない。
 - 音声・RVC・音声サーバー・リアルタイム音声認識のフォームは、自分が送った保存要求への成功応答で保存を確定する。辞書の空白などが正規化された場合は、返された値を採用し、送信後に編集した項目だけを残す。状態の再取得や別の保存要求への応答では確定しない。5秒以内に応答がなければ未確認として編集を保ち、その要求への遅い成功応答は受け付ける。破棄や再保存の後に届いた古い応答では、新しい編集を確定しない。
 
 - TTS、音声経路、TTS出力先のフォームは、`/set/data/voice_settings`に変更した項目だけを送る。サイドカーは音声設定のロック内で現在の設定に重ね、全体を検証してから経路の切り替えと保存を行う。省略された項目は保持し、成功応答には設定全体を返す。経路変更時の直接音声の停止条件は変えない。

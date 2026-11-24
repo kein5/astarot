@@ -10,9 +10,10 @@ The item names below are those of the current English GUI.
 2. Open **Models and servers** near the bottom of the page, and in **Model GGUF path** under **Japanese TTS**, enter
    the full path of an existing Irodori GGUF model. `~` also works.
    Leave **Voice GGUF path (optional)** empty and set **Inference device** to **Automatic**.
-3. Press **Save changes** at the top of the screen, then press **Start server** for Japanese TTS.
-   Wait until it shows **Ready**. Saving alone does not start the model.
-4. Set the speech settings in the upper part of the page to the values below and press **Save changes**.
+3. Press Enter in the path field, or leave it, and the path is saved; settings save by themselves.
+   Then press **Start server** for Japanese TTS and wait until it shows **Ready**. Saving alone does not start the model.
+4. Set the speech settings in the upper part of the page to the values below. A choice is saved at once, and a typed value
+   when you press Enter or leave the field.
 
 | Item | Value for a test with earphones |
 |---|---|
@@ -48,7 +49,7 @@ Default models are available: Irodori for the Japanese slot on the TTS page, Qwe
 Under "Download a default model" → "Review download", check the provider, terms of use, size and save location.
 Check the consent box and press "Agree and download". When the download and verification are complete, press "Apply model path".
 You can cancel while it downloads. Apply only after stopping the server or input concerned. Applying saves only the path of the downloaded model,
-and other fields you are editing in the form stay unsaved. If you are editing the path that will be replaced, save or discard it first.
+and other fields of the form keep their values. If you are editing the path that will be replaced, press Enter to save it or Escape to put it back first.
 Settings other than the model path are kept, and downloading or applying alone does not start a server, speech or the microphone.
 
 Irodori is about 1.92 GB and Qwen about 1.21 GB. The RVC model and index come to about 336 MB together.
@@ -145,9 +146,9 @@ AppImageにはspeech.cppの実行ファイルを同梱している。音声モ�
 2. ページの下のほうにある **Models and servers** を開き、**Japanese TTS** の **Model GGUF path** に
    既存のIrodori GGUFモデルのフルパスを入力する。`~`も利用できる。
    **Voice GGUF path (optional)** は空欄、**Inference device** は **Automatic** にする。
-3. 画面の上の **Save changes** を押した後、Japanese TTSの **Start server** を押す。
-   **Ready** になるまで待つ。保存だけではモデルを起動しない。
-4. 上側の読み上げ設定を次の値にして **Save changes** を押す。
+3. パスの欄でEnterを押すか欄を離れると、パスを保存する。設定は自分で保存する。
+   そのあとJapanese TTSの **Start server** を押し、**Ready** になるまで待つ。保存だけではモデルを起動しない。
+4. 上側の読み上げ設定を次の値にする。選択はすぐに、打った値はEnterを押すか欄を離れたときに保存する。
 
 | 項目 | イヤホンで試すときの値 |
 |---|---|
@@ -183,7 +184,7 @@ TTSページの日本語枠にはIrodori、多言語枠にはQwen、RVCページ
 「既定モデルのダウンロード」→「取得内容を確認」で、提供元・利用条件・容量・保存先を確認する。
 同意にチェックして「同意してダウンロード」を押し、取得と検証が完了したら「モデルパスを適用」を押す。
 取得中は取消可能。適用は対象のサーバー／入力を停止してから行う。適用で保存するのは取得したモデルのパスだけで、
-フォームで編集中のほかの項目は未保存のまま残る。置き換えるパス自体を編集中の場合は、先に保存または破棄する。
+フォームのほかの項目はそのまま残る。置き換えるパス自体を編集中の場合は、先にEnterで保存するかEscで元に戻す。
 モデルパス以外の設定は維持し、取得・適用だけではサーバー・発声・マイクを開始しない。
 
 Irodoriは約1.92 GB、Qwenは約1.21 GB、RVCのモデルとindexは合計約336 MB。

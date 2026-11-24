@@ -123,7 +123,7 @@ The term dictionary in the "Speech recognition" settings shows the dictionary in
 - If there is a user entry with the same written form, the user entry is used even when the form is in `removed`.
 - Settings that have `removed` cannot be read by versions that do not know this field (up to 0.5.2). Those versions reject all of `REALTIME_ASR_SETTINGS`, run with the default settings and write the defaults back at startup. If no built-in term is taken out, the field is not saved, so earlier versions can read the same settings (handled like `silence_duration_ms`).
 - The settings screen receives the list of built-in terms from `/get/data/builtin_vocabulary` (`{"terms": [string]}`, the list embedded in the app). The list is shown in a fold, and its heading shows only the number of terms in use. It does not show how many terms the user added, changed or took out. Each row shows the written form and the readings in use, without a mark for its kind. The kind shows through the row's position, look and buttons. Terms the user added are at the top of the list and can be deleted with "Remove"; built-in terms with changed readings have a colored row and can be reverted with "Restore"; terms taken out keep their row with a strikethrough and come back with "Put back". An entry that changes the readings of a built-in term is a user entry, but appears on the built-in term's row. When built-in terms are not used, and before the list of built-in terms arrives, only the user's entries are shown. The fields at the top of this list are the only place to add terms.
-- Changes only edit the draft before saving; saving is done from the save bar.
+- Each change saves at once, as the other choices of the captions form do (#1111).
 
 #### Exporting to and importing from a file
 
@@ -140,7 +140,7 @@ Below the dictionary list, the dictionary can be exported to a file and imported
 - When lines with the same written form (case-insensitive) repeat, the first one is used. Lines that break the rules, repeated lines and lines beyond the limit of 100 user entries are not read, and their count is shown. If a line not read because of the limit has a built-in term's written form, that built-in term is not taken out and is used as shipped.
 - A file with no term lines does not empty the dictionary; nothing changes.
 - Import does not change the switch for using built-in terms. When they are not used, lines in the file that are identical to built-in terms are not used. Turning the switch on makes the dictionary match the file's content.
-- After an import, the screen shows, for the replaced dictionary, the number of terms the user added, of built-in terms with changed readings and of built-in terms taken out, and the number of lines not read. If the dictionary already matches the file, the screen says so and leaves the draft unchanged. Import only changes the draft before saving; saving is done from the save bar.
+- After an import, the screen shows, for the replaced dictionary, the number of terms the user added, of built-in terms with changed readings and of built-in terms taken out, and the number of lines not read. If the dictionary already matches the file, the screen says so and leaves the draft unchanged. An import saves the dictionary at once.
 - When a file exported from another version is imported, built-in terms added after that version have no line in the file, so they are taken out. For built-in terms whose readings were corrected, the line with the old readings becomes a reading change.
 
 Changing the dictionary stops running realtime captions (`/set/data/realtime_asr_settings`). TTS, translation and cloud speech recognition use the new dictionary from the next message. The dictionary's values are not written to `process.log` ([Secrets](cross-cutting.md#秘密情報)).
@@ -667,7 +667,7 @@ VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero
 - 同じ表記の利用者の項目があれば、`removed`にあっても利用者の項目を使う。
 - `removed`を持つ設定は、この項目を知らない版（0.5.2まで）では読めない。その版は`REALTIME_ASR_SETTINGS`全体を受け付けずに既定の設定で動き、起動のときに既定を書き戻す。内蔵の用語を外していなければ、項目を保存しないので、前の版でも同じ設定を読める（`silence_duration_ms`と同じ扱い）。
 - 設定画面は内蔵の用語の一覧を`/get/data/builtin_vocabulary`（`{"terms": [文字列]}`、アプリに埋め込んだ一覧）で受け取る。一覧は折りたたみで出し、見出しには使っている用語の数だけを出す。自分で足した数、読みを変えた数、外した数は出さない。各行には表記と使っている読みを出し、種類の印は付けない。種類は行の場所と見た目とボタンで分かる。自分で足した用語は一覧の先頭にあり「削除」ができ、読みを変えた内蔵の用語は行に色が付き「元に戻す」ができ、外した用語は取り消し線を付けて行を残し「戻す」で戻せる。内蔵の用語の読みを変えた項目は、利用者の項目でも内蔵の用語の行に出す。内蔵の用語を使わない設定と、内蔵の用語の一覧を受け取る前は、利用者の項目だけを出す。用語を足す欄は、この一覧のほかにない。
-- 変更は保存の前の下書きを変えるだけで、保存は保存バーから行う。
+- 変更は、字幕のフォームのほかの選択と同じく、すぐに保存する（#1111）。
 
 #### ファイルへの書き出しと読み込み
 
@@ -684,7 +684,7 @@ VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero
 - 同じ表記（大文字と小文字は区別しない）の行が重なったら、最初の行を使う。規則に合わない行、重なった行、利用者の項目の上限（100語）を超えた行は読まずに、数を出す。上限を超えて読まなかった行が内蔵の用語の表記なら、その内蔵の用語は外さずに出荷のときのまま使う。
 - 用語の行が1つもないファイルは、辞書を空にせず、何も変えない。
 - 内蔵の用語を使うかどうかの切り替えは、読み込みで変わらない。使わない設定では、ファイルにある内蔵の用語と同じ行は使われない。切り替えを入れると、辞書はファイルの内容と同じになる。
-- 読み込みのあと、置き換えたあとの辞書の自分で追加した用語、読みを変えた内蔵の用語、外した内蔵の用語の数と、読まなかった行の数を出す。辞書がファイルの内容とすでに同じなら、そう出して下書きは変えない。読み込みは保存の前の下書きを変えるだけで、保存は保存バーから行う。
+- 読み込みのあと、置き換えたあとの辞書の自分で追加した用語、読みを変えた内蔵の用語、外した内蔵の用語の数と、読まなかった行の数を出す。辞書がファイルの内容とすでに同じなら、そう出して下書きは変えない。読み込んだ辞書はすぐに保存する。
 - 別の版で書き出したファイルを読み込むと、その版の後で増えた内蔵の用語は、ファイルに行がないので外れる。読みが直った内蔵の用語は、古い読みの行が読みの変更になる。
 
 辞書を変えると、動作中のリアルタイム字幕を停止する（`/set/data/realtime_asr_settings`）。読み上げ、翻訳、クラウドの音声認識は、次のメッセージから新しい辞書を使う。`process.log`には辞書の値を書かない（[秘密情報](cross-cutting.md#秘密情報)）。
