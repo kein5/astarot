@@ -6,6 +6,7 @@ import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voi
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 // Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
@@ -62,8 +63,8 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
             onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
             <option value="random">{t("voice_ui.seed_random")}</option><option value="fixed">{t("voice_ui.seed_fixed")}</option>
         </select></label>
-        {fixed && <label>{t("voice_ui.seed_value")}<input type="text" inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
-            aria-invalid={invalidSeed || !!outsideSeedRange}
+        {fixed && <label>{t("voice_ui.seed_value")}<TextField inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
+            invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
             onChange={e => field(seedKey, e.target.value)} /></label>}
         {/* What the field is for is the label's hint (#614); the count of its characters stays in sight
@@ -80,8 +81,8 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options?.seed ?? undefined)}</p>}
         {/* In the control column, under the fields it checks (#473). */}
         <div className={`${styles.actions} ${styles.control_column}`}>
-            <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
-                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</button>
+            <Button disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
+                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</Button>
         </div>
         {/* A disabled check says what it waits for: a saved URL, or the bundled server running. */}
         {!canQuery && <p id={reasonId}>{t(server === "bundled" ? "voice_ui.check_needs_server" : "voice_ui.check_needs_url")}</p>}
