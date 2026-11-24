@@ -34,12 +34,18 @@ test("opening the translator selector moves nothing in the rail or main area", a
     const page = app.page;
     await expect(page.locator("[data-main-page] h1")).toBeVisible();
 
+    const trigger = page.locator("[data-main-page]").getByRole("button", { name: /^翻訳エンジン/ });
+    // Ensure the trigger itself is already inside the rail scrollport before measuring the baseline:
+    // on engines whose fallback CJK font wraps taller (e.g. WebKit on ubuntu-latest at 1280×720),
+    // the trigger's bottom edge can extend past the scrollport, causing Playwright's click() to
+    // scroll the rail via scrollIntoViewIfNeeded() before the popover opens.
+    await trigger.scrollIntoViewIfNeeded();
+
     const before = await measurePage(page);
     expect(before.translatorBtn).not.toBeNull();
     expect(before.heading).not.toBeNull();
     expect(before.input).not.toBeNull();
 
-    const trigger = page.locator("[data-main-page]").getByRole("button", { name: /^翻訳エンジン/ });
     await trigger.click();
 
     const popover = page.locator("[data-translator-selector]");
