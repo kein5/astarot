@@ -39,7 +39,6 @@ const ownDeclarations = (path: string, ...given: string[]) => {
 const mediumButtons = [
     [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm("button"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({"],
-    [box + "hotkeys/Hotkeys.css.ts", "export const open_quick_chat = style({"],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button`, {"],
     [box + "updater/Updater.css.ts", "export const install_button = style({"],
     [box + "vr/Vr.css.ts", "export const sample_text_button = style({"],

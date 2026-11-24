@@ -1,5 +1,4 @@
 import { globalStyle, style } from "@vanilla-extract/css";
-import { vars } from "../../../../../theme/vars.css.ts";
 
 export const container = style({
     display: "flex",
@@ -7,23 +6,10 @@ export const container = style({
 });
 
 export const platform_readout = style({ margin: ".8rem 0" });
-// The same secondary button as the other settings forms (VoiceSettings).
+// Opening Quick Chat is the kit's plain Button (Hotkeys.tsx), which draws it; this class places it.
 export const open_quick_chat = style({
     alignSelf: "flex-start",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    minHeight: "4rem",
-    padding: ".9rem 1.2rem",
     margin: ".4rem 0 1.6rem",
-    color: vars.dark_200_color,
-    background: vars.dark_850_color,
-    border: ".1rem solid transparent",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { background: vars.dark_600_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-    },
 });
 
 // That the hotkeys are paused while settings are open is a state of this session: a readout
