@@ -11,6 +11,10 @@
     "reason": "The flag set at the start is cleared by the first layout effect that runs while the window is not busy, before any list can open, and the snapshot it takes is taken again by open().",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:102:40 false -> true"
   },
+  "10ydtac908c": {
+    "reason": "A file in use is always prepared (isPrepared), so no button, hint or review reads whether it is downloaded.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:288:43 \"in_use\" -> \"\""
+  },
   "11ex70orvhl": {
     "reason": "open() clears the search flag before any list is drawn, so its first value is never read.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:65:54 false -> true"
@@ -38,6 +42,10 @@
   "14ttwg4pcti": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
+  },
+  "15bmfmvy5bv": {
+    "reason": "Number.isFinite is false for every value that is not a number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:38:55 typeof value === \"number\" -> true"
   },
   "15jzkikf4ps": {
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
@@ -211,6 +219,10 @@
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
   },
+  "1s2g9v9dc1x": {
+    "reason": "Only the speech output parts read the advice's multiple, and the translation is never one of them.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:52:96 false -> true"
+  },
   "1sbns8owryj": {
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
     "where": "src-ui/logics/useReceiveRoutes.ts:892:21 { mergedList.push(merged); mergedMap.delete(item.endpoint);… -> {}"
@@ -279,9 +291,17 @@
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:72 \"vr_panel.recall_log\" -> \"\""
   },
+  "20ewephnrds": {
+    "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:103 previous.filter(k => k !== kind) -> previous"
+  },
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
+  },
+  "23vuj0oclob": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the readout is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:89:8 [] -> [\"Stryker was here!\"]"
   },
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
@@ -310,6 +330,14 @@
   "28ou3tlyuax": {
     "reason": "No wait is running when a change is sent: every answer and every outside preset change clears it, and a failed send starts none.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:218:9 clearTimeout(waitTimer.current); -> ;"
+  },
+  "29oq1f9r8wb": {
+    "reason": "The review button sets the consent to false before it opens the dialog, the only place the consent is read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:227:108 false -> true"
+  },
+  "2a5p3kvm66o": {
+    "reason": "The review button empties the acknowledged restrictions before it opens the dialog, the only place they are read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:229:64 [] -> [\"Stryker was here!\"]"
   },
   "2b6tgqf8zn0": {
     "reason": "This branch runs only when the platform is not Wayland, and minimizedByHotkey becomes true only after a press that found Wayland, an answer kept once it arrives, so minimized already holds false here.",
@@ -351,6 +379,10 @@
     "reason": "The dependencies are constant either way, so the button listens once, from the first render to unmount.",
     "where": "src-ui/views/vr/VrLauncher.tsx:165:8 [] -> [\"Stryker was here!\"]"
   },
+  "3pndej1q12": {
+    "reason": "modelAdvice defaults to the time now and to a reserve, and the readout reads only the device and whether there are several GPUs, which depend on neither.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:91:47 { now: Date.now(), reserveBytes: reserveBytes(reserve) } -> {}"
+  },
   "4msvnjptkq": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
@@ -367,6 +399,10 @@
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
     "where": "src-ui/logics/flow/flowGraph.ts:133:44 Object.keys(arrivals[newest.input]).sort() -> Object.keys(arrivals[newest.input])"
   },
+  "7449xvj4rb": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:444:53 ?. -> ."
+  },
   "79znk3ng2h": {
     "reason": "matches() reads only the type of each default, so any string works.",
     "where": "src-ui/logics/common/initializationFields.ts:60:66 \"\" -> \"Stryker was here!\""
@@ -378,6 +414,10 @@
   "89lc90xp9u": {
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
+  },
+  "af2w1du4tn": {
+    "reason": "An extra entry that is no restriction kind is never asked for: canStart, startRequest and the boxes look only for the model's own kinds.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:375:37 [] -> [\"Stryker was here!\"]"
   },
   "aydr3zufko": {
     "reason": "The bind answers Rust's map of Assigned values (portal_shortcuts_bind returns HashMap<String, Assigned>), so no row is null or undefined.",
@@ -415,6 +455,10 @@
     "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
     "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
   },
+  "guqzmwhrvi": {
+    "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:124 k !== kind -> true"
+  },
   "hn5c6gpyt9": {
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
@@ -422,6 +466,10 @@
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "iy86bs7o2g": {
+    "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:250:72 false -> true"
   },
   "iyjd0nsg2k": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
@@ -463,6 +511,10 @@
     "reason": "save() refuses to send while the window is busy, so choose sends nothing either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:229:13 busy -> false"
   },
+  "oopxwov29y": {
+    "reason": "Left unassigned the list is undefined, which the code reads like null: both make it join the names with commas.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:62:11 { list = null; } -> {}"
+  },
   "otvx9wvlug": {
     "reason": "The preset effect drops a waiting change whenever the preset moves to one it did not ask for, so an answer never finds the preset elsewhere.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:137:13 accepted.preset !== preset && accepted.nextPreset !== preset -> false"
@@ -499,6 +551,10 @@
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:234:74 -1 -> +1"
   },
+  "sjfitidyhe": {
+    "reason": "Closing leaves no dialog to read the acknowledged restrictions, and the review button empties them before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:250:96 [] -> [\"Stryker was here!\"]"
+  },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
@@ -526,6 +582,10 @@
   "v674isy3ie": {
     "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
+  },
+  "w0wswwpeny": {
+    "reason": "Intl.ListFormat joins with \"conjunction\" by default, so the option changes nothing.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:61:48 { type: \"conjunction\" } -> {}"
   },
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",

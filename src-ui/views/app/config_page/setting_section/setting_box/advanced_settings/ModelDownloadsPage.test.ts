@@ -434,6 +434,9 @@ test("the languages are named in the UI's language, and in English when the UI h
     assert.equal(await languagesOf({ language: "ja" }), "日本語、英語");
     assert.equal(await languagesOf(null), "Japanese and English");
     assert.equal(await languagesOf({}), "Japanese and English");
+    // A UI language the list formatter does not take: the names joined with commas.
+    const names = languageNames.createLanguageNames("x");
+    assert.equal(await languagesOf({ language: "x" }), [names.fromCode("ja", "ja"), names.fromCode("en", "en")].join(", "));
 });
 
 test("a card's state badge says the state of the file shown", async context => {
@@ -794,6 +797,7 @@ test("one model asked about is the only card, and the Japanese speech catalog li
     tree = p.draw({ targets: ["japanese"], engines: true });
     assert.equal(findIn(tree, node => node.type === "engine-catalog").props.layout, "grid");
     assert.equal(find(p.draw({ targets: ["japanese"], engines: false }), node => node.type === "engine-catalog"), null);
+    assert.equal(find(p.draw({ targets: ["japanese"], engines: undefined }), node => node.type === "engine-catalog"), null, "only when asked for");
     assert.equal(find(p.draw({ targets: ["translation"], engines: true }), node => node.type === "engine-catalog"), null);
 });
 
