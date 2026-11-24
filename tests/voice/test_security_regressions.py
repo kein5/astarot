@@ -171,12 +171,17 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
             if "uses" in step and not step["uses"].startswith("./"):
                 assert re.fullmatch(r"[\w-]+/[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
             assert "${{" not in step.get("run", ""), step.get("name", workflow.name)
-            # Repository secrets: only the updater signing step of the release draft uses any, and
-            # the Bencher key the steps of pipeline-latency.yml that send with it and the one step of
-            # bencher-measures.yml.
+            # Repository secrets: only the updater signing step of the release draft and its check of
+            # immutable releases (issue #1018) use any, and the Bencher key the steps of
+            # pipeline-latency.yml that send with it and the one step of bencher-measures.yml.
             if "secrets." in json.dumps(step):
                 assert workflow.name in ("prepare-release.yml", "pipeline-latency.yml", "bencher-measures.yml"), step.get("name")
-                if workflow.name == "prepare-release.yml":
+                if workflow.name == "prepare-release.yml" and "IMMUTABLE_RELEASES_READ_TOKEN" in json.dumps(step):
+                    # The settings token reads one setting, in a step that runs nothing else.
+                    assert step["env"] == {"GH_TOKEN": "${{ secrets.IMMUTABLE_RELEASES_READ_TOKEN }}"}
+                    assert step["run"].strip() == "python -m tools.prepare_release immutable-releases"
+                    assert "secrets." not in json.dumps({key: value for key, value in step.items() if key != "env"})
+                elif workflow.name == "prepare-release.yml":
                     assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
                 else:
                     assert set(re.findall(r"secrets\.\w+", json.dumps(step))) == {"secrets.BENCHER_API_KEY"}, step.get("name")

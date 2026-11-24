@@ -154,6 +154,12 @@ Whoever could replace the package on the release page could replace that `.sha25
 
 Keep immutable releases turned on. A release published while the setting is off can have its assets replaced, and `/VERSION` for that version would install whatever is there.
 
+So "Prepare verified ASTAROT release draft" checks the setting before anything else, and makes no draft while it is off (`python -m tools.prepare_release immutable-releases`, decided on 2026-11-25 in #1156). Reading the setting needs admin read access to the repository, which a workflow's `GITHUB_TOKEN` cannot be given. The check therefore reads it with its own token, the repository secret `IMMUTABLE_RELEASES_READ_TOKEN`, and only that step gets the secret (`tests/voice/test_security_regressions.py` checks this).
+
+- The token is a fine-grained personal access token limited to this repository ("Only select repositories": `kein5/astarot`). Its only repository permission is "Administration": read; "Metadata": read comes with it.
+- When the token is missing or has expired, or the setting is off, the step stops with a message that names the secret, and no draft is made. The API answers 404 both when the setting is off and when the token cannot read it, so check both.
+- Make a new token before the old one expires and replace the secret's value. The maintainer makes the token; it is never made in a session.
+
 ## Updater signatures and latest.json
 
 For in-app updates (#330, [App updates](../spec/external-interfaces.md#アプリの更新)), the job that makes the draft adds Tauri updater signatures to the `ASTAROT_setup.exe` and AppImage verified above (not to the copies under the old names). This signature is separate from code signing and is verified with the public key built into the app (`plugins.updater.pubkey` in `src-tauri/tauri.conf.json`, key ID `1178836E5C9F510B`).
@@ -565,6 +571,12 @@ Windowsのインストーラーは、自分の版のパッケージを、組み�
 リリースのページのパッケージを差し替えられる人は、その`.sha256`も差し替えられ、インストーラーはそれに気づけません。公開したあとの差し替えを防いでいるのは、このリポジトリで有効にしているGitHubのimmutable releasesです（#1018）。公開したリリースの資産は変えることも消すこともできず、タグも動かせません。リリースを消しても同じタグは使い直せないので、その版への`/VERSION`は`.sha256`を取れずに止まります。0.7.0-beta.1までに公開したリリースは、どれもimmutableです。
 
 immutable releasesは有効のままにします。設定を切っている間に公開したリリースは資産を差し替えられるので、その版への`/VERSION`は、差し替えたものをそのまま入れてしまいます。
+
+そのため「Prepare verified ASTAROT release draft」は、最初にこの設定を確かめ、無効なら下書きを作りません（`python -m tools.prepare_release immutable-releases`。2026-11-25に#1156で決定）。設定を読むにはリポジトリのadminの読み取りの権限が要り、ワークフローの`GITHUB_TOKEN`にはその権限を付けられません。そこでこの確認は専用のtokenで読みます。tokenはリポジトリのSecretsの`IMMUTABLE_RELEASES_READ_TOKEN`に置き、この手順だけに渡します（`tests/voice/test_security_regressions.py`が確かめます）。
+
+- tokenは、このリポジトリだけに絞ったfine-grained personal access tokenです（「Only select repositories」で`kein5/astarot`）。リポジトリの権限は「Administration」の読み取りだけで、「Metadata」の読み取りは自動で付きます。
+- tokenがないとき、期限が切れたとき、設定が無効なときは、Secretsの名前を挙げて止まり、下書きを作りません。APIは、設定が無効なときもtokenが設定を読めないときも404を返すので、両方を確かめます。
+- 期限が切れる前に新しいtokenを作り、Secretsの値を差し替えます。tokenは保守担当者が作り、セッションでは作りません。
 
 ## updaterの署名とlatest.json
 

@@ -7,7 +7,7 @@ import pytest
 
 from tools import release_candidate
 from tools.release_candidate import stage, verify
-from tools.prepare_release import check_run, prepare, release_channel, require_unused_tag
+from tools.prepare_release import check_run, main as prepare_release_main, prepare, release_channel, require_immutable_releases, require_unused_tag
 
 SHA = "a" * 40
 VERSION = "3.6.0-beta.1"
@@ -160,6 +160,57 @@ def test_existing_tags_or_lookup_failure_never_mean_tag_absent(kind, monkeypatch
     else:
         with pytest.raises((ValueError, subprocess.CalledProcessError)):
             require_unused_tag(VERSION)
+
+
+def answering(returncode, stdout="", stderr=""):
+    """A stand-in for subprocess.run that records the command and gives one answer."""
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, returncode, stdout, stderr)
+
+    run.calls = calls
+    return run
+
+
+def test_immutable_releases_on_lets_the_draft_go_ahead(monkeypatch):
+    # Issue #1018: the draft is made only while published releases cannot be changed.
+    monkeypatch.setenv("GH_TOKEN", "settings-token")
+    run = answering(0, json.dumps({"enabled": True, "enforced_by_owner": False}))
+    require_immutable_releases(run)
+    assert run.calls == [["gh", "api", "repos/kein5/astarot/immutable-releases"]]
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "stderr", "said"),
+    [
+        (1, "", "gh: Not Found (HTTP 404)", "off for this repository, or the token cannot read"),
+        (0, json.dumps({"enabled": False, "enforced_by_owner": False}), "", "off for this repository"),
+        (0, json.dumps([]), "", "off for this repository"),
+        (1, "", "gh: Bad credentials (HTTP 401)", "Could not read"),
+    ],
+)
+def test_immutable_releases_off_or_unreadable_stops_the_draft(monkeypatch, returncode, stdout, stderr, said):
+    monkeypatch.setenv("GH_TOKEN", "settings-token")
+    with pytest.raises(ValueError, match=said):
+        require_immutable_releases(answering(returncode, stdout, stderr))
+
+
+def test_immutable_releases_check_needs_its_token(monkeypatch):
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    run = answering(0, json.dumps({"enabled": True}))
+    with pytest.raises(ValueError, match="IMMUTABLE_RELEASES_READ_TOKEN"):
+        require_immutable_releases(run)
+    assert run.calls == [], "nothing is asked without the token"
+
+
+def test_immutable_releases_is_its_own_command(monkeypatch, capsys):
+    # prepare-release.yml runs it as its own step, the only one that gets the settings token.
+    monkeypatch.setenv("GH_TOKEN", "settings-token")
+    monkeypatch.setattr(subprocess, "run", answering(0, json.dumps({"enabled": True})))
+    prepare_release_main(["immutable-releases"])
+    assert "Immutable releases are on" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
