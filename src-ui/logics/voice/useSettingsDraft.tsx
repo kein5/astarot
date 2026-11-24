@@ -28,6 +28,20 @@ export interface SettingsDraftOptions<T> {
     autoSave?: boolean;
 }
 
+// A choice: it saves at once. A slider saves when it is let go.
+const choosesAtOnce = (target: unknown): boolean => isRecord(target) &&
+    (target.tagName === "SELECT" || (target.tagName === "INPUT" && ["checkbox", "radio"].includes(String(target.type))));
+const slides = (target: unknown): boolean => isRecord(target) && target.tagName === "INPUT" && target.type === "range";
+
+// The handlers of the element around a group (a form or a fieldset) that saves by itself.
+export interface DraftGroupProps {
+    onBlur: (event: { currentTarget: TargetHolder; relatedTarget: EventTarget | null }) => void;
+    onKeyDown: (event: Pick<KeyboardEvent<HTMLElement>, "key" | "target" | "preventDefault">) => void;
+    onChange: (event: { target: EventTarget }) => void;
+    onPointerUp: (event: { target: EventTarget }) => void;
+    onKeyUp: (event: { target: EventTarget }) => void;
+}
+
 // What takes typed text, where Escape puts the group's saved values back.
 const typesText = (target: unknown): boolean => {
     if (!isRecord(target)) return false;
@@ -55,6 +69,10 @@ export interface SettingsDraft<T> {
     leaves: (event?: { relatedTarget: EventTarget | null }) => boolean;
     leave: (event?: { relatedTarget: EventTarget | null }) => void;
     escape: (event: Pick<KeyboardEvent<HTMLElement>, "key" | "target" | "preventDefault">) => void;
+    // Spread on the element around a group whose fields are drawn by other parts: focus leaving the
+    // element saves, a choice in it (a list, a check box) saves at once, a slider when let go, and
+    // Escape in its text fields puts the saved values back.
+    groupProps: DraftGroupProps;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
@@ -181,10 +199,15 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     // while a save waits once that save ends.
     const accepted = (value: DraftState<T>) => value !== null && value !== undefined && !!(typeof canSave === "function" ? canSave(value) : canSave);
     const again = useRef(false);
+    // A save started in this render, before `saving` shows it: a second blur from an element
+    // around the first (or the same leave twice) waits for it instead of sending again.
+    const committing = useRef(false);
     const commit = (send: DraftWrite<T> | undefined = write) => {
         if (!autoSave || !send || !dirty) return;
-        if (saving) { again.current = true; return; }
-        if (accepted(draft)) void submit(send);
+        if (saving || committing.current) { again.current = true; return; }
+        if (!accepted(draft)) return;
+        committing.current = true;
+        void submit(send);
     };
     const [changeCount, setChangeCount] = useState(0);
     const change = (update: SetStateAction<DraftState<T>>) => { setDraft(update); setChangeCount(count => count + 1); };
@@ -192,7 +215,11 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     const latestCommit = useRef(commit);
     latestCommit.current = commit;
     useEffect(() => { if (changeCount) latestCommit.current(); }, [changeCount]);
-    useEffect(() => { if (!saving && again.current) { again.current = false; latestCommit.current(); } }, [saving]);
+    useEffect(() => {
+        if (saving) return;
+        committing.current = false;
+        if (again.current) { again.current = false; latestCommit.current(); }
+    }, [saving]);
     const groupElement = useRef<TargetHolder | null>(null);
     const group = (element: TargetHolder | null) => { groupElement.current = element; };
     // Whether a blur takes focus outside the group (not from one of its fields to another).
@@ -205,6 +232,25 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
         if (!autoSave || event.key !== "Escape" || !dirty || saving || !typesText(event.target)) return;
         event.preventDefault();
         discard();
+    };
+    // In a group around fields drawn by other parts, Enter in a one-line text field saves too (#1111,
+    // decided 1): a form with several fields and no submit button does not submit on Enter itself.
+    const groupKeyDown = (event: Pick<KeyboardEvent<HTMLElement>, "key" | "target" | "preventDefault">) => {
+        if (autoSave && event.key === "Enter" && typesText(event.target) && isRecord(event.target) && event.target.tagName === "INPUT") {
+            event.preventDefault();
+            commit();
+            return;
+        }
+        escapeKey(event);
+    };
+    const saveSoon = () => setChangeCount(count => count + 1);
+    const groupProps: DraftGroupProps = {
+        onBlur: event => { if (!event.currentTarget.contains(event.relatedTarget)) commit(); },
+        onKeyDown: groupKeyDown,
+        // The field's own handler has changed the draft; the render after both has the choice.
+        onChange: event => { if (choosesAtOnce(event.target)) saveSoon(); },
+        onPointerUp: event => { if (slides(event.target)) saveSoon(); },
+        onKeyUp: event => { if (slides(event.target)) saveSoon(); },
     };
     const saveState: SaveState = failed || (!saving && awaitingResponse) ? "save_failed" : saving ? "saving" : dirty ? "unsaved" : "saved";
     const id = useId();
@@ -227,7 +273,7 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     }, [id, entryKey, !write]);
     useEffect(() => () => setSaveBarEntry(id, null), [id]);
     return {
-        draft, setDraft, dirty, saving, discard, submit, saveState, commit, change, group, leaves, leave, escape: escapeKey,
+        draft, setDraft, dirty, saving, discard, submit, saveState, commit, change, group, leaves, leave, escape: escapeKey, groupProps,
         // The form's own confirmation, for a page without the save bar's (Topbar.tsx), which asks
         // first where it is. Its two answers are one row, as the save bar's are.
         navigationDialog: leaving ? <dialog ref={dialog} onCancel={() => setLeaving(null)} aria-label={t("voice_ui.leave_title")}>

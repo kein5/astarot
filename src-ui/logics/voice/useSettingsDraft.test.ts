@@ -251,3 +251,69 @@ test("a group that saves by itself saves a choice at once, on leaving, and after
     render().commit();
     assert.equal(sent.length, 2);
 });
+
+// #1111: a blur that reaches two elements around the group (or the same leave twice) in one render
+// sends the draft once.
+test("leaving a group twice in one render saves once", async context => {
+    const runtime = hooks(), sent: unknown[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+    });
+    const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = value => { sent.push(value); return new Promise<StdoutResult>(() => {}); };
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true }));
+    render();
+    render().setDraft(previous => previous && { ...previous, model: "new" });
+    const form = render();
+    const outside = { currentTarget: { contains: () => false }, relatedTarget: null };
+    form.groupProps.onBlur(outside);
+    form.groupProps.onBlur(outside);
+    render();
+    assert.equal(sent.length, 1);
+});
+
+// #1111: the element around a group whose fields other parts draw. A list or a check box saves at
+// once, a slider when let go, Enter in a one-line text field saves, and typing or Enter in a
+// multi-line field does not.
+test("a group's element saves a choice at once, a slider when let go and a line on Enter", async context => {
+    const runtime = hooks(), sent: Vocabulary[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+    });
+    let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const answers: (() => void)[] = [];
+    const write: DraftWrite<Vocabulary> = value => {
+        assert.ok(isVocabulary(value));
+        sent.push(value);
+        return new Promise<StdoutResult>(resolve => answers.push(() => resolve(unchecked<StdoutResult>({ status: 200, result: value }))));
+    };
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave: true })); };
+    const answer = async () => { saved = sent[sent.length - 1]; render(); answers.shift()?.(); await flush(); render(); };
+    const edit = (model: string) => render().setDraft(previous => previous && { ...previous, model });
+    const target = (tagName: string, type?: string) => unchecked<EventTarget>({ tagName, type });
+    render();
+    const cases: [string, (props: ReturnType<typeof render>["groupProps"]) => void, boolean][] = [
+        ["a list", props => props.onChange({ target: target("SELECT") }), true],
+        ["a check box", props => props.onChange({ target: target("INPUT", "checkbox") }), true],
+        ["typing in a line", props => props.onChange({ target: target("INPUT", "text") }), false],
+        ["a slider moving", props => props.onChange({ target: target("INPUT", "range") }), false],
+        ["a slider let go", props => props.onPointerUp({ target: target("INPUT", "range") }), true],
+        ["a slider moved by keys", props => props.onKeyUp({ target: target("INPUT", "range") }), true],
+        ["Enter in a line", props => props.onKeyDown({ key: "Enter", target: target("INPUT", "text"), preventDefault() {} }), true],
+        ["Enter in a text area", props => props.onKeyDown({ key: "Enter", target: target("TEXTAREA"), preventDefault() {} }), false],
+    ];
+    for (const [what, act, saves] of cases) {
+        const before = sent.length;
+        edit(what);
+        act(render().groupProps);
+        render(); render();
+        assert.equal(sent.length - before, saves ? 1 : 0, what);
+        if (saves) await answer();
+        else { render().discard(); render(); }
+    }
+});
