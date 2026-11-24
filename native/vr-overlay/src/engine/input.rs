@@ -464,15 +464,19 @@ impl Overlay {
         settings.opacity > 0.0 && timing::subtitle_visible(settings.fadeout_duration, state.fade[surface.index()])
     }
 
-    /// The nearest window the laser hits (`pointingOverlay`). Faded-out subtitles count (the grip
-    /// wakes them); hidden windows, a launcher not taking presses and transparent parts do not.
-    fn pointing_overlay(&self, state: &mut State, ray: &Mat4, pose_of: PoseOf) -> Option<(Target, Intersection)> {
+    /// The nearest window the hand can point at. A window fixed to that hand cannot take its
+    /// input, and should not block another window behind it.
+    fn pointing_overlay(&self, state: &mut State, ray: &Mat4, pose_of: PoseOf, hand: Device) -> Option<(Target, Intersection)> {
         let mut best: Option<(Target, Intersection)> = None;
         for surface in Surface::ALL {
             if state.settings[surface.index()].opacity <= 0.0 || state.vr_windows_hidden.contains(&surface) {
                 continue;
             }
             if surface == Surface::Launcher && !state.launcher.interactive {
+                continue;
+            }
+            let tracker = state.settings[surface.index()].tracker.clone();
+            if Self::tracker(state, &tracker).1 == Some(hand) {
                 continue;
             }
             let Some(&handle) = state.handles.get(&surface) else { continue };
@@ -730,7 +734,7 @@ impl Overlay {
             let (pixels, w, h) = ghost_image(size.0, size.1, at_limit);
             let session = state.session.as_mut().expect("connected");
             let texture = session.set_shared_texture(TextureSlot::Ghost, &[ghost], &pixels, w, h, GHOST_TEXTURE_SIZE)?;
-            let bounds = [0.0, 1.0, w as f32 / texture.0 as f32, 1.0 - h as f32 / texture.1 as f32];
+            let bounds = [0.0, 0.0, w as f32 / texture.0 as f32, h as f32 / texture.1 as f32];
             self.submit(state, ghost, "bounds", format!("{bounds:?}"), |s| s.set_texture_bounds(ghost, bounds))?;
         }
         let mut offset = math::IDENTITY;
@@ -934,26 +938,16 @@ impl Overlay {
             let controller = if ray.is_some() { Self::controller(state, controllers, hand) } else { None };
             let grip = ray.is_some() && controller.is_some_and(|c| c.grip());
             let mut found = match ray.as_ref() {
-                Some(ray) => self.pointing_overlay(state, ray, pose_of),
+                Some(ray) => self.pointing_overlay(state, ray, pose_of, hand),
                 None => None,
             };
             if let Some(ray) = ray.as_ref()
+                && state.input.toolbar_tracker != Some(hand)
                 && let Some(toolbar) = self.intersect_toolbar(state, ray)
                 && Self::hit_inside_region(state, Target::Toolbar, &toolbar, pose_of)
                 && found.as_ref().is_none_or(|(_, hit)| toolbar.distance < hit.distance)
             {
                 found = Some((Target::Toolbar, toolbar));
-            }
-            // A window on this hand moves with it; this hand cannot move it (the toolbar is the log's).
-            if let Some((target, _)) = found {
-                let owner = match target {
-                    Target::Toolbar => Surface::Panel,
-                    Target::Window(surface) => surface,
-                };
-                let name = state.settings[owner.index()].tracker.clone();
-                if Self::tracker(state, &name).1 == Some(hand) {
-                    found = None;
-                }
             }
             let target = found.map(|(t, _)| t);
             pointing_log |= matches!(target, Some(Target::Window(Surface::Panel) | Target::Toolbar));

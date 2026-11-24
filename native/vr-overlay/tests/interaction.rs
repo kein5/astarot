@@ -4,6 +4,7 @@
 
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use astarot_vr_overlay::engine::{Event, Options, Overlay, Surface, WindowSettings};
 use astarot_vr_overlay::layout::VrLayout;
@@ -20,6 +21,7 @@ const PANEL_WIDTH_M: f64 = 0.4;
 /// The VR page: a dark picture of the size last asked for, with a tooltip marker when set.
 #[derive(Default)]
 struct Page {
+    closed: AtomicBool,
     size: Mutex<(u32, u32)>,
     inputs: Mutex<Vec<PointerInput>>,
     marker: Mutex<Option<u128>>,
@@ -30,14 +32,14 @@ impl PanelSurface for Page {
         true
     }
     fn find(&self) -> Option<u64> {
-        Some(7)
+        (!self.closed.load(Ordering::SeqCst)).then_some(7)
     }
     fn alive(&self, window: u64) -> bool {
-        window == 7
+        self.find() == Some(window)
     }
     fn capture(&self, _window: u64) -> Option<Frame> {
         let (width, height) = *self.size.lock().unwrap();
-        if width == 0 {
+        if width == 0 || self.closed.load(Ordering::SeqCst) {
             return None;
         }
         let mut bgra = vec![40u8; (width * height * 4) as usize];
@@ -195,6 +197,54 @@ impl Rig {
         self.overlay.shutdown();
         assert_eq!(self.vr.with(|s| s.sessions_open), 0);
     }
+}
+
+#[test]
+fn the_atlas_bounds_select_rows_from_the_top_of_the_texture() {
+    let rig = Rig::start();
+    let layout = VrLayout::default_layout();
+    for (key, (x, y, width, height)) in [
+        ("ASTAROT2", layout.panel),
+        ("ASTAROT3", layout.launcher),
+        ("ASTAROT4", layout.popup),
+        ("ASTAROT_toolbar", layout.toolbar),
+    ] {
+        let handle = rig.handle(key).unwrap();
+        let ([u0, v0, u1, v1], (tw, th)) = rig.vr.with(|s| (s.bounds[&handle], s.textures[&handle].1));
+        let texel = |uv: f32, side: u32| (uv * side as f32).round() as u32;
+        assert_eq!([texel(u0, tw), texel(v0, th), texel(u1, tw), texel(v1, th)], [x, y, x + width, y + height], "{key}");
+    }
+    rig.stop();
+}
+
+#[test]
+fn a_launcher_on_the_pointing_hand_does_not_block_the_log_behind_it() {
+    let rig = Rig::start();
+    rig.overlay.set_launcher_auto_hide(false);
+    let mut in_front_of_hand = math::IDENTITY;
+    in_front_of_hand[2][3] = -0.15;
+    let relative = math::mul(&pose::laser_tilt(pose::LASER_PITCH_UP_DEG), &in_front_of_hand);
+    let position = math::matrix_to_position(&Tracker::RightHand.base(), &math::to_mat34(&relative)).unwrap();
+    rig.overlay.set_window(Surface::Launcher, window("RightHand", position, 0.303));
+    rig.aim(0.1, 0.05, 0.6);
+    rig.wait("the launcher's introduction is over", || rig.events().iter().any(|e| matches!(e, Event::LauncherIntro("idle"))));
+    assert!(rig.visible("ASTAROT3"));
+    let xy = rig.pixel(0.1, 0.05);
+    rig.press(TRIGGER_MASK, 0.0);
+    rig.wait("the farther log got the press", || rig.inputs().contains(&PointerInput::Down { x: xy.0, y: xy.1 }));
+    rig.stop();
+}
+
+#[test]
+fn losing_the_capture_hides_the_page_until_the_next_frame() {
+    let rig = Rig::start();
+    rig.overlay.set_vr_windows(true, true);
+    rig.wait("the page is shown", || rig.visible("ASTAROT3") && rig.visible("ASTAROT4"));
+    rig.page.closed.store(true, Ordering::SeqCst);
+    rig.wait("the stale overlays are hidden", || ["ASTAROT2", "ASTAROT3", "ASTAROT4"].iter().all(|key| !rig.visible(key)));
+    rig.page.closed.store(false, Ordering::SeqCst);
+    rig.wait("the page is displayed again", || ["ASTAROT2", "ASTAROT3", "ASTAROT4"].iter().all(|key| rig.visible(key)));
+    rig.stop();
 }
 
 #[test]
