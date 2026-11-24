@@ -537,19 +537,19 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 組み込みモデルの取得の確認（`LegacyModelDownloadDialog`）は、カタログをこの窓が読むフィールドだけの型（`ReviewCatalog`）として読みます。フックのカタログと同じく、宣言だけで実行時には確かめません。
 - 認証情報の組（`CredentialPair`）は、提供元の名前から `current${B}URL` と `current${B}AuthKey` のキーを組み立てて型にしています。
 
-設定のページは区画ごとに移します。1 回目で「機器」（`device/`）と「音声認識」（`transcription/`）を移しました。
+設定のページは区画ごとに移します。1 回目で「デバイス」（`device/`）と「音声認識（ASR）」（`transcription/`）を移しました。
 
 - `useRealtimeASR.ts` の型を、フックが読むフィールドだけを並べた形から、中核が送る形の宣言に変えました（`RealtimeAsrSettings` など）。宣言だけで、実行時には確かめません。
 - cloud の音声認識のエンジンの `base` は、4 つの値のユニオン型 `CloudTranscriptionBase`（`configs/cloudTranscription.ts`）です。
 - 保存のロジック（`useSaveButtonLogic`）が返す欄の値は `unknown` です。ページは、欄が表示するのと同じ文字列にしてから入力欄に渡します（`entryText`）。
 
-2 回目で、音声のページ（「読み上げ」の `tts/`、`rvc/`）と、詳細設定のうち音声とモデルのもの（`VoiceSettings`、`DirectVoiceSettings`、`VoiceAudition`、`SpeechServers`、`StatusLine`、`EngineCatalog`、`VcRuntimeSetup`、`ModelDownloads`、`UserModels`）を移しました。
+2 回目で、音声のページ（「読み上げ」の `tts/`、`rvc/`）と、高度な設定のうち音声とモデルのもの（`VoiceSettings`、`DirectVoiceSettings`、`VoiceAudition`、`SpeechServers`、`StatusLine`、`EngineCatalog`、`VcRuntimeSetup`、`ModelDownloads`、`UserModels`）を移しました。
 
 - フックが中核から受け取る値に宣言の型を付けました。`useModelDownloads` のカタログの行（`ModelCatalogRow`）とジョブ、`useVoice` の音声の設定（値はすべて文字列）、出力機器、モデルが受け付けるシード値の範囲と指示、エンジンの声、`useSpeechServers` のプロファイルと機器、`useVcRuntimes` のカタログとジョブです。宣言だけで、実行時には確かめません。
 - `ModelDownloads` の `reserve` と `only` は省略できる props です。組み込みモデルの取得の確認が渡していた `reserve={undefined}` は外しました。
 - 設定がないときは、名前の付いた `TypeError` で止まる関数を通して読みます（`SpeechServers` と `DirectVoiceSettings`）。前も同じ所で止まっていました。
 
-3 回目で、「詳細設定」のページ（`AdvancedSettings`、約 690 行）を移しました。
+3 回目で、「高度な設定」のページ（`AdvancedSettings`、約 690 行）を移しました。
 
 - 保存のロジックが持つ `unknown` の欄の値は、`fieldValue` と `fieldText` で、React が欄に書くのと同じ文字列にしてから渡します。
 - 書き込みへの応答は、バックエンドが応答を返したときだけ読みます（`answerOf`）。TLS の組のエラーコードは文字列のときだけ使い、それ以外は前と同じく `save_unconfirmed` です。

@@ -293,11 +293,11 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 
 [ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない](adr-018-talk-ai-through-external-services.md)は2026-11-22に提案し、同じ日に採用した（PR #969）。Issue #388 の「おしゃべりAI」の相手を、クラウドのリアルタイム API（OpenAI Realtime、Gemini Live）と、利用者が立てる vLLM-Omni のサーバーに分け、どちらもアプリの外のサービスとしてつなぐ。アプリは対話のモデルもその推論のランタイムも同梱せず、取得もしない。ADR-012 の 2.2 の「外部の翻訳サービスと LLM のサービス」と同じ扱いで、ADR-012 の例外ではない。アプリは、画面と声を送る前の同意、送っている間の表示、送る量の制御、止めたら送らないことを受け持つ。
 
-[ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）](adr-019-voicevox-core-tts-runtime-exception.md)は2026-11-23に採用した（Issue #1061）。製品版 VVM は `vv-bin` 独自形式と `voicevox_onnxruntime` 固有処理に依存し、規約上もリバースエンジニアリング禁止のため speech.cpp への変換・上流貢献も既存 ONNX Runtime（`1.31.0`）との共有もできない。そこで VOICEVOX CORE によるアプリ内日本語読み上げを ADR-012 の管理対象の例外とし、薄い Rust 子プロセス `astarot-voicevox-worker` から同意取得した公式 `voicevox_core` C API（`0.17.1`、MIT）と `voicevox_onnxruntime` 正式版 `1.17.3`（CPU 版）、Open JTalk 辞書を動的ロードする構成を採る。初回は CPU のみ・標準規約の代表パックから始め、VOICEVOX Nemo（`n0.vvm`）は含めない。ADR-008 の外部エンジン接続は並存させ、クレジットは設定画面・同意画面・`AboutVrct.tsx`・`NOTICE.md` に表示する。本実装の着手は Windows・Linux 実機 PoC の計測結果を見て判断する。
+[ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）](adr-019-voicevox-core-tts-runtime-exception.md)は2026-11-23に採用した（Issue #1061）。製品版 VVM は `vv-bin` 独自形式と `voicevox_onnxruntime` 固有処理に依存し、規約上もリバースエンジニアリング禁止のため speech.cpp への変換・上流貢献も既存 ONNX Runtime（`1.31.0`）との共有もできない。そこで VOICEVOX CORE によるアプリ内日本語読み上げを ADR-012 の管理対象の例外とし、薄い Rust 子プロセス `astarot-voicevox-worker` から公式 `voicevox_core` C API（`0.17.1`、MIT）と `voicevox_onnxruntime` 正式版 `1.17.3`（CPU 版）、Open JTalk 辞書を動的ロードする構成を採る。3 つとも同意を得てから取得する。初回は CPU のみ・標準規約の代表パックから始め、VOICEVOX Nemo（`n0.vvm`）は含めない。ADR-008 の外部エンジン接続は並存させ、クレジットは設定画面・同意画面・`AboutVrct.tsx`・`NOTICE.md` に表示する。本実装の着手は Windows・Linux 実機 PoC の計測結果を見て判断する。
 
 ## 配置の移行（2026-11-18）
 
-ADR は 2026-11-18 まで `docs/voice-stack/` にあった。対象が音声の外（フロントエンド、ブランド、秘密情報など）に広がったので、このディレクトリに集めた（Issue #587）。番号とファイル名は変えていない。古いパスには、ここへの案内だけを残している。
+ADR は 2026-11-18 まで `docs/voice-stack/` にあった。対象が音声の外（フロントエンド、ブランド、秘密情報など）に広がったので、このディレクトリに集めた（Issue #587）。番号とファイル名は変えていない。古いパスには、ここへの案内だけを残した。
 
 > **追記**（2026-11-18、Issue #587）：古いパスに残していた案内のページ（`docs/voice-stack/decisions.md` と `docs/voice-stack/adr-004〜013-*.md`）は、保守担当者の判断で削除した。リポジトリの中の参照は、その前にすべて `docs/adr/` へ直してある。古いパスへのリンクはもう開けないので、下の表で新しいパスを引く。
 
