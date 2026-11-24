@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, drawWith, findIn, hooks, loadModule, nodesIn, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, drawWith, findIn, hooks, loadModule, nodesIn, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as transcriptionCatalog from "../../../../../../logics/transcription/transcriptionCatalog.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
@@ -40,7 +40,7 @@ async function entries(context: TestContext, catalog: TranscriptionCatalog | nul
     const form = nodesIn(tree).filter(node => componentName(node) === "AddForm").map(drawn)[0];
     return { tree, cards, form, sent };
 }
-const buttons = (node: TreeNode) => nodesIn(node).filter(child => child.type === "button");
+const buttons = (node: TreeNode) => nodesIn(node).filter(child => child.type === kitStandIns.Button);
 
 test("asks for the entries when the page opens, and draws a card each with where it points", async context => {
     const { cards, sent } = await entries(context);

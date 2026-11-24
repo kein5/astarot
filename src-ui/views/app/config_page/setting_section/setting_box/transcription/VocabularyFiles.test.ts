@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
@@ -19,7 +19,7 @@ async function setup(reply: unknown = { status: 200, result: { file: "vocabulary
         onVocabulary: (next: Vocabulary) => { given.push(next); props.vocabulary = { builtin: true, ...next }; },
         send: async (endpoint: string, data?: unknown) => { sent.push([endpoint, data]); return reply; } };
     const render = () => runtime.render(VocabularyFiles, props);
-    const button = (label: string) => findIn(render(), node => node.type === "button" && node.props.children === label).props;
+    const button = (label: string) => findIn(render(), node => node.type === kitStandIns.Button && node.props.children === label).props;
     const lines = () => nodesIn(findIn(render(), node => node.props?.role === "status")).filter(node => node.type === "p").map(node => node.props.children);
     // Settles the promises a click or a pick started.
     const settle = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
@@ -58,6 +58,25 @@ test("a file is not read before the built-in terms are known", async () => {
     assert.equal(s.button("realtime.vocabulary_export").disabled, false);
 });
 
+test("import opens the browser's file picker behind the button, which keyboard focus skips", async () => {
+    const s = await setup();
+    assert.equal(s.button("realtime.vocabulary_import").disabled, false);
+    const field = findIn(s.render(), node => node.type === "input").props;
+    assert.equal(field.tabIndex, -1);
+    let opened = 0;
+    field.ref.current = { click: () => { opened++; } };
+    s.button("realtime.vocabulary_import").onClick();
+    assert.equal(opened, 1);
+});
+
+test("export cannot be pressed again while the core writes the file", async () => {
+    const s = await setup();
+    s.button("realtime.vocabulary_export").onClick();
+    assert.equal(s.button("realtime.vocabulary_export").disabled, true);
+    await s.settle();
+    assert.equal(s.button("realtime.vocabulary_export").disabled, false);
+});
+
 test("a file too large is not read", async () => {
     const s = await setup();
     await s.pick("猫丸=ねこ\n", vocabularyTerms.MAX_IMPORT_BYTES + 1);
@@ -67,13 +86,17 @@ test("a file too large is not read", async () => {
 
 test("the dictionary the page shows is written out, and its folder can be opened", async () => {
     const s = await setup();
-    assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_export_open"), null);
+    assert.equal(find(s.render(), node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_export_open"), null);
     s.button("realtime.vocabulary_export").onClick();
     await s.settle();
     assert.deepEqual(s.sent, [["/run/export_vocabulary", { builtin: true, terms: ["猫丸=ねこまる"] }]]);
     assert.deepEqual(s.lines(), ["realtime.vocabulary_export_done:{\"file\":\"vocabulary-20261120-153000.txt\"}"]);
     s.button("realtime.vocabulary_export_open").onClick();
     assert.deepEqual(s.sent.at(-1), ["/run/open_filepath_vocabulary_exports", undefined]);
+    // The kit's buttons: reading and writing the file plain, opening the folder the quiet one paired
+    // with them.
+    assert.deepEqual(["realtime.vocabulary_import", "realtime.vocabulary_export", "realtime.vocabulary_export_open"].map(label => s.button(label).tone),
+        [undefined, undefined, "quiet"]);
 });
 
 test("a failed write-out says so", async () => {
@@ -82,6 +105,6 @@ test("a failed write-out says so", async () => {
         s.button("realtime.vocabulary_export").onClick();
         await s.settle();
         assert.deepEqual(s.lines(), ["realtime.vocabulary_export_failed"]);
-        assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_export_open"), null);
+        assert.equal(find(s.render(), node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_export_open"), null);
     }
 });

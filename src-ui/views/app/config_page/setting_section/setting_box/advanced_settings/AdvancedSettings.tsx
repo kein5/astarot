@@ -10,6 +10,7 @@ import { Description } from "../_components/description/Description";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
 import { GpuCheck } from "./GpuCheck.tsx";
+import { Button } from "../../../../../kit/index.ts";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
 import { rvcBlockChoiceId, rvcBlockChoices } from "../../../../../../logics/configs/rvcBlockChoices";
 import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
@@ -343,24 +344,20 @@ export const LogDestinationContainer = () => {
                     onBlur={handleBlur}
                 />
                 <div className={styles.log_destination_actions}>
-                    <button
-                        type="button"
-                        className={styles.log_destination_button}
+                    <Button
                         data-skip-blur-commit="true"
                         disabled={busy}
                         onClick={() => chooseFolder()}
                     >
                         {t("config_page.others.auto_export_message_logs.choose_folder")}
-                    </button>
-                    <button
-                        type="button"
-                        className={styles.log_destination_button}
+                    </Button>
+                    <Button
                         data-skip-blur-commit="true"
                         disabled={busy}
                         onClick={() => resetFolder()}
                     >
                         {t("config_page.others.auto_export_message_logs.reset_folder")}
-                    </button>
+                    </Button>
                     <ActionButton
                         label={label}
                         action_label={t("config_page.others.auto_export_message_logs.open_folder")}

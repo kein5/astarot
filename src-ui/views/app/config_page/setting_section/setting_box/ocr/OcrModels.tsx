@@ -9,6 +9,7 @@ import * as styles from "./Ocr.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
+import { Button } from "../../../../../kit/index.ts";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
@@ -134,11 +135,11 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                             {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
                             {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
                             <div className={voiceStyles.actions}>
-                                {active && job && <button type="button" disabled={!!pending || job.phase === "cancelling"}
-                                    onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button>}
-                                {!installed && !active && <button type="button" disabled={busy}
+                                {active && job && <Button disabled={!!pending || job.phase === "cancelling"}
+                                    onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</Button>}
+                                {!installed && !active && <Button disabled={busy}
                                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
-                                    {t("model_downloads.review")}</button>}
+                                    {t("model_downloads.review")}</Button>}
                             </div>
                         </div>
                     </li>;
