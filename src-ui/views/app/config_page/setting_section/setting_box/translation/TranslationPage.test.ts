@@ -21,7 +21,10 @@ type Setting = { state: string; data: unknown };
 const ok = (data: unknown): Setting => ({ state: "ok", data });
 
 // What a text field gave its save logic.
-interface SaveRequest { variable: unknown; state?: string; label?: string; setFunction: (value: unknown) => unknown; deleteFunction?: () => unknown }
+interface SaveRequest {
+    variable: unknown; state?: string; label?: string; setFunction: (value: unknown) => unknown; deleteFunction?: () => unknown;
+    endpoint?: string; validate?: (value: string) => string | null; credential?: boolean;
+}
 interface Engine { id: string; label?: string; is_available?: unknown }
 interface PageOptions {
     values?: Record<string, unknown>;
@@ -576,6 +579,63 @@ test("what an AI engine is asked besides the text: a temperature from 0 to 2 and
 
     p.values.currentLLMTranslationTemperature = ok(null);
     assert.equal(p.row("LLMTranslationTemperature_Box", "entry").props.variable, "", "an empty temperature is an empty field");
+});
+
+// The fields that save by themselves (#1111): [component, the setting it saves].
+const AUTO_SAVE_FIELDS: [string, string][] = [
+    ["LLMTranslationTemperature_Box", "llm_translation_temperature"],
+    ["LLMTranslationInstructions_Box", "llm_translation_instructions"],
+    ["DeepLAuthKey_Box", "deepl_auth_key"],
+    ["GoogleCloudAuthKey_Box", "google_cloud_auth_key"],
+    ["PapagoClientID_Box", "papago_client_id"],
+    ["PapagoAuthKey_Box", "papago_auth_key"],
+    ["PlamoAuthKey_Box", "plamo_auth_key"],
+    ["GeminiAuthKey_Box", "gemini_auth_key"],
+    ["OpenAIAuthKey_Box", "openai_auth_key"],
+    ["GroqAuthKey_Box", "groq_auth_key"],
+    ["OpenRouterAuthKey_Box", "openrouter_auth_key"],
+    ["LMStudioURL_Box", "lmstudio_url"],
+    ["OllamaURL_Box", "ollama_url"],
+];
+
+// What a field of the page gave its save logic.
+const saveOf = (p: Awaited<ReturnType<typeof translationPage>>, name: string): SaveRequest => {
+    p.draw(p.reach(name));
+    const save = p.saves.at(-1);
+    assert.ok(save, name);
+    return save;
+};
+
+test("each field saves itself to its own setting, and Papago's client ID is kept as a credential", async () => {
+    const p = await translationPage();
+    for (const [name, setting] of AUTO_SAVE_FIELDS) assert.equal(saveOf(p, name).endpoint, `/set/data/${setting}`, name);
+    // It has nothing the core can delete, but is a credential all the same (#1111).
+    assert.equal(saveOf(p, "PapagoClientID_Box").credential, true);
+});
+
+test("the fields check a value with the core's rules before it is saved, and say what is wrong in the page's words", async () => {
+    const p = await translationPage();
+    const check = (name: string) => {
+        const { validate } = saveOf(p, name);
+        assert.ok(validate, name);
+        return validate;
+    };
+    const temperature = check("LLMTranslationTemperature_Box");
+    // Spaces around the number do not count; empty is the engine's own temperature.
+    assert.deepEqual([temperature(" 1.5 "), temperature(""), temperature("2.5")],
+        [null, null, "config_page.translation.llm_translation_temperature.errors.invalid"]);
+    const instructions = check("LLMTranslationInstructions_Box");
+    // The words say how long the text is, counted in characters: the emoji is one.
+    assert.deepEqual([instructions("Be polite."), instructions("Be polite.\n🙂")],
+        [null, `config_page.translation.llm_translation_instructions.errors.invalid {"count":12}`]);
+    const clientId = check("PapagoClientID_Box");
+    assert.deepEqual([clientId("client"), clientId("a\tb")], [null, "config_page.translation.papago_client_id.errors.invalid"]);
+    for (const [name, key] of [["LMStudioURL_Box", "lmstudio_url"], ["OllamaURL_Box", "ollama_url"]]) {
+        const url = check(name);
+        assert.deepEqual([url("http://localhost:1234"), url("localhost:1234")], [null, `config_page.translation.${key}.errors.invalid`], name);
+    }
+    // A key is any text: the core is the one to say whether the provider takes it.
+    for (const [name] of AUTO_SAVE_FIELDS.filter(([name]) => name.endsWith("AuthKey_Box"))) assert.equal(saveOf(p, name).validate, undefined, name);
 });
 
 test("the page's sections are headed in order, and the local servers point to how to use a model of one's own", async () => {
