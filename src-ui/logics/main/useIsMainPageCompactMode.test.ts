@@ -104,6 +104,9 @@ for (const saved of [false, true]) {
         // The toggle handles its own press; closing here as well would reopen it.
         s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: (selector: string) => selector === "[data-sidebar-toggle]" ? {} : null } });
         assert.equal(s.render().button.props["aria-expanded"], true);
+        // The translator popover is portaled to the body; pressing inside it belongs to the rail.
+        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: (selector: string) => selector === "[data-translator-selector]" ? {} : null } });
+        assert.equal(s.render().button.props["aria-expanded"], true);
         s.document.dispatch("keydown", { key: "Escape", defaultPrevented: false });
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.deepEqual(s.document.focused, ["[data-sidebar-toggle]"], "focus goes back to the toggle");

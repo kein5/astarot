@@ -4,8 +4,8 @@ import { vars } from "../../../../../theme/vars.css.ts";
 export const is_opened = style({});
 
 // The same block as a language above it (LanguageSelectorOpenButton): a small
-// heading, then a field-like button. Its arrow points down because the engine
-// list opens under it, inside the rail.
+// heading, then a field-like button. Its arrow points right because the engine
+// popover opens beside the rail.
 export const container = style({
     width: "100%",
     display: "flex",
@@ -64,8 +64,8 @@ export const arrow_svg = style({
     right: ".6rem",
     width: "1.4rem",
     color: vars.dark_500_color,
-    transform: "translateY(-50%) rotate(-90deg)",
+    transform: "translateY(-50%) rotate(180deg)",
     selectors: {
-        [`&.${is_opened}`]: { transform: "translateY(-50%) rotate(90deg)" },
+        [`&.${is_opened}`]: { transform: "translateY(-50%)" },
     },
 });
