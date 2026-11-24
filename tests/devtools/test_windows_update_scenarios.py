@@ -21,8 +21,10 @@ spec.loader.exec_module(scenarios)
 
 class WindowsUpdateFixtureTests(unittest.TestCase):
     def test_valid_archives_have_exact_app_owned_top_level(self):
-        # The old package carries the Python sidecar as packages up to 0.4 did; the new one not.
-        for version, top in (("old", {scenarios.APP, scenarios.SIDECAR, "_internal"}),
+        # The old package carries the Python sidecar as packages up to 0.4 did, and the main binary
+        # under its name up to 0.6.x (ADR-014, 2.5); the new one neither.
+        self.assertEqual((scenarios.APP, scenarios.OLD_APP), ("astarot.exe", "vrct-vox.exe"))
+        for version, top in (("old", {scenarios.OLD_APP, scenarios.SIDECAR, "_internal"}),
                              ("new", {scenarios.APP, "_internal"})):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
                 self.assertEqual({name.split("/")[0] for name in archive.namelist()}, top)
@@ -46,6 +48,9 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
                 self.assertFalse(any(name.startswith(missing) for name in archive.namelist()))
                 self.assertIsNone(archive.testzip())
+        # Without the main binary under either name: the installer takes both (ADR-014, 2.5, 8).
+        with zipfile.ZipFile(io.BytesIO(scenarios.payloads()["no-exe"])) as archive:
+            self.assertNotIn(scenarios.OLD_APP, archive.namelist())
 
     def handler(self, version, filename, range_header=None, head=False, release=None):
         handler = object.__new__(scenarios.PackageHandler)

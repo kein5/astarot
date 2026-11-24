@@ -316,7 +316,7 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 ## config.json
 
-- 置き場所は`$ASTAROT_CONFIG_DIR`（0.6.xの間は`$VRCT_CONFIG_DIR`も読む）、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では0.6.0から`$XDG_CONFIG_HOME/astarot`（なければ`~/.config/astarot`）である。0.5.x までの`vrct-vox`のフォルダーは、起動の最初に移す（[Linuxの保存先の移動](#linuxの保存先の移動)）。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
+- 置き場所は`$ASTAROT_CONFIG_DIR`（0.6.xの間は`$VRCT_CONFIG_DIR`も読む）、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では0.6.0から`$XDG_CONFIG_HOME/astarot`（なければ`~/.config/astarot`）である。0.5.x までの`vrct-vox`のフォルダーは、起動の最初に移す（[Linuxの保存先の移動](#linuxの保存先の移動)）。Windowsのインストーラー版で、0.5.0以前の既定のインストール先`%LOCALAPPDATA%\VRCT-VOX`にあるものは、0.7.0からのインストーラーが`%LOCALAPPDATA%\ASTAROT`へ移す（[Windowsのインストール先の移動](#windowsのインストール先の移動)）。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
 - 設定は中核の`native/core/src/config/schema.rs`の`keys()`で宣言し、既定値は`defaults()`にある（0.4までのPythonの`Config`クラスの`ManagedProperty`と`ValidatedProperty`を写したもの）。`serialize`が真のものだけを保存する。オンオフの状態（`ENABLE_*`）や選択肢の一覧は保存しない。
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただし、自分より新しい版が保存した値は、検証に通らなくても（新しい版で足した選択肢など）使わずにファイルへそのまま書き戻し、この版で利用者がその設定を変えたときだけ新しい値を書く（#560）。どの版が保存したかは、ファイルに書く`NEWEST_SAVING_VERSION`（保存した版のうち最も新しいもの。古い版で保存しても下がらない）で見分ける。設定キーではないので、一覧には載らない。自分と同じか古い版が保存した無効な値と、この印のないファイルの無効な値は、これまでどおり保存しない。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
@@ -345,6 +345,45 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 結果は`startup.log`に1行だけ書く。`Storage folders: settings=<結果> data=<結果>`で、結果は`given`、`created`、`moved`、`finished`、`in_place`、`kept_old:<理由>`のどれか。理由は`app_running`、`instance_check_unavailable`、`new_folder_not_ours`、`cross_device`、`permission_denied`、`busy`、`new_folder_appeared`、`rename_failed`、`record_failed`、`path_not_utf8`。付け替えた起動では` paths=rewritten`（変えるものがなければ`unchanged`、失敗は`failed`）、リンクを置けなければ` settings_link=failed`か` data_link=failed`を足す。パス、設定の値、APIキーは書かない。
 
 WindowsとLinuxの開発ビルドは、これまでどおり実行ファイルのフォルダーを使い、移さない。
+
+### Windowsのインストール先の移動
+
+0.7.0から、Windowsのインストーラーは0.5.0以前の既定のインストール先`%LOCALAPPDATA%\VRCT-VOX`を`%LOCALAPPDATA%\ASTAROT`へ移し、レジストリのキーを`VRCT-VOX`から`ASTAROT`の名前へ移す（ADR-014の2.5）。Windowsでは設定、ログ、モデルがインストール先にあるので、インストール先を移すと利用者のデータも一緒に移る。画面から実行したときも、アプリ内の更新から`/P /UPDATE`で実行したときも同じに動く（`src-tauri/nsis/template.nsi`）。
+
+- 前のインストール先は`HKCU\Software\kein5\ASTAROT`から読み、なければ0.6.xまでの`HKCU\Software\kein5\VRCT-VOX`から読む。アプリの一覧の項目も、`Uninstall\ASTAROT`がなければ`Uninstall\VRCT-VOX`を読む。旧のキーにある`Installer Language`は、新しいキーになければ写す。
+- 移すのは、前のインストール先が`%LOCALAPPDATA%\VRCT-VOX`のときだけである。大文字と小文字の違い、末尾の`\`、8.3形式の短い名前は同じフォルダーとして扱う。利用者が選んだほかの場所は、名前が`VRCT-VOX`でも動かさない。0.5.1以降に新しく入れた環境はすでに`%LOCALAPPDATA%\ASTAROT`にあるので、キーだけを移す。インストーラーの画面では、インストール先のページに移す先を出す。そこで別のフォルダーを選んだときと、`/D=`でフォルダーを指定したときは移さず、そのフォルダーに入れる。
+- 更新は元の場所でこれまでどおりに行う。その前に、インストール先から動いている本体と補助プログラム（`vrct-vox.exe`、`astarot.exe`、`vrct-rvc-worker.exe`、`astarot-rvc-worker.exe`、0.4までのサイドカー）を止め、前の更新の作業フォルダー（`.upd`）を片付ける。speech.cppのサーバー（`speech.exe`、`llama-server.exe`）はほかのプログラムも使う名前なので名前では止めない。アプリがジョブオブジェクトに入れているので、アプリが終わると一緒に終わる。
+- 新しいファイルがそろってから、フォルダーの名前を変えて移す。同じドライブの中で名前を変えるだけで、写してから消すことはしない。移す先にフォルダーがあって空でないとき、名前を変えられないとき（ほかのプログラムがファイルを開いているなど。0.5秒おきに10回試す）は、移さずに元の場所で終える。次の更新でまた試す。空のフォルダーは置き換える。
+- 名前を変える前に、移すフォルダーへ`installer_moved_from.txt`を置く。中身は旧のフォルダーのパスで、バイト順マークの付いたUTF-16で書く。ファイルはフォルダーと一緒に移る。名前を変えられなかったときは消す。
+- 移したあと、インストーラーはデスクトップとスタートメニューのショートカットのうち残っているものを新しい場所に付け替える。利用者が消したショートカットは作り直さない。タスクバーやスタートにピン留めした項目は変えない（プログラムからはピン留めし直せない）。
+- 続けて新しいキー（インストール先と、アプリの一覧の`Uninstall\ASTAROT`）を書き、そのあとで旧のキー（`Software\kein5\VRCT-VOX`と`Uninstall\VRCT-VOX`）を消す。アプリの一覧には1つだけが残る。旧のキーが別のフォルダーを指し、そこにアンインストーラーが残っているときは、別のインストールのキーとして残す。移さなかったときも、キーは新しい名前で元の場所を記録する。
+- 旧の場所にリンクやジャンクションは置かない。古い版のアンインストーラーなど、リンクを想定していない削除の処理がリンクの先のデータに触れないようにするためである。
+- 名前を変えたあと、キーを書く前に止まったときは、旧のキーが旧の場所を指したまま残る。次の更新は、旧の場所がなく新しい場所にインストールがあるのを見て移動の続きと判断し、ショートカットとキーを直す。
+- アンインストーラーは新しいキーを消し、旧のキーもこのインストールを指していれば消す。`installer_moved_from.txt`も消す。
+
+アプリは次の起動の最初、`config.json`を読む前に`installer_moved_from.txt`を読む（`native/core/src/storage/installer.rs`の`take_installer_move`。呼ぶのは`src-tauri/src/backend_host.rs`の`settle_folders`）。設定のフォルダーのファイルの中で旧のフォルダーの下を指すパスを、実行ファイルのフォルダーの同じ場所へ付け替えてから、ファイルを消す。付け替えの対象と`config.json.before-migration-storage`の写しは[Linuxの保存先の移動](#linuxの保存先の移動)と同じである。Windowsではパスを大文字と小文字を区別せずに比べ、`\`と`/`を同じ区切りとして扱う。旧のフォルダーが実行ファイルのフォルダーと同じ親フォルダーにあったときは、その親フォルダーを別の書き方でたどったパスも付け替える。
+
+- 付け替えに失敗したときはファイルを残し、次の起動でやり直す。
+- ファイルの中身が1つの絶対パスでないとき（空、文字として読めない、複数の行など）と、実行ファイルのフォルダーそのものを指すときは、何も変えずにファイルを消す。
+- 結果は`startup.log`に`Storage folders: installer_move=<結果>`の1行で書く。結果は`rewritten`、`unchanged`、`ignored`、`failed`のどれか。ファイルを消せなかったときは` installer_move_file=kept`を足す。パスと設定の値は書かない。
+
+ZIP版は展開した場所で動くので、移さない。
+
+### 本体の実行ファイルの名前
+
+0.7.0から、本体の実行ファイルはWindowsでは`astarot.exe`、Linuxでは`astarot`である。0.6.xまでは`vrct-vox.exe`と`vrct-vox`だった（ADR-014の2.5と2.6）。保存先は実行ファイルの名前によらない（Windowsは実行ファイルのフォルダー、Linuxの配布版は上のXDGのフォルダー）ので、名前が変わっても設定とモデルはそのまま読む。
+
+Windowsのインストーラー（`src-tauri/nsis/template.nsi`）は、画面から実行したときも、アプリ内の更新から`/P /UPDATE /R`で実行したときも、次のとおりに動く。
+
+- 動いている本体を新旧どちらの名前でも探す。画面から実行したときは、どちらの名前でも閉じてよいかを聞いてから止める。
+- 取得したパッケージの本体は、新旧どちらの名前でも受け付ける（`/VERSION`で別の版を入れるとき）。入れた名前を、アプリの一覧（`MainBinaryName`と`DisplayIcon`）、ショートカット、`/R`での再起動、完了のページからの起動に使う。
+- 置き換えが済んだあとで、もう一方の名前の本体が残っていれば、インストーラーが作ったショートカット（デスクトップとスタートメニュー）のうち残っているものを、入れた本体に付け替える。そのあとで、もう一方の名前の本体を消す。消せなかったときは次の更新でまた付け替えて消す。利用者が消したショートカットは作り直さない。利用者が別の名前で作ったショートカットと、タスクバーやスタートにピン留めした項目は変えない。
+- 同じ名前のままの更新では、ショートカットに触れない。
+- アンインストーラーは両方の名前の本体を消す。
+
+ZIP版は展開した場所で動く。前の版の上に展開すると`vrct-vox.exe`が残るので、利用者が消す。
+
+Linuxでは、debとrpmが`/opt/vrct-vox/astarot`を入れ、コマンド`/usr/bin/astarot`を置く。0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する。AppImageの中の実行ファイルは`usr/bin/astarot`である。パッケージのデスクトップファイルと、アプリがWaylandのportalのために書くデスクトップファイル（下の表の`io.github.kein5.astarot.desktop`）は、`StartupWMClass`を`astarot`にする。ウィンドウのクラスは実行ファイルの名前から決まるためである。パッケージのデスクトップファイルの`Exec`も`astarot`である。
 
 ### Linuxの音声経路の名前の移行
 
@@ -413,7 +452,8 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
 | `exports/` | `config.json`と同じフォルダー | 利用者が書き出した用語辞書（`vocabulary-年月日-時分秒.txt`、[ファイルへの書き出しと読み込み](#ファイルへの書き出しと読み込み)）。アプリは読まない |
 | `storage_migration.json` | Linux配布版の設定のフォルダーとデータのフォルダー（0.6.0から） | そのフォルダーを新しく作ったか、`vrct-vox`から移したかの記録（[Linuxの保存先の移動](#linuxの保存先の移動)） |
-| `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときに、パスを付け替える前の`config.json`（APIキーを除く。権限0600）。アプリは読まない |
+| `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときと、Windowsのインストーラーがインストール先を移したあとの最初の起動で、パスを付け替える前の`config.json`（APIキーを除く。Linuxでは権限0600）。アプリは読まない |
+| `installer_moved_from.txt` | Windowsのインストール先（0.7.0から） | インストーラーがインストール先を移したときに置く、旧のインストール先のパス（バイト順マーク付きのUTF-16）。アプリが次の起動でパスを付け替えて消す（[Windowsのインストール先の移動](#windowsのインストール先の移動)） |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |
 | `io.github.kein5.astarot.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル。0.6.xまでは`io.github.kein5.vrct-vox.desktop`で、`X-VRCT-VOX-Generated=true`の行があるもの（前の版が書いたもの）は、新しいファイルを書いたあとに消す。その行がないファイルは利用者かパッケージのものとして残す |

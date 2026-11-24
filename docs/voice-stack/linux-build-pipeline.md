@@ -1,11 +1,11 @@
 # Linux build pipeline
 
-`tools/build_linux.py` builds an x86_64 candidate: the `vrct-vox` app, which runs the Rust
+`tools/build_linux.py` builds an x86_64 candidate: the `astarot` app (`vrct-vox` up to 0.6.x), which runs the Rust
 backend core (`native/core`) in its own process, and its `_internal` folder with both pinned
 speech.cpp 0.11.2 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
 PipeWire template and the license texts (`tools/app_resources.py` lists them). Since 0.5.0
 no Python runtime is frozen or shipped. The default output is a `tar.gz`, a SHA-256 file
-and a JSON file inventory. Keep `vrct-vox` and `_internal` together: the core finds
+and a JSON file inventory. Keep `astarot` and `_internal` together: the core finds
 speech.cpp and the helpers in `_internal` beside the binary.
 Add `--appimage --download-appimage-tools` for an additional inspected AppImage;
 see [AppImage build and acceptance](appimage.md). The CI builds both formats.
@@ -13,7 +13,8 @@ see [AppImage build and acceptance](appimage.md). The CI builds both formats.
 The CI then makes a `.deb` and an `.rpm` from the same candidate directory with
 `python3 tools/linux_packages.py --candidate build/linux/candidate/VRCT-VOX --output-dir build/linux/artifacts`
 (needs `dpkg-deb` and `rpmbuild`). They install the unchanged files under `/opt/vrct-vox`,
-add `/usr/bin/vrct-vox`, a desktop entry, an icon and the license notices, and write
+add the command `/usr/bin/astarot` (and `/usr/bin/vrct-vox`, the command up to 0.6.x, which
+starts the same executable), a desktop entry, an icon and the license notices, and write
 `/opt/vrct-vox/package-manager` (`deb` or `rpm`) so the app can tell a package-manager install.
 They require glibc (the highest version the manifest records), GTK 3, WebKitGTK 4.1 and
 libpipewire. The Vulkan loader (`libvulkan1`, `vulkan-loader`), the Mesa Vulkan drivers and the
@@ -122,7 +123,7 @@ cd build/linux/artifacts
 sha256sum -c ./*.tar.gz.sha256
 # Inspect with tools/linux_package.py before extracting an independently obtained candidate.
 tar -xzf VRCT-VOX-<version>-linux-x64-release.tar.gz
-./VRCT-VOX/vrct-vox
+./VRCT-VOX/astarot
 ```
 
 The full `VRCT-VOX` directory must stay together. The host supplies WebKitGTK 4.1,
@@ -179,7 +180,7 @@ contact VRChat, or load inference models.
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
 These are path/type checks, not a detector for deliberately renamed weights.
-Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `astarot-rvc-worker` are listed with their
+Original licenses and notices are retained. The Rust crates built into `astarot` and `astarot-rvc-worker` are listed with their
 license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
 the Cargo registry sources, so `--offline` builds need them cached). The build
 stops if a crate publishes no license text and has no reviewed entry in

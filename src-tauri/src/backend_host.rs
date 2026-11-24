@@ -76,10 +76,12 @@ struct Folders {
 static FOLDERS: OnceLock<Folders> = OnceLock::new();
 
 /// Settles the folders at the start, before anything reads them, and answers the line for the
-/// start-up log when the Linux packages' folders were looked at. There the folders of 0.5.x move
-/// from `vrct-vox` to `astarot` (ADR-014, 2.4; `astarot_core::storage::linux`), which first asks the
-/// session bus whether another ASTAROT or VRCT-VOX runs: call it after the start has set its
-/// environment variables, as that starts a thread.
+/// start-up log when the Linux packages' folders were looked at, or when the Windows installer
+/// moved the install folder. On Linux the folders of 0.5.x move from `vrct-vox` to `astarot`
+/// (ADR-014, 2.4; `astarot_core::storage::linux`), which first asks the session bus whether another
+/// ASTAROT or VRCT-VOX runs: call it after the start has set its environment variables, as that
+/// starts a thread. On Windows the paths saved under the folder the installer moved from are
+/// rewritten (2.5; `astarot_core::storage::installer`).
 pub(crate) fn settle_folders(executable: &Path) -> Option<String> {
     let mut line = None;
     FOLDERS.get_or_init(|| {
@@ -116,7 +118,14 @@ fn resolve(executable: &Path) -> (Folders, Option<String>) {
         return (Folders { state_dir: settled.state_dir, app_dir, data_dir: settled.data_dir }, Some(line));
     }
     let state_dir = CONFIG_DIR.value_os().map_or_else(|| app_dir.clone(), PathBuf::from);
-    (Folders { state_dir, data_dir: app_dir.clone(), app_dir }, None)
+    // Windows keeps the settings and models in the install folder. When the installer moved it
+    // from VRCT-VOX to ASTAROT it left a file naming the old folder (ADR-014, 2.5): the paths
+    // saved under the old folder are rewritten here, before anything reads the settings.
+    let line = cfg!(windows)
+        .then(|| astarot_core::storage::installer::take_installer_move(&app_dir, &state_dir))
+        .flatten()
+        .map(|taken| taken.summary());
+    (Folders { state_dir, data_dir: app_dir.clone(), app_dir }, line)
 }
 
 fn environment(executable: &Path, version: String) -> Environment {

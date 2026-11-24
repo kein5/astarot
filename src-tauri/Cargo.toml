@@ -16,11 +16,12 @@ publish = false
 name = "astarot_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-# The executable keeps its name, whatever the package is called: the packages ship it, the window
-# class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName names it
-# for the bundles. It moves to `astarot` with ADR-014's step for the executable (PR 6).
+# The executable's name, named here rather than left to the package's: the packages ship it, the
+# window class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName
+# names it for the bundles. It was `vrct-vox` up to 0.6.x (ADR-014, 2.5 and 2.6); the installer
+# replaces that one on update (native/app-identity's EXECUTABLE).
 [[bin]]
-name = "vrct-vox"
+name = "astarot"
 path = "src/main.rs"
 
 [build-dependencies]

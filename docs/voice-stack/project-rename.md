@@ -19,13 +19,11 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 | 対象 | 名称 |
 |---|---|
-| 本体の実行名 | `vrct-vox`（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）は0.6.0より後の版から`astarot`。実行名は`[[bin]]`で`vrct-vox`に保つ） |
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
 | Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_setup.exe`。0.5.xまでは `VRCT-VOX_cuda.zip` も配布。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる |
-| Linuxデスクトップエントリー | `vrct-vox.desktop` |
-
-Windowsの実行ファイルには`.exe`が付きます。
+| Linuxデスクトップエントリー | `vrct-vox.desktop`（中の`Exec`と`StartupWMClass`は0.7.0から`astarot`） |
+| debとrpmのパッケージ名と置き場所 | `vrct-vox`、`/opt/vrct-vox`。0.7.0からは実行ファイルの`/opt/vrct-vox/astarot`とコマンド`/usr/bin/astarot`を入れ、0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する |
 
 ## 識別子と保存先
 
@@ -33,19 +31,20 @@ Windowsの実行ファイルには`.exe`が付きます。
 
 | 対象 | 値 |
 |---|---|
+| 本体の実行ファイル | 0.7.0から`astarot`（Windowsは`astarot.exe`）。0.6.xまでは`vrct-vox`（`vrct-vox.exe`）。Cargoの`[[bin]]`と`tauri.conf.json`の`mainBinaryName`で決める（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）も0.6.0より後の版から`astarot`）。Linuxのウィンドウのクラスと`StartupWMClass`はこの名前に従う。Windowsのインストーラーは更新のときに`vrct-vox.exe`を置き換え、自分が作ったショートカットを付け替える（[本体の実行ファイルの名前](../spec/data-and-persistence.md#本体の実行ファイルの名前)） |
 | TauriアプリID | 0.7.0から`io.github.kein5.astarot`（0.6.xまでは`io.github.kein5.vrct-vox`）。Tauriのデータのフォルダー、Waylandのportalのアプリ、単一起動の名前がこのIDに従う |
 | Linuxの設定保存先 | 0.6.0から`$XDG_CONFIG_HOME/astarot`、既定は`~/.config/astarot`。0.5.xの`vrct-vox`は起動の最初に移し、旧名には新しいフォルダーを指すリンクを0.6.xの間残す（[Linuxの保存先の移動](../spec/data-and-persistence.md#linuxの保存先の移動)） |
 | Linuxのデータ保存先 | 0.6.0から`$XDG_DATA_HOME/astarot`、既定は`~/.local/share/astarot`。移し方は設定保存先と同じ |
 | Linuxのキャッシュ保存先 | なし。0.4までのPythonバックエンドだけが`$XDG_CACHE_HOME/vrct-vox`（既定は`~/.cache/vrct-vox`）を使った |
 | 環境変数 | 0.6.0から`ASTAROT_*`。利用者とパッケージ作成者向けの4つ（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`）は先に読み、なければ0.5.xの`VRCT_*`の名前を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める。開発、試験、ビルド、プロセスの受け渡しの変数（`ASTAROT_VR_PANEL_DIR`、`ASTAROT_LINUX_BUNDLE`、`ASTAROT_TEST_*`など）は、旧名を読まない。`VRCT_CACHE_DIR`などは0.4までのPythonバックエンドだけが読んだ |
-| Windowsのインストール先を記録するキー | `VRCT-VOX` |
+| Windowsのインストール先を記録するキー | 0.7.0から`ASTAROT`（`HKCU\Software\kein5\ASTAROT`と、アプリの一覧の`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ASTAROT`）。0.6.xまでは`VRCT-VOX`。インストーラーは新しいキーを先に読み、なければ旧のキーを読む。新しいキーを書いてから旧のキーを消す（[Windowsのインストール先の移動](../spec/data-and-persistence.md#windowsのインストール先の移動)） |
 | Linuxの音声経路と仮想マイク | 0.6.0の次の版から`astarot.managed.*`ノード（仮想マイクの説明は`ASTAROT Managed Virtual Microphone`）、`astarot-managed-*.service`、所有者識別子`astarot-service-v1`、手で置く設定`90-astarot-managed.conf`、一時のストリーム`astarot.source-bridge.*`と`astarot.asr.capture.*`。0.6.0までの`vrct-managed-*.service`は、名前、所有者識別子、中身がどれも中核の書いたものと一致するときだけ止めて消し、新しい名前で作り直す。旧名の接頭辞のノードとストリームは入力の候補から外し、旧名の手で置いた設定（`90-vrct-managed.conf`）を見つけたら自動で作らない。旧名を読むのは新しい名前を出した版の系列の間（`native/app-identity`の`audio_route::READS_LEGACY_NAMES`）。旧のユニットの片付けは期限なしに続ける（`audio_route::RETIRES_LEGACY_UNITS`）（[音声経路の名前の移行](../spec/data-and-persistence.md#linuxの音声経路の名前の移行)） |
 | モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
 | APIキー（OSの資格情報ストア） | 0.6.0より後の版から、Windowsは`ASTAROT/<ID>/<項目の名前>`、Linuxは属性`application=astarot`と`astarot-store=<ID>`、ラベル`ASTAROT <項目の名前>`。0.6.0が`VRCT-VOX`の名前で保存したキーは、起動の時に新しい名前へ写して読み戻す。0.6.0の名前で探すのは0.6.xの間。0.6.0の名前の項目は残し、キーを変えても書き換えず、キーを消したときは両方から消す（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.astarot`、`~/.local/share/applications/io.github.kein5.astarot.desktop`（印は`X-ASTAROT-Generated=true`）。0.6.xまでの`io.github.kein5.vrct-vox.desktop`は、`X-VRCT-VOX-Generated=true`の印があるときだけ消す。ショートカットと画面の共有の許可はアプリIDごとに記録されるので、一度だけ許可し直しになる |
 
-WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1からはインストーラーの画面、Windowsのアプリの一覧、ショートカットに`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれるため、0.5.0以前から更新したときのインストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままです。アプリの一覧の登録は同じキーのまま名前だけが変わり、`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。
+WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1からはインストーラーの画面、Windowsのアプリの一覧、ショートカットに`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれます。0.6.xまでは、0.5.0以前から更新したときのインストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままでした。0.7.0からのインストーラーは、その場所にあるインストールを更新のあとでフォルダーの名前を変えて`%LOCALAPPDATA%\ASTAROT`へ移し、アプリが保存したパスを次の起動で付け替えます。利用者が選んだ場所は動かしません。`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。0.7.0からの本体は`astarot.exe`です。インストーラーは更新のときに`vrct-vox.exe`を置き換え、自分が作ったショートカットを`astarot.exe`に付け替えます。タスクバーやスタートにピン留めした項目と、利用者が作ったショートカットは付け直しになります。
 
 ## 内部のコードネーム
 

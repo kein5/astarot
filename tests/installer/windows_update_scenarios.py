@@ -25,14 +25,22 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_URL = "https://github.com/kein5/astarot/releases/download/$release_revision"
-APP = "vrct-vox.exe"
+# The main binary from 0.7.0, and the one up to 0.6.x (ADR-014, 2.5 and 2.6). The "old" package
+# plays a release up to 0.6.x and carries the old one; every other package carries the new one.
+APP = "astarot.exe"
+OLD_APP = "vrct-vox.exe"
 # Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
 # installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
 PACKAGE = "VRCT-VOX.zip"
-UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
-PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
+# The keys up to 0.6.x, and the keys from ADR-014's step 5 on (2.5).
+OLD_UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
+OLD_PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ASTAROT"
+PRODUCT_KEY = r"Software\kein5\ASTAROT"
+# The file a moved install leaves for the app: the old folder, UTF-16 after a byte order mark.
+MOVED_FROM = "installer_moved_from.txt"
 # No single ANSI code page holds all of these characters.
 NON_ANSI_FOLDER = "ユーザー 한글 😀"
 ARCHIVE_TIME = (2026, 1, 1, 0, 0, 0)
@@ -44,7 +52,7 @@ OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"
 
 def payload_files(version):
     files = {
-        APP: f"{version} executable stub".encode(),
+        (OLD_APP if version == "old" else APP): f"{version} executable stub".encode(),
         "_internal/shared.txt": f"{version} dependency".encode(),
         f"_internal/{version}-only.txt": f"{version} only".encode(),
         "_internal/nested/padding.bin": bytes(range(256)) * 2048,
@@ -273,10 +281,18 @@ def add_user_data(directory):
     (directory / "weights/empty").mkdir()
 
 
-def expect_updated(directory, before):
+def moved_from_bytes(folder):
+    return b"\xff\xfe" + str(folder).encode("utf-16-le")
+
+
+def expect_updated(directory, before, moved_from=None, version="new"):
+    """`moved_from`: the folder the installer moved the install from, named in the file it leaves.
+    The main binary under either name goes with the rest of the app: only `version`'s stays."""
     expected = {k: v for k, v in before.items()
-                if k not in (APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
-    for name, value in payload_files("new").items():
+                if k not in (APP, OLD_APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
+    if moved_from is not None:
+        expected[MOVED_FROM] = sha256(moved_from_bytes(moved_from)).hexdigest()
+    for name, value in payload_files(version).items():
         expected[name] = sha256(value).hexdigest()
         for parent in Path(name).parents:
             if str(parent) != ".":
@@ -304,6 +320,8 @@ def hold_file(path):
 
 
 def interrupted_commit(directory, checkpoint):
+    """An update that stopped half way, by an installer up to 0.6.x: the main binary is the old
+    one on both sides."""
     work = directory / ".upd"
     for name in ("new", "old", "add", "discard"):
         (work / name).mkdir(parents=True)
@@ -314,10 +332,10 @@ def interrupted_commit(directory, checkpoint):
         (directory / name).rename(work / "old" / name)
     if checkpoint == "uninstallers":
         return
-    (directory / APP).rename(work / "old" / APP)
+    (directory / OLD_APP).rename(work / "old" / OLD_APP)
     if checkpoint == "exe-backup":
         return
-    (directory / APP).write_bytes(payload_files("new")[APP])
+    (directory / OLD_APP).write_bytes(payload_files("new")[APP])
     if checkpoint == "exe-replaced":
         return
     (directory / "_internal").rename(work / "old/_internal")
@@ -436,9 +454,20 @@ def silent_scenarios(installer, work, server):
     updated = clone("update success")
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
+    assert not (updated / OLD_APP).exists()
     # The Apps list shows the version /VERSION installed, not the installer's own.
     assert OWN != "new" and installed_version() == "new", installed_version()
     print("PASS update success and user data retention", flush=True)
+    print("PASS the main binary up to 0.6.x is replaced by the new one", flush=True)
+
+    # A package under the old name (another version through /VERSION) is installed as it is:
+    # its main binary stays, and the one under the new name goes.
+    directory = clone("back to a package up to 0.6.x")
+    run_install(installer, directory, "new", work / "temp-forward", True)
+    run_install(installer, directory, "old", work / "temp-back", True)
+    expect_updated(directory, before, version="old")
+    assert not (directory / APP).exists()
+    print("PASS a package with the main binary up to 0.6.x installs under that name", flush=True)
 
     second_run_scenario(installer, work, server, clone("second run"), before)
     print("PASS a second run while one runs changes nothing and exits with code 2", flush=True)
@@ -554,10 +583,10 @@ def silent_scenarios(installer, work, server):
 
     directory = clone("blocked recovery")
     interrupted_commit(directory, "exe-replaced")
-    with hold_file(directory / APP):
+    with hold_file(directory / OLD_APP):
         run_install(installer, directory, "checksum-404", work / "temp-blocked", False)
         assert (directory / ".upd/committing").exists()
-        assert (directory / ".upd/old" / APP).read_bytes() == payload_files("old")[APP]
+        assert (directory / ".upd/old" / OLD_APP).read_bytes() == payload_files("old")[OLD_APP]
     run_install(installer, directory, "checksum-404", work / "temp-unblocked", False)
     assert_tree(directory, before)
     print("PASS blocked restoration retains backups and can be retried", flush=True)
@@ -576,16 +605,48 @@ def silent_scenarios(installer, work, server):
     print("PASS failed fresh install removes install folder", flush=True)
 
 
-def register_old_install(directory):
+def write_key(path, values):
     import winreg
-    for path, values in {
-        PRODUCT_KEY: {"": str(directory), "Installer Language": "1033"},
-        UNINSTALL_KEY: {"": str(directory), "DisplayVersion": "0.0.1", "DisplayName": "VRCT-VOX",
-                        "UninstallString": f'"{directory / "uninstall.exe"}"'},
-    }.items():
-        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
-            for name, value in values.items():
-                winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
+        for name, value in values.items():
+            winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+
+
+def read_key(path):
+    """Every value of the key, or None when there is no key."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            values = {}
+            for index in range(winreg.QueryInfoKey(key)[1]):
+                name, value, _kind = winreg.EnumValue(key, index)
+                values[name] = value
+            return values
+    except FileNotFoundError:
+        return None
+
+
+def clear_registration():
+    import winreg
+    for path in (PRODUCT_KEY, UNINSTALL_KEY, OLD_PRODUCT_KEY, OLD_UNINSTALL_KEY):
+        try:
+            winreg.DeleteKeyEx(winreg.HKEY_CURRENT_USER, path, winreg.KEY_WOW64_64KEY, 0)
+        except FileNotFoundError:
+            pass
+
+
+def register_old_keys(directory, language="1033"):
+    """The keys an installer up to 0.6.x wrote for an install in `directory`."""
+    write_key(OLD_PRODUCT_KEY, {"": str(directory), "Installer Language": language})
+    write_key(OLD_UNINSTALL_KEY, {"": str(directory), "DisplayVersion": "0.0.1", "DisplayName": "VRCT-VOX",
+                                  "InstallLocation": f'"{directory}"',
+                                  "UninstallString": f'"{directory / "uninstall.exe"}"'})
+
+
+def register_old_install(directory, language="1033"):
+    """A machine with an install of 0.5.x: its keys, and none of this version's."""
+    clear_registration()
+    register_old_keys(directory, language)
 
 
 def gui_scenario(installer, work):
@@ -690,21 +751,16 @@ def programs_folder():
     return shell_folder(0x02)  # CSIDL_PROGRAMS: the user's Start menu programs
 
 
-def make_shortcut(link, target):
+def make_shortcut(link, target, arguments=""):
     link.parent.mkdir(parents=True, exist_ok=True)
     script = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
-              f"$s.TargetPath='{target}';$s.Save()")
+              f"$s.TargetPath='{target}';$s.Arguments='{arguments}';$s.Save()")
     subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, timeout=60)
 
 
 def uninstall_entry():
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
-            return {name: winreg.QueryValueEx(key, name)[0]
-                    for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
-    except FileNotFoundError:
-        return None
+    entry = read_key(UNINSTALL_KEY)
+    return None if entry is None else {name: entry.get(name) for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
 
 
 def installed_version():
@@ -729,9 +785,10 @@ def uninstall_entries_named(*names):
     return found
 
 
-def run_default_install(installer, version, temp, extra=""):
+def run_default_install(installer, version, temp, extra="", uilang="en"):
     """No /D and no /NS: the default folder, the stored location and shortcuts as a user gets them."""
-    command = f'"{installer}" /S /UILANG=en /VERSION={version} {extra}'.strip()
+    language = f"/UILANG={uilang} " if uilang else ""
+    command = f'"{installer}" /S {language}/VERSION={version} {extra}'.strip()
     result = subprocess.run(command, env=installer_environment(temp), timeout=180, check=False)
     assert result.returncode == 0, f"{version}: exit {result.returncode}"
 
@@ -742,14 +799,16 @@ def run_uninstall(directory):
 
 
 def rename_scenarios(installer, work):
-    """The display name moves to productName (Issue #535); identifiers and data stay."""
+    """The display name moves to productName (Issue #535). An update of an install made under the
+    old name moves it as well (ADR-014, 2.5): move_scenarios."""
     local = Path(os.environ["LOCALAPPDATA"])
     new_dir, old_dir = local / PRODUCT_NAME, local / OLD_FOLDER
     desktop, programs = desktop_folder(), programs_folder()
     assert PRODUCT_NAME != OLD_FOLDER
     for path in (new_dir, old_dir):
         assert not path.exists(), f"Run on a disposable machine: {path} exists"
-    assert uninstall_entry() is None, "Run on a disposable machine: an install is registered"
+    assert uninstall_entry() is None and read_key(OLD_UNINSTALL_KEY) is None, \
+        "Run on a disposable machine: an install is registered"
 
     # A new install: folder, Apps list and shortcuts carry the display name.
     run_default_install(installer, "new", work / "temp-rename-fresh")
@@ -766,33 +825,261 @@ def rename_scenarios(installer, work):
     assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk"))
     shutil.rmtree(new_dir)
     print("PASS a new install uses the display name for folder, Apps list and shortcuts", flush=True)
+    # The location the uninstaller keeps for a later install goes too: the next mode starts clean.
+    clear_registration()
 
-    # An install made under the old name, with the shortcuts 0.5.0 made, updated in place.
-    run_install(installer, old_dir, "old", work / "temp-rename-seed", True)
-    add_user_data(old_dir)
-    register_old_install(old_dir)
-    old_links = [desktop / OLD_SHORTCUT, programs / OLD_FOLDER / OLD_SHORTCUT, programs / OLD_SHORTCUT]
+
+def same_path(a, b):
+    return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+
+
+def shortcut_property(link, name):
+    script = f"(New-Object -ComObject WScript.Shell).CreateShortcut('{link}').{name}"
+    result = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                            capture_output=True, text=True, check=True, timeout=60)
+    return result.stdout.strip()
+
+
+def shortcut_target(link):
+    return shortcut_property(link, "TargetPath")
+
+
+def shortcut_places():
+    desktop, programs = desktop_folder(), programs_folder()
+    new = [desktop / f"{PRODUCT_NAME}.lnk", programs / PRODUCT_NAME / f"{PRODUCT_NAME}.lnk", programs / f"{PRODUCT_NAME}.lnk"]
+    old = [desktop / OLD_SHORTCUT, programs / OLD_FOLDER / OLD_SHORTCUT, programs / OLD_SHORTCUT]
+    return new, old
+
+
+def remove_shortcuts():
+    new, old = shortcut_places()
+    for link in new + old:
+        # Windows may still have the new shortcut open after the installer exits.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                link.unlink(missing_ok=True)
+                break
+            except PermissionError as error:
+                if getattr(error, "winerror", None) != 32 or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
+    for folder in (programs_folder() / PRODUCT_NAME, programs_folder() / OLD_FOLDER):
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+
+
+def seed_install(installer, directory, temp):
+    """The old package with user data in `directory`; no keys and no shortcuts: each scenario sets
+    those up as the version it plays left them."""
+    run_install(installer, directory, "old", temp, True)
+    add_user_data(directory)
+    clear_registration()
+    remove_shortcuts()
+    return snapshot(directory)
+
+
+def expect_registration(directory, language=None):
+    """The keys of this version record `directory`; the keys up to 0.6.x are gone; one Apps entry."""
+    product = read_key(PRODUCT_KEY)
+    assert product is not None and same_path(product[""], directory), product
+    if language is not None:
+        assert product.get("Installer Language") == language, product
+    entry = read_key(UNINSTALL_KEY)
+    assert entry is not None and entry["DisplayName"] == PRODUCT_NAME, entry
+    assert same_path(entry["InstallLocation"].strip('"'), directory), entry
+    assert same_path(entry["UninstallString"].strip('"'), directory / "uninstall.exe"), entry
+    # ADR-014, 2.5, 8: the main binary under its new name.
+    assert entry.get("MainBinaryName") == APP, entry
+    assert same_path(entry["DisplayIcon"].strip('"'), directory / APP), entry
+    assert read_key(OLD_PRODUCT_KEY) is None, read_key(OLD_PRODUCT_KEY)
+    assert read_key(OLD_UNINSTALL_KEY) is None, read_key(OLD_UNINSTALL_KEY)
+    assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [UNINSTALL_KEY.rsplit("\\", 1)[1]]
+
+
+def reset_machine(*folders):
+    remove_shortcuts()
+    clear_registration()
+    for folder in folders:
+        if folder.exists():
+            shutil.rmtree(folder)
+
+
+def move_scenarios(installer, work):
+    """ADR-014, 2.5: the default folder up to 0.5.0 and the registry keys move to ASTAROT."""
+    local = Path(os.environ["LOCALAPPDATA"])
+    new_dir, old_dir = local / PRODUCT_NAME, local / OLD_FOLDER
+    for path in (new_dir, old_dir):
+        assert not path.exists(), f"Run on a disposable machine: {path} exists"
+    assert read_key(UNINSTALL_KEY) is None and read_key(OLD_UNINSTALL_KEY) is None, \
+        "Run on a disposable machine: an install is registered"
+    reset_machine()
+    new_links, old_links = shortcut_places()
+    desktop_link = new_links[0]
+
+    # 0.5.0 and earlier: the old default folder, the old keys with the language the installer
+    # last ran in, and the shortcuts 0.5.0 made. The in-app update moves the folder by renaming
+    # it, leaves the file for the app, moves the keys, and points the shortcuts at the new place.
+    seed_install(installer, old_dir, work / "temp-seed-0.5.0")
+    register_old_install(old_dir, language="1041")
     for link in old_links:
-        make_shortcut(link, old_dir / APP)
+        make_shortcut(link, old_dir / OLD_APP)
     before = snapshot(old_dir)
-    run_default_install(installer, "new", work / "temp-rename-update", extra="/UPDATE /EDITION=cpu")
+    run_default_install(installer, "new", work / "temp-move", extra="/UPDATE /EDITION=cpu", uilang=None)
+    assert not old_dir.exists(), "Nothing, no link or junction, is left at the old place"
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir, language="1041")
+    assert not any(link.exists() for link in old_links), [str(link) for link in old_links if link.exists()]
+    for link in new_links:
+        assert same_path(shortcut_target(link), new_dir / APP), link
+    print("PASS the default folder of 0.5.0 moves with its data, keys, language and shortcuts", flush=True)
+
+    # The next update finds the install by the new keys and moves nothing more. The app has not
+    # started yet, so the file for it is still there.
+    run_default_install(installer, "new", work / "temp-move-again", extra="/UPDATE", uilang=None)
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir, language="1041")
+    print("PASS the next update leaves the moved install where it is", flush=True)
+
+    # The uninstaller removes the keys of both names; an update that stopped half way may have
+    # left the old ones. It keeps the settings, and the file for the app goes.
+    register_old_keys(old_dir)
+    run_uninstall(new_dir)
+    assert read_key(UNINSTALL_KEY) is None and read_key(OLD_UNINSTALL_KEY) is None
+    assert read_key(OLD_PRODUCT_KEY) is None
+    assert "Installer Language" not in (read_key(PRODUCT_KEY) or {})
+    assert not any(link.exists() for link in new_links + old_links)
+    assert (new_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
+    assert not (new_dir / MOVED_FROM).exists()
+    print("PASS the uninstaller removes the keys of both names and keeps the settings", flush=True)
+    reset_machine(new_dir)
+
+    # 0.5.1 and later installed into the new default folder already: only the keys move. The
+    # main binary takes its new name (2.5, 8): the shortcuts the installer made lead to it, and one
+    # the user made under another name is left as it is.
+    seed_install(installer, new_dir, work / "temp-seed-0.5.1")
+    register_old_install(new_dir)
+    for link in new_links[:2]:
+        make_shortcut(link, new_dir / OLD_APP)
+    own = desktop_folder() / "my ASTAROT.lnk"
+    make_shortcut(own, new_dir / OLD_APP)
+    before = snapshot(new_dir)
+    run_default_install(installer, "new", work / "temp-keys-only", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before)
+    expect_registration(new_dir)
+    for link in new_links[:2]:
+        assert same_path(shortcut_target(link), new_dir / APP), link
+    assert not new_links[2].exists(), "A shortcut the user removed is not made again"
+    assert same_path(shortcut_target(own), new_dir / OLD_APP)
+    own.unlink()
+    print("PASS an install of 0.5.1 in the new folder keeps its place; only the keys move", flush=True)
+    print("PASS the shortcuts the installer made lead to the main binary under its new name", flush=True)
+
+    # The next update, with the main binary already under its new name, leaves the shortcuts as
+    # they are: what the user changed in them stays.
+    make_shortcut(desktop_link, new_dir / APP, arguments="--kept")
+    run_default_install(installer, "new", work / "temp-keys-only-again", extra="/UPDATE")
+    assert shortcut_property(desktop_link, "Arguments") == "--kept"
+    print("PASS an update under the same name leaves the shortcuts alone", flush=True)
+    reset_machine(new_dir)
+
+    # A folder the user chose stays, even under the old name.
+    chosen = work / "chosen place" / OLD_FOLDER
+    seed_install(installer, chosen, work / "temp-seed-chosen")
+    register_old_install(chosen)
+    make_shortcut(desktop_link, chosen / OLD_APP)
+    before = snapshot(chosen)
+    run_default_install(installer, "new", work / "temp-chosen", extra="/UPDATE")
+    expect_updated(chosen, before)
+    expect_registration(chosen)
+    assert same_path(shortcut_target(desktop_link), chosen / APP)
+    assert not new_dir.exists() and not old_dir.exists()
+    print("PASS a folder the user chose stays where it is", flush=True)
+    reset_machine()
+
+    # Something else in the new folder: nothing moves and nothing there is touched. The keys
+    # record the old folder under the new names, and the next update moves the install once the
+    # folder is empty (an empty folder is taken over).
+    seed_install(installer, old_dir, work / "temp-seed-occupied")
+    register_old_install(old_dir)
+    new_dir.mkdir()
+    (new_dir / "someone else's.txt").write_text("not the app's", encoding="utf-8")
+    theirs = snapshot(new_dir)
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-occupied", extra="/UPDATE")
     expect_updated(old_dir, before)
-    assert not new_dir.exists(), "An update must not move settings and models to a new folder"
-    entry = uninstall_entry()
-    assert entry["DisplayName"] == PRODUCT_NAME and entry["InstallLocation"].strip('"') == str(old_dir), entry
-    assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [OLD_FOLDER]
-    assert not any(link.exists() for link in old_links), [str(l) for l in old_links if l.exists()]
-    assert not (programs / OLD_FOLDER).exists()
-    for link in (desktop / f"{PRODUCT_NAME}.lnk", programs / PRODUCT_NAME / f"{PRODUCT_NAME}.lnk",
-                 programs / f"{PRODUCT_NAME}.lnk"):
-        assert link.is_file(), link
-    print("PASS an update keeps folder and data, renames the Apps entry and the shortcuts", flush=True)
-    run_uninstall(old_dir)
-    assert uninstall_entry() is None
-    assert not (desktop / f"{PRODUCT_NAME}.lnk").exists()
-    assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk")) and not list(programs.rglob(OLD_SHORTCUT))
-    assert (old_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
-    print("PASS the uninstaller removes the renamed shortcuts", flush=True)
+    assert snapshot(new_dir) == theirs
+    expect_registration(old_dir)
+    (new_dir / "someone else's.txt").unlink()
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-occupied-retry", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir)
+    print("PASS an occupied new folder keeps the install in place until the next update", flush=True)
+    reset_machine(new_dir)
+
+    # A file open in the old folder: the rename is refused, the update is still installed where
+    # the install is, and the next update moves it.
+    seed_install(installer, old_dir, work / "temp-seed-open")
+    register_old_install(old_dir)
+    before = snapshot(old_dir)
+    with hold_file(old_dir / "weights/custom/model.bin"):
+        run_default_install(installer, "new", work / "temp-open", extra="/UPDATE")
+    expect_updated(old_dir, before)
+    expect_registration(old_dir)
+    assert not new_dir.exists()
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-open-retry", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir)
+    print("PASS a refused rename keeps the install in place until the next update", flush=True)
+    reset_machine(new_dir)
+
+    # A run that stopped after the rename: the folder and the file for the app are in the new
+    # place. Stopped before the keys, only the old keys record the install, at the old place, and
+    # the shortcuts may still lead there. Stopped between the keys, both record it (the old keys
+    # at the old place), and the shortcuts lead to the new place already. The next update finds
+    # the install, records it, removes the old keys and points the shortcuts at it.
+    for keys in ("old keys", "both keys"):
+        seed_install(installer, old_dir, work / f"temp-seed-stopped-{keys}")
+        register_old_install(old_dir)
+        (old_dir / MOVED_FROM).write_bytes(moved_from_bytes(old_dir))
+        os.rename(old_dir, new_dir)
+        if keys == "both keys":
+            write_key(PRODUCT_KEY, {"": str(new_dir)})
+            write_key(UNINSTALL_KEY, {"DisplayName": PRODUCT_NAME, "InstallLocation": f'"{new_dir}"',
+                                      "UninstallString": f'"{new_dir / "uninstall.exe"}"'})
+        # Stopped between the keys, the shortcuts were pointed at the new place and name already.
+        make_shortcut(desktop_link, new_dir / APP if keys == "both keys" else old_dir / OLD_APP)
+        before = snapshot(new_dir)
+        run_default_install(installer, "new", work / f"temp-stopped-{keys}", extra="/UPDATE")
+        assert not old_dir.exists()
+        expect_updated(new_dir, before)
+        expect_registration(new_dir)
+        assert same_path(shortcut_target(desktop_link), new_dir / APP)
+        print(f"PASS a move that stopped before the keys ({keys}) is finished at the next update", flush=True)
+        reset_machine(new_dir)
+
+    # Keys up to 0.6.x that record another install, which still has its uninstaller (0.5.0 put
+    # back beside a newer install), stay with it, through the update and the uninstall.
+    other = work / "other install"
+    other.mkdir()
+    (other / "uninstall.exe").write_bytes(b"another install's uninstaller")
+    seed_install(installer, new_dir, work / "temp-seed-other")
+    write_key(PRODUCT_KEY, {"": str(new_dir)})
+    register_old_keys(other)
+    run_default_install(installer, "new", work / "temp-other", extra="/UPDATE")
+    assert same_path(read_key(PRODUCT_KEY)[""], new_dir)
+    assert read_key(OLD_PRODUCT_KEY)[""] == str(other) and read_key(OLD_UNINSTALL_KEY) is not None
+    run_uninstall(new_dir)
+    assert read_key(UNINSTALL_KEY) is None
+    assert read_key(OLD_PRODUCT_KEY)[""] == str(other) and read_key(OLD_UNINSTALL_KEY) is not None
+    print("PASS keys up to 0.6.x of another install stay with it", flush=True)
+    reset_machine(new_dir)
 
 
 # The API keys of a settings folder are generic credentials named <prefix>/<store_id>/<entry> in
@@ -1045,7 +1332,7 @@ def verify_extraction_outside_ansi(work):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui", "rename"), required=True)
+    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui", "rename", "move"), required=True)
     parser.add_argument("--port", type=int, default=18765)
     parser.add_argument("--installer", type=Path)
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".review/tmp/windows-update")
@@ -1068,6 +1355,8 @@ def main():
             silent_scenarios(args.installer.resolve(), work, server)
         elif args.mode == "rename":
             rename_scenarios(args.installer.resolve(), work)
+        elif args.mode == "move":
+            move_scenarios(args.installer.resolve(), work)
         else:
             delete_app_data_scenario(args.installer.resolve(), work)
             gui_scenario(args.installer.resolve(), work)

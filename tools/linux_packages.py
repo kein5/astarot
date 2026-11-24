@@ -3,7 +3,8 @@
     python tools/linux_packages.py --candidate build/linux/candidate/VRCT-VOX --output-dir build/linux/artifacts
 
 The packages hold the same files as the release tar.gz. They install them read-only under
-/opt/vrct-vox, add /usr/bin/vrct-vox, a desktop entry, an icon and the license notices, and
+/opt/vrct-vox, add the command /usr/bin/astarot (and /usr/bin/vrct-vox, its name up to 0.6.x),
+a desktop entry, an icon and the license notices, and
 declare what the tar.gz needs from the host: glibc, GTK 3 and WebKitGTK 4.1 (with what they pull
 in). The app runs the backend core in its own process and links the host's libpipewire, which is
 required; _internal holds no Python runtime. One package carries both speech.cpp builds: the
@@ -50,7 +51,10 @@ VULKAN = {'deb': ('libvulkan1', 'mesa-vulkan-drivers'), 'rpm': ('vulkan-loader',
 # The candidate's build-manifest.json: one package per architecture with both speech.cpp builds.
 PACKAGE_VARIANT = 'linux-x64'
 SPEECH_BUILDS = ['linux-x64-cpu', 'linux-x64-vulkan']
-WRAPPER = '#!/bin/sh\nexec /opt/vrct-vox/vrct-vox "$@"\n'
+# /usr/bin/astarot, the command the desktop entry starts (Exec=astarot, as in the AppImage), and
+# /usr/bin/vrct-vox, the command up to 0.6.x, start the same executable (ADR-014, 2.5 and 2.6;
+# the step for the packages, 2.7, decides how long the old command stays).
+WRAPPER = '#!/bin/sh\nexec /opt/vrct-vox/astarot "$@"\n'
 VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(beta\.[1-9][0-9]*))?')
 
 
@@ -98,12 +102,13 @@ def _link_or_copy(source, destination):
 def stage(candidate, root, kind):
     """The installed tree under `root`: /opt/vrct-vox and the files /usr needs."""
     candidate, root = Path(candidate), Path(root)
-    if not (candidate / 'vrct-vox').is_file() or not (candidate / 'build-manifest.json').is_file():
+    if not (candidate / 'astarot').is_file() or not (candidate / 'build-manifest.json').is_file():
         raise ValueError('Not a Linux candidate directory')
     # Hard links, not copies: the runner's disk is nearly full with the tar.gz and the AppImage.
     shutil.copytree(candidate, root / PREFIX, symlinks=True, copy_function=_link_or_copy)
     (root / PREFIX / 'package-manager').write_text(kind + '\n', encoding='ascii')
     files = {
+        'usr/bin/astarot': (WRAPPER.encode(), 0o755),
         'usr/bin/vrct-vox': (WRAPPER.encode(), 0o755),
         'usr/share/applications/vrct-vox.desktop': ((ROOT / 'packaging/appimage/vrct-vox.desktop').read_bytes(), 0o644),
         'usr/share/icons/hicolor/256x256/apps/vrct-vox.png': ((ROOT / 'src-tauri/icons/128x128@2x.png').read_bytes(), 0o644),
@@ -172,6 +177,7 @@ cp -al '{staged}/.' %{{buildroot}}/
 
 %files
 /opt/vrct-vox
+/usr/bin/astarot
 /usr/bin/vrct-vox
 /usr/share/applications/vrct-vox.desktop
 /usr/share/icons/hicolor/256x256/apps/vrct-vox.png

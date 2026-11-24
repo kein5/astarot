@@ -20,17 +20,20 @@ case "$kind" in
         exit 2
         ;;
 esac
+# The command the desktop entry starts, and the one up to 0.6.x.
+test -x /usr/bin/astarot
 test -x /usr/bin/vrct-vox
 test -f /usr/share/applications/vrct-vox.desktop
+grep -qx 'Exec=astarot' /usr/share/applications/vrct-vox.desktop
 test -f /usr/share/icons/hicolor/256x256/apps/vrct-vox.png
 test "$(cat /opt/vrct-vox/package-manager)" = "$kind"
 # The GUI binary's libraries all resolve from the declared requirements.
-missing=$(ldd /opt/vrct-vox/vrct-vox | grep 'not found' || true)
+missing=$(ldd /opt/vrct-vox/astarot | grep 'not found' || true)
 if [ -n "$missing" ]; then
     echo "$missing" >&2
     exit 1
 fi
-# Both bundled speech engines start. The backend runs inside vrct-vox, whose libraries are
+# Both bundled speech engines start. The backend runs inside astarot, whose libraries are
 # checked above; starting the GUI needs a display and is left to the AppImage and tar.gz tests.
 # The CPU build needs only the declared requirements.
 /opt/vrct-vox/_internal/build/speechcpp-cpu/speech --help > /dev/null
@@ -49,5 +52,6 @@ case "$kind" in
     rpm) dnf remove -y -q vrct-vox > /dev/null ;;
 esac
 test ! -e /opt/vrct-vox
+test ! -e /usr/bin/astarot
 test ! -e /usr/bin/vrct-vox
 echo "package check passed: $(basename "$package") in $(. /etc/os-release && echo "$PRETTY_NAME")"
