@@ -43,6 +43,12 @@ ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech rec
 
 RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-stack/model-downloads.md), [voice features on Windows](/docs/voice-stack/local-setup-windows.md) and [the Linux setup notes](/docs/voice-stack/local-setup-linux.md).
 
+## Speed comparison
+
+![Bar chart in Japanese: seconds from the end of speech until the caption reaches VRChat over OSC, median (p50) and 95th percentile (p95). ASTAROT 0.6.0: 0.61 and 0.64. VRCS 0.3.12: 0.69 and 0.78. Polyvox VRC 2026.11.23: 0.81 and 1.84. Mutelink 2.0.3: 1.57 and 3.85. VRCT 3.6.1: 1.73 and 1.84. TranslateVR 1.2.3: 2.18 and 2.49. TTS Voice Wizard 1.8.0.2: 3.69 and 3.74. VRC Translator 1.4.5: 4.93 and 5.16.](docs/measurements/subtitle-latency.png)
+
+The chart compares eight apps that send captions of your speech to VRChat: it shows how many seconds pass from the end of your speech until the caption reaches VRChat. The labels are in Japanese. The times were measured in November 2026 on one PC, a Surface Laptop 5 with an external RTX 3060 Ti, and differ on other PCs. The method, the settings of each app and the notes on the results are in [issue #558](https://github.com/kein5/astarot/issues/558).
+
 ## Status and downloads
 
 The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.

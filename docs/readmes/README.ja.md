@@ -43,6 +43,12 @@ ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、�
 
 RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です。[モデル取得の仕様](/docs/voice-stack/model-downloads.md)と、Windowsでは[Windowsで音声機能を使う](/docs/voice-stack/local-setup-windows.md)、Linuxでは[Linuxの手順](/docs/voice-stack/local-setup-linux.md)を参照してください。
 
+## 速度の比較
+
+![棒グラフ。話し終わってから字幕がOSCでVRChatに届くまでの秒数の中央値（p50）と95%値（p95）。ASTAROT 0.6.0は0.61と0.64。VRCS 0.3.12は0.69と0.78。Polyvox VRC 2026.11.23は0.81と1.84。Mutelink 2.0.3は1.57と3.85。VRCT 3.6.1は1.73と1.84。TranslateVR 1.2.3は2.18と2.49。TTS Voice Wizard 1.8.0.2は3.69と3.74。VRC Translator 1.4.5は4.93と5.16。](../measurements/subtitle-latency.png)
+
+話した声の字幕をVRChatに送る8つのアプリで、話し終わってから字幕がVRChatに届くまでの秒数を比べました。2026年11月に1台のPC（Surface Laptop 5と外付けのRTX 3060 Ti）で測った値で、ほかのPCでは時間が変わります。計測の方法、各アプリの設定、結果の注意点は[Issue #558](https://github.com/kein5/astarot/issues/558)にあります。
+
 ## 配布状況
 
 最新の版は **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
