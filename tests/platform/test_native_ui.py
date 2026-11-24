@@ -156,8 +156,8 @@ def test_native_managed_route_unmutes_and_is_muted_again_after_a_restart(tmp_pat
         with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
             ui.wait_main_ready()
             ui.open_route_settings()
+            # A choice saves at once (#1111).
             ui.select("Audio route", "managed")
-            ui.click_text("button", "Save changes")
             wait_for(lambda: saved_routing() == "managed")
             ui.open_route_settings()
             ui.wait(shown("Muted (confirmed)"))
