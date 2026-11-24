@@ -61,4 +61,15 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.equal(off.type, "button");
     assert.deepEqual(off.props, { type: "button", role: "switch", "aria-checked": false, "data-state": "unchecked", "data-slot": "switch", id: "mic" });
     assert.deepEqual(kitStandIns.Switch({ checked: true }).props, { type: "button", role: "switch", "aria-checked": true, "data-state": "checked", "data-slot": "switch" });
+    // The toggle: Radix's <button>, off unless pressed, the accent tone and the regular size by default.
+    assert.match(kit("Toggle.css.ts"), /defaultVariants: \{ tone: "accent", size: "regular" \}/);
+    assert.deepEqual(kitStandIns.Toggle({}).props, { type: "button", "aria-pressed": false, "data-state": "off", "data-slot": "toggle",
+        "data-tone": "accent", "data-size": "regular" });
+    assert.deepEqual(kitStandIns.Toggle({ pressed: true, tone: "warning" }).props, { type: "button", "aria-pressed": true, "data-state": "on",
+        "data-slot": "toggle", "data-tone": "warning", "data-size": "regular" });
+    assert.deepEqual(kitStandIns.ToggleGroup({}).props, { role: "group", "data-slot": "toggle-group" });
+    assert.deepEqual(kitStandIns.ToggleGroupItem({ value: "a" }).props, { type: "button", "data-slot": "toggle-group-item", value: "a" });
+    // The popover: the root draws its parts; the content keeps what it is given, without the kit's own props.
+    assert.equal(kitStandIns.Popover({ children: "parts" }), "parts");
+    assert.deepEqual(kitStandIns.PopoverContent({ portal: false, inset: "tight", id: "panel" }).props, { "data-slot": "popover-content", id: "panel" });
 });

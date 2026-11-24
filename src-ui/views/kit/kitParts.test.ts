@@ -102,3 +102,42 @@ test("a settings row names its control by the label and describes it by the desc
     assert.deepEqual([description.props.id, description.props.children], [`${id}-description`, "1024 to 65535"]);
     assert.deepEqual(given[1], { id, "aria-describedby": `${id}-description` });
 });
+
+test("a toggle is Radix's root with the kit's look; a group and its items are Radix's", async () => {
+    const { runtime, module } = await kit<typeof import("./Toggle.tsx")>("./Toggle.tsx", {
+        "@radix-ui/react-toggle": { Root: "toggle-root" },
+        "@radix-ui/react-toggle-group": { Root: "toggle-group-root", Item: "toggle-group-item" },
+        "./Toggle.css.ts": styleModule(["toggle"]),
+    });
+    const plain = runtime.render(module.Toggle, { pressed: true, children: "Mute", className: "own" });
+    assert.deepEqual([plain.type, plain.props["data-slot"], plain.props.className, plain.props.pressed, plain.props.children],
+        ["toggle-root", "toggle", "toggle tone=undefined size=undefined own", true, "Mute"]);
+    const warning = runtime.render(module.Toggle, { tone: "warning", size: "compact" });
+    assert.equal(warning.props.className, "toggle tone=warning size=compact");
+    const group = runtime.render(module.ToggleGroup, { type: "single", value: "grid", className: "own", children: "items" });
+    assert.deepEqual([group.type, group.props["data-slot"], group.props.className, group.props.type, group.props.value],
+        ["toggle-group-root", "toggle-group", "group own", "single", "grid"]);
+    const item = runtime.render(module.ToggleGroupItem, { value: "grid", children: "Grid" });
+    assert.deepEqual([item.type, item.props["data-slot"], item.props.className, item.props.value], ["toggle-group-item", "toggle-group-item", "groupItem", "grid"]);
+});
+
+test("a popover's content is Radix's, 4px from its trigger, in a portal unless told otherwise", async () => {
+    const { runtime, module } = await kit<typeof import("./Popover.tsx")>("./Popover.tsx", {
+        "@radix-ui/react-popover": { Root: "popover-root", Trigger: "popover-trigger", Anchor: "popover-anchor", Portal: "popover-portal", Content: "popover-content" },
+        "./Popover.css.ts": styleModule(["content"]),
+    });
+    const trigger = runtime.render(module.PopoverTrigger, { children: "Quick settings" });
+    assert.deepEqual([trigger.type, trigger.props["data-slot"]], ["popover-trigger", "popover-trigger"]);
+    const anchor = runtime.render(module.PopoverAnchor, {});
+    assert.deepEqual([anchor.type, anchor.props["data-slot"]], ["popover-anchor", "popover-anchor"]);
+    const root = runtime.render(module.Popover, { open: true, children: "parts" });
+    assert.deepEqual([root.type, root.props.open], ["popover-root", true]);
+    const portalled = runtime.render(module.PopoverContent, { children: "rows", className: "own" });
+    assert.equal(portalled.type, "popover-portal");
+    const panel = findIn(portalled, node => node.type === "popover-content", "the content");
+    assert.deepEqual([panel.props["data-slot"], panel.props.className, panel.props.align, panel.props.sideOffset, panel.props.children],
+        ["popover-content", "content inset=undefined own", "center", 4, "rows"]);
+    const inline = runtime.render(module.PopoverContent, { portal: false, inset: "tight", align: "end", sideOffset: 0 });
+    assert.deepEqual([inline.type, inline.props.className, inline.props.align, inline.props.sideOffset, inline.props.portal],
+        ["popover-content", "content inset=tight", "end", 0, undefined]);
+});

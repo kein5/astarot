@@ -18,6 +18,8 @@ This is the record of an experiment that rebuilds the settings screen's componen
 | `TextField` | A text field. `invalid` gives it a red border when the value is not valid. Addresses and ports use `mono` for a monospaced font | The native `<input>` |
 | `Select` | A select field in the same frame as the text field. The arrow is an SVG. Options are written with `SelectOption` and `SelectOptGroup` | The native `<select>`, `<option>` and `<optgroup>` |
 | `Switch` | On and off. When on, a Dark Plum thumb sits on a Lilac track | Radix UI's Switch |
+| `Toggle`, `ToggleGroup` and `ToggleGroupItem` | A button that stays pressed (`tone` accent or warning, the warning being mute's amber; `size` regular, compact or icon), and a group of them of which one or several are on, drawn as the catalogs' layout switch (D-27) | Radix UI's Toggle and ToggleGroup |
+| `Popover` and its parts `PopoverTrigger`, `PopoverAnchor` and `PopoverContent` | A small panel that opens from a button, on the raised surface with the overlay's shadow (`inset` regular or tight). It is never modal (D-25) | Radix UI's Popover |
 | `Dialog` and its parts `DialogHeader`, `DialogFooter`, `DialogTitle` and `DialogDescription` | A modal dialog. The title and the description become the dialog's accessible name and description. Its owner decides whether it is open, through `open` and `onOpenChange` | The native `<dialog>` (`showModal()`) |
 | `SettingGroup` and `SettingRow` | A group with a heading, and one row in it | — |
 
@@ -47,7 +49,7 @@ The references were [Macaw UI](https://github.com/saleor/macaw-ui) (Saleor, CC B
 |---|---|---|
 | Express differences in look as variants of a vanilla-extract `recipe` | Macaw UI's `Button.css.ts` (`variant` and `size`) | `tone` and `size` of `button`, `kind` and `mono` of `field`, `layout` of `row` |
 | Refer to theme variables through a typed contract | Macaw UI's theme | Uses the existing `src-ui/views/theme/vars.css.ts` as it is |
-| Leave behavior to Radix and add only the look | Both | `Switch` |
+| Leave behavior to Radix and add only the look | Both | `Switch`, `Toggle`, `ToggleGroup`, `Popover` |
 | Tie the label, the description and the control together in one component | OptiAxiom's `field` | `SettingRow` passes `id` and `aria-describedby` to the control |
 
 ## What was kept as ASTAROT's own
@@ -113,6 +115,8 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
 | `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
+| `Toggle`、`ToggleGroup`、`ToggleGroupItem` | 押したままになるボタン（`tone` は accent か warning で、warning はミュートの琥珀色。`size` は regular、compact、icon）と、そのうち 1 つか複数がオンになる集まり。集まりはカタログの並べ方の切り替えの形（D-27） | Radix UI の Toggle と ToggleGroup |
+| `Popover` と、そのパーツの `PopoverTrigger`、`PopoverAnchor`、`PopoverContent` | ボタンから開く小さいパネル。一段明るい面に重なりの影（`inset` は regular か tight）。モーダルにはしない（D-25） | Radix UI の Popover |
 | `Dialog` と、そのパーツの `DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` | モーダルのダイアログ。題名と説明がダイアログの名前と説明になる。開くかどうかは `open` と `onOpenChange` で持ち主が決める | ネイティブの `<dialog>`（`showModal()`） |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
@@ -142,7 +146,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 |---|---|---|
 | 見た目の違いを vanilla-extract の `recipe` の変種で表す | Macaw UI の `Button.css.ts`（`variant` と `size`） | `button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout` |
 | テーマの変数を型付きの契約で参照する | Macaw UI のテーマ | 既存の `src-ui/views/theme/vars.css.ts` をそのまま使う |
-| 振る舞いは Radix に任せ、見た目だけを付ける | 両方 | `Switch` |
+| 振る舞いは Radix に任せ、見た目だけを付ける | 両方 | `Switch`、`Toggle`、`ToggleGroup`、`Popover` |
 | 名前、説明、操作する部品を 1 つの部品で結び付ける | OptiAxiom の `field` | `SettingRow` が `id` と `aria-describedby` を操作する部品に渡す |
 
 ## ASTAROT 独自のものとして保ったもの

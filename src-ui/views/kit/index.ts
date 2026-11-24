@@ -7,3 +7,5 @@ export { Select, SelectOptGroup, SelectOption, type SelectOptGroupProps, type Se
 export { Switch, type SwitchProps } from "./Switch.tsx";
 export { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, type DialogProps } from "./Dialog.tsx";
 export { SettingGroup, SettingRow, type SettingGroupProps, type SettingRowProps, type SettingControlProps } from "./Setting.tsx";
+export { Toggle, ToggleGroup, ToggleGroupItem, type ToggleGroupItemProps, type ToggleGroupProps, type ToggleProps } from "./Toggle.tsx";
+export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger, type PopoverContentProps } from "./Popover.tsx";
