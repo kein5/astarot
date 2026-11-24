@@ -68,11 +68,11 @@ Before the per-screen tables, these are the hand-built elements that every scree
 
 | Element | Current state | Replacement | Difficulty | Complications |
 |---|---|---|---|---|
-| Buttons | No screen uses the kit's `Button`. Outside the kit, 78 files hold 198 `<button>` elements, drawn with the form's `primary` and `quiet` classes or with each module's SCSS | The kit's `Button` | High | The height (D-03) and the variant names (D-10) are not decided. Icon-only buttons (the title bar, opening and closing the rail, `ActionButton`, `ResetButton`, `CloseButton`) move to `size="icon"`, but their sizes differ from place to place. Buttons that stay pressed (`aria-pressed`) are Toggle (U-03), not Button |
-| Dialogs | 14 `<dialog>` elements are written screen by screen. Of these, 7 share the classes of `LegacyModelDownloadDialog.module.scss`, and the 3 download consent dialogs are drawn with the `dialog` rule of the form SCSS (`VoiceSettings.module.scss`) | The kit's `Dialog` and its parts | Medium | Under decision 3 of #764, a dialog is replaced with the part components the next time it is rebuilt. The base (D-23), the button order (D-24) and the details (D-43) are not decided. The shared SCSS cannot be removed until all 7 move together |
+| Buttons | No screen uses the kit's `Button`. Outside the kit, 78 files hold 198 `<button>` elements, drawn with the form's `primary` and `quiet` classes or with each module's SCSS | The kit's `Button` | High | The height stays 4rem (D-03) and the variants stay primary, plain, quiet and danger, with stop as danger (D-10), as decided on 2026-11-25. Icon-only buttons (the title bar, opening and closing the rail, `ActionButton`, `ResetButton`, `CloseButton`) move to `size="icon"`, but their sizes differ from place to place. Buttons that stay pressed (`aria-pressed`) are Toggle (U-03), not Button |
+| Dialogs | 14 `<dialog>` elements are written screen by screen. Of these, 7 share the classes of `LegacyModelDownloadDialog.module.scss`, and the 3 download consent dialogs are drawn with the `dialog` rule of the form SCSS (`VoiceSettings.module.scss`) | The kit's `Dialog` and its parts | Medium | Under decision 3 of #764, a dialog is replaced with the part components the next time it is rebuilt. As decided on 2026-11-25, the base stays the native `<dialog>` (D-23), the button order stays as it is with no close button at the top right (D-24), and the screens take the kit's details (D-43). The shared SCSS cannot be removed until all 7 move together |
 | Form select fields | 33 native `<select>` elements in 11 files, drawn with the form classes | The kit's `Select` | Medium | The row family uses its own `_DropdownMenu`, so there are 2 kinds of select field. D-14 decides which one to align on, and K-04 when to remove it. The rule that uses `appearance: base-select` in engines that support it (detected with `@supports`) is not in the kit's `Select`, so it has to be moved there |
 | Form input fields | Native `<input>` elements for text, numbers, URLs and passwords | The kit's `TextField` | Medium | They differ from the row family's `_Entry` in horizontal padding and in how the disabled state looks (D-37). `FormRow` clones its child to pass `id` and `aria-describedby`, so check that the kit's `TextField` accepts them |
-| Form checkboxes | 13 native checkboxes (`accent-color`) in 10 files. The form family's shared `HintCheck` is one of them | `Checkbox` from `common_components`. Settings that turn on and off become switches (K-02) | Medium | The proposal in K-02 is "switches for on and off, checkboxes only to confirm consent". Which of the two looks the consent checkboxes get is not decided. The base (native or Radix) is D-16 |
+| Form checkboxes | 13 native checkboxes (`accent-color`) in 10 files. The form family's shared `HintCheck` is one of them | `Checkbox` from `common_components`. Settings that turn on and off become switches (K-02) | Medium | K-02 was decided on 2026-11-25 as proposed: switches for on and off, checkboxes only to confirm consent. The base stays the native input (D-16) |
 | The native `title` attribute | Short names in the settings rail, usage presets, ruby and speaker names in the conversation log, model versions, the voice sample buttons | `Tooltip` from `common_components` | Low to medium | The ruby and the version labels are elements that do not take focus. `Tooltip` opens on focus and on hover, so how to handle elements that do not take focus has to be decided (D-21) |
 
 ## Screen by screen
@@ -185,7 +185,7 @@ The VR UI is outside the comparison and is not replaced with shared components (
 
 These are elements that no component among the shared components can replace. Where shadcn/ui has a matching component, its name and the comparison document's decision item are given.
 
-Under decision H-02, a shared component is made for every one of U-01 to U-12 and added to the kit. One with a related decision item is made after that item is decided. U-08, U-10 and U-11 have no related decision item. The screens that are not replaced (H-03) do not use the added components. The "Add to the kit" column of the table shows where that line falls.
+Under decision H-02, a shared component is made for every one of U-01 to U-12 and added to the kit. One with a related decision item is made after that item is decided. U-08 has no related decision item; U-10 and U-11 are decided by H-07 and H-08. The screens that are not replaced (H-03) do not use the added components. The "Add to the kit" column of the table shows where that line falls.
 
 | ID | Element | Where it is used | shadcn/ui counterpart | Related decision | Add to the kit |
 |---|---|---|---|---|---|
@@ -204,7 +204,7 @@ Under decision H-02, a shared component is made for every one of U-01 to U-12 an
 
 ## Decisions made
 
-These are the decisions on how to carry out the replacement that came out of this inventory. H-01 to H-03 were decided as below on 2026-11-23, H-04 on 2026-11-24, and H-05 and H-06 on 2026-11-25. The comparison document's decision items (D-xx) and the open questions of the settings screen component experiment (K-xx) are decided in their own documents.
+These are the decisions on how to carry out the replacement that came out of this inventory. H-01 to H-03 were decided as below on 2026-11-23, H-04 on 2026-11-24, and H-05 to H-09 on 2026-11-25. The comparison document's decision items (D-xx) and the open questions of the settings screen component experiment (K-xx) are decided in their own documents. The decision items the rows of this inventory waited for (D-03, D-10, D-13, D-14, D-16, D-17, D-19, D-21, D-23 to D-29, D-32, D-36, D-37, D-40, D-43) and K-02 were all decided on 2026-11-25 ([Decisions made](shadcn-alignment.md#decisions-made) of the comparison document). Where a row still says that a part waits for one of them, the replacement that follows the decision is not done yet.
 
 | ID | Question | Decision | Date decided | Reason |
 |---|---|---|---|---|
@@ -214,6 +214,9 @@ These are the decisions on how to carry out the replacement that came out of thi
 | H-04 | Whether a replaced element keeps the screen's current look or takes the kit's | It takes the kit's look (size, border, fill) as it is: the screens are aligned with the kit, which is aligned with shadcn/ui. The behavior (what a press does, what opens and closes, keyboard operation) does not change; a row whose behavior would change is stopped and listed as a question in its pull request. Each pull request records what looks different | 2026-11-24 | The replacement exists to bring the screens to the kit's look, so a changed look is its aim, not a side effect. A screen's look fixed before its replacement would have to be redone at the replacement |
 | H-05 | How the button that opens the language window takes the kit's look, given that DESIGN.md described it as a field-like button | The kit's `Button` as it is: the language and its arrow are centered, and DESIGN.md no longer calls it field-like | 2026-11-25 | The kit's `Button` centers what it holds, and a screen cannot reliably change the kit's own alignment; a list-opening form added to the kit was not taken |
 | H-06 | Whether the conversation's resend button, speaker name field, send button and the knob that opens the log's display settings take the kit's parts | They stay hand-built | 2026-11-25 | The resend button and the speaker name field scale with the log's own font size (em), the send button is a square as tall as the composer (at most 10rem, DESIGN.md), and the knob is part of the log settings' drawer (D-25); the kit's fixed sizes would change how they work |
+| H-07 | How the delete confirmation shown inside a row (U-10) becomes a shared component | It stays inside the row, as now, and becomes a kit part | 2026-11-25 | The confirmation belongs to the row it removes; a dialog or a popover would take it away from the row |
+| H-08 | What the term dictionary's list of rows (U-11) is built from | The same shape of component as the status rows (U-08) | 2026-11-25 | Both are a list of rows with a name, a state and controls; one component keeps them alike |
+| H-09 | Whether the term dictionary rows' buttons keep the quiet look | They become plain, as DESIGN.md says: quiet is the secondary action paired with a filled one and is never used alone | 2026-11-25 | The rows' buttons stood alone in the quiet look, against DESIGN.md (found in #1170) |
 
 ---
 
@@ -285,11 +288,11 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 
 | 要素 | 現状 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|
-| ボタン | kit の `Button` を使う画面はありません。kit の外の 78 個のファイルに 198 個の `<button>` があり、フォームの `primary` と `quiet` のクラスか、モジュールごとの SCSS で描いています | kit の `Button` | 高 | 高さ（D-03）と variant の名前（D-10）が決まっていません。アイコンだけのボタン（タイトルバー、レールの開閉、`ActionButton`、`ResetButton`、`CloseButton`）は `size="icon"` に寄せますが、大きさは場所ごとに違います。押したままのボタン（`aria-pressed`）は Button ではなく Toggle（U-03） |
-| ダイアログ | 14 個の `<dialog>` を画面ごとに書いています。そのうち 7 個は `LegacyModelDownloadDialog.module.scss` のクラスを共有し、取得の同意の 3 個はフォームの SCSS（`VoiceSettings.module.scss`）の `dialog` の規則で描いています | kit の `Dialog` とパーツ | 中 | #764 の決定 3 で、ダイアログは次に作り直すときにパーツの部品へ置き換えることになっています。土台（D-23）、ボタンの並び（D-24）、細部（D-43）が決まっていません。共有している SCSS は、7 個をまとめて移すまで消せません |
+| ボタン | kit の `Button` を使う画面はありません。kit の外の 78 個のファイルに 198 個の `<button>` があり、フォームの `primary` と `quiet` のクラスか、モジュールごとの SCSS で描いています | kit の `Button` | 高 | 2026-11-25 の決定で、高さは 4rem のまま（D-03）、variant は primary、plain、quiet、danger のままで、停止は danger です（D-10）。アイコンだけのボタン（タイトルバー、レールの開閉、`ActionButton`、`ResetButton`、`CloseButton`）は `size="icon"` に寄せますが、大きさは場所ごとに違います。押したままのボタン（`aria-pressed`）は Button ではなく Toggle（U-03） |
+| ダイアログ | 14 個の `<dialog>` を画面ごとに書いています。そのうち 7 個は `LegacyModelDownloadDialog.module.scss` のクラスを共有し、取得の同意の 3 個はフォームの SCSS（`VoiceSettings.module.scss`）の `dialog` の規則で描いています | kit の `Dialog` とパーツ | 中 | #764 の決定 3 で、ダイアログは次に作り直すときにパーツの部品へ置き換えることになっています。2026-11-25 の決定で、土台はブラウザー標準の `<dialog>` のまま（D-23）、ボタンの並びは今のままで右上の閉じるボタンは付けず（D-24）、細部は kit に画面側を寄せます（D-43）。共有している SCSS は、7 個をまとめて移すまで消せません |
 | フォームの選択欄 | 11 個のファイルに 33 個のネイティブの `<select>`。フォームのクラスで描いています | kit の `Select` | 中 | 行の部品の系統は自作の `_DropdownMenu` を使っていて、選択欄が 2 系統あります。どちらに寄せるかは D-14、いつ消すかは K-04。対応するエンジンで `appearance: base-select` を使う規則（`@supports` で検出）は kit の `Select` にないので、移す必要があります |
 | フォームの入力欄 | 文字、数、URL、パスワードのネイティブの `<input>` | kit の `TextField` | 中 | 行の部品の系統の `_Entry` とは、左右の余白と使えない状態の見た目が違います（D-37）。`FormRow` が子を複製して `id` と `aria-describedby` を渡すので、kit の `TextField` がそれを受け取れることを確かめます |
-| フォームのチェックボックス | 10 個のファイルに 13 個のネイティブのチェックボックス（`accent-color`）。フォームの系統の共通の `HintCheck` も、その 1 つです | `common_components` の `Checkbox`。設定のオンとオフはスイッチ（K-02） | 中 | K-02 の案は「オンとオフはスイッチ、チェックボックスは同意の確認だけ」です。同意の確認のチェックボックスをどちらの見た目にするかは決まっていません。土台（ネイティブか Radix か）は D-16 |
+| フォームのチェックボックス | 10 個のファイルに 13 個のネイティブのチェックボックス（`accent-color`）。フォームの系統の共通の `HintCheck` も、その 1 つです | `common_components` の `Checkbox`。設定のオンとオフはスイッチ（K-02） | 中 | K-02 は 2026-11-25 に案のとおり決まりました。オンとオフはスイッチ、チェックボックスは同意の確認だけです。土台はブラウザー標準の入力のままです（D-16） |
 | ネイティブの `title` 属性 | 設定のレールの略称、使い方のプリセット、会話のログのルビと話者の名前、モデルの版、声の試聴のボタン | `common_components` の `Tooltip` | 低〜中 | ルビと版の表示はフォーカスを受けない要素です。`Tooltip` はフォーカスとホバーで開くので、フォーカスを受けない要素の扱いを決めます（D-21） |
 
 ## 画面ごとの一覧
@@ -402,7 +405,7 @@ VR パネルは照合の外で、共通の部品（kit）への置き換えの�
 
 共通の部品の側に、置き換え先に当たる部品がない要素です。shadcn/ui に当たる部品があるものは、その名前と、照合の文書の判断項目を添えます。
 
-H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit に足します。関係する判断項目があるものは、それが決まってから作ります。U-08、U-10、U-11 には、関係する判断項目がありません。置き換えの対象にしない画面（H-03）は、足した部品を使いません。表の「kit に足すか」の列に、その分かれ目を書きました。
+H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit に足します。関係する判断項目があるものは、それが決まってから作ります。U-08 には関係する判断項目がありません。U-10 と U-11 は H-07 と H-08 で決まりました。置き換えの対象にしない画面（H-03）は、足した部品を使いません。表の「kit に足すか」の列に、その分かれ目を書きました。
 
 | ID | 要素 | 使っている場所 | shadcn/ui で当たるもの | 関係する判断 | kit に足すか |
 |---|---|---|---|---|---|
@@ -421,7 +424,7 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 
 ## 決まった判断
 
-この棚卸しから出た、置き換えの進め方の判断です。H-01〜H-03 は 2026-11-23 に、H-04 は 2026-11-24 に、H-05 と H-06 は 2026-11-25 に、下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。
+この棚卸しから出た、置き換えの進め方の判断です。H-01〜H-03 は 2026-11-23 に、H-04 は 2026-11-24 に、H-05〜H-09 は 2026-11-25 に、下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。この棚卸しの行が待っていた判断項目（D-03、D-10、D-13、D-14、D-16、D-17、D-19、D-21、D-23〜D-29、D-32、D-36、D-37、D-40、D-43）と K-02 は、2026-11-25 にすべて決まりました（照合の文書の[決まった判断](shadcn-alignment.md#決まった判断)）。行に「〜を待つ」と残っている部分は、決定に沿った置き換えがまだ済んでいないものです。
 
 | ID | 問い | 決定 | 決めた日 | 理由 |
 |---|---|---|---|---|
@@ -431,3 +434,6 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 | H-04 | 置き換えた要素は、画面の今の見た目を保つか、kit の見た目にするか | kit の見た目（寸法、枠、塗り）をそのまま使う。画面を、shadcn/ui に寄せた kit の見た目にそろえる。挙動（押したときの動き、開閉の関係、キーボードの操作）は変えない。挙動が変わる行は止めて、その PR の「判断が要ること」に挙げる。PR ごとに、見た目の変わったところを記録する | 2026-11-24 | 置き換えは、画面を kit の見た目にそろえるためのものです。見た目が変わるのは副作用ではなく、そろえる先そのものです。置き換えの前に画面の見た目を直すと、置き換えのときにやり直しになります |
 | H-05 | DESIGN.md が入力欄のようなボタンとしていた、言語の窓を開くボタンに、kit の見た目をどう当てるか | kit の `Button` をそのまま使う。言語と矢印は中央にそろい、DESIGN.md の「入力欄のような」という記述は外す | 2026-11-25 | kit の `Button` は中身を中央にそろえ、kit のそろえ方は画面側から確実には変えられません。kit に一覧を開くボタンの形を足す案は採りませんでした |
 | H-06 | 会話の欄の再送のボタン、話者名の欄、送信のボタン、ログの表示の設定を開くつまみを、kit の部品にするか | 手作りのまま残す | 2026-11-25 | 再送のボタンと話者名の欄はログの文字の大きさ（em）に合わせて拡大縮小し、送信のボタンは入力欄の高さの正方形（最大 10rem、DESIGN.md）で、つまみはログの設定の引き出し（D-25）と一体です。kit の固定の大きさにすると働きが変わります |
+| H-07 | 行の中に出す削除の確認（U-10）を、どういう共通の部品にするか | 今と同じく行の中に出す形のまま、kit の部品にする | 2026-11-25 | 確認は、消す行のものです。ダイアログやポップオーバーにすると、行から離れます |
+| H-08 | 用語辞書の行の並び（U-11）を、何で作るか | 状態の行（U-08）と同じ形の部品で作る | 2026-11-25 | どちらも、名前と状態と操作を持つ行の並びです。1 つの部品にすると、見た目がそろいます |
+| H-09 | 用語辞書の行のボタンを quiet の見た目のままにするか | DESIGN.md のとおり plain にする。quiet は塗ったボタンと組になる副次の操作で、単独では使わない | 2026-11-25 | 行のボタンは quiet だけで並んでいて、DESIGN.md と食い違っていました（#1170 で見つかった） |

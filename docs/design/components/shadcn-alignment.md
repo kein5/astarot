@@ -386,12 +386,32 @@ The decision items of #680 (aligning with shadcn/ui itself, a note on section 7 
 
 ## Decisions made
 
-These are the decision items above that have been decided.
+These are the decision items above that have been decided. The 20 items decided on 2026-11-25 are the ones the replacement of hand-built components waited for ([hand-built inventory](hand-built-inventory.md)); K-02 of the [settings screen component experiment](README.md) was decided the same day.
 
 | ID | Decision | Date decided | Applied to the documents and the implementation |
 |---|---|---|---|
+| D-03 | The control height stays at 4rem (shadcn/ui's `lg`) | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-10 | The button variants stay primary, plain, quiet and danger (#474). danger keeps red words and no fill. The stop buttons are danger | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-13 | Multi-line fields keep the way they grow now and become the kit's Textarea. `field-sizing: content` is not used | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-14 | The settings' select fields move to the kit's `Select` (the native select, as NativeSelect). The row family's `_DropdownMenu` moves to it | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-16 | Checkboxes and radio buttons stay on the native input | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-17 | The small controls keep their sizes (checkbox 2.8rem, radio button 2rem, switch 4.4×2.4rem, slider thumb 1.8rem) | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-19 | The main features' switches are rebuilt with the kit's `Switch`. The whole row stays pressable, and the way waiting is shown and the reason given stay | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-21 | Only elements that take focus get `Tooltip`. The descriptions of elements that do not (ruby, version labels) stay as `title` | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-23 | Dialogs keep the native `<dialog>` as their base and use the kit's `Dialog` | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-24 | The dialogs' button layout stays as it is, and no close button is added at the top right | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-25 | The small panels that open from a button (U-04 of the hand-built inventory) are built on Popover | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-26 | Folds stay `<details>` | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-27 | Buttons that stay pressed and groups where one is chosen (U-03) become kit parts built on Radix Toggle and ToggleGroup. Mute keeps its amber while pressed | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-28 | Cards (U-09) become the kit's Card with their current look: the current padding, no fill and no shadow | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-29 | Badges (U-09) become the kit's Badge with their current square shape, saying the state in words | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-32 | Progress bars (U-05) become the kit's Progress with the current way of coloring them (only the lightness changes) | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-36 | The language selection (U-01) and the settings search (U-02) stay hand-built; only their look is aligned | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-37 | The threshold field (`_Entry`) stays as it is: its side padding and its disabled look do not change | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
+| D-40 | The details inside the settings search field stay as they are | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
 | D-41 | The threshold component (a thin thumb laid over the volume meter) is not aligned with the shared Slider. It is left out of the comparison as an app-only component integrated with the meter | 2026-11-19 | The implementation does not change. The Slider section and "Other components" say it is out of the comparison |
 | D-42 | The details of tooltip text stay as they are: weight 500, line height 1.6 and no `text-balance`. `Hint` shows descriptions of several lines, so it keeps DESIGN.md's line height of 1.6 for descriptions | 2026-11-19 | The values in the implementation do not change (`tooltipContent` in `common_css/mixins.ts`, as of #721). The decision is written as a comment next to those values. It is also written in the "Look" row of the Tooltip section and in the note on item 10 of the list |
+| D-43 | The screens' dialogs take the details of the kit's current Dialog parts | 2026-11-25 | Applied by the replacement pull requests that follow; the hand-built inventory's rows say which |
 
 ## Differences that can be aligned without a decision
 
@@ -826,12 +846,32 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ## 決まった判断
 
-上の判断項目のうち、決まったものです。
+上の判断項目のうち、決まったものです。2026-11-25 に決まった 20 件は、手作りの部品の置き換え（[手作りの部品の棚卸し](hand-built-inventory.md)）が待っていたものです。同じ日に、[設定画面の部品の実験](README.md)の K-02 も決まりました。
 
 | ID | 決定 | 決めた日 | 文書と実装への反映 |
 |---|---|---|---|
+| D-03 | 部品の高さは 4rem（shadcn/ui の `lg`）のままにする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-10 | ボタンの variant は primary、plain、quiet、danger（#474）のままにする。danger は赤い文字で塗りは無し。停止のボタンは danger にする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-13 | 複数行の入力欄は今の伸び方のまま、kit の Textarea にする。`field-sizing: content` は使わない | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-14 | 設定の選択欄は kit の `Select`（ブラウザー標準の select。NativeSelect に当たる）に寄せる。行の部品の系統の `_DropdownMenu` もそこへ移す | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-16 | チェックボックスとラジオボタンの土台は、ブラウザー標準の入力のままにする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-17 | 小さい部品の大きさは今のままにする（チェックボックス 2.8rem、ラジオボタン 2rem、スイッチ 4.4×2.4rem、スライダーのつまみ 1.8rem） | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-19 | メインの機能スイッチは kit の `Switch` で作り直す。行全体を押せること、待っている間の表示、理由の説明は残す | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-21 | フォーカスを受ける要素だけを `Tooltip` にする。受けない要素（ルビ、版数）の説明は `title` のままにする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-23 | ダイアログの土台はブラウザー標準の `<dialog>` のままにし、kit の `Dialog` を使う | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-24 | ダイアログのボタンの並びは今のままにする。右上の閉じるボタンは付けない | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-25 | ボタンから開く小さいパネル（手作りの部品の棚卸しの U-04）は Popover を土台にする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-26 | 折りたたみは `<details>` のままにする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-27 | 押したままになるボタンと、一つだけを選ぶボタンの集まり（U-03）は、Radix の Toggle と ToggleGroup を土台に kit の部品を作る。ミュートを押している間の琥珀色は残す | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-28 | カード（U-09）は今の見た目のまま kit の Card にする。余白は今の大きさで、塗りと影は無し | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-29 | バッジ（U-09）は今の角い形と、状態を文字で示すやり方のまま kit の Badge にまとめる | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-32 | 進み具合の棒（U-05）は今の色の作り方（明るさだけを変える）のまま kit の Progress にする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-36 | 言語の選択（U-01）と設定の検索（U-02）は自作のまま、見た目だけを寄せる | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-37 | しきい値の欄（`_Entry`）は今のままにする。左右の余白と、無効のときの見た目を変えない | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
+| D-40 | 設定の検索欄の細部は今のままにする | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
 | D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）は、共通の Slider に寄せない。メーターと一体のアプリだけの部品として、照合の外にする | 2026-11-19 | 実装は変えない。Slider の節と「そのほか」に照合の外と書いた |
 | D-42 | ツールチップの文字の細部は今のままにする。太さは 500、行の高さは 1.6 で、`text-balance` は付けない。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 を保つ | 2026-11-19 | 実装の値は変えない（`common_css/mixins.ts` の `tooltipContent`、#721 のまま）。その値の横に決定をコメントで書いた。Tooltip の節の「見た目」の行と、一覧の 10 の注記にも書いた |
+| D-43 | ダイアログの部品の細部は、kit の今の細部に画面側を寄せる | 2026-11-25 | このあとの置き換えの PR で反映する。どの PR かは手作りの部品の棚卸しの行に書く |
 
 ## 判断なしで寄せられる差
 
