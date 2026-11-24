@@ -99,6 +99,10 @@
     "reason": "String() returns a string unchanged, so a saved text reads the same either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:496:46 typeof value === \"string\" -> false"
   },
+  "1bsq1yecy1": {
+    "reason": "A null answer stops at reading its settings either way, and null settings spread into the defaults add nothing, as undefined does.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:47:111 value !== null -> true"
+  },
   "1c147xa0ble": {
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
@@ -303,6 +307,10 @@
     "reason": "The effect's dependencies are a constant list either way, so it runs once, when the readout is first drawn.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:89:8 [] -> [\"Stryker was here!\"]"
   },
+  "24jo37gggzz": {
+    "reason": "directSelectionPending is false on every page but the RVC page, so the condition is already false there.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:170:10 variant === \"rvc\" -> true"
+  },
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:342:37 !choiceDisabled(languageChoices[0]) -> true"
@@ -383,6 +391,14 @@
     "reason": "modelAdvice defaults to the time now and to a reserve, and the readout reads only the device and whether there are several GPUs, which depend on neither.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:91:47 { now: Date.now(), reserveBytes: reserveBytes(reserve) } -> {}"
   },
+  "4ccr56bwqo": {
+    "reason": "With no saved model the setup line tests an empty name or the placeholder against .pth, and neither ends with it.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:150:61 \"\" -> \"Stryker was here!\""
+  },
+  "4js51107n4": {
+    "reason": "The save catches the error and reports save_unconfirmed, so its message is never shown.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:52:47 \"The answer to the direct voice settings is not an object.\" -> \"\""
+  },
   "4msvnjptkq": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
@@ -414,6 +430,10 @@
   "89lc90xp9u": {
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
+  },
+  "9mu2c7j4nw": {
+    "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:92 \"engine\" -> \"\""
   },
   "af2w1du4tn": {
     "reason": "An extra entry that is no restriction kind is never asked for: canStart, startRequest and the boxes look only for the model's own kinds.",
@@ -519,6 +539,10 @@
     "reason": "The preset effect drops a waiting change whenever the preset moves to one it did not ask for, so an answer never finds the preset elsewhere.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:137:13 accepted.preset !== preset && accepted.nextPreset !== preset -> false"
   },
+  "p4397r7301": {
+    "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:83 name === \"engine\" -> false"
+  },
   "papf5i9aml": {
     "reason": "show runs only from the timer that update starts for a target that is not dismissed, and Escape clears that timer when it dismisses the target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:92:41 dismissed === target -> false"
@@ -571,6 +595,10 @@
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
   },
+  "tnp9kufx69": {
+    "reason": "This form never edits the engine (the RVC page's button switches it through the backend), so its label is never asked for.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:103 \"voice.vc_engine\" -> \"\""
+  },
   "tsn1jh1yn3": {
     "reason": "portalLost runs only through portalLostHandler, which a bind sets after registerShortcuts paused and so cleared any reconnect timer, and the timer is set only after the handler is cleared, so none is pending here.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:193:9 clearTimeout(portalReconnectTimer); -> ;"
@@ -582,6 +610,10 @@
   "v674isy3ie": {
     "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
+  },
+  "vb0q8etmm0": {
+    "reason": "On the RVC page the conversion is always shown and always RVC, so the other half of the condition is already true.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:160:10 variant === \"rvc\" -> false"
   },
   "w0wswwpeny": {
     "reason": "Intl.ListFormat joins with \"conjunction\" by default, so the option changes nothing.",
