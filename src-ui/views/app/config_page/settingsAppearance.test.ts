@@ -371,6 +371,22 @@ test("the forms' select draws the kit select's chevron, at its size and place", 
     assert.match(select, /paddingRight: "3\.6rem",/);
     assert.match(select, /backgroundPosition: "right 1\.4rem center",\s*backgroundSize: "1\.6rem",/);
 });
+test("the kit's select in a settings row keeps the forms' compact width, set on its wrapper only", () => {
+    // DESIGN.md "Field widths" (#1096): a select fits its content, 20rem to 32rem, flush at the
+    // row's right end. The kit's field fills its wrapper, so the rows size the wrapper as they
+    // size their own selects, and set nothing else on the kit's part.
+    const compact = /width: "fit-content",\s*minWidth: "min\(20rem, 100%\)",\s*maxWidth: "min\(32rem, 100%\)",\s*justifySelf: "end",/;
+    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
+    const own = /globalStyle\(inForm\("select"\), \{[^}]*\}/.exec(form);
+    const kit = /globalStyle\(`\$\{container\} \[data-slot="native-select-wrapper"\]`, \{([^}]*)\}\);/.exec(form);
+    assert.ok(own && kit);
+    assert.match(own[0], compact);
+    assert.match(kit[1], compact);
+    assert.equal(kit[1].trim().split("\n").length, 4, "the place and the width only");
+    assert.match(read("../../kit/Select.tsx"), /<span className=\{selectWrap\} data-slot="native-select-wrapper">/);
+    assert.match(read(box + "_components/form_row/FormRow.css.ts"),
+        /globalStyle\(`\$\{control\} > select, \$\{control\} > \[data-slot="native-select-wrapper"\]`, \{ width: "fit-content", minWidth: "min\(20rem, 100%\)", maxWidth: "min\(32rem, 100%\)" \}\);/);
+});
 test("download dialogs write byte counts in the display language", () => {
     for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.tsx"]) {
         const source = read(box + page);
