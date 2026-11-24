@@ -749,7 +749,7 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 | `output_failures` | 出力の一部が例外になったときの`[{output, error_code: "MESSAGE_OUTPUT_FAILED"}]`。同期の戻り値には全出力後の一覧を含める。通常は省略 |
 | `delivery_reason` | 自分のメッセージ（入力欄とマイク）を、「VRChatにメッセージを送信する」がオフのためチャットボックスへ送らなかったときだけ`"vrchat_off"`。ほかの出力は行う。UIは行の状態を`ok`のまま、「送信」の代わりに「VRChatには未送信（設定でオフ）」と表示する。相手の発言（スピーカー、OCR）には付けない |
 
-- 入力欄からは`/run/send_message_box`に`{"id", "message"}`を送り、応答で上の形を受け取る。UIは送る前に行を「送信中」として出し、200の応答で送信中を解除する。同じ行のIDと時刻を保ち、応答の`original`と`translations`に読みも含めて更新する。Quick Chatからの送信とVRパネルに映す行も同じ処理を使う。デスクトップでは待機中のアイコンが回転し、VRパネルでは動かない文言で示す。
+- 入力欄からは`/run/send_message_box`に`{"id", "message"}`を送り、応答で上の形を受け取る。UIは送る前に行を「送信中…」として出し、200の応答で送信中を解除する。同じ行のIDと時刻を保ち、応答の`original`と`translations`に読みも含めて更新する。Quick Chatからの送信とVRパネルに映す行も同じ処理を使う。デスクトップでは待機中のアイコンが回転し、VRパネルでは動かない文言で示す。
 - 通信失敗、400・404・423・500の応答、バックエンドの停止では、該当する送信中の行を`status: "failed"`にし、本文を残して「送信を確認できません」と表示する。自動では再送しない。エラー応答にIDがない場合は送信中の全行を対象にする。その後にID付きの200が届けば、その行の状態、読みを含む原文と訳を更新する。
 - 各出力の失敗は、別の400通知`/run/message_output_error`でも知らせる。`result.data`は`{id, source, output, error_code}`で、`id`がない入力では`null`。`source`は`chat`・`mic`・`speaker`・`ocr`、`output`は`osc`・`overlay_small`・`overlay_large`・`clipboard`・`ui`・`websocket`・`logger`・`history`・`tts`のいずれか。本文や例外の詳細は入れない。UIへの通常通知の後に失敗する出力もあるため、全入力元の失敗通知をこの経路で扱う。送信行を失敗扱いにせず、出力先ごとに警告を表示する。
 - マイクは`/run/transcription_send_mic_message`、スピーカーは`/run/transcription_receive_speaker_message`、OCRは`/run/transcription_ocr_message`で届く。
@@ -850,7 +850,7 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 |---|---|
 | ワードフィルター | 文字列の配列。重複は順を保って除く。一致すると`/run/word_filter`に`{"message": "Detected by word filter: …"}` |
 | ホットキー | `{open_quick_chat, toggle_vrct_visibility, toggle_translation, toggle_transcription_send, toggle_transcription_receive, stop_voice, toggle_voice_mute, toggle_tts, toggle_rvc}`の各値が`["Ctrl","Shift","Q"]`のようなキーの配列か`null`。知らないキーを含むと全体を拒否する |
-| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-ui/logics/configs/experimentalFeatures.ts`と`native/core/src/config/schema.rs`の2か所にある（0.5まではPythonの[`src-python/models/experimental_features.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py)にもあった）。今の機能は	ray_companion（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)）だけ |
+| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-ui/logics/configs/experimentalFeatures.ts`と`native/core/src/config/schema.rs`の2か所にある（0.5まではPythonの[`src-python/models/experimental_features.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py)にもあった）。今の機能は`tray_companion`（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)）だけ |
 | 六芒星のオーバーレイで六芒星を隠す端（`TRAY_COMPANION_EDGE`） | `right`、`left`、`top`、`bottom` のどれか。既定は`right`。実験的機能の六芒星のオーバーレイがオフの間も値は残す。ほかの値は拒否する（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 六芒星のオーバーレイで六芒星を出すモニター（`TRAY_COMPANION_MONITOR`） | システムがモニターに付けた名前。空はメインのモニター（既定）。256文字までで、制御文字は拒否する。選んだモニターが外されていても値は残し、その間はメインのモニターを使う（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 六芒星のオーバーレイがホイールで回せることを知らせたか（`TRAY_COMPANION_WHEEL_HINT_SHOWN`） | 真偽値。既定は`false`。六芒星が初めて出たときに知らせ、`true`にする。`true`の間は知らせない（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)、#536） |

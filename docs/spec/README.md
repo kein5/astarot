@@ -97,7 +97,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 | [シーケンス](sequences.md) | 起動、設定の変更、チャットの送信、文字起こし、読み上げと停止、APIキーの登録 | シナリオ | 手書き |
 | [契約](contracts.md) | 変えてはいけない約束と、確かめているテスト | 決まり | 手書き |
 | [失敗したときに保つもの](failure-recovery.md) | 設定、モデル、アプリの更新が途中で失敗したときに残る状態、入れ方ごとの更新の責任、保証しないこと | 決まり | 手書き |
-| [SteamVR subtitle images](overlay-subtitle-rendering.md) | Subtitle wrapping, raster budgets and local font fallback | 決まり | 手書き |
+| [SteamVRの字幕の画像](overlay-subtitle-rendering.md) | 字幕の折り返し、ラスターの上限、ローカルのフォントへの代替 | 決まり | 手書き |
 | [未決事項](open-issues.md) | 調べて見つかった食い違いと、決まっていないこと | 記録 | 手書き |
 | [用語集](glossary.md) | 画面の言葉とコードの名前の対応 | 参照 | 手書き |
 | [IPCエンドポイント一覧](reference/ipc-endpoints.md) | 全エンドポイント、種別、初期化前の扱い、UIの受信先 | 参照 | 生成 |

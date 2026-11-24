@@ -24,7 +24,7 @@ Please follow the [code of conduct](CODE_OF_CONDUCT.md) in issues and pull reque
 
 ## 困ったときは（日本語）
 
-ASTAROT は1人で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
+ASTAROT は1人で、できる範囲で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
 
 | したいこと | 行き先 |
 |---|---|

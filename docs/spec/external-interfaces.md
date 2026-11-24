@@ -157,7 +157,7 @@ The conditions for sending are in [cross-cutting behavior](cross-cutting.md#同�
 
 ### GPU report
 
-Settings → "More settings" → "GPU report" (decision 6 of #288). It is separate from usage data, and the app sends nothing. The core measures only when the user presses the button, and shows the result on screen. The user chooses whether to send it, and if so, sends it themselves as a GitHub issue.
+Settings → "Advanced" → "GPU report" (decision 6 of #288). It is separate from usage data, and the app sends nothing. The core measures only when the user presses the button, and shows the result on screen. The user chooses whether to send it, and if so, sends it themselves as a GitHub issue.
 
 | Item | Details |
 |---|---|
@@ -602,7 +602,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### GPUの動作の報告
 
-設定の「詳細設定」→「GPUの動作の報告」（#288の判断6）。利用状況の通知とは別のもので、アプリは何も送らない。利用者が押したときだけ中核が計測し、結果を画面に出す。送るかどうかは利用者が選び、送るときは利用者自身がGitHubのIssueとして送る。
+設定の「高度な設定」→「GPUの動作の報告」（#288の判断6）。利用状況の通知とは別のもので、アプリは何も送らない。利用者が押したときだけ中核が計測し、結果を画面に出す。送るかどうかは利用者が選び、送るときは利用者自身がGitHubのIssueとして送る。
 
 | 項目 | 内容 |
 |---|---|
@@ -666,7 +666,7 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 | 開発用のビルド | debugビルド | 確認しない（`disabled`） |
 
 - 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/astarot/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は同じWorkerの`/beta/latest.json`を読み、取れなければ安定版の`latest.json`を読む（updaterは、失敗の状態コードや通信の失敗のとき次の宛先を試す）。Workerはこれをこのリポジトリのブランチ`updater-channels`の`beta/latest.json`（`raw.githubusercontent.com`）へ転送する。このファイルは、リリースを公開するたびにワークフロー（`.github/workflows/update-channels.yml`、`tools/update_channels.py`）が、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）の`latest.json`に書き直す。版がそのリリースのものでないもの、ファイルがそのリリースのダウンロードでないものは書かない（#466）。アプリはベータ版の確認のためにGitHubのAPIを呼ばない。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
-- 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。チャンネルを変えると、前のチャンネルで見つけた版の表示を消して、すぐに新しいチャンネルで確かめる（起動時の確認をオフにしていても、利用者が変えた操作に対する確認なので行う。ダウンロードやインストールの途中なら何もしない）。`app_update_check`は1つずつしか受け付けない（2つ目は`update_busy`）ので、確認の途中で変えたときは、その確認が終わるのを待ってから新しいチャンネルで確かめ、その間は「確認中」と示す。途中だった確認の結果は前のチャンネルのものなので、画面に出さない。続けて何度か変えたときは、最後に選んだチャンネルだけを確かめる。こうして、画面に出る版と、インストールの対象（`app_update_check`が最後に見つけた版）は、いつも最後に選んだチャンネルのものになる（`src-ui/logics/common/appUpdate.ts`）。Tauriの側も、画面とは別に同じことを守る（#1017）。`app_update_check`が前と違うチャンネルを問い合わせた時点で、前のチャンネルで見つけた版をインストールの対象から外す。その確認が`update_busy`で断られても、失敗しても外す。別のチャンネルを問い合わせた後に終わった確認の版は、インストールの対象にしない。更新のページの版の横の「（ベータ）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
+- 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。チャンネルを変えると、前のチャンネルで見つけた版の表示を消して、すぐに新しいチャンネルで確かめる（起動時の確認をオフにしていても、利用者が変えた操作に対する確認なので行う。ダウンロードやインストールの途中なら何もしない）。`app_update_check`は1つずつしか受け付けない（2つ目は`update_busy`）ので、確認の途中で変えたときは、その確認が終わるのを待ってから新しいチャンネルで確かめ、その間は「更新を確認しています…」と示す。途中だった確認の結果は前のチャンネルのものなので、画面に出さない。続けて何度か変えたときは、最後に選んだチャンネルだけを確かめる。こうして、画面に出る版と、インストールの対象（`app_update_check`が最後に見つけた版）は、いつも最後に選んだチャンネルのものになる（`src-ui/logics/common/appUpdate.ts`）。Tauriの側も、画面とは別に同じことを守る（#1017）。`app_update_check`が前と違うチャンネルを問い合わせた時点で、前のチャンネルで見つけた版をインストールの対象から外す。その確認が`update_busy`で断られても、失敗しても外す。別のチャンネルを問い合わせた後に終わった確認の版は、インストールの対象にしない。更新のページの版の横の「（ベータ版）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
 - `latest.json`の`platforms`は`windows-x86_64`（`ASTAROT_setup.exe`）と`linux-x86_64`（`ASTAROT-<version>-linux-x64-release.AppImage`）を持つ。0.6.xまでは`VRCT-VOX_setup.exe`と`VRCT-VOX-<version>-linux-x64-release.AppImage`だった。0.7.xのリリースはどの配布物も0.6.xまでの名前の写しと一緒に載せるが、`latest.json`は写しを指さない（ADR-014の2.10、[配布候補の手順](../voice-stack/release-candidates.md#旧名の写し)）。0.6.xのアプリも`latest.json`に書いたURLから取るので、名前が変わっても更新できる。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。0.7.0からのインストーラーは、0.5.0以前の既定のインストール先にあるインストールを更新のあとで`%LOCALAPPDATA%\ASTAROT`へ移す。`/UPDATE`のときも同じで、`/R`は移した先の実行ファイルを起動する（[Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)）。0.7.0からの本体は`astarot.exe`で、インストーラーは0.6.xまでの`vrct-vox.exe`を置き換え、`/R`で`astarot.exe`を起動する（[本体の実行ファイルの名前](data-and-persistence.md#本体の実行ファイルの名前)）。
@@ -803,7 +803,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | コマンド | 呼べるウィンドウ | 働き |
 |---|---|---|
 | `get_font_list` | `main` | システムのフォント名の一覧 |
-| `vr_panel_send` | `vr_panel` | VRパネルから`main`への知らせ（`vr-panel-ready`、`vr-panel-config-page`、`vr-panel-stdout`）を`main`へ送る。呼び出し元が`vr_panel`であること、イベント名がこの3つであること、ペイロードの形（`null`、真偽値、`path`が文字列のオブジェクト）を確かめ、合わなければ`vr_panel_state_forbidden`か`vr_panel_event_invalid`を返す。VRパネルはイベントを送る権限を持たないので、Rustや別のウィンドウが送るイベントを装えない |Linuxでは、作ったウィンドウを表示せず、中のページをデスクトップに出ない場所へ移してバックエンドへ渡す（[VR画面の受け渡し](use-cases.md)） |
+| `vr_panel_send` | `vr_panel` | VRパネルから`main`への知らせ（`vr-panel-ready`、`vr-panel-config-page`、`vr-panel-stdout`）を`main`へ送る。呼び出し元が`vr_panel`であること、イベント名がこの3つであること、ペイロードの形（`null`、真偽値、`path`が文字列のオブジェクト）を確かめ、合わなければ`vr_panel_state_forbidden`か`vr_panel_event_invalid`を返す。VRパネルはイベントを送る権限を持たないので、Rustや別のウィンドウが送るイベントを装えない。Linuxでは、作ったウィンドウを表示せず、中のページをデスクトップに出ない場所へ移してバックエンドへ渡す（[VR画面の受け渡し](use-cases.md)） |
 | `main_window_restore` | `main` | 最小化したメイン画面を戻して前面に出す。Waylandでは最小化の状態をアプリが知れず、ポータルのホットキーには前面に出す権利もないため、UIが最小化したことを覚えておき、戻すときはKWinに頼む |
 | `quick_chat_show`、`quick_chat_configure`、`quick_chat_take`、`quick_chat_finish`、`quick_chat_shortcut_platform` | `main` | 小窓を開く、設定を渡す、送信要求を受け取る、結果を返す、ホットキーの登録方法を調べる |
 | `quick_chat_context`、`quick_chat_submit`、`quick_chat_hide` | `quick_chat` | 設定を読む、送信を頼む、隠す |

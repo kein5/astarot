@@ -84,7 +84,7 @@ The rules are the same as for human developers. The table of types, examples, th
 - When the type alone would put a commit under the wrong CHANGELOG heading, add a `Changelog: user`, `Changelog: security`, `Changelog: internal` or `Changelog: skip` footer.
 - Some environments do not have the commit-msg hook installed. Before you commit, check the message with `cog verify "<message>"`, and also pass `python tools/dev.py check --scope commits --base origin/develop`.
 - `CHANGELOG.md` is written by `tools/changelog.py` and lists stable releases only. Do not edit it unless you were asked to prepare a stable release. To fix a section that has been written, first compare it with the output of `python tools/changelog.py print`. Changes in betas go in the notes of the GitHub prerelease, not in the CHANGELOG.
-- Do not use `cog bump`. Do not create tags or push them. A tag is created when a maintainer publishes the GitHub Releases draft.
+- Do not use `cog bump`. Do not create tags, and do not push. A tag is created when a maintainer publishes the GitHub Releases draft.
 - When asked to prepare a release, set the version in `package.json`, then run `npm run update-version`. For a stable release only, then run `npm run changelog`. Make all of it one commit, `chore(release): version X.Y.Z`.
 
 ## Design decision records (ADRs)
