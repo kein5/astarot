@@ -54,7 +54,7 @@ jobs:
         run: |
           git archive --format=zip --output=VRCT-VOX-source.zip HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/check_voice_distribution.py VRCT-VOX-source.zip
+          python tools/check_voice_distribution.py --source-archive VRCT-VOX-source.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # The installer from `npm run release` above has no hash built in. Bundle it again now
