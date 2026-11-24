@@ -223,7 +223,7 @@ common_error:
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
     translation_limit: "Translation engine limit reached or temporarily restricted."
-    deepl_auth_key_invalid_length: "DeepL API key length is not correct."
+    deepl_auth_key_invalid_length: "The DeepL API key has the wrong length. Paste the key your DeepL account shows: 36 characters, or 39 ending in \":fx\" for the free plan."
     deepl_auth_key_failed_authentication: "API key is incorrect or API usage limit reached."
 
     invalid_value_mic_record_timeout: "It cannot be greater than '{{mic_phrase_timeout_label}}' with a value of 0 or more."
@@ -278,18 +278,18 @@ backend_errors:
     TRANSCRIPTION_API_TIMEOUT: "The speech recognition service did not answer in time, so recognition stopped. Check the network connection, then turn it on again."
     TRANSCRIPTION_API_SERVER_ERROR: "The speech recognition service had an error, so recognition stopped. Wait a while and turn it on again, or choose another engine."
     CLEANUP_TIMEOUT: "Audio capture did not stop in time. Wait a moment, then try again. If this keeps happening, restart ASTAROT."
-    VALIDATION_INVALID_IP: "That IP address is not in a valid format."
+    VALIDATION_INVALID_IP: "That is not an IP address. Enter one such as 127.0.0.1, without spaces."
     VALIDATION_CANNOT_SET_IP: "That IP address cannot be used."
     VALIDATION_OSC_PORT_INVALID: "Enter an OSC port from 1 to 65535 using whole numbers."
-    AUTH_PLAMO_LENGTH: "The Plamo API key has the wrong length."
+    AUTH_PLAMO_LENGTH: "The Plamo API key is too short. Paste the key the PLaMo API console shows, which is at least 72 characters."
     AUTH_PLAMO_FAILED: "The Plamo API key could not be verified. Check that the key is correct."
-    AUTH_GEMINI_LENGTH: "The Gemini API key has the wrong length."
+    AUTH_GEMINI_LENGTH: "The Gemini API key is too short. Paste the key Google AI Studio shows, which is at least 39 characters."
     AUTH_GEMINI_FAILED: "The Gemini API key could not be verified. Check that the key is correct."
-    AUTH_OPENAI_INVALID: "The OpenAI API key is not in a valid format."
+    AUTH_OPENAI_INVALID: "This is not the shape of an OpenAI API key, which starts with \"sk-\" and is at least 164 characters. Paste the key the OpenAI dashboard shows."
     AUTH_OPENAI_FAILED: "The OpenAI API key could not be verified. Check that the key is correct."
-    AUTH_GROQ_INVALID: "The Groq API key is not in a valid format."
+    AUTH_GROQ_INVALID: "This is not the shape of a Groq API key, which starts with \"gsk\" and is at least 40 characters. Paste the key GroqCloud shows."
     AUTH_GROQ_FAILED: "The Groq API key could not be verified. Check that the key is correct."
-    AUTH_OPENROUTER_INVALID: "The OpenRouter API key is not in a valid format."
+    AUTH_OPENROUTER_INVALID: "The OpenRouter API key is too short. Paste the key OpenRouter shows, which is at least 20 characters."
     AUTH_OPENROUTER_FAILED: "The OpenRouter API key could not be verified. Check that the key is correct."
     AUTH_OPENAI_COMPATIBLE_INVALID: "The OpenAI-compatible API key is not in a valid format."
     AUTH_OPENAI_COMPATIBLE_FAILED: "Could not reach the OpenAI-compatible endpoint, or it rejected the API key. Check the URL and the key."
@@ -315,7 +315,7 @@ backend_errors:
     AUTH_GOOGLE_CLOUD_FAILED: "The Google Cloud API key could not be verified. Check the key, and that Cloud Translation API and billing are enabled for its project."
     AUTH_PAPAGO_INVALID: "Enter the Papago Client ID first, then the Client Secret, both without spaces."
     AUTH_PAPAGO_FAILED: "The Papago Client ID and Client Secret could not be verified. Check both values, and that Papago Translation is enabled for the application in NAVER Cloud Platform."
-    WEBSOCKET_HOST_INVALID: "That host cannot be used for the WebSocket server."
+    WEBSOCKET_HOST_INVALID: "The WebSocket server cannot listen on that address. Enter 127.0.0.1, or an IP address your PC has on its LAN."
     WEBSOCKET_PORT_UNAVAILABLE: "Another app is using the WebSocket port. Choose a different port."
     WEBSOCKET_PORT_INVALID: "Enter a WebSocket port from 1 to 65535 using whole numbers."
     WEBSOCKET_SERVER_UNAVAILABLE: "The WebSocket server cannot start. Check that no other app is using its host and port."
@@ -331,6 +331,8 @@ backend_errors:
     OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID: "Enter a whole number from 0 to 120."
     OBS_BROWSER_SOURCE_FONT_SIZE_INVALID: "Enter a whole number from 10 to 200."
     OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID: "Enter a whole number from 0 to 20."
+    OBS_BROWSER_SOURCE_FONT_COLOR_INVALID: "Enter the font color as # and six characters from 0 to 9 and A to F, such as #FFFFFF."
+    OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID: "Enter the outline color as # and six characters from 0 to 9 and A to F, such as #000000."
     VRC_MIC_MUTE_SYNC_OSC_DISABLED: "VRC mic mute sync is unavailable because OSC reception or OSCQuery advertisement is not ready. Check that the OSC destination is 127.0.0.1 or localhost, then save the OSC settings again."
 
 common_warning:
@@ -452,6 +454,7 @@ config_page:
     # A setting that saves by itself, said under its field when the save does not go through (#1111).
     auto_save:
         save_failed: "This could not be saved, so the saved value stays. Check the value, then press Enter or leave the field to try again."
+        list_save_failed: "This could not be saved, so the list stays as it was. Try again."
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
@@ -746,6 +749,8 @@ config_page:
             label: "Papago client ID"
             desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
             reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
+            errors:
+                invalid: "A Client ID is at most 256 characters, without line breaks. Paste the Client ID that NAVER Cloud Platform shows."
         papago_auth_key:
             label: "Papago client secret"
 
@@ -790,9 +795,14 @@ config_page:
 
         ollama_connection_check:
             label: "Check Ollama connection"
+        lmstudio_url:
+            errors:
+                invalid: "Enter the address of the LM Studio server, starting with http:// or https://, such as http://127.0.0.1:1234/v1."
         ollama_url:
             label: "Ollama URL"
             desc: "Ollama on your PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
+            errors:
+                invalid: "Enter the address of Ollama, starting with http:// or https://, such as http://localhost:11434."
         select_ollama_model:
             label: "Select Ollama model"
             connection_required: "Ollama connection required"
@@ -800,9 +810,13 @@ config_page:
         llm_translation_temperature:
             label: "Temperature"
             desc: "How much the translation varies. Near 0, the same sentence gets the same translation; higher values vary the wording. 0 to 0.3 suits translation. Left empty, none is sent and each engine keeps its own default (0.7 for Gemini). A model that takes no temperature, such as OpenAI's reasoning models, is asked again without one."
+            errors:
+                invalid: "Enter a temperature from 0 to 2 with at most two decimal places, such as 0.3. Leave it empty to keep each engine's default."
         llm_translation_instructions:
             label: "Additional instructions"
             desc: "Added after the prompt the LLM engines are sent. For example: \"Translate casually, without honorifics\" or \"Keep VRChat terms in English\". One line, up to 500 characters. The engines still return only the translation. This text is sent to the engine too."
+            errors:
+                invalid: "Additional instructions are one line of up to 500 characters, and this is {{count}}. Shorten it."
 
     transcription:
         # The speech recognition APIs the user adds (#414), under the providers of the API group.
@@ -858,9 +872,6 @@ config_page:
             list_one: "Registered words ({{count}})"
             list_other: "Registered words ({{count}})"
             list_empty: "No words are registered."
-        mic_vad_filter:
-            label: "Mic VAD filter"
-            desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
             label: "Speaker record timeout"
             desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
@@ -870,9 +881,6 @@ config_page:
         speaker_max_phrase:
             label: "Speaker max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
-        speaker_vad_filter:
-            label: "Speaker VAD filter"
-            desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
             desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
@@ -1286,6 +1294,8 @@ config_page:
             link_failed: "The browser could not be opened. Open this address:"
         osc_ip_address:
             label: "OSC IP address"
+            errors:
+                invalid: "Enter an IPv4 address such as 127.0.0.1, or an IPv6 address such as ::1, without spaces."
         osc_port:
             label: "OSC port"
         osc_query:
@@ -1300,12 +1310,16 @@ config_page:
         websocket_host:
             label: "WebSocket host (IPv4)"
             desc: "With 127.0.0.1 it works on your PC only. To use it from other PCs, enter your PC's LAN IP address, after setting the certificate and key below."
+            errors:
+                invalid: "Enter an IPv4 address without spaces: 127.0.0.1 for your PC only, or your PC's LAN IP address for other PCs. 0.0.0.0 cannot be used."
         websocket_tls_cert_file:
             label: "Certificate file"
             desc: "Needed only for use from other PCs: the path to a PEM certificate. Traffic to other PCs is then encrypted (wss://, https://). The PCs and OBS that connect must trust this certificate."
         websocket_tls_key_file:
             label: "Private key file"
             desc: "The path to the PEM private key that goes with the certificate. A key with a passphrase cannot be used. If the key is in the certificate file, enter the same path."
+        websocket_tls_errors:
+            one_side: "Enter both the certificate and the private key, or leave both empty to use the server on your PC only."
         websocket_token:
             label: "Make a new connection key"
             desc: "Use this if someone else may have seen a copied URL. The old URLs stop working at once."
@@ -1357,7 +1371,6 @@ config_page:
             length: "{{ms}} ms"
 
     notifications:
-        save_success: "Settings have been saved."
         opened_folder: "Opened the folder."
 
 vr_panel:
@@ -1519,8 +1532,7 @@ realtime:
   state_stopping: "Stopping captions"
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
-  save_help: "Save changes before starting. Changing an input stops its captions; changing the server or model stops both inputs."
-  save: "Save caption settings"
+  save_help: "Changes save at once. Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
   auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. The bundled ASR server loads one model for both inputs, so choose Qwen3-ASR if other players speak languages other than Japanese."
   follow_default_mic: "Follow the system default input"
@@ -1815,7 +1827,7 @@ voice_ui:
     start_needs_mic: "To start, prepare the virtual mic in the setup section below"
     start_needs_input: "To start, choose the input to forward"
     start_needs_setup: "To start, set the conversion model and runtime"
-    start_needs_save: "To start, save your changes"
+    start_needs_save: "To start, wait until your changes are saved"
     start_needs_rvc: "To start, press \"Use RVC for direct voice\""
     start_waiting_route: "Checking the voice route"
     start_input_unavailable: "The input list is unavailable; refresh it"
@@ -1847,7 +1859,6 @@ voice_ui:
     route_hint: "This route is shared by TTS and direct voice. Stop direct input before changing it. Switching to an external cable removes the managed input connection."
     save_route: "Save audio route"
     discard: "Discard changes"
-    save_bar: "Save settings"
     save_changes: "Save changes"
     select_rvc: "Use RVC for direct voice"
     select_rvc_label: "Direct voice conversion"
@@ -1858,17 +1869,7 @@ voice_ui:
     rvc_latency_hint: "The converted voice comes about 0.2 s after your voice on a GPU and about 1.3 s on the CPU. A Windows PC with a discrete GPU of another maker can use it through DirectML once ONNX Runtime · DirectML is fetched. A PC whose GPU cannot be used converts on the CPU, unless the CPU is too slow to keep up; then it does not start. Converting on the CPU uses a lot of it, so other apps may slow down."
     rvc_running_gpu: "Converting on the GPU. The voice is about {{seconds}} s behind."
     rvc_running_cpu: "Converting on the CPU. The voice is about {{seconds}} s behind. A runtime that can use an NVIDIA GPU makes the delay smaller."
-    save_changes_short: "Save"
-    discard_short: "Discard"
-    changed_items: "Changed settings"
-    unsaved: "Unsaved changes"
-    applies_on_save: "Save to apply: {{changes}}"
     applies_now: "Changes on this page apply at once"
-    changes_separator: ", "
-    unsaved_count: "{{count}}"
-    saved: "Saved"
-    save_failed: "Save failed — edits kept"
-    saving: "Saving…"
     leave_title: "Unsaved voice settings"
     leave_hint: "Discard unsaved changes and leave this page?"
     keep_editing: "Keep editing"

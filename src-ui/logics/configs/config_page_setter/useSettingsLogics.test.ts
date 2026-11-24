@@ -8,8 +8,8 @@ import type { SentRequest, SettingsList } from "../../test/settingsHarness.ts";
 import * as utils from "../../utils.ts";
 import { ctranslate2_weight_type_status } from "../../ui_configs.ts";
 import type { SaveButtonLogicOptions, SettingLogicsEntry, SliderLogicOptions } from "./useSettingsLogics.ts";
-import type { SaveBarEntry } from "../../voice/saveBar.ts";
 import type { StdoutResult } from "../../common/useStdoutToPython.ts";
+import * as fieldErrors from "../fieldErrors.ts";
 
 // A save the test answers later, with the value it was asked to save.
 interface PendingSave {
@@ -21,21 +21,29 @@ async function setup(context: TestContext) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests: PendingSave[] = [];
     context.onTestFinished(() => runtime.unmount());
-    let entry: SaveBarEntry | null | undefined;
-    let saveNotices = 0;
-    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) }, "@utils": {},
-        "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
+    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
+        "@store": {}, "@logics_common": {}, "@utils": {},
     });
-    const props: SaveButtonLogicOptions = { variable: "old", state: "ok", label: "Field",
+    const props: SaveButtonLogicOptions = { variable: "old", state: "ok",
         // Test data: the answers carry only the fields the save reads (no endpoint).
         setFunction: value => new Promise<StdoutResult>(resolve => requests.push({ value, resolve: answer => resolve(unchecked<StdoutResult>(answer)) })) };
+    let last: ReturnType<typeof useSaveButtonLogic> | undefined;
     const render = () => {
         runtime.render(useSaveButtonLogic, props);
-        return runtime.render(useSaveButtonLogic, props);
+        last = runtime.render(useSaveButtonLogic, props);
+        return last;
     };
     render();
-    return { props, requests, render, get entry() { return entry; }, get saveNotices() { return saveNotices; } };
+    // The field's state as the tests read it, from its latest render (the save bar that listed it
+    // is gone, #1111): a save is Enter, a discard is Escape.
+    const entry = () => {
+        const field = render();
+        const settled = field.saveState === "saving" || field.saveState === "save_failed";
+        const edited = settled || String(field.variable ?? "") !== String(props.variable ?? "");
+        return { saveState: settled ? field.saveState : edited ? "unsaved" : "saved", edited, dirty: edited,
+            save: () => field.saveFunction(), discard: () => field.revert() };
+    };
+    return { props, requests, render, get entry() { return entry(); }, get last() { return last; } };
 }
 
 for (const result of [false, { status: 400, result: { data: "old" } }]) {
@@ -49,14 +57,12 @@ for (const result of [false, { status: 400, result: { data: "old" } }]) {
         assert.equal(s.render().variable, "attempted");
         assert.equal(s.entry?.saveState, "save_failed");
         assert.equal(s.entry?.edited, true);
-        assert.equal(s.saveNotices, 0);
         const retry = s.entry?.save();
         assert.equal(s.requests[1].value, "attempted");
         s.props.variable = "canonical"; s.render();
         s.requests[1].resolve({ status: 200, result: "canonical" }); await retry;
         assert.equal(s.render().variable, "canonical");
         assert.equal(s.entry?.saveState, "saved");
-        assert.equal(s.saveNotices, 1);
     });
 }
 
@@ -64,10 +70,8 @@ for (const result of [false, { status: 400, result: { data: "old" } }]) {
 // check accepts, says a refused value or a failed save under it, and shows no "saved" notice.
 test("a field that saves by itself checks a changed value before sending it and shows no saved notice", async context => {
     const s = await setup(context);
-    s.props.autoSave = true;
     s.props.validate = value => value.trim() ? null : "empty";
     s.render();
-    assert.equal(s.entry, null);
     await s.render().saveFunction();
     assert.equal(s.requests.length, 0, "an unchanged value has nothing to save");
     s.render().onChangeFunction("  ");
@@ -82,13 +86,10 @@ test("a field that saves by itself checks a changed value before sending it and 
     s.requests[0].resolve({ status: 200, result: "new" }); await saving;
     assert.equal(s.render().variable, "new");
     assert.equal(s.render().error, null);
-    assert.equal(s.saveNotices, 0);
-    assert.equal(s.entry, null);
 });
 
 test("a field that saves by itself says a failed save under it and keeps the value until it is put back", async context => {
     const s = await setup(context);
-    s.props.autoSave = true;
     s.render();
     s.render().onChangeFunction("attempted");
     const saving = s.render().saveFunction();
@@ -98,7 +99,41 @@ test("a field that saves by itself says a failed save under it and keeps the val
     s.render().revert();
     assert.equal(s.render().variable, "old");
     assert.equal(s.render().error, null);
-    assert.equal(s.entry, null);
+});
+
+// #1111, decided 2: an API key that saves by itself is kept when its field is left empty, and
+// deleted only by Enter on the empty field.
+test("a key left empty is put back, and only Enter on the empty field deletes it", async context => {
+    const s = await setup(context);
+    let deletes = 0;
+    s.props.deleteFunction = async () => { deletes += 1; return unchecked<StdoutResult>({ status: 200, result: "" }); };
+    s.render();
+    s.render().onChangeFunction("");
+    await s.render().leaveFunction?.();
+    assert.equal(s.render().variable, "old", "leaving the empty field keeps the saved key");
+    assert.equal(deletes, 0);
+    assert.equal(s.requests.length, 0);
+    s.render().onChangeFunction("");
+    await s.render().saveFunction();
+    assert.equal(deletes, 1, "Enter on the empty field deletes the key");
+});
+
+// A refusal of the field's own save is said under it in its code's words (fieldErrors.ts).
+test("a field that saves by itself waits for its own answer and says a coded refusal in that code's words", async context => {
+    const fieldErrors = await import("../fieldErrors.ts");
+    const s = await setup(context);
+    s.props.endpoint = "/set/data/openai_auth_key";
+    s.render();
+    s.render().onChangeFunction("sk-bad");
+    const saving = s.render().saveFunction();
+    s.requests[0].resolve({ status: 400, result: { error_code: "AUTH_OPENAI_FAILED", data: "old" } }); await saving;
+    assert.equal(fieldErrors.takeInlineRefusal("/set/data/openai_auth_key"), true, "the refusal is the field's to say");
+    assert.deepEqual(s.render().error, ["backend_errors.AUTH_OPENAI_FAILED", "config_page.auto_save.save_failed"]);
+    s.render().onChangeFunction("sk-good");
+    const accepted = s.render().saveFunction();
+    s.props.variable = "sk-good";
+    s.requests[1].resolve({ status: 200, result: "sk-good" }); await accepted;
+    assert.equal(fieldErrors.takeInlineRefusal("/set/data/openai_auth_key"), false, "an accepted save leaves no refusal to take");
 });
 
 test("batched transport failure and thrown saves preserve text until explicit discard", async context => {
@@ -139,8 +174,8 @@ test("VR sliders can hand edits to the parent debounce synchronously", async () 
     const writes: number[] = [], runtime = hooks();
     const props: SliderLogicOptions = { variable: 0, min: 0, max: 1, setter_timing: "on_change", debounce_ms: 0,
         setterFunction: value => writes.push(value) };
-    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
+    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
+        "@store": {}, "@logics_common": {}, "@utils": {}, 
     });
     // Set for both timings; a missing one fails on the assertion below, as the TypeError did.
     runtime.render(useSliderLogic, props).onChangeFunction?.(0.1);
@@ -165,11 +200,11 @@ test("text acknowledgement preserves an edit back to the old value in a batched 
 // test put there, and a setting that is not named has no store hook.
 async function loadTemplates(stores: Record<string, Record<string, unknown>>) {
     const runtime = hooks(), sent: SentRequest[] = [];
-    const logics = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const logics = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": { getStoreHook: (name: string) => name in stores ? () => stores[name] : undefined },
         "@utils": utils, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => {} }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...request: SentRequest) => { sent.push(request); return true; } }) },
-        "../../voice/saveBar": {},
+        
     });
     const settings = (list: readonly SettingLogicsEntry[], category = "Test") => runtime.render(() => logics.useSettingsLogics(list, category)).settings;
     return { sent, settings, logics, runtime };
@@ -347,8 +382,8 @@ async function slider(context: TestContext, props: Partial<SliderLogicOptions> =
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), writes: number[] = [];
     context.onTestFinished(() => runtime.unmount());
-    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
+    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
+        "@store": {}, "@logics_common": {}, "@utils": {}, 
     });
     const options: SliderLogicOptions = { variable: 0, state: "ok", min: 0, max: 1, setterFunction: (value: number) => { writes.push(value); }, ...props };
     return { options, writes, runtime, render: () => runtime.render(useSliderLogic, options) };
@@ -492,37 +527,31 @@ test("the slider follows the saved value, except while the setting waits, and th
     assert.deepEqual([s.render().ui_value, followUps], [0.3, [0.1, 0.3, 0.3]], "a new state brings the saved value back too");
 });
 
-// --- Text fields saved from the bar ------------------------------------------------------------
+// --- Text fields that save by themselves (#1111) ------------------------------------------------
 
 async function field(context: TestContext, props: Partial<SaveButtonLogicOptions> = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests: PendingSave[] = [], deletes: number[] = [];
-    let entry: SaveBarEntry | null | undefined, saveNotices = 0;
     context.onTestFinished(() => runtime.unmount());
-    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@utils": {},
-        "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) },
-        "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
+    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
+        "@store": {}, "@utils": {}, "@logics_common": {},
     });
-    const options: SaveButtonLogicOptions = { variable: "old", state: "ok", label: "Field",
+    const options: SaveButtonLogicOptions = { variable: "old", state: "ok",
         // Test data: the answers carry only the fields the save reads (no endpoint).
         setFunction: value => new Promise<StdoutResult>(resolve => requests.push({ value, resolve: answer => resolve(unchecked<StdoutResult>(answer)) })),
         ...props };
-    return { options, requests, deletes, runtime, render: () => runtime.render(useSaveButtonLogic, options),
-        get entry() { return entry; }, get saveNotices() { return saveNotices; } };
+    const render = () => runtime.render(useSaveButtonLogic, options);
+    // The field's state as the tests read it, from a render (the save bar that listed it is gone):
+    // a save is Enter, a discard is Escape.
+    const entry = () => {
+        const shown = render();
+        const settled = shown.saveState === "saving" || shown.saveState === "save_failed";
+        const edited = settled || String(shown.variable ?? "") !== String(options.variable ?? "");
+        return { saveState: settled ? shown.saveState : edited ? "unsaved" : "saved", dirty: edited, edited,
+            canSave: options.state !== "pending", save: () => shown.saveFunction(), discard: () => shown.revert() };
+    };
+    return { options, requests, deletes, runtime, render, get entry() { return entry(); } };
 }
-
-test("an edit shows in the bar under the field's label, and a field without a label lists no change", async context => {
-    const f = await field(context);
-    f.render();
-    assert.deepEqual([f.entry?.saveState, f.entry?.dirty, f.entry?.changes, f.entry?.canSave], ["saved", false, [], true]);
-    f.render().onChangeFunction("new");
-    f.render();
-    assert.deepEqual([f.entry?.saveState, f.entry?.dirty, f.entry?.edited, f.entry?.changes], ["unsaved", true, true, ["Field"]]);
-    f.options.label = undefined;
-    f.render();
-    assert.deepEqual(f.entry?.changes, []);
-});
 
 test("while its setting waits, the field cannot be saved", async context => {
     const f = await field(context, { state: "pending" });
@@ -669,15 +698,6 @@ test("an empty field and a value not yet known read the same", async context => 
     }
 });
 
-test("a field that goes away takes its line off the bar", async context => {
-    const f = await field(context);
-    f.render().onChangeFunction("new");
-    f.render();
-    assert.equal(f.entry?.dirty, true);
-    f.runtime.unmount();
-    assert.equal(f.entry, null);
-});
-
 test("a save that throws is a failed save, and the next edit starts over", async context => {
     const f = await field(context);
     f.render().onChangeFunction("new");
@@ -700,7 +720,7 @@ test("while a save is on its way, the field keeps what the user typed, also when
     assert.equal(f.render().variable, "old");
 });
 
-test("a failed save keeps its line on the bar even when the backend's value comes to match the field", async context => {
+test("a failed save stays failed even when the backend's value comes to match the field", async context => {
     const f = await field(context);
     f.render().onChangeFunction("new");
     const saving = f.render().saveFunction();
@@ -709,38 +729,19 @@ test("a failed save keeps its line on the bar even when the backend's value come
     await saving;
     f.options.variable = "new";
     f.render();
-    assert.deepEqual([f.entry?.saveState, f.entry?.dirty, f.entry?.changes], ["save_failed", true, ["Field"]]);
+    assert.deepEqual([f.entry?.saveState, f.entry?.dirty], ["save_failed", true]);
 });
 
 // --- Text fields that save by themselves (#1111) -----------------------------------------------
 
 const SAVE_FAILED = "config_page.auto_save.save_failed";
 
-test("a field saved from the bar says nothing under it when its save fails, and says it was saved when it succeeds", async context => {
-    const f = await field(context);
-    f.render().onChangeFunction("new");
-    const failing = f.render().saveFunction();
-    f.requests[0].resolve({ status: 400 });
-    await failing;
-    assert.deepEqual([f.render().error, f.entry?.saveState, f.saveNotices], [null, "save_failed", 0]);
-    const saving = f.render().saveFunction();
-    f.requests[1].resolve({ status: 200, result: "new" });
-    await saving;
-    assert.equal(f.saveNotices, 1);
-});
-
-test("Enter on a field saved from the bar sends its value even when it has not changed", async context => {
-    const f = await field(context, { validate: () => "refused" });
-    void f.render().saveFunction();
-    assert.deepEqual(f.requests.map(request => request.value), ["old"], "only a field that saves by itself checks first");
-});
-
 test("a field that saves by itself says under it when a save throws or times out", async context => {
-    const thrown = await field(context, { autoSave: true, setFunction: async () => { throw new Error("transport"); } });
+    const thrown = await field(context, { setFunction: async () => { throw new Error("transport"); } });
     thrown.render().onChangeFunction("new");
     assert.equal(await thrown.render().saveFunction(), false);
     assert.equal(thrown.render().error, SAVE_FAILED);
-    const slow = await field(context, { autoSave: true });
+    const slow = await field(context);
     slow.render().onChangeFunction("new");
     void slow.render().saveFunction();
     slow.render();
@@ -749,15 +750,14 @@ test("a field that saves by itself says under it when a save throws or times out
     vi.advanceTimersByTime(1);
     slow.render();
     assert.equal(slow.render().error, SAVE_FAILED);
-    assert.equal(slow.saveNotices + thrown.saveNotices, 0);
 });
 
 test("a field that saves by itself sends nothing while its setting waits or while a save is on its way", async context => {
-    const waiting = await field(context, { autoSave: true, state: "pending" });
+    const waiting = await field(context, { state: "pending" });
     waiting.render().onChangeFunction("new");
     assert.equal(await waiting.render().saveFunction(), undefined);
     assert.deepEqual(waiting.requests, []);
-    const busy = await field(context, { autoSave: true });
+    const busy = await field(context);
     busy.render().onChangeFunction("new");
     void busy.render().saveFunction();
     busy.render().onChangeFunction("newer");
@@ -766,7 +766,7 @@ test("a field that saves by itself sends nothing while its setting waits or whil
 });
 
 test("a refused value's note goes when the saved value comes to match the field", async context => {
-    const f = await field(context, { autoSave: true, validate: value => value === "bad" ? "not that" : null });
+    const f = await field(context, { validate: value => value === "bad" ? "not that" : null });
     f.render().onChangeFunction("bad");
     await f.render().saveFunction();
     assert.equal(f.render().error, "not that");
@@ -778,7 +778,7 @@ test("a refused value's note goes when the saved value comes to match the field"
 
 test("a field that saves by itself checks an emptied value as empty text", async context => {
     const checked: string[] = [];
-    const f = await field(context, { autoSave: true, validate: value => { checked.push(value); return "empty"; } });
+    const f = await field(context, { validate: value => { checked.push(value); return "empty"; } });
     f.render().onChangeFunction(null);
     await f.render().saveFunction();
     f.render().onChangeFunction(undefined);
@@ -787,7 +787,7 @@ test("a field that saves by itself checks an emptied value as empty text", async
 });
 
 test("putting a field that saves by itself back to its saved value while a save is on its way still lets that save time out", async context => {
-    const f = await field(context, { autoSave: true });
+    const f = await field(context);
     f.render().onChangeFunction("new");
     void f.render().saveFunction();
     f.render().onChangeFunction("old");
@@ -799,7 +799,7 @@ test("putting a field that saves by itself back to its saved value while a save 
 });
 
 test("while its setting waits, a field that saves by itself keeps the note on a refused value", async context => {
-    const f = await field(context, { autoSave: true, validate: value => value === "bad" ? "not that" : null });
+    const f = await field(context, { validate: value => value === "bad" ? "not that" : null });
     f.render().onChangeFunction("bad");
     await f.render().saveFunction();
     f.options.state = "pending";

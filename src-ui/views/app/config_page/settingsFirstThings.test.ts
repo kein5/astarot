@@ -37,7 +37,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
 
     const search = await loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
-        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
+        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, 
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
     });
     assert.deepEqual(search.settingTabs("ocr", "source_language"), ["ocr"]);

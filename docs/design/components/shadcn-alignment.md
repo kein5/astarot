@@ -235,7 +235,7 @@ The app: `SetupSection` and `AdvancedSection` (the native `<details>`, with a st
 
 | Aspect | ASTAROT | shadcn/ui | Handling |
 |---|---|---|---|
-| Base | The native `<details>` | Radix Collapsible, Radix Accordion | Decide (D-26). `<details>` is tied to the mechanism that opens it when the settings search finds a row inside and to the mark that shows unsaved rows (`data-unsaved-inside`) |
+| Base | The native `<details>` | Radix Collapsible, Radix Accordion | Decide (D-26). `<details>` is tied to the mechanism that opens it when the settings search finds a row inside |
 | Look | The summary row has padding `.8rem 0`, at 1.5rem/600. The state is 1.3rem | Accordion's Trigger is `py-4` (1.6rem), `text-sm` (1.4rem), 500, underlined on hover, with a chevron on the right that turns. A line between items | Part of D-26 |
 | Collapsible | — | No look (behavior only) | Whether to move the things that open with an `aria-expanded` button to Radix Collapsible is part of D-26 |
 
@@ -330,7 +330,7 @@ The app: the kit's `SettingGroup` and `SettingRow`, `FormRow`, about 20 kinds of
 - ScrollArea: the app draws the scrollbars for the whole page in `root.css`. Radix ScrollArea is likely to insert a `<style>` to hide the native scrollbars, so it is not aligned for now.
 - Table: only the table in `GpuCheck`. shadcn/ui's Table does not use Radix, so align it when the table is worked on.
 - Item: "What was found" in the first-run setup (#557) is arranged in the Item form (ItemGroup, Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions), with `data-slot` values of the same names. It is not split into components yet (`FirstRunSetupController.css.ts` of the first-run setup). It differs from shadcn/ui in 3 ways. A row's action goes under its description, not at the row's right end, because the descriptions are one or two Japanese sentences: at the right end, the description column became narrow and wrapped to 4 lines. The row's mark (ItemMedia) shows the state with 4 kinds of marks. The rows that need the user come before the other rows, each as a card of its own with an amber rule and tint, and the other rows are gathered, smaller, in one frame. This lets the user tell whether something needs them from placement, shape, size and color before reading any text (DESIGN.md "Components", #614).
-- App-only: `FileDropZone`, the save bar, the companion handle, the VR panel (a separate screen drawn on steps in px), the caption overlay and the threshold component (integrated with the volume meter; D-41). These are left out of the comparison.
+- App-only: `FileDropZone`, the companion handle, the VR panel (a separate screen drawn on steps in px), the caption overlay and the threshold component (integrated with the volume meter; D-41). These are left out of the comparison.
 
 ## Decision items
 
@@ -675,7 +675,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| 土台 | ネイティブの `<details>` | Radix Collapsible、Radix Accordion | 判断（D-26）。`<details>` は、設定の検索で行を見つけたときに開く仕組みや、保存していない行を示す印（`data-unsaved-inside`）とつながっている |
+| 土台 | ネイティブの `<details>` | Radix Collapsible、Radix Accordion | 判断（D-26）。`<details>` は、設定の検索で行を見つけたときに開く仕組みとつながっている |
 | 見た目 | 要約の行は余白 `.8rem 0`、1.5rem/600。状態は 1.3rem | Accordion の Trigger は `py-4`（1.6rem）、`text-sm`（1.4rem）、500、ホバーで下線、右に回るシェブロン。項目の間に線 | D-26 に含める |
 | Collapsible | — | 見た目なし（振る舞いだけ） | `aria-expanded` のボタンで開くものを Radix Collapsible にそろえるかは D-26 に含める |
 
@@ -770,7 +770,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 - ScrollArea: アプリは `root.css` でスクロールバーを全体に描いています。Radix ScrollArea はネイティブのスクロールバーを隠すために `<style>` を差し込む見込みがあるので、今は寄せません。
 - Table: `GpuCheck` の表だけです。shadcn/ui の Table は Radix を使わないので、表に手を入れるときに寄せます。
 - Item: 初期設定（#557）の「いまの状態」を、Item の形（ItemGroup、Item、ItemMedia、ItemContent、ItemTitle、ItemDescription、ItemActions）にそろえ、同じ名前の `data-slot` を付けました。部品にはまだ分けていません（初期設定の `FirstRunSetupController.css.ts`）。shadcn/ui との違いは3つです。行の操作は、行の右端ではなく説明の下に置きます。説明が1〜2文の日本語で、右端に置くと説明の列が狭くなり、4行に折り返したためです。行の印（ItemMedia）は、状態を4通りの印で示します。対応が要る行は、ほかの行の前に、琥珀色の線と地を持つ1枚ずつのカードとして置き、ほかの行は1つの枠の中に小さくまとめます。文を読む前に、配置と形と大きさと色で対応が要るかが分かるようにするためです（DESIGN.md「Components」、#614）。
-- アプリだけのもの: `FileDropZone`、保存バー、コンパニオンの取っ手、VR パネル（px の段で描く別の画面）、字幕のオーバーレイ、しきい値の部品（音量のメーターと一体。D-41）。照合の外にしました。
+- アプリだけのもの: `FileDropZone`、コンパニオンの取っ手、VR パネル（px の段で描く別の画面）、字幕のオーバーレイ、しきい値の部品（音量のメーターと一体。D-41）。照合の外にしました。
 
 ## 判断項目
 

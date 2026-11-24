@@ -7,6 +7,8 @@ import * as rvcBlockChoices from "../../../../../../logics/configs/rvcBlockChoic
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
 import * as logDestination from "../../../../../../logics/configs/logDestination.ts";
 import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
+import * as fieldChecks from "../../../../../../logics/configs/fieldChecks.ts";
 
 // #614: the advanced settings show their rows' general descriptions as hints. What is read before
 // acting stays on screen: the addresses in use, and the sentence that says what the usage data sends.
@@ -28,6 +30,8 @@ async function rows(values: Record<string, unknown> = {}) {
         "../../../../../../logics/configs/rvcBlockChoices": rvcBlockChoices,
         "../../../../../../logics/configs/obsBrowserSourceUrl": obsBrowserSourceUrl,
         "../../../../../../logics/configs/logDestination": logDestination,
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: unknown) => ({ draft: saved, setDraft() {}, saving: false, dirty: false, submit() {}, navigationDialog: null }) },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
         "../../../../../../logics/configs/telemetryToggle": { shownTelemetry: (value: unknown) => value, telemetryUnanswered: () => false, toggleTelemetryOrAnswer() {} },

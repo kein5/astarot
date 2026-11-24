@@ -32,6 +32,15 @@ jobs:
           # The tags and history: a beta's notes list the commits since the previous release tag.
           fetch-depth: 0
           persist-credentials: false
+      # Issue #1018: the Windows installer checks another version's package (/VERSION) only against
+      # the .sha256 file on the same release page, so the draft is made only while GitHub's
+      # immutable releases keep published assets from being replaced. Reading that setting needs
+      # admin read access, which GITHUB_TOKEN cannot have: this step, and no other, gets a
+      # fine-grained token with Administration: read on this repository only.
+      - name: Require immutable releases before making a draft
+        env:
+          GH_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_READ_TOKEN }}
+        run: python -m tools.prepare_release immutable-releases
       - name: Verify origin, successful runs, commit, version, every asset hash and its signed build provenance
         env:
           GH_TOKEN: ${{ github.token }}

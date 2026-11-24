@@ -203,6 +203,10 @@ def checks_plan(args, root):
                 steps.append(Step("Biome format", ["biome", "format"]))
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
+                # The UI kit's component catalog (Storybook, src-ui/views/kit_catalog/) into
+                # build/storybook/: the type check reads the stories, but only Storybook's own
+                # build shows a problem in its plugins or configuration (#1153, decision 5).
+                steps.append(Step("Component catalog build", ["npm", "--ignore-scripts", "run", "build:catalog"]))
         elif scope == "voice":
             steps.append(Step("voice pytest", [python, "-m", "pytest", "-c", "tests/voice/pytest.ini", "tests/voice",
                 *PLATFORM_UNIT_TESTS, "-q"]))

@@ -27,8 +27,15 @@ export default defineConfig({
             provider: "v8",
             include: ["src-ui/**/*.{js,jsx,ts,tsx}"],
             // Styles (vanilla-extract) are left out, as mutator.config.mjs leaves them out of
-            // mutation testing: the tests read their class names, they do not run them.
-            exclude: ["src-ui/**/*.test.*", "src-ui/logics/test/**", "src-ui/**/*.d.ts", "src-ui/**/*.css.ts"],
+            // mutation testing: the tests read their class names, they do not run them. So is the
+            // component catalog (Storybook's stories), which is looked at, not tested.
+            exclude: [
+                "src-ui/**/*.test.*",
+                "src-ui/logics/test/**",
+                "src-ui/**/*.d.ts",
+                "src-ui/**/*.css.ts",
+                "src-ui/views/kit_catalog/**",
+            ],
             reporter: ["text-summary", "json-summary", "html"],
             reportsDirectory: "build/coverage/ui",
         },

@@ -78,6 +78,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: null }) },
         "../../../../../../logics/translation/translationCatalog": { isUsersWeight: () => false, weightLabel: (weight: string) => weight, ENGINE_FORM_SETTING_ID: "translation_catalog_add_engine" },
         "../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
+        "../../../../../../logics/configs/fieldChecks.ts": {},
         "../_components/form_row/FormRow": { FormRow: () => null },
         "./TranslationCatalog": { TranslationCatalogSection: () => null },
         "./TranslationGpuRuntimes": { TranslationGpuRuntimes: () => null },

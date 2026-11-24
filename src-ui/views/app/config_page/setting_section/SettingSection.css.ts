@@ -1,5 +1,4 @@
 import { globalStyle, style } from "@vanilla-extract/css";
-import { vars } from "../../../theme/vars.css.ts";
 
 export const scroll_container = style({ width: "100%", overflowY: "auto", overflowX: "hidden", overscrollBehavior: "contain" });
 
@@ -23,7 +22,3 @@ globalStyle([
     `${container} > :first-child > :first-child > :first-child > [data-section-label]:first-child`,
 ].join(", "), { paddingTop: 0 });
 
-// A row with an unsaved change: a short blue rule left of it, outside its box
-// so the row does not move. Blue matches the save bar's unsaved border.
-globalStyle(`${container} [data-unsaved]`, { boxShadow: `-1.2rem 0 0 -.9rem ${vars.primary_500_color}` });
-globalStyle(`${container} details[data-unsaved-inside] > summary`, { boxShadow: `-1.2rem 0 0 -.9rem ${vars.primary_500_color}` });

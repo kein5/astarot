@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { hooks, loadModule, findIn, eventTarget, setRef, unchecked } from "../test/hookHarness.ts";
 import type { SliderProps } from "../../views/app/config_page/setting_section/setting_box/_components/slider/Slider.tsx";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const componentRoot = "../../views/app/config_page/setting_section/setting_box/_components/";
 const pointer = (x: number, y = 0) => ({ button: 0, clientX: x, clientY: y, preventDefault() {} });
@@ -57,8 +58,8 @@ for (const timing of ["on_change", "on_change_committed"] as const) test(`slider
     const runtime = hooks(), window = eventTarget(), sent: number[] = [];
     Reflect.set(globalThis, "window", window);
     t.onTestFinished(() => { runtime.unmount(); Reflect.deleteProperty(globalThis, "window"); });
-    const settings = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
+    const settings = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
+        "@store": {}, "@logics_common": {}, "@utils": {}, 
     });
     const { Slider } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/slider/Slider.tsx")>(new URL(`${componentRoot}slider/Slider.tsx`, import.meta.url), runtime, {
         "@logics_configs": settings,

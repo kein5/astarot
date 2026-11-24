@@ -6,6 +6,8 @@ import type { DraftState, DraftWriteValue } from "../../../../../../../logics/vo
 import { endpointDescription, endpointNotices } from "../../../../../../../logics/common/endpointPrivacy";
 import { AuthKeyContainer, EntryWithSaveButtonContainer } from "../../_templates/Templates";
 import { useHintDescriptions } from "../hint/Hint";
+import { awaitInlineAnswer, refusalKeys, settleInlineAnswer } from "../../../../../../../logics/configs/fieldErrors.ts";
+import * as styles from "./CredentialPair.css.ts";
 
 // The endpoint and its key, saved together.
 interface Credential {
@@ -66,8 +68,11 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
             endpoint = `/${value.auth_key ? "set" : "delete"}/data/${provider}_auth_key`;
             data = value.auth_key || undefined;
         }
+        // The refusal of this save is said under the pair, not as a notice too (fieldErrors.ts).
+        awaitInlineAnswer(endpoint);
         const response = await asyncStdoutToPython(endpoint, data);
         const reply = typeof response === "object" && response !== null ? response : null;
+        if (!(reply?.status && reply.status !== 200)) settleInlineAnswer(endpoint);
         if (reply?.status !== 200) {
             updateError((isAnswer(reply?.result) ? reply.result.error_code : undefined) || "save_unconfirmed");
             return response;
@@ -79,7 +84,8 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
         };
         return { ...reply, result: { ...canonical, auth_key: canonical.auth_key ?? "" } };
     };
-    const form = useSettingsDraft(saved, error, updateError, { write, canSave, label: ([field]) => label(field) });
+    // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter.
+    const form = useSettingsDraft(saved, error, updateError, { write, canSave, });
     useEffect(() => {
         // Discard (including the leave dialog) restores this exact saved object.
         if (form.draft === saved) enteredKey.current = null;
@@ -101,20 +107,32 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
             ));
         },
         saveFunction: () => { if (canSave(draft) && form.dirty) return form.submit(write); },
+        // Leaving one field for the other saves nothing yet. Leaving the pair with the key field
+        // empty keeps the saved key (#1111, decided 2): only Enter on the empty field deletes it.
+        leaveFunction: (event?: { relatedTarget: EventTarget | null }) => {
+            if (!form.leaves(event)) return;
+            const keptKey = !draft.auth_key.trim() && !!saved.auth_key && draft.url.trim() === saved.url.trim();
+            if (!keptKey) return form.commit();
+            enteredKey.current = null;
+            form.change(previous => previous && { ...previous, auth_key: saved.auth_key });
+        },
+        onRevert: () => { enteredKey.current = null; form.discard(); },
         remove_border_bottom: true,
     });
+    // A save the core refused, said under the pair in the words of its code.
+    const problem = form.saveState === "save_failed" && typeof error === "string" ? t(refusalKeys(error)) : null;
     // On a page that keeps descriptions out of sight (#614) the URL's description is its hint,
     // and the warning about plain HTTP on the LAN stays under the label as a warning.
     const urlDescription = t(`config_page.${section}.${provider}_url.desc`);
     const notices = endpointNotices(form.draft.url, urlDescription, t);
-    return <>
+    return <div className={styles.pair} ref={form.group}>
         <EntryWithSaveButtonContainer {...field("url")}
             desc={hints ? notices.description : endpointDescription(form.draft.url, urlDescription, t)}
             keep_desc={keepUrlDescription}
             add_warnings={hints && notices.warning ? [{ label: notices.warning }] : undefined} />
         <AuthKeyContainer {...field("auth_key")}
             add_warnings={requiresKey(form.draft) ? [{ label: t("config_page.common.credential_reentry_required") }] : []}
-            desc={section === "transcription" ? t(`config_page.${section}.${provider}_auth_key.desc`) : undefined} />
-        {form.navigationDialog}
-    </>;
+            desc={section === "transcription" ? t(`config_page.${section}.${provider}_auth_key.desc`) : undefined}
+            error={problem} />
+    </div>;
 };

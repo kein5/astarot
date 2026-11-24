@@ -1,3 +1,4 @@
+import { takeInlineRefusal } from "./configs/fieldErrors.ts";
 import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "./translation/useTranslationSetup";
 import { useOcrSetup } from "./ocr/useOcrSetup";
@@ -102,7 +103,7 @@ const RetiredWeightNotice = ({ retired, selected }: { retired: unknown; selected
 
 export const _useBackendErrorHandling = () => {
     const { t, i18n } = useI18n();
-    const { showNotification_Error, showNotification_Warning } = useNotificationStatus();
+    const { showNotification_Error: notifyError, showNotification_Warning } = useNotificationStatus();
     const { asyncStdoutToPython } = useStdoutToPython();
     const { updateIsSoftwareUpdating } = useIsSoftwareUpdating();
 
@@ -188,6 +189,10 @@ export const _useBackendErrorHandling = () => {
     } = useLLMConnection();
 
     const errorHandling_Backend = ({error_code, message, data, endpoint, result}: BackendErrorReport) => {
+        // A settings field that saves by itself says the refusal of its own save under the field
+        // (#1111), so its notice is not shown as well. Everything else here, such as putting back
+        // the kept value, runs.
+        const showNotification_Error: typeof notifyError = takeInlineRefusal(endpoint) ? () => undefined : notifyError;
         // The sidecar's `message` is English for the log; show the UI language
         // when a translation exists for the code.
         const key = `backend_errors.${error_code}`;

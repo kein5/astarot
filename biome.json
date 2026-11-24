@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src-ui/**/*.{ts,tsx}", "locales/*.ts", "tools/**/*.mjs", "*.js", "*.mjs"]
+    "includes": ["src-ui/**/*.{ts,tsx}", ".storybook/*.ts", "locales/*.ts", "tools/**/*.mjs", "*.js", "*.mjs"]
   },
   "formatter": {
     "enabled": true,
