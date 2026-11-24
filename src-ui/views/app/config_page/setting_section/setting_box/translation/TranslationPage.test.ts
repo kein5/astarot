@@ -34,6 +34,8 @@ interface PageOptions {
 }
 
 const NLLB = "nllb-200-distilled-600M-ct2-int8";
+// A download catalog that offers the ONNX build of M2M100 418M, made from its CTranslate2 weight.
+const OFFERS_M2M = { models: [{ id: "m2m100-418m-onnx-int8", target: "translation" }] };
 const M2M = "m2m100_418M-ct2-int8";
 const M2M_BIG = "m2m100_1.2B-ct2-int8";
 // The built-in rows as the backend lists them, with their license fields from ui_configs.
@@ -187,7 +189,7 @@ test("the local model's line names the model, whether it is downloaded or cannot
         const { title, status, attention } = section.props;
         return { title, status, attention, unavailable: ofType(section, "description").map(node => node.props) };
     };
-    const offered = { legacy_models: [{ kind: "ctranslate2", weight_type: M2M }], models: [] };
+    const offered = OFFERS_M2M;
     const values = (rows: unknown, selected: unknown, device: unknown = gpu) => ({ currentCTranslate2WeightTypeStatus: ok(rows),
         currentSelectedCTranslate2WeightType: ok(selected), currentSelectedTranslationComputeDevice: ok(device) });
 
@@ -200,12 +202,12 @@ test("the local model's line names the model, whether it is downloaded or cannot
     assert.deepEqual(await line({ values: values([builtin(M2M), builtin(NLLB)], NLLB), downloads: offered }),
         { title: "config_page.translation.setup_title", status: "NLLB-200 distilled 600M · int8 · config_page.translation.setup_unavailable · RTX 4070", attention: true, unavailable: [] });
     // Nothing can be downloaded and the selected model is missing: the fold stays closed and says so, unfolded.
-    assert.deepEqual(await line({ values: values([builtin(NLLB)], NLLB), downloads: { legacy_models: [], models: [] } }),
+    assert.deepEqual(await line({ values: values([builtin(NLLB)], NLLB), downloads: { models: [] } }),
         { title: "config_page.translation.setup_title", status: "NLLB-200 distilled 600M · int8 · config_page.translation.setup_unavailable · RTX 4070", attention: false,
             unavailable: [{ text: "config_page.translation.models_unavailable", fold: false }] });
     // A model the user added is never one the catalog cannot offer; it is named by its catalog entry.
     const catalog = { engine: [{ weight: "user:mine", origin: "user", name: "My model" }] };
-    assert.equal((await line({ values: values([{ id: "user:mine", is_custom: true, is_downloaded: false }], "user:mine"), downloads: { legacy_models: [], models: [] }, catalog })).status,
+    assert.equal((await line({ values: values([{ id: "user:mine", is_custom: true, is_downloaded: false }], "user:mine"), downloads: { models: [] }, catalog })).status,
         "My model · config_page.translation.setup_not_downloaded · RTX 4070");
     // A GPU set up during this run says it is used from the next start.
     assert.equal((await line({ values: values([builtin(M2M, { is_downloaded: true })], M2M, { ...gpu, restart_required: true }) })).status,
@@ -243,7 +245,7 @@ test("the note about the retired models folder shows only while that folder is u
 
 test("the model list names each model and shows its license, and a model the user added says its license is theirs", async () => {
     const catalog = { engine: [{ weight: "user:mine", origin: "user", name: "My model" }] };
-    const p = await translationPage({ catalog, downloads: { legacy_models: [{ kind: "ctranslate2", weight_type: M2M }], models: [] },
+    const p = await translationPage({ catalog, downloads: OFFERS_M2M,
         values: { currentCTranslate2WeightTypeStatus: ok([builtin(M2M), builtin(NLLB, { is_downloaded: true }), builtin(M2M_BIG), { id: "user:mine", is_custom: true, is_downloaded: true }]),
             currentSelectedCTranslate2WeightType: ok(M2M) } });
     const drawn = p.draw(p.reach("CTranslate2WeightType_Box"));
@@ -303,7 +305,7 @@ test("choosing a non-commercial model asks first, once a session; a commercial o
     assert.deepEqual(chosen().at(-1), { weight_type: NLLB, accept_non_commercial_license: true });
 });
 
-test("a download is reviewed first; downloading a non-commercial model counts as accepting its license for this session", async () => {
+test("a download is reviewed first in its own dialog, with the device the model would run on; the list sends nothing itself", async () => {
     const device = { device: "cuda", device_index: 1, device_name: "GPU" };
     const p = await translationPage({ values: { currentCTranslate2WeightTypeStatus: ok([builtin(M2M), builtin(NLLB)]), currentSelectedCTranslate2WeightType: ok(M2M),
         currentSelectedTranslationComputeDevice: ok(device) } });
@@ -316,24 +318,17 @@ test("a download is reviewed first; downloading a non-commercial model counts as
     list().downloadStartFunction(NLLB);
     const dialog = review();
     assert.ok(dialog);
-    assert.deepEqual([dialog.props.kind, dialog.props.weightType, dialog.props.computeDevice], ["ctranslate2", NLLB, device]);
-    assert.equal(p.calls.length, 0, "nothing starts before the review");
+    assert.deepEqual([dialog.props.weightType, dialog.props.computeDevice], [NLLB, device]);
+    assert.deepEqual(p.calls, [], "the review starts nothing");
     dialog.props.onCancel();
     assert.equal(review(), undefined);
-
-    list().downloadStartFunction(NLLB);
-    const request = { kind: "ctranslate2", weight_type: NLLB };
-    review()?.props.onDownload(request);
-    assert.deepEqual(p.calls, [["pendingCTranslate2WeightTypeStatus", NLLB], ["downloadCTranslate2WeightTypeStatus", request]]);
-    // Its license was read in the review: choosing it does not ask again.
+    // Another model's review replaces it.
+    list().downloadStartFunction(M2M);
+    assert.equal(review()?.props.weightType, M2M);
+    // Its license is still asked when the model is chosen.
     list().selectFunction(NLLB);
-    assert.equal(nodesIn(box()).find(node => componentName(node) === "CTranslate2LicenseDialog"), undefined);
-    assert.deepEqual(p.calls.at(-1), ["setSelectedCTranslate2WeightType", { weight_type: NLLB, accept_non_commercial_license: true }]);
-
-    // A commercial model needs no opt-in: after its download it is still chosen by its bare id.
-    review()?.props.onDownload({ kind: "ctranslate2", weight_type: M2M });
-    list().selectFunction(M2M);
-    assert.deepEqual(p.calls.at(-1), ["setSelectedCTranslate2WeightType", M2M]);
+    assert.equal(nodesIn(box()).find(node => componentName(node) === "CTranslate2LicenseDialog")?.props.weight.id, NLLB);
+    assert.deepEqual(p.calls, []);
 });
 
 test("the license dialog confirms only once its box is ticked, and names the model, its license and its pages", async () => {
