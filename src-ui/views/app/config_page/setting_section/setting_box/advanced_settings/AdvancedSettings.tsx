@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -16,10 +16,13 @@ import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_Dr
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { logDirectoryErrorKey, pickLogDirectory, validateLogDirectoryInput } from "../../../../../../logics/configs/logDestination";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
+import { awaitInlineAnswer, refusalKeys, settleInlineAnswer } from "../../../../../../logics/configs/fieldErrors.ts";
+import { hexColorProblem, oscAddressProblem, tlsPairProblem, websocketHostProblem, wholeNumberProblem } from "../../../../../../logics/configs/fieldChecks.ts";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
 import type { StdoutResult } from "@useStdoutToPython";
+import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
 
 import { useCopyToClipboard, useOpenFolder, useNotificationStatus } from "@logics_common";
 import {
@@ -56,6 +59,7 @@ const fieldText = (value: unknown): string | null | undefined => value === null 
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
 // The backend's answer to a request, when it answered with one (not a bare true or false).
+const TLS_ENDPOINT = "/set/data/websocket_tls";
 const answerOf = (response: StdoutResult | undefined) => typeof response === "object" && response !== null ? response : null;
 // The error code in a refused answer's result, if it names one.
 const errorCodeOf = (result: unknown): string | undefined =>
@@ -143,11 +147,14 @@ export const OscIpAddressContainer = () => {
     const { t } = useI18n();
     const { currentOscIpAddress, setOscIpAddress } = useAdvancedSettings();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOscIpAddress.data,
         state: currentOscIpAddress.state,
         setFunction: setOscIpAddress,
         label: t("config_page.advanced_settings.osc_ip_address.label"),
+        autoSave: true,
+        endpoint: "/set/data/osc_ip_address",
+        validate: value => { const key = oscAddressProblem(value); return key ? t(key) : null; },
     });
 
     return (
@@ -155,6 +162,10 @@ export const OscIpAddressContainer = () => {
             label={t("config_page.advanced_settings.osc_ip_address.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentOscIpAddress.state}
             width="14rem"
@@ -166,11 +177,14 @@ export const OscPortContainer = () => {
     const { t } = useI18n();
     const { currentOscPort, setOscPort } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOscPort.data,
         state: currentOscPort.state,
         setFunction: (value: unknown) => setOscPort(parsePortInput(value)),
         label: t("config_page.advanced_settings.osc_port.label"),
+        autoSave: true,
+        endpoint: "/set/data/osc_port",
+        validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.VALIDATION_OSC_PORT_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -182,6 +196,10 @@ export const OscPortContainer = () => {
             label={t("config_page.advanced_settings.osc_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentOscPort.state}
             width="10rem"
@@ -461,11 +479,14 @@ const WebsocketHostContainer = () => {
     const { t } = useI18n();
     const { currentWebsocketHost, setWebsocketHost } = useAdvancedSettings();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentWebsocketHost.data,
         state: currentWebsocketHost.state,
         setFunction: setWebsocketHost,
         label: t("config_page.advanced_settings.websocket_host.label"),
+        autoSave: true,
+        endpoint: "/set/data/websocket_host",
+        validate: value => { const key = websocketHostProblem(value); return key ? t(key) : null; },
     });
 
     return (
@@ -474,6 +495,10 @@ const WebsocketHostContainer = () => {
             desc={t("config_page.advanced_settings.websocket_host.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentWebsocketHost.state}
             width="14rem"
@@ -487,44 +512,77 @@ const WebsocketTlsContainer = () => {
     const { t } = useI18n();
     const { currentWebsocketTls, setWebsocketTls } = useAdvancedSettings();
     const [error, updateError] = useState<string | null>(null);
+    // What is wrong with the pair, said under it (#1111): a refused check, or the core's refusal.
+    const [problem, setProblem] = useState<string | null>(null);
     const saved = useMemo<TlsPaths>(() => ({
         cert_file: currentWebsocketTls.data?.cert_file ?? "", key_file: currentWebsocketTls.data?.key_file ?? "",
     }), [currentWebsocketTls.data]);
     const label = (name: string) => t(`config_page.advanced_settings.websocket_tls_${name}.label`);
     const write = async (value: DraftWriteValue<TlsPaths>) => {
+        // The refusal of this save is said under the pair, not as a notice too (fieldErrors.ts).
+        awaitInlineAnswer(TLS_ENDPOINT);
         const response = await setWebsocketTls(value);
         const answer = answerOf(response);
-        if (answer?.status !== 200) updateError(errorCodeOf(answer?.result) || "save_unconfirmed");
+        if (!(answer?.status && answer.status !== 200)) settleInlineAnswer(TLS_ENDPOINT);
+        if (answer?.status !== 200) {
+            const code = errorCodeOf(answer?.result);
+            updateError(code || "save_unconfirmed");
+            setProblem(code ? t(refusalKeys(code)) : t("config_page.auto_save.save_failed"));
+        }
         return response;
     };
-    const form = useSettingsDraft(saved, error, updateError, { write, label: ([name]) => label(name) });
+    // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter,
+    // once both paths are given or both are empty. The core takes the two only together.
+    const form = useSettingsDraft(saved, error, updateError, { label: ([name]) => label(name), autoSave: true });
+    // The pair's rows, to tell focus moving between the two from focus leaving the pair.
+    const group = useRef<TargetHolder>(null);
     const draft = form.draft;
     if (!draft) return null;
+    const commit = () => {
+        if (!form.dirty || form.saving) return;
+        const refused = tlsPairProblem(draft.cert_file, draft.key_file);
+        setProblem(refused ? t(refused) : null);
+        if (!refused) return form.submit(write);
+    };
     const field = (name: TlsField) => ({
         setting_id: `websocket_tls_${name}`,
         label: label(name),
         desc: t(`config_page.advanced_settings.websocket_tls_${name}.desc`),
         variable: draft[name],
         state: form.saving || currentWebsocketTls.state === "pending" ? "pending" : "ok",
-        onChangeFunction: (value: string) => form.setDraft(previous => previous && ({ ...previous, [name]: value })),
-        saveFunction: () => { if (form.dirty) return form.submit(write); },
+        onChangeFunction: (value: string) => {
+            setProblem(null);
+            form.setDraft(previous => previous && ({ ...previous, [name]: value }));
+        },
+        saveFunction: commit,
+        autoSave: true,
+        // Leaving one field for the other saves nothing yet: the group saves when focus leaves it.
+        leaveFunction: (event?: FocusEvent<HTMLInputElement>) => {
+            if (event?.relatedTarget && group.current?.contains(event.relatedTarget)) return;
+            return commit();
+        },
+        onRevert: () => { form.discard(); setProblem(null); },
     });
-    return <>
+    return <div className={styles.field_group} ref={element => { group.current = element; }}>
         <EntryWithSaveButtonContainer {...field("cert_file")} remove_border_bottom={true} />
-        <EntryWithSaveButtonContainer {...field("key_file")} />
-        {form.navigationDialog}
-    </>;
+        {/* The pair's problem is said once, under the pair. */}
+        <EntryWithSaveButtonContainer {...field("key_file")} error={problem} />
+    </div>;
 };
+
 
 const WebsocketPortContainer = () => {
     const { t } = useI18n();
     const { currentWebsocketPort, setWebsocketPort } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentWebsocketPort.data,
         state: currentWebsocketPort.state,
         setFunction: (value: unknown) => setWebsocketPort(parsePortInput(value)),
         label: t("config_page.advanced_settings.websocket_port.label"),
+        autoSave: true,
+        endpoint: "/set/data/websocket_port",
+        validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.WEBSOCKET_PORT_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -536,6 +594,10 @@ const WebsocketPortContainer = () => {
             label={t("config_page.advanced_settings.websocket_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentWebsocketPort.state}
             width="10rem"
@@ -681,11 +743,14 @@ const ObsBrowserSourcePortContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourcePort, setObsBrowserSourcePort } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourcePort.data,
         state: currentObsBrowserSourcePort.state,
         setFunction: (value: unknown) => setObsBrowserSourcePort(parsePortInput(value)),
         label: t("config_page.advanced_settings.obs_browser_source_port.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_port",
+        validate: value => { const key = wholeNumberProblem(1, 65535, "backend_errors.OBS_BROWSER_SOURCE_PORT_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -697,6 +762,10 @@ const ObsBrowserSourcePortContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_port.label")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourcePort.state}
             width="10rem"
@@ -710,11 +779,14 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceMaxMessages, setObsBrowserSourceMaxMessages } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceMaxMessages.data,
         state: currentObsBrowserSourceMaxMessages.state,
         setFunction: setObsBrowserSourceMaxMessages,
         label: t("config_page.advanced_settings.obs_browser_source_max_messages.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_max_messages",
+        validate: value => { const key = wholeNumberProblem(1, 50, "backend_errors.OBS_BROWSER_SOURCE_MAX_MESSAGES_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -727,6 +799,10 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_max_messages.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceMaxMessages.state}
             width="10rem"
@@ -740,11 +816,14 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceDisplayDuration, setObsBrowserSourceDisplayDuration } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceDisplayDuration.data,
         state: currentObsBrowserSourceDisplayDuration.state,
         setFunction: setObsBrowserSourceDisplayDuration,
         label: t("config_page.advanced_settings.obs_browser_source_display_duration.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_display_duration",
+        validate: value => { const key = wholeNumberProblem(1, 120, "backend_errors.OBS_BROWSER_SOURCE_DISPLAY_DURATION_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -757,6 +836,10 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_display_duration.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceDisplayDuration.state}
             width="10rem"
@@ -770,11 +853,14 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceFadeoutDuration, setObsBrowserSourceFadeoutDuration } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceFadeoutDuration.data,
         state: currentObsBrowserSourceFadeoutDuration.state,
         setFunction: setObsBrowserSourceFadeoutDuration,
         label: t("config_page.advanced_settings.obs_browser_source_fadeout_duration.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_fadeout_duration",
+        validate: value => { const key = wholeNumberProblem(0, 120, "backend_errors.OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -787,6 +873,10 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_fadeout_duration.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFadeoutDuration.state}
             width="10rem"
@@ -800,11 +890,14 @@ const ObsBrowserSourceFontSizeContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceFontSize, setObsBrowserSourceFontSize } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceFontSize.data,
         state: currentObsBrowserSourceFontSize.state,
         setFunction: setObsBrowserSourceFontSize,
         label: t("config_page.advanced_settings.obs_browser_source_font_size.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_font_size",
+        validate: value => { const key = wholeNumberProblem(10, 200, "backend_errors.OBS_BROWSER_SOURCE_FONT_SIZE_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -817,6 +910,10 @@ const ObsBrowserSourceFontSizeContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_font_size.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontSize.state}
             width="10rem"
@@ -830,11 +927,14 @@ const ObsBrowserSourceFontColorContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceFontColor, setObsBrowserSourceFontColor } = useAdvancedSettings();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceFontColor.data,
         state: currentObsBrowserSourceFontColor.state,
         setFunction: setObsBrowserSourceFontColor,
         label: t("config_page.advanced_settings.obs_browser_source_font_color.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_font_color",
+        validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
 
     return (
@@ -842,6 +942,9 @@ const ObsBrowserSourceFontColorContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_font_color.label")}
             variable={fieldText(variable)}
             saveFunction={saveFunction}
+            autoSave
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontColor.state}
             width="10rem"
@@ -853,11 +956,14 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceFontOutlineThickness, setObsBrowserSourceFontOutlineThickness } = useAdvancedSettings();
 
-    const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction: rawOnChange, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceFontOutlineThickness.data,
         state: currentObsBrowserSourceFontOutlineThickness.state,
         setFunction: setObsBrowserSourceFontOutlineThickness,
         label: t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_font_outline_thickness",
+        validate: value => { const key = wholeNumberProblem(0, 20, "backend_errors.OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID")(value); return key ? t(key) : null; },
     });
 
     const onChangeFunction = (value: string) => {
@@ -870,6 +976,10 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
             desc={t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.desc")}
             variable={fieldValue(variable)}
             saveFunction={saveFunction}
+            autoSave
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontOutlineThickness.state}
             width="10rem"
@@ -883,11 +993,14 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
     const { t } = useI18n();
     const { currentObsBrowserSourceFontOutlineColor, setObsBrowserSourceFontOutlineColor } = useAdvancedSettings();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, revert, error } = useSaveButtonLogic({
         variable: currentObsBrowserSourceFontOutlineColor.data,
         state: currentObsBrowserSourceFontOutlineColor.state,
         setFunction: setObsBrowserSourceFontOutlineColor,
         label: t("config_page.advanced_settings.obs_browser_source_font_outline_color.label"),
+        autoSave: true,
+        endpoint: "/set/data/obs_browser_source_font_outline_color",
+        validate: value => { const key = hexColorProblem("backend_errors.OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID")(value); return key ? t(key) : null; },
     });
 
     return (
@@ -895,6 +1008,9 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
             label={t("config_page.advanced_settings.obs_browser_source_font_outline_color.label")}
             variable={fieldText(variable)}
             saveFunction={saveFunction}
+            autoSave
+            onRevert={revert}
+            error={error}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontOutlineColor.state}
             width="10rem"
