@@ -221,3 +221,40 @@ test("LogDestinationContainer surfaces a startup fallback error returned by /get
     const tree = env.renderLog();
     assert.equal(findIn(tree, node => node.props?.role === "alert").props.children, "config_page.others.auto_export_message_logs.errors.log_directory_missing");
 });
+
+test("a path is absolute only from its start, and a UNC path needs a host and a share", () => {
+    for (const invalid of ["logs/C:/chat", "x C:\\logs", "logs\\\\server\\share", "\\\\server", "\\\\server\\"]) {
+        assert.equal(isAbsolutePath(invalid), false, invalid);
+    }
+    assert.equal(isAbsolutePath("\\\\server\\s"), true);
+});
+
+test("the backend's log folder answer is read only as an object with a path and an error code or null", () => {
+    assert.deepEqual(normalizeLogDirectoryState({ path: "/logs", error_code: null }), { path: "/logs", error_code: null });
+    assert.deepEqual(normalizeLogDirectoryState({ path: "/logs", error_code: "log_directory_missing", extra: 1 }), { path: "/logs", error_code: "log_directory_missing" });
+    for (const value of [null, undefined, "/logs", 3, [], Object.assign(["/logs"], { path: "/logs", error_code: null }),
+        Object.assign(() => {}, { path: "/logs", error_code: null }), { path: 1, error_code: null }, { path: "/logs", error_code: 1 }, { path: "/logs" }]) {
+        assert.equal(normalizeLogDirectoryState(value), null, String(typeof value === "function" ? "a function" : JSON.stringify(value)));
+    }
+});
+
+test("the folder picker starts at the current folder, reads a chosen folder, and says when it cannot open", async () => {
+    const asked: [string, unknown][] = [];
+    let answer: () => unknown = () => "/chosen";
+    const { pickLogDirectory } = await loadModule<typeof import("./logDestination.ts")>(new URL("./logDestination.ts", import.meta.url), hooks(), {
+        "@tauri-apps/api/core": { invoke: async (command: string, args: unknown) => { asked.push([command, args]); return answer(); } },
+    });
+    assert.deepEqual(await pickLogDirectory("/now", "Pick"), { ok: true, path: "/chosen" });
+    assert.deepEqual(asked, [["pick_folder", { initialPath: "/now", title: "Pick" }]]);
+    for (const initial of ["  ", "", null]) {
+        asked.length = 0;
+        await pickLogDirectory(initial, "Pick");
+        assert.deepEqual(asked, [["pick_folder", { initialPath: null, title: "Pick" }]], JSON.stringify(initial));
+    }
+    for (const chosen of [null, "   ", 7]) {
+        answer = () => chosen;
+        assert.deepEqual(await pickLogDirectory(null, "Pick"), { ok: true, path: null }, `nothing chosen: ${JSON.stringify(chosen)}`);
+    }
+    answer = () => { throw new Error("no dialog"); };
+    assert.deepEqual(await pickLogDirectory(null, "Pick"), { ok: false, error_code: "folder_picker_unavailable" });
+});

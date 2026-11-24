@@ -711,3 +711,100 @@ test("a failed save keeps its line on the bar even when the backend's value come
     f.render();
     assert.deepEqual([f.entry?.saveState, f.entry?.dirty, f.entry?.changes], ["save_failed", true, ["Field"]]);
 });
+
+// --- Text fields that save by themselves (#1111) -----------------------------------------------
+
+const SAVE_FAILED = "config_page.auto_save.save_failed";
+
+test("a field saved from the bar says nothing under it when its save fails, and says it was saved when it succeeds", async context => {
+    const f = await field(context);
+    f.render().onChangeFunction("new");
+    const failing = f.render().saveFunction();
+    f.requests[0].resolve({ status: 400 });
+    await failing;
+    assert.deepEqual([f.render().error, f.entry?.saveState, f.saveNotices], [null, "save_failed", 0]);
+    const saving = f.render().saveFunction();
+    f.requests[1].resolve({ status: 200, result: "new" });
+    await saving;
+    assert.equal(f.saveNotices, 1);
+});
+
+test("Enter on a field saved from the bar sends its value even when it has not changed", async context => {
+    const f = await field(context, { validate: () => "refused" });
+    void f.render().saveFunction();
+    assert.deepEqual(f.requests.map(request => request.value), ["old"], "only a field that saves by itself checks first");
+});
+
+test("a field that saves by itself says under it when a save throws or times out", async context => {
+    const thrown = await field(context, { autoSave: true, setFunction: async () => { throw new Error("transport"); } });
+    thrown.render().onChangeFunction("new");
+    assert.equal(await thrown.render().saveFunction(), false);
+    assert.equal(thrown.render().error, SAVE_FAILED);
+    const slow = await field(context, { autoSave: true });
+    slow.render().onChangeFunction("new");
+    void slow.render().saveFunction();
+    slow.render();
+    vi.advanceTimersByTime(4999);
+    assert.equal(slow.render().error, null);
+    vi.advanceTimersByTime(1);
+    slow.render();
+    assert.equal(slow.render().error, SAVE_FAILED);
+    assert.equal(slow.saveNotices + thrown.saveNotices, 0);
+});
+
+test("a field that saves by itself sends nothing while its setting waits or while a save is on its way", async context => {
+    const waiting = await field(context, { autoSave: true, state: "pending" });
+    waiting.render().onChangeFunction("new");
+    assert.equal(await waiting.render().saveFunction(), undefined);
+    assert.deepEqual(waiting.requests, []);
+    const busy = await field(context, { autoSave: true });
+    busy.render().onChangeFunction("new");
+    void busy.render().saveFunction();
+    busy.render().onChangeFunction("newer");
+    assert.equal(await busy.render().saveFunction(), undefined);
+    assert.deepEqual(busy.requests.map(request => request.value), ["new"]);
+});
+
+test("a refused value's note goes when the saved value comes to match the field", async context => {
+    const f = await field(context, { autoSave: true, validate: value => value === "bad" ? "not that" : null });
+    f.render().onChangeFunction("bad");
+    await f.render().saveFunction();
+    assert.equal(f.render().error, "not that");
+    f.options.variable = "bad";
+    f.render();
+    await f.render().saveFunction();
+    assert.deepEqual([f.render().error, f.requests.length], [null, 0]);
+});
+
+test("a field that saves by itself checks an emptied value as empty text", async context => {
+    const checked: string[] = [];
+    const f = await field(context, { autoSave: true, validate: value => { checked.push(value); return "empty"; } });
+    f.render().onChangeFunction(null);
+    await f.render().saveFunction();
+    f.render().onChangeFunction(undefined);
+    await f.render().saveFunction();
+    assert.deepEqual(checked, ["", ""]);
+});
+
+test("putting a field that saves by itself back to its saved value while a save is on its way still lets that save time out", async context => {
+    const f = await field(context, { autoSave: true });
+    f.render().onChangeFunction("new");
+    void f.render().saveFunction();
+    f.render().onChangeFunction("old");
+    assert.equal(await f.render().saveFunction(), undefined);
+    f.render();
+    vi.advanceTimersByTime(5000);
+    f.render();
+    assert.equal(f.render().error, SAVE_FAILED);
+});
+
+test("while its setting waits, a field that saves by itself keeps the note on a refused value", async context => {
+    const f = await field(context, { autoSave: true, validate: value => value === "bad" ? "not that" : null });
+    f.render().onChangeFunction("bad");
+    await f.render().saveFunction();
+    f.options.state = "pending";
+    f.options.variable = "bad";
+    f.render();
+    await f.render().saveFunction();
+    assert.equal(f.render().error, "not that");
+});
