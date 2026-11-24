@@ -15,7 +15,7 @@ for (const name of ["voice_settings", "direct_voice_settings", "speech_server_se
     "osc_ip_address", "osc_port", "websocket_host", "websocket_port", "websocket_tls", "ocr_window_title", "obs_browser_source_port",
     "obs_browser_source_max_messages", "obs_browser_source_display_duration", "obs_browser_source_fadeout_duration",
     "obs_browser_source_font_size", "obs_browser_source_font_color", "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color",
-    "rvc_block_ms", "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
+    "rvc_block_ms", "path_logs", "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
     "lmstudio_url", "openai_compatible_url", "openai_compatible_auth_key", "ollama_url", "groq_whisper_auth_key",
     "google_cloud_auth_key", "papago_client_id", "papago_auth_key",
     "openai_whisper_auth_key", "custom_whisper_url", "custom_whisper_auth_key", "deepgram_auth_key"]) {
