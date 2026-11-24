@@ -96,3 +96,8 @@ test("every preset has a name and a description in both languages", () => {
         }
     }
 });
+
+test("an id that is not a preset changes nothing, and with the presets not known all stays picked", () => {
+    assert.deepEqual(togglePreset(null, "no_such_preset"), ["all"]);
+    assert.deepEqual(togglePreset(["basic"], "no_such_preset"), ["basic"]);
+});

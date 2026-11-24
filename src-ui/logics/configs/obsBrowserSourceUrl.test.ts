@@ -60,3 +60,10 @@ test("an unloaded token uses the same bare-URL fallback as the WebSocket row", (
         });
     }
 });
+
+test("only a whole loopback address is this machine's", () => {
+    for (const host of ["127.0.0.1", "127.1.2.3", "localhost", "LOCALHOST", "::1", "[::1]"]) assert.equal(isLoopbackHost(host), true, host);
+    for (const host of ["x127.0.0.1", "127.0.0.1.example.com", "my.localhost", "localhost.example.com", "::1x", "192.168.0.2", null, undefined]) {
+        assert.equal(isLoopbackHost(host), false, String(host));
+    }
+});

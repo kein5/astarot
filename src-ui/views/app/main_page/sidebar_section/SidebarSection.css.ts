@@ -57,22 +57,12 @@ export const scrollContainer = style({
 });
 
 // Closes the opened rail; in the logo row, where the top bar's toggle would be.
+// Closing the opened rail is the kit's icon Button (SidebarSection.tsx); this class places it at
+// the rail's top right, level with the top bar.
 export const closeOverlay = style({
     position: "absolute",
     top: `calc((${vars.main_page_topbar_height} - 4rem) / 2)`,
     right: ".8rem",
-    width: "3.2rem",
-    height: "4rem",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: ".8rem",
-    color: vars.dark_400_color,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { background: vars.dark_850_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.2rem" },
-    },
 });
 
 export const closeOverlaySvg = style({ width: "1.2rem", height: "2rem" });

@@ -3,6 +3,7 @@ import * as styles from "./OpenSettings.css.ts";
 import { useIsOpenedConfigPage } from "@logics_common";
 import ConfigurationSvg from "@images/configuration.svg?react";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
+import { Button } from "../../../../kit/index.ts";
 
 export const OpenSettings = () => {
     const { t } = useI18n();
@@ -15,9 +16,9 @@ export const OpenSettings = () => {
     return (
         <div className={styles.container}>
             <Tooltip bare placement="right" title={t("studio.open_settings")}>
-                <button data-open-settings type="button" aria-label={t("studio.open_settings")} className={styles.openConfigPageButton} onClick={openConfigPage}>
+                <Button size="icon" data-open-settings aria-label={t("studio.open_settings")} onClick={openConfigPage}>
                     <ConfigurationSvg aria-hidden="true" className={styles.configurationSvg} />
-                </button>
+                </Button>
             </Tooltip>
         </div>
     );

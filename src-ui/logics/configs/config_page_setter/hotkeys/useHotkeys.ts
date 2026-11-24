@@ -121,7 +121,7 @@ const ensurePortalListener = () => {
             listen("portal-shortcuts-lost", () => {
                 if (portalListener === listener && !portalPaused && portalLostHandler) portalLostHandler();
             }),
-            // It follows a failed bind, which leaves the shortcuts paused.
+            // It follows a failed bind whose keys in force before could not be bound again either.
             listen("portal-shortcuts-not-restored", () => {
                 if (portalListener === listener && portalNotRestoredHandler) portalNotRestoredHandler();
             }),
@@ -304,10 +304,14 @@ export const useHotkeys = () => {
         portalHandler = runAction;
         const shortcuts: Record<string, string[]> = {};
         for (const [actionKey, keys] of Object.entries(currentHotkeys.data ?? {})) if (keys) shortcuts[actionKey] = keys;
-        if (!Object.keys(shortcuts).length && !portalBound) {
-            portalPaused = false;
-            return;
-        }
+        if (Object.keys(shortcuts).length || portalBound) await bindPortalShortcuts(shortcuts, isCurrent);
+        // Whatever the bind came to, the keys the desktop has now work. After a failed bind, they
+        // are the ones in force before it, which Rust binds again (Restore::Restored in
+        // portal_shortcut_worker.rs, #1051); when it cannot, it says so and no key is left to press.
+        if (isCurrent()) portalPaused = false;
+    };
+
+    const bindPortalShortcuts = async (shortcuts: Record<string, string[]>, isCurrent: () => boolean) => {
         try {
             await ensurePortalListener();
             if (!isCurrent()) return;
@@ -317,7 +321,6 @@ export const useHotkeys = () => {
             // The desktop may show its confirmation dialog the first time.
             const assigned = await invoke<Record<string, PortalAssigned> | null>("portal_shortcuts_bind", { shortcuts });
             if (!isCurrent()) return;
-            portalPaused = false;
             if (Object.keys(shortcuts).length) portalLostHandler = portalLost;
             // The desktop may keep another key, e.g. when VRCT's is taken.
             for (const [actionKey, row] of Object.entries(assigned ?? {})) {
