@@ -1,4 +1,117 @@
-# メイン画面レイアウト監査：機械検出の集計
+# Main screen layout audit: summary of automated detections
+
+[日本語版](#メイン画面レイアウト監査機械検出の集計日本語版)
+
+`audit/summarize.py` generated these tables from the output of `audit/layout_audit.py`. They are not edited by hand.
+Sizes are in CSS px (`@150` means a UI size of 150%). Message text is not recorded.
+
+## Dimensions for each size (Japanese, with a conversation, 3 target languages)
+
+| Size | Log width×height | Composer width×height | Rail visible height / content height |
+|---|---|---|---|
+| 400x200 | 288×6 | 288×64 | 54 / 423 (needs scrolling) |
+| 450x220 | 338×26 | 338×64 | 74 / 423 (needs scrolling) |
+| 640x480 | 528×278 | 528×72 | 334 / 423 (needs scrolling) |
+| 800x600 | 688×374 | 688×96 | 423 / 423 |
+| 801x600 | 521×374 | 521×96 | 454 / 974 (needs scrolling) |
+| 870x654 | 590×418 | 590×106 | 508 / 974 (needs scrolling) |
+| 1280x720 | 1000×470 | 1000×120 | 574 / 974 (needs scrolling) |
+| 1366x768 | 1086×509 | 1086×129 | 622 / 974 (needs scrolling) |
+| 1920x1080 | 1640×758 | 1640×192 | 934 / 974 (needs scrolling) |
+| 1280x720@150 | 860×418 | 860×107 | 501 / 1458 (needs scrolling) |
+| 1920x1080@200 | 1360×653 | 1360×167 | 788 / 1947 (needs scrolling) |
+
+## Detections (ja)
+
+| Kind | Component | Element | State: sizes |
+|---|---|---|---|
+| content-spills | StopActions | Mute speech | sidebar-toggled: 400x200, 450x220 |
+| content-spills | StopActions | Stop speech | sidebar-toggled: 400x200, 450x220 |
+| content-spills | TranslatorBox | AI CTranslate2 Default | translator-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+| hidden-overflow | LanguageSelector | auto/hidden | language-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+| overlap | LanguageSelectorOpenButton × OpenSettings | Target language 1: English (United States) × Open settings | language-selector: 1920x1080@200 |
+| overlap | LanguageSelectorOpenButton × OpenSettings | Target language 2: Korean (Korea) × Open settings | language-selector: 801x600 |
+| overlap | MainFunctionSwitch × OpenSettings | Voice changer (RVC): Open settings × Open settings | empty: 1920x1080@200<br>in-use: 1920x1080@200<br>io-flow: 1920x1080@200<br>quick-settings: 1920x1080@200<br>sidebar-toggled: 1920x1080@200 |
+| overlap | OpenSettings × OpenQuickSettingButton | Open settings × VRC mic mute sync Disabled | quick-settings: 400x200 |
+| overlap | OpenSettings × OpenQuickSettingButton | Open settings × Subtitle overlay Disabled | quick-settings: 400x200 |
+| overlap | SidebarCompactModeButton × IoFlowButton | Toggle sidebar × Show where your voice and chat go, and how long each step took | sidebar-toggled: 400x200 |
+| overlap | StopActions × IoFlowButton | Mute speech × Show where your voice and chat go, and how long each step took | sidebar-toggled: 450x220 |
+| overlap | TranslatorSelectorOpenButton × OpenSettings | Translator: AI CTranslate2 × Open settings | language-selector: 1366x768 |
+
+### Regions outside the rail that scrolled (ja)
+
+| Component | Element | State: sizes |
+|---|---|---|
+| IoFlowPanel | panel | io-flow: 400x200, 450x220 |
+| LanguageSelector | language_list_scroll_wrapper | language-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080@200, 801x600, 870x654 |
+| MainSection | container | io-flow: 400x200, 450x220<br>quick-settings: 400x200, 450x220 |
+| TranslatorSelector | container | translator-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+
+### States that could not be operated (ja)
+
+At widths of 800 px or less, the rail becomes the icon rail and does not show the language settings or the translator button, so these states cannot be opened (as specified).
+
+- language-selector @ 400x200: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 450x220: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 640x480: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 800x600: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 400x200: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 450x220: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 640x480: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 800x600: Locator.click: Timeout 5000ms exceeded.
+
+## Detections (en)
+
+| Kind | Component | Element | State: sizes |
+|---|---|---|---|
+| content-spills | StopActions | Mute speech | empty: 801x600<br>in-use: 801x600<br>io-flow: 801x600<br>language-selector: 801x600<br>quick-settings: 801x600<br>sidebar-toggled: 400x200, 450x220, 801x600<br>translator-selector: 801x600 |
+| content-spills | StopActions | Stop speech | empty: 801x600<br>in-use: 801x600<br>io-flow: 801x600<br>language-selector: 801x600<br>quick-settings: 801x600<br>sidebar-toggled: 400x200, 450x220, 801x600<br>translator-selector: 801x600 |
+| content-spills | TranslatorBox | AI CTranslate2 Default | translator-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+| hidden-overflow | LanguageReadout | hidden/hidden | empty: 400x200, 450x220, 640x480, 800x600<br>in-use: 400x200, 450x220, 640x480, 800x600<br>io-flow: 400x200, 450x220, 640x480, 800x600<br>quick-settings: 400x200, 450x220, 640x480, 800x600 |
+| hidden-overflow | LanguageSelector | auto/hidden | language-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+| overlap | LanguageSelectorOpenButton × OpenSettings | Target Language 1: English (United State × Open settings | language-selector: 1280x720@150 |
+| overlap | LanguageSelectorOpenButton × OpenSettings | Target Language 3: Simplified Chinese (C × Open settings | language-selector: 1280x720 |
+| overlap | LanguageSwapButton × OpenSettings | Switch Languages × Open settings | empty: 1366x768<br>in-use: 1366x768<br>io-flow: 1366x768<br>quick-settings: 1366x768<br>sidebar-toggled: 1366x768 |
+| overlap | MainFunctionSwitch × OpenSettings | Voice changer (RVC): Open settings × Open settings | empty: 1920x1080@200<br>in-use: 1920x1080@200<br>io-flow: 1920x1080@200<br>quick-settings: 1920x1080@200<br>sidebar-toggled: 1920x1080@200 |
+| overlap | OpenSettings × OpenQuickSettingButton | Open settings × Subtitle Overlay Disabled | quick-settings: 400x200 |
+| overlap | OpenSettings × OpenQuickSettingButton | Open settings × VRC Mic Mute Sync Disabled | quick-settings: 400x200 |
+| overlap | SidebarCompactModeButton × IoFlowButton | Toggle sidebar × Show where your voice and chat go, and h | sidebar-toggled: 400x200 |
+| overlap | StopActions × IoFlowButton | Mute speech × Show where your voice and chat go, and h | sidebar-toggled: 450x220 |
+| text-cut | LanguageReadout | Japanese | empty: 400x200, 450x220, 640x480, 800x600<br>in-use: 400x200, 450x220, 640x480, 800x600<br>io-flow: 400x200, 450x220, 640x480, 800x600<br>quick-settings: 400x200, 450x220, 640x480, 800x600 |
+
+### Regions outside the rail that scrolled (en)
+
+| Component | Element | State: sizes |
+|---|---|---|
+| IoFlowPanel | panel | io-flow: 400x200, 450x220 |
+| LanguageSelector | language_list_scroll_wrapper | language-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080@200, 801x600, 870x654 |
+| MainSection | container | io-flow: 400x200, 450x220<br>quick-settings: 400x200, 450x220 |
+| TranslatorSelector | container | translator-selector: 1280x720, 1280x720@150, 1366x768, 1920x1080, 1920x1080@200, 801x600, 870x654 |
+
+### States that could not be operated (en)
+
+At widths of 800 px or less, the rail becomes the icon rail and does not show the language settings or the translator button, so these states cannot be opened (as specified).
+
+- language-selector @ 400x200: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 450x220: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 640x480: Locator.click: Timeout 5000ms exceeded.
+- language-selector @ 800x600: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 400x200: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 450x220: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 640x480: Locator.click: Timeout 5000ms exceeded.
+- translator-selector @ 800x600: Locator.click: Timeout 5000ms exceeded.
+
+## What the kinds mean
+
+- content-spills: the content of a button or similar element spills out of its own box (it has overflow: visible, so it appears to overlap its neighbor)
+- overlap: interactive elements overlap each other, and both appear at a position where they can be clicked (elements fully covered by an overlay are left out)
+- clipped / outside-viewport: cut off by an ancestor's overflow: hidden or by the viewport, and scrolling does not reach it either
+- text-cut: text does not fit in its own box and is shortened or truncated
+- hidden-overflow: in a region with overflow: hidden, the content is larger than the box
+
+---
+
+# メイン画面レイアウト監査：機械検出の集計（日本語版）
 
 `audit/summarize.py` が `audit/layout_audit.py` の出力から生成した表です。手で編集しません。
 サイズは CSS px（`@150` は UI サイズ 150%）。メッセージ本文は記録していません。
