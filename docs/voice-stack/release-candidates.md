@@ -318,6 +318,38 @@ gh api repos/{owner}/{repo}/releases/<id> \
 
 リポジトリの設定で「Allow GitHub Actions to create and approve pull requests」（Settings → Actions → General → Workflow permissions）がオフのときは、ジョブがPRを開けません。そのときはブランチを作ったところで失敗し、PRを開くためのリンクをジョブの概要に出します。そのリンクから人がPRを開けば、チェックも始まります。
 
+## 問題が見つかったときに配信を止める
+
+公開した版で重大な不具合が見つかったときは、未更新の利用者への配信を直前の安全な版へ戻して止め、修正版を新しいパッチ版（`X.Y.(Z+1)`）として出し直します（2026-11-24の決定）。
+
+- 公開済みのリリースとタグは消したり動かしたりしません。
+- すでに問題のある版へ更新した利用者を自動で前の版へ戻す仕組み（自動ダウングレード）は作りません。Tauriのupdaterの通常更新は現在より新しい版だけを候補にするため、配信先を前の版へ戻しても、すでに更新した環境では修正版（`X.Y.(Z+1)`）を待つ形になります。
+- 段階公開（割合配信）の仕組みは当面設けず、ベータ期間の変更凍結、公開前の実機とテレメトリの確認、およびこの配信停止と修正版の出し直し（ロールフォワード）で運用します。
+
+配信の停止は次の順で進めます。
+
+1. 安定版の配信先と公式サイトのダウンロード先を直前の安全な安定版（`v<前版>`）へ戻します。GitHub Releasesで前版のリリースに`make_latest`を`"true"`でPATCHすると、安定版のWorker（`/latest.json`、`releases/latest`への302転送）と公式サイトのダウンロードボタン（`releases/latest`を参照）が前版へ切り替わります。
+
+   ```bash
+   prev_id=$(gh api repos/{owner}/{repo}/releases/tags/v<前版> --jq .id)
+   gh api -X PATCH "repos/{owner}/{repo}/releases/$prev_id" -f make_latest=true
+   ```
+
+   反映後、`gh api repos/{owner}/{repo}/releases/latest --jq .tag_name`と、[公開してから確かめる](#公開してから確かめる)の3のWorker確認コマンドで`<前版>`が返ることを確かめます。公式サイトのダウンロードボタンはタブごとに最大15分のキャッシュ（`sessionStorage`）を持つため、切り替え直後は前の結果が残ることがあります。
+
+2. ベータチャンネルへの配信も止めるときは、ブランチ`updater-channels`の`beta/latest.json`を前版の`latest.json`で置き換えます。`update-channels.yml`（`tools/update_channels.py`）は公開済みのリリースのうち最も新しい版を自動で選ぶため、問題のある版が公開済みのまま残ると`beta/latest.json`は自動では戻りません。
+
+   ```bash
+   d=$(mktemp -d)
+   gh release download v<前版> -R kein5/astarot -p latest.json -D "$d"
+   ```
+
+   取得した`latest.json`で`updater-channels`ブランチの`beta/latest.json`を上書きしてコミットし、pushします。反映後、`curl -sL https://vrct-vox-updates.kei9d09.workers.dev/beta/latest.json | jq -r .version`で`<前版>`が返ることを確かめます。次に別のリリースを公開すると`update-channels.yml`が再び最新版の`latest.json`で書き直すため、4の修正版を出して進めます。
+
+3. 問題のある版のリリースノートの先頭に、見つかった問題の内容、配信を前版へ戻していること、すでに更新した利用者向けの案内（回避策や修正版の予定）を書き足します。公開済みのリリースは消さないため、GitHub Releasesの一覧とアプリ内のバージョン一覧（`/get/data/available_releases`）には問題のある版が残ります。debとrpmはパッケージマネージャー管理のためアプリ内更新を使いません。案内はリリースノートで知らせます。
+
+4. 修正（または問題となった変更の取り消し）を`develop`へ入れたあと、[公開済みの版を急いで直す](#公開済みの版を急いで直す)の手順で新しいパッチ版（`X.Y.(Z+1)`）を`main`から出して公開します。新しい版を公開すると`releases/latest`と`updater-channels`の`beta/latest.json`が修正版へ進み、すでに問題のある版へ更新していた利用者もアプリ内更新で修正版を受け取れます。
+
 ## WindowsのWebView2とインストール時の通信
 
 現在のビルドでは、`src-tauri/tauri.conf.json`の`bundle.windows.webviewInstallMode`を省略しているため、Tauriの既定の`downloadBootstrapper`（`silent: true`）を使います。ローカルの`@tauri-apps/cli/config.schema.json`とビルド設定で確認した動作です。今回、このモードは変更していません。
