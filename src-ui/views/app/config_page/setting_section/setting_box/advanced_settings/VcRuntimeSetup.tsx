@@ -9,6 +9,7 @@ import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as runtimeStyles from "./VcRuntimeSetup.css.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
@@ -83,15 +84,15 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
         {error && <p role="alert">{failure(error)}</p>}
         {installed && <p>{t("vc_runtime.installed")}: <code style={{ overflowWrap: "anywhere" }}>{installed}</code></p>}
         <div className={styles.actions}>
-            {active && <button type="button" disabled={job.phase === "cancelling" || !!pending}
-                onClick={() => send("/run/cancel_vc_runtime_setup", { id: engine, job_id: job.job_id })}>{t("vc_runtime.cancel")}</button>}
+            {active && <Button disabled={job.phase === "cancelling" || !!pending}
+                onClick={() => send("/run/cancel_vc_runtime_setup", { id: engine, job_id: job.job_id })}>{t("vc_runtime.cancel")}</Button>}
             {/* The translation's runtimes are chosen through the compute device, not here. */}
-            {onUse && installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
+            {onUse && installed && installed !== current && <Button disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</Button>}
             {/* Fetched and waiting for the next start (Windows, #900): starting again would only wait again. */}
             {/* A build not needed for the user's GPU offers no download (#614, beta.2): its badge says so. */}
-            {!installed && !active && job?.phase !== "restart_required" && fit !== "unneeded" && <button type="button" className={fit === "fits" ? "primary" : undefined}
+            {!installed && !active && job?.phase !== "restart_required" && fit !== "unneeded" && <Button tone={fit === "fits" ? "primary" : "plain"}
                 disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
-                onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
+                onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</Button>}
         </div>
         {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <div className={styles.dialog_text}>

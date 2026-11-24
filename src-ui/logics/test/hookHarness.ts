@@ -168,6 +168,9 @@ export function loaded(exports: Record<string, unknown>): unknown {
 export const kitStandIns = {
     Button: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
         jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+    // The kit's field marks a wrong value with aria-invalid and an address with the monospaced font.
+    TextField: ({ invalid = false, mono = false, type = "text", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("input", { type, "data-slot": "input", "aria-invalid": invalid || undefined, "data-mono": mono, ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
