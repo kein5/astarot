@@ -157,3 +157,21 @@ test("a zone that is closed takes no more drops and stops its timer", async cont
     z.drag("drop", inside, ["/m/voice.index"]);
     assert.deepEqual(z.dropped, [["/m/voice.pth"]]);
 });
+
+test("a zone that is closed stops watching the drag and leaves the shared list of zones", async context => {
+    const runtime = hooks(), done: string[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    const real = await loadModule<typeof import("../../../../../../../logics/common/fileDrop.ts")>(new URL("../../../../../../../logics/common/fileDrop.ts", import.meta.url), runtime, {
+        "@tauri-apps/api/core": { isTauri: () => false }, "@tauri-apps/api/webview": {},
+    });
+    // The shared drag logic with its registrations recorded: what the zone undoes when it closes.
+    const fileDrop = { ...real, addDropZone: () => () => { done.push("removed"); }, watchDrag: () => () => { done.push("stopped watching"); } };
+    const { FileDropZone } = await loadModule<typeof import("./FileDropZone.tsx")>(new URL("./FileDropZone.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t }) },
+        "../../../../../../../logics/common/fileDrop": fileDrop,
+    });
+    runtime.render(FileDropZone, { accept: [".pth"], onFiles() {} });
+    assert.deepEqual(done, []);
+    runtime.unmount();
+    assert.deepEqual([...done].sort(), ["removed", "stopped watching"]);
+});
