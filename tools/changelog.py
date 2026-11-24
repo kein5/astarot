@@ -490,7 +490,18 @@ def build_notes_scaffold(root, version, text, date=None):
     return scaffold, written is not None
 
 
+def utf8_output():
+    """Write stdout and stderr as UTF-8 whatever the console's encoding is. The release notes carry
+    Japanese (the release draft checklist in docs/release-draft-template.md and the bilingual
+    CHANGELOG.md), which a Windows console's code page such as cp1252 cannot encode."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def main(argv=None):
+    utf8_output()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("write", "print", "check", "release-notes", "scaffold-notes"))
     parser.add_argument("--version", help="defaults to package.json's version")
