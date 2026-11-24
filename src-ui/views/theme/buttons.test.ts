@@ -51,7 +51,6 @@ const mediumButtons = [
     [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
     [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],
     [box + "_components/_atoms/_download_button/_DownloadButton.css.ts", "export const download_button = style({"],
-    [box + "ocr/Ocr.css.ts", "export const resetButton = style({"],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({"],
     [views + "app/others/startup/StartupFailedDialog.css.ts", "globalStyle(`$" + "{actions} button`, {"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const copy_error_message_button = style({"],
@@ -76,8 +75,6 @@ test("buttons set their words in medium weight, as shadcn/ui's Button does", () 
 const halfDisabled = [
     [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm(":disabled"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({", '"&:disabled": {'],
-    [box + "ocr/Ocr.css.ts", "export const resetButton = style({", '"&:disabled": {'],
-    [box + "ocr/Ocr.css.ts", "globalStyle(`$" + "{sharedActions} $" + "{resetButton}[aria-disabled=\"true\"]`, {"],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({", '"&:disabled": {'],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button:disabled`, {"],
     [views + "app/config_page/topbar/Topbar.css.ts", "export const discard = style({", '"&:disabled": {'],

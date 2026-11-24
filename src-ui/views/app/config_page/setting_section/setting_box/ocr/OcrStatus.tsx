@@ -5,6 +5,7 @@ import { captureStatusSummary } from "../../../../../../logics/configs/ocrReadin
 import type { OcrReadiness } from "../../../../../../logics/configs/ocrReadiness";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import * as styles from "./Ocr.css.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 type OcrStatusProps = {
     readiness: OcrReadiness | null;
@@ -28,7 +29,7 @@ export const OcrStatus = ({ readiness, onRefresh }: OcrStatusProps) => {
     const message = summary.key === undefined ? "" : t(summary.key, params);
     return (
         <EnvReadout className={styles.readiness} tone={summary.tone}
-            actions={<button type="button" onClick={onRefresh}>{t("config_page.ocr.models.refresh")}</button>}>
+            actions={<Button className={styles.refresh} onClick={onRefresh}>{t("config_page.ocr.models.refresh")}</Button>}>
             <p role="status">{sourceKey ? t(sourceKey, { status: message }) : message}</p>
         </EnvReadout>
     );

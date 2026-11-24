@@ -6,6 +6,7 @@ import type { AtomState } from "@store";
 import { SliderContainer } from "../_templates/Templates";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as styles from "./Ocr.css.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 export const OcrRegions = () => {
     const { t } = useI18n();
@@ -88,11 +89,11 @@ export const OcrRegionEditor = ({ source, variable, setRegion, lead = null }: Oc
                 </div>
             </div>
             {REGION_KEYS.map(slider)}
-            <button type="button" className={styles.resetButton}
+            <Button className={styles.region_reset}
                 disabled={isFullRegion(region) || variable.state !== "ok"}
                 onClick={() => setRegion({ ...FULL_REGION })}>
                 {t(`config_page.ocr.region.${source === "vr" ? "vr_reset" : "reset"}`)}
-            </button>
+            </Button>
         </section>
     );
 };

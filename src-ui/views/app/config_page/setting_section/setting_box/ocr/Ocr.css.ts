@@ -11,18 +11,8 @@ export const readiness = style({
     justifyContent: "space-between",
     margin: "1.6rem 0",
 });
-globalStyle(`${readiness} button`, {
-    flexShrink: 0,
-    minHeight: "3.6rem",
-    padding: ".6rem 1.2rem",
-    color: "inherit",
-    font: "inherit",
-    cursor: "pointer",
-    background: "var(--dark_850_color, #25364f)",
-    border: ".1rem solid transparent",
-    borderRadius: "var(--vox_radius, .8rem)",
-});
-globalStyle(`${readiness} button:hover`, { background: vars.vox_secondary_hover });
+// Refresh is the kit's plain Button (OcrStatus.tsx), which draws it; beside the status it keeps its width.
+export const refresh = style({ flexShrink: 0 });
 
 export const models = style({
     paddingTop: 0,
@@ -109,22 +99,10 @@ export const previewArea = style({
     border: ".2rem solid var(--primary_400_color, #4d8ef7)",
 });
 
-export const resetButton = style({
+// Resetting a region is the kit's plain Button (OcrRegions.tsx), which draws it; this class places it.
+export const region_reset = style({
     alignSelf: "flex-start",
     marginTop: ".8rem",
-    minHeight: "3.6rem",
-    padding: ".6rem 1.2rem",
-    color: "inherit",
-    font: "inherit",
-    fontWeight: 500,
-    cursor: "pointer",
-    background: "var(--dark_850_color, #25364f)",
-    border: ".1rem solid transparent",
-    borderRadius: "var(--vox_radius, .8rem)",
-    selectors: {
-        "&:hover:enabled": { background: vars.vox_secondary_hover },
-        "&:disabled": { opacity: .5, cursor: "not-allowed" },
-    },
 });
 
 // Sharing a window (Linux, Wayland): the status line, then the buttons, which wrap in a narrow window.
@@ -136,11 +114,7 @@ export const sharedActions = style({
     display: "flex",
     flexWrap: "wrap",
     gap: ".8rem",
+    marginTop: ".8rem",
 });
-globalStyle(`${sharedActions} ${resetButton}[aria-disabled="true"]`, { opacity: .5, cursor: "not-allowed" });
-globalStyle(`${sharedActions} ${resetButton}[aria-disabled="true"]:hover`, { background: "var(--dark_850_color, #25364f)" });
-
-globalStyle(`${resetButton}:focus-visible`, {
-    outline: ".2rem solid var(--vox_focus, #a9ccff)",
-    outlineOffset: ".2rem",
-});
+// Share and stop sharing are the kit's plain Button (OcrSharedWindow.tsx); share is dimmed by the
+// kit while it waits for the desktop (aria-disabled).

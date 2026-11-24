@@ -135,7 +135,7 @@ Page names are the names the app shows (here in English).
 | Experimental | `experimental_features/ExperimentalFeatures.tsx` | None (only the row family) | — | — | — |
 | Updater | `updater/Updater.tsx` | The install and check `<button>` elements (with their own classes) | The kit's `Button` (replaced, #1129) | Low | — |
 | Chat reading (OCR) | `ocr/OcrModels.tsx` | `<progress>`, the consent `<dialog>` and its checkbox, the download and cancel buttons | The kit's `Dialog`, the kit's `Button`, U-05 | Medium | — |
-|  | `ocr/OcrSharedWindow.tsx`, `OcrRegions.tsx`, `OcrStatus.tsx` | The share, stop sharing and reset `<button>` elements (the `resetButton` class, `aria-disabled`) | The kit's `Button` | Medium | The share button uses `aria-disabled`, not `disabled`, so that focus stays on the button while the desktop's share confirmation is open (related to D-07) |
+|  | `ocr/OcrSharedWindow.tsx`, `OcrRegions.tsx`, `OcrStatus.tsx` | The share, stop sharing and reset `<button>` elements (the `resetButton` class, `aria-disabled`) | The kit's `Button` (replaced, #1133) | Medium | The share button uses `aria-disabled`, not `disabled`, so that focus stays on the button while the desktop's share confirmation is open (related to D-07) |
 | Other (VRChat) | `vrchat/Vrchat.tsx`, `_components/word_filter/WordFilter.tsx`, `_components/message_format/MessageFormat.tsx` | The add and delete `<button>` elements of the word filter, the `div role="button"` that swaps parts of the message format | The kit's `Button` (replaced, #1127) | Low | Both are inside shared components. The word filter is on the "Speech recognition (ASR)" page, and the message format on this page |
 | About ASTAROT | `about_vrct/AboutVrct.tsx` | Only images and links | — | — | Outside the comparison |
 
@@ -349,7 +349,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 実験的機能 | `experimental_features/ExperimentalFeatures.tsx` | なし（行の部品の系統だけ） | — | — | — |
 | アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button`（置き換えた、#1129） | 低 | — |
 | チャット読み取り（OCR） | `ocr/OcrModels.tsx` | `<progress>`、同意の `<dialog>` とチェックボックス、取得と取り消しのボタン | kit の `Dialog`、kit の `Button`、U-05 | 中 | — |
-|  | `ocr/OcrSharedWindow.tsx`、`OcrRegions.tsx`、`OcrStatus.tsx` | 共有と解除と戻すの `<button>`（`resetButton` のクラス、`aria-disabled`） | kit の `Button` | 中 | 共有のボタンは `disabled` ではなく `aria-disabled` です。デスクトップの共有の確認が開いている間も、フォーカスをボタンに残すためです（D-07 と関係します） |
+|  | `ocr/OcrSharedWindow.tsx`、`OcrRegions.tsx`、`OcrStatus.tsx` | 共有と解除と戻すの `<button>`（`resetButton` のクラス、`aria-disabled`） | kit の `Button`（置き換えた、#1133） | 中 | 共有のボタンは `disabled` ではなく `aria-disabled` です。デスクトップの共有の確認が開いている間も、フォーカスをボタンに残すためです（D-07 と関係します） |
 | その他（VRChat） | `vrchat/Vrchat.tsx`、`_components/word_filter/WordFilter.tsx`、`_components/message_format/MessageFormat.tsx` | ワードフィルターの追加と削除の `<button>`、メッセージの形の入れ替えの `div role="button"` | kit の `Button`（置き換えた、#1127） | 低 | どちらも共通の部品の中にあります。ワードフィルターは「音声認識（ASR）」のページに、メッセージの形はこのページにあります |
 | ASTAROTについて | `about_vrct/AboutVrct.tsx` | 画像とリンクだけ | — | — | 照合の外 |
 

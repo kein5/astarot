@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import { readFile } from "node:fs/promises";
-import { hooks, loadModule, find, findIn, drawWith, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, drawWith, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as helpers from "../../../../../../logics/configs/ocrReadiness.ts";
 
@@ -103,7 +103,10 @@ test("edits and reset use the source's own setter, including when that source is
         findIn(editor, node => node.type === "slider" && node.props.label === `${prefix}region.width`)
             .props.setterFunction(10);
         assert.deepEqual(s.sent.at(-1), [source, { ...region, width: 0.1 }]);
-        findIn(editor, node => node.type === "button").props.onClick();
+        // Reset, the kit's plain Button, says what the whole area of its source is.
+        const reset = findIn(editor, node => node.type === kitStandIns.Button);
+        assert.equal(reset.props.children, `${prefix}region.${source === "vr" ? "vr_reset" : "reset"}`);
+        reset.props.onClick();
         assert.deepEqual(s.sent.at(-1), [source, helpers.FULL_REGION]);
         const preview = findIn(editor, node => node.props?.role === "img");
         assert.deepEqual(preview.props.children.props.style, {
@@ -145,6 +148,8 @@ test("the refresh button still requests readiness without changing settings", as
     const refreshed: boolean[] = [];
     const tree = s.status({ onRefresh: () => refreshed.push(true) });
     assert.ok(tree);
+    // Refresh, the kit's plain Button, beside the readout.
+    assert.deepEqual([tree.props.actions.type, tree.props.actions.props.children], [kitStandIns.Button, "config_page.ocr.models.refresh"]);
     tree.props.actions.props.onClick();
     assert.deepEqual(refreshed, [true]);
     assert.deepEqual(s.polled, ["initial"]);
@@ -156,7 +161,7 @@ test("reset is disabled while pending or already full", async t => {
     const variables: Parameters<typeof s.OcrRegionEditor>[0]["variable"][] = [{ data: windowRegion, state: "pending" }, { data: helpers.FULL_REGION, state: "ok" }];
     for (const variable of variables) {
         const tree = s.runtime.render(s.OcrRegionEditor, { source: "vr", variable, setRegion: () => {} });
-        assert.equal(findIn(tree, node => node.type === "button").props.disabled, true);
+        assert.equal(findIn(tree, node => node.type === kitStandIns.Button).props.disabled, true);
     }
 });
 

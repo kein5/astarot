@@ -51,7 +51,8 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
 test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
     assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.css.ts"), /inForm\("button:hover:enabled"\), \{ background: vars\.vox_secondary_hover \}/);
-    assert.equal((read(box + "ocr/Ocr.css.ts").match(/background: vars\.vox_secondary_hover/g) ?? []).length, 2);
+    // The OCR page's reset, share and refresh are the kit's plain Button, which hovers on the same token.
+    assert.match(read("../../kit/Button.css.ts"), /plain: \{[\s\S]*?"&:hover:not\(:disabled\):not\(\[aria-disabled='true'\]\)": \{ background: vars\.vox_secondary_hover \}/);
     // The word filter's delete and Add are the kit's danger and primary Buttons: red words, and
     // Dark Plum words on Lilac.
     const kitButton = read("../../kit/Button.css.ts");
