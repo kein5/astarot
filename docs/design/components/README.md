@@ -33,7 +33,7 @@ The feedback was that "it is not clear where one item ends". The experiment answ
 2. Rows in the same group are separated by a thin line in the border color (`--vox_border`).
 3. Inside a row, the label and the description form one block, and the control sits beside it.
 
-A row with unsaved changes gets a short Lilac rule outside its left edge. It follows the same rule as the save bar.
+Every setting saves by itself (#1111), so a row carries no mark of unsaved changes. A value a field refuses is said in words under the field (`FieldProblem`).
 
 In a narrow column (under 35.6rem, or a window under 700px wide), text fields and select fields move under the label. Switches do not move and stay at the right end of the row, so that a switch is not separated from the words that say what it turns on.
 
@@ -128,7 +128,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 2. **行の間**: 同じまとまりの中の行と行の間に、境界の色（`--vox_border`）の細い線を引きます。
 3. **行の中**: 名前と説明を一つにまとめ、操作する部品をその横に置きます。
 
-保存していない変更がある行は、行の左外に短い Lilac の線が付きます。保存バーと同じ規則です。
+どの設定も自分で保存するので（#1111）、行に保存していない変更の印は付きません。欄が断った値は、欄の下に言葉で出します（`FieldProblem`）。
 
 狭い列（35.6rem 未満、またはウィンドウの幅が 700px 未満）では、入力欄と選択欄が名前の下に移ります。スイッチは移さず、行の右端に残します。スイッチと、それが何をオンにするかの文言が離れないようにするためです。
 

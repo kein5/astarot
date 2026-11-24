@@ -11,7 +11,7 @@ Words used in the specification and the code. Names shown on screen follow `loca
 | Request | A message from the UI to the sidecar. A response always comes back | `asyncStdoutToPython` |
 | Notification | A message the sidecar sends on its own. The UI does not reply | `controller.run`, `/run/…` |
 | Initialization complete | The sidecar sending all settings together at startup | `/run/initialization_complete` |
-| Save bar | The bar at the top of the settings screen that shows the number of unsaved changes and the "Save" and "Discard" buttons | `SaveBar`, `setSaveBarEntry` |
+| Saving by itself | How every setting is saved since #1111: a text field on Enter or when focus leaves it, a choice at once, a group when focus leaves it; no save button and no "saved" notice | `useSaveButtonLogic`, `useSettingsDraft` |
 | Tab | The mechanism that switches between up to three pairs of language and translator (1 to 3) | `selected_tab_no` |
 | Your language, Target language | The language you speak, and the languages to translate into (up to three) | `selected_your_languages`, `selected_target_languages` |
 | Built-in model | The local translation model (M2M100) that runs inside the app on ONNX Runtime. The translation engine ID stays `CTranslate2` for compatibility (up to 0.4 it ran on CTranslate2). Local speech recognition uses the models of the bundled server (speech.cpp). The earlier transcription (Whisper) models went out of use in #288 | `weights/` |
@@ -44,7 +44,7 @@ Words used in the specification and the code. Names shown on screen follow `loca
 | 要求 | UIからサイドカーへのメッセージ。必ず応答が返る | `asyncStdoutToPython` |
 | 通知 | サイドカーが自分から送るメッセージ。UIは返事をしない | `controller.run`、`/run/…` |
 | 初期化の完了 | 起動時にサイドカーが全設定をまとめて送ること | `/run/initialization_complete` |
-| 保存バー | 設定画面の上部にある、未保存の変更の件数と「保存」「破棄」のボタン | `SaveBar`、`setSaveBarEntry` |
+| 自動保存 | #1111からのすべての設定の保存のしかた。文字の欄はEnterか欄を離れたとき、選択はすぐ、組は組を離れたときに保存し、保存のボタンも「保存しました」の通知もない | `useSaveButtonLogic`、`useSettingsDraft` |
 | タブ | 言語と翻訳エンジンの組を3つまで切り替える仕組み（1〜3） | `selected_tab_no` |
 | あなたの言語、相手の言語 | 自分が話す言語と、訳す先の言語（最大3つ） | `selected_your_languages`、`selected_target_languages` |
 | 内蔵モデル | アプリの中でONNX Runtimeで動くローカル翻訳（M2M100）のモデル。翻訳エンジンのIDは互換のため`CTranslate2`のまま（0.4まではCTranslate2で動かしていた）。ローカルの音声認識は同梱サーバー（speech.cpp）のモデルを使う。以前の文字起こし（Whisper）のモデルは #288 で使わなくなった | `weights/` |
