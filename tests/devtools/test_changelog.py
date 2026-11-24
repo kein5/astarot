@@ -224,34 +224,58 @@ class NotesScaffoldTest(unittest.TestCase):
             cl.NotesEntry("user", "fix(tts): keep the queue", "5555555"),
         ])
 
-    def test_the_scaffold_follows_the_order_of_the_format(self):
-        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [
+    def scaffold(self, entries=()):
+        return cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", list(entries), repo_url=REPO)
+
+    def test_the_scaffold_has_the_english_version_first_then_the_japanese_one(self):
+        notes = self.scaffold()
+        english, japanese = notes.split("\n---\n")
+        body = english.split("-->", 1)[1].lstrip("\n")
+        self.assertTrue(body.startswith("# ASTAROT 0.6.0\n\n[日本語版](#astarot-060日本語版)\n\nIn ASTAROT 0.6.0, "), body)
+        self.assertTrue(japanese.lstrip("\n").startswith("# ASTAROT 0.6.0（日本語版）\n\nASTAROT 0.6.0では"), japanese)
+        self.assertEqual(cl.heading_anchor("ASTAROT 0.6.0（日本語版）"), "astarot-060日本語版")
+        # Apart from the two titles, every heading is ## and sits flat, as the format asks.
+        self.assertEqual(re.findall(r"^#+ ", notes, re.M), ["# "] + ["## "] * 4 + ["# "] + ["## "] * 4)
+        self.assertIn("from v0.5.2 to 0.6.0", english)
+        self.assertIn("v0.5.2から0.6.0まで", english)
+
+    def test_each_version_follows_the_order_of_the_format(self):
+        notes = self.scaffold([
             cl.NotesEntry("internal", "docs: explain the route", "#5"),
             cl.NotesEntry("user", "feat(ui): show the flow", "#12"),
             cl.NotesEntry("breaking", "fix(api)!: change the reply", "#30"),
-        ], repo_url=REPO)
-        body = notes.split("-->", 1)[1].lstrip("\n")
-        self.assertTrue(body.startswith("ASTAROT 0.6.0では"), body)
-        order = [notes.index(text) for text in (
-            "## （絵文字1つ）", "## ⚠️ 更新するときの注意", "## 🐞 既知の問題", "## 🔧 内部の変更",
-            "- fix(api)!: change the reply（#30）", "- feat(ui): show the flow（#12）", "- docs: explain the route（#5）",
-            "すべての変更は [CHANGELOG.md]")]
-        self.assertEqual(order, sorted(order))
-        self.assertEqual(len(order), len(set(order)))
-        # Every heading is ## and sits flat, as the format asks.
-        self.assertEqual(re.findall(r"^#+ ", notes, re.M), ["## "] * 4)
-        self.assertTrue(notes.rstrip().endswith(f"({REPO}/blob/main/CHANGELOG.md#060---2026-11-20) にあります。"))
-        self.assertIn("v0.5.2から0.6.0まで", notes)
+        ])
+        english, japanese = notes.split("\n---\n")
+        for part, texts in (
+            (english, ("## (One emoji)", "## ⚠️ When you update", "## 🐞 Known issues", "## 🔧 Internal changes",
+                       "- fix(api)!: change the reply (#30)", "- feat(ui): show the flow (#12)",
+                       "- docs: explain the route (#5)", "All changes are in [CHANGELOG.md]")),
+            (japanese, ("## （絵文字1つ）", "## ⚠️ 更新するときの注意", "## 🐞 既知の問題", "## 🔧 内部の変更",
+                        "- fix(api)!: change the reply（#30）", "- feat(ui): show the flow（#12）",
+                        "- docs: explain the route（#5）", "すべての変更は [CHANGELOG.md]")),
+        ):
+            order = [part.index(text) for text in texts]
+            self.assertEqual(order, sorted(order))
+            self.assertEqual(len(order), len(set(order)))
+        self.assertIn(f"({REPO}/blob/main/CHANGELOG.md#060---2026-11-20).", english)
+        self.assertTrue(notes.rstrip().endswith(f"({REPO}/blob/main/CHANGELOG.md#0602026-11-20) にあります。"))
 
     def test_a_release_without_pull_requests_says_so(self):
-        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [], repo_url=REPO)
+        notes = self.scaffold()
+        self.assertIn("No pull requests merged after v0.5.2 were found", notes.split("## 🔧 Internal changes")[1])
         self.assertIn("見つかりませんでした", notes.split("## 🔧 内部の変更")[1])
 
-    def test_the_changelog_link_reaches_the_heading_github_makes(self):
+    def test_the_changelog_links_reach_the_headings_github_makes(self):
         self.assertEqual(cl.changelog_anchor("0.5.1", "2026-11-18"), "051---2026-11-18")
         self.assertEqual(cl.changelog_anchor("1.10.0", "2027-01-02"), "1100---2027-01-02")
+        self.assertEqual(cl.changelog_anchor_ja("0.5.1", "2026-11-18"), "0512026-11-18")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn("\n## [0.5.1] - 2026-11-18\n", changelog)
+        self.assertIn("\n## 0.5.1（2026-11-18）\n", changelog)
         # The notes written by hand before the scaffold link the same way.
-        self.assertIn("CHANGELOG.md#051---2026-11-18", (ROOT / "docs/release-notes/0.5.1.md").read_text(encoding="utf-8"))
+        notes = (ROOT / "docs/release-notes/0.5.1.md").read_text(encoding="utf-8")
+        self.assertIn("CHANGELOG.md#051---2026-11-18", notes)
+        self.assertIn(f"[日本語版](#{cl.heading_anchor('ASTAROT 0.5.1（日本語版）')})", notes)
 
 
 class VersionTest(unittest.TestCase):
