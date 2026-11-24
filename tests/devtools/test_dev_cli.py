@@ -211,6 +211,21 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(output.index("typecheck"), output.index("vite-build"))
 
+    def test_ui_scope_builds_the_component_catalog_after_the_app(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        # Storybook's build of the kit's stories (#1153, decision 5), after the app's own build.
+        self.assertLess(output.index("vite-build"), output.index("run build:catalog"))
+        # The script builds into build/, which Git ignores, not into the app's dist/.
+        scripts = json.loads((Path(__file__).resolve().parents[2] / "package.json").read_text(encoding="utf-8"))["scripts"]
+        self.assertEqual(scripts["build:catalog"], "storybook build --output-dir build/storybook")
+        # The node scope (part of quick) does not build it.
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertNotIn("build:catalog", output)
+
     def test_ui_scope_runs_biome_before_the_type_check(self):
         folder = self.root / "src-ui"
         folder.mkdir(parents=True)

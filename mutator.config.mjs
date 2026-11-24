@@ -19,5 +19,7 @@ export default {
         // The tests' harness and data.
         "src-ui/logics/test/**",
         "src-ui/logics/_test_data.ts",
+        // The component catalog (Storybook's stories, npm run dev:catalog): looked at, not tested.
+        "src-ui/views/kit_catalog/**",
     ],
 };
