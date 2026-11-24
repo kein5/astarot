@@ -191,3 +191,7 @@ run = "python tools/changelog.py scaffold-notes"
 [tasks."dev:web"]
 description = "Web UI development server (Vite)"
 run = "npm run dev:web"
+
+[tasks."dev:catalog"]
+description = "Component catalog of the UI kit (Storybook, http://localhost:6006)"
+run = "npm run dev:catalog"
