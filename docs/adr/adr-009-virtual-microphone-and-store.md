@@ -10,7 +10,110 @@ evidence:
   - docs/adr/adr-009-virtual-microphone-and-store.md
   - native/core/src/controller/audio_devices.rs
 ---
-# ADR-009: Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する
+# ADR-009: On Windows, rely on an external driver for the virtual microphone, and disclose the dependency in the Microsoft Store
+
+[日本語版](#adr-009-windows-の仮想マイクは外部のドライバに頼りmicrosoft-store-では依存を開示する日本語版)
+
+Status: Accepted (2026-11-15). The setup support in the app (4.2) was implemented in 0.4.0. Submitting to the Store (4.1) is work for the time of submission.
+Date: 2026-11-15
+Related: [ADR-005](adr-005-managed-microphone-lifetime.md), [ADR-008](adr-008-external-speech-engines.md), [Platform constraints](../voice-stack/platform-constraints.md), Issue #321
+
+In a comment on Issue #321 on 2026-11-15, the user decided on approach A+B. This ADR records that approach and the reasons for it.
+
+## 1. Background
+
+VRCT-VOX delivers the audio of text to speech (TTS) and voice conversion (RVC) to VRChat. VRChat takes audio only from a recording device that can be chosen as a microphone. So a "virtual microphone" is needed, which presents the app's output as a recording device.
+
+On Linux, a PipeWire loopback can create a virtual microphone without a driver. VRCT-VOX creates it automatically when the user asks for it (ADR-005).
+
+On Windows, VRCT-VOX cannot create a virtual microphone. At present, users install a virtual cable such as VB-CABLE themselves, choose the cable's playback side (for example CABLE Input) as the TTS output, and choose its recording side (for example CABLE Output) as VRChat's microphone ([Windows local setup](../voice-stack/local-setup-windows.md)). A user who has not installed a cable gets no voice into VRChat and does not know where things went wrong.
+
+Distribution through the Microsoft Store is also being considered for the future. This ADR decides how the Store version handles this dependency.
+
+## 2. Platform constraints
+
+The details are in sections 2 and 3 of [Platform constraints](../voice-stack/platform-constraints.md). These 4 constraints bear on this decision.
+
+1. **MSIX cannot install drivers.** There is no manifest extension that installs a driver either. There is no way to bundle a virtual microphone driver with the Store version (MSIX).
+2. **A microphone endpoint that other apps can choose can only be created by a kernel-mode driver.** There is no user-mode API. Loading a driver of your own needs Microsoft's signature, and that needs a Hardware Dev Center account (an EV code signing certificate and verification that the organization exists).
+3. **Redistributing an existing driver needs a contract with its provider.** VB-CABLE and similar drivers cannot be bundled without permission.
+4. **Store Policy 10.2.4 (Dependencies).**
+   - A dependency on software outside the Store is allowed if it is disclosed at the start of the Store description.
+   - A dependency on a driver that Microsoft does not provide is, in principle, not allowed. A driver certified under WHCP is judged case by case.
+   - A dependency on a driver is declared in the certification notes in Partner Center.
+
+## 3. Options considered
+
+| Option | What it means | Decision |
+|---|---|---|
+| Build our own driver and bundle it | Develop a virtual microphone driver, sign it and distribute it | Rejected. At present this project does not meet the Hardware Dev Center registration needed for signing (an EV code signing certificate and verification that the organization exists). MSIX cannot bundle a driver, so the Store version would still need a separate installation |
+| Bundle an existing driver | Put VB-CABLE or a similar driver in the installer | Rejected. It needs a contract with the provider. MSIX cannot bundle a driver |
+| Ship only a configuration without a virtual microphone to the Store | Remove the features that rely on a virtual microphone from the Store version | Rejected. TTS and voice conversion could not reach VRChat, so the product would not meet its purpose |
+| Give up on the Store | Do not ship to the Store; distribute only through GitHub Releases | Rejected. The Store version has an advantage: the Store re-signs it, which avoids the warning for an unsigned installer ([Constraints](../voice-stack/platform-constraints.md), section 1). While disclosure may still get the dependency accepted, keep this option open |
+| **Rely on an external driver and disclose it (A), and support setup in the app (B)** | Section 4 below | **Adopted** |
+
+## 4. Decision
+
+### 4.1 A: Rely on an external driver, and disclose the dependency in the Store
+
+- The virtual microphone driver is not bundled. Users get it from its provider and install it. The app neither downloads nor installs the driver.
+- When submitting to the Store, disclose the dependency as Policy 10.2.4 requires.
+  - At the start of the Store description, state that delivering audio to VRChat requires installing a virtual audio cable (such as VB-CABLE) separately.
+  - Declare the driver dependency in the certification notes in Partner Center. Write which drivers are expected, that the app does not install a driver, and which features work without a driver.
+  - A driver dependency is in principle not allowed, so the aim is to have it accepted by a case-by-case decision. Acceptance is not guaranteed (section 6).
+- Keep a configuration in which the central features, such as translation and captions, work without a virtual microphone. Only the part that delivers TTS and voice conversion to VRChat relies on a virtual microphone. The disclosure text and the review decision rest on this premise.
+
+### 4.2 B: Reduce the setup effort in the app
+
+Implemented in 0.4.0. It targets Windows.
+
+1. Detection: on the first start, check whether the playback side of a virtual cable is installed. Start from the existing check (`is_virtual_cable()` in `src-python/models/audio_routing/devices_windows.py`).
+2. Guidance: show guidance only when none is found. When one is found, show nothing. Match the first-run guidance flow to the first-use guidance added in Issues #305 and #311.
+3. Where to get it: show a way to the provider's official site and the installation steps. So that the official site can be opened, add the provider's site to the list of URLs the app may open (`src-tauri/capabilities/vrct_capability.json`).
+4. Detecting again: when the installation is finished, check again automatically.
+5. Self-test: play a test sound and confirm with a level meter that it went through the virtual cable. Finally, guide the user up to choosing the cable's recording side as VRChat's microphone.
+
+What to keep (`AGENTS.md`, "User actions and consent"):
+
+- Detection and guidance do not turn on the microphone or change the TTS output device or the audio routes on their own. Even when a cable is found, the user is the one who chooses it as the output.
+- The test sound plays only when the user presses the button. When it plays on a route that reaches VRChat, say so first.
+- The guidance can be closed, and after it is closed it can be opened again from the settings screen.
+
+### 4.3 Complement: a route to any output device
+
+A user who uses another virtual mixer, such as Voicemeeter, can choose that device as the output of TTS or voice conversion instead. This is handled by the audio route features, and this ADR adds no new mechanism.
+
+## 5. Consequences
+
+- Windows users install a virtual cable themselves, as before. The app now shows the steps and lets them check whether it is connected.
+- The driver is handled the same way in the Store version and the GitHub Releases version. The features do not depend on how the app is distributed.
+- The license register and `NOTICE.md` do not change, because the driver is not bundled.
+- The system requirements page states that delivering audio to VRChat on Windows needs a virtual audio cable (together with the main work of Issue #321).
+
+## 6. Conditions for revisiting this decision
+
+- When the Store review does not accept the driver dependency. Then decide again how to handle the Store version (skip the Store, or ship a different configuration).
+- When Windows gains an API that can create a microphone endpoint in user mode.
+- When a redistribution contract with a virtual cable provider becomes possible (MSIX cannot bundle a driver, so this would apply to distributions other than the Store).
+- When the conditions of Store Policy 10.2.4 change.
+
+## 7. Open items
+
+1. Which virtual cable product the guidance names. Whether VB-CABLE is the first candidate, or several are listed. Whether the provider's site may be added to the list of URLs the app may open.
+2. The condition under which detection considers that "a virtual microphone exists". The current `is_virtual_cable()` treats a driver whose name contains `cable`, `virtual`, `steam streaming` or `voicemeeter` as a virtual cable. Whether the Steam Streaming Microphone or a Voicemeeter input counts as a virtual microphone for VRChat that the guidance can use.
+3. The wording of the Store description and the certification notes. Written at the time of submission, together with the text on the system requirements page.
+4. How to handle the Store version if the review does not accept the dependency (section 6).
+
+## 8. References
+
+- [Platform constraints](../voice-stack/platform-constraints.md) (collects the sources of this ADR's premises)
+- [Microsoft Store Policies](https://learn.microsoft.com/windows/apps/publish/store-policies) (10.2.4 Dependencies, 10.2.9)
+- [Windows local setup](../voice-stack/local-setup-windows.md)
+- Issue #321 (the comment of 2026-11-15 titled "仮想マイクの扱い（Store を見据えた方針 A+B）", on handling the virtual microphone with approach A+B and the Store in view)
+
+---
+
+# ADR-009: Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する（日本語版）
 
 Status: 採用（2026-11-15）。アプリ側の導入支援（4.2）は 0.4.0 で実装した。Store への申請（4.1）は、申請するときの作業とする。
 Date: 2026-11-15

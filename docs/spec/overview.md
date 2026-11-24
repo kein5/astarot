@@ -1,4 +1,101 @@
-# 全体像
+# Overview
+
+[日本語版](#全体像日本語版)
+
+ASTAROT's components, its relations with outside systems, and how its screens are organized. The product's purpose and users are in `PRODUCT.md`, and the rules for its look and operation are in `DESIGN.md`.
+
+## System context
+
+```mermaid
+flowchart LR
+  user(["User"])
+  subgraph app["ASTAROT"]
+    ui["UI (Tauri + React)<br/>main / quick_chat / vr_panel"]
+    side["Core (Rust, inside the app process)"]
+    speech["Bundled speech servers<br/>speech.cpp, RVC worker"]
+  end
+  vrc["VRChat"]
+  steamvr["SteamVR"]
+  obs["OBS and others"]
+  cloud["Cloud translation and speech recognition"]
+  hf["Hugging Face"]
+  audio["Audio devices<br/>(PipeWire, WASAPI)"]
+
+  user --> ui
+  ui <--> side
+  side <--> speech
+  side -- "OSC /chatbox/input" --> vrc
+  vrc -- "OSC MuteSelf" --> side
+  side -- "Overlay" --> steamvr
+  side -- "WebSocket, HTTP" --> obs
+  side -- "HTTPS" --> cloud
+  side -- "Model downloads (after consent)" --> hf
+  side <--> audio
+  speech --> audio
+```
+
+## Components
+
+| Component | Location | Role |
+|---|---|---|
+| UI | `src-ui/` | Screens, settings, hotkeys, and the front end for the VR panel and Quick Chat. It receives its state from the core |
+| Tauri | `src-tauri/` | Windows, starting the core and passing requests and notifications to and from it (`src/backend_host.rs`), Quick Chat, registering hotkeys, window sharing (Linux), app updates, permissions |
+| Core | `native/core/` | Saving settings, translation, speech recognition, OCR, OSC, WebSocket, OBS, the overlay, and control of TTS and RVC. From 0.5.0 it is the only backend, and it runs in the same process as the app |
+| Intake and dispatch | `native/core/src/dispatch.rs`, `controller/routes.rs` | The table that maps endpoints to their handlers, the notification names (`controller::RUN_MAPPING`), queues and locks |
+| Feature code | `native/core/src/controller/` and the other crates in `native/` | Each feature (translation in `translation`, speech recognition in `transcription`, TTS in `tts`, voice conversion in `voice-conversion`, the audio route in `audio-routing`, OCR in `ocr-runtime`, the overlay in `vr-overlay`, OSC and others in `adapters`, the bundled servers in `speech-server`, model downloads and telemetry in `ops`) |
+| Settings | `native/core/src/config/` | Declaring, validating (`config/schema.rs`) and saving settings |
+| Errors | `native/core/src/errors/` | Error codes and their default messages |
+| Native helpers | `native/`, `build/` | `astarot-rvc-worker`; on Linux, `astarot-voice-gate`, `astarot-source-bridge` and `astarot-screen-capture` (window sharing); the speech.cpp binaries |
+| Python backend (up to 0.4) | `src-python/` (removed in 0.6.0) | Not in the 0.5.0 distribution, and not started. Removed from the repository as well in 0.6.0 (#285). The lists in `reference/` are built from the core (`tools/spec_core_catalog.json`). The mapping to the core is in `native/core/README.md` |
+
+## Screens
+
+### Main screen
+
+| Area | Contents |
+|---|---|
+| Sidebar | The feature switches (Translation, Mic input, Listening, Chat reading, TTS, RVC), the language settings (tabs 1 to 3, your language, target languages, swapping, adding and removing target languages, the translator), and the button that opens the settings. When collapsed, it shows only icons |
+| Top | Stop speech, Mute, the inputs and outputs panel, Quick settings (Always on top, VRC mic mute sync, the subtitle overlay on and off; for the subtitle overlay's position and look, it points to "Captions and VR" in the settings), Help |
+| Inputs and outputs panel | Opens and closes with a button at the top. For your voice and for chat, it shows where they go with the current settings and why the other destinations are not used, the time of each stage of the latest message (ms), and the use of GPU memory (VRAM). It only shows these and does not change settings ([UC-16](use-cases.md#uc-16-入力が届く先と時間を見る)) |
+| Conversation log | Sent messages, recognition results, text read by OCR, system messages. A sent message can be sent again. The screen keeps up to the newest 1,000 entries. While the bottom is shown, the log follows new lines. While you have scrolled up to read, the view stays where it is when lines are added or old lines go away. Sending from the input field brings the view back to the bottom |
+| Input field | Typing and sending messages. Whether Enter sends depends on the Appearance settings. Over 144 characters, a note above the field tells you about the VRChat chatbox limit (sending is not blocked) |
+
+### Settings screen
+
+You choose a page in the rail on the left. Stop speech, Mute, the save bar and the back button are always at the top.
+
+An item that concerns several pages is placed on every page it concerns (VRC mic mute sync, the audio route, the TTS output destination). Changing it on any page changes the same setting, and settings search shows one result for each page.
+
+| Page | Main contents | How it is saved |
+|---|---|---|
+| Device | Audio route, choice of microphone and speakers, input sensitivity, VRC mic mute sync | Choices at once, the audio route with the save bar |
+| Appearance | UI language, UI size, theme, log text size, transparency, font, send button, clearing the input field after sending, hiragana and romaji | At once |
+| Translation | The built-in translation model and its device, downloading the model at startup, keys and models of external APIs, local LLMs | Choices at once, keys and URLs with the save bar |
+| Speech recognition | Silence time, queued messages, mic word filter, engine (local (speech.cpp), four cloud engines), cloud keys and models, realtime speech recognition, the bundled ASR server | Choices at once, keys, URLs and the server with the save bar |
+| VRChat | Sending to the chatbox (sending, translation only, notification sound, received messages, VRC mic mute sync), message formats, OSC, audio route, TTS output destination, chat reading (source language, recognition models, area to read, capture target) | Choices at once, text fields, the audio route and the output destination with the save bar, model downloads through the consent step |
+| VR | The subtitle overlay's position and look, the subtitle typeface, showing subtitles and inputs and outputs on the desktop, VR UI | At once |
+| Hotkeys | Keys for five actions (unassigned by default) | When entered |
+| TTS | The source to read aloud, output device, monitor, server and voice per language, the bundled server, model downloads | Save bar |
+| RVC | Pitch, blend, the input to forward, runtime and model | Save bar |
+| Advanced | Saving the conversation log, the settings file, WebSocket, OBS browser source | Text fields with the save bar, switches at once |
+| Experimental | Switches and descriptions for features that passed checks on real hardware in the experimental branch (all off by default). When there are no items, the page says so | At once |
+| Updater | Version and release policy | Display only |
+| About ASTAROT | Name, version, links, thanks to the original VRCT | Display only |
+
+The theme (#965) is chosen from the presets or from "Custom", which the user defines. The presets are Dark Plum (the default), Midnight, Lagoon, Forest, Rose and Graphite, and Dark Plum is the brand palette itself (`variables.css`). A theme is set by two colors, Base and Accent. Base sets the hue of the grays of backgrounds, surfaces, borders and text; Accent sets the hue of primary buttons, selected items, the on state and keyboard focus. Every step keeps the same lightness as in Dark Plum, and only the hue and the saturation relative to the original color change. Any color that then falls short of the contrast in the "Colors" section of DESIGN.md is brought up to it by moving only its lightness, without changing its hue. The warning and error colors stay the same in every theme. The colors of sent and received log entries keep their hue and move only their lightness until they reach 4.5:1 against the background. The theme applies to the main window (the main screen, the settings and their dialogs); the other windows keep the default palette. A choice takes effect at once and is saved in `THEME`. The two Custom colors are kept while a preset is chosen. A preset that this version does not know is drawn as the default. A Custom color is set by typing it into the hex field or with the color picker, and takes effect once all six digits are in. While a color is being dragged, it is sent only once every 150 ms, and the last color is always sent. When Accent is close to the hue of the warning or error color, a note below it says that they may be hard to tell apart.
+
+### Other windows
+
+- Quick Chat: opens with a hotkey or with a button on the Hotkeys page. It is an input-only window, and sending goes through the main screen. Over 144 characters, it shows the same warning below the input field.
+- VR panel: when the VR UI is on, it shows a wrist launcher and windows (Log, Language, Inputs and outputs, Settings) inside VR.
+
+The VR settings window arranges its tabs in the order Device, Appearance, Translation, Speech recognition, VRChat, VR, using the same names as the desktop. VRChat holds sending to the chatbox, sending the translation only, the notification sound, sending received messages, VRC mic mute sync and chat reading. VRC mic mute sync is also on Device, and the hiragana and romaji display is on Appearance. The chat reading controls are the source language, the reading interval, the minimum recognition score and the minimum text length. Settings such as destinations, keys and audio routes, and model downloads, are not added, so that [the range the VR panel relays](external-interfaces.md#tauriのコマンド) stays as it is.
+
+A VR settings list with 50 or more entries, such as the font list, draws only the rows near the visible area. Row height and spacing stay the same, and the chosen entry is in view when the list opens. Entries outside the view can still be reached by scrolling or with Tab.
+
+---
+
+# 全体像（日本語版）
 
 ASTAROTの構成要素と、外のシステムとの関係、画面の構成。製品の目的と利用者は`PRODUCT.md`、見た目と操作の決まりは`DESIGN.md`にある。
 

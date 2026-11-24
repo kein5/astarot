@@ -8,7 +8,57 @@ implementation_checked: 2026-01-01
 evidence:
   - docs/adr/TEMPLATE.md
 ---
-# ADR-NNN: 決めたことを一文で書いた題名
+# ADR-NNN: A title that states the decision in one sentence
+
+[日本語版](#adr-nnn-決めたことを一文で書いた題名日本語版)
+
+Decision owners: the repository maintainers
+Related: links to issues, pull requests, related ADRs and documents
+
+> **How to use this template** (delete this whole quote once you have made the ADR)
+>
+> - The file is `docs/adr/adr-NNN-<short English name>.md`. Use the number after the last one in the [index](README.md). Make the number in the heading match.
+> - Set `date` and `implementation_checked` in the front matter to the day you write the ADR. In `evidence`, list this ADR's own path and the files that support the values.
+> - Keep `status` at `proposed` until adoption is decided. Once it is adopted, set `accepted`, and change `implementation_status` only after you have checked the implementation. Do not set `implemented` just because the ADR was adopted.
+> - Set any value you have not checked to `unknown`; do not fill it in with a guess. The meanings of the fields and values are in the [index](README.md#項目と値).
+> - When you have finished writing, regenerate the index with `python tools/adr_catalog.py --write`.
+> - In the body, write the premises at the time of writing (version, OS, runtime, backend layout), so that later readers can tell which period the decision belongs to.
+
+## 1. Context
+
+What the problem is, and why it is being decided now. Describe the setup it assumes and the implementation at that time.
+
+## 2. Decision
+
+What was decided. Also write down the properties to keep and what does not change.
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not taken |
+|---|---|---|
+| | | |
+
+## 4. Consequences
+
+What is gained, the burden and risks, and the migration approach.
+
+## 5. Verification / Acceptance criteria
+
+| Aspect | What to check | How |
+|---|---|---|
+| | | |
+
+## 6. Revisit triggers
+
+When to revisit this decision.
+
+## 7. Open questions
+
+What has not been decided yet, and where it will be decided.
+
+---
+
+# ADR-NNN: 決めたことを一文で書いた題名（日本語版）
 
 Decision owners: リポジトリの保守担当者
 Related: Issue、プルリクエスト、関係する ADR と文書へのリンク

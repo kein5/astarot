@@ -1,5 +1,7 @@
 # Code of conduct
 
+[日本語の概要](#行動規範の概要日本語)
+
 This code of conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/), version 2.1. A Japanese summary follows the English text; the English text is the one that applies.
 
 ## Our pledge
@@ -79,6 +81,8 @@ This code of conduct is adapted from the [Contributor Covenant](https://www.cont
 Community impact guidelines were inspired by [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).
 
 For answers to common questions about this code of conduct, see the FAQ at <https://www.contributor-covenant.org/faq>. Translations are available at <https://www.contributor-covenant.org/translations>.
+
+---
 
 ## 行動規範の概要（日本語）
 

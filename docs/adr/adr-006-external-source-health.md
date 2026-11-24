@@ -11,7 +11,79 @@ evidence:
   - native/audio-routing/README.md
   - native/audio-routing/src/pipewire/bridge.rs
 ---
-# ADR-006: 外部入力の接続確認とVC変換状態を分ける
+# ADR-006: Separate the connection check of external input from the VC conversion state
+
+[日本語版](#adr-006-外部入力の接続確認とvc変換状態を分ける日本語版)
+
+Status: Accepted as the P2 groundwork implementation that needs no model. Adoption of a real VC engine and acceptance of P2 as a whole are not complete.
+Date: 2026-10-28
+Related: [ADR004](adr-004-audio-integration-boundaries.md), [ADR005](adr-005-managed-microphone-lifetime.md)
+
+The user asked for the validation of B, preliminary validation that needs no model and continued work up to the full feature set.
+What follows is the implementer's choice within that scope; it is not consent to use a new engine or model.
+
+## Basis and boundaries
+
+In the old MMVCServerSIO implementation in the public VCClient master, the info status is OK even with no model selected,
+and passThrough returns the input unchanged. The old code is not reused as the API contract of the current 2.x.
+[Manager at a pinned commit](https://github.com/w-okada/voice-changer/blob/d8ef15799470193f7c8176ef471245753a656626/server/voice_changer/VoiceChangerManager.py#L217)
+
+In Seed-VC Realtime, input monitor mode passes audio straight through, an inference exception gives silence and the default device is used when the selected device is not found.
+So conversion success is not inferred only from the process being alive, the volume or a start flag.
+[engine at a pinned commit](https://github.com/jiaheguo521/seed-vc-realtime/blob/58d0ca372cc76f60a798d9f84611f053f9029f3a/realtime_vc_engine.py#L505)
+
+Both candidates have a path that fetches weights automatically on first run. At this stage, nothing is started, installed or fetched.
+The MIT license of VCClient and the GPL-3.0 of Seed-VC for the public code do not mean permission to distribute every model, binary and dependency.
+The 11 original research texts and their manifest, and the 9 queries / 87 hits of the 2 search roles, are in `tmp/voice-resume/research/p2-vc/`.
+These candidates gave no definitive API for ready, bypass or conversion success of a real VC. No made-up API is added to the product.
+
+## Decision
+
+First, only the Linux **connection from an explicitly selected source to the managed VC sink** is built as a product component.
+The external engine is assumed to output to a separate virtual source, and a later mode control switches between the connection route that selects that source and the passthrough of the physical microphone.
+The two are never open at the same time, and a setup that connects the engine output straight to the final mix is not a target for acceptance.
+The health of this component is an observation of the connection, the mute and the owning process, and `conversion_verified=false` is kept.
+An engine-specific adapter that can check conversion quality or model readiness is a separate gate.
+
+- At start, the PipeWire cookie plus the object.serial of the source and the sink are pinned. There is no reconnection by name alone and no fallback to the OS default.
+- The PCM route of `pw-loopback` is used, and PCM is not brought into Python. At start, the playback node is muted.
+- After checking both endpoints, the actual link and the owned stream on the same graph, the existing native gate that binds to the cookie/serial is extended to unmute only that stream.
+- The ownership check looks up the Client from the Node's client.id and matches the pipewire.sec.pid recorded by the native protocol against the living owned child. It does not fall back to the self-reported application.process.id. It covers the same PID namespace.
+- Source loss, replacement under the same name, a daemon epoch change, process exit and a failed check all close the connection, and it does not come back without an explicit start. The lifetimes of TTS and of the final virtual source do not change.
+- A dedicated non-leader control thread opens its own thread pidfd before starting, and the native supervisor watches the whole lifetime.
+  The connection process is a child of the supervisor, and it follows the supervisor's death too, through the parent-death signal.
+  This was changed because a review reproduced that a plain exec plus getppid checks before and after it misses the creator thread exiting before prctl.
+  Where PIDFD_THREAD (Linux 6.9 or later) is not available, start is refused. It does not fall back to rechecking a numeric TID.
+- Calling this backend on a system other than Linux returns an explicit "not supported". It does not break Windows features at import time. Windows capture/forwarding and the UI are later, separate tasks.
+
+WirePlumber's official documentation defines the behavior of `target.object` and dont-fallback/dont-reconnect/dont-move.
+The installed `find-defined-target.lua` resolves a numeric target.object to object.serial.
+A synthetic-sound trial on an independent graph confirmed: start muted → silence continues → explicit unmute → the synthetic sound arrives.
+[linking spec](https://pipewire.pages.freedesktop.org/wireplumber/policies/linking.html),
+[limits of the parent-death signal](https://man7.org/linux/man-pages/man2/PR_SET_PDEATHSIG.2const.html)
+
+## Other options and conditions for reconsidering
+
+| Option | Judgment | Conditions for reconsidering |
+|---|---|---|
+| Treat the process or the device existing as conversion ready | Not adopted. It cannot be told apart from passthrough or a model that is not ready | If a formal conversion-state contract and failure tests on real hardware become available |
+| Connect the engine output straight to the managed mix | It cannot own an independent stop or the exclusion of passthrough | If a gate on the engine side can show the same stop/failure conditions |
+| Implement capture, mix and playback together in Python | Not needed for the first Linux connection. It adds new queues and copies | If limits of the OS route are measured for processing shared with Windows, ducking or a single capture |
+| Move entirely to a dedicated audio daemon | Validate B's small connection component first | If B cannot meet the stop, lifetime and mixing requirements (option C of ADR004) |
+
+## Acceptance and limits
+
+Using a synthetic source on an independent PipeWire and a different frequency for the forbidden fallback, the tests cover normal operation, stop, source deletion and re-creation under the same name,
+sink loss, parent exit and repeated switching. The continuity of the capture is checked, and a dead reader is not counted as silence.
+These results are not evidence that voice conversion, a real microphone, VRChat or Windows are complete.
+It is not claimed that the connection component alone can tell apart another app that operates the OS directly, or the original-voice output of a misconfigured external VC.
+If the needed model state is unknown, acceptance of the later VC features stays unconfirmed. Real-hardware gates are not replaced with fakes.
+
+The results of 3 trials with 42 observations on the implementation and a private OS, and the history of fixes to the ownership check, were in the acceptance report (source-bridge-report.md, deleted on 2026-11-16; it remains in the git history).
+
+---
+
+# ADR-006: 外部入力の接続確認とVC変換状態を分ける（日本語版）
 
 Status: P2モデル不要の基盤実装として採用。実VCエンジン採用・P2全体受入れは未完了。
 Date: 2026-10-28

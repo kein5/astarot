@@ -10,7 +10,141 @@ evidence:
   - docs/adr/adr-012-audio-ai-runtime-consolidation.md
   - docs/adr/adr-008-external-speech-engines.md
 ---
-# ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）
+# ADR-019: Build VOICEVOX CORE into TTS with a dedicated worker that loads its C API dynamically (an exception to ADR-012)
+
+[日本語版](#adr-019-voicevox-core-を専用ワーカーと-c-api-の動的ロードで読み上げに組み込むadr-012-の例外日本語版)
+
+Status: Accepted (2026-11-23, the record of the decision in Issue #1061). In-app Japanese TTS with VOICEVOX CORE becomes a managed exception to ADR-012, and the chosen setup is a thin Rust child process that dynamically loads the official C API and `voicevox_onnxruntime`. Whether to start the full implementation is decided separately, after seeing the results of PoCs on real Windows and Linux hardware.
+Date: 2026-11-23
+Decision owners: The repository's maintainers
+Related: Issue #1061, [ADR-012](adr-012-audio-ai-runtime-consolidation.md), [ADR-008](adr-008-external-speech-engines.md), [ADR-015](adr-015-translation-llm-runtime-exception.md), [the license register](../voice-stack/licensing.md), [model downloads](../voice-stack/model-downloads.md), `NOTICE.md`
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT (ADR-011). The layout at the time of writing is that of 0.6.0 (`rust-core`), in which the Rust core (`native/core`) runs inside the app process, and OCR, local translation and RVC use Microsoft's official ONNX Runtime `1.31.0`. The upstream versions used in the evaluation are `voicevox_core` `0.17.1`, `voicevox_onnxruntime` `1.17.3` (a stable release), `voicevox_vvm` `0.17.1`, and the Open JTalk system dictionary `v1.11.1`.
+
+## 1. Context
+
+### 1.1 The problem and the current TTS setup
+
+Under 2.2 of ADR-012, ASTAROT's text to speech (TTS) is in principle gathered into speech.cpp. Japanese character voices are provided under ADR-008 by connecting over loopback HTTP to external speech synthesis engines (VOICEVOX, SHAREVOX, AivisSpeech, COEIROINK v2) that users install and start themselves.
+
+This setup has two problems:
+
+- Installing and starting an external engine separately takes a lot of effort, which is a burden for users who want to start just by choosing a voice on the settings screen.
+- speech.cpp's Japanese TTS model (Irodori-TTS v4.1 Small MF) assumes a GPU, and is not practical in CPU-only environments or where VRAM should be left for VRChat (on the CPU of a Core i7-1255U, the first output takes 3 to 7 seconds, synthesis runs about 4 times slower than real time, and playback breaks up).
+
+On the other hand, if `voicevox_core` (MIT from 0.16), the inference core of VOICEVOX, runs inside the app and only the character voices needed (`.vvm`) are downloaded with consent, Japanese character voices can be read aloud without starting an external engine.
+
+### 1.2 Evaluation under 2.3 of ADR-012
+
+Following 2.3 of ADR-012 (steps 1 to 3), integration into speech.cpp and sharing the existing ONNX Runtime were evaluated, with these results:
+
+- **Replacing it with speech.cpp or contributing it upstream is not possible**: the product voice models (`.vvm`) depend on a proprietary format (`vv-bin`), the prosody analysis of Open JTalk, and processing specific to `voicevox_onnxruntime`. In addition, the `VOICEVOX 音声モデル 利用規約` (`TERMS.txt`) forbid reverse engineering, so converting the models to GGUF or porting them upstream to speech.cpp is impossible, both technically and under the terms. The character voices themselves cannot be replaced by speech.cpp's existing models either.
+- **It cannot share the existing ONNX Runtime (1.31.0)**: from 0.16, `voicevox_core` moved the loading of `vv-bin` into `voicevox_onnxruntime`, and at startup it checks for a dedicated identification string (`VOICEVOX ORT Build Info:`) and `session.use_vv_bin=1`. The versions that `voicevox_core` `0.17.1` supports are `1.17.3〜1.29` (built with `--disable_contrib_ops`), which match neither the version nor the build of ASTAROT's own Microsoft official ONNX Runtime `1.31.0` (API v31). Further, `ort` can initialize only one `OrtApi` per process, and `voicevox_core` `0.17.1` has git dependencies on `ort-sys = 2.0.0-rc.12` and `open_jtalk-rs` (a C++ build), so it cannot be built directly into the main process.
+
+For these reasons, bringing VOICEVOX CORE into in-app TTS needs an ADR of its own that sets its boundaries as a "managed exception", as was done for RVC (6.1 of ADR-012) and TranslateGemma (ADR-015).
+
+## 2. Decision
+
+Based on the maintainers' decision of 2026-11-23 (Issue #1061), this ADR sets the following.
+
+1. **Scope of the exception**: in-app Japanese TTS with VOICEVOX CORE is a managed exception to 2.2 of ADR-012 (TTS runs on speech.cpp). The existing TTS on speech.cpp stays as it is, and the default TTS engine does not change. VOICEVOX CORE is used only when the user explicitly chooses it.
+2. **Reasons for the exception (the two conditions in 2.1 of ADR-012)**:
+   - **Technical and terms-of-use reasons the existing base cannot do it**: the product VVMs need the proprietary `vv-bin` format, the prosody analysis of Open JTalk and processing specific to `voicevox_onnxruntime`, and because reverse engineering is forbidden, they cannot be converted for speech.cpp or contributed upstream. They also cannot share the existing Microsoft ONNX Runtime `1.31.0`.
+   - **A clear advantage in performance, maintenance and distribution cost**: in environments without a GPU, or where VRAM should be kept for VRChat, it can read aloud practically on the CPU alone, which is an advantage over the Japanese TTS of speech.cpp (whose playback breaks up on the CPU). Compared with ADR-008 (starting an external engine by hand), the setup burden also drops a lot. With option B1 below, a larger distribution, the maintenance of a C++ build, and LGPL obligations are all avoided too.
+3. **How it is built in, and its runtime base (option B1)**:
+   - A thin Rust child process, `astarot-voicevox-worker` (MIT), is bundled with the app.
+   - The common base is not bundled in the distribution. After the user's consent, it is downloaded into the data folder and loaded dynamically with `libloading` when the worker starts. It consists of the official prebuilt `voicevox_core` C API (`0.17.1`, MIT, a zip of about 1.39 MiB for both Windows x64 and Linux x64), the stable `voicevox_onnxruntime` `1.17.3` (the CPU build, about 4.44 MiB on Windows x64 and about 6.45 MiB on Linux x64), and the Open JTalk system dictionary `v1.11.1` (BSD-3-Clause, 22.55 MiB compressed, about 102 MiB extracted). We do not wait for a stable release of the `1.23.2` prerelease.
+   - At first, it uses **CPU inference only**, and uses no VRAM. A DirectML option for Windows (about 5.6 to 6.4 MiB, plus about 9 MiB for `DirectML.dll`) is considered at a later stage, after measurements on real hardware. The CUDA libraries (about 1.5 GiB) are neither bundled nor downloaded.
+   - The worker communicates only over a dedicated local channel with the parent process (standard input and output, or private local IPC), and is not exposed to the network.
+4. **The catalog and the range of VVMs**:
+   - The unit of download and verification is a VVM file (with its version, size and SHA-256 pinned in the catalog), and downloads from GitHub Releases (a redirect from `github.com` to `release-assets.githubusercontent.com`) are supported. To keep these files from being bundled in the distribution by mistake, `vvm` is added to `MODEL_EXTENSIONS` in `tools/distribution_policy.py`.
+   - The first step starts from a **representative pack under the standard terms only** (for example `0.vvm`, 56.6 MiB, with four characters: Shikoku Metan, Zundamon, Kasukabe Tsumugi and Amehare Hau). The first download of the common base (CPU) and the single `0.vvm` comes to about 85 to 89 MiB in total.
+   - Extending to the VVMs that include the seven characters with individual restrictions (non-commercial only, or prior confirmation needed for corporate or commercial use) (`6`, `7`, `15`, `16`, `17`, `18` and `20.vvm`) proceeds separately, together with individual confirmation checks, once the implementation of the representative pack is settled.
+   - VOICEVOX Nemo (`n0.vvm`) and the singing voices (`s0.vvm`) are not included.
+5. **Division of roles with ADR-008 (connecting to external speech synthesis engines)**:
+   - ADR-008 stays in force alongside this ADR, and is not replaced.
+   - In-app VOICEVOX CORE covers "starting without a separate installation", "Japanese TTS on the CPU alone, without using VRAM", and "immediate use of the characters under the standard terms".
+   - ADR-008 (the external connection) covers "using SHAREVOX, AivisSpeech and COEIROINK v2" and "using a VOICEVOX ENGINE the user runs on their own, custom dictionaries, GPU engines, and VVMs not in the catalog". The settings screen lists both side by side, shown so that they can be told apart, and lets the user choose.
+6. **Licenses, consent and credit display (2.6 and 2.7 of ADR-012)**:
+   - `VOICEVOX ENGINE` (LGPL-3.0) is not used, so no LGPL obligations arise.
+   - To follow the own terms of `voicevox_onnxruntime` and of `.vvm` (credit is required, the voice library terms must be passed on to users, reverse engineering is forbidden), neither is bundled in the MIT distribution, and both are downloaded only after explicit consent.
+   - Credits are shown in these four places: (a) directly below the voice selection on the settings screen (the exact credit string of the selected character and a link to its terms), (b) the download consent screen (`TERMS.txt`, links to the terms of the included characters, and a clear statement that credit is required), (c) the "About ASTAROT" screen (VOICEVOX attribution text shown directly in `AboutVrct.tsx`), and (d) `NOTICE.md` and the license register (`docs/voice-stack/licensing.md`).
+7. **Realtime behavior and safety (2.6 of ADR-012)**:
+   - Inference runs in the dedicated child process, not in audio callbacks or on the UI thread. Explicit cancel, mute and stop take effect at once, even during synthesis.
+   - A crash or a timeout of the worker does not drag down the main app, the audio route, mute or other engines. On a failure, the app reports an error and keeps silent, and does not silently switch to the original voice or to another engine.
+   - It uses the same sentence splitting, comma splitting and look-ahead synthesis as the existing `native/tts/src/engines.rs`, and meets the start deadline for reading the microphone aloud (within 5 seconds, 13 of ADR-008).
+   - It does not write the text read aloud or the synthesized audio to logs, and does not add outside communication without consent.
+8. **Stages, ownership, and the policy for updates and vulnerabilities (2.4 of ADR-012)**:
+   - **Stages**: as the first stage, this ADR and PoC measurements on real Windows and Linux hardware (latency, CPU, memory) go ahead. Whether to start the second stage (the actual implementation) is decided after seeing their results.
+   - **Ownership**: the repository's maintainers (the worker and the TTS integration are managed in `native/tts`, the download catalog and verification in `native/ops`, and the settings and credit display in `src-ui/`).
+   - **Updates and vulnerabilities**: watch the releases of `voicevox_core`, `voicevox_onnxruntime` and `voicevox_vvm`. When raising a version, check the size, the SHA-256 and the diff of `TERMS.txt`, then update the catalog, `NOTICE.md` and the license register together. If a serious vulnerability or a change in the terms is found, stop new downloads of the affected items, and replace them with a fixed version or remove them.
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not chosen |
+|---|---|---|
+| Option A: build the `voicevox_core` Rust crate directly into the main process | Call `voicevox_core` in the same process as `native/core` | The main app's Microsoft ONNX Runtime `1.31.0` and `voicevox_onnxruntime` (`1.17.3`) collide inside one process. The version difference of `ort-sys` and the git and C++ dependencies enter the main build, and an inference crash takes down the whole app |
+| Option B2: build the `voicevox_core` crate directly in a separate Cargo workspace | Keep a separate child process, but build it from source as a Rust crate | `voicevox_core` is not published on crates.io, and maintaining the `open_jtalk-rs` (C++ build) and `ort` git dependencies in Windows and Linux CI is a heavy burden. Dynamically loading the official C API avoids that burden |
+| Option C: bundle `VOICEVOX ENGINE` as a separate process | Bundle the full set of official engine executables with the app and connect over HTTP | `VOICEVOX ENGINE` falls under LGPL-3.0, which requires offering the source for three years and maintaining a procedure for replacing it. It adds several hundred MiB including a whole Python runtime, goes against the move away from Python in 0.5.0, and overlaps in role with ADR-008 |
+| Keep the current state (only the external connection of ADR-008) | No in-app integration; starting VOICEVOX is left to the user | Installing and starting VOICEVOX separately stays required, so the barrier remains for users who want to start just by choosing a voice on the settings screen |
+| Port to speech.cpp or contribute upstream | Convert the VVMs to GGUF and contribute them to speech.cpp | Impossible both technically and under the terms: it depends on the proprietary `vv-bin` format and the prosody analysis of Open JTalk, and it would also break the clause in `TERMS.txt` that forbids reverse engineering |
+
+## 4. Consequences
+
+**What we gain**
+
+- Japanese character voices become usable just by downloading the representative pack from the settings screen, without installing and starting VOICEVOX separately.
+- It runs on the CPU alone (0 VRAM use), so Japanese TTS becomes practical even on PCs without a GPU or where VRAM should be kept for VRChat.
+- Loading the `voicevox_core` C API (MIT) dynamically avoids LGPL obligations, bundling binaries under their own terms in the distribution, and C++ and git dependencies in the main app.
+- Separating it into a child process prevents ONNX Runtime conflicts and keeps inference crashes from spreading.
+
+**Costs and risks**
+
+- One more pair of an inference runtime (`voicevox_onnxruntime` `1.17.3`) and a C API becomes a managed item, which adds the burden of following versions, checking SHA-256 and `TERMS.txt`, and checking behavior on each OS (1.1 of ADR-012).
+- Synthesis on the CPU handles each sentence in one batch (`StreamingTalk` in `voicevox_core` `0.17.1` is currently non-streaming, the same as `Talk`), so it cannot meet the overall latency target that assumes a GPU (#556: p50 of 1.0 second or less from the end of speech to the start of the voice). speech.cpp stays as the low-latency GPU path, and VOICEVOX CORE is positioned as the option for the CPU and for character voices.
+- Users are asked to download about 85 to 89 MiB at first (the common base plus `0.vvm`, more than about 180 MiB after extraction), and to understand the consent to the terms and the credit requirements.
+- `voicevox_onnxruntime` `1.17.3` is the latest stable release upstream, but it was published in 2025-03, so future OS updates and security updates will call for a decision on moving to a later version (such as a stable `1.23.x` or later).
+
+**Migration policy**
+
+- Do not break the existing TTS engine (speech.cpp), the external engine connection of ADR-008, the existing settings file, or the IPC contract.
+- Before the actual implementation starts, measure a PoC of option B1 on real Windows x64 and Linux x64 hardware, and check latency, CPU and memory.
+
+## 5. Verification and acceptance criteria
+
+Before the actual implementation starts, and before it is accepted into the product, check the following. If they cannot be met, reconsider under the conditions in 6.
+
+| Aspect | What to check | How |
+|---|---|---|
+| Performance (PoC and real hardware) | Synthesis latency for short sentences on the first and later runs, CPU and memory use during continuous speech, meeting the 5-second start deadline for reading the microphone aloud, no VRAM use | Measure a prototype of the option B1 worker on real Windows x64 and Linux x64 hardware, and record the results with the environment and conditions in Issue #1061 (2.7 of ADR-012) |
+| Behavior and contract | Synthesis requests, sentence splitting and look-ahead, cancellation and failure notices work according to the existing TTS contract | Unit and integration tests in `native/tts` and `native/core` with a fake worker |
+| Safety | A crash, timeout or failed start of the worker does not affect the main app, the audio route, mute or other engines. The app does not silently switch to the original voice or to another engine | Tests that inject failures (making a fake worker crash or lag) |
+| Distribution and licenses | `.vvm` files, `voicevox_onnxruntime` and the Open JTalk dictionary are not bundled in the distribution by mistake. Versions, sizes and SHA-256 are pinned and recorded in `NOTICE.md` and the license register | `tools/distribution_policy.py` (with `vvm` added), `tools/check_voice_distribution.py`, `tools/rust_licenses.py`, `native/core/tests/downloads.rs` |
+| Consent and credits | The common base and VVMs are not downloaded before consent. The exact credits and terms links appear directly below the voice selection, on the consent screen, in `AboutVrct.tsx` and in `NOTICE.md` | UI unit tests and Playwright integration tests |
+| OS support | Dynamic loading, synthesis and playback work on both Windows x64 and Linux x64. If one of them stays unchecked, say so and check it in a release candidate | Checks on real hardware for both OSes (2.7 of ADR-012) |
+
+## 6. Revisit triggers
+
+Revisit this exception ADR when any of the following applies.
+
+- When the PoC on real Windows or Linux hardware, or a check while running VRChat, cannot meet the 5-second start deadline or the acceptable range of CPU and memory.
+- When speech.cpp gains a light Japanese TTS for the CPU, or a path that gives an equal experience, and this exception loses its advantage in performance and experience.
+- When `voicevox_core`, `voicevox_onnxruntime` or `voicevox_vvm` stops being updated, their license or terms of use change, or a serious vulnerability is found.
+- When deciding to move to a later stable `voicevox_onnxruntime` (such as `1.23.x` or later), or when adding the DirectML option for Windows.
+- When deciding to extend the catalog to the VVMs that include characters with individual restrictions (`6`, `7`, `15`, `16`, `17`, `18` and `20.vvm`).
+- When `StreamingTalk` in `voicevox_core` supports real streaming synthesis, and reconsidering the worker's IPC contract and the latency target becomes worthwhile.
+
+## 7. Open questions
+
+- **The results of the PoC on real Windows and Linux hardware, and whether to start the actual implementation**: decided after the measurements are collected in Issue #1061.
+- **The detailed contract of the worker's IPC**: the form of requests, responses, cancellation and health checks is specified in `docs/spec/` when the actual implementation is designed.
+- **The range and timing of extending to VVMs beyond the representative pack**: decided once the implementation of the representative pack is settled, together with the UI that checks the seven restricted characters one by one.
+- **Whether to adopt the DirectML option for Windows**: decided at a later stage, after the measurements on the CPU on real hardware.
+- **Details of routing when English or other languages are mixed in**: set in the specification at implementation time, including consistency with the existing external engine connection (ADR-008).
+
+---
+
+# ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）（日本語版）
 
 Status: 採用（2026-11-23、Issue #1061 の決定の記録）。VOICEVOX CORE によるアプリ内日本語読み上げを ADR-012 の管理対象の例外とし、薄い Rust 子プロセスから公式 C API と `voicevox_onnxruntime` を動的ロードする構成を採る。実装の本着手は、Windows と Linux の実機 PoC の結果を見てから別途判断する。
 Date: 2026-11-23

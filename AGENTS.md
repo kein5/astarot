@@ -1,4 +1,138 @@
-# ASTAROT 開発エージェント向けガイド
+# ASTAROT guide for development agents
+
+[日本語版](#astarot-開発エージェント向けガイド日本語版)
+
+ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech recognition (ASR), text to speech (TTS), voice conversion (RVC), chat reading (OCR) and translation. Its React 19 UI runs on Tauri, and the backend is the Rust core (`native/core`), which runs inside the app's process. From 0.5.0 the packages contain no Python. The Python backend (`src-python/`) was removed in 0.6.0. The record of the port is in `docs/voice-stack/core-integration.md`. The app's display name is ASTAROT (ADR-011). The repository was renamed to `kein5/astarot` at the stable release of 0.5.0. The executable names, the app ID and the storage locations for each OS are in `docs/voice-stack/project-rename.md`. The project is derived from [VRCT](https://github.com/misyaguziya/VRCT), and tracking upstream or staying compatible with it is not a goal.
+
+This document is the starting point for work. For details, read the authoritative documents in the table below.
+
+## How to approach the work
+
+- Within the purpose and scope of the request, you may decide on your own which design changes and refactoring are needed and carry them out. The project does not forbid changes to particular files or modules, and does not make approval in advance mandatory.
+- This permission does not extend to features the request did not ask for, a complete rebuild or external actions. Keep to the user's instructions, the policies on publishing, sending and distributing, and the license terms.
+- Before you start, check the branch, HEAD and uncommitted changes. Do not delete or revert changes you did not make.
+- When a document and the implementation disagree, do not decide mechanically that one of them is right. Find out whether the description is only out of date or the implementation breaks a policy it should follow. If you cannot decide, report it as unresolved.
+- `docs/voice-stack/` still holds many dated verification records and proposals. Words such as "unreleased" (未公開), "next step" (次工程) and "this time" (今回) refer to the state at the time of writing. Read these documents as distinct from the policies that have been adopted.
+
+## What to read for each kind of change
+
+Reading only what is relevant is enough. You do not need to read everything every time.
+
+| What you change | Read first |
+|---|---|
+| The product's purpose, the features it must keep, how users use it | `PRODUCT.md` |
+| Features, the API (IPC endpoints), data formats, cross-cutting behavior, contracts | `docs/spec/README.md` (regenerate the list with `mise run spec`, which writes the core's `tools/spec_core_catalog.json` and then runs `python tools/spec_catalog.py --write`) |
+| The UI's look, operation and accessibility | `DESIGN.md` |
+| The development environment, verification commands, commit format | `docs/development.md` |
+| English text (documents, UI text, commit messages, pull requests and issues, work reports) | `docs/writing/english-guideline.md` |
+| Japanese text (documents, UI text, release notes, pull requests and issues, work reports) | `docs/writing/japanese-guideline.md` |
+| Launching, builds, CI, release candidates | `docs/readme_build.md`, `docs/voice-stack/release-candidates.md` |
+| Branches, pull requests, dependencies, models offered for download, text the app shows | `CONTRIBUTING.md` |
+| Licenses of bundled components, models and dependency libraries | `NOTICE.md`, `docs/voice-stack/licensing.md` |
+| The Rust backend core, and the record of the port from Python | `docs/voice-stack/core-integration.md` |
+| Names, identifiers, storage locations, the relationship to upstream VRCT | `docs/voice-stack/project-rename.md`, `docs/voice-stack/publication-and-upstream.md`; for the rename to ASTAROT, `docs/adr/adr-011-astarot-brand-and-multimodal-accessibility.md` |
+| The model download screens and consent | `docs/voice-stack/model-downloads.md` |
+| Linux builds, AppImage, GUI tests on a real machine | `docs/voice-stack/linux-build-pipeline.md`, `docs/voice-stack/appimage.md` |
+| Design decisions (ADRs) | `docs/adr/README.md` (the index, what the fields mean, how to write a new ADR) and each ADR. Check an ADR's state in the front matter at its top. |
+
+## Entry points for development and verification
+
+The entry point is `python tools/dev.py`. The versions of Node, Rust, Python, uv and Cocogitto are pinned in `mise.toml`, and `mise install` installs them. Frequent steps are set up as mise tasks (`mise run doctor`, `mise run check`, `mise run check:voice` and others; `mise tasks` lists them), and they run the same `tools/dev.py`. The npm scripts do not carry these shortcuts. They keep only what does not work without npm (Vite, Tauri, Vitest and type checking, plus launching and building the app). Check the list of scopes, the setup steps and the exit codes in `docs/development.md` and with `--help`.
+
+```sh
+python tools/dev.py doctor                  # show missing tools and dependencies
+python tools/dev.py setup --scope headless  # prepare the dependencies for tests without models
+python tools/dev.py check                   # light checks (tooling, node, lint)
+```
+
+The tools for UI audits, revising text, checking screens on a real machine, drawing diagrams and similar work are collected in `docs/agent-tools.md`.
+
+After a change, run the light checks and the scope that matches what you changed. When the impact is wide, add more verification.
+
+| What you changed | Also run |
+|---|---|
+| Python tools and their tests (`tools/`, `tests/voice/`), checks of the packages | `check --scope voice` (in a new Linux checkout, run `python tools/build_voice_gate.py` first) |
+| The UI (`src-ui/`) or its text | `check --scope ui` |
+| The Rust backend core (`native/core`) and the crates in `native/`, Tauri (`src-tauri/`) | `check --scope rust` (the crates it covers are `NATIVE_CRATES` in `tools/dev.py`; for other crates, `cargo test --manifest-path native/<crate>/Cargo.toml`) |
+| Flows from the UI through the core (changes that touch both `src-ui/` and `native/core`), integration tests (`tests/integration/`, `native/browser-core-bridge`) | `check --scope integration` (run `setup --scope integration` first; ADR-017) |
+| Several areas, or before a merge | `check --scope all` |
+| Commits | `check --scope commits --base origin/develop` |
+
+- Run browser tests, native GUI tests and checks of audio and model inference on a real machine explicitly, by their own procedures. The steps are in the sections of the documents above. The usual `check` does not include them.
+- If the display turns off while you test the GUI on a real machine, rendering stops and the cause of the failure is misread. On a Linux desktop, run the tests under `tools/display_power_guard.py` (`docs/voice-stack/linux-build-pipeline.md`).
+- When the impact is small, for example when only documents changed, verification may be scaled to match.
+
+## Verification and completion reports
+
+- Passing the light checks does not mean that the full tests or the checks on a real machine passed.
+- Report successes, failures, skips, checks not run and missing environments separately. For a failure, add the relevant lines of its output.
+- A completion report states these four points:
+  - The main points of the change
+  - The verification you ran, and its results
+  - The verification you did not run, and why
+  - Remaining concerns
+- Give measured values with the environment and conditions they were measured under. Do not present performance on one PC as a general guarantee.
+- Write a report in English following "Agent reports" in `docs/writing/english-guideline.md`, and a report in Japanese following "エージェントの報告文" in `docs/writing/japanese-guideline.md`.
+
+## Commits and the changelog
+
+The rules are the same as for human developers. The table of types, examples, the criteria for sorting changes and the release steps are in "Commit messages" and "Changelog and releases" in `CONTRIBUTING.md`.
+
+- Write commit messages in English as Conventional Commits 1.0.0. The form is `<type>(<scope>)!: <summary>`. The summary is in the imperative, starts in lower case and has no period. Describe what changed in the words of the people it affects.
+- Choose the type by what the change does: `feat` when users can do something new, `fix` for a bug users run into, and `feat(dev)`, `ci`, `build`, `chore` and the like for changes to development tools or CI only.
+- When a setting, a file format, an IPC or OSC contract, or a supported environment can no longer be used as before, mark it with `!` and a `BREAKING CHANGE:` footer. In the footer, write what users or developers need to do.
+- When the type alone would put a commit under the wrong CHANGELOG heading, add a `Changelog: user`, `Changelog: security`, `Changelog: internal` or `Changelog: skip` footer.
+- Some environments do not have the commit-msg hook installed. Before you commit, check the message with `cog verify "<message>"`, and also pass `python tools/dev.py check --scope commits --base origin/develop`.
+- `CHANGELOG.md` is written by `tools/changelog.py` and lists stable releases only. Do not edit it unless you were asked to prepare a stable release. To fix a section that has been written, first compare it with the output of `python tools/changelog.py print`. Changes in betas go in the notes of the GitHub prerelease, not in the CHANGELOG.
+- Do not use `cog bump`. Do not create tags or push them. A tag is created when a maintainer publishes the GitHub Releases draft.
+- When asked to prepare a release, set the version in `package.json`, then run `npm run update-version`. For a stable release only, then run `npm run changelog`. Make all of it one commit, `chore(release): version X.Y.Z`.
+
+## Design decision records (ADRs)
+
+`docs/adr/README.md` is the authoritative description of how to write ADRs and what their fields mean. Only the main points are listed here.
+
+- Keep ADRs only in `docs/adr/`. Start a new ADR from `docs/adr/TEMPLATE.md`, and do not reuse a number.
+- In the front matter at the top, record the state of adoption (`status`) and the state of implementation checks (`implementation_status`) separately. Do not take `accepted` alone as evidence that something is implemented. Do not make up values that have no evidence; if you have not checked, use `unknown`.
+- When you read an old ADR, look first at `era` (the assumptions at the time it was written) and `validity` (whether it still holds, whether only the way of implementing it changed, or whether a later ADR replaced it). The body is a record of the time it was written, so do not rewrite it; show what changed in the front matter, in notes or in a later ADR.
+- After you add an ADR or change front matter, regenerate the index table with `python tools/adr_catalog.py --write`. The `tooling` part of `check` runs it with `--check`, which checks for duplicate numbers, fields and values, evidence paths, links and an out-of-date table.
+- Put moves of files and metadata-only changes in a separate pull request from changes to what a decision says.
+
+## Skills
+
+Skills that set out work procedures are in `skills/`. `.claude/skills` and `.agents/skills` are symbolic links to `skills/`. When your work matches a skill, read the skill before you go on.
+
+- `adr`: when you write a design decision as an ADR, read one, correct its state or replace it
+- `pull-request`: from cutting a branch to merging into develop, including the pull request description, the conditions for merging, stacked pull requests and hotfixes cut from main
+- `release`: version bumps, release notes, drafts, publishing, the checks after publishing, and the merge that brings main back into develop
+- `jp-writing`: writing and revising Japanese text. Use it every time for release notes.
+
+In a clone set up not to create symbolic links (the default of Git on Windows), each link becomes a file that holds one line. In that case, read `skills/<name>/SKILL.md` directly. When a skill and another document disagree, do not decide mechanically that one of them is right; check, then fix it in the same pull request.
+
+## Important existing boundaries
+
+The details are in the authoritative document for each. Only the main points are listed here.
+
+- **External actions**: Contact upstream VRCT, propose that it take changes, or create a pull request for it (drafts included) only when explicitly instructed (`publication-and-upstream.md`). Push, open pull requests, publish Releases and upload to Hugging Face when the request covers it. A Release is published after a maintainer has checked it (`release-candidates.md`).
+- **Packages and licenses**: Do not put OCR weights (the upstream chat bubble detection model included), models without permission to redistribute, or the Mia2026 voice into the packages. When you change dependencies or bundled components, check `NOTICE.md` and the license register. List each model offered for download in the catalog (`native/ops/src/downloads/catalog.rs`) with its version, size, SHA-256 and license pinned. Enter the same fields for an OCR model in chat reading's table too (`native/ocr-runtime/src/models.rs`); `native/core/tests/downloads.rs` detects any mismatch. Do not make a model with a restrictive license, such as a non-commercial one, the default.
+- **Compatibility**: Do not bulk-replace the internal identifier `VRCT`, the settings format or the IPC and OSC contracts only because of a rename. When you change an identifier such as a storage location or the app ID, also provide a migration (`project-rename.md`).
+- **User actions and consent**: Download a model only after showing its license and size and getting consent. Make sure a UI change does not by itself turn on a microphone, download a model, send a message or change an audio route.
+- **Audio AI runtimes**: Bring in a new audio AI model first as an upstream contribution to speech.cpp. Add an app-specific inference engine or a separate runtime only when you have confirmed both a technical reason the existing foundation cannot do it and a clear advantage in performance, maintenance and distribution costs, and an ADR for that exception has approved it. The split is: audio AI inference (ASR, TTS, VAD, speaker, speech enhancement) goes to speech.cpp; OCR and local translation to ONNX Runtime; audio input and output and non-AI DSP to Rust and the OS; and control specific to the app, such as captions and OSC, to the app. As a managed exception, RVC keeps its ONNX Runtime implementation, and moving it is not required. The steps, non-functional requirements and verification are in ADR-012 (`docs/adr/adr-012-audio-ai-runtime-consolidation.md`).
+- **Stop and independent controls**: Keep the behavior of stop and mute, the separate switches for TTS and RVC, Quick Chat, the VR UI and hotkeys (`PRODUCT.md`, `DESIGN.md`).
+- **UI**: Keep the stack of React 19, vanilla-extract, Jotai and i18next. The staged move to TypeScript and Radix UI follows ADR-010, and the conventions for the mixed period are in `docs/development.md`. Do not migrate frameworks or bring in remote fonts. Put the text the app shows in `locales/`, and always update both `en.yml` and `ja.yml`. The text check in `check` (`tools/i18n_gate/check.mjs`) blocks missing keys, interpolation variables that differ and text hard-coded into the UI. Give a reason for any string left untranslated on purpose (`docs/development.md`, section "UIの文言と翻訳の検査" on checks of UI text and translations). Keyboard operation, visible focus, long Japanese text and narrow windows are also part of what you check. The UI is expected to run on both WebView2 on Windows and WebKitGTK on Linux. Use features that are Baseline Widely available as they are, and use newer features only with feature detection and a fallback display.
+- **Parallel work**: When you have split the work with another session, do not edit or commit files outside the scope you agreed on.
+
+## Updating AGENTS.md itself
+
+- You may correct paths, commands and references, or correct facts within existing policy, as part of related work.
+- To add a new prohibition, a new thing to protect or a new rule of approval in advance, or to make an existing rule stronger, first only propose it to the user.
+- A change that loosens an existing prohibition or an approval boundary is not treated as a simple correction of facts either.
+- When you add a condition to protect, write out the specification, behavior or compatibility to keep, rather than forbidding changes file by file, wherever you can.
+- You may tidy up temporary notes and duplicated explanations. Do not, however, delete protection conditions agreed with the user without asking.
+- Do not write here test counts, the latest commit, a list of what is unimplemented at a given time, performance figures on a particular PC, design proposals that have not been adopted, or instructions for one-off work.
+
+---
+
+# ASTAROT 開発エージェント向けガイド（日本語版）
 
 ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 19 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。Python のバックエンド（`src-python/`）は 0.6.0 で消しました。移植の記録は `docs/voice-stack/core-integration.md` にあります。アプリの表示名は ASTAROT です（ADR-011）。リポジトリは 0.5.0 の正式公開時に `kein5/astarot` へ改名しました。実行ファイル名、アプリ ID、OS ごとの保存先は `docs/voice-stack/project-rename.md` にあります。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 

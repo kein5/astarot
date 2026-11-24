@@ -16,7 +16,82 @@ evidence:
   - tools/check_site_search.mjs
   - .github/workflows/pages.yml
 ---
-# ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える
+# ADR-016: Build the user-facing site on Rspress (React) instead of VitePress
+
+[日本語版](#adr-016-利用者向けのサイトの土台を-vitepress-から-rspressreactに替える日本語版)
+
+Status: Accepted (2026-11-20). Of the decisions in the site redesign (PR #701), this replaces only "keep VitePress as the base" and "build the components in Vue". The other decisions do not change.
+Date: 2026-11-20
+Decision owners: the repository maintainers
+Related: PR #701, [Site redesign](../design/site-redesign/README.md), [Site inventory](../design/site-redesign/inventory.md), [ADR-010](adr-010-frontend-stack.md), "Components" in DESIGN.md, Issue #680, PR #690
+
+In this ADR, "the site" means the guide and manual for users that are published on GitHub Pages (`site/`).
+
+## 1. Context
+
+As of 2026-11-19, the site is built with VitePress 1.6.4 (Vue 3). The theme has about 20 Vue components, and the search screen is a copy (`LocalSearchBox.vue`, 1,019 lines) that imports internal files of VitePress 1.6.4. VitePress 1.6.4 does not emit each page's `*.lean.js` under Vite 8, so the site's Vite is pinned to the 6 series (PR #690).
+
+The PR #701 redesign decided to rebuild the components as in-house components modeled on the shadcn/ui design, and to align the colors with the DESIGN.md tokens. At that point it assumed that VitePress would stay as the base and that the components would be written in Vue.
+
+The app's UI is React 18 (ADR-010), and its components follow shadcn/ui ("Components" in DESIGN.md, Issue #680). shadcn/ui is written in React. Writing the site's components in Vue would add the work of translating shadcn/ui's React code into Vue, and would split what is learned about building components between two frameworks, one for the app and one for the site.
+
+## 2. Decision
+
+- Replace the site's base with Rspress (a static site generator written in React). As of 2026-11-20, the current version is in the 2 series.
+- Write the site's components in React, and port shadcn/ui's React code with the mapping rules in DESIGN.md.
+- The following do not change. They are the decisions of PR #701 and the commitments that other places refer to.
+  - The URLs that shipped apps, the README and SUPPORT.md open (`/ja/…`, `/en/…` and section anchors; `src-ui/logics/ui_configs.ts`)
+  - English and Japanese, full-text search of the page text, and publishing from develop to GitHub Pages
+  - Using the DESIGN.md tokens for colors, merging the guide and the manual into one, making `/manual/` a redirect page, and keeping the master copy of the mascot assets in `docs/brand/astarot/mascot/`
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not chosen |
+|---|---|---|
+| Keep VitePress and build the components in Vue (the assumption of PR #701) | Keep English and Japanese, search and publishing as they are, and rebuild only the components in Vue | Translating shadcn/ui's React code into Vue takes work for every component, and the site cannot use what was learned from the app's components. Moving to Vite 8 would also need a separate move to VitePress 2 (an alpha as of 2026-11-19) |
+| Keep VitePress and add shadcn-vue | Add the Vue version of the shadcn/ui components | It was decided not to add it when the redesign started. The master would be components built on a different implementation (Reka UI), not shadcn/ui itself |
+
+## 4. Consequences
+
+Gains
+
+- Site components can use shadcn/ui's React components directly as a reference, and can be written the same way as the app's components.
+- The copy of the VitePress search and the Vite pin caused by VitePress 1.6.4 go away. Rspress builds with Rsbuild (Rspack).
+
+Costs and risks
+
+- The migration takes work. Vue components are rewritten in React. Rspress does not render components inside `.md` files, so pages that use components become `.mdx`, and the Vue syntax (`v-slot`, `{.needs}`, `[[toc]]`) is replaced. The search check (`tools/check_site_search.mjs`) is rebuilt on the Rspress index.
+- Rspress emits the pages of the default language without a prefix. Keeping both `/ja/` and `/en/` needs a default language that covers only `/` (the language selection page). On 2026-11-20, with Rspress 2.1.3, it was confirmed that setting the default language to `mul` emits `/ja/…` and `/en/…` unchanged.
+- The search screen becomes the one Rspress provides. The feature that the current copy added (a list of pages when nothing has been typed) goes away.
+- The React version differs between the app (18) and the site (19, which Rspress 2 requires). Using the app's components on the site as they are would mean bridging this gap, and also the differences in how styles are written (the app uses vanilla-extract) and in the rem size (10 px in the app, 16 px on the site).
+
+Migration approach
+
+- The base migration is one stage. It swaps the base while keeping the URLs, section anchors, English and Japanese, search and publishing. The visual design and the component rebuild come in later stages, following the stages of the site redesign (chapter 5 of [Site redesign](../design/site-redesign/README.md)).
+
+## 5. Verification / Acceptance criteria
+
+| Aspect | What to confirm | How |
+|---|---|---|
+| URLs | The URLs and anchors that shipped apps, the README and SUPPORT.md open lead to the same pages and sections as before the migration | Compare the list of paths and heading ids in the built HTML with the list from before the migration. `tools/check_site_anchors.mjs` |
+| Search | Words in the middle of Japanese sentences, and English words, can be found | `tools/check_site_search.mjs`, which reads the Rspress index |
+| Languages | Each page's `<html lang>` is `ja` or `en`, and the English and Japanese pages point to each other with `hreflang` | The built HTML |
+| Publishing | A merge into develop publishes to GitHub Pages | `.github/workflows/pages.yml` |
+
+## 6. Revisit triggers
+
+- When Rspress development stops, or Rspress can no longer produce static output that GitHub Pages can host.
+- When a newer Rspress version no longer allows the default language to sit only at `/`.
+- When the app's UI moves from React to another framework (a review of ADR-010).
+
+## 7. Open questions
+
+- How component styles are written (CSS Modules or vanilla-extract), and whether the site shares the components in the app's `src-ui/views/kit/`. Decided in stage 4 of the site redesign.
+- Which Rspress version the migration uses, whether `/manual/` becomes a redirect in the migration stage, and the syntax for Markdown containers. Decided in the migration PR.
+
+---
+
+# ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える（日本語版）
 
 Status: 採用（2026-11-20）。サイトの再設計（PR #701）の決定のうち、「土台は VitePress のまま」と「部品は Vue で作る」だけを置き換える。ほかの決定は変えない。
 Date: 2026-11-20

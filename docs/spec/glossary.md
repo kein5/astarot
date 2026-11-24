@@ -1,4 +1,39 @@
-# 用語集
+# Glossary
+
+[日本語版](#用語集日本語版)
+
+Words used in the specification and the code. Names shown on screen follow `locales/en.yml`, under the same keys that the Japanese version takes from `locales/ja.yml`.
+
+| Term | Meaning | Name in the code |
+|---|---|---|
+| Sidecar | The earlier name for the backend. It handles translation, speech recognition, OSC and other processing. Up to 0.4 it was a Python process that the UI started; from 0.5.0 it is the Rust core that runs inside the app | `native/core`, `src-tauri/src/backend_host.rs` (up to 0.4: `bin/vrct-vox-sidecar`, `src-python/`) |
+| Endpoint | The destination of an IPC request or notification. A string such as `/get/data/…` | `mapping`, `run_mapping` |
+| Request | A message from the UI to the sidecar. A response always comes back | `asyncStdoutToPython` |
+| Notification | A message the sidecar sends on its own. The UI does not reply | `controller.run`, `/run/…` |
+| Initialization complete | The sidecar sending all settings together at startup | `/run/initialization_complete` |
+| Save bar | The bar at the top of the settings screen that shows the number of unsaved changes and the "Save" and "Discard" buttons | `SaveBar`, `setSaveBarEntry` |
+| Tab | The mechanism that switches between up to three pairs of language and translator (1 to 3) | `selected_tab_no` |
+| Your language, Target language | The language you speak, and the languages to translate into (up to three) | `selected_your_languages`, `selected_target_languages` |
+| Built-in model | The local translation model (M2M100) that runs inside the app on ONNX Runtime. The translation engine ID stays `CTranslate2` for compatibility (up to 0.4 it ran on CTranslate2). Local speech recognition uses the models of the bundled server (speech.cpp). The earlier transcription (Whisper) models went out of use in #288 | `weights/` |
+| Bundled server | The speech.cpp server that the app starts and manages (TTS and ASR) | `speech_server` |
+| External server | A speech.cpp server that the user started separately | `external` |
+| Audio route | The path that brings TTS and RVC audio to VRChat | `voice_route` |
+| Managed route | On screen: "Managed virtual microphone (Linux)". The route that uses a Linux virtual microphone the app creates. Mute works on both TTS and RVC | `managed`, `astarot.managed.source` |
+| Existing external cable | The route that uses a virtual cable the user prepared | `external` |
+| Input forwarding (RVC) | Converting the microphone voice with RVC and sending it to the virtual microphone (on Windows, to the output device) | `direct_voice` |
+| Generation number | A number that advances at every stop. It keeps TTS from earlier generations from playing | `generation`, `epoch`, `_voice_generation` |
+| Chat reading | The OCR feature that reads the VRChat chatbox from the screen | `ocr_capture` |
+| Realtime speech recognition | Speech recognition that shows subtitles while you are still speaking. The main switch uses it on Linux, and on Windows when the bundled server is chosen | `realtime_asr`, `/run/realtime_caption` |
+| Subtitle overlay | The display that shows the conversation in your VR view (single line, multiple lines) | `overlay_small_log`, `overlay_large_log` |
+| VR UI | The wrist launcher and windows you operate inside VR | `vr_panel` |
+| Quick Chat | An input-only window that opens with a hotkey | `quick_chat` |
+| OSCQuery | The mechanism for finding VRChat's OSC receiver. VRC mic mute sync uses it | `tinyoscquery` |
+| VRC mic mute sync | The feature that does not send microphone recognition results while you are muted in VRChat | `vrc_mic_mute_sync` |
+| Mic word filter | The feature that does not send recognition results containing words you listed | `mic_word_filter` |
+
+---
+
+# 用語集（日本語版）
 
 仕様書とコードで使う言葉。画面の名前は`locales/ja.yml`に合わせる。
 
