@@ -186,6 +186,45 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
     });
 }
 
+// #1111: a field that saves by itself saves when focus leaves it, puts the saved value back on
+// Escape, and says its problem under it, tied to the field for screen readers.
+test("a text field that saves by itself saves on leaving, reverts on Escape and says its problem", async () => {
+    const runtime = hooks(), inputRuntime = hooks();
+    inputRuntime.api.useImperativeHandle = () => {};
+    const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
+    const { EntryWithSaveButton } = await loadModule<typeof import("./entry_with_save_button/EntryWithSaveButton.tsx")>(
+        new URL("./entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime, { "../_atoms/_entry/_Entry": { _Entry } });
+    let saves = 0, reverts = 0;
+    const props: Parameters<typeof EntryWithSaveButton>[0] = { label: "Field", variable: "x", state: "ok", "aria-describedby": "help",
+        saveFunction: () => saves++, onRevert: () => reverts++, autoSave: true, error: null };
+    const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
+    let entry = entryOf(runtime.render(EntryWithSaveButton, props));
+    entry.props.onBlur();
+    assert.equal(saves, 1);
+    entry.props.onKeyDown(key("Escape"));
+    entry.props.onKeyDown(key("a"));
+    assert.equal(reverts, 1);
+    assert.equal(entry.props["aria-invalid"], undefined);
+    assert.equal(entry.props["aria-describedby"], "help");
+    props.error = "The window name is empty.";
+    const drawn = runtime.render(EntryWithSaveButton, props);
+    entry = entryOf(drawn);
+    const alert = findIn(drawn, node => node.props?.role === "alert");
+    assert.equal(alert.props.children, props.error);
+    assert.equal(entry.props["aria-invalid"], true);
+    assert.equal(entry.props["aria-describedby"], `help ${alert.props.id}`);
+    // While a save waits, leaving the field saves nothing more.
+    props.state = "pending";
+    entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur();
+    assert.equal(saves, 1);
+    // A field saved from the bar keeps its old behaviour: leaving it saves nothing, no problem is drawn.
+    props.autoSave = false; props.state = "ok";
+    const plain = runtime.render(EntryWithSaveButton, props);
+    assert.equal(entryOf(plain).props.onBlur, undefined);
+    assert.equal(all(plain, node => node.props?.role === "alert").length, 0);
+    runtime.unmount();
+});
+
 test("threshold Enter commits without blur or a duplicate blur-triggered save", async t => {
     const runtime = hooks(), saves: string[] = [], document: FakeDocument = { body: {} };
     stubGlobals(t, { document });

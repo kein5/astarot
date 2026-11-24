@@ -449,6 +449,9 @@ main_page:
     updating: "アップデート中..."
 
 config_page:
+    # A setting that saves by itself, said under its field when the save does not go through (#1111).
+    auto_save:
+        save_failed: "保存できなかったため、保存してある値のままです。値を確かめて、Enterを押すか欄を離れると、もう一度保存します。"
     custom_model_link: "自分のモデルを使う方法"
     about_vrct:
         image_links:

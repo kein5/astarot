@@ -449,6 +449,9 @@ main_page:
     updating: "Now updating..."
 
 config_page:
+    # A setting that saves by itself, said under its field when the save does not go through (#1111).
+    auto_save:
+        save_failed: "This could not be saved, so the saved value stays. Check the value, then press Enter or leave the field to try again."
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
