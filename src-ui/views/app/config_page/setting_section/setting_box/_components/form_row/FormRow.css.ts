@@ -53,7 +53,9 @@ export const description = style({
     },
 });
 
-export const control = style({ display: "grid", gap: ".8rem", justifyItems: "start", minWidth: 0 });
-globalStyle(`${control} > select, ${control} > input:not([type="checkbox"]), ${control} > textarea`, { width: "100%" });
+export const control = style({ display: "grid", gap: ".8rem", justifyItems: "end", minWidth: 0 });
+globalStyle(`${control} > input:not([type="checkbox"]), ${control} > textarea`, { width: "100%" });
+// Dropdowns stay compact to fit their content at the row's right end rather than stretching full width (#1096).
+globalStyle(`${control} > select`, { width: "fit-content", minWidth: "min(20rem, 100%)", maxWidth: "min(32rem, 100%)" });
 
-export const group = style({ display: "flex", flexWrap: "wrap", gap: ".8rem" });
+export const group = style({ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: ".8rem" });

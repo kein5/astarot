@@ -14,6 +14,8 @@ import * as styles from "./FormRow.css.ts";
 // hint instead; keepDescription keeps one on screen, such as the value in use.
 export interface FormRowProps {
     label: ReactNode;
+    // Current state or value kept in sight under the label, even while description is a hint (#1096).
+    status?: ReactNode;
     description?: string;
     children?: ReactNode;
     actions?: ReactNode;
@@ -27,7 +29,7 @@ export interface FormRowProps {
 // The control is a field, a select or a button, which take both.
 type RowControlProps = { id?: string; "aria-describedby"?: string };
 
-export const FormRow = ({ label, description, children, actions = null, group = false, fold = true, keepDescription = false, className }: FormRowProps) => {
+export const FormRow = ({ label, status = null, description, children, actions = null, group = false, fold = true, keepDescription = false, className }: FormRowProps) => {
     const id = useId();
     const control_element = isValidElement<RowControlProps>(children) ? children : null;
     const labelId = `${id}-label`, descriptionId = description ? `${id}-description` : undefined;
@@ -45,6 +47,7 @@ export const FormRow = ({ label, description, children, actions = null, group = 
             {hint
                 ? <div className={styles.label_line} data-hint-host>{labelElement}<Hint text={description} id={descriptionId} row /></div>
                 : labelElement}
+            {status && <p className={styles.description}>{status}</p>}
             {description && !hint && <Description id={descriptionId} text={description} className={styles.description} fold={fold} />}
         </div>
         <div className={styles.control}>

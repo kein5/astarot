@@ -119,6 +119,12 @@ globalStyle(inForm("select option"), { color: "var(--dark_200_color, #e5e7eb)", 
 // Where the engine can style a select's list (WebView2), the list drops from the field and
 // settles like the shared dropdown, with the same rows. Elsewhere (WebKitGTK) the system list stays.
 globalStyle(inForm("select"), {
+    width: "fit-content",
+    minWidth: "min(20rem, 100%)",
+    maxWidth: "min(32rem, 100%)",
+    justifySelf: "end",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     paddingRight: "3.6rem",
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.25 6 8l4-3.75' fill='none' stroke='%239daec6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat",
@@ -295,13 +301,22 @@ globalStyle(`${stop}.${is_idle}, ${stop}.${is_idle}:hover, ${stop}.${is_idle}:ac
 globalStyle(count, { justifySelf: "end", fontSize: "1.2rem", color: "var(--vox_description_text, #a3adc0)", fontVariantNumeric: "tabular-nums" });
 // A name that no shared row draws, such as a legend, with its hint mark on its line (#614).
 globalStyle(hinted, { display: "inline-flex", alignItems: "center", maxWidth: "100%" });
-// Buttons that belong to the fields above them start in the control column, where the
-// fields start (the label rows' 1fr / 1.6fr split with its 1.6rem gap), not under the labels (#473).
+// Buttons and notes that belong to the fields above them stay in the control column (the label
+// rows' 1fr / 1.6fr split with its 1.6rem gap) and align flush on the row's right end (#473, #1096).
 globalStyle(control_column, {
     marginInlineStart: "calc((100% - 1.6rem) / 2.6 + 1.6rem)",
     "@container": { [STACKED]: { marginInlineStart: 0 } },
     "@media": { [NARROW_WINDOW]: { marginInlineStart: 0 } },
 });
+globalStyle(`${actions}.${control_column}`, { justifyContent: "flex-end" });
+globalStyle(`div.${control_column}:not(.${actions})`, {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: ".8rem",
+});
+globalStyle(`p.${control_column}`, { textAlign: "end", justifySelf: "end" });
 globalStyle(error_code, { fontSize: "1.2rem", color: vars.dark_400_color, overflowWrap: "anywhere" });
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 globalStyle(download_entry, { display: "grid", gap: ".8rem", minWidth: 0 });
@@ -519,7 +534,7 @@ globalStyle(variants.join(", "), {
     "@container": { [NARROW_FACTS]: { gridTemplateColumns: "minmax(0, 1fr)" } },
 });
 globalStyle(variants.map(selector => `${selector} > :last-child`).join(", "), { fontSize: "1.3rem", color: vars.dark_200_color });
-globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", maxWidth: "100%" });
+globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" });
 // An official site, opened like the buttons beside it.
 globalStyle(link_button, { display: "inline-flex", alignItems: "center", minHeight: "4rem" });
 globalStyle(progress, {
