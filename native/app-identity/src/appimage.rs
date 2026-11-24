@@ -7,10 +7,17 @@
 //! audio helpers, `xdg-open`, the clipboard tools) is not part of the GUI: it gets the host's
 //! values back, so that it does not load the AppImage's libraries first. Outside an AppImage
 //! nothing is recorded and nothing changes.
+//!
+//! The Tauri plugins start programs this module does not reach (#1016). The URL opener runs
+//! `xdg-open`, which the AppImage's own `packaging/appimage/xdg-open` answers first in `PATH`: it
+//! gives the same values back from the record before it runs the host's. The restart after an
+//! in-app update starts the image again with the GUI's environment; `AppRun` then keeps the
+//! record it was given instead of recording the GUI's values as the host's.
 
 use std::process::Command;
 
-/// The variables `AppRun` keeps, in its order. A test holds this list to `AppRun`'s.
+/// The variables `AppRun` keeps, in its order. A test holds this list to `AppRun`'s and to the
+/// one the AppImage's `xdg-open` gives back (#1016).
 pub const HOST_VARIABLES: [&str; 16] = [
     "LD_LIBRARY_PATH",
     "PATH",
@@ -113,10 +120,13 @@ mod tests {
     }
 
     #[test]
-    fn the_list_is_the_one_apprun_keeps() {
-        let apprun = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging/appimage/AppRun")).unwrap();
-        let line = apprun.lines().find(|line| line.starts_with("for name in ")).expect("AppRun's loop over the kept names");
-        let names: Vec<&str> = line.trim_start_matches("for name in ").trim_end_matches("; do").split_whitespace().collect();
-        assert_eq!(names, HOST_VARIABLES);
+    fn the_list_is_the_one_apprun_keeps_and_xdg_open_gives_back() {
+        for script in ["AppRun", "xdg-open"] {
+            let path = format!("{}/../../packaging/appimage/{script}", env!("CARGO_MANIFEST_DIR"));
+            let text = std::fs::read_to_string(path).unwrap();
+            let line = text.lines().find(|line| line.starts_with("for name in ")).expect("the loop over the kept names");
+            let names: Vec<&str> = line.trim_start_matches("for name in ").trim_end_matches("; do").split_whitespace().collect();
+            assert_eq!(names, HOST_VARIABLES, "{script}");
+        }
     }
 }

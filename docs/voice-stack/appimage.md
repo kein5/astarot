@@ -103,7 +103,13 @@ through one function, `astarot_app_identity::appimage::restore_host_environment`
 model downloads (`native/ops`), the RVC worker (`native/voice-conversion`), the audio helpers
 (`native/audio-routing`'s `ProcessEnv`), the clipboard tools, `xdg-open`, `nvidia-smi` and the
 screen capture helper. A variable the code that starts a program sets itself is left as it
-sets it. Programs the Tauri plugins start (the URL opener, the updater) are not covered.
+sets it. The Tauri plugins start programs that function does not reach (#1016). The URL
+opener runs `xdg-open`, and the image's own `usr/bin/xdg-open` (`packaging/appimage/xdg-open`),
+first in the GUI's `PATH`, gives the host values back from the record before it runs the host's
+`xdg-open`. Without it a browser the opener starts loads the image's GTK and GLib. The updater
+starts no program on Linux: after it replaces the image, the app starts the image again with its
+own environment, and the launcher keeps the record it is given instead of recording the GUI's
+values as the host's.
 
 With the NVIDIA fallback active, the main window is also made opaque. The
 original transparent window lost its contents during ordinary startup/hover on
@@ -225,7 +231,7 @@ APPIMAGE_EXTRACT_AND_RUN=1 ./ASTAROT-<version>-linux-x64-release.AppImage
 
 イメージが読み込むのは同梱したGTKの入力メソッドのモジュールだけで、その中にfcitxとibusのモジュールはありません。`XMODIFIERS`が設定されておらず、fcitxかfcitx5かibus-daemonが動いているときは、起動スクリプトが`XMODIFIERS`をその入力メソッドに設定し、GTKのXIMのモジュールを選びます。これでMozcなどホストの入力メソッドからウィンドウに文字を入力できます。利用者が設定した`XMODIFIERS`はそのまま残します。
 
-起動スクリプトはこれらの変数と`LD_LIBRARY_PATH`、`PATH`、GTKとGIOの設定を変える前に、ホストでの値を`ASTAROT_APPIMAGE_HOST_<NAME>`と`ASTAROT_APPIMAGE_HOST_<NAME>_SET`に記録します。0.4までは、別の起動処理がこれらの値をPythonのバックエンドに戻していました。今はバックエンドがGUIのプロセスの中で動くので、バックエンドが起動するプログラムにはすべて、1つの関数`astarot_app_identity::appimage::restore_host_environment`を通してホストの値を戻します（#924の項目22）。対象はspeech.cppと翻訳のLLM（`native/speech-server`）、モデルの取得でGPUを一覧にする処理（`native/ops`）、RVCのワーカー（`native/voice-conversion`）、音声のヘルパー（`native/audio-routing`の`ProcessEnv`）、クリップボードのツール、`xdg-open`、`nvidia-smi`、画面の取り込みのヘルパーです。プログラムを起動するコードが自分で設定する変数はその値のまま残します。Tauriのプラグインが起動するプログラム（URLを開く処理、updater）は対象外です。
+起動スクリプトはこれらの変数と`LD_LIBRARY_PATH`、`PATH`、GTKとGIOの設定を変える前に、ホストでの値を`ASTAROT_APPIMAGE_HOST_<NAME>`と`ASTAROT_APPIMAGE_HOST_<NAME>_SET`に記録します。0.4までは、別の起動処理がこれらの値をPythonのバックエンドに戻していました。今はバックエンドがGUIのプロセスの中で動くので、バックエンドが起動するプログラムにはすべて、1つの関数`astarot_app_identity::appimage::restore_host_environment`を通してホストの値を戻します（#924の項目22）。対象はspeech.cppと翻訳のLLM（`native/speech-server`）、モデルの取得でGPUを一覧にする処理（`native/ops`）、RVCのワーカー（`native/voice-conversion`）、音声のヘルパー（`native/audio-routing`の`ProcessEnv`）、クリップボードのツール、`xdg-open`、`nvidia-smi`、画面の取り込みのヘルパーです。プログラムを起動するコードが自分で設定する変数はその値のまま残します。Tauriのプラグインが起動するプログラムには、この関数が届きません（#1016）。URLを開く処理は`xdg-open`を起動します。GUIの`PATH`の先頭にあるイメージの`usr/bin/xdg-open`（`packaging/appimage/xdg-open`）が、記録からホストの値を戻してから、ホストの`xdg-open`を起動します。これがないと、URLを開く処理が起動したブラウザーはイメージのGTKとGLibを読み込みます。updaterはLinuxではプログラムを起動しません。イメージを置き換えたあと、アプリは自分の環境のままイメージを起動し直します。そのとき起動スクリプトは、受け取った記録をそのまま使い、GUIの値をホストの値として記録し直しません。
 
 NVIDIA向けのフォールバックが有効なときは、メインのウィンドウも不透明にします。元の透明なウィンドウは最初のWebDriverの撮影の試験には通っていましたが、このホストでは通常の起動とホバーのときに中身が消えました。条件をそろえて比べると、透明をやめるだけで表示が戻りました。そのため、このモードではデスクトップが透けて見える表示と透明な角丸を使えません。代わりに「透明度」の設定がウィンドウの背景に対して中身を薄くすることがあります。Windowsとほかの描画の経路では設定した透明度を保ちます。
 
