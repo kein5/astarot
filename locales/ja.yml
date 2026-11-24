@@ -2409,7 +2409,7 @@ translation_catalog:
     group_help:
         engine: "お使いのPCの推論エンジンで動かす翻訳のモデルです。手元のモデルはフォルダーを指定して追加します。"
         api: "アプリがネットワーク越しに呼び出す翻訳のサービスです。お使いのPCやLANの中のサーバーも含みます。アドレスとモデルとキーを指定して追加します。"
-    none_added: "まだ追加していません。"
+    none_added: "自分で追加した項目はまだありません。下の「{{add}}」から追加できます。"
     shipped_title: "アプリに含まれる項目（{{count}}件）"
     # TranslateGemmaのような翻訳のLLMを動かすllama.cppのサーバー（ADR-015）。
     llamacpp:
