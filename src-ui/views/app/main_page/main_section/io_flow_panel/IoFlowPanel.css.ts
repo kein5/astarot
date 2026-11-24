@@ -72,18 +72,3 @@ globalStyle(`${title_line} [data-slot="tooltip-content"]`, { top: "calc(100% + .
 
 export const title = style({ fontSize: "1.6rem", fontWeight: 600, margin: 0 });
 
-export const close = style({
-    minHeight: "3.2rem",
-    padding: ".4rem 1.2rem",
-    borderRadius: vars.vox_radius,
-    fontSize: "1.3rem",
-    fontWeight: 500,
-    color: vars.dark_200_color,
-    background: vars.vox_surface,
-    border: `.1rem solid ${vars.vox_border}`,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-    },
-});

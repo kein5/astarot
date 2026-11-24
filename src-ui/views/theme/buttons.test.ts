@@ -61,7 +61,6 @@ const mediumButtons = [
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const copy_error_message_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const status_link_button = style({"],
     [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button`, {"],
-    [views + "app/main_page/main_section/io_flow_panel/IoFlowPanel.css.ts", "export const close = style({"],
     [views + "app/main_page/main_section/language_selector/language_selector_top_bar/LanguageSelectorTopBar.css.ts", "export const go_back_button_wrapper = style({"],
 ];
 
