@@ -17,6 +17,7 @@ import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import type { VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 // The speech.cpp roles, each with its server and its voice.
 const ROLES: readonly VoiceModelRole[] = ["japanese", "multilingual"];
@@ -53,13 +54,14 @@ export const VoiceSettings = () => {
     }, [send]);
     if (!draft) return <div>
         <p role="status">{error ? t("voice.error") : t("voice.loading")}</p>
-        <button type="button" onClick={() => send("/get/data/voice_settings")}>{t("voice.retry")}</button>
+        <Button onClick={() => send("/get/data/voice_settings")}>{t("voice.retry")}</Button>
     </div>;
     const field = (key: string, value: string) => setDraft(previous => ({ ...previous, [key]: value }));
     const input = (key: string) => {
         const voice = key.endsWith("_voice");
         return <label>{t(`voice.${key}`)}
-            <input value={voice && draft[key] === "none" ? "" : draft[key]}
+            {/* The kit's TextField; an address is in the monospaced font (#476). */}
+            <TextField mono={!voice} value={voice && draft[key] === "none" ? "" : draft[key]}
                 placeholder={voice ? t("voice_ui.voice_unset") : t("voice_ui.example", { value: "http://127.0.0.1:8080" })}
                 onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
         </label>;
@@ -94,7 +96,7 @@ export const VoiceSettings = () => {
                     {["1", "2", "3"].map(slot => <option key={slot}>{slot}</option>)}
                 </select></label>
                 <FormRow label={t("voice.output_device")} description={t("voice_ui.output_hint")}
-                    actions={<button type="button" onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</button>}>
+                    actions={<Button onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</Button>}>
                     <select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
                         onChange={e => field("output_device", e.target.value)}>
                         <option value="">{t("voice.select_output")}</option>
@@ -188,7 +190,7 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
         {!draft ? <p role="status">{error ? t("voice.error") : t("voice.loading")}</p> :
             <fieldset className={styles.fields} disabled={saving}>
                 <FormRow label={t("voice.output_device")} description={t("voice_ui.output_hint")}
-                    actions={<button type="button" onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</button>}>
+                    actions={<Button onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</Button>}>
                     <select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
                         onChange={e => setDraft(previous => ({ ...previous, output_device: e.target.value }))}>
                         <option value="">{t("voice.select_output")}</option>
