@@ -5,7 +5,6 @@ import { componentName, componentOf, find, findIn, hooks, loadModule, nodesIn, t
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as cloudTranscription from "../../../../../../logics/configs/cloudTranscription.ts";
 import * as utils from "../../../../../../logics/utils.ts";
-import * as uiConfigs from "../../../../../../logics/ui_configs.ts";
 
 // The speech recognition settings page (Transcription.tsx) drawn with the real list of API
 // engines and the real number lists, part by part. The transcription settings hook is a stand-in
@@ -192,7 +191,6 @@ test("each API provider's key is saved or deleted with its own name and key page
         save.deleteFunction?.();
         assert.deepEqual(actions(p.calls.splice(0)), [[`set${engine.base}AuthKey`, "new"], [`delete${engine.base}AuthKey`]], engine.id);
     }
-    assert.deepEqual([uiConfigs.groq_auth_key_url, uiConfigs.openai_auth_key_url, uiConfigs.deepgram_auth_key_url].length, 3);
     // A key row of an engine with an address of its own says what the key is for.
     const custom = cloudTranscription.CLOUD_TRANSCRIPTION_ENGINES.find(engine => engine.has_url);
     assert.ok(custom);
