@@ -47,7 +47,8 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its start (checkboxes, lone buttons, radios) or end.
+    // Where the control sits in the field column: its end (checkboxes, lone icon buttons) or its
+    // start (radios, text buttons).
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -163,8 +164,8 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: checkboxes, lone buttons and radios start at
-        // the column's left edge, matching FormRow (#567, #1096); everything else fills it.
+        // Where the control sits in the field column: checkboxes and lone icon buttons flush at its
+        // right end (#473, #1096); radios and text buttons at its left start; everything else fills it (#567).
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
     });
@@ -243,7 +244,7 @@ export const SliderContainer = (props: SliderContainerProps) => (
 export type CheckboxContainerProps = TemplateRowProps & Omit<CheckboxProps, "aria-describedby">;
 
 export const CheckboxContainer = (props: CheckboxContainerProps) => (
-    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="start" />
+    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="end" />
 );
 
 export type EntryWithSaveButtonContainerProps = TemplateRowProps & EntryWithSaveButtonProps;
@@ -289,7 +290,7 @@ export const AuthKeyContainer = (props: AuthKeyContainerProps) => {
 export type ActionButtonContainerProps = TemplateRowProps & ActionButtonProps;
 
 export const ActionButtonContainer = (props: ActionButtonContainerProps) => (
-    <CommonContainer Component={ActionButton} {...props} add_break_point={false} control_align="start"/>
+    <CommonContainer Component={ActionButton} {...props} add_break_point={false} control_align="end" />
 );
 
 

@@ -24,11 +24,11 @@ export const auto_export_message_logs_container = style({
 });
 globalStyle(`${auto_export_message_logs_container} > *`, { minWidth: 0, maxWidth: "100%" });
 
-// The checkbox starts the field column, with the folder button beside it.
+// The checkbox sits flush at the row's right end, with the folder button beside it (#1096).
 export const auto_export_message_logs_switch_section_container = style({
     display: "flex",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     minWidth: 0,
     maxWidth: "100%",
     alignItems: "center",

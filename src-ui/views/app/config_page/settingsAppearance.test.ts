@@ -173,7 +173,7 @@ test("word-filter input/Add and export controls wrap within the actual available
     assert.match(shared, /globalStyle\(`\$\{auto_export_message_logs_container\} > \*`, \{ minWidth: 0, maxWidth: "100%" \}\)/);
     const switchRules = styleOf(shared, "auto_export_message_logs_switch_section_container");
     assert.match(switchRules, /flexWrap: "wrap"/);
-    assert.match(switchRules, /justifyContent: "flex-start"/);
+    assert.match(switchRules, /justifyContent: "flex-end"/);
     assert.match(switchRules, /minWidth: 0/);
     assert.match(switchRules, /maxWidth: "100%"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {

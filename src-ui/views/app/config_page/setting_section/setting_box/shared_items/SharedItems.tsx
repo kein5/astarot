@@ -64,18 +64,18 @@ export const AutoExportMessageLogsContainer = () => {
                 desc={t("config_page.others.auto_export_message_logs.desc")}
                 />
             <div className={styles.auto_export_message_logs_switch_section_container}>
-                <Checkbox
-                    label={t("config_page.others.auto_export_message_logs.label")}
-                    variable={currentEnableAutoExportMessageLogs}
-                    toggleFunction={toggleEnableAutoExportMessageLogs}
-                    padding="0.6rem"
-                />
                 <ActionButton
                     label={t("config_page.others.auto_export_message_logs.open_folder")}
                     IconComponent={OpenFolderSvg}
                     ClickedIconComponent={CheckMarkSvg}
                     clicked_duration={1000}
                     onclickFunction={openFolder_MessageLogs}
+                />
+                <Checkbox
+                    label={t("config_page.others.auto_export_message_logs.label")}
+                    variable={currentEnableAutoExportMessageLogs}
+                    toggleFunction={toggleEnableAutoExportMessageLogs}
+                    padding="0.6rem"
                 />
             </div>
         </div>

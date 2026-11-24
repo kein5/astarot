@@ -6,7 +6,7 @@ export const is_clicked = style({});
 export const is_pending = style({});
 
 // A 4rem square framed button at rest (matching PageLinkButton and the forms' controls), so its
-// left edge sits flush with the field column's start (#1096) instead of floating on bare padding.
+// right edge sits flush with the row's end (#1096) instead of floating on bare padding.
 export const button_wrapper = style({
     position: "relative",
     display: "inline-flex",
@@ -41,14 +41,14 @@ export const button_svg = style({
 export const loader = style(spinner({ size: "2rem", lineWidth: ".2rem", position: "left", positionAmount: "50%" }));
 
 // The button's tooltip (action_label), the app's one tooltip look (tooltipContent):
-// under the button, from its left edge outwards, since the button stands at the field column's start.
+// under the button, from its right edge inwards, since the button stands at the row's end.
 export const container = style({ position: "relative" });
 export const tip = style({
     display: "none",
     position: "absolute",
     zIndex: 1500,
     top: "calc(100% + .4rem)",
-    left: 0,
+    right: 0,
     ...tooltipContent,
     pointerEvents: "none",
     selectors: {

@@ -1,8 +1,9 @@
 import { expect, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 
-// #1096: setting controls (checkboxes, action buttons, short text/number/color inputs, selects,
-// and FormRow actions) share one field-column start edge across settings pages.
+// #1096: setting controls align in two steady columns by control kind across settings pages:
+// inputs, selects, color inputs, and text/FormRow buttons start at the field column's left edge;
+// standalone checkboxes and standalone icon buttons sit flush at the row's right end.
 test.use({
     viewport: { width: 1280, height: 800 },
     settings: {
@@ -14,8 +15,9 @@ test.use({
 interface RowControlMeasurement {
     label: string;
     kind: string;
-    left: number;
-    expectedLeft: number;
+    align: "start" | "end";
+    edge: number;
+    expectedEdge: number;
 }
 
 const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
@@ -28,12 +30,13 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
 
         const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
         const gapPx = 1.6 * rootFontSize;
-        // Exact field-column start for a 1fr / 1.6fr grid with 1.6rem gap inside this row's own width
-        // (independent of whether a classic scrollbar is shown on a tall vs short page).
+        // Exact field-column start and row right end for a 1fr / 1.6fr grid with 1.6rem gap inside
+        // this row's own width (independent of whether a classic scrollbar is shown on tall vs short pages).
         const columnStartOf = (row: Element) => {
             const rect = row.getBoundingClientRect();
             return Math.round(rect.left + (rect.width - gapPx) / 2.6 + gapPx);
         };
+        const rowRightOf = (row: Element) => Math.round(row.getBoundingClientRect().right);
 
         const results: RowControlMeasurement[] = [];
         const isVisible = (element: Element) =>
@@ -50,7 +53,7 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
                 ?? row.children[0]?.textContent
                 ?? "").trim().replace(/\s+/g, " ").slice(0, 48);
 
-            // Pick the primary leading visual control in the field column.
+            // Pick the primary visual control in the field column.
             const checkboxVisual = controlCell.querySelector<HTMLElement>('input[type="checkbox"] + span');
             const entryBox = controlCell.querySelector<HTMLElement>('[data-slot="input"]')?.parentElement;
             const dropdown = controlCell.querySelector<HTMLElement>('[role="combobox"]');
@@ -60,13 +63,24 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             const target = checkboxVisual ?? entryBox ?? dropdown ?? select ?? formInput ?? button;
             if (!target || !isVisible(target)) continue;
 
+            const isStandaloneCheckbox = Boolean(checkboxVisual && (checkboxVisual.closest("label")?.textContent ?? "").trim() === "");
+            const isStandaloneIconButton = Boolean(!checkboxVisual && !entryBox && !dropdown && !select && !formInput && button && (button.textContent ?? "").trim() === "");
             const kind = checkboxVisual ? "checkbox"
                 : entryBox ? "entry"
                     : dropdown ? "dropdown"
                         : select ? "select"
                             : formInput ? "input"
-                                : "button";
-            results.push({ label, kind, left: Math.round(target.getBoundingClientRect().left), expectedLeft: columnStartOf(row) });
+                                : isStandaloneIconButton ? "icon-button"
+                                    : "button";
+            const align: "start" | "end" = isStandaloneCheckbox || isStandaloneIconButton ? "end" : "start";
+            const rect = target.getBoundingClientRect();
+            results.push({
+                label,
+                kind,
+                align,
+                edge: Math.round(align === "end" ? rect.right : rect.left),
+                expectedEdge: align === "end" ? rowRightOf(row) : columnStartOf(row),
+            });
         }
 
         // Plain <label> rows in voice forms (e.g. pitch, index rate) share the same two-column grid.
@@ -75,37 +89,66 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             const input = labelElement.querySelector<HTMLElement>('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select');
             if (!input || !isVisible(input)) continue;
             const label = (labelElement.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 48);
-            results.push({ label, kind: input.tagName.toLowerCase(), left: Math.round(input.getBoundingClientRect().left), expectedLeft: columnStartOf(labelElement) });
+            results.push({
+                label,
+                kind: input.tagName.toLowerCase(),
+                align: "start",
+                edge: Math.round(input.getBoundingClientRect().left),
+                expectedEdge: columnStartOf(labelElement),
+            });
         }
 
         return results;
     });
 
-test("settings row controls share one field-column left edge across Advanced, Experimental, RVC, and Device", async ({ app }) => {
-    const assertPageAligned = (pageName: string, items: RowControlMeasurement[], minCount: number) => {
-        expect(items.length, `${pageName}: measured rows`).toBeGreaterThanOrEqual(minCount);
-        const pageLeft = items[0].expectedLeft;
-        for (const item of items) {
-            expect(Math.abs(item.left - item.expectedLeft), `${pageName} "${item.label}" (${item.kind}): left=${item.left}, expected ${item.expectedLeft}`).toBeLessThanOrEqual(2);
-            expect(Math.abs(item.left - pageLeft), `${pageName} "${item.label}" (${item.kind}): left=${item.left}, page column=${pageLeft}`).toBeLessThanOrEqual(2);
+test("settings controls keep two steady alignment columns by kind across Advanced, Experimental, RVC, and Device", async ({ app }) => {
+    const assertPageAligned = (
+        pageName: string,
+        items: RowControlMeasurement[],
+        minStart: number,
+        minEnd: number,
+    ) => {
+        const startItems = items.filter(item => item.align === "start");
+        const endItems = items.filter(item => item.align === "end");
+        expect(startItems.length, `${pageName}: left-aligned field rows`).toBeGreaterThanOrEqual(minStart);
+        expect(endItems.length, `${pageName}: right-aligned checkbox/icon rows`).toBeGreaterThanOrEqual(minEnd);
+
+        const pageLeft = startItems[0]?.expectedEdge ?? 0;
+        for (const item of startItems) {
+            expect(Math.abs(item.edge - item.expectedEdge), `${pageName} "${item.label}" (${item.kind}): left=${item.edge}, expected ${item.expectedEdge}`).toBeLessThanOrEqual(2);
+            expect(Math.abs(item.edge - pageLeft), `${pageName} "${item.label}" (${item.kind}): left=${item.edge}, page column=${pageLeft}`).toBeLessThanOrEqual(2);
         }
-        return pageLeft;
+
+        const pageRight = endItems[0]?.expectedEdge ?? 0;
+        for (const item of endItems) {
+            expect(Math.abs(item.edge - item.expectedEdge), `${pageName} "${item.label}" (${item.kind}): right=${item.edge}, expected ${item.expectedEdge}`).toBeLessThanOrEqual(2);
+            expect(Math.abs(item.edge - pageRight), `${pageName} "${item.label}" (${item.kind}): right=${item.edge}, page right=${pageRight}`).toBeLessThanOrEqual(2);
+        }
+
+        return { pageLeft, pageRight };
     };
 
+    // Advanced: short/color inputs & selects align on the field column's left edge;
+    // standalone checkboxes (including SharedItems) and standalone icon buttons align flush on the row's right end.
     await app.openSettings("Advanced");
     await app.page.waitForTimeout(300);
-    assertPageAligned("Advanced", await measureRowControls(app.page), 20);
+    const advancedItems = await measureRowControls(app.page);
+    assertPageAligned("Advanced", advancedItems, 5, 9);
+    expect(advancedItems.some(item => item.kind === "icon-button" && item.align === "end"), "Advanced has right-aligned standalone icon buttons").toBe(true);
 
-    // Experimental features: checkboxes, dropdowns, and the lone VR launcher reset button all align.
+    // Experimental features: dropdowns align on the field column's left edge;
+    // checkboxes and the lone VR launcher reset icon button share the row's right end.
     await app.page.getByRole("button", { name: "Experimental", exact: true }).click();
     await app.page.waitForTimeout(300);
-    assertPageAligned("Experimental", await measureRowControls(app.page), 5);
+    const experimentalItems = await measureRowControls(app.page);
+    assertPageAligned("Experimental", experimentalItems, 1, 3);
+    expect(experimentalItems.some(item => item.kind === "icon-button" && item.align === "end"), "Experimental has right-aligned reset icon button").toBe(true);
 
     // Voice changer (RVC): FormRow buttons (audio route, RVC switch, monitor), numeric inputs,
-    // input select + refresh button, Start/Stop buttons, and the disabled-start reason align.
+    // input select + refresh button, Start/Stop buttons, and the disabled-start reason align on the field column's left edge.
     await app.page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).click();
     await app.page.waitForTimeout(300);
-    const rvcLeft = assertPageAligned("RVC", await measureRowControls(app.page), 6);
+    const { pageLeft: rvcLeft } = assertPageAligned("RVC", await measureRowControls(app.page), 6, 0);
     const startButtonLeft = await app.page.getByRole("button", { name: "Start input forwarding" }).evaluate(el => Math.round(el.getBoundingClientRect().left));
     expect(Math.abs(startButtonLeft - rvcLeft), `RVC Start button left=${startButtonLeft}, expected ${rvcLeft}`).toBeLessThanOrEqual(2);
     const monitorButtonLeft = await app.page.locator('[data-setting-id="rvc_settings"] [data-page-pointer="tts"]').evaluate(el => Math.round(el.getBoundingClientRect().left));
