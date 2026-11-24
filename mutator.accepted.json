@@ -15,6 +15,10 @@
     "reason": "A file in use is always prepared (isPrepared), so no button, hint or review reads whether it is downloaded.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:288:43 \"in_use\" -> \"\""
   },
+  "1125rdboytw": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:9 !text || !query -> false"
+  },
   "112xv3769bj": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1562:17 typeof settings[downloadKey] === \"function\" -> true"
@@ -50,6 +54,10 @@
   "14l9hc3i7dq": {
     "reason": "The dependencies are constant either way, so the clean-up runs once, when the window closes.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:108:60 [] -> [\"Stryker was here!\"]"
+  },
+  "14qoj453sp0": {
+    "reason": "The clear button is there only while the query is not empty and clearing empties it, so the list closes and the query's effect sets the index to -1 before anything reads it.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:126:26 -1 -> +1"
   },
   "14ttwg4pcti": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
@@ -95,17 +103,41 @@
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:27 dismissed !== target -> true"
   },
+  "19b07orixsg": {
+    "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VcRuntimeSetup.tsx:49:69 false -> true"
+  },
   "19oho4g4eyp": {
     "reason": "Number.isFinite is false for every value that is not a number.",
     "where": "src-ui/logics/common/initializationFields.ts:32:36 typeof value === \"number\" -> true"
+  },
+  "19te8oo6sxz": {
+    "reason": "The field starts without the focus, so the first drawing shows no list and names no result whatever the first index is, and the query's effect sets it to -1 as soon as the bar is drawn.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:55:56 -1 -> +1"
   },
   "19yyz18l3v0": {
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1a28mz0truy": {
+    "reason": "Both lists are constant, so the listener is added once when the bar is drawn and removed when it goes, as with an empty list.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:83:8 [] -> [\"Stryker was here!\"]"
+  },
   "1a3tuns6ixg": {
     "reason": "Once stopped, invalidate schedules nothing and the hover mark is already cleared, so a late pointer changes nothing.",
     "where": "src-ui/views/vr/vrPanelHover.ts:56:17 disposed -> false"
+  },
+  "1adzl5265p9": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> false"
+  },
+  "1am6nq8w6xm": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null || val === undefined -> false"
+  },
+  "1aq9seou8y3": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:120:44 sendNum > props.max -> sendNum >= props.max"
   },
   "1bkbgsdppm1": {
     "reason": "The apply endpoints contain model_download and user_model, whose failed answers have already returned above, so only 200 answers get here.",
@@ -122,6 +154,10 @@
   "1bsq1yecy1": {
     "reason": "A null answer stops at reading its settings either way, and null settings spread into the defaults add nothing, as undefined does.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:47:111 value !== null -> true"
+  },
+  "1bu26k3zesi": {
+    "reason": "With the index at -1 the result there is missing and Enter falls back to the first result; at 0 the highlighted result is that same first result, so the same result is chosen either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:112:17 selectedIndex >= 0 -> selectedIndex > 0"
   },
   "1c147xa0ble": {
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
@@ -174,6 +210,10 @@
   "1gfulamo4eu": {
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
     "where": "src-ui/logics/configs/ocrReadiness.ts:33:59 1 - Math.min(value, 1 - MIN_REGION_SIDE) -> 1 + Math.min(value, 1 - MIN_REGION_SIDE)"
+  },
+  "1gqpkqrwqiy": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:121:44 sendNum < props.min -> sendNum <= props.min"
   },
   "1gtfp6z6cjn": {
     "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
@@ -255,6 +295,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
   },
+  "1n39071ylm0": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:21 \"\" -> \"Stryker was here!\""
+  },
   "1nmsphl7t5u": {
     "reason": "The tooltip is already null whenever the effect stops early: it starts null, and the clean-up of the run before hid it.",
     "where": "src-ui/views/vr/VrTooltip.tsx:72:33 setTip(null); -> ;"
@@ -282,6 +326,10 @@
   "1oxv3qpqgcc": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same values, so the entry already in the map is the same as the merged one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:883:9 mergedMap.set(ep, merged); -> ;"
+  },
+  "1p0a0ccz8t4": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null -> (val === \"\" && val === null)"
   },
   "1p3026bjvnt": {
     "reason": "A model registered after the name was sent has a new id, which neither the same-name models nor all models had before.",
@@ -335,6 +383,10 @@
     "reason": "A placeholder string in place of the empty engine list has no id, so no engine is found for the provider either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:165:55 [] -> [\"Stryker was here!\"]"
   },
+  "1syyf6nx6s2": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null || val === undefined -> ((val === \"\" || val === null) && val === undefined)"
+  },
   "1taa8erx1ec": {
     "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:117:57 ?. -> ."
@@ -346,6 +398,10 @@
   "1tus9zgw8r6": {
     "reason": "The hook's own mount effect sets mounted to true before any of its functions runs: the controller registers from a later effect of the same component, and an edit comes from input, which React handles after pending effects.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:150:48 true -> false"
+  },
+  "1txxlxwjod3": {
+    "reason": "Every sign a pattern reads is escaped first, so the pattern is always valid and the catch is never reached.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:44:13 { return text; } -> {}"
   },
   "1ua0bhtskyc": {
     "reason": "The only merged routes are the weight template's get and set routes, whose hook is also named by other routes with a namespace, so their routes still find it in hook_results without one.",
@@ -427,6 +483,10 @@
     "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:103 previous.filter(k => k !== kind) -> previous"
   },
+  "216wjl9ktbr": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the field is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:55:8 [] -> [\"Stryker was here!\"]"
+  },
   "21k2093idx8": {
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
     "where": "src-ui/logics/configs/ocrReadiness.ts:33:17 \"x\" -> \"\""
@@ -442,6 +502,10 @@
   "22pgmoyzs0d": {
     "reason": "With the managed microphone no device is left out either way: no device has an empty id or the placeholder as its id.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.tsx:78:117 \"\" -> \"Stryker was here!\""
+  },
+  "233818hvdle": {
+    "reason": "With no highlighted result the index is -1, and the list has no row at -1, so nothing is scrolled either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:87:13 selectedIndex >= 0 -> true"
   },
   "2368ydn5pix": {
     "reason": "A null answer is read through optional chaining either way, so it gives no status and no settings.",
@@ -551,6 +615,14 @@
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
   },
+  "2fcg3th5nj8": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:35 props.id === \"mic_threshold\" -> false"
+  },
+  "2ffbsw7qz06": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:43 val === undefined -> false"
+  },
   "2fgwclb2jaz": {
     "reason": "show_label_values is a list or null (its type, with null as the default for undefined), and for both the two conditions read the same.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:374:13 show_label_values && Array.isArray(show_label_values) -> (show_label_values || Array.isArray(show_label_values))"
@@ -591,6 +663,10 @@
     "reason": "modelAdvice defaults to the time now and to a reserve, and the readout reads only the device and whether there are several GPUs, which depend on neither.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:91:47 { now: Date.now(), reserveBytes: reserveBytes(reserve) } -> {}"
   },
+  "45v3fmcqgj": {
+    "reason": "A valid submit already cleared the problem, and nothing can be submitted while the request is pending, so the problem is empty when the answer comes.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/AsrApiEntries.tsx:117:47 setProblem(null); -> ;"
+  },
   "4ccr56bwqo": {
     "reason": "With no saved model the setup line tests an empty name or the placeholder against .pth, and neither ends with it.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:150:61 \"\" -> \"Stryker was here!\""
@@ -607,6 +683,10 @@
     "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:20 Object.entries(textsOf(item)).filter(([, value]) => isTexts… -> Object.entries(textsOf(item))"
   },
+  "5en5w1734s": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null -> false"
+  },
   "5oh06psc7v": {
     "reason": "The dependencies are constant either way, so the callback is made once.",
     "where": "src-ui/views/vr/VrPickerList.tsx:113:8 [] -> [\"Stryker was here!\"]"
@@ -622,6 +702,10 @@
   "64k3eefbq7": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1561:17 typeof settings[downloadedKey] === \"function\" -> true"
+  },
+  "6gehj58ug3": {
+    "reason": "With the index at -1 there is no result at -1, so the field names no result either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:159:54 selectedIndex >= 0 -> true"
   },
   "6j3zousmcb": {
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
@@ -647,9 +731,17 @@
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
   },
+  "9kvul0o75j": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:9 !text || !query -> (!text && !query)"
+  },
   "9mu2c7j4nw": {
     "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:92 \"engine\" -> \"\""
+  },
+  "ac9vjcj13c": {
+    "reason": "The review button sets the consent to false before it opens the dialog, the only place the consent is read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VcRuntimeSetup.tsx:33:79 false -> true"
   },
   "ad4vcjgb17": {
     "reason": "Neither the empty string nor the placeholder is INPUT, so a key on a target without a tag registers nothing either way.",
@@ -679,6 +771,10 @@
     "reason": "String() returns a string unchanged, so a saved key reads the same either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:416:46 typeof value === \"string\" -> false"
   },
+  "ct38ypcqqd": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> true"
+  },
   "czax1bhot4": {
     "reason": "default is the last case, so dropping its break changes nothing, and the rest of the block is a console.warn.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:294:22 { console.warn(`No handler defined for action: ${actionKey}… -> {}"
@@ -691,9 +787,21 @@
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
   },
+  "d9gqbdggg2": {
+    "reason": "The bar draws the results only while the query has more than spaces, so the trimmed query is never empty here.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:25:9 !q -> false"
+  },
   "dj2eqjhf9h": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1558:17 typeof settings[updateDownloadProgressKey] === \"function\" -> true"
+  },
+  "dk76y4e5pj": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" -> false"
+  },
+  "dm5htixbzq": {
+    "reason": "Marked as sent before anything was sent, the first drawing clears a form that is still empty, and the mark is dropped at once.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/AsrApiEntries.tsx:94:25 false -> true"
   },
   "e3ymkr1q68": {
     "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
@@ -710,6 +818,10 @@
   "fgke2j7b33": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1560:17 typeof settings[pendingKey] === \"function\" -> true"
+  },
+  "fm3beqnr2a": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:107:58 num > props.max -> num >= props.max"
   },
   "ga1yx9qeac": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
@@ -739,9 +851,25 @@
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
   },
+  "hzuw47zozr": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:62 { const restored = lastSavedValueRef.current ?? \"\"; setInpu… -> {}"
+  },
+  "i2xhuioylm": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:67:35 props.id === \"mic_threshold\" -> true"
+  },
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "ik87jxkif8": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:109:47 num < props.min -> num <= props.min"
+  },
+  "ila77b5ctp": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:67:93 \"vr_panel.speaker_threshold\" -> \"\""
   },
   "iy86bs7o2g": {
     "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
@@ -779,9 +907,25 @@
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:859:18 ?. -> ."
   },
+  "lpw8zq5jmt": {
+    "reason": "Only digits reach this point and an empty value has returned already, so the number is never NaN.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:106:13 !Number.isNaN(num) -> true"
+  },
+  "mjkmljnn5n": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:78:40 num > props.max -> num >= props.max"
+  },
+  "mzk5j2bz8a": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:66 \"vr_panel.mic_threshold\" -> \"\""
+  },
   "n0p7w6fey0": {
     "reason": "A missing value only reaches the 24-character test as a short string, and the placeholder is 17 characters, also short.",
     "where": "src-ui/views/vr/VrSettingsRows.tsx:69:37 \"\" -> \"Stryker was here!\""
+  },
+  "nbcbao9eva": {
+    "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/slider_and_meter/SliderAndMeter.tsx:99:48 \"mic_threshold\" -> \"\""
   },
   "nenv4pov5z": {
     "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
@@ -851,9 +995,17 @@
     "reason": "When the saved value is 0 the fallback gives the same 0 (Automatic).",
     "where": "src-ui/logics/configs/rvcBlockChoices.ts:13:35 saved === RVC_BLOCK_AUTO -> false"
   },
+  "rjs6jr4b6y": {
+    "reason": "With the index at -1 the result there is missing and Enter falls back to the first result; at 0 the highlighted result is that same first result, so the same result is chosen either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:112:17 selectedIndex >= 0 -> true"
+  },
   "sbtarrmxnw": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:234:74 -1 -> +1"
+  },
+  "scmwbayr5z": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> (text && null)"
   },
   "sjfitidyhe": {
     "reason": "Closing leaves no dialog to read the acknowledged restrictions, and the review button empties them before the next one opens.",
@@ -866,6 +1018,10 @@
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
+  },
+  "swwlvkrtz6": {
+    "reason": "With no highlighted choice the index is -1, and the list's children hold nothing at -1, so the optional call scrolls nothing whether or not the effect returns early.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.tsx:74:13 activeIndex < 0 -> false"
   },
   "t00o16h496": {
     "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
@@ -907,6 +1063,10 @@
     "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
   },
+  "v8gd8t350l": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:79:40 num < props.min -> num <= props.min"
+  },
   "vb0q8etmm0": {
     "reason": "On the RVC page the conversion is always shown and always RVC, so the other half of the condition is already true.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:160:10 variant === \"rvc\" -> false"
@@ -922,6 +1082,14 @@
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:115:43 false -> true"
+  },
+  "wuz5m7rpkh": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:27 val === null -> false"
+  },
+  "wyqyzfle8p": {
+    "reason": "A value that is not a number comes from the page's threshold or the saved one, which both set the last value saved, so that value is never missing here.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:72:59 \"\" -> \"Stryker was here!\""
   },
   "wzzni2tpjd": {
     "reason": "open() sets the query to an empty one before any list is drawn, so its first value is never shown.",
