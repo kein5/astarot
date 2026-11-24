@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as shapes from "../../../../../../logics/support/gpuCheck.ts";
 
@@ -12,16 +12,16 @@ const REPORT = {
 
 // The node the test reads next: one that is not there fails here, as reading it did.
 // Whether the node is the button that shows the key.
-const labelled = (key: string) => (node: TreeNode) => node.type === "button" && node.props.children === key;
+const labelled = (key: string) => (node: TreeNode) => node.type === kitStandIns.Button && node.props.children === key;
 
 // #288: the user starts the check, reads all of the report, and opens a GitHub issue with it.
-async function setup(check: shapes.GpuCheckView) {
+async function setup(check: shapes.GpuCheckView, isCopied = false) {
     const runtime = hooks(), calls: string[] = [], copied: string[] = [], opened: string[] = [];
     const { GpuCheck } = await loadModule<typeof import("./GpuCheck.tsx")>(new URL("./GpuCheck.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "@tauri-apps/api/core": { isTauri: () => true },
         "@tauri-apps/plugin-opener": { openUrl: async (url: string) => { opened.push(url); } },
-        "@logics_common": { useCopyToClipboard: () => ({ is_copied: false, copyToClipboard: async (text: string) => { copied.push(text); } }) },
+        "@logics_common": { useCopyToClipboard: () => ({ is_copied: isCopied, copyToClipboard: async (text: string) => { copied.push(text); } }) },
         "../../../../../../logics/support/useGpuCheck.ts": { useGpuCheck: () => ({
             check, start: async () => { calls.push("start"); }, stop: async () => { calls.push("stop"); } }) },
         "../../../../../../logics/support/gpuCheck.ts": shapes,
@@ -85,6 +85,10 @@ test("the whole report is shown before it is copied or sent, and the issue carri
     assert.deepEqual(s.copied, [text, text]);
     assert.equal(s.opened.length, 1);
     assert.equal(new URL(s.opened[0]).searchParams.get("report"), text);
+    // Once copied, the button says so for a moment.
+    const copied = await setup({ ...shapes.IDLE_GPU_CHECK, run: 1, outcome: "done", report: REPORT, text }, true);
+    assert.ok(find(copied.render(), labelled(key("copied"))));
+    assert.equal(find(copied.render(), labelled(key("copy"))), null);
 });
 
 test("a check that did not complete says why", async () => {

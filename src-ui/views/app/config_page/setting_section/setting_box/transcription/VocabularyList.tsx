@@ -5,6 +5,7 @@ import * as styles from "./VocabularyList.css.ts";
 import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { Fold } from "../_components/fold/Fold";
+import { Button, TextField } from "../../../../../kit/index.ts";
 import { addTerm, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut }
     from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { AddResult, DictionaryRow, ReadingsChange, Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
@@ -90,14 +91,14 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
             {/* A new term: its written form and readings, at the head of the list it joins. */}
             <div className={styles.add}>
                 <label className={styles.addField}>{t("realtime.vocabulary_new_written")}
-                    <input value={written} readOnly={disabled} spellCheck={false} maxLength={300}
+                    <TextField value={written} readOnly={disabled} spellCheck={false} maxLength={300}
                         placeholder={t("realtime.vocabulary_new_written_placeholder")}
                         onChange={event => typing(setWritten)(event.target.value)} onKeyDown={onAddKey} /></label>
                 <label className={styles.addField}>{t("realtime.vocabulary_new_readings")}
-                    <input value={readings} readOnly={disabled} spellCheck={false} maxLength={300}
+                    <TextField value={readings} readOnly={disabled} spellCheck={false} maxLength={300}
                         placeholder={t("realtime.vocabulary_new_readings_placeholder")}
                         onChange={event => typing(setReadings)(event.target.value)} onKeyDown={onAddKey} /></label>
-                <button type="button" disabled={disabled || !written.trim()} onClick={add}>{t("realtime.vocabulary_add")}</button>
+                <Button disabled={disabled || !written.trim()} onClick={add}>{t("realtime.vocabulary_add")}</Button>
             </div>
             <p role="status" className={added && !added.result.ok ? styles.problem : undefined}>{added ? addedText(t, added) : ""}</p>
             <ul className={styles.rows} aria-label={t("realtime.vocabulary_list", { count: rows.length - removed })}>
@@ -109,13 +110,13 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
                         {isEditing
                             ? <span className={styles.edit}>
                                 <span className={styles.editLine}>
-                                    <input value={typed} readOnly={disabled} spellCheck={false} maxLength={300} autoFocus
+                                    <TextField value={typed} readOnly={disabled} spellCheck={false} maxLength={300} autoFocus
                                         aria-label={t("realtime.vocabulary_readings_of", { term })}
                                         aria-describedby={trial && !trial.ok ? `${id}-problem` : undefined}
-                                        aria-invalid={trial && !trial.ok ? true : undefined}
+                                        invalid={!!trial && !trial.ok}
                                         onChange={event => setTyped(event.target.value)} onKeyDown={onEditKey} />
-                                    <button type="button" disabled={disabled || !trial?.ok} onClick={apply}>{t("realtime.vocabulary_readings_apply")}</button>
-                                    <button type="button" onClick={() => setEditing(null)}>{t("realtime.vocabulary_readings_cancel")}</button>
+                                    <Button disabled={disabled || !trial?.ok} onClick={apply}>{t("realtime.vocabulary_readings_apply")}</Button>
+                                    <Button onClick={() => setEditing(null)}>{t("realtime.vocabulary_readings_cancel")}</Button>
                                 </span>
                                 {trial && !trial.ok && <span id={`${id}-problem`} className={styles.problem} role="status">
                                     {t(trial.reason === "full" ? "realtime.vocabulary_readings_full" : "realtime.vocabulary_readings_invalid")}</span>}
@@ -125,24 +126,24 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
                                     : <span className={styles.none}>{t("realtime.vocabulary_no_reading")}</span>}
                             </span>}
                         {!isEditing && <span className={styles.actions}>
-                            {row.state !== "removed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => startEdit(row)}
-                                aria-label={t("realtime.vocabulary_change_readings_of", { term })}>{t("realtime.vocabulary_change_readings")}</button>}
-                            {row.state === "changed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
-                                aria-label={t("realtime.vocabulary_restore_of", { term })}>{t("realtime.vocabulary_restore")}</button>}
+                            {row.state !== "removed" && <Button tone="quiet" size="compact" disabled={disabled} onClick={() => startEdit(row)}
+                                aria-label={t("realtime.vocabulary_change_readings_of", { term })}>{t("realtime.vocabulary_change_readings")}</Button>}
+                            {row.state === "changed" && <Button tone="quiet" size="compact" disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
+                                aria-label={t("realtime.vocabulary_restore_of", { term })}>{t("realtime.vocabulary_restore")}</Button>}
                             {row.state === "own"
-                                ? <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(deleteOwn(vocabulary, row.term))}
-                                    aria-label={t("realtime.vocabulary_remove", { term })}>{t("realtime.vocabulary_remove_short")}</button>
+                                ? <Button tone="danger" size="compact" disabled={disabled} onClick={() => onVocabulary(deleteOwn(vocabulary, row.term))}
+                                    aria-label={t("realtime.vocabulary_remove", { term })}>{t("realtime.vocabulary_remove_short")}</Button>
                                 : row.state === "removed"
-                                    ? <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
-                                        aria-label={t("realtime.vocabulary_put_back_of", { term })}>{t("realtime.vocabulary_put_back")}</button>
-                                    : <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(takeOut(vocabulary, row.term))}
-                                        aria-label={t("realtime.vocabulary_take_out_of", { term })}>{t("realtime.vocabulary_take_out")}</button>}
+                                    ? <Button tone="quiet" size="compact" disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
+                                        aria-label={t("realtime.vocabulary_put_back_of", { term })}>{t("realtime.vocabulary_put_back")}</Button>
+                                    : <Button tone="quiet" size="compact" disabled={disabled} onClick={() => onVocabulary(takeOut(vocabulary, row.term))}
+                                        aria-label={t("realtime.vocabulary_take_out_of", { term })}>{t("realtime.vocabulary_take_out")}</Button>}
                         </span>}
                     </li>;
                 })}
             </ul>
-            {builtin && vocabulary.builtin !== false && <div><button type="button" disabled={disabled || (!changed && !removed)}
-                onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</button></div>}
+            {builtin && vocabulary.builtin !== false && <div><Button disabled={disabled || (!changed && !removed)}
+                onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</Button></div>}
         </Fold>
     );
 };

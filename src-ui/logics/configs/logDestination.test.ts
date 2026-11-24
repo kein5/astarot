@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { findIn, hooks, loadModule, nodesIn } from "../test/hookHarness.ts";
+import { findIn, hooks, kitStandIns, loadModule, nodesIn } from "../test/hookHarness.ts";
 import { localeAt, readLocale } from "../test/locales.ts";
 import { createInitializationValidators } from "../common/initializationFields.ts";
 import {
@@ -191,9 +191,11 @@ test("LogDestinationContainer auto-saves valid paths, blocks invalid syntax clie
     assert.equal(findIn(tree, node => node.type === "entry-input").props.ui_variable, "/missing/dir");
 
     // Reset button sends null and clears the error.
-    const buttons = nodesIn(tree).filter(node => node.type === "button");
+    const buttons = nodesIn(tree).filter(node => node.type === kitStandIns.Button);
     const resetButton = buttons.find(node => node.props.children === "config_page.others.auto_export_message_logs.reset_folder");
     assert.ok(resetButton);
+    // The kit's plain buttons; pressing one does not save the field as its focus leaves.
+    assert.deepEqual(buttons.map(node => [node.props.tone, node.props["data-skip-blur-commit"]]), [[undefined, "true"], [undefined, "true"]]);
     await resetButton.props.onClick();
     tree = env.renderLog();
     assert.deepEqual(env.sent, ["/missing/dir", null]);
@@ -203,7 +205,7 @@ test("LogDestinationContainer auto-saves valid paths, blocks invalid syntax clie
 test("LogDestinationContainer chooses a folder via native picker and surfaces picker failures inline", async () => {
     const okEnv = await mountDestinationRows({ pickResult: { ok: true, path: "/picked/logs" } });
     let tree = okEnv.renderLog();
-    const chooseBtn = nodesIn(tree).find(node => node.type === "button" && node.props.children === "config_page.others.auto_export_message_logs.choose_folder");
+    const chooseBtn = nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "config_page.others.auto_export_message_logs.choose_folder");
     assert.ok(chooseBtn);
     await chooseBtn.props.onClick();
     tree = okEnv.renderLog();
@@ -212,7 +214,7 @@ test("LogDestinationContainer chooses a folder via native picker and surfaces pi
 
     const failEnv = await mountDestinationRows({ pickResult: { ok: false, error_code: "folder_picker_unavailable" } });
     tree = failEnv.renderLog();
-    const failBtn = nodesIn(tree).find(node => node.type === "button" && node.props.children === "config_page.others.auto_export_message_logs.choose_folder");
+    const failBtn = nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "config_page.others.auto_export_message_logs.choose_folder");
     assert.ok(failBtn);
     await failBtn.props.onClick();
     tree = failEnv.renderLog();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { find, findIn, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { find, findIn, hooks, loadModule, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // Chat reading's models as a part of a catalog (#831): a bar with their readout, cards in the
@@ -10,7 +10,7 @@ const MODEL = { id: "ppocr", target: "ocr", name: "PP-OCR small", provider: "Pad
     notice: "ppocr", artifacts: [], total_bytes: 31_457_280, destination: "/models/ocr", source: "https://example.invalid/ppocr" };
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
 
-async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> = {}) {
+async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> = {}, pending: object | null = null) {
     const runtime = hooks();
     const sent: unknown[] = [];
     const { OcrModels } = await loadModule<typeof import("./OcrModels.tsx")>(new URL("./OcrModels.tsx", import.meta.url), runtime, {
@@ -18,7 +18,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": {},
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: { catalog_version: "1", models: [MODEL] },
-            state: { jobs }, error: null, pending: null, send: (...request: unknown[]) => sent.push(request) }) },
+            state: { jobs }, error: null, pending, send: (...request: unknown[]) => sent.push(request) }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts",
             CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
@@ -69,11 +69,11 @@ test("a model's card says its state by the catalogs' badges, why it is listed, i
         const words = nodesIn(missing).filter(node => node.type === "dd").map(node => node.props.children);
         assert.ok(words.includes("30.0 MB"), layout);
         assert.ok(nodesIn(missing).some(node => node.type === "dd" && [node.props.children].flat().join("").includes("PaddlePaddle")), layout);
-        findIn(missing, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+        findIn(missing, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review").props.onClick();
         // Downloaded: the filled badge, and nothing left to do.
         const there = card(s.draw({ missing: [] }));
         assert.equal(state(there)["data-tone"], "downloaded");
-        assert.equal(find(there, node => node.type === "button"), null);
+        assert.equal(find(there, node => node.type === kitStandIns.Button), null);
     }
 });
 
@@ -83,7 +83,19 @@ test("a download in progress says so on its card, with its progress and a way to
     assert.equal(state(running)["data-tone"], "working");
     assert.deepEqual(findIn(running, node => node.type === "progress").props.value, 10_485_760);
     assert.ok(find(running, node => node.type === "readout"), "what runs, on the card");
-    findIn(running, node => node.type === "button" && node.props.children === "model_downloads.cancel").props.onClick();
+    findIn(running, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.cancel").props.onClick();
     assert.deepEqual(s.sent.at(-1), ["/run/cancel_model_download", { id: "ppocr", job_id: "job" }]);
-    assert.equal(find(running, node => node.type === "button" && node.props.children === "model_downloads.review"), null);
+    assert.equal(find(running, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review"), null);
+});
+
+test("the cancel waits while a request is out or the download is being cancelled, and a finished job has none", async () => {
+    const cancel = (tree: TreeNode) => find(card(tree), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.cancel");
+    const downloading = { job_id: "job", phase: "downloading", received_bytes: 1, total_bytes: 2 };
+    assert.equal(cancel((await ocrModels("list", { ppocr: downloading })).draw({ missing: ["ppocr"] }))?.props.disabled, false);
+    assert.equal(cancel((await ocrModels("list", { ppocr: downloading }, { endpoint: "/run/start_model_download" })).draw({ missing: ["ppocr"] }))?.props.disabled, true);
+    assert.equal(cancel((await ocrModels("list", { ppocr: { ...downloading, phase: "cancelling" } })).draw({ missing: ["ppocr"] }))?.props.disabled, true);
+    // A failed job is not running: nothing to cancel, and the review is offered again.
+    const failed = (await ocrModels("list", { ppocr: { job_id: "job", phase: "failed", error_code: "download_failed" } })).draw({ missing: ["ppocr"] });
+    assert.equal(cancel(failed), null);
+    assert.ok(find(card(failed), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review"));
 });
