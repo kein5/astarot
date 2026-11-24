@@ -41,4 +41,6 @@ terms:
     reason: unit (milliseconds)
   - text: px
     reason: unit (pixels)
-paths: []
+paths:
+  - path: src-ui/views/kit_catalog/
+    reason: the UI kit's component catalog (Storybook, npm run dev:catalog); a development tool that is not in the build. Its stories name variants and states in the code's words and show the app's text through locales/
