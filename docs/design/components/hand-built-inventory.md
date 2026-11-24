@@ -165,7 +165,7 @@ Dialogs that open over a screen. Each one is a native `<dialog>` written on its 
 | Window | Location | Hand-built elements | Replacement | Difficulty | Complications |
 |---|---|---|---|---|---|
 | Quick Chat | `quick_chat/QuickChat.tsx` (`quick-chat.html`) | `<textarea>`, the send `<button>` | The input field: U-06; send: the kit's `Button` | Medium | It waits for the same shared component (U-06) as the main input field |
-| Tray companion | `companion_panel/CompanionPanel.tsx` | The feature `<button role="switch">` elements, the buttons that open and hide the main window | The kit's `Switch`, the kit's `Button` | Medium | Keep the way waiting (`aria-busy`) is shown |
+| Tray companion | `companion_panel/CompanionPanel.tsx` | The feature `<button role="switch">` elements, the buttons that open and hide the main window | The kit's `Switch`, the kit's `Button` (replaced, #1171; each row is the switch's label) | Medium | Keep the way waiting (`aria-busy`) is shown |
 | Companion handle | `companion_handle/CompanionHandle.tsx` | The feature buttons (`aria-pressed`), the choice of the edge to place it on (`aria-pressed`), the menu items, the hexagonal `polygon role="button"` | Not replaced (H-03) | — | It stays outside the comparison. It is not replaced even after U-03 and U-04 are added to the kit |
 | Error screen | `others/error_boundary/AppErrorBoundary.tsx` | The button that copies the error and the update button (the close button is `CloseButton`) | Not replaced (H-03) | — | This screen appears when rendering breaks, so it is safer not to add dependencies |
 | Subtitle overlay | `caption_overlay/` | No controls | — | — | Outside the comparison |
@@ -381,7 +381,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 窓 | 場所 | 手作りしている要素 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|---|
 | Quick Chat | `quick_chat/QuickChat.tsx`（`quick-chat.html`） | `<textarea>`、送信の `<button>` | 入力欄は U-06、送信は kit の `Button` | 中 | メインの入力欄と同じ受け皿（U-06）を待ちます |
-| トレイのコンパニオン | `companion_panel/CompanionPanel.tsx` | 機能の `<button role="switch">`、メインを開くと隠すのボタン | kit の `Switch`、kit の `Button` | 中 | 待ち（`aria-busy`）の表し方を保ちます |
+| トレイのコンパニオン | `companion_panel/CompanionPanel.tsx` | 機能の `<button role="switch">`、メインを開くと隠すのボタン | kit の `Switch`、kit の `Button`（置き換えた、#1171。行はスイッチのラベル） | 中 | 待ち（`aria-busy`）の表し方を保ちます |
 | コンパニオンの取っ手 | `companion_handle/CompanionHandle.tsx` | 機能のボタン（`aria-pressed`）、置く辺の選択（`aria-pressed`）、メニューの項目、六角形の `polygon role="button"` | 対象にしない（H-03） | — | 照合の外のまま。U-03 と U-04 を kit に足しても、置き換えません |
 | エラーの画面 | `others/error_boundary/AppErrorBoundary.tsx` | エラーを写すボタンと更新のボタン（閉じるボタンは `CloseButton`） | 対象にしない（H-03） | — | 描画が壊れたときに出す画面なので、依存を増やさない方が安全です |
 | 字幕のオーバーレイ | `caption_overlay/` | 操作なし | — | — | 照合の外 |
