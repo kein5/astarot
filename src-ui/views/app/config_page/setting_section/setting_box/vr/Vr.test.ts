@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, componentName, componentOf, drawWith } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, findIn, componentName, componentOf, drawWith } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime } from "../../../../../../logics/test/hookHarness.ts";
 
 // The hook of that name in the runtime: one the runtime does not have fails where it is called.
@@ -114,7 +114,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     active = runtimes.overlay;
     const sample = findIn(drawWith(runtimes.overlay, overlay), item => componentName(item) === "SendSampleTextToggleButton");
     active = runtimes.button;
-    const button = () => findIn(drawWith(runtimes.button, sample, {}), item => item.type === "button");
+    const button = () => findIn(drawWith(runtimes.button, sample, {}), item => item.type === kitStandIns.Button);
 
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
     // #912: the words keep the longer one's width, so the button does not shrink when pressed.
@@ -217,12 +217,12 @@ test("sample text button stays disabled with a hint while both caption overlays 
     const sample = findIn(drawWith(runtimes.overlay, overlay), item => componentName(item) === "SendSampleTextToggleButton");
     active = runtimes.button;
     const draw = () => drawWith(runtimes.button, sample, {});
-    const button = () => findIn(draw(), item => item.type === "button");
+    const button = () => findIn(draw(), item => item.type === kitStandIns.Button);
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
 
     // Both off: button is disabled, explains why, and clicking never enters sending.
     const initialTree = draw();
-    const initialButton = findIn(initialTree, item => item.type === "button");
+    const initialButton = findIn(initialTree, item => item.type === kitStandIns.Button);
     const hint = find(initialTree, item => item.type === "p" && item.props.children === "config_page.vr.sample_text_button.needs_overlay");
     assert.equal(initialButton.props.disabled, true);
     assert.ok(hint && initialButton.props["aria-describedby"] === hint.props.id);
@@ -234,7 +234,7 @@ test("sample text button stays disabled with a hint while both caption overlays 
     // Turning on large log enables the button and removes the hint.
     largeOn = true;
     const enabledTree = draw();
-    const enabledButton = findIn(enabledTree, item => item.type === "button");
+    const enabledButton = findIn(enabledTree, item => item.type === kitStandIns.Button);
     assert.equal(enabledButton.props.disabled, false);
     assert.equal(enabledButton.props["aria-describedby"], undefined);
     assert.equal(find(enabledTree, item => item.type === "p"), null);

@@ -40,8 +40,6 @@ const mediumButtons = [
     [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm("button"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({"],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button`, {"],
-    [box + "vr/Vr.css.ts", "export const sample_text_button = style({"],
-    [box + "vr/Vr.css.ts", "export const restore_default_settings_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({"],
     [views + "app/others/modal_controller/ModalController.css.ts", "export const close_button = style({"],
     [views + "app/config_page/topbar/Topbar.css.ts", "export const back = style({"],

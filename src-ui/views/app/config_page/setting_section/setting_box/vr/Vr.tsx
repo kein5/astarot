@@ -19,6 +19,7 @@ import {
 } from "../_components";
 
 import { ResetButton } from "@common_components";
+import { Button } from "../../../../../kit/index.ts";
 
 import {
     useVr,
@@ -140,13 +141,13 @@ export const Vr = () => {
             </div>
             <DesktopCaptionOverlay part="details" />
             <CommonSettingsContainer />
-            <button
+            <Button
                 className={styles.restore_default_settings_button}
                 data-setting-id="restore_default_settings"
                 onClick={restoreDefaultSettings}
             >
                 {t("config_page.vr.restore_default_settings")}
-            </button>
+            </Button>
             </AdvancedSection>
             {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
             <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
@@ -770,13 +771,13 @@ const SendSampleTextToggleButton = () => {
         ? t("config_page.vr.sample_text_button.stop")
         : t("config_page.vr.sample_text_button.start");
 
-    // A plain button whose words say what pressing it does; the row beside it says why. It keeps the
-    // width of the longer words, so it does not shrink under the pointer when pressed (#912).
+    // The kit's plain button whose words say what pressing it does, Lilac (primary) while it sends;
+    // the row beside it says why. It keeps the width of the longer words, so it does not shrink
+    // under the pointer when pressed (#912).
     return (
         <div className={styles.sample_text_button_wrapper}>
-            <button
-                type="button"
-                className={clsx(styles.sample_text_button, { [styles.is_started]: is_sending })}
+            <Button
+                tone={is_sending ? "primary" : "plain"}
                 onClick={toggleFunction}
                 disabled={!has_enabled_overlay}
                 aria-label={label}
@@ -788,7 +789,7 @@ const SendSampleTextToggleButton = () => {
                     <TriangleSvg className={styles.sample_text_button_triangle_svg} aria-hidden="true" />
                 )}
                 <StableWords current={label} words={[t("config_page.vr.sample_text_button.start"), t("config_page.vr.sample_text_button.stop")]} />
-            </button>
+            </Button>
             {!has_enabled_overlay && (
                 <p id={note_id} className={styles.sample_text_hint}>
                     {t("config_page.vr.sample_text_button.needs_overlay")}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, componentOf, find, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, find, findIn, hooks, kitStandIns, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { ui_configs } from "../../../../../../logics/ui_configs.ts";
 
@@ -166,8 +166,9 @@ test("restoring the defaults puts both logs and the open editor back", async con
     const e = editor(p);
     e.draw();
     findIn(e.draw(), node => componentName(node) === "PositionControls").props.onChangeFunction("x_pos", 0.3);
-    const button = findIn(p.drawPage(), node => node.type === "button" && node.props["data-setting-id"] === "restore_default_settings");
+    const button = findIn(p.drawPage(), node => node.type === kitStandIns.Button && node.props["data-setting-id"] === "restore_default_settings");
     assert.equal(textOf(button), "config_page.vr.restore_default_settings");
+    assert.deepEqual([button.props.tone, button.props.className], [undefined, "restore_default_settings_button"], "the kit's plain button, placed by the page");
     button.props.onClick();
     assert.deepEqual(p.calls, [["setOverlaySmallLogSettings", smallDefaults], ["setOverlayLargeLogSettings", largeDefaults]]);
     assert.deepEqual(findIn(e.draw(), node => componentName(node) === "PositionControls").props.settings, smallDefaults);
@@ -439,22 +440,23 @@ test("sample text needs an overlay turned on: without one the button waits and s
     const sample = part(editor(p).draw(), "SendSampleTextToggleButton");
     const draw = () => p.draw(sample.type, {}, runtime);
     let tree = draw();
-    let button = findIn(tree, node => node.type === "button");
+    let button = findIn(tree, node => node.type === kitStandIns.Button);
     const note = findIn(tree, node => node.type === "p");
     assert.deepEqual([button.props.disabled, button.props["aria-describedby"], note.props.id, textOf(note)],
         [true, note.props.id, note.props.id, "config_page.vr.sample_text_button.needs_overlay"]);
     button.props.onClick();
-    assert.equal(findIn(draw(), node => node.type === "button").props["aria-label"], "config_page.vr.sample_text_button.start", "pressed anyway, nothing starts");
+    assert.equal(findIn(draw(), node => node.type === kitStandIns.Button).props["aria-label"], "config_page.vr.sample_text_button.start", "pressed anyway, nothing starts");
     // The multi-line log alone is enough.
     p.values.currentIsEnabledOverlayLargeLog = ok(true);
     tree = draw();
-    button = findIn(tree, node => node.type === "button");
+    button = findIn(tree, node => node.type === kitStandIns.Button);
     assert.deepEqual([button.props.disabled, button.props["aria-describedby"], find(tree, node => node.type === "p")], [false, undefined, null]);
     const idleIcon = [button.props.children].flat()[0].type;
-    assert.equal(classesOf(button).length, 1);
+    // The kit's plain button, Lilac (primary) while it sends.
+    assert.equal(button.props.tone, "plain");
     button.props.onClick();
-    button = findIn(draw(), node => node.type === "button");
-    assert.deepEqual([button.props["aria-label"], classesOf(button).length], ["config_page.vr.sample_text_button.stop", 2]);
+    button = findIn(draw(), node => node.type === kitStandIns.Button);
+    assert.deepEqual([button.props["aria-label"], button.props.tone], ["config_page.vr.sample_text_button.stop", "primary"]);
     assert.notEqual([button.props.children].flat()[0].type, idleIcon, "a stop square while it sends");
     vi.advanceTimersByTime(1000);
     assert.deepEqual(p.calls.at(-1), ["sendTextToOverlay", "config_page.vr.sample_text_button.sample_text config_page.vr.sample_text_button.sample_text"]);
@@ -466,22 +468,22 @@ test("sample text needs an overlay turned on: without one the button waits and s
     vi.advanceTimersByTime(3000);
     assert.equal(p.calls.length, sent);
     p.values.currentIsEnabledOverlaySmallLog = ok(true);
-    button = findIn(draw(), node => node.type === "button");
+    button = findIn(draw(), node => node.type === kitStandIns.Button);
     assert.equal(button.props["aria-label"], "config_page.vr.sample_text_button.start");
     // The step buttons' triangle is the start icon.
     assert.equal([button.props.children].flat()[0].type, idleIcon);
     // Closing settings stops the samples; opening them again does not restart them.
-    findIn(draw(), node => node.type === "button").props.onClick();
-    assert.equal(findIn(draw(), node => node.type === "button").props["aria-label"], "config_page.vr.sample_text_button.stop");
+    findIn(draw(), node => node.type === kitStandIns.Button).props.onClick();
+    assert.equal(findIn(draw(), node => node.type === kitStandIns.Button).props["aria-label"], "config_page.vr.sample_text_button.stop");
     p.page.open = false;
     draw();
     p.page.open = true;
-    assert.equal(findIn(draw(), node => node.type === "button").props["aria-label"], "config_page.vr.sample_text_button.start");
+    assert.equal(findIn(draw(), node => node.type === kitStandIns.Button).props["aria-label"], "config_page.vr.sample_text_button.start");
     const quietCalls = p.calls.length;
     vi.advanceTimersByTime(3000);
     assert.equal(p.calls.length, quietCalls);
     // Without either setting known yet, there is no overlay to send to.
     const unknown = await vrPage(context, { values: { currentIsEnabledOverlaySmallLog: undefined, currentIsEnabledOverlayLargeLog: undefined } });
     const quiet = part(editor(unknown).draw(), "SendSampleTextToggleButton");
-    assert.equal(findIn(unknown.draw(quiet.type), node => node.type === "button").props.disabled, true);
+    assert.equal(findIn(unknown.draw(quiet.type), node => node.type === kitStandIns.Button).props.disabled, true);
 });
