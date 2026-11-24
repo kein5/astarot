@@ -10,6 +10,7 @@ import { ctranslate2_weight_type_status } from "../../ui_configs.ts";
 import type { SaveButtonLogicOptions, SettingLogicsEntry, SliderLogicOptions } from "./useSettingsLogics.ts";
 import type { SaveBarEntry } from "../../voice/saveBar.ts";
 import type { StdoutResult } from "../../common/useStdoutToPython.ts";
+import * as fieldErrors from "../fieldErrors.ts";
 
 // A save the test answers later, with the value it was asked to save.
 interface PendingSave {
@@ -23,7 +24,7 @@ async function setup(context: TestContext) {
     context.onTestFinished(() => runtime.unmount());
     let entry: SaveBarEntry | null | undefined;
     let saveNotices = 0;
-    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": {}, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) }, "@utils": {},
         "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
     });
@@ -101,6 +102,43 @@ test("a field that saves by itself says a failed save under it and keeps the val
     assert.equal(s.entry, null);
 });
 
+// #1111, decided 2: an API key that saves by itself is kept when its field is left empty, and
+// deleted only by Enter on the empty field.
+test("a key left empty is put back, and only Enter on the empty field deletes it", async context => {
+    const s = await setup(context);
+    let deletes = 0;
+    s.props.autoSave = true;
+    s.props.deleteFunction = async () => { deletes += 1; return unchecked<StdoutResult>({ status: 200, result: "" }); };
+    s.render();
+    s.render().onChangeFunction("");
+    await s.render().leaveFunction?.();
+    assert.equal(s.render().variable, "old", "leaving the empty field keeps the saved key");
+    assert.equal(deletes, 0);
+    assert.equal(s.requests.length, 0);
+    s.render().onChangeFunction("");
+    await s.render().saveFunction();
+    assert.equal(deletes, 1, "Enter on the empty field deletes the key");
+});
+
+// A refusal of the field's own save is said under it in its code's words (fieldErrors.ts).
+test("a field that saves by itself waits for its own answer and says a coded refusal in that code's words", async context => {
+    const fieldErrors = await import("../fieldErrors.ts");
+    const s = await setup(context);
+    s.props.autoSave = true;
+    s.props.endpoint = "/set/data/openai_auth_key";
+    s.render();
+    s.render().onChangeFunction("sk-bad");
+    const saving = s.render().saveFunction();
+    s.requests[0].resolve({ status: 400, result: { error_code: "AUTH_OPENAI_FAILED", data: "old" } }); await saving;
+    assert.equal(fieldErrors.takeInlineRefusal("/set/data/openai_auth_key"), true, "the refusal is the field's to say");
+    assert.deepEqual(s.render().error, ["backend_errors.AUTH_OPENAI_FAILED", "config_page.auto_save.save_failed"]);
+    s.render().onChangeFunction("sk-good");
+    const accepted = s.render().saveFunction();
+    s.props.variable = "sk-good";
+    s.requests[1].resolve({ status: 200, result: "sk-good" }); await accepted;
+    assert.equal(fieldErrors.takeInlineRefusal("/set/data/openai_auth_key"), false, "an accepted save leaves no refusal to take");
+});
+
 test("batched transport failure and thrown saves preserve text until explicit discard", async context => {
     const s = await setup(context);
     s.render().onChangeFunction("draft");
@@ -139,7 +177,7 @@ test("VR sliders can hand edits to the parent debounce synchronously", async () 
     const writes: number[] = [], runtime = hooks();
     const props: SliderLogicOptions = { variable: 0, min: 0, max: 1, setter_timing: "on_change", debounce_ms: 0,
         setterFunction: value => writes.push(value) };
-    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
     // Set for both timings; a missing one fails on the assertion below, as the TypeError did.
@@ -165,7 +203,7 @@ test("text acknowledgement preserves an edit back to the old value in a batched 
 // test put there, and a setting that is not named has no store hook.
 async function loadTemplates(stores: Record<string, Record<string, unknown>>) {
     const runtime = hooks(), sent: SentRequest[] = [];
-    const logics = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const logics = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": { getStoreHook: (name: string) => name in stores ? () => stores[name] : undefined },
         "@utils": utils, "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => {} }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...request: SentRequest) => { sent.push(request); return true; } }) },
@@ -347,7 +385,7 @@ async function slider(context: TestContext, props: Partial<SliderLogicOptions> =
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), writes: number[] = [];
     context.onTestFinished(() => runtime.unmount());
-    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const { useSliderLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
     const options: SliderLogicOptions = { variable: 0, state: "ok", min: 0, max: 1, setterFunction: (value: number) => { writes.push(value); }, ...props };
@@ -499,7 +537,7 @@ async function field(context: TestContext, props: Partial<SaveButtonLogicOptions
     const runtime = hooks(), requests: PendingSave[] = [], deletes: number[] = [];
     let entry: SaveBarEntry | null | undefined, saveNotices = 0;
     context.onTestFinished(() => runtime.unmount());
-    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
+    const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, { "../fieldErrors.ts": fieldErrors,
         "@store": {}, "@utils": {},
         "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) },
         "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },

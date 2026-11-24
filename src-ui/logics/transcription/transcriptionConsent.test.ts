@@ -8,6 +8,7 @@ import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import type { RadioGroup, RadioOption } from "../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -59,7 +60,7 @@ async function fixture(context: TestContext) {
     for (const name of ["Translation", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
     const common: Record<string, unknown> = {};
     for (const name of ["NotificationStatus", "Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
