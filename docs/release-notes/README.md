@@ -1,4 +1,84 @@
-# リリースノートの書式
+# Release notes format
+
+[日本語版](#リリースノートの書式日本語版)
+
+The notes that become the body of a GitHub release go in `docs/release-notes/<version>.md`, one file per version. Notes are written in this format from 0.5.0. Notes up to 0.4.0 are not reworked into this format.
+
+`CHANGELOG.md` is the record that lists every change from the commits (`tools/changelog.py`). The release notes are text for deciding whether to update, and they are written by hand. When the two disagree, fix `CHANGELOG.md` first, then the notes.
+
+## Overall shape
+
+Put the parts in this order:
+
+1. Opening paragraph
+2. Changes that matter to users (one heading per item)
+3. `## 🔧 Internal changes` (only one, at the end)
+
+Make every heading `##` and keep them flat. Do not add a parent heading called "Changes that matter to users".
+
+```markdown
+In ASTAROT 0.5.0, (the biggest change). (What users can do with it.)
+
+## 🎙️ (Short title)
+
+(Paragraph)
+
+## ⚠️ When you update
+
+(Paragraphs, and a list if needed)
+
+## 🔧 Internal changes
+
+- (Item) (#123)
+```
+
+## Opening paragraph
+
+Put it at the top of the notes, without a heading. In 2 to 4 sentences, briefly tell readers the biggest change in that version. If there is a privacy or security fix, mention it in the opening paragraph too and point to its section.
+
+## Changes that matter to users
+
+Write about new features, usability improvements, bug fixes, changes in compatibility and what users do when they update.
+
+- Make one heading per item. A heading has the form "one emoji + a short title" (for example `## 🔄 Update in the app`). Put the emoji only at the start of the heading, and do not use emoji in the body.
+- Write the body in paragraphs. Use a list only for things that are easier to read as a list, such as steps, options and conditions.
+- Write in plain Japanese. Mention the names of the internal implementation (crates, libraries, endpoints and so on) only when they affect what users do.
+- Quote UI text as `locales/ja.yml` writes it. Write a settings location in the form "Settings" → "page" → "item".
+- When an internal change shows up in a way users can see (for example, data goes to a different place), write the visible part here.
+- Put what users do when they update from the previous stable release, and what is no longer compatible, under `## ⚠️ When you update`. Put limitations, and what could not be checked before publishing, under `## 🐞 Known issues`. Place both after the other items and before the internal changes. If there is nothing to write, leave out the whole section.
+
+## Internal changes
+
+Collect replaced implementations, dependency updates, development infrastructure and work on licenses and documentation under the last heading, `## 🔧 Internal changes`.
+
+- Use a list, with each item as one short line.
+- Technical terms are fine as they are.
+- End each item with the pull request number (for example `(#341)`). It is the number of the pull request that brought in the change, not the issue number.
+- At the end of the section, put a link to `CHANGELOG.md`.
+
+## Starting from the scaffold
+
+Running `python tools/changelog.py scaffold-notes` (`mise run changelog:notes`) creates a scaffold of the release notes for the version in `package.json` at `docs/release-notes/<version>.md`. Pass a different version with `--version`. The scaffold lays out the sections in the order of this format, and the opening paragraph and the changes that matter to users are left blank. "⚠️ 更新するときの注意" (When you update) and "🐞 既知の問題" (Known issues) have empty placeholders. If there is nothing to write, delete the whole section.
+
+Under "🔧 内部の変更" (Internal changes), the scaffold lists the pull requests merged after the previous stable release's tag, with their numbers. It reads the same commits as `python tools/changelog.py print`, and its categories are the same as in `CHANGELOG.md`. Each pull request goes into one of three groups, following the category of its most user-facing commit: changes that alter compatibility, user-facing changes and internal-only changes. Rewrite the pull requests that matter to users as a heading and a paragraph and move them to the sections above, and rewrite the rest as one short line each. A commit that came in without a pull request carries its short hash in place of a pull request number.
+
+At the end is a link to this version's section of `CHANGELOG.md`. If the section has not been written yet, the link uses the date the scaffold was made, so check the date after `write`. If a file with the same name already exists, the tool stops without overwriting it, to protect what was written by hand. No scaffold is made for a beta.
+
+## Things to watch when writing
+
+- The notes cover the pull requests merged from the previous stable release's tag up to the commit being released. Check that nothing is missing against the output of `python tools/changelog.py print` and the list of pull requests in `git log --first-parent`.
+- Do not write people's names, who was in charge, or the PC environment used for development.
+- Do not refer to the reader's PC from the developer's side, as in "this PC".
+- Give measured values together with their conditions.
+- Even if a rule for revising Japanese removes emoji, keep the emoji at the start of headings as part of this format.
+
+## How this relates to the release draft
+
+The body of the draft that "Prepare verified ASTAROT release draft" creates is the skeleton from `tools/changelog.py` (Highlights, Upgrade Notes, Known Issues and the list of changes). Before publishing, replace the body with notes in this format. The steps are in [CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases) and [ASTAROT release candidates and release drafts](../voice-stack/release-candidates.md).
+
+---
+
+# リリースノートの書式（日本語版）
 
 GitHub のリリースの本文にするノートを、バージョンごとに `docs/release-notes/<バージョン>.md` に置きます。0.5.0 からこの書式で書きます。0.4.0 までのノートは、この書式に組み替えません。
 

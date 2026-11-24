@@ -1,5 +1,6 @@
 """tools/changelog.py: how commits are sorted, how CHANGELOG.md is written, and the release notes."""
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -357,6 +358,16 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual(self.run_tool("check").returncode, 0)
         notes = self.run_tool("release-notes")
         self.assertIn("blob/v0.2.0/CHANGELOG.md", notes.stdout)
+
+    def test_the_output_is_utf8_on_a_console_that_is_not(self):
+        # A Windows console's code page (cp1252 on the CI runners) cannot encode Japanese, which the
+        # release notes carry; the tool writes UTF-8 whatever the console's encoding is.
+        self.commit_files(("c", "fix(ui): keep the label 字幕 on one line"))
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+        notes = subprocess.run([sys.executable, str(ROOT / "tools" / "changelog.py"), "release-notes",
+                                "--root", str(self.repo)], capture_output=True, env=env)
+        self.assertEqual(notes.returncode, 0, notes.stderr.decode("utf-8", "replace"))
+        self.assertIn("字幕", notes.stdout.decode("utf-8"))
 
     def test_refuses_a_version_that_is_already_tagged(self):
         self.set_version("0.2.0")
