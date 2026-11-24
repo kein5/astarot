@@ -15,6 +15,10 @@
     "reason": "A file in use is always prepared (isPrepared), so no button, hint or review reads whether it is downloaded.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:288:43 \"in_use\" -> \"\""
   },
+  "1125rdboytw": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:9 !text || !query -> false"
+  },
   "112xv3769bj": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1562:17 typeof settings[downloadKey] === \"function\" -> true"
@@ -50,6 +54,10 @@
   "14l9hc3i7dq": {
     "reason": "The dependencies are constant either way, so the clean-up runs once, when the window closes.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:108:60 [] -> [\"Stryker was here!\"]"
+  },
+  "14qoj453sp0": {
+    "reason": "The clear button is there only while the query is not empty and clearing empties it, so the list closes and the query's effect sets the index to -1 before anything reads it.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:126:26 -1 -> +1"
   },
   "14ttwg4pcti": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
@@ -103,13 +111,25 @@
     "reason": "Number.isFinite is false for every value that is not a number.",
     "where": "src-ui/logics/common/initializationFields.ts:32:36 typeof value === \"number\" -> true"
   },
+  "19te8oo6sxz": {
+    "reason": "The field starts without the focus, so the first drawing shows no list and names no result whatever the first index is, and the query's effect sets it to -1 as soon as the bar is drawn.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:55:56 -1 -> +1"
+  },
   "19yyz18l3v0": {
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1a28mz0truy": {
+    "reason": "Both lists are constant, so the listener is added once when the bar is drawn and removed when it goes, as with an empty list.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:83:8 [] -> [\"Stryker was here!\"]"
+  },
   "1a3tuns6ixg": {
     "reason": "Once stopped, invalidate schedules nothing and the hover mark is already cleared, so a late pointer changes nothing.",
     "where": "src-ui/views/vr/vrPanelHover.ts:56:17 disposed -> false"
+  },
+  "1adzl5265p9": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> false"
   },
   "1am6nq8w6xm": {
     "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
@@ -134,6 +154,10 @@
   "1bsq1yecy1": {
     "reason": "A null answer stops at reading its settings either way, and null settings spread into the defaults add nothing, as undefined does.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:47:111 value !== null -> true"
+  },
+  "1bu26k3zesi": {
+    "reason": "With the index at -1 the result there is missing and Enter falls back to the first result; at 0 the highlighted result is that same first result, so the same result is chosen either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:112:17 selectedIndex >= 0 -> selectedIndex > 0"
   },
   "1c147xa0ble": {
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
@@ -375,6 +399,10 @@
     "reason": "The hook's own mount effect sets mounted to true before any of its functions runs: the controller registers from a later effect of the same component, and an edit comes from input, which React handles after pending effects.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:150:48 true -> false"
   },
+  "1txxlxwjod3": {
+    "reason": "Every sign a pattern reads is escaped first, so the pattern is always valid and the catch is never reached.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:44:13 { return text; } -> {}"
+  },
   "1ua0bhtskyc": {
     "reason": "The only merged routes are the weight template's get and set routes, whose hook is also named by other routes with a namespace, so their routes still find it in hook_results without one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns ?? null -> ((existing.ns ?? gen.ns) && null)"
@@ -474,6 +502,10 @@
   "22pgmoyzs0d": {
     "reason": "With the managed microphone no device is left out either way: no device has an empty id or the placeholder as its id.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.tsx:78:117 \"\" -> \"Stryker was here!\""
+  },
+  "233818hvdle": {
+    "reason": "With no highlighted result the index is -1, and the list has no row at -1, so nothing is scrolled either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:87:13 selectedIndex >= 0 -> true"
   },
   "2368ydn5pix": {
     "reason": "A null answer is read through optional chaining either way, so it gives no status and no settings.",
@@ -671,6 +703,10 @@
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1561:17 typeof settings[downloadedKey] === \"function\" -> true"
   },
+  "6gehj58ug3": {
+    "reason": "With the index at -1 there is no result at -1, so the field names no result either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:159:54 selectedIndex >= 0 -> true"
+  },
   "6j3zousmcb": {
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:272:56 [] -> [\"Stryker was here!\"]"
@@ -694,6 +730,10 @@
   "89lc90xp9u": {
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
+  },
+  "9kvul0o75j": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:9 !text || !query -> (!text && !query)"
   },
   "9mu2c7j4nw": {
     "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
@@ -731,6 +771,10 @@
     "reason": "String() returns a string unchanged, so a saved key reads the same either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx:416:46 typeof value === \"string\" -> false"
   },
+  "ct38ypcqqd": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> true"
+  },
   "czax1bhot4": {
     "reason": "default is the last case, so dropping its break changes nothing, and the rest of the block is a console.warn.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:294:22 { console.warn(`No handler defined for action: ${actionKey}… -> {}"
@@ -742,6 +786,10 @@
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
+  },
+  "d9gqbdggg2": {
+    "reason": "The bar draws the results only while the query has more than spaces, so the trimmed query is never empty here.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:25:9 !q -> false"
   },
   "dj2eqjhf9h": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
@@ -947,9 +995,17 @@
     "reason": "When the saved value is 0 the fallback gives the same 0 (Automatic).",
     "where": "src-ui/logics/configs/rvcBlockChoices.ts:13:35 saved === RVC_BLOCK_AUTO -> false"
   },
+  "rjs6jr4b6y": {
+    "reason": "With the index at -1 the result there is missing and Enter falls back to the first result; at 0 the highlighted result is that same first result, so the same result is chosen either way.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:112:17 selectedIndex >= 0 -> true"
+  },
   "sbtarrmxnw": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:234:74 -1 -> +1"
+  },
+  "scmwbayr5z": {
+    "reason": "The bar draws a result's words only while the query has more than spaces, so only an empty label reaches this line, and an empty label draws nothing whether the part returns null, an empty string, true or false.",
+    "where": "src-ui/views/app/config_page/search_bar/SearchBar.tsx:23:33 text || null -> (text && null)"
   },
   "sjfitidyhe": {
     "reason": "Closing leaves no dialog to read the acknowledged restrictions, and the review button empties them before the next one opens.",
