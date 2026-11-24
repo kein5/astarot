@@ -442,6 +442,7 @@ node tools/writing_gate/check.mjs --file <file>        # check text outside the 
 - It reads the Markdown that git tracks, the manual's `.mdx` files and the text in `locales/*.yml`. It does not read code blocks, inline code, URLs, link targets, HTML or quotes (lines that start with `>`). Generated files and files brought in from elsewhere are left out through `tools/writing_gate/exceptions.yml`. Code comments fall under the guidelines, but the gate does not read them for now (decision of 2026-11-23).
 - The rules are in `tools/writing_gate/rules.mjs`, and each one notes the guideline section it comes from. The Japanese rules apply to lines that contain kana, and the English rules to lines written only in Latin script. The rules for user-facing text apply to `site/`, `docs/readmes/`, the release notes and `locales/`.
 - A heading that gives both languages puts English first ("Summary / 概要"; decision of 2026-11-23).
+- The release notes (`docs/release-notes/<version>.md`, not its README) are also checked for commas and line breaks (`tools/writing_gate/release_notes.mjs`, decided on 2026-11-25 in PR #1157). A Japanese sentence with four or more 「、」 outside brackets, and a comma that only makes a pause after a short noun topic at the start of a sentence (「Windowsでは、」), are flagged; a comma after a condition or a purpose is not. A paragraph must be one line, blocks are separated by one blank line, a heading has a blank line before and after it, and no line ends in spaces or in 「：」. A beta's notes are not in the repository: copy them under `docs/release-notes/` for the check (`--file docs/release-notes/<file> --user`) and delete the copy afterwards.
 - Where a document lists forms to avoid as bad examples, exclude those places with markers. A reason is required.
 
   ```md
@@ -1001,6 +1002,7 @@ node tools/writing_gate/check.mjs --file <ファイル>     # PRの本文や報�
 - 読むのは、gitが管理する Markdown、マニュアルの `.mdx`、`locales/*.yml` の文言です。コードブロック、インラインのコード、URL、リンクの行き先、HTML、引用（`>` の行）は読みません。生成するファイルと外から持ってきたファイルは `tools/writing_gate/exceptions.yml` で外します。コードのコメントは、ガイドラインの対象ですが、いまは読みません（2026-11-23 の決定）。
 - 決まりは `tools/writing_gate/rules.mjs` にあり、それぞれがガイドラインのどの節から来たかを書いています。日本語の決まりは仮名を含む行に、英語の決まりはラテン文字だけの行に当てます。利用者向けの決まりは、`site/`、`docs/readmes/`、リリースノート、`locales/` に当てます。
 - 両方の言語を並べる見出しは、英語を先に書きます（「Summary / 概要」。2026-11-23 の決定）。
+- リリースノート（`docs/release-notes/<版>.md`。README は除く）は、読点と改行も検査します（`tools/writing_gate/release_notes.mjs`。2026-11-25 に PR #1157 で決定）。括弧の外に「、」が4つ以上ある日本語の文と、文の頭の短い名詞の主題のあとの間を置くだけの読点（「Windowsでは、」）を指摘します。条件や目的のあとの読点は指摘しません。段落は1行に書き、ブロックの間は空行1つにし、見出しの前後に空行を置き、行末に空白も「：」も置きません。ベータ版のノートはリポジトリにないので、`docs/release-notes/` の下にコピーして検査し（`--file docs/release-notes/<ファイル> --user`）、終わったらコピーを消します。
 - 文書の中で、悪い例として避ける形を挙げる所は、目印で外します。理由が要ります。
 
   ```md

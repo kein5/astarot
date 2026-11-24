@@ -155,3 +155,63 @@ test("every excepted path needs a reason, and the inventory counts by rule and a
     ]);
     assert.deepEqual(counts, { byRule: { x: 2, y: 1 }, byArea: { "docs/spec": 2, "AGENTS.md": 1 } });
 });
+
+test("release notes: a sentence with four or more commas outside brackets is flagged", () => {
+    const notes = "docs/release-notes/0.9.0.md";
+    const many = "設定、ログ、モデル、辞書、資格情報を引き継ぎます。";
+    assert.deepEqual(kinds(notes, many), ["ja-release-notes-commas"]);
+    // Commas in brackets list names, and other documents are not checked for this.
+    assert.deepEqual(kinds(notes, "6つのプリセット（Dark Plum、Midnight、Lagoon、Forest、Rose）から選べます。"), []);
+    assert.deepEqual(kinds("docs/a.md", many), []);
+    assert.deepEqual(kinds("docs/release-notes/README.md", many), []);
+});
+
+test("release notes: a comma after a short topic is flagged, one after a condition is not", () => {
+    const notes = "docs/release-notes/0.9.0.md";
+    assert.deepEqual(kinds(notes, "Windowsでは、仮想ケーブルを使います。"), ["ja-release-notes-pause-comma"]);
+    assert.deepEqual(kinds(notes, "- `xdg-open`は、ホストのものを使います。"), ["ja-release-notes-pause-comma"]);
+    assert.deepEqual(kinds(notes, "手で置いていた場合は、置き換えてください。"), []);
+    assert.deepEqual(kinds(notes, "見つからないときは、既定のフォルダーに保存します。"), []);
+    assert.deepEqual(kinds(notes, "設定を変えると、すぐに反映されます。"), []);
+    assert.deepEqual(kinds(notes, "GPUで変換するには、実行環境を取得します。"), []);
+    assert.deepEqual(kinds(notes, "設定によっては、時間がかかります。"), []);
+    assert.deepEqual(kinds(notes, "この説明は、見出しの横に移しました。"), ["ja-release-notes-pause-comma"]);
+});
+
+test("release notes: a paragraph is one line, with one blank line between blocks", () => {
+    const notes = "docs/release-notes/0.9.0.md";
+    const breaks = (text) =>
+        scanDocument(notes, text)
+            .findings.filter((item) => item.kind === "release-notes-breaks")
+            .map((item) => [item.line, item.text]);
+    assert.deepEqual(breaks(["# ASTAROT 0.9.0", "", "一文目です。", "二文目です。"].join("\n")), [
+        [4, "段落の途中の改行"],
+    ]);
+    assert.deepEqual(breaks(["## 🎨 題", "本文です。"].join("\n")), [[1, "見出しのあとに空行がない"]]);
+    assert.deepEqual(breaks(["本文です。", "## 🎨 題", ""].join("\n")), [[2, "見出しの前に空行がない"]]);
+    assert.deepEqual(breaks(["本文です。", "", "", "次です。"].join("\n")), [[3, "空行が2つ続く"]]);
+    assert.deepEqual(breaks(["本文です。  "].join("\n")), [[1, "行末の空白"]]);
+    assert.deepEqual(breaks(["次のとおりです："].join("\n")), [[1, "行末の「：」"]]);
+    // Lists, tables, code blocks and a separator are blocks of their own lines.
+    const fine = [
+        "本文です。",
+        "",
+        "- 一つ目",
+        "- 二つ目",
+        "",
+        "| a | b |",
+        "|---|---|",
+        "",
+        "```sh",
+        "a",
+        "b",
+        "```",
+        "",
+        "---",
+    ];
+    assert.deepEqual(breaks(fine.join("\n")), []);
+    assert.deepEqual(
+        scanDocument("docs/a.md", ["一文目です。", "二文目です。"].join("\n")).findings.map((item) => item.kind),
+        [],
+    );
+});
