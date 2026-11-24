@@ -95,11 +95,11 @@ export const position_rotation_controls_box = style({
     transform: "translate(-10%)",
 });
 
-// The sample text has its own row; the button sits where the fields start.
+// The sample text has its own row; the button and its hint align flush at the row's right end.
 export const sample_text_button_wrapper = style({
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
     gap: ".6rem",
 });
 export const sample_text_button = style({
@@ -130,6 +130,7 @@ export const sample_text_hint = style({
     fontSize: "1.2rem",
     lineHeight: 1.5,
     color: vars.dark_400_color,
+    textAlign: "end",
 });
 export const sample_text_button_triangle_svg = style({
     width: "1.4rem",

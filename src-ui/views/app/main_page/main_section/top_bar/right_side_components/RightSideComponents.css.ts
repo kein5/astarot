@@ -134,28 +134,18 @@ export const help_svg = style({
     color: vars.dark_400_color,
 });
 
-export const software_update_button = style({
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "0.8rem",
-    color: vars.primary_300_color,
-    padding: "1rem 0.8rem",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_900_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.2rem" },
-    },
-});
+// The update button is the kit's plain Button (RightSideComponents.tsx), which draws it; this class
+// names it for the mark on its icon.
+export const software_update_button = style({});
 
 export const refresh_svg = style({
     width: "1.8rem",
     transform: "rotate(-30deg)",
 });
 
-// A version is out: a dot on the icon's corner, ringed in the bar's colour so it stands off the arrow.
+// A version is out: a dot on the icon's corner, ringed in the button's ground so it stands off the
+// arrow. The ground is the kit's plain button: the raised surface, darker under the pointer and
+// when pressed (Button.css.ts).
 export const update_icon = style({ position: "relative", display: "flex" });
 export const update_mark = style({
     position: "absolute",
@@ -165,10 +155,10 @@ export const update_mark = style({
     height: ".8rem",
     borderRadius: "50%",
     background: vars.primary_200_color,
-    boxShadow: `0 0 0 .2rem ${vars.vox_canvas}`,
+    boxShadow: `0 0 0 .2rem ${vars.vox_surface}`,
     selectors: {
-        [`${software_update_button}:hover &`]: { boxShadow: `0 0 0 .2rem ${vars.dark_800_color}` },
-        [`${software_update_button}:active &`]: { boxShadow: `0 0 0 .2rem ${vars.dark_900_color}` },
+        [`${software_update_button}:hover &`]: { boxShadow: `0 0 0 .2rem ${vars.vox_secondary_hover}` },
+        [`${software_update_button}:active &`]: { boxShadow: `0 0 0 .2rem ${vars.dark_925_color}` },
     },
 });
 

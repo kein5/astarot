@@ -1437,6 +1437,24 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "obs_browser_source_font_outline_color",
     },
     {
+        // Read-only absolute path to config.json (#1096, #1118).
+        Category: "AdvancedSettings",
+        Base_Name: "PathConfig",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_only",
+        base_endpoint_name: "path_config",
+    },
+    {
+        // Effective conversation log directory and last fallback error_code (#1096, #1118).
+        Category: "AdvancedSettings",
+        Base_Name: "PathLogs",
+        default_value: { path: "", error_code: null },
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "path_logs",
+    },
+    {
         // The block an RVC conversion cuts the microphone into, in ms (#531); read at Start.
         // 0: Automatic, the worker's choice (the default).
         Category: "AdvancedSettings",

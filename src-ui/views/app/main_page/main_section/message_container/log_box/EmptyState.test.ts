@@ -122,7 +122,13 @@ test("while the setup is still suggested, its line stands out; afterwards it is 
     assert.equal(await line(null), undefined, "not known yet: nothing stands out");
     const css = (await import("node:fs")).readFileSync(new URL("./LogBox.css.ts", import.meta.url), "utf8");
     assert.match(css, /globalStyle\(`\$\{setup\} li\[data-lead\]`, \{[^}]*border: `\.1rem solid \$\{vars\.primary_600_color\}`[^}]*background: vars\.vox_highlight_tint/);
-    assert.match(css, /globalStyle\(`\$\{setup\} li\[data-lead\] button`, \{[^}]*background: vars\.primary_600_color,\s*color: vars\.vox_on_primary/);
+    // The leading line's step is the kit's primary button; once the line is a plain one, so is its
+    // step. The kit draws them (the harness's stand-in keeps the look asked for as data-tone).
+    const step = async (notice: boolean | null) => find((await setup({ recognition: "needs_setup", notice })).tree, node => node.type === "button");
+    assert.equal((await step(true))?.props["data-tone"], "primary");
+    assert.equal((await step(false))?.props["data-tone"], "plain");
+    assert.equal((await step(null))?.props["data-tone"], "plain");
+    assert.equal((await step(true))?.props.className, "setup_action", "the line only keeps its step from shrinking");
     // #936: also while only the translation's model is left for the setup.
     const translationOnly = find((await setup({ recognition: "ready", notice: true,
         needs: [{ id: "translation", weight: { id: "m2m100_418M-ct2-int8" }, action: "review" }] })).tree, node => node.type === "li");

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 
-// The app's buttons are still drawn rule by rule in each screen's styles, not by one component.
-// These tests hold what the shadcn/ui alignment (docs/design/components/shadcn-alignment.md)
+// Most of the app's buttons are still drawn rule by rule in each screen's styles, not by one
+// component. These tests hold what the shadcn/ui alignment (docs/design/components/shadcn-alignment.md)
 // made the same for all of them, so a new copy of a button rule does not bring the old values back.
+// A button replaced by the kit's Button leaves these lists: kit.test.ts holds the kit's own rules
+// (docs/design/components/hand-built-inventory.md records which ones were replaced).
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const views = "../";
 const box = views + "app/config_page/setting_section/setting_box/";
@@ -59,9 +61,6 @@ const mediumButtons = [
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const copy_error_message_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const status_link_button = style({"],
     [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button`, {"],
-    [views + "app/main_page/main_section/message_container/log_box/LogBox.css.ts", "globalStyle(`$" + "{setup} button`, {"],
-    [views + "app/main_page/main_section/io_flow_panel/IoFlowPanel.css.ts", "export const close = style({"],
-    [views + "app/main_page/main_section/realtime_controls/RealtimeControls.css.ts", "globalStyle(`$" + "{container} button`, {"],
     [views + "app/main_page/main_section/language_selector/language_selector_top_bar/LanguageSelectorTopBar.css.ts", "export const go_back_button_wrapper = style({"],
 ];
 

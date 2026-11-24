@@ -3,6 +3,7 @@ import { useIoFlow } from "../../../../../logics/flow/useIoFlow";
 import { useGpuMemory } from "../../../../../logics/flow/useGpuMemory";
 import { IoFlowView } from "../../../io_flow/IoFlowView";
 import { Hint } from "../../../config_page/setting_section/setting_box/_components/hint/Hint";
+import { Button } from "../../../../kit/index.ts";
 import * as styles from "./IoFlowPanel.css.ts";
 
 // Opened from the top bar: where the user's voice and chat go now, how long the latest
@@ -21,7 +22,7 @@ export const IoFlowPanel = () => {
                 <h2 className={styles.title}>{t("io_flow.title")}</h2>
                 <Hint text={t("io_flow.hint")} focusable />
             </div>
-            <button type="button" className={styles.close} onClick={togglePanel}>{t("io_flow.close")}</button>
+            <Button size="compact" onClick={togglePanel}>{t("io_flow.close")}</Button>
         </div>
         <IoFlowView flow={currentIoFlow.data} traces={currentIoTraces.data} gpuMemory={currentGpuMemory.data} />
     </section>;

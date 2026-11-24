@@ -522,6 +522,14 @@ export const useReceiveRoutes = () => {
         }
         // The dictionary could not be written out: the button that asked says so (#792).
         if (status !== 200 && endpoint === "/run/export_vocabulary") return;
+        // A refused log destination already reset the backend to its default and carries the
+        // effective path + error_code for inline validation beside the input (#1096, #1118).
+        if (status === 400 && endpoint === "/set/data/path_logs") {
+            if (isRecord(result) && typeof result.path === "string" && (result.error_code === null || typeof result.error_code === "string")) {
+                routes["/get/data/path_logs"](result);
+            }
+            return;
+        }
         // A name the core refused: the names stay as they were, and the editor is closed.
         if (status !== 200 && endpoint === "/set/data/speaker_names") {
             showNotification_Error(t("main_page.message_log.speaker_names_failed"), { category_id: "speaker_names" });

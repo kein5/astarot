@@ -21,7 +21,7 @@ import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
 import { useSoftwareVersion } from "@logics_common";
 
-import { upstream_vrct_document_url } from "@ui_configs";
+import { astarot_discord_invite_url, upstream_vrct_document_url } from "@ui_configs";
 
 // The official subtitle is the same in every UI language (ADR-011), so it is not translated.
 const ASTAROT_SUBTITLE = "Speech, Translation, Accessibility, Revoicing & OCR Toolkit";
@@ -32,6 +32,7 @@ const vrct_vox_links = [
     { id: "repository", href: vrct_vox_url },
     { id: "releases", href: `${vrct_vox_url}/releases` },
     { id: "issues", href: `${vrct_vox_url}/issues` },
+    { id: "discord", href: astarot_discord_invite_url },
     { id: "licenses", href: `${vrct_vox_url}/blob/main/NOTICE.md` },
 ];
 

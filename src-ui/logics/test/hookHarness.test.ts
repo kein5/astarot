@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks } from "./hookHarness.ts";
+import { hooks, kitStandIns } from "./hookHarness.ts";
 
 // The harness runs a render's effects as React does: the layout effects first, then the passive
 // ones; for each kind the clean-ups first, then the effects, in the order the component calls
@@ -30,4 +31,20 @@ test("a render runs its layout effects before its passive ones, each kind in ord
     ran.length = 0;
     runtime.unmount();
     assert.deepEqual(ran, []);
+});
+
+// A screen's test reads the kit's Button through its stand-in (kitStandIns), so the stand-in draws
+// what the kit's Button draws when a screen leaves a prop out: a <button type="button"> named
+// data-slot="button", plain and regular.
+test("the kit's stand-in keeps the kit's defaults", () => {
+    const kit = (name: string) => readFileSync(new URL(`../../views/kit/${name}`, import.meta.url), "utf8");
+    assert.match(kit("Button.css.ts"), /defaultVariants: \{ tone: "plain", size: "regular" \}/);
+    assert.match(kit("Button.tsx"), /type = "button"/);
+    assert.match(kit("Button.tsx"), /data-slot="button"/);
+    const drawn = kitStandIns.Button({ className: "place", children: "words" });
+    assert.equal(drawn.type, "button");
+    assert.deepEqual(drawn.props, { type: "button", "data-slot": "button", "data-tone": "plain", "data-size": "regular",
+        className: "place", children: "words" });
+    const asked = kitStandIns.Button({ tone: "primary", size: "compact", type: "submit" });
+    assert.deepEqual(asked.props, { type: "submit", "data-slot": "button", "data-tone": "primary", "data-size": "compact" });
 });
