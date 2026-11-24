@@ -1,6 +1,7 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import type { CSSProperties } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
+import { leavesKit } from "./formSelectors.ts";
 
 // The forms' look. Most of it styles plain elements inside a form section (.container) and relies
 // on the order of rules of the same weight, as a stylesheet does: the classes are declared first
@@ -49,8 +50,9 @@ export const link_button = style({});
 export const progress = style({});
 export const hardware = style({});
 
-// A rule inside a form section: each selector of the list under .container.
-const inForm = (...selectors: string[]) => selectors.map(selector => `${container} ${selector}`).join(", ");
+// A rule inside a form section: each selector of the list under .container, leaving the kit's
+// parts alone (formSelectors.ts).
+const inForm = (...selectors: string[]) => selectors.map(selector => `${container} ${leavesKit(selector)}`).join(", ");
 const BASE_SELECT = "(appearance: base-select)";
 // The value that lets the engine style a select's list. csstype does not list it yet, so the word
 // is read as a string and given the property's type.
