@@ -1,10 +1,6 @@
 import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../../theme/vars.css.ts";
 
-// `delete` is a word of the language, so the style is delete_; its class keeps the name delete.
-export const delete_ = style({}, "delete");
-export const redo = style({});
-
 // The entry and the list start on the row's left edge, under the item label (#437).
 export const container = style({
     display: "flex",
@@ -46,27 +42,8 @@ export const item_text = style({
     fontWeight: 300,
 });
 
-export const action_button = style({
-    borderRadius: "0.4rem",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_750_color },
-        "&:active": { backgroundColor: vars.dark_850_color },
-        [`&.${delete_}`]: { padding: "0.2rem" },
-        [`&.${delete_}:hover`]: { backgroundColor: vars.dark_825_color },
-        [`&.${delete_}:active`]: { backgroundColor: vars.dark_850_color },
-        [`&.${redo}`]: { padding: "0.6rem" },
-    },
-});
-
-export const delete_svg = style({
-    width: "2.4rem",
-    color: vars.vox_state_failed,
-});
-
-export const redo_svg = style({
-    width: "1.6rem",
-    color: vars.dark_500_color,
-});
+// Each word's delete is the kit's danger icon Button (WordFilter.tsx); the mark takes its red.
+export const delete_svg = style({ width: "2.4rem" });
 
 export const entry_section_wrapper = style({
     display: "flex",
@@ -80,20 +57,6 @@ export const entry_section_wrapper = style({
 // Let the entry give space to Add, or put Add on the next line.
 globalStyle(`${entry_section_wrapper} > :first-child`, { flex: "1 1 18rem", minWidth: 0, maxWidth: "30rem" });
 
-export const add_button = style({
-    minHeight: "4rem",
-    padding: "0.8rem 1.2rem",
-    backgroundColor: vars.primary_600_color,
-    color: vars.vox_on_primary,
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    borderRadius: "var(--vox_radius, 0.8rem)",
-    textAlign: "center",
-    flexShrink: 0,
-    maxWidth: "100%",
-    overflowWrap: "anywhere",
-    selectors: {
-        "&:hover": { backgroundColor: vars.primary_650_color },
-        "&:active": { backgroundColor: vars.primary_700_color },
-    },
-});
+// Add is the kit's primary Button (WordFilter.tsx), which draws it; beside the entry it keeps its
+// width and goes to the next line when the row is narrow.
+export const add_button = style({ flexShrink: 0 });

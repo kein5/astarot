@@ -53,7 +53,6 @@ const mediumButtons = [
     [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
     [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],
     [box + "_components/_atoms/_download_button/_DownloadButton.css.ts", "export const download_button = style({"],
-    [box + "_components/word_filter/WordFilter.css.ts", "export const add_button = style({"],
     [box + "ocr/Ocr.css.ts", "export const resetButton = style({"],
     [box + "updater/Updater.css.ts", "export const check_button = style({"],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({"],

@@ -99,29 +99,13 @@ export const swap_button_container = style({
     justifyContent: "end",
 });
 
-export const swap_button_wrapper = style({
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "0.8rem",
-    padding: "0.6rem 1.2rem",
-    borderRadius: "0.4rem",
-    backgroundColor: vars.dark_850_color,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_900_color },
-    },
-});
-
-export const swap_text = style({
-    fontSize: "1.4rem",
-});
+// Swapping the original and the translation is the kit's plain Button (MessageFormat.tsx), which
+// draws it; this class names it. The mark between the two words takes the button's word color.
+export const swap_button = style({});
 
 export const swap_img = style({
     width: "1.8rem",
     height: "1.8rem",
-    color: vars.dark_300_color,
 });
 
 export const input_wrapper = style({

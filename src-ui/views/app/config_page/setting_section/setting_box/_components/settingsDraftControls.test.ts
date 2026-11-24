@@ -106,7 +106,7 @@ for (const action of ["reset", "swap"]) test(`message format ${action} shares th
     s.window.dispatch("vrct:settings-leave", leave);
     assert.equal(leave.defaultPrevented, true);
     if (action === "reset") findIn(s.input(), node => node.type === "reset").props.onClickFunction();
-    else findIn(s.input(), node => node.props?.className === "swap_button_wrapper").props.onClick();
+    else findIn(s.input(), node => node.props?.className === "swap_button").props.onClick();
     s.render(); vi.advanceTimersByTime(600); s.render();
     assert.equal(s.requests.length, 0);
     assert.equal(prefix().props.ui_variable, action === "reset" ? "" : "draft");

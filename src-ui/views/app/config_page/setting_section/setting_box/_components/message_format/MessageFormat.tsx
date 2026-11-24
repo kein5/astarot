@@ -14,6 +14,7 @@ import { Fold } from "../fold/Fold";
 import { useState } from "react";
 import type { ChangeEvent } from "react";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
+import { Button } from "../../../../../../kit/index.ts";
 import type { DraftWrite } from "../../../../../../../logics/voice/useSettingsDraft";
 import type { MessageFormatParts } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
 
@@ -243,7 +244,9 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
         setFunction(new_val);
     };
 
-    // Rendered by a call, not as <SwapButton />, so pressing it keeps the keyboard focus.
+    // Rendered by a call, not as <SwapButton />, so pressing it keeps the keyboard focus. It is the
+    // kit's plain Button. Enter and Space swap on the key going down, as they did before the kit:
+    // the key's own press of the button is held back so it does not swap twice.
     const renderSwapButton = (variable: MessageFormatParts) => {
         const swapMessageAndTranslate = () => {
             const new_var = { ...variable, translation_first: !variable.translation_first };
@@ -251,13 +254,13 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
         };
 
         return (
-            <div className={styles.swap_button_wrapper} onClick={swapMessageAndTranslate} role="button" tabIndex={0}
+            <Button className={styles.swap_button} onClick={swapMessageAndTranslate}
                 aria-label={t(locale_base_path + "swap_order", { first: variable.translation_first ? LABEL_TRANSLATED : LABEL_ORIGINAL })}
                 onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); swapMessageAndTranslate(); } }}>
-                <p className={styles.swap_text}>{variable.translation_first ? LABEL_TRANSLATED : LABEL_ORIGINAL}</p>
+                <span>{variable.translation_first ? LABEL_TRANSLATED : LABEL_ORIGINAL}</span>
                 <SwapSvg className={styles.swap_img} aria-hidden="true" />
-                <p className={styles.swap_text}>{variable.translation_first ? LABEL_ORIGINAL : LABEL_TRANSLATED}</p>
-            </div>
+                <span>{variable.translation_first ? LABEL_ORIGINAL : LABEL_TRANSLATED}</span>
+            </Button>
         );
     };
 

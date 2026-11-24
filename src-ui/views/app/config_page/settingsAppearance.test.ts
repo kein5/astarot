@@ -52,10 +52,11 @@ test("the repaired selectors use the measured tokens; shared token values are th
     assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.css.ts"), /inForm\("button:hover:enabled"\), \{ background: vars\.vox_secondary_hover \}/);
     assert.equal((read(box + "ocr/Ocr.css.ts").match(/background: vars\.vox_secondary_hover/g) ?? []).length, 2);
-    const word = read(box + "_components/word_filter/WordFilter.css.ts");
-    assert.match(styleOf(word, "delete_svg"), /color: vars\.vox_state_failed/);
-    assert.match(styleOf(word, "action_button"), /\[`&\.\$\{delete_\}:hover`\]: \{ backgroundColor: vars\.dark_825_color \}/);
-    assert.match(styleOf(word, "add_button"), /color: vars\.vox_on_primary,[\s\S]*"&:hover": \{ backgroundColor: vars\.primary_650_color \}/);
+    // The word filter's delete and Add are the kit's danger and primary Buttons: red words, and
+    // Dark Plum words on Lilac.
+    const kitButton = read("../../kit/Button.css.ts");
+    assert.match(kitButton, /danger: \{[^}]*color: vars\.vox_state_failed,/);
+    assert.match(kitButton, /primary: \{\s*background: vars\.primary_600_color,\s*color: vars\.vox_on_primary,/);
     for (const [token, expected] of Object.entries({
         "--error_bc_color": "#bb4448", "--vox_state_failed": "#e4938e",
         "--dark_200_color": "#eeebf1", "--dark_600_color": "#988ba5", "--dark_800_color": "#4e3d5d",
@@ -163,7 +164,9 @@ test("word-filter input/Add wraps within the actual available width and auto-exp
     assert.match(entry, /flexWrap: "wrap"/);
     assert.match(entry, /width: "100%",\s*minWidth: 0/);
     assert.match(word, /globalStyle\(`\$\{entry_section_wrapper\} > :first-child`, \{ flex: "1 1 18rem", minWidth: 0, maxWidth: "30rem" \}\)/);
-    assert.match(styleOf(word, "add_button"), /maxWidth: "100%",\s*overflowWrap: "anywhere"/);
+    // Add keeps its width beside the entry; the kit's Button wraps long words inside itself.
+    assert.match(styleOf(word, "add_button"), /flexShrink: 0/);
+    assert.match(read("../../kit/Button.css.ts"), /maxWidth: "100%",[\s\S]*?overflowWrap: "anywhere",/);
     const shared = read(box + "shared_items/SharedItems.tsx");
     assert.match(shared, /export const AutoExportMessageLogsContainer = \(\) => \{[\s\S]*?<CheckboxContainer[\s\S]*?setting_id="auto_export_message_logs"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {

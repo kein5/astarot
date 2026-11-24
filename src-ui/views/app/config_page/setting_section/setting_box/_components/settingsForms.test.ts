@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
@@ -53,7 +53,9 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
         setRef(findIn(tree, node => node.type === Entry), entryNode);
         rows = all(tree, node => node.props?.deleteAction).map(row => {
             const rendered = draw(row);
-            const button = findIn(rendered, node => node.type === "button");
+            // Each word's delete is the kit's danger icon Button.
+            const button = findIn(rendered, node => node.type === kitStandIns.Button);
+            assert.deepEqual([button.props.tone, button.props.size], ["danger", "icon"]);
             const node = buttons.get(row.key) ?? focusNode(document);
             buttons.set(row.key, node);
             setRef(button, node);
