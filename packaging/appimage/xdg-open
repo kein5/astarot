@@ -1,0 +1,28 @@
+#!/bin/sh
+# The AppImage's usr/bin comes first in the GUI's PATH, so the URL opener (tauri-plugin-opener,
+# through the open crate) starts this file instead of the host's xdg-open (#1016). A browser it
+# would start with the GUI's environment loads the AppImage's libraries. Give it the host's
+# environment back from AppRun's record, as native/app-identity does for the programs the app
+# starts itself, then run the host's xdg-open with the same arguments.
+for name in LD_LIBRARY_PATH PATH GIO_EXTRA_MODULES GSETTINGS_SCHEMA_DIR GTK_PATH GTK_EXE_PREFIX GTK_DATA_PREFIX GTK_IM_MODULE_FILE GTK_THEME GDK_PIXBUF_MODULE_FILE GI_TYPELIB_PATH XDG_DATA_DIRS GDK_BACKEND WEBKIT_DISABLE_DMABUF_RENDERER GTK_IM_MODULE XMODIFIERS; do
+    recorded=none
+    eval 'recorded=${ASTAROT_APPIMAGE_HOST_'"$name"'_SET-none}'
+    case $recorded in
+        x) eval 'export '"$name"'="${ASTAROT_APPIMAGE_HOST_'"$name"'}"' ;;
+        '') unset "$name" ;;
+        *) ;;  # No record: not started under AppRun, so nothing to give back.
+    esac
+done
+# The host's xdg-open on the host's PATH; never this file again.
+self=$(readlink -f "$0")
+old_ifs=$IFS
+IFS=:
+for directory in ${PATH:-/usr/local/bin:/usr/bin:/bin}; do
+    candidate=${directory:-.}/xdg-open
+    if [ -x "$candidate" ] && [ "$(readlink -f "$candidate")" != "$self" ]; then
+        IFS=$old_ifs
+        exec "$candidate" "$@"
+    fi
+done
+echo "xdg-open: the host has no xdg-open" >&2
+exit 3

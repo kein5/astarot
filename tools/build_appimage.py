@@ -115,13 +115,18 @@ def install_launchers(appdir):
     target = appdir / 'AppRun'
     shutil.copyfile(ROOT / 'packaging/appimage/AppRun', target)
     target.chmod(0o755)
+    # First in the GUI's PATH: the URL opener starts it, and it gives the host's environment back
+    # before it runs the host's xdg-open (#1016).
+    opener = appdir / 'usr/bin/xdg-open'
+    shutil.copyfile(ROOT / 'packaging/appimage/xdg-open', opener)
+    opener.chmod(0o755)
 
 
 def check_appdir(appdir):
     appdir = Path(appdir)
     check_tree(appdir, allow_directory_links=True)
     for name in ('AppRun', 'AppRun.gui', 'astarot.desktop', 'astarot.png', '.DirIcon',
-                 'usr/bin/astarot'):
+                 'usr/bin/astarot', 'usr/bin/xdg-open'):
         if not (appdir / name).is_file():
             raise ValueError(f'missing AppDir component: {name}')
     for name in RUNTIME:

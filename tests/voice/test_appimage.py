@@ -51,6 +51,97 @@ def test_launcher_keeps_the_host_environment_beside_the_gui_one(tmp_path, librar
         ('x' if host_data is not None else '', host_data or '')
 
 
+ROOT = Path(__file__).resolve().parents[2]
+HOST_RECORD = 'ASTAROT_APPIMAGE_HOST_'
+
+
+def launchers(tmp_path, report):
+    """An AppDir with the real AppRun and xdg-open, and linuxdeploy's launcher replaced by `report`."""
+    from tools.build_appimage import install_launchers
+    appdir = tmp_path / 'App with spaces.AppDir'
+    (appdir / 'usr/bin').mkdir(parents=True)
+    (appdir / 'usr/lib/astarot').mkdir(parents=True)
+    (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
+    (appdir / 'AppRun').chmod(0o755)
+    (appdir / 'astarot.png').write_bytes(b'icon')
+    install_launchers(appdir)
+    return appdir
+
+
+def test_a_restart_keeps_the_record_it_was_given(tmp_path):
+    """After an in-app update the app starts its image again with the GUI's environment (#1016).
+    The record of the first start stays; a name without a record is recorded as before."""
+    report = ('import json,os; print(json.dumps({k: v for k, v in os.environ.items() '
+              f'if k.startswith("{HOST_RECORD}")}}))')
+    appdir = launchers(tmp_path, report)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(HOST_RECORD)}
+    # What the first start's GUI had: its own libraries and GDK_BACKEND, and the record of the host,
+    # which had neither. GTK_THEME has no record yet.
+    env.update({'LD_LIBRARY_PATH': '/tmp/.mount_old/usr/lib', 'GDK_BACKEND': 'x11', 'GTK_THEME': 'Host:dark',
+                f'{HOST_RECORD}LD_LIBRARY_PATH_SET': '', f'{HOST_RECORD}LD_LIBRARY_PATH': '',
+                f'{HOST_RECORD}GDK_BACKEND_SET': '', f'{HOST_RECORD}GDK_BACKEND': ''})
+    host = json.loads(subprocess.run([str(appdir / 'AppRun')], env=env, check=True, text=True,
+                                     capture_output=True).stdout)
+    assert (host[f'{HOST_RECORD}LD_LIBRARY_PATH_SET'], host[f'{HOST_RECORD}LD_LIBRARY_PATH']) == ('', '')
+    assert (host[f'{HOST_RECORD}GDK_BACKEND_SET'], host[f'{HOST_RECORD}GDK_BACKEND']) == ('', '')
+    assert (host[f'{HOST_RECORD}GTK_THEME_SET'], host[f'{HOST_RECORD}GTK_THEME']) == ('x', 'Host:dark')
+
+
+def host_xdg_open(tmp_path):
+    """A stand-in for the host's xdg-open that reports what it was started with."""
+    folder = tmp_path / 'host bin'
+    folder.mkdir()
+    report = ('import json,os,sys; print(json.dumps({"args": sys.argv[1:], "env": {k: os.environ.get(k) for k in '
+              '("LD_LIBRARY_PATH", "PATH", "GDK_BACKEND", "GTK_THEME", "XDG_DATA_DIRS")}}))')
+    (folder / 'xdg-open').write_text(f'#!{sys.executable}\n{report}\n')
+    (folder / 'xdg-open').chmod(0o755)
+    # The wrapper finds itself with readlink; nothing else of the host is on these PATHs.
+    (folder / 'readlink').symlink_to(subprocess.run(['sh', '-c', 'command -v readlink'], check=True, text=True,
+                                                    capture_output=True).stdout.strip())
+    return folder
+
+
+def test_the_opener_s_xdg_open_runs_the_host_s_with_the_host_environment(tmp_path):
+    """The URL opener starts usr/bin/xdg-open, first in the GUI's PATH (#1016). It gives the browser
+    the host's environment back from AppRun's record, then runs the host's xdg-open."""
+    appdir = launchers(tmp_path, 'pass')
+    host = host_xdg_open(tmp_path)
+    env = {'PATH': f'{appdir}/usr/bin:{host}', 'LD_LIBRARY_PATH': f'{appdir}/usr/lib', 'GDK_BACKEND': 'x11',
+           'GTK_THEME': 'Adwaita:light', 'XDG_DATA_DIRS': f'{appdir}/usr/share:/usr/share',
+           f'{HOST_RECORD}PATH_SET': 'x', f'{HOST_RECORD}PATH': str(host),
+           f'{HOST_RECORD}LD_LIBRARY_PATH_SET': '', f'{HOST_RECORD}LD_LIBRARY_PATH': '',
+           f'{HOST_RECORD}GDK_BACKEND_SET': '', f'{HOST_RECORD}GDK_BACKEND': '',
+           f'{HOST_RECORD}GTK_THEME_SET': 'x', f'{HOST_RECORD}GTK_THEME': 'Breeze',
+           f'{HOST_RECORD}XDG_DATA_DIRS_SET': 'x', f'{HOST_RECORD}XDG_DATA_DIRS': '/usr/share'}
+    seen = json.loads(subprocess.run([str(appdir / 'usr/bin/xdg-open'), 'https://example.invalid/a b', ''],
+                                     env=env, check=True, text=True, capture_output=True).stdout)
+    assert seen == {'args': ['https://example.invalid/a b', ''],
+                    'env': {'LD_LIBRARY_PATH': None, 'PATH': str(host), 'GDK_BACKEND': None,
+                            'GTK_THEME': 'Breeze', 'XDG_DATA_DIRS': '/usr/share'}}
+
+
+def test_the_opener_s_xdg_open_without_a_record_changes_nothing_and_skips_itself(tmp_path):
+    appdir = launchers(tmp_path, 'pass')
+    host = host_xdg_open(tmp_path)
+    env = {'PATH': f'{appdir}/usr/bin:{host}', 'GDK_BACKEND': 'x11'}
+    seen = json.loads(subprocess.run([str(appdir / 'usr/bin/xdg-open'), 'https://example.invalid/'],
+                                     env=env, check=True, text=True, capture_output=True).stdout)
+    assert seen['env']['GDK_BACKEND'] == 'x11' and seen['env']['PATH'] == env['PATH']
+    # Only itself on the PATH: it stops with xdg-open's own code for a missing tool.
+    (host / 'xdg-open').unlink()
+    result = subprocess.run([str(appdir / 'usr/bin/xdg-open'), 'https://example.invalid/'],
+                            env=env, text=True, capture_output=True, timeout=10)
+    assert result.returncode == 3 and 'no xdg-open' in result.stderr
+
+
+def test_the_opener_s_xdg_open_gives_back_the_names_apprun_keeps():
+    def names(path):
+        line = next(line for line in path.read_text(encoding='utf-8').splitlines() if line.startswith('for name in '))
+        return line.removeprefix('for name in ').removesuffix('; do').split()
+
+    assert names(ROOT / 'packaging/appimage/xdg-open') == names(ROOT / 'packaging/appimage/AppRun')
+
+
 @pytest.mark.parametrize(('host', 'daemon', 'gui'), [
     ({}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}),
     ({'GTK_IM_MODULE': 'fcitx'}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}),
