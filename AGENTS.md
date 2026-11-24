@@ -105,6 +105,7 @@ Skills that set out work procedures are in `skills/`. `.claude/skills` and `.age
 - `pull-request`: from cutting a branch to merging into develop, including the pull request description, the conditions for merging, stacked pull requests and hotfixes cut from main
 - `release`: version bumps, release notes, drafts, publishing, the checks after publishing, and the merge that brings main back into develop
 - `jp-writing`: writing and revising Japanese text. Use it every time for release notes.
+- `e2e`: running the native GUI acceptance tests (`tools/native_acceptance.py`) and the SERGULATH real-machine E2E suite, posting results, and connecting them to the test overview and E2E badge
 - `ci-triage`: triaging failing or warning CI checks on pull requests and develop, including Bencher Report alerts, flaky test tracking in Issue #1073, and rerun scope selection
 
 In a clone set up not to create symbolic links (the default of Git on Windows), each link becomes a file that holds one line. In that case, read `skills/<name>/SKILL.md` directly. When a skill and another document disagree, do not decide mechanically that one of them is right; check, then fix it in the same pull request.
@@ -217,7 +218,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - 種別だけでは CHANGELOG の分類がずれるときは `Changelog: user`、`Changelog: security`、`Changelog: internal`、`Changelog: skip` のフッターを付けます。
 - commit-msg フックが入っていない環境もあります。コミットする前に `cog verify "<メッセージ>"` で確かめ、`python tools/dev.py check --scope commits --base origin/develop` も通します。
 - `CHANGELOG.md` は `tools/changelog.py` が書くファイルで、載せるのは正式版だけです。正式版のリリースの準備を頼まれたとき以外は編集しません。書いた節を直すときは、まず `python tools/changelog.py print` の結果と比べます。ベータ版の変更は GitHub のプレリリースのノートに載せ、CHANGELOG には書きません。
-- `cog bump` は使いません。タグは作らず、push もしません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
+- `cog bump` は使いません。タグを作らず、タグを push しません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
 - リリースの準備を頼まれたら、`package.json` の版、`npm run update-version` の順に進めます。正式版のときだけ、続けて `npm run changelog` を実行します。`chore(release): version X.Y.Z` で1つのコミットにします。
 
 ## 設計判断の記録（ADR）

@@ -275,7 +275,7 @@ sequenceDiagram
   alt 検証に通る
     S->>S: 値を保存（2秒後にまとめて書く）
     S-->>UI: 200 /set/data/x = 保存後の値
-    UI->>P: 値を反映、「保存しました」
+    UI->>P: 値を反映、「設定を保存しました。」
     S->>F: 一時ファイルに書いて置き換える
   else 検証に通らない
     S-->>UI: 400 {error_code: VALIDATION_…, data: 元の値}
@@ -313,7 +313,7 @@ sequenceDiagram
   participant V as VRChat（OSC）
   participant W as WebSocket・OBS
   participant Q as 読み上げの待ち行列
-  UI->>UI: ログに「送信中」の行を出す
+  UI->>UI: ログに「送信中…」の行を出す
   UI->>S: /run/send_message_box {id, message}
   Note over S: 受信時に音声の世代番号を付ける。<br/>処理の受付時に内容設定とチャットボックスの番号を固定する
   opt TTS が原文を読む設定
