@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { componentNamed, findIn, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { componentNamed, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import { settingTarget } from "../../../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 
 // The settings more than one page shows (SharedItems.tsx), drawn with their shared rows as stand-ins
@@ -21,12 +21,9 @@ async function sharedItems(osc: Setting = ok(true)) {
     } });
     const module = await loadModule<typeof import("./SharedItems.tsx")>(new URL("./SharedItems.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
-        "@logics_common": { useOpenFolder: () => ({ openFolder_MessageLogs: () => { calls.push(["openFolder_MessageLogs"]); } }),
-            useIsOscAvailable: () => ({ currentIsOscAvailable: osc, oscUnavailableLabelKey: "config_page.others.osc_unavailable_reason" }) },
+        "@logics_common": { useIsOscAvailable: () => ({ currentIsOscAvailable: osc, oscUnavailableLabelKey: "config_page.others.osc_unavailable_reason" }) },
         "@logics_configs": { useOthers: () => others },
         "../_templates/Templates": { CheckboxContainer: "checkbox", MessageFormatContainer: "message-format" },
-        "../_components": { LabelComponent: "label", ActionButton: "action-button" },
-        "@common_components": { Checkbox: "switch" },
     });
     const draw = (name: string) => runtime.render(componentNamed(module, name));
     return { calls, others, draw };
@@ -38,6 +35,7 @@ const ROMAJI_DESC = ["config_page.others.common_convert_message_hiragana_romaji.
 const SWITCHES: [string, string, string, string | undefined][] = [
     ["AutoClearMessageInputBoxContainer", "EnableAutoClearMessageInputBox", "auto_clear_the_message_box", undefined],
     ["SendOnlyTranslatedMessagesContainer", "EnableSendOnlyTranslatedMessages", "send_only_translated_messages", undefined],
+    ["AutoExportMessageLogsContainer", "EnableAutoExportMessageLogs", "auto_export_message_logs", "config_page.others.auto_export_message_logs.desc"],
     ["SendMessageToVrcContainer", "EnableSendMessageToVrc", "send_message_to_vrc", "config_page.others.send_message_to_vrc.desc"],
     ["EnableNotificationVrcSfxContainer", "EnableNotificationVrcSfx", "notification_vrc_sfx", "config_page.others.notification_vrc_sfx.desc"],
     ["SendReceivedMessageToVrcContainer", "EnableSendReceivedMessageToVrc", "send_received_message_to_vrc", "config_page.others.send_received_message_to_vrc.desc"],
@@ -86,23 +84,4 @@ test("the formats of sent and received messages each edit their own parts", asyn
         row.props.setFunction({ parts: [] });
         assert.deepEqual(s.calls.splice(0), [[`set${base}`, { parts: [] }]], name);
     }
-});
-
-test("the automatic export of message logs has its switch beside a button that opens the logs' folder", async () => {
-    const s = await sharedItems();
-    const drawn = s.draw("AutoExportMessageLogsContainer");
-    assert.equal(drawn.props["data-setting-id"], "auto_export_message_logs");
-    assert.equal(drawn.props["data-setting-id"], settingTarget("others", "auto_export_message_logs"));
-    const label = findIn(drawn, node => node.type === "label").props;
-    assert.deepEqual([label.label, label.desc], ["config_page.others.auto_export_message_logs.label", "config_page.others.auto_export_message_logs.desc"]);
-    const button = findIn(drawn, node => node.type === "action-button").props;
-    assert.deepEqual([button.label, button.clicked_duration], ["config_page.others.auto_export_message_logs.open_folder", 1000]);
-    assert.equal(typeof button.IconComponent, "function");
-    assert.equal(typeof button.ClickedIconComponent, "function");
-    button.onclickFunction();
-    const toggle = findIn(drawn, node => node.type === "switch").props;
-    assert.equal(toggle.label, "config_page.others.auto_export_message_logs.label");
-    assert.deepEqual(toggle.variable, ok("currentEnableAutoExportMessageLogs value"));
-    toggle.toggleFunction();
-    assert.deepEqual(s.calls, [["openFolder_MessageLogs"], ["toggleEnableAutoExportMessageLogs"]]);
 });
