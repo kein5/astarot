@@ -13,6 +13,7 @@ import { EngineReadout } from "./engine_readout/EngineReadout";
 import { LanguageSettings } from "./language_settings/LanguageSettings";
 import { LanguageReadout } from "./language_readout/LanguageReadout";
 import { OpenSettings } from "./open_settings/OpenSettings.tsx";
+import { Button } from "../../../kit/index.ts";
 
 // The top bar's toggle (SidebarCompactModeButton) and the portaled translator list carry these.
 const TOGGLE = "[data-sidebar-toggle]";
@@ -69,9 +70,9 @@ export const SidebarSection = () => {
             <Logo />
             {/* The top bar's toggle is under the opened rail; this one is on it. */}
             {is_overlay && <Tooltip bare placement="right" title={t("studio.close_sidebar")}>
-                <button type="button" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")} onClick={close}>
+                <Button size="icon" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")} onClick={close}>
                     <ArrowLeftSvg className={styles.closeOverlaySvg} preserveAspectRatio="none" aria-hidden="true" />
-                </button>
+                </Button>
             </Tooltip>}
             <div data-sidebar-scroll="" className={styles.scrollContainer}>
                 {/* Why every switch is greyed out, once, when the engine is gone. */}
