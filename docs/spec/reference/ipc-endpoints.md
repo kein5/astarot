@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（494件: 削除 13、取得 219、実行 52、有効化 43、無効化 45、設定 122）
+## 要求（503件: 削除 13、取得 223、実行 52、有効化 44、無効化 46、設定 125）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -349,6 +349,15 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/talk_ai_auth_key` | 取得 | 可 | — | ログで伏せる |
 | `/set/data/talk_ai_auth_key` | 設定 | 可 | — | ログで伏せる |
 | `/get/data/talk_ai_status` | 取得 | 可 | — |  |
+| `/get/data/talk_ai_screen_interval_ms` | 取得 | 可 | — |  |
+| `/set/data/talk_ai_screen_interval_ms` | 設定 | 可 | — |  |
+| `/get/data/talk_ai_screen_long_edge` | 取得 | 可 | — |  |
+| `/set/data/talk_ai_screen_long_edge` | 設定 | 可 | — |  |
+| `/get/data/talk_ai_screen_detail` | 取得 | 可 | — |  |
+| `/set/data/talk_ai_screen_detail` | 設定 | 可 | — |  |
+| `/get/data/talk_ai_screen_sources` | 取得 | 可 | — |  |
+| `/set/enable/talk_ai_screen` | 有効化 | 可 | — |  |
+| `/set/disable/talk_ai_screen` | 無効化 | 可 | — |  |
 | `/set/enable/talk_ai_audio` | 有効化 | 可 | — |  |
 | `/set/data/talk_ai_interrupt` | 設定 | 可 | — |  |
 | `/set/data/talk_ai_end_turn` | 設定 | 可 | — |  |
@@ -611,7 +620,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（30件）
+## UIに受信先がないエンドポイント（39件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -619,6 +628,10 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/get/data/talk_ai_catalog`
 - `/get/data/talk_ai_local_url`
 - `/get/data/talk_ai_provider`
+- `/get/data/talk_ai_screen_detail`
+- `/get/data/talk_ai_screen_interval_ms`
+- `/get/data/talk_ai_screen_long_edge`
+- `/get/data/talk_ai_screen_sources`
 - `/get/data/talk_ai_status`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
@@ -642,9 +655,14 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/set/data/talk_ai_interrupt`
 - `/set/data/talk_ai_local_url`
 - `/set/data/talk_ai_provider`
+- `/set/data/talk_ai_screen_detail`
+- `/set/data/talk_ai_screen_interval_ms`
+- `/set/data/talk_ai_screen_long_edge`
 - `/set/disable/talk_ai`
+- `/set/disable/talk_ai_screen`
 - `/set/enable/talk_ai`
 - `/set/enable/talk_ai_audio`
+- `/set/enable/talk_ai_screen`
 
 
 ## UIだけにあるルート（61件）

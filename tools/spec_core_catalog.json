@@ -1667,6 +1667,51 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/talk_ai_screen_interval_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_screen_interval_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_screen_long_edge",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_screen_long_edge",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_screen_detail",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/talk_ai_screen_detail",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/talk_ai_screen_sources",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/talk_ai_screen",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/talk_ai_screen",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/set/enable/talk_ai_audio",
       "wait_for_init": false,
       "immediate": false
@@ -4095,6 +4140,21 @@
         "tray_companion": false,
         "talk_ai": false
       }
+    },
+    {
+      "key": "TALK_AI_SCREEN_INTERVAL_MS",
+      "kind": "saved",
+      "default": 1000
+    },
+    {
+      "key": "TALK_AI_SCREEN_LONG_EDGE",
+      "kind": "saved",
+      "default": 1024
+    },
+    {
+      "key": "TALK_AI_SCREEN_DETAIL",
+      "kind": "saved",
+      "default": "auto"
     },
     {
       "key": "TALK_AI_PROVIDER",

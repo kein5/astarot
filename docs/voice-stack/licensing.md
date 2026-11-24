@@ -1434,3 +1434,7 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 | 参照元 | [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`）。MIT、Copyright (c) 2023 shadcn |
 | 参照しなかったもの | shadcn.io。shadcn/ui の上に作られた別のサイトで、無料の部品にライセンスの名前がない |
 | 配布物 | kit はまだ画面で使っておらず、見本のページ（`kit-lab.html`）もビルドに入らない。配布物には `NOTICE.md` が `licenses/VRCT/NOTICE.md` として入る（`tools/app_resources.py`）ので、画面の部品を寄せるときも、表示は `NOTICE.md` のこの節で足りる |
+
+## おしゃべりAIの画面のJPEG変換（#388）
+
+中核は画面をJPEGに変換するため、`image` 0.25.10（MITまたはApache-2.0）のJPEG機能を使う。`tools/rust_licenses.py` が、WindowsとLinuxの配布物用に `image` とその依存クレートのライセンス文を集める。

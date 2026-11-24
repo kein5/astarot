@@ -109,7 +109,7 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
 // the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
 // backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 15] = [
+const CORE_ONLY_KEYS: [&str; 18] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -125,6 +125,9 @@ const CORE_ONLY_KEYS: [&str; 15] = [
     "THEME",
     "TALK_AI_PROVIDER",
     "TALK_AI_LOCAL_URL",
+    "TALK_AI_SCREEN_INTERVAL_MS",
+    "TALK_AI_SCREEN_LONG_EDGE",
+    "TALK_AI_SCREEN_DETAIL",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).

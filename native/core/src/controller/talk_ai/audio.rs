@@ -159,7 +159,7 @@ pub(super) fn start(core: &Arc<Core>, data: &Value) -> Reply {
 
 fn fail(state: &Mutex<State>, code: &'static str) {
     let mut state = state.lock().unwrap();
-    state.stop_audio();
+    state.stop_media();
     state.phase = "failed";
     state.error = Some(code);
 }

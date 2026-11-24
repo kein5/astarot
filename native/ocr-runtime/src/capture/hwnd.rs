@@ -9,9 +9,12 @@
 use std::sync::Arc;
 
 use windows::core::BOOL;
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetWindowDC, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HGDIOBJ,
+    BitBlt, CAPTUREBLT, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject,
+    GetDC, GetDIBits, GetMonitorInfoW, GetWindowDC, HDC, HGDIOBJ, HMONITOR, MONITOR_DEFAULTTOPRIMARY,
+    MONITORINFO, MonitorFromPoint, ReleaseDC, SelectObject, SRCCOPY, BITMAPINFO, BITMAPINFOHEADER,
+    BI_RGB, DIB_RGB_COLORS,
 };
 use windows::Win32::Storage::Xps::{PrintWindow, PRINT_WINDOW_FLAGS};
 use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible};
@@ -94,30 +97,42 @@ fn os_error(operation: &str) -> Failure {
 
 /// The window's own content into an offscreen bitmap; every handle is released.
 fn print_window(hwnd: HWND, width: i32, height: i32) -> Result<BgrImage, Failure> {
+    let window_dc = unsafe { GetWindowDC(Some(hwnd)) };
+    if window_dc.is_invalid() {
+        return Err(os_error("GetWindowDC"));
+    }
+    let result = capture_bitmap(window_dc, width, height, |memory_dc| unsafe {
+        PrintWindow(hwnd, memory_dc, PRINT_WINDOW_FLAGS(PW_RENDERFULLCONTENT)).as_bool()
+    });
+    unsafe { ReleaseDC(Some(hwnd), window_dc) };
+    result
+}
+
+fn capture_bitmap(source: HDC, width: i32, height: i32, draw: impl FnOnce(HDC) -> bool) -> Result<BgrImage, Failure> {
+    if width <= 0 || height <= 0 || u64::from(width as u32) * u64::from(height as u32) > 34_000_000 {
+        return Err(Failure::new("ValueError", "Unsupported capture dimensions"));
+    }
     unsafe {
-        let window_dc = GetWindowDC(Some(hwnd));
-        if window_dc.is_invalid() {
-            return Err(os_error("GetWindowDC"));
+        let memory = CreateCompatibleDC(Some(source));
+        if memory.is_invalid() {
+            return Err(os_error("CreateCompatibleDC"));
         }
-        let memory_dc = CreateCompatibleDC(Some(window_dc));
         let result = (|| {
-            if memory_dc.is_invalid() {
-                return Err(os_error("CreateCompatibleDC"));
-            }
-            let bitmap = CreateCompatibleBitmap(window_dc, width, height);
+            let bitmap = CreateCompatibleBitmap(source, width, height);
             if bitmap.is_invalid() {
                 return Err(os_error("CreateCompatibleBitmap"));
             }
-            let previous = SelectObject(memory_dc, HGDIOBJ(bitmap.0));
-            let read = (|| {
-                if !PrintWindow(hwnd, memory_dc, PRINT_WINDOW_FLAGS(PW_RENDERFULLCONTENT)).as_bool() {
-                    return Err(os_error("PrintWindow"));
-                }
+            let previous = SelectObject(memory, HGDIOBJ(bitmap.0));
+            let drawn = !previous.is_invalid() && draw(memory);
+            if !previous.is_invalid() {
+                SelectObject(memory, previous);
+            }
+            let read = if drawn {
                 let mut info = BITMAPINFO {
                     bmiHeader: BITMAPINFOHEADER {
                         biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                         biWidth: width,
-                        biHeight: -height, // top-down
+                        biHeight: -height,
                         biPlanes: 1,
                         biBitCount: 32,
                         biCompression: BI_RGB.0,
@@ -126,22 +141,50 @@ fn print_window(hwnd: HWND, width: i32, height: i32) -> Result<BgrImage, Failure
                     ..Default::default()
                 };
                 let mut buffer = vec![0u8; width as usize * height as usize * 4];
-                let got = GetDIBits(memory_dc, bitmap, 0, height as u32, Some(buffer.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS);
-                if got != height {
-                    return Err(os_error("GetDIBits"));
+                let got = GetDIBits(memory, bitmap, 0, height as u32, Some(buffer.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS);
+                if got == height {
+                    let data = buffer.as_chunks::<4>().0.iter().flat_map(|px| [px[0], px[1], px[2]]).collect();
+                    BgrImage::new(width as usize, height as usize, data).map_err(|error| Failure::new("ValueError", error.to_string()))
+                } else {
+                    Err(os_error("GetDIBits"))
                 }
-                let data: Vec<u8> = buffer.as_chunks::<4>().0.iter().flat_map(|px| [px[0], px[1], px[2]]).collect();
-                BgrImage::new(width as usize, height as usize, data).map_err(|e| Failure::new("ValueError", e.to_string()))
-            })();
-            SelectObject(memory_dc, previous);
+            } else {
+                Err(os_error("CaptureBitmap"))
+            };
             let _ = DeleteObject(HGDIOBJ(bitmap.0));
             read
         })();
-        if !memory_dc.is_invalid() {
-            let _ = DeleteDC(memory_dc);
-        }
-        ReleaseDC(Some(hwnd), window_dc);
+        let _ = DeleteDC(memory);
         result
+    }
+}
+
+/// Captures the Windows primary monitor selected at the start of sharing.
+pub struct MonitorCapture(HMONITOR);
+
+impl MonitorCapture {
+    pub fn open() -> Result<Self, &'static str> {
+        let monitor = unsafe { MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY) };
+        if monitor.is_invalid() { Err("talk_monitor_unavailable") } else { Ok(Self(monitor)) }
+    }
+
+    pub fn read(&self) -> Result<BgrImage, &'static str> {
+        let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+        if !unsafe { GetMonitorInfoW(self.0, &mut info).as_bool() } {
+            return Err("talk_monitor_unavailable");
+        }
+        let area = info.rcMonitor;
+        let screen = unsafe { GetDC(None) };
+        if screen.is_invalid() {
+            return Err("talk_monitor_unavailable");
+        }
+        let width = area.right - area.left;
+        let height = area.bottom - area.top;
+        let result = capture_bitmap(screen, width, height, |memory| unsafe {
+            BitBlt(memory, 0, 0, width, height, Some(screen), area.left, area.top, SRCCOPY | CAPTUREBLT).is_ok()
+        });
+        unsafe { ReleaseDC(None, screen) };
+        result.map_err(|_| "talk_monitor_unavailable")
     }
 }
 
