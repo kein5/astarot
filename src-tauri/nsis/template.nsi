@@ -1195,7 +1195,11 @@ Section Install
   !endif
 
   ; Another version (/VERSION), or a build without built-in hashes: every VRCT-VOX
-  ; release publishes a SHA-256 sidecar next to each package.
+  ; release publishes a SHA-256 sidecar next to each package. The sidecar comes from the same
+  ; release page as the package, so it alone cannot catch both being replaced there. What keeps
+  ; a published release's assets from being replaced is GitHub's immutable releases, turned on
+  ; for this repository (issue #1018, docs/voice-stack/release-candidates.md, "Another version
+  ; installed with /VERSION").
   ; Download it before the large archive so a package can be rejected before
   ; extraction. Any failure, including a missing sidecar (HTTP 404), is fatal:
   ; continuing without it would skip the integrity check.
