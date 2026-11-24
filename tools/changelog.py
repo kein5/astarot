@@ -76,11 +76,20 @@ PRODUCT = "ASTAROT"
 MERGED_PULL = re.compile(r"^Merge pull request #(?P<number>\d+) from ")
 # A squashed or rebased pull request ends its subject with the number instead.
 SQUASHED_PULL = re.compile(r" \(#(?P<number>\d+)\)$")
-# The groups of the pull request list, most user-facing first, with what the writer does with each.
+# The groups of the pull request list, most user-facing first, with what the writer does with each,
+# in English and in Japanese: the notes carry both versions, English first (decision of 2026-11-24).
 NOTES_GROUPS = (
-    ("breaking", "互換性が変わる変更を含むPRです。見出しと段落で上の節に書き直し、利用者がすることを「⚠️ 更新するときの注意」に書いてください。"),
-    ("user", "利用者に関係のある変更を含むPRです。見出しと段落に書き直して上の節へ移してください。"),
-    ("internal", "内部の変更だけのPRです。1項目を短い1行に書き直してください。"),
+    ("breaking",
+     "Pull requests with changes that alter compatibility. Rewrite them as a heading and a paragraph in the sections "
+     "above, and write what users do under \"⚠️ When you update\".",
+     "互換性が変わる変更を含むPRです。見出しと段落で上の節に書き直し、利用者がすることを「⚠️ 更新するときの注意」に書いてください。"),
+    ("user",
+     "Pull requests with changes that matter to users. Rewrite them as a heading and a paragraph and move them to the "
+     "sections above.",
+     "利用者に関係のある変更を含むPRです。見出しと段落に書き直して上の節へ移してください。"),
+    ("internal",
+     "Pull requests with internal changes only. Rewrite each as one short line.",
+     "内部の変更だけのPRです。1項目を短い1行に書き直してください。"),
 )
 
 
@@ -312,7 +321,7 @@ def notes_entries(commits, pulls):
 
     The same commits as CHANGELOG.md: a commit it leaves out is left out here, and a pull request
     goes into the group of its most user-facing commit."""
-    rank = {group: index for index, (group, _) in enumerate(NOTES_GROUPS)}
+    rank = {group: index for index, (group, *_) in enumerate(NOTES_GROUPS)}
     found = {}  # key -> [group, title, refs]
     for commit in commits:
         place = classify(commit)
@@ -335,51 +344,106 @@ def notes_entries(commits, pulls):
     return [NotesEntry(found[key][0], found[key][1], ", ".join(found[key][2])) for key in order]
 
 
+def heading_anchor(heading):
+    """The id GitHub gives a Markdown heading: lower case, punctuation (full-width too) left out, a
+    hyphen for each space. Letters such as kana and kanji stay."""
+    return re.sub(r"[^\w\- ]", "", heading).lower().replace(" ", "-")
+
+
 def changelog_anchor(version, date):
     """The id GitHub gives the heading "## [version] - date" of CHANGELOG.md."""
-    return re.sub(r"[^\w\- ]", "", f"[{version}] - {date}").lower().replace(" ", "-")
+    return heading_anchor(f"[{version}] - {date}")
+
+
+def changelog_anchor_ja(version, date):
+    """The id GitHub gives the heading "## version（date）" of CHANGELOG.md's Japanese version."""
+    return heading_anchor(f"{version}（{date}）")
 
 
 def notes_scaffold(version, date, previous, entries, *, repo_url=REPO_URL):
-    """The start of docs/release-notes/<version>.md, in the order of docs/release-notes/README.md:
-    an opening paragraph, the user-facing headings, the upgrade notes and known issues, and the
-    internal changes. Every pull request starts under the internal changes; the writer moves the
-    user-facing ones up. Text in （） and the comments are for the writer and go before publishing."""
+    """The start of docs/release-notes/<version>.md, in the format of docs/release-notes/README.md:
+    the English version under "# ASTAROT <version>" with a link to the Japanese one, a separator, and
+    the Japanese version under "# ASTAROT <version>（日本語版）". Each has an opening paragraph, the
+    user-facing headings, the upgrade notes and known issues, and the internal changes. Every pull
+    request starts under the internal changes; the writer moves the user-facing ones up. Text in ( )
+    and （） and the comments are for the writer and go before publishing."""
+    title_ja = f"{PRODUCT} {version}（日本語版）"
     lines = [
         "<!--",
+        "python tools/changelog.py scaffold-notes made this scaffold in the format of docs/release-notes/README.md.",
+        f"\"🔧 Internal changes\" lists the pull requests merged from {previous} to {version}, sorted as in "
+        "CHANGELOG.md.",
+        "Replace the placeholders in ( ) and （）. Delete unused sections and comments like this one before publishing.",
+        "The Japanese version says what the English version says; where they differ, the English is right.",
         "python tools/changelog.py scaffold-notes が docs/release-notes/README.md の書式で作った雛形です。",
         f"「🔧 内部の変更」には{previous}から{version}までにマージしたPRを並べています。分類はCHANGELOG.mdと同じです。",
         "（）で囲んだ置き場所を書き換えてください。使わない節とこのようなコメントは公開する前に消してください。",
+        "日本語版には英語版と同じことを書きます。食い違うときは英語版が正です。",
         "-->",
         "",
-        f"{PRODUCT} {version}では（いちばん大きな変更）。（それで利用者に何ができるか）。",
+        f"# {PRODUCT} {version}",
         "",
-        "## （絵文字1つ） （短い題）",
+        f"[日本語版](#{heading_anchor(title_ja)})",
         "",
-        "（段落）",
+        f"In {PRODUCT} {version}, (the biggest change). (What users can do with it.)",
         "",
-        "## ⚠️ 更新するときの注意",
+        "## (One emoji) (Short title)",
         "",
-        "（前の正式版から更新するときに利用者がすることと、互換性がなくなった点。書くことがなければ節ごと消す）",
+        "(Paragraph)",
         "",
-        "## 🐞 既知の問題",
+        "## ⚠️ When you update",
         "",
-        "（制限と、公開する前に確かめられなかったこと。書くことがなければ節ごと消す）",
+        "(What users do when they update from the previous stable release, and what is no longer compatible. "
+        "If there is nothing to write, delete the whole section.)",
         "",
-        "## 🔧 内部の変更",
+        "## 🐞 Known issues",
+        "",
+        "(Limitations, and what could not be checked before publishing. If there is nothing to write, delete the "
+        "whole section.)",
+        "",
+        "## 🔧 Internal changes",
         "",
     ]
+    lines += notes_pull_requests(entries, previous, english=True)
+    link = f"{repo_url}/blob/main/CHANGELOG.md#{changelog_anchor(version, date)}"
+    lines += [f"All changes are in [CHANGELOG.md]({link}).", "", "---", "", f"# {title_ja}", "",
+              f"{PRODUCT} {version}では（いちばん大きな変更）。（それで利用者に何ができるか）。",
+              "",
+              "## （絵文字1つ） （短い題）",
+              "",
+              "（段落）",
+              "",
+              "## ⚠️ 更新するときの注意",
+              "",
+              "（前の正式版から更新するときに利用者がすることと、互換性がなくなった点。書くことがなければ節ごと消す）",
+              "",
+              "## 🐞 既知の問題",
+              "",
+              "（制限と、公開する前に確かめられなかったこと。書くことがなければ節ごと消す）",
+              "",
+              "## 🔧 内部の変更",
+              ""]
+    lines += notes_pull_requests(entries, previous, english=False)
+    link_ja = f"{repo_url}/blob/main/CHANGELOG.md#{changelog_anchor_ja(version, date)}"
+    lines += [f"すべての変更は [CHANGELOG.md]({link_ja}) にあります。", ""]
+    return "\n".join(lines)
+
+
+def notes_pull_requests(entries, previous, *, english):
+    """The pull request list under the internal changes of one language's version, by group."""
+    lines = []
     if not entries:
-        lines += [f"<!-- {previous}のあとにマージしたPRは見つかりませんでした。 -->", ""]
-    for group, guide in NOTES_GROUPS:
+        found = (f"No pull requests merged after {previous} were found." if english
+                 else f"{previous}のあとにマージしたPRは見つかりませんでした。")
+        lines += [f"<!-- {found} -->", ""]
+    for group, guide_en, guide_ja in NOTES_GROUPS:
         listed = [entry for entry in entries if entry.group == group]
         if listed:
-            lines += [f"<!-- {guide} -->", ""]
-            lines += [f"- {entry.title}（{entry.refs}）" for entry in listed]
+            lines += [f"<!-- {guide_en if english else guide_ja} -->", ""]
+            lines += [f"- {entry.title} ({entry.refs})" if english else f"- {entry.title}（{entry.refs}）"
+                      for entry in listed]
             lines.append("")
-    link = f"{repo_url}/blob/main/CHANGELOG.md#{changelog_anchor(version, date)}"
-    lines += [f"すべての変更は [CHANGELOG.md]({link}) にあります。", ""]
-    return "\n".join(lines)
+    return lines
 
 
 def require_version(version):
