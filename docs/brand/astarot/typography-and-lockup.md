@@ -1,4 +1,45 @@
-# ASTAROT タイポグラフィとロックアップの要件
+# ASTAROT typography and lockup requirements
+
+[日本語版](#astarot-タイポグラフィとロックアップの要件日本語版)
+
+The rules for the brand typeface and for setting the wordmark together with the subtitle (the lockup). They were settled on 2026-11-16.
+
+## Typeface
+
+- The brand typeface is **Outfit** (Google Fonts, OFL 1.1). It is used for the wordmark and the subtitle.
+- The weight is **Bold 700**.
+- It replaced Space Grotesk on 2026-11-16.
+- The Japanese typeface of the UI stays Zen Kaku Gothic New (unchanged).
+
+## Making the wordmark
+
+- The master is the outline of the actual Outfit Bold font, converted to paths with fontTools.
+- Remove the overlaps between contours before converting them to paths (`removeOverlaps`). If the contours still overlap, the `fill-rule="evenodd"` fill leaves parts of the letterforms missing.
+- Normalized dimensions: cap height 130 units, box 889 × 131 units.
+- Letter spacing (tracking) brings the total ink width to 888 units. At a cap height of 130, Outfit's natural ink width is 844.5 units, and the tracking is about 7.26 units per letter gap (about 0.04em).
+
+## Lockup rules (one-line subtitle)
+
+- The subtitle is "Speech, Translation, Accessibility, Revoicing & OCR Toolkit", set in Outfit Bold.
+- **Wordmark ink width = subtitle ink width × 1.0047** (about 100.5%).
+- Align the left edges by the position of the ink.
+- Measure widths by **ink width (the area actually drawn)**, not by the font's advance width. If the advance widths are matched, the wordmark looks as if it sticks out to the right.
+- How this was decided: on 2026-11-16, a version of the base layout (ink width ratio 96.6%) with the wordmark enlarged by 4% was approved.
+- Values used in the horizontal logo: with the wordmark group at scale 1.074241, the subtitle's font-size is 35.8. A measurement of the rendered logo confirmed the ratio of 100.5%.
+
+## Vertical logo
+
+- The subtitle is on two lines, centered (the same layout as before; only the typeface changed to Outfit).
+- The ratio rule of the one-line lockup does not apply to the vertical logo.
+
+## Unchanged
+
+- Colors: Dark Plum `#261633`, Lilac `#A47AF5`, Off-White `#FAFAFC`.
+- Symbol: the geometry of the uniform version is the master (outside the scope of this document).
+
+---
+
+# ASTAROT タイポグラフィとロックアップの要件（日本語版）
 
 ブランド書体と、ワードマークとサブタイトルの組み方（ロックアップ）の決め事。
 2026-11-16 に確定した。
