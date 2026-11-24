@@ -54,6 +54,8 @@ SECTION = re.compile(r"^## \[(?P<version>[^\]]+)\] - (?P<date>\d{4}-\d{2}-\d{2})
 OLDER_HEADING = "## Earlier releases"
 HEADER = f"""# Changelog
 
+[日本語版](#変更履歴日本語版)
+
 All notable changes to ASTAROT, newest first. Only stable releases are listed: each section
 covers everything since the previous stable release, its betas included. Betas (`X.Y.Z-beta.N`,
 from `develop`) are described in their [GitHub pre-release notes]({REPO_URL}/releases).
@@ -70,6 +72,31 @@ OLDER = f"""{OLDER_HEADING}
 
 Releases up to 0.1.0 are described in [GitHub Releases]({REPO_URL}/releases).
 """
+# The Japanese version follows the English one in the same file, after a separator (decision of
+# 2026-11-24). Its version headings are not in SECTION's form, so sections() finds only the English
+# ones; a new stable release also gets a frame of its Japanese section (japanese_frame), whose
+# summaries and notes stay in English until someone translates them.
+SEPARATOR = "---"
+JA_TITLE = "# 変更履歴（日本語版）"
+JA_SECTION = re.compile(r"^## (?P<version>[^\s（]+)（(?P<date>\d{4}-\d{2}-\d{2})）$", re.M)
+JA_OLDER_HEADING = "## それより前の版"
+JA_HEADER = f"""{JA_TITLE}
+
+ASTAROTの主な変更を、新しい版から順に載せます。載せるのは正式版だけで、各節には前の正式版からの変更をすべて、その間のベータ版の分も含めてまとめます。ベータ版（`develop`から出す`X.Y.Z-beta.N`）の変更は、それぞれの[GitHubのプレリリースのノート]({REPO_URL}/releases)に書きます。版の番号は[Semantic Versioning](https://semver.org/)に従います。構成は[Keep a Changelog](https://keepachangelog.com/en/1.1.0/)の考え方に沿っていて、利用者が気づく変更を先に、開発者向けの変更をその後に載せます。
+
+英語版の各節はコミットのたびではなく、その版のリリースを準備するときに書きます（`python tools/changelog.py write`）。詳しくはCONTRIBUTING.mdの[Changelog and releases](CONTRIBUTING.md#changelog-and-releases)を見てください。
+"""
+JA_OLDER = f"""{JA_OLDER_HEADING}
+
+0.1.0までの版は[GitHub Releases]({REPO_URL}/releases)で説明しています。
+"""
+JA_GROUP_TITLES = {"User-facing Changes": "利用者に関わる変更", "Internal Changes": "内部の変更"}
+JA_HEADINGS = {"Breaking Changes": "互換性が変わる変更", "Features": "機能", "Improvements": "改善",
+               "Bug Fixes": "不具合の修正", "Performance": "性能", "Security": "セキュリティ",
+               "Refactoring": "リファクタリング", "Dependencies": "依存", "Build & CI": "ビルドとCI", "Tests": "試験",
+               "Documentation": "文書", "Maintenance": "保守"}
+JA_FRAME_NOTE = ("<!-- tools/changelog.py が英語の節から作った枠です。要約と注記を日本語に訳してから、"
+                 "このコメントを消します。 -->")
 NOTES_DIR = Path("docs") / "release-notes"
 PRODUCT = "ASTAROT"
 # GitHub's merge commit names the pull request; its body is the pull request's title.
@@ -219,10 +246,12 @@ def is_pre_release(version):
 
 
 def update_changelog(text, version, section, force=False):
+    """Add a stable release's section, or replace it with --force. A file with a Japanese version
+    also gets a frame of the release's Japanese section, unless it has one (japanese_frame)."""
     if is_pre_release(version):
         raise ChangelogError(f"{version} is a pre-release; only stable releases are written to CHANGELOG.md")
     if not text.strip():
-        text = HEADER + "\n" + OLDER
+        text = HEADER + "\n" + OLDER + "\n" + SEPARATOR + "\n\n" + JA_HEADER + "\n" + JA_OLDER
     section = section.rstrip("\n") + "\n\n"
     for name, start, end in sections(text):
         if name == version:
@@ -231,12 +260,63 @@ def update_changelog(text, version, section, force=False):
             if not force:
                 raise ChangelogError(f"CHANGELOG.md already has a different section for {version}; "
                                      "check it, then run again with --force to replace it")
-            return text[:start] + section + text[end:]
+            return add_japanese_frame(text[:start] + section + text[end:], version, section)
     existing = sections(text)
     at = existing[0][1] if existing else text.find(OLDER_HEADING)
     if at < 0:
         at = len(text)
-    return text[:at] + section + text[at:]
+    return add_japanese_frame(text[:at] + section + text[at:], version, section)
+
+
+def japanese_frame(section):
+    """The frame of a section's Japanese version: the headings and the fixed sentences in Japanese, the
+    summaries and the breaking-change notes in English for a person to translate, and the commit
+    links as they are. A comment at its top says so until it is translated."""
+    lines = []
+    for line in section.rstrip("\n").split("\n"):
+        heading = SECTION.match(line)
+        since = re.fullmatch(r"Changes since (\[[^\]]+\]\([^)]+\))\.", line)
+        included = re.fullmatch(r"This release includes the changes of (.+), listed below\.", line)
+        entry = re.fullmatch(r"(- .*) \((\[[0-9a-f]{7}\]\([^)]+\)(?:, \[[0-9a-f]{7}\]\([^)]+\))*)\)", line)
+        if heading:
+            lines += [f"## {heading['version']}（{heading['date']}）", "", JA_FRAME_NOTE]
+        elif since:
+            lines.append(f"{since[1]}からの変更です。")
+        elif included:
+            names = re.split(r", | and ", included[1])
+            lines.append(f"この版には{'、'.join(names)}の変更も含まれます。それらも下の一覧に載せています。")
+        elif line == "No changes to list.":
+            lines.append("載せる変更はありません。")
+        elif line.startswith("### ") and line[4:] in JA_GROUP_TITLES:
+            lines.append(f"### {JA_GROUP_TITLES[line[4:]]}")
+        elif line.startswith("#### ") and line[5:] in JA_HEADINGS:
+            lines.append(f"#### {JA_HEADINGS[line[5:]]}")
+        elif entry:
+            lines.append(f"{entry[1]}（{entry[2].replace(', ', '、')}）")
+        else:
+            lines.append(line)
+    return "\n".join(lines) + "\n\n"
+
+
+def japanese_sections(text):
+    """The versions of the Japanese version's sections, in file order."""
+    title = text.find("\n" + JA_TITLE + "\n")
+    return [] if title < 0 else [match["version"] for match in JA_SECTION.finditer(text, title)]
+
+
+def add_japanese_frame(text, version, section):
+    """Put the frame of a release's Japanese section above the newest Japanese section. A file without
+    a Japanese version, or one that has this release's Japanese section, is left as it is: a
+    translation is never replaced."""
+    title = text.find("\n" + JA_TITLE + "\n")
+    if title < 0 or version in japanese_sections(text):
+        return text
+    first = JA_SECTION.search(text, title)
+    at = first.start() if first else text.find(JA_OLDER_HEADING, title)
+    if at < 0:
+        text = text.rstrip("\n") + "\n\n"
+        at = len(text)
+    return text[:at] + japanese_frame(section) + text[at:]
 
 
 def section_date(text, version):

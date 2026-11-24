@@ -170,6 +170,77 @@ class UpdateTest(unittest.TestCase):
             cl.update_changelog("", "0.2.0-beta.1", self.SECTION.replace("0.2.0", "0.2.0-beta.1"))
 
 
+class JapaneseVersionTest(unittest.TestCase):
+    """The Japanese version after the English one (decision of 2026-11-24): a new stable release gets a
+    frame of its Japanese section for a person to translate; a translation is never replaced."""
+
+    def section(self, version="0.2.0", previous="v0.1.0", commits=()):
+        return cl.render_section(version, "2026-11-14", previous, list(commits), repo_url=REPO)
+
+    def test_a_new_file_holds_both_versions_and_the_frame_of_the_first_release(self):
+        text = cl.update_changelog("", "0.2.0", self.section())
+        self.assertIn("[日本語版](#変更履歴日本語版)", text.split("\n---\n")[0])
+        self.assertLess(text.index(cl.OLDER_HEADING), text.index("\n---\n"))
+        self.assertLess(text.index("\n---\n"), text.index(cl.JA_TITLE))
+        self.assertLess(text.index("## 0.2.0（2026-11-14）"), text.index(cl.JA_OLDER_HEADING))
+        self.assertEqual(cl.japanese_sections(text), ["0.2.0"])
+        self.assertEqual([name for name, _, _ in cl.sections(text)], ["0.2.0"])
+
+    def test_a_new_release_goes_above_the_previous_one_in_both_versions(self):
+        text = cl.update_changelog("", "0.2.0", self.section())
+        text = cl.update_changelog(text, "0.3.0", self.section("0.3.0", "v0.2.0"))
+        self.assertEqual([name for name, _, _ in cl.sections(text)], ["0.3.0", "0.2.0"])
+        self.assertEqual(cl.japanese_sections(text), ["0.3.0", "0.2.0"])
+
+    def test_a_translated_section_is_never_replaced(self):
+        text = cl.update_changelog("", "0.2.0", self.section(commits=[commit("fix", "keep the queue")]))
+        translated = text.replace("- Keep the queue（", "- 待ち行列を保つ（").replace(cl.JA_FRAME_NOTE + "\n\n", "")
+        changed = self.section(commits=[commit("fix", "keep the queue"), commit("feat", "add a page", id_="b" * 40)])
+        text = cl.update_changelog(translated, "0.2.0", changed, force=True)
+        self.assertIn("Add a page", text.split(cl.JA_TITLE)[0])
+        japanese = text.split(cl.JA_TITLE)[1]
+        self.assertIn("- 待ち行列を保つ（", japanese)
+        self.assertNotIn("Add a page", japanese)
+
+    def test_a_file_without_a_japanese_version_gets_no_frame(self):
+        english_only = "# Changelog\n\n" + cl.OLDER
+        text = cl.update_changelog(english_only, "0.2.0", self.section())
+        self.assertNotIn(cl.JA_TITLE, text)
+        self.assertEqual(cl.japanese_sections(text), [])
+
+    def test_the_frame_puts_headings_and_fixed_sentences_in_japanese_and_keeps_the_links(self):
+        section = cl.render_section("0.2.0", "2026-11-14", "v0.1.0", [
+            commit("fix", "keep the queue", scope="ui", id_="a" * 40),
+            commit("fix", "keep the queue", scope="ui", id_="b" * 40),
+            commit("feat", "change the reply", scope="api", breaking=True,
+                   footers=[("BREAKING CHANGE", "read the new field.")], id_="c" * 40),
+            commit("test", "cover the queue", id_="d" * 40),
+        ], repo_url=REPO, included=["0.2.0-beta.1", "0.2.0-beta.2"])
+        frame = cl.japanese_frame(section)
+        self.assertTrue(frame.startswith("## 0.2.0（2026-11-14）\n\n" + cl.JA_FRAME_NOTE + "\n"))
+        self.assertIn(f"[v0.1.0]({REPO}/compare/v0.1.0...v0.2.0)からの変更です。", frame)
+        self.assertIn("この版には0.2.0-beta.1、0.2.0-beta.2の変更も含まれます。", frame)
+        for heading in ("### 利用者に関わる変更", "#### 互換性が変わる変更", "#### 不具合の修正", "### 内部の変更",
+                        "#### 試験"):
+            self.assertIn(heading + "\n", frame)
+        self.assertIn(f"- **ui:** Keep the queue（[aaaaaaa]({REPO}/commit/{'a' * 40})、"
+                      f"[bbbbbbb]({REPO}/commit/{'b' * 40})）", frame)
+        self.assertIn("  - read the new field.", frame)
+        self.assertIsNone(cl.SECTION.search(frame))
+
+    def test_a_release_with_nothing_to_list_says_so_in_japanese(self):
+        frame = cl.japanese_frame(self.section(commits=[commit("chore", "version 0.2.0", scope="release")]))
+        self.assertIn("載せる変更はありません。", frame)
+
+    def test_the_header_and_the_closing_sections_are_those_of_changelog_md(self):
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith(cl.HEADER))
+        self.assertIn("\n" + cl.SEPARATOR + "\n\n" + cl.JA_HEADER, text)
+        self.assertIn(cl.OLDER + "\n" + cl.SEPARATOR + "\n", text)
+        self.assertTrue(text.endswith(cl.JA_OLDER))
+        self.assertEqual(cl.japanese_sections(text), [name for name, _, _ in cl.sections(text)])
+
+
 class ReleaseNotesTest(unittest.TestCase):
     def section(self, version, previous):
         return cl.render_section(version, "2026-11-14", previous, [
@@ -350,6 +421,8 @@ class EndToEndTest(unittest.TestCase):
         self.assertIn("compare/v0.1.0...v0.2.0", text)
         self.assertIn("This release includes the changes of 0.2.0-beta.1", text)
         self.assertIn("Show the flow", text)
+        self.assertIn("## 0.2.0（2026-11-14）", text)
+        self.assertIn("- **ui:** Show the flow（", text.split(cl.JA_TITLE)[1])
         self.assertLess(text.index("#### Breaking Changes"), text.index("#### Features"))
         self.assertLess(text.index("### User-facing Changes"), text.index("### Internal Changes"))
         again = self.run_tool("write", "--date", "2026-11-20")
