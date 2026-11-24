@@ -64,13 +64,13 @@ flowchart TD
 1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
    正式版のときだけ、続けて`npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。版の変更と一緒に`chore(release): version X.Y.Z`でコミットします。分類と手順は[CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases)にあります。
    正式版では`release/X.Y.Z`のPRを`main`へマージすると、次の2〜4と[下書きを作る](#下書きを作る)が自動で進みます。ベータ版のときと、自動の実行が止まって手で続けるときは、2から進めます。
-2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`VRCT-VOX-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
+2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`ASTAROT-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.6.xまでは`VRCT-VOX-<version>-…`、0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
 3. 「Validate VRCT-VOX distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
 4. 両方の実行が成功したら、run IDを控えます。候補の保存期間は7日です。
 
-Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです。debとrpmはtar.gzと同じファイルを`/opt/vrct-vox`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
+Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです（0.7.xは、その0.6.xまでの名前の写しを合わせて8つ。下の「旧名の写し」）。debとrpmはtar.gzと同じファイルを`/opt/astarot`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
 
-Windowsの候補は、ビルドのジョブで`VRCT-VOX.zip`とインストーラーを作ります。0.5まではCUDA版のZIP（`VRCT-VOX_cuda.zip`）も作っていましたが、0.5.0から中身が同じだったので、#288でやめました（[Windowsの配布物の一本化](single-package.md)）。インストーラーにはZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。`/VERSION`で入れたときは、アプリの一覧に出す版（レジストリの`DisplayVersion`）にもその版を書きます。既存のインストールと比べるページも、インストーラー自身の版ではなく、これから入れる版で比べます。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。
+Windowsの候補は、ビルドのジョブで`ASTAROT.zip`とインストーラーを作ります（0.6.xまでは`VRCT-VOX.zip`）。0.5まではCUDA版のZIP（`VRCT-VOX_cuda.zip`）も作っていましたが、0.5.0から中身が同じだったので、#288でやめました（[Windowsの配布物の一本化](single-package.md)）。インストーラーにはZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。`/VERSION`で入れたときは、アプリの一覧に出す版（レジストリの`DisplayVersion`）にもその版を書きます。既存のインストールと比べるページも、インストーラー自身の版ではなく、これから入れる版で比べます。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。
 
 手動実行のときは、保存する前に候補の全ファイルへビルドの来歴を付けます（GitHub Artifact Attestations、`actions/attest-build-provenance`。第2回セキュリティ監査 SEC-04）。来歴には、ファイルのSHA-256、作ったワークフロー、コミット、ブランチ、実行が入り、GitHubがSigstoreで署名します。このリポジトリは公開しているので、署名はSigstoreの公開の透明性ログにも記録されます。SHA-256のファイルだけでは、リリースの資産を差し替えられる人がチェックサムも一緒に差し替えられます。来歴があれば、ファイルがこのリポジトリの候補のワークフローで作られたかを、リリースとは別に確かめられます。来歴を付ける権限（`id-token`と`attestations`）は、候補のジョブにだけ与えます。PRの実行では来歴を付けません。
 
@@ -133,11 +133,20 @@ Windowsの候補は、ビルドのジョブで`VRCT-VOX.zip`とインストー�
 
 作成するのは`v<version>`の下書きです。既存の同名タグがある場合は、対象コミットが同じでも停止します。新しい版を選んでください。タグ照会の失敗も続行せず、既存リリースの上書きや自動公開は行いません。下書きの説明は、正式版なら`CHANGELOG.md`のこの版の節から作ります（節がなければ下書きを作りません）。ベータ版なら前のタグからのコミットから作ります。自動の処理は下書きを作るところまでで、公開はしません。公開する前に、下書きのタグ名が`v<version>`であることと、対象のコミットが候補を作ったコミットであることを確かめます（手順は[公開の直前にタグ名を書き直す](#公開の直前にタグ名を書き直す)）。公開するとそのタグができ、リリースのタグはあとから動かせません。続けて本文を`docs/release-notes/<version>.md`のノート（0.5.0からの書式は[リリースノートの書式](../release-notes/README.md)）に差し替え、Windowsのインストール・旧版からの更新・アンインストールを確認してから公開してください。ビルド成功だけではWindowsのTTS/RVC実機動作まで確認したことになりません。確認の手順は[Windowsの音声機能](local-setup-windows.md)にあります。
 
-Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピーします。インストーラーが取得する`VRCT-VOX.zip`の名前も維持してください。アプリ内の更新は`VRCT-VOX_setup.exe`とAppImageを使います（次の節）。
+Windowsのsetupは、候補を作る際に`ASTAROT_setup.exe`へコピーします。インストーラーが取得する`ASTAROT.zip`の名前も維持してください。アプリ内の更新は`ASTAROT_setup.exe`とAppImage（`ASTAROT-<version>-linux-x64-release.AppImage`）を使います（次の節）。
+
+### 旧名の写し
+
+0.7.0から配布物の名前は`ASTAROT`で始まり、0.6.xまでは`VRCT-VOX`でした（ADR-014の2.10）。0.7.xのリリースは、外に貼られた`releases/latest/download/VRCT-VOX_setup.exe`のようなリンクを生かすために、どの配布物も0.6.xまでの名前の写しと一緒に載せます（`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`）。
+
+- 写しは候補を作るとき（`tools/release_candidate.py stage`）に作ります。中身は元のファイルと同じで、`.sha256`と`SHA256SUMS`の行と`candidate-manifest.json`の項目を持ち、ビルドの来歴も付きます。候補の検査は、新しい名前と写しがそろい、写しの中身が元のファイルと同じことを確かめます。
+- 写しを載せる期間は`tools/release_candidate.py`の`LEGACY_COPIES_UNTIL`の1か所で決めます。いまは0.8.0より前の版（0.8.0のベータ版を含まない）です。
+- 写しには署名を付けず、`latest.json`は新しい名前だけを指します。
+- 利用者向けのサイトのダウンロードの一覧は、新しい名前のファイルがある写しを出しません（`site/theme/lib/releases.mjs`）。
 
 ## updaterの署名とlatest.json
 
-アプリ内の更新（#330、[アプリの更新](../spec/external-interfaces.md#アプリの更新)）のために、下書きを作るジョブは、上で検証した`VRCT-VOX_setup.exe`とAppImageに、Tauriのupdaterの署名を付けます。この署名はコードサイニングとは別のもので、アプリに組み込んだ公開鍵（`src-tauri/tauri.conf.json`の`plugins.updater.pubkey`、鍵ID `1178836E5C9F510B`）で検証します。
+アプリ内の更新（#330、[アプリの更新](../spec/external-interfaces.md#アプリの更新)）のために、下書きを作るジョブは、上で検証した`ASTAROT_setup.exe`とAppImageに、Tauriのupdaterの署名を付けます（旧名の写しには付けません）。この署名はコードサイニングとは別のもので、アプリに組み込んだ公開鍵（`src-tauri/tauri.conf.json`の`plugins.updater.pubkey`、鍵ID `1178836E5C9F510B`）で検証します。
 
 - 秘密鍵はリポジトリのSecretsの`TAURI_SIGNING_PRIVATE_KEY`（鍵ファイルの中身）、パスワードは`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（鍵にパスワードがなければ空）です。Secretsを読むのは、署名と`latest.json`の作成をする1つの手順だけです（`tests/voice/test_security_regressions.py`で確かめます）。候補のビルドとPRの実行では読みません。
 - 署名は`tauri signer sign --app-version <version>`で作り、署名に版を含めます。アプリは署名の版と`latest.json`の版が一致しないものを入れません（`requireSignedVersion`）。
@@ -154,15 +163,16 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 
 候補のビルドはパッケージの中身（配布してはいけないファイル、容量、SHA-256）と、`_internal`に必要なファイルがそろっていること（`tools/app_resources.py check`）を検査します。0.4までは、パッケージしたPythonのバックエンドを`--self-check`で起動していました。0.5.0からバックエンドはアプリの実行ファイル（0.7.0から`astarot.exe`、0.6.xまでは`vrct-vox.exe`）の中にあるので、起動して確かめるのはアプリそのものです。画面と、モデルを使う動作はビルドでは確かめません。
 
-0.1.0-beta.7までのWindowsのパッケージでは、ローカル翻訳を一度もオンにできませんでした。PyInstallerのアーカイブの中ではTransformersが自分のフォルダーの一覧を読めず、tokenizerを組み立てられなかったためです。開発用のビルドでは起きないので、パッケージを起動して「翻訳」を押すまで分かりませんでした。開発用のビルドは同梱の資源をチェックアウトの`build/`から読むので、パッケージの`_internal`の不足も同じく開発中には見えません。公開の前に、下書きの`VRCT-VOX.zip`を作業用のフォルダーへ展開して起動してください。インストール済みのASTAROTには触れません。
+0.1.0-beta.7までのWindowsのパッケージでは、ローカル翻訳を一度もオンにできませんでした。PyInstallerのアーカイブの中ではTransformersが自分のフォルダーの一覧を読めず、tokenizerを組み立てられなかったためです。開発用のビルドでは起きないので、パッケージを起動して「翻訳」を押すまで分かりませんでした。開発用のビルドは同梱の資源をチェックアウトの`build/`から読むので、パッケージの`_internal`の不足も同じく開発中には見えません。公開の前に、下書きの`ASTAROT.zip`（0.6.xまでは`VRCT-VOX.zip`）を作業用のフォルダーへ展開して起動してください。インストール済みのASTAROTには触れません。
 
 ```powershell
 # 下書きのパッケージを取得し、SHA-256を確かめて、作業用のフォルダーへ展開する
 $d = "build\release-check\<version>"
-gh release download v<version> -R kein5/astarot -p "VRCT-VOX.zip" -p "VRCT-VOX.zip.sha256" -D "$d\dl"
-(Get-FileHash "$d\dl\VRCT-VOX.zip" -Algorithm SHA256).Hash.ToLower() -eq (Get-Content "$d\dl\VRCT-VOX.zip.sha256" -Raw).Trim()
+# 0.6.xまでの版はVRCT-VOX.zip
+gh release download v<version> -R kein5/astarot -p "ASTAROT.zip" -p "ASTAROT.zip.sha256" -D "$d\dl"
+(Get-FileHash "$d\dl\ASTAROT.zip" -Algorithm SHA256).Hash.ToLower() -eq (Get-Content "$d\dl\ASTAROT.zip.sha256" -Raw).Trim()
 New-Item -ItemType Directory -Force "$d\app", "$d\state", "$d\webview" | Out-Null
-tar -xf "$d\dl\VRCT-VOX.zip" -C "$d\app"
+tar -xf "$d\dl\ASTAROT.zip" -C "$d\app"
 
 # 設定とWebView2のデータを作業用のフォルダーへ分けて起動する（どちらも絶対パス）
 $env:ASTAROT_CONFIG_DIR = (Resolve-Path "$d\state").Path
@@ -362,13 +372,13 @@ NSISインストーラーは、HKLMとHKCUのレジストリにWebView2 Runtime�
 
 インストーラーは、利用者のセッションで同時に1つだけ動きます。最初に名前付きのミューテックス（`Local\ASTAROT-setup`）を作り、すでにあれば、ほかのインストーラーが動いていることを知らせて、ファイル、レジストリ、`$INSTDIR\.upd`、`%TEMP%`のどれにも触れずに終了コード2で終わります。知らせは、サイレント（`/S`）なら起動したコンソールに書き、それ以外（`/P`を含む）ならメッセージで出します。アプリの更新（`/P /UPDATE /R`）と利用者が開いたインストーラーが重なると、どちらも開始時に`$INSTDIR\.upd`を空にするので、先に動いている方の置き換えを壊すためです。ミューテックスはインストーラーが終わるとWindowsが閉じるので、途中で止まった実行が次の実行を妨げることはありません。アンインストーラーはこのミューテックスを取りません。インストーラーがアンインストーラーを起動して待つ場面があるためです。
 
-取得するファイル（ZIP、その`.sha256`、並列の取得の部分、WebView2のブートストラッパー）は、実行ごとに作るフォルダー（NSISの`$PLUGINSDIR`の`package`。`%TEMP%`の中に実行ごとに作られ、終わるときに消えます）に置きます。`%TEMP%`にある同じ名前のファイル（ほかのプログラムや、このフォルダーを持たない以前の版のインストーラーのもの）は読まず、消しません。途中から続けて取得する（`/RESUME`）のは、同じ実行の中の再試行の間だけです。`%TEMP%`そのものに置くのは、最後まで展開できなかったときに診断用に残す`VRCT-VOX.zip.bad`だけです。
+取得するファイル（ZIP、その`.sha256`、並列の取得の部分、WebView2のブートストラッパー）は、実行ごとに作るフォルダー（NSISの`$PLUGINSDIR`の`package`。`%TEMP%`の中に実行ごとに作られ、終わるときに消えます）に置きます。`%TEMP%`にある同じ名前のファイル（ほかのプログラムや、このフォルダーを持たない以前の版のインストーラーのもの）は読まず、消しません。途中から続けて取得する（`/RESUME`）のは、同じ実行の中の再試行の間だけです。`%TEMP%`そのものに置くのは、最後まで展開できなかったときに診断用に残す`ASTAROT.zip.bad`（0.6.xまでの版を`/VERSION`で入れたときは`VRCT-VOX.zip.bad`）だけです。
 
 Windowsの更新では、既定の「アンインストールしてからインストール」を選んでも、取得前に旧版を削除しません。`$INSTDIR\.upd\new`へ展開し、tarの成功、実行ファイル、`_internal`フォルダーを確認してから、アプリが動いていないかをもう一度調べます。新規インストールと、`/S`・`/P`でも同じ段階的な置き換えを使います。同じ版の「アプリをアンインストール」は、明示的な削除操作なので従来どおりその場で実行します。
 
 インストーラーとアンインストーラーは、動いているアプリを調べるときに、本体（0.7.0からの`astarot.exe`と0.6.xまでの`vrct-vox.exe`）と`vrct-vox-sidecar.exe`を探します。0.5.0の配布物にサイドカーはありませんが、0.4までの版から更新するときに古いサイドカーが動いていることがあります。`vrct-vox.exe`を強制終了するとサイドカーは自分の監視が止めるまで1〜2分残り、実行ファイルを消せず、終了時に`config.json`を書き直すことがあるため、サイドカーも終了させます。新しいパッケージにはサイドカーがないので、置き換えの後と削除のときに、残った`vrct-vox-sidecar.exe`を消します。同じように、パッケージにない名前の本体（0.6.xまでの版から更新したときの`vrct-vox.exe`）は、置き換えとショートカットの付け替えの後に消します（[本体の実行ファイルの名前](../spec/data-and-persistence.md#本体の実行ファイルの名前)）。
 
-tarは引数をANSIコードページで受け取るので、ユーザー名などにその外の文字があると、引数に書いたパスのアーカイブも展開先も開けません。作業ディレクトリは引数ではなく、Unicodeのまま扱われます。そこでtarの作業ディレクトリを`$INSTDIR\.upd\new`にし、実行ごとのフォルダーのアーカイブを隣の`$INSTDIR\.upd`へ移してから、ASCIIだけの相対パス（`..\VRCT-VOX.zip`）を渡します。8.3形式の名前には依存しないので、8.3形式の名前がないボリュームでも同じように動きます。展開に失敗したアーカイブは実行ごとのフォルダーへ戻し、再取得と`.bad`の保存に使います。`$TEMP`とインストール先が別のドライブなら、この移動でアーカイブをコピーするので、その時間がかかります。インストール先のドライブの容量検査にもアーカイブの分を足しています。
+tarは引数をANSIコードページで受け取るので、ユーザー名などにその外の文字があると、引数に書いたパスのアーカイブも展開先も開けません。作業ディレクトリは引数ではなく、Unicodeのまま扱われます。そこでtarの作業ディレクトリを`$INSTDIR\.upd\new`にし、実行ごとのフォルダーのアーカイブを隣の`$INSTDIR\.upd`へ移してから、ASCIIだけの相対パス（`..\ASTAROT.zip`）を渡します。8.3形式の名前には依存しないので、8.3形式の名前がないボリュームでも同じように動きます。展開に失敗したアーカイブは実行ごとのフォルダーへ戻し、再取得と`.bad`の保存に使います。`$TEMP`とインストール先が別のドライブなら、この移動でアーカイブをコピーするので、その時間がかかります。インストール先のドライブの容量検査にもアーカイブの分を足しています。
 
 置き換え中は`.upd\committing`を残し、旧アプリの各項目を`.upd\old`へ退避します。新しく追加する項目は`.upd\add`に記録します。`_internal`はフォルダーごと置き換えるため、旧版だけの依存ファイルは残りません。0.4までの版から更新すると、Pythonの実行環境（約1 GB）もこのとき消えます。`config.json`、`weights`、`logs`、`telemetry_state.json`、利用者のログはそのまま保持します。旧版と展開済みの新版が同時に存在するため、容量の検査は既存ファイルに加えて必要になる空き容量を調べます。
 

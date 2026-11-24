@@ -231,7 +231,7 @@ jobs:
       - name: Store inspected candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-linux-x86_64-candidate
+          name: ASTAROT-linux-x86_64-candidate
           path: build/linux/release-candidate/*
           if-no-files-found: error
           retention-days: 7
@@ -240,7 +240,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-linux-build-logs
+          name: ASTAROT-linux-build-logs
           retention-days: 7
           path: |
             linux-build.log

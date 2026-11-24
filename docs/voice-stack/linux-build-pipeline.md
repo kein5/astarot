@@ -109,10 +109,13 @@ The inventory records the build commit, tracked dirty state, host, hashes and EL
 Default outputs:
 
 ```text
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.tar.gz
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.tar.gz.sha256
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.manifest.json
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.tar.gz
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.tar.gz.sha256
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.manifest.json
 ```
+
+The files were named `VRCT-VOX-<version>-…` up to 0.6.x. The release candidate adds a copy of
+each file under that name for the releases of 0.7.x ([old-name copies](release-candidates.md#旧名の写し)).
 
 Until 0.4 the names carried the engine build (`linux-x64-vulkan`, `linux-x64-cpu`). Since 0.5.0
 `build-manifest.json` records `"variant": "linux-x64"` and both builds in `speech_builds`.
@@ -127,7 +130,7 @@ in the pinned archives, not of a built package.
 cd build/linux/artifacts
 sha256sum -c ./*.tar.gz.sha256
 # Inspect with tools/linux_package.py before extracting an independently obtained candidate.
-tar -xzf VRCT-VOX-<version>-linux-x64-release.tar.gz
+tar -xzf ASTAROT-<version>-linux-x64-release.tar.gz
 ./ASTAROT/astarot
 ```
 

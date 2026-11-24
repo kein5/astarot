@@ -229,7 +229,8 @@ def main():
     (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
+    # The release file's name (ADR-014, 2.10; VRCT-VOX-… up to 0.6.x).
+    output = args.output_dir / f'ASTAROT-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
     pack(candidate, output)
     shutil.copyfile(candidate / 'build-manifest.json', output.with_suffix('').with_suffix('.manifest.json'))
     print(f'Unpublished candidate: {output.resolve()}')

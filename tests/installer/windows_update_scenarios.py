@@ -14,6 +14,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import struct
@@ -33,7 +34,11 @@ OLD_APP = "vrct-vox.exe"
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
 # installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
-PACKAGE = "VRCT-VOX.zip"
+# The package from 0.7.0, and its name in a release up to 0.6.x, which the installer asks for when
+# /VERSION names such a release (ADR-014, 2.10). "0.6.99" plays one.
+PACKAGE = "ASTAROT.zip"
+OLD_PACKAGE = "VRCT-VOX.zip"
+OLD_RELEASE = "0.6.99"
 # The keys up to 0.6.x, and the keys from ADR-014's step 5 on (2.5).
 OLD_UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
 OLD_PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
@@ -48,6 +53,12 @@ ARCHIVE_TIME = (2026, 1, 1, 0, 0, 0)
 # the installer (src-tauri/nsis/package-hashes.nsh, written by prepare); other versions check
 # the .sha256 file served next to the package.
 OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
+
+
+def package_name(version):
+    """The package's name in the release of `version`. The installer's own release has the new
+    name whatever its number: that is how this code builds it."""
+    return OLD_PACKAGE if version != OWN and re.fullmatch(r"0\.[0-6]\..+", version) else PACKAGE
 
 
 def payload_files(version):
@@ -95,6 +106,7 @@ def payloads():
         # Each transfer stops after its first block until the test releases it, so that a second
         # run can start while the first one is downloading.
         "held": good,
+        OLD_RELEASE: archive_bytes(payload_files("old")),
         OWN: good,
     }
 
@@ -133,7 +145,8 @@ class PackageHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         data = self.server.payloads[version]
-        if parts[1] == PACKAGE + ".sha256":
+        package = package_name(version)
+        if parts[1] == package + ".sha256":
             if version == "checksum-404":
                 self.send_error(404)
                 return
@@ -142,7 +155,7 @@ class PackageHandler(BaseHTTPRequestHandler):
                 data = b"invalid"
             elif version == "hash-mismatch":
                 data = b"0" * 64
-        elif parts[1] != PACKAGE:
+        elif parts[1] != package:
             self.send_error(404)
             return
         status, start, end = 200, 0, len(data) - 1
@@ -251,18 +264,20 @@ def run_install(installer, directory, version, temp, success, extra=""):
     assert_own_downloads_gone(temp, before)
 
 
-# The archive a failed install keeps in TEMP for diagnosis; a successful one removes it.
-KEPT = PACKAGE + ".bad"
+# The archive a failed install keeps in TEMP for diagnosis, under the name of the release it
+# installs; a successful one removes it.
+KEPT = {PACKAGE + ".bad", OLD_PACKAGE + ".bad"}
 
 
 def assert_own_downloads_gone(temp, before):
     """A run downloads into a folder of its own in TEMP and removes it: what was in TEMP before
     is untouched (the kept archive aside), and nothing it downloaded is left."""
     after = snapshot(temp)
-    changed = [name for name, digest in before.items() if name != KEPT and after.get(name) != digest]
+    changed = [name for name, digest in before.items() if name not in KEPT and after.get(name) != digest]
     assert not changed, f"The installer changed files it did not make in TEMP: {changed}"
     left = [name for name in after.keys() - before.keys()
-            if name != KEPT and (Path(name).name.startswith(PACKAGE) or Path(name).name == "package")]
+            if name not in KEPT
+            and (Path(name).name.startswith((PACKAGE, OLD_PACKAGE)) or Path(name).name == "package")]
     assert not left, f"Downloads remain in TEMP: {left}"
 
 
@@ -460,14 +475,20 @@ def silent_scenarios(installer, work, server):
     print("PASS update success and user data retention", flush=True)
     print("PASS the main binary up to 0.6.x is replaced by the new one", flush=True)
 
-    # A package under the old name (another version through /VERSION) is installed as it is:
-    # its main binary stays, and the one under the new name goes.
-    directory = clone("back to a package up to 0.6.x")
+    # A release up to 0.6.x (/VERSION) has its package under the name of then, with its main
+    # binary under that name too: both are taken as they are, and the binary under the new name
+    # goes (ADR-014, 2.5 and 2.10).
+    directory = clone("back to a release up to 0.6.x")
     run_install(installer, directory, "new", work / "temp-forward", True)
-    run_install(installer, directory, "old", work / "temp-back", True)
+    with server.request_lock:
+        seen = len(server.requests)
+    run_install(installer, directory, OLD_RELEASE, work / "temp-back", True)
     expect_updated(directory, before, version="old")
     assert not (directory / APP).exists()
-    print("PASS a package with the main binary up to 0.6.x installs under that name", flush=True)
+    with server.request_lock:
+        names = {request["path"].rsplit("/", 1)[-1] for request in server.requests[seen:]}
+    assert names == {OLD_PACKAGE, OLD_PACKAGE + ".sha256"}, names
+    print("PASS a release up to 0.6.x installs from VRCT-VOX.zip with its main binary", flush=True)
 
     second_run_scenario(installer, work, server, clone("second run"), before)
     print("PASS a second run while one runs changes nothing and exits with code 2", flush=True)
@@ -514,6 +535,7 @@ def silent_scenarios(installer, work, server):
     with server.request_lock:
         fetched = [request["path"] for request in server.requests if request["path"].startswith(f"/v{OWN}/")]
     assert fetched and not any(path.endswith(".sha256") for path in fetched), fetched
+    assert all(path.endswith("/" + PACKAGE) for path in fetched), fetched
     assert installed_version() == OWN
     print("PASS own version checked against the built-in hash", flush=True)
 

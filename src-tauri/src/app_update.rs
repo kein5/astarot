@@ -53,7 +53,7 @@ pub enum InstallKind {
     /// Installed by the NSIS installer (`uninstall.exe` beside the binary). There is one package
     /// (#288): a CUDA install from 0.4 or earlier updates as any other.
     WindowsInstaller,
-    /// Extracted from VRCT-VOX.zip (or VRCT-VOX_cuda.zip up to 0.5).
+    /// Extracted from ASTAROT.zip (VRCT-VOX.zip up to 0.6.x, and VRCT-VOX_cuda.zip up to 0.5).
     WindowsPortable,
     /// A writable AppImage.
     AppImage,
@@ -401,7 +401,7 @@ fn build_updater<R: Runtime>(
     endpoints: Vec<Url>,
     exactly: Option<semver::Version>,
 ) -> Result<Updater, String> {
-    // The Windows installer fetches VRCT-VOX.zip again; there is no edition to name (#288).
+    // The Windows installer fetches its package again; there is no edition to name (#288).
     let mut builder = app
         .updater_builder()
         .target(target)
@@ -925,8 +925,8 @@ mod tests {
 
     fn release(tag: &str, prerelease: bool, manifest: bool) -> GithubRelease {
         let mut assets = vec![GithubAsset {
-            name: "VRCT-VOX.zip".into(),
-            browser_download_url: format!("https://github.com/{REPOSITORY}/releases/download/{tag}/VRCT-VOX.zip"),
+            name: "ASTAROT.zip".into(),
+            browser_download_url: format!("https://github.com/{REPOSITORY}/releases/download/{tag}/ASTAROT.zip"),
         }];
         if manifest {
             assets.push(GithubAsset {

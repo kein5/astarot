@@ -253,7 +253,7 @@ def main():
     parser.add_argument('--formats', default='deb,rpm')
     args = parser.parse_args()
     version, variant, _ = build_facts(args.candidate)
-    stem = f'VRCT-VOX-{version}-{variant}-release'
+    stem = f'ASTAROT-{version}-{variant}-release'
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for kind in args.formats.split(','):
         builder = {'deb': build_deb, 'rpm': build_rpm}[kind]
