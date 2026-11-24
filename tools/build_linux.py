@@ -58,7 +58,7 @@ def run(argv, *, cwd=ROOT, env=None):
 # dependencies of those Cargo.toml files.
 # translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
 # reads its manifest to resolve the core, so it is copied too.
-APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server',
+APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server', 'talk-ai',
               'transcription', 'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
 # the workspace: native/vr-overlay checks its layout against the VR page's.

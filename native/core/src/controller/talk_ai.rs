@@ -183,7 +183,8 @@ fn set_key(core: &Core, data: &Value) -> Reply {
 pub(super) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/talk_ai_catalog", OPEN, |core, _| ok(json!([
         { "id": "openai", "name": "OpenAI Realtime", "vision": true, "cloud": true, "destination": OPENAI_URL },
-        { "id": "vllm_omni", "name": "vLLM-Omni", "vision": false, "cloud": false, "destination": core.config().get("TALK_AI_LOCAL_URL") }
+        { "id": "vllm_omni", "name": "vLLM-Omni", "vision": false, "cloud": false, "destination": core.config().get("TALK_AI_LOCAL_URL"),
+          "recommended_model": "Qwen3-Omni", "minimum_gpu_memory_gib": 24, "recommended_gpu_memory_gib": 32 }
     ])));
     b.get("/get/data/talk_ai_provider", OPEN, "TALK_AI_PROVIDER");
     b.get("/get/data/talk_ai_local_url", OPEN, "TALK_AI_LOCAL_URL");
