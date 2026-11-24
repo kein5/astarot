@@ -4,7 +4,7 @@
 
 This is the record of an experiment that rebuilds the settings screen's components in the ASTAROT design. It covers only the layer of components and their look. What goes where (the layer of how information is placed) is decided in #554 and in the [information architecture document](../information-architecture/README.md).
 
-- Status: experiment (not used on the app's screens yet; whether to adopt it is decided after seeing the results)
+- Status: in use on the app's screens from 2026-11-24, replacing hand-built elements row by row ([hand-built inventory](hand-built-inventory.md), H-04). The record of the experiment below is kept as it was written
 - Components: `src-ui/views/kit/`
 - Sample page: `src-ui/kit-lab.html` (opens only on the development server; it is not included in the build)
 - Related issues: #436 (the list of components to unify), #474 (button looks), #554 (information architecture)
@@ -84,7 +84,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 
 | ID | Question | Proposal in this experiment |
 |---|---|---|
-| K-01 | Whether to adopt these components, and if so, which page to replace first | Replace the pages that stages 1 and 2 of #554 rebuild, when they rebuild the settings screen |
+| K-01 | Whether to adopt these components, and if so, which page to replace first | Replace the pages that stages 1 and 2 of #554 rebuild, when they rebuild the settings screen. Decided on 2026-11-24: the screens use them now, before #554's rebuild, replacing the rows of the [hand-built inventory](hand-built-inventory.md) from the easiest (H-04) |
 | K-02 | Whether to make every on/off setting a switch (item 1 of #436) | Make them switches. Keep checkboxes only for confirming consent |
 | K-03 | Whether to use the thin lines between rows on every page, or only space on pages with few items | Use them on every page |
 | K-04 | When to remove the existing components (`_DropdownMenu`, `FormRow`, the toggle in `mixins.ts`) | Remove them page by page, as each page's replacement is finished |
@@ -96,7 +96,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 
 設定画面の部品を ASTAROT のデザインで作り直す実験の記録です。部品と見た目の層だけを扱います。何をどこに置くか（情報の置き方の層）は #554 と [情報設計の文書](../information-architecture/README.md) で決めます。
 
-- 状態: 実験（アプリの画面ではまだ使っていません。本採用は結果を見て決めます）
+- 状態: 2026-11-24 から、アプリの画面で使っています。手作りの要素を行ごとに置き換えています（[手作りの部品の棚卸し](hand-built-inventory.md)、H-04）。下の実験の記録は、書いた時点のまま残しています
 - 部品: `src-ui/views/kit/`
 - 見本のページ: `src-ui/kit-lab.html`（開発サーバーでだけ開けます。ビルドには入りません）
 - 関係する Issue: #436（統一する部品の一覧）、#474（ボタンの見た目）、#554（情報設計）
@@ -176,7 +176,7 @@ DESIGN.md の「Components」で、部品の設計、見た目、構造を shadc
 
 | ID | 問い | この実験での案 |
 |---|---|---|
-| K-01 | この部品を本採用するか。するなら、どのページから置き換えるか | #554 の段 1・段 2 で設定画面を組み直すときに、そのページから置き換える |
+| K-01 | この部品を本採用するか。するなら、どのページから置き換えるか | #554 の段 1・段 2 で設定画面を組み直すときに、そのページから置き換える。2026-11-24 の決定で、#554 の組み直しを待たずに画面で使います。[手作りの部品の棚卸し](hand-built-inventory.md)の行を、易しいものから置き換えます（H-04） |
 | K-02 | 設定のオンとオフをすべてスイッチにそろえるか（#436 の 1） | スイッチにそろえる。チェックボックスは同意の確認だけに残す |
 | K-03 | 行の間の細い線は、すべてのページで使うか。項目が少ないページでは余白だけにするか | すべてのページで使う |
 | K-04 | 既存の部品（`_DropdownMenu`、`FormRow`、`mixins.ts` のトグル）をいつ消すか | 置き換えが終わったページから順に消す |

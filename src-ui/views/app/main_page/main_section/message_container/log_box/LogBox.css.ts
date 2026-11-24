@@ -94,23 +94,12 @@ globalStyle(`${setup} li`, {
     color: vars.dark_300_color,
 });
 globalStyle(`${setup} li > span:first-child`, { flex: "1 1 22rem", minWidth: 0 });
-globalStyle(`${setup} button`, {
-    flexShrink: 0,
-    minHeight: "3.6rem",
-    padding: ".6rem 1.4rem",
-    border: `.1rem solid ${vars.vox_border}`,
-    borderRadius: vars.vox_radius,
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    color: vars.dark_200_color,
-    background: vars.vox_surface,
-    cursor: "pointer",
-});
-globalStyle(`${setup} button:hover`, { background: vars.dark_800_color });
-globalStyle(`${setup} button:active`, { background: vars.dark_900_color });
-globalStyle(`${setup} button:focus-visible`, { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" });
+// A line's step is the kit's Button (EmptyState.tsx), which draws it; the line only keeps it
+// from shrinking, so its words wrap beside it, not inside it.
+export const setup_action = style({ flexShrink: 0 });
 // The setup's line while the setup is still suggested (#935): the setup no longer opens by
-// itself, so its line leads the first screen. A lilac frame and tint, and the lilac filled button.
+// itself, so its line leads the first screen. A lilac frame and tint; its step is the kit's
+// primary button (EmptyState.tsx).
 globalStyle(`${setup} li[data-lead]`, {
     marginBlock: ".6rem",
     padding: "1.2rem 1.4rem",
@@ -119,14 +108,6 @@ globalStyle(`${setup} li[data-lead]`, {
     background: vars.vox_highlight_tint,
     color: vars.dark_200_color,
 });
-globalStyle(`${setup} li[data-lead] button`, {
-    borderColor: vars.primary_600_color,
-    background: vars.primary_600_color,
-    color: vars.vox_on_primary,
-    fontWeight: 600,
-});
-globalStyle(`${setup} li[data-lead] button:hover`, { background: vars.primary_550_color });
-globalStyle(`${setup} li[data-lead] button:active`, { background: vars.primary_800_color });
 // A step's count or a download's share, beside its line.
 export const progress = style({});
 globalStyle(`${setup} [role=status], ${setup} ${progress}`, {

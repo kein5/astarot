@@ -8,17 +8,7 @@ export const container = style({
     padding: ".8rem 1.6rem",
 });
 globalStyle(`${container} p`, { margin: 0 });
-globalStyle(`${container} button`, {
-    font: "inherit",
-    fontWeight: 500,
-    color: "inherit",
-    background: "transparent",
-    border: "1px solid currentColor",
-    borderRadius: ".4rem",
-    padding: ".6rem",
-    cursor: "pointer",
-});
-globalStyle(`${container} button:focus-visible`, { outline: "2px solid currentColor", outlineOffset: "3px" });
+// Each source's stop is the kit's plain Button (RealtimeControls.tsx), which draws it.
 
 export const source = style({
     display: "flex",

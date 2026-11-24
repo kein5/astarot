@@ -2,6 +2,7 @@ import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
 import type { CaptionSource } from "../../../../../logics/transcription/realtimeCaptionState";
+import { Button } from "../../../../kit/index.ts";
 import * as styles from "./RealtimeControls.css.ts";
 
 const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
@@ -17,9 +18,9 @@ export const RealtimeControls = () => {
     return <section className={styles.container} aria-label={t("realtime.title")}>
         {active.map(source => <div className={styles.source} key={source}>
             <p role="status">{t(`realtime.${source}`)}: {t(`realtime.state_${state[source]?.state}`)}</p>
-            <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>
+            <Button onClick={() => send("/run/stop_realtime_asr", { source })}>
                 {t(`realtime.stop_${source}`)}
-            </button>
+            </Button>
         </div>)}
         {error && <p role="alert">{t([`realtime_toggle.${error}`, `voice_ui.errors.${error}`], { defaultValue: error })}</p>}
     </section>;
