@@ -7,6 +7,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 - Status: in use on the app's screens from 2026-11-24, replacing hand-built elements row by row ([hand-built inventory](hand-built-inventory.md), H-04). The record of the experiment below is kept as it was written
 - Components: `src-ui/views/kit/`
 - Sample page: `src-ui/kit-lab.html` (opens only on the development server; it is not included in the build)
+- Component catalog: `src-ui/views/kit_catalog/` (Storybook; `npm run dev:catalog`. It is not included in the build)
 - Related issues: #436 (the list of components to unify), #474 (button looks), #554 (information architecture)
 
 ## Components built
@@ -22,6 +23,8 @@ This is the record of an experiment that rebuilds the settings screen's componen
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
 
+The component catalog shows each component on its own, with its variants and states (sizes, disabled, invalid and others). To open it, run `npm run dev:catalog` (or `mise run dev:catalog`) and then open `http://localhost:6006`. Storybook builds the stories with the app's `vite.config.js`, so the components are drawn with the app's vanilla-extract styles and tokens. The toolbar switches the theme (the presets of #965), the language (English or Japanese) and the ground the components stand on (canvas, surface or rail). The text is the real text from `locales/`. `npm run build:catalog` writes a static copy to `build/storybook/`, and `python tools/dev.py check --scope ui` runs it as well, so a story that no longer builds fails the check. The catalog sends no telemetry and does not check for Storybook updates.
+
 ## Separating items (a #452 requirement)
 
 The feedback was that "it is not clear where one item ends". The experiment answers it with separation at 3 levels.
@@ -30,7 +33,7 @@ The feedback was that "it is not clear where one item ends". The experiment answ
 2. Rows in the same group are separated by a thin line in the border color (`--vox_border`).
 3. Inside a row, the label and the description form one block, and the control sits beside it.
 
-A row with unsaved changes gets a short Lilac rule outside its left edge. It follows the same rule as the save bar.
+Every setting saves by itself (#1111), so a row carries no mark of unsaved changes. A value a field refuses is said in words under the field (`FieldProblem`).
 
 In a narrow column (under 35.6rem, or a window under 700px wide), text fields and select fields move under the label. Switches do not move and stay at the right end of the row, so that a switch is not separated from the words that say what it turns on.
 
@@ -99,6 +102,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 - 状態: 2026-11-24 から、アプリの画面で使っています。手作りの要素を行ごとに置き換えています（[手作りの部品の棚卸し](hand-built-inventory.md)、H-04）。下の実験の記録は、書いた時点のまま残しています
 - 部品: `src-ui/views/kit/`
 - 見本のページ: `src-ui/kit-lab.html`（開発サーバーでだけ開けます。ビルドには入りません）
+- 部品のカタログ: `src-ui/views/kit_catalog/`（Storybook。`npm run dev:catalog` で開きます。ビルドには入りません）
 - 関係する Issue: #436（統一する部品の一覧）、#474（ボタンの見た目）、#554（情報設計）
 
 ## 作った部品
@@ -114,6 +118,8 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 
+部品のカタログは、部品を 1 つずつ、種類と状態（大きさ、無効、エラーなど）ごとに並べます。開くには、`npm run dev:catalog`（または `mise run dev:catalog`）を実行してから `http://localhost:6006` を開きます。Storybook はアプリの `vite.config.js` でストーリーをビルドするので、部品はアプリと同じ vanilla-extract のスタイルとトークンで描かれます。ツールバーでは、テーマ（#965 のプリセット）、言語（英語か日本語）、部品を置く地（canvas、surface、rail）を切り替えます。文言は `locales/` の実際の文言です。`npm run build:catalog` は静的な版を `build/storybook/` に書き出します。`python tools/dev.py check --scope ui` もこれを実行するので、ビルドできなくなったストーリーは検査で止まります。カタログは利用状況の情報（テレメトリ）を送らず、Storybook の更新も確かめません。
+
 ## 項目の区切り（#452 の要件）
 
 「どこまでが一つの項目か分からない」という指摘に、3 段階の区切りで応えます。
@@ -122,7 +128,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 2. **行の間**: 同じまとまりの中の行と行の間に、境界の色（`--vox_border`）の細い線を引きます。
 3. **行の中**: 名前と説明を一つにまとめ、操作する部品をその横に置きます。
 
-保存していない変更がある行は、行の左外に短い Lilac の線が付きます。保存バーと同じ規則です。
+どの設定も自分で保存するので（#1111）、行に保存していない変更の印は付きません。欄が断った値は、欄の下に言葉で出します（`FieldProblem`）。
 
 狭い列（35.6rem 未満、またはウィンドウの幅が 700px 未満）では、入力欄と選択欄が名前の下に移ります。スイッチは移さず、行の右端に残します。スイッチと、それが何をオンにするかの文言が離れないようにするためです。
 

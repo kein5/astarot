@@ -6,7 +6,6 @@ import { useRealtimeASR } from "../../../transcription/useRealtimeASR";
 import { createLanguageNames } from "../../../common/languageNames.ts";
 import { ui_configs } from "@ui_configs";
 import i18n from "@root/locales/config.ts";
-import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 import { revealSetting } from "../../revealSetting.ts";
 import type { SettingTarget } from "../../revealSetting.ts";
@@ -272,16 +271,9 @@ export const useConfigSearch = () => {
     const clearQuery = useCallback(() => setQuery(""), []);
 
     const navigateToSetting = useCallback((result: ConfigSearchEntry) => {
-        const navigate = () => {
-            clearQuery();
-            if (currentSelectedConfigTabId.data !== result.tab) {
-                updateSelectedConfigTabId(result.tab, { voice_navigation_confirmed: true });
-            }
-
-            revealSetting(result);
-        };
-        if (currentSelectedConfigTabId.data !== result.tab) requestSettingsNavigation(navigate);
-        else navigate();
+        clearQuery();
+        if (currentSelectedConfigTabId.data !== result.tab) updateSelectedConfigTabId(result.tab);
+        revealSetting(result);
     }, [clearQuery, currentSelectedConfigTabId.data, updateSelectedConfigTabId]);
 
     return { query, setQuery, results, clearQuery, navigateToSetting };

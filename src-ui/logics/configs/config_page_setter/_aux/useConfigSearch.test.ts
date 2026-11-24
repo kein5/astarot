@@ -7,6 +7,7 @@ import type { LocaleBranch, LocaleTree } from "../../../test/locales.ts";
 import * as languageNames from "../../../common/languageNames.ts";
 import { ui_configs } from "../../../ui_configs.ts";
 import { SETTINGS_MENU_TABS } from "../../settingsMenu.ts";
+import { CLOUD_TRANSCRIPTION_ENGINES } from "../../cloudTranscription.ts";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 import * as searchTargets from "./configSearchTargets.ts";
 import type { ConfigSearchEntry } from "./useConfigSearch.ts";
@@ -42,7 +43,7 @@ interface SearchState {
 const loadSearch = async (options: Partial<SearchState> = {}) => {
     const runtime = hooks();
     const state: SearchState = { language: "en", resources: locales, tab: "device", ocrList: null, ocrLanguage: null, models: {}, settings: null, ...options };
-    const opened: [string, unknown][] = [], revealed: ConfigSearchEntry[] = [], navigations: (() => void)[] = [];
+    const opened: [string, unknown][] = [], revealed: ConfigSearchEntry[] = [];
     const module = await loadModule<typeof import("./useConfigSearch.ts")>(new URL("./useConfigSearch.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: tOf(state.language), i18n: { language: state.language } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: state.tab },
@@ -53,7 +54,7 @@ const loadSearch = async (options: Partial<SearchState> = {}) => {
         "@ui_configs": { ui_configs },
         // i18next gives the whole namespace for the key "".
         "@root/locales/config.ts": { getResource: (language: string, namespace: string, key: string) => namespace === "translation" && key === "" ? state.resources[language] : undefined },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: (navigate: () => void) => { navigations.push(navigate); } },
+        
         "./configSearchTargets.ts": searchTargets,
         "../../revealSetting.ts": { revealSetting: (target: ConfigSearchEntry) => { revealed.push(target); } },
     });
@@ -62,7 +63,7 @@ const loadSearch = async (options: Partial<SearchState> = {}) => {
         hook().setQuery(query);
         return hook().results;
     };
-    return { state, search, hook, opened, revealed, navigations, module };
+    return { state, search, hook, opened, revealed, module };
 };
 type Search = Awaited<ReturnType<typeof loadSearch>>;
 
@@ -337,24 +338,23 @@ test("a query is trimmed, folded and read without case, and a query of nothing f
     assert.deepEqual([s.hook().query, s.hook().results], ["", []]);
 });
 
-test("choosing a result on another page asks before leaving, opens the page and shows the setting; on the same page it shows it at once", async () => {
+test("choosing a result on another page opens the page and shows the setting; on the same page it shows it at once", async () => {
+    // Every setting saves by itself (#1111): nothing waits to ask before the page changes.
     const s = await loadSearch({ tab: "device" });
     const [elsewhere] = s.search("osc").filter(result => result.tab === "advanced_settings");
     assert.ok(elsewhere);
     s.hook().navigateToSetting(elsewhere);
-    assert.deepEqual([s.navigations.length, s.opened, s.revealed], [1, [], []], "nothing happens before the page may be left");
-    s.navigations[0]();
-    assert.deepEqual(s.opened, [["advanced_settings", { voice_navigation_confirmed: true }]]);
+    assert.deepEqual(s.opened.map(([tab]) => tab), ["advanced_settings"]);
     assert.deepEqual(s.revealed, [elsewhere]);
     assert.equal(s.hook().query, "");
     const [here] = s.search("microphone").filter(result => result.tab === "device");
     assert.ok(here);
     s.hook().navigateToSetting(here);
-    assert.deepEqual([s.navigations.length, s.opened.length, s.revealed], [1, 1, [elsewhere, here]]);
+    assert.deepEqual([s.opened.length, s.revealed], [1, [elsewhere, here]]);
     assert.equal(s.hook().query, "");
     s.state.tab = "advanced_settings";
     s.hook().navigateToSetting(elsewhere);
-    assert.deepEqual([s.navigations.length, s.opened.length, s.revealed.length], [1, 1, 3], "the page now open is known");
+    assert.deepEqual([s.opened.length, s.revealed.length], [1, 3], "the page now open is known");
 });
 
 test("the results follow a change of the display language", async () => {
@@ -441,7 +441,11 @@ test("an experimental feature without a description is found by its label alone"
 const NOT_RESULTS = ["hotkeys.input_placeholder", "hotkeys.unassigned_placeholder", "hotkeys.disabled_notice", "hotkeys.error_in_use",
     "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all", "hotkeys.error_window_restore_failed",
     "hotkeys.error_window_minimize_failed", "vr.hmd", "vr.left_hand", "vr.right_hand", "vrchat.tts_output_action", "device.mute_sync_action",
-    "vrchat.tts_output_pointer", "device.mute_sync_pointer", "experimental_features.notice", "experimental_features.empty"];
+    "vrchat.tts_output_pointer", "device.mute_sync_pointer", "experimental_features.notice", "experimental_features.empty",
+    "translation.setup_downloaded", "translation.setup_not_downloaded", "translation.setup_unavailable", "translation.provider_in_use",
+    "translation.provider_ready", "translation.provider_not_set", "transcription.timing_status", "translation.download_unavailable",
+    "translation.models_unavailable", "translation.llm_privacy_lead", "translation.llm_privacy_desc", "device.desc_vad_unavailable",
+    "device.check_volume", "device.label_auto_select", "device.label_host", "device.label_device"];
 
 test("texts that are not settings are not results", async () => {
     for (const language of ["en", "ja"]) {
@@ -483,4 +487,99 @@ test("a result on the VR or OCR page leads to an element the page marks with the
         assert.ok(s.search(searchable(label)).some(result => result.tab === "vr" && result.label === clean(label) && marked("vr", result.setting_id)), `vr.${key}`);
     }
     assert.ok(marked("ocr", "ocr_source_language"));
+});
+
+// --- Where each result leads ---------------------------------------------------------------------
+
+// The files a page draws: its own folder and the files of setting_box they import, but for the
+// shared templates and parts, whose rows take their ids and labels from the page.
+const boxUrl = new URL(box, import.meta.url);
+const filesIn = (url: URL): URL[] => readdirSync(url).flatMap(name => {
+    const file = new URL(name, url);
+    if (statSync(file).isDirectory()) return filesIn(new URL(`${name}/`, url));
+    return /\.(tsx|ts)$/.test(name) && !/\.(test|css)\./.test(name) ? [file] : [];
+});
+const importsOf = (file: URL): URL[] => [...readFileSync(file, "utf8").matchAll(/from\s+["'](\.[^"']+)["']/g)].flatMap(([, spec]) => {
+    const base = new URL(spec, file).href;
+    const found = [base, `${base}.tsx`, `${base}.ts`, `${base}/index.ts`].find(candidate => {
+        try { return statSync(new URL(candidate)).isFile(); } catch { return false; }
+    });
+    return found?.startsWith(boxUrl.href) && !/\/(_templates|_components)\//.test(found) ? [new URL(found)] : [];
+});
+const drawn = new Map<string, URL[]>();
+const pageFiles = (page: string): URL[] => {
+    const known = drawn.get(page);
+    if (known) return known;
+    const seen = new Map<string, URL>(), todo = filesIn(new URL(`${page}/`, boxUrl));
+    for (let file = todo.pop(); file; file = todo.pop()) {
+        if (seen.has(file.href)) continue;
+        seen.set(file.href, file);
+        todo.push(...importsOf(file));
+    }
+    drawn.set(page, [...seen.values()]);
+    return [...seen.values()];
+};
+const drawnSource = (page: string) => pageFiles(page).map(file => readFileSync(file, "utf8")).join("\n");
+const boxFile = (path: string) => readFileSync(new URL(path, boxUrl), "utf8");
+
+// An element the page marks with the id, as revealSetting.ts looks for it: data-setting-id, or a
+// template's setting_id and the ids it falls back to.
+const markedById = (source: string, id: string) =>
+    new RegExp(`(data-setting-id|setting_id|dropdown_id|hotkey_id|\\bname|\\bid|target)\\s*[=:]\\s*\\{?\\s*["'\`]${escapeRegExp(id)}["'\`]`).test(source);
+// A row labelled with the text: a template, form row or section heading given a text whose words
+// are the result's label (the row's data-setting-label), or a setup fold given it as its title
+// (SetupSection writes its title on the fold's line).
+const labelledWith = (source: string, label: string) =>
+    [...source.matchAll(/(?<![A-Za-z_])label\s*[=:]\s*\{?\s*t\(\s*["'`]([\w.]+)["'`]/g),
+        ...source.matchAll(/<SetupSection\s+title=\{t\(\s*["'`]([\w.]+)["'`]/g)]
+        .some(([, key]) => { const text = textIn("en", key); return text !== undefined && clean(text) === label; });
+
+// Destinations the page builds in code: the lines that build each, by the result's id. The first
+// file is one the page draws.
+type Built = [file: string, lines: string[]][];
+const CREDENTIALS: [string, string[]] = ["_components/credential_pair/CredentialPair.tsx",
+    [`const label = (field: string) => t(\`config_page.\${section}.\${provider}_\${field}.label\`);`, "label: label(name)"]];
+const ENGINE_ROWS = "transcription/Transcription.tsx";
+const BUILT_IN_CODE: Readonly<Record<string, Built>> = {
+    retired_models_folder: [["translation/Translation.tsx",
+        [`\`config_page.translation.retired_models_folder.\${name}\``, "<FormRow group label={t(key(\"label\"))}"]]],
+    ...Object.fromEntries(["url", "auth_key"].map(field => [`openai_compatible_${field}`,
+        [["translation/Translation.tsx", ['provider="openai_compatible" section="translation"']], CREDENTIALS]])),
+    rvc_settings: [["rvc/Rvc.tsx", ['<DirectVoiceSettings variant="rvc" />']],
+        ["advanced_settings/DirectVoiceSettings.tsx", ['data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}']]],
+    ...Object.fromEntries(["stop_voice", "toggle_voice_mute"].map(id => [id,
+        [["hotkeys/Hotkeys.tsx", [`["${id}", t("config_page.hotkeys.${id}.label")]`, "hotkey_id={hotkey_id}"]]]])),
+    toggle_tts: [["hotkeys/Hotkeys.tsx", ['{[["toggle_tts", "main_page.tts"], ["toggle_rvc", "main_page.rvc"]].map(([hotkey_id, name]) =>', "hotkey_id={hotkey_id}"]]],
+    ...Object.fromEntries(["cert_file", "key_file"].map(name => [`websocket_tls_${name}`,
+        [["advanced_settings/AdvancedSettings.tsx", [`setting_id: \`websocket_tls_\${name}\``, `{...field("${name}")}`]]]])),
+    ...Object.fromEntries(CLOUD_TRANSCRIPTION_ENGINES.flatMap(engine => [
+        [`select_${engine.key}_model`, [[ENGINE_ROWS, [`dropdown_id={\`select_\${engine.key}_model\`}`]]]],
+        ...(engine.has_url
+            ? ["url", "auth_key"].map(field => [`${engine.key}_${field}`,
+                [[ENGINE_ROWS, ["<CredentialPair settings={transcription} base={engine.base} provider={engine.key} section=\"transcription\" />"]], CREDENTIALS]])
+            : [[`${engine.key}_auth_key`, [[ENGINE_ROWS, [`const label = t(\`config_page.transcription.\${engine.key}_auth_key.label\`);`, "<AuthKeyContainer", "label={label}"]]]]]),
+    ])),
+};
+
+test("every settings search result leads to an element its page marks with the result's id or labels with its text", async () => {
+    const s = await loadSearch();
+    let checked = 0;
+    for (const namespace of SEARCHED) {
+        for (const [key, label] of settingTexts(namespace)) {
+            const name = `${namespace}.${key}`, id = settingTarget(namespace, key);
+            for (const result of s.search(searchable(label)).filter(item => item.setting_id === id && (label.includes("{{") || item.label === clean(label)))) {
+                checked++;
+                const source = drawnSource(result.tab);
+                if (markedById(source, id) || labelledWith(source, result.label)) continue;
+                const built = BUILT_IN_CODE[id];
+                if (built) {
+                    assert.ok(pageFiles(result.tab).some(file => file.href.endsWith(built[0][0])), `${name}: ${result.tab} does not draw ${built[0][0]}`);
+                    for (const [file, lines] of built) for (const line of lines) assert.ok(boxFile(file).includes(line), `${name}: ${file} no longer has ${line}`);
+                    continue;
+                }
+                assert.fail(`${name} leads nowhere on ${result.tab}`);
+            }
+        }
+    }
+    assert.ok(checked > 150, String(checked));
 });

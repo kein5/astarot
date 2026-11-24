@@ -32,6 +32,7 @@ Each task runs an existing CLI such as `python tools/dev.py`. Before that, mise 
 | `changelog:print` | Shows the changes for the next release without writing them |
 | `changelog:notes` | Creates the template of the release notes for a stable release at `docs/release-notes/<version>.md`. Does not overwrite an existing file ([release notes format](release-notes/README.md#雛形から書き始める)) |
 | `dev:web` | The development server for the web UI (Vite). Not part of the checks |
+| `dev:catalog` | The component catalog of the UI kit (Storybook) at `http://localhost:6006` ([components](design/components/README.md)). Not part of the checks |
 
 The lists in the functional specifications (the endpoints, error codes and setting keys in `docs/spec/reference/`) are generated from the code of the core and the UI. When you change an endpoint, an error code or a setting key, rebuild them with `mise run spec`. `check` also confirms that these lists are up to date. The specifications start at [docs/spec/README.md](spec/README.md).
 
@@ -172,7 +173,7 @@ python tools/dev.py check --scope integration
 | `node` | Runs the `.test.js` / `.test.mjs` / `.test.ts` files under `src-ui` and the tests of `tools/i18n_gate` and `tools/writing_gate` with Vitest (`vitest.config.js`). Starts the Vitest in `node_modules` directly with Node and fetches nothing. If Vitest is not installed, it points to `setup --scope ui` and stops. Then runs the [UI text check](#checking-ui-text-and-translations) (`tools/i18n_gate/check.mjs`) and the [prose check](#checking-prose-docswriting) (`tools/writing_gate/check.mjs`) |
 | `lint` | Checks `LINT_PATHS` in `tools/dev.py` (`tests/voice`, `tests/devtools` and the audio, distribution and development tools) with Ruff. No automatic fixes. The voice CI runs the same scope |
 | `voice` | The contract tests without models, run with `tests/voice/pytest.ini`, and the two standalone tests in `tests/platform` |
-| `ui` | The UI tests (Vitest), the lint and formatting checks of [Biome](#ui-lint-and-formatting-biome), type checking (`npm run typecheck`) and `npm run vite-build`. No browser interaction |
+| `ui` | The UI tests (Vitest), the lint and formatting checks of [Biome](#ui-lint-and-formatting-biome), type checking (`npm run typecheck`), `npm run vite-build` and the build of the component catalog (`npm run build:catalog`, into `build/storybook/`). No browser interaction |
 | `rust` | `cargo check --locked --offline` of `src-tauri`, and the tests of `native/app-identity`, `native/speech-server`, `native/ops`, `native/audio-routing`, `native/adapters`, `native/translation`, `native/transcription`, `native/openvr-client`, `native/onnx-runtime`, `native/vr-overlay`, `native/voice-conversion`, `native/translate-onnx`, `native/tts`, `native/core`, `native/ocr-runtime`, `native/rvc-runtime` and `native/talk-ai`, run with cargo-nextest (`cargo nextest run --locked --offline`). nextest does not run doctests, so for the crates that have `src/lib.rs` it then runs `cargo test --doc`. Fails without the cache or the OS dependencies (on Linux, the development files of `libpipewire-0.3` and libclang; `src-tauri` also uses them, through the core) |
 | `integration` | The [integration tests](#integration-tests-playwright). Builds `native/browser-core-bridge` with `cargo build --locked --offline`, builds the UI with `tests/integration/vite.config.ts`, then runs the tests in Chromium and WebKit with Playwright. Does not fetch browsers. If they are not installed, it points to `setup --scope integration` and stops |
 | `workflows` | Checks the workflows and our own actions with actionlint (including shellcheck) and zizmor ([repository checks](#repository-checks)) |
@@ -591,6 +592,7 @@ mise run check               # 軽量チェック
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
 | `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
+| `dev:catalog` | UIの部品のカタログ（Storybook）を `http://localhost:6006` で開く（[部品](design/components/README.md)）。検証には含めない |
 
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
@@ -731,7 +733,7 @@ python tools/dev.py check --scope integration
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate`、`tools/writing_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）と[文章の検査](#文章の検査docswriting)（`tools/writing_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験2件 |
-| `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`、部品のカタログのビルド（`npm run build:catalog`、`build/storybook/` へ）。ブラウザの操作は含まない |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core`、`native/ocr-runtime`、`native/rvc-runtime`、`native/talk-ai` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlint（shellcheckを含む）とzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |

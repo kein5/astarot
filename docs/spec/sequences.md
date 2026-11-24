@@ -46,14 +46,14 @@ sequenceDiagram
   participant UI as UI (logic)
   participant S as Sidecar
   participant F as config.json
-  P->>UI: Change a value (a switch, or "Save" on the save bar)
+  P->>UI: Change a value (a switch, or a field on Enter or when focus leaves it)
   UI->>UI: Set the value to pending
   UI->>S: /set/data/x (data = base64(JSON))
   S->>S: Endpoint lock, validation
   alt Passes validation
     S->>S: Save the value (written in one batch 2 seconds later)
     S-->>UI: 200 /set/data/x = the saved value
-    UI->>P: Show the value, "Settings have been saved."
+    UI->>P: Show the value (no "saved" notice)
     S->>F: Write a temporary file and replace the file with it
   else Fails validation
     S-->>UI: 400 {error_code: VALIDATION_…, data: previous value}
@@ -200,7 +200,7 @@ sequenceDiagram
   participant P as Settings screen
   participant S as Sidecar
   participant C as Cloud service
-  P->>S: /set/data/groq_whisper_auth_key ("Save" on the save bar)
+  P->>S: /set/data/groq_whisper_auth_key (Enter, or focus leaving the key field)
   S->>C: Get the model list (Deepgram checks with /v1/auth/token)
   alt Authentication and every model check succeed
     S->>S: Apply the target key and the prepared state inside the shared lock
@@ -268,14 +268,14 @@ sequenceDiagram
   participant UI as UI（ロジック）
   participant S as サイドカー
   participant F as config.json
-  P->>UI: 値を変える（スイッチ、または保存バーの「保存」）
+  P->>UI: 値を変える（スイッチ、またはEnterか欄を離れたときの文字の欄）
   UI->>UI: 値を pending にする
   UI->>S: /set/data/x（data = base64(JSON)）
   S->>S: エンドポイントのロック、検証
   alt 検証に通る
     S->>S: 値を保存（2秒後にまとめて書く）
     S-->>UI: 200 /set/data/x = 保存後の値
-    UI->>P: 値を反映、「設定を保存しました。」
+    UI->>P: 値を反映（「保存しました」の通知は出さない）
     S->>F: 一時ファイルに書いて置き換える
   else 検証に通らない
     S-->>UI: 400 {error_code: VALIDATION_…, data: 元の値}
@@ -422,7 +422,7 @@ sequenceDiagram
   participant P as 設定画面
   participant S as サイドカー
   participant C as クラウドのサービス
-  P->>S: /set/data/groq_whisper_auth_key（保存バーの「保存」）
+  P->>S: /set/data/groq_whisper_auth_key（Enterか、キーの欄を離れたとき）
   S->>C: モデル一覧の取得（Deepgram は /v1/auth/token で確認）
   alt 認証とモデルの確認がすべて成功
     S->>S: 共有ロック内で対象のキーと準備済みの状態を反映

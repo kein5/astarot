@@ -37,7 +37,8 @@ class DependabotGroupTests(unittest.TestCase):
     def test_the_packages_that_move_together_have_their_majors_grouped(self):
         names = [name for name, _, _ in self.groups]
         self.assertEqual(names[-1], "npm-minor-and-patch", "the coupled groups come first; an update goes to the first match")
-        for together in (["@types/react", "@types/react-dom"], ["i18next", "react-i18next"], ["@babel/parser", "@babel/types"]):
+        for together in (["@types/react", "@types/react-dom"], ["i18next", "react-i18next"], ["@babel/parser", "@babel/types"],
+                         ["storybook", "@storybook/react-vite"]):
             homes = set()
             for package in together:
                 for name, patterns, types in self.groups:

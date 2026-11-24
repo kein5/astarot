@@ -18,6 +18,7 @@ import * as meterValue from "../common/meterValue.ts";
 import * as utils from "../utils.ts";
 import * as uiConfigs from "../ui_configs.ts";
 import type { SettingCategory } from "../configs/config_page_setter/settingTypes.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -63,7 +64,7 @@ export const loadSettingsList = async () => {
     const stores = await loadModule<typeof import("../store.ts")>(new URL("../store.ts", import.meta.url), runtime, {
         jotai, "@ui_configs": uiConfigs,
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_: unknown, next: unknown) => next },
-        "./voice/settingsNavigation": { requestSettingsNavigation: (action: () => unknown) => action() },
+        
         "./common/pendingRequestRecovery.ts": { ...recoveryModule, pendingRequestRecovery: recovery },
         "./common/meterValue.ts": meterValue,
         "./common/initializationFields.ts": initialization,
@@ -74,7 +75,7 @@ export const loadSettingsList = async () => {
         "@store": stores, "@utils": utils,
         "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices++; } }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...request: SentRequest) => { sent.push(request); return true; } }) },
-        "../../voice/saveBar": { setSaveBarEntry: () => {} },
+        "../fieldErrors.ts": fieldErrors,
     });
     const vrLayout: unknown = JSON.parse(read("../../views/vr/vr_layout.json"));
     const list = await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {

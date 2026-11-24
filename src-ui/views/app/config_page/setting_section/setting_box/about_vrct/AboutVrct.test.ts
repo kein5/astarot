@@ -68,7 +68,7 @@ for (const language of ["en", "ja"]) {
         stubGlobals(t, { document: eventTarget(), window: eventTarget() });
         const { ColorEntryWithSaveButton } = await loadModule<typeof import("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx")>(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
             clsx: { clsx }, "@useI18n": { useI18n: () => translation },
-            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
+            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         });
         // Test data: a swatch that is only opened, so without the save it never calls.
         const swatch = (label: string) => unchecked<ColorEntryWithSaveButtonProps>({ label, variable: "#FFFFFF" });

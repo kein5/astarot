@@ -18,10 +18,9 @@ interface Options {
     reducedMotion?: boolean;
     control?: boolean;
     delayed?: boolean;
-    guarded?: boolean;
 }
 
-async function setup(t: TestContext, { reducedMotion = false, control = true, delayed = false, guarded = false }: Options = {}) {
+async function setup(t: TestContext, { reducedMotion = false, control = true, delayed = false }: Options = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const document: FakeDocument = { ...eventTarget(), body: {} }, window = { matchMedia: (query: string) => {
         assert.equal(query, "(prefers-reduced-motion: reduce)"); return { matches: reducedMotion };
@@ -42,14 +41,13 @@ async function setup(t: TestContext, { reducedMotion = false, control = true, de
     let available = !delayed;
     document.querySelector = selector => available && selector.includes('data-setting-id="osc"') ? row : null;
     const hookRuntime = hooks(), tabs: string[] = [];
-    let proceed: (() => void) | undefined;
     const { useConfigSearch } = await loadModule<typeof import("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), hookRuntime, {
         "@useI18n": { useI18n: () => ({ t: (name: string) => name, i18n: { language: "ja" } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "appearance" }, updateSelectedConfigTabId: (tab: string) => tabs.push(tab) }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
         "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (name: string) => name }) },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: (fn: () => void) => { if (guarded) proceed = fn; else fn(); } },
+        
         "@ui_configs": { ui_configs: {} },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
         "@root/locales/config.ts": { getResource: () => ({ config_page: { advanced_settings: { osc: { label: "OSC", desc: "OSC port" } } } }) },
@@ -76,7 +74,7 @@ async function setup(t: TestContext, { reducedMotion = false, control = true, de
     search.focus(); render().props.onFocus();
     cleanup = () => { runtime.unmount(); hookRuntime.unmount(); };
     return { render, search, document, ancestors, destination, row, scrolls, classes, attributes, tabs,
-        setAvailable: () => { available = true; }, accept: () => { assert.ok(proceed); proceed(); }, navigate: hook.navigateToSetting };
+        setAvailable: () => { available = true; }, navigate: hook.navigateToSetting };
 }
 
 for (const reducedMotion of [false, true]) test(`search Enter opens ancestors and focuses destination (reduced motion: ${reducedMotion})`, async t => {
@@ -116,14 +114,3 @@ test("search focuses an empty row temporarily and does not navigate on IME Enter
 });
 
 
-test("search waits for the existing unsaved-changes guard before navigating or moving focus", async t => {
-    const s = await setup(t, { guarded: true });
-    s.render().props.onKeyDown(key("Enter"));
-    vi.advanceTimersByTime(2000);
-    assert.deepEqual(s.tabs, []);
-    assert.equal(s.document.activeElement, s.search);
-    assert.equal(s.ancestors.open, false);
-    s.accept(); vi.advanceTimersByTime(60);
-    assert.deepEqual(s.tabs, ["advanced_settings"]);
-    assert.equal(s.document.activeElement, s.destination);
-});

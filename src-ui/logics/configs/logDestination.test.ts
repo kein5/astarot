@@ -11,6 +11,8 @@ import {
     validateLogDirectoryInput,
 } from "./logDestination.ts";
 import type { PickFolderResult } from "./logDestination.ts";
+import * as fieldErrors from "./fieldErrors.ts";
+import * as fieldChecks from "./fieldChecks.ts";
 
 test("isAbsolutePath recognizes Unix, Windows drive, and UNC paths and rejects relative paths", () => {
     for (const valid of ["/tmp/logs", "/", "C:\\Users\\user\\logs", "D:/logs", "\\\\server\\share\\logs"]) {
@@ -66,7 +68,7 @@ async function mountDestinationRows(options: {
 } = {}) {
     const sent: unknown[] = [];
     const opened: string[] = [];
-    const saveBarCalls: unknown[] = [];
+    const fieldHookCalls: unknown[] = [];
     let currentLogs = { state: "ok", data: options.pathLogs ?? { path: "/state/logs", error_code: null } };
     const currentConfig = { state: "ok", data: options.pathConfig ?? "/state/config.json" };
     const setPathLogs = async (value: unknown) => {
@@ -85,6 +87,8 @@ async function mountDestinationRows(options: {
         new URL(advancedPath, import.meta.url),
         runtime,
         {
+            "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+            "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
             "@logics_common": {
                 useCopyToClipboard: () => ({ copyToClipboard() {} }),
                 useOpenFolder: () => ({
@@ -97,7 +101,7 @@ async function mountDestinationRows(options: {
                 useAdvancedSettings: () => ({ currentPathLogs: currentLogs, setPathLogs, currentPathConfig: currentConfig }),
                 useOthers: () => ({}),
                 useSaveButtonLogic: (arg: unknown) => {
-                    saveBarCalls.push(arg);
+                    fieldHookCalls.push(arg);
                     return { variable: null, onChangeFunction() {}, saveFunction() {} };
                 },
             },
@@ -131,7 +135,7 @@ async function mountDestinationRows(options: {
     return {
         sent,
         opened,
-        saveBarCalls,
+        fieldHookCalls,
         renderLog: () => runtime.render(module.LogDestinationContainer),
         renderConfig: () => runtime.render(module.OpenConfigFolderContainer),
     };
@@ -158,7 +162,7 @@ test("LogDestinationContainer auto-saves valid paths, blocks invalid syntax clie
     });
 
     let tree = env.renderLog();
-    assert.equal(env.saveBarCalls.length, 0, "auto-saves without registering in SaveBar (#1111)");
+    assert.equal(env.fieldHookCalls.length, 0, "the row saves by itself, not through the field hook (#1111)");
     assert.equal(findIn(tree, node => node.type === "entry-input").props.ui_variable, "/state/logs");
 
     // Relative path: blocked client-side without sending /set/data/path_logs.

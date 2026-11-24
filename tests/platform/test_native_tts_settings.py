@@ -2,6 +2,7 @@
 import base64
 import json
 import os
+import time
 
 import pytest
 
@@ -9,6 +10,19 @@ from native_webdriver import NativeWebDriver
 from test_native_ui import initial_state
 
 pytestmark = pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='opt-in native desktop')
+
+
+def wait_saved(config, check, timeout=20):
+    """Wait until the core has written a setting (it writes in one batch a moment later)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if check(json.loads(config.read_text())):
+                return
+        except (OSError, ValueError):
+            pass  # the file is being replaced
+        time.sleep(0.2)
+    raise AssertionError('the setting was not saved')
 
 
 @pytest.mark.parametrize('scaling', [100, 150])
@@ -31,14 +45,16 @@ def test_split_settings_small_window_keyboard_and_long_paths(tmp_path, scaling):
         ui.element_command(seed, 'value', {'text': '\ue004'})  # Native Tab.
         assert ui.evaluate("return document.activeElement.getAttribute('aria-label')") == 'Instruction'
         ui.fill('Instruction', '改行を含む\n保存の試験')
-        ui.click_text('button', 'Save changes')
-        ui.wait("return [...document.querySelectorAll('button')].some(e => e.textContent === 'Save changes' && e.disabled)")
+        # The form saves by itself (#1111): the seed mode when it was chosen, the typed values when
+        # focus leaves the form.
+        ui.evaluate('arguments[0].blur(); return true;', ui.control('Instruction'))
+        wait_saved(config, lambda saved: saved.get('VOICE_SETTINGS', {}).get('japanese_instructions') == '改行を含む\n保存の試験')
         ui.open_rvc_settings()
         model = '/private/' + 'permitted-long-folder/' * 15 + 'voice.pth'
         ui.fill('Permitted RVC model (.pth)', model)
         assert ui.evaluate('return arguments[0].value', ui.control('Permitted RVC model (.pth)')) == model
-        ui.click_text('button', 'Save changes')
-        ui.wait("return [...document.querySelectorAll('button')].some(e => e.textContent === 'Save changes' && e.disabled)")
+        ui.evaluate('arguments[0].blur(); return true;', ui.control('Permitted RVC model (.pth)'))
+        wait_saved(config, lambda saved: saved.get('DIRECT_VOICE_SETTINGS', {}).get('rvc_model') == model)
         report = ui.evaluate('''
             const form = document.querySelector('[data-setting-id=rvc_settings]');
             return [...form.querySelectorAll('input,select,button')].map(e => {

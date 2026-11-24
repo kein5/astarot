@@ -19,6 +19,7 @@ import * as stopVoiceShapes from "../voice/stopVoice.ts";
 import * as gpuCheckShapes from "../support/gpuCheck.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -41,7 +42,7 @@ export const loadBridgeStore = async (runtime: HookRuntime = hooks()) => {
         jotai,
         "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_: unknown, next: unknown) => next },
-        "./voice/settingsNavigation": { requestSettingsNavigation: (action: () => unknown) => action() },
+        
         "./common/pendingRequestRecovery.ts": recovery,
         "./common/meterValue.ts": meterValue,
         "./common/initializationFields.ts": initialization,
@@ -93,7 +94,7 @@ export function settingAtom(registry: Readonly<Record<string, unknown>>, name: s
 export const loadBridgeSettings = async ({ runtime, stores, jotai }: BridgeStore, common: Record<string, unknown> = stubApi()) => {
     const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": stores, "@utils": utils, "@logics_common": common,
-        "../../voice/saveBar": { setSaveBarEntry: noop },
+        "../fieldErrors.ts": fieldErrors,
     });
     return await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
         jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
@@ -137,7 +138,7 @@ export const loadBridgeRoutes = async (
     const transcriptionConsent = await loadModule<typeof import("../transcription/useTranscriptionConsent.ts")>(new URL("../transcription/useTranscriptionConsent.ts", import.meta.url), runtime);
     const translationSetup = await loadModule<typeof import("../translation/useTranslationSetup.ts")>(new URL("../translation/useTranslationSetup.ts", import.meta.url), runtime);
     const ocrSetup = await loadModule<typeof import("../ocr/useOcrSetup.ts")>(new URL("../ocr/useOcrSetup.ts", import.meta.url), runtime);
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },

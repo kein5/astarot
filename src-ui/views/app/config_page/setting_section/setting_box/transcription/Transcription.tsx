@@ -421,12 +421,12 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
     const current = transcription[`current${engine.base}AuthKey`];
     const label = t(`config_page.transcription.${engine.key}_auth_key.label`);
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: current.data,
         state: current.state,
         setFunction: transcription[`set${engine.base}AuthKey`],
         deleteFunction: transcription[`delete${engine.base}AuthKey`],
-        label,
+        endpoint: `/set/data/${engine.key}_auth_key`,
     });
 
     return (
@@ -438,6 +438,9 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
             state={current.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             remove_border_bottom={true}
         />
     );

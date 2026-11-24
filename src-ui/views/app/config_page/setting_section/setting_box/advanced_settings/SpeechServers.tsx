@@ -41,9 +41,8 @@ export interface SpeechServersProps {
 export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }: SpeechServersProps) => {
     const { t } = useI18n();
     const { settings, state, devices, builds, pending, error, send, updateError } = useSpeechServers();
-    // Paths are ["profiles", name, key]; a page shows only its own profiles.
-    const label = ([, name, key]: string[]) => `${t(`speech_servers.${name}`)}: ${t(`speech_servers.${key}`, { defaultValue: key })}`;
-    const form = useSettingsDraft(settings, error, updateError, { label,
+    // Saves by itself (#1111, decided 3): a choice at once, a path when focus leaves the form or on Enter.
+    const form = useSettingsDraft(settings, error, updateError, {
         write: value => send("/set/data/speech_server_settings", value) });
     const { draft, setDraft, saving, dirty } = form;
     const pendingKey = JSON.stringify(pending);
@@ -90,14 +89,15 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
         {/* How to use a model file of your own instead of the default one. */}
         <CustomModelLink section={tts ? "tts" : "asr"} />
         {tts && <HardwareReadout reserve={reserve} setReserve={setReserve} />}
-        {draft && <form onSubmit={event => {
-            event.preventDefault(); if (dirty) form.submit(value => send("/set/data/speech_server_settings", value));
-        }}>
+        {draft && <form {...form.groupProps} aria-busy={saving} onSubmit={event => { event.preventDefault(); form.commit(); }}>
             {profiles.map(name => {
                 const row = draft.profiles[name], owner = state[name], saved = savedSettings(settings).profiles;
-                const busy = saving || !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
+                // A server that runs or prepares keeps its settings. A save that waits does not turn
+                // the fields off, so focus stays where it was; a download waits for it (busy).
+                const locked = !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
+                const busy = saving || locked;
                 // The kit's TextField; a path is in the monospaced font (#476).
-                const pathField = (key: PathField) => <TextField mono value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
+                const pathField = (key: PathField) => <TextField mono value={row[key] ?? ""} disabled={locked} maxLength={4096} spellCheck={false}
                     placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
                     onChange={event => field(name, key, event.target.value)} />;
                 const input = (key: PathField) => <label key={key}>{t(`speech_servers.${key}`)}{pathField(key)}</label>;
@@ -125,7 +125,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                                 diarization: { model: saved.asr.diarization_model } }
                             : { [name]: { model: saved[name].model } }} />
                     <FormRow label={t("speech_servers.device")} description={deviceHelp || undefined}>
-                        <select aria-label={t("speech_servers.device")} value={row.device} disabled={busy}
+                        <select aria-label={t("speech_servers.device")} value={row.device} disabled={locked}
                             onChange={event => field(name, "device", event.target.value)}>
                             {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
                             {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
@@ -137,7 +137,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                     {/* A checkbox in a form carries its name beside it, as on the other voice pages (#473). */}
                     {name === "japanese" && <HintCheck className={styles.checkLabel} label={t("speech_servers.low_latency")}
                         description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
-                        checked={!!row.low_latency} disabled={busy} onChange={event => field(name, "low_latency", event.target.checked)} />}
+                        checked={!!row.low_latency} disabled={locked} onChange={event => field(name, "low_latency", event.target.checked)} />}
                     {/* The server's buttons sit in the control column, under its fields (#473). */}
                     <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy || !row.model.trim() ||
                         (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}
@@ -161,8 +161,6 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
             <Button disabled={dirty || saving} onClick={() => { send("/get/data/speech_server_settings"); send("/get/data/speech_server_state"); }}>{t("speech_servers.reload")}</Button>
         </div>
         </SetupSection>
-        {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
-        {form.navigationDialog}
         {error && <p role="alert">{t([`speech_servers.errors.${error}`, `voice_ui.errors.${error}`], { defaultValue: error })}</p>}
     </section>;
 };
