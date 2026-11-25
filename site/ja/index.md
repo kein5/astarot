@@ -6,6 +6,9 @@ hero:
   # Each span stays on one line where it fits (custom.css), so the headline breaks between them.
   text: <span class="nb">VRChatの会話を</span><span class="nb">翻訳・字幕・読み上げで支える</span>
   tagline: 翻訳、字幕、読み上げ、声の変換、チャットの読み取りを1つにまとめたデスクトップアプリです。VRCTの非公式な派生版です。
+  image:
+    src: /mascot/penguin-front-normal.svg
+    alt: ヘッドホンを着けた悪魔ペンギン
 # The hero's buttons (theme/HomeActions.vue). The download button offers the latest release's
 # file for the reader's OS, with every other file in its menu; `link` is the install page.
 heroActions:

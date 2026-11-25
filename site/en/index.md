@@ -5,6 +5,9 @@ hero:
   name: ASTAROT
   text: Translation, captions and speech for your VRChat conversations
   tagline: One desktop app for translation, captions, speech, a voice changer and chat reading. It is an unofficial derivative of VRCT.
+  image:
+    src: /mascot/penguin-front-normal.svg
+    alt: A devil penguin wearing headphones
 # The hero's buttons (theme/HomeActions.vue). The download button offers the latest release's
 # file for the reader's OS, with every other file in its menu; `link` is the install page.
 heroActions:
