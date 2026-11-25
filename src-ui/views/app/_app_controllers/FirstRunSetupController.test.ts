@@ -682,3 +682,29 @@ test("Done leads to the switches of the features prepared, and to no other", asy
     e.button(e.render(), "first_run_setup.dont_show").props.onClick();
     assert.deepEqual(early.leads, []);
 });
+
+// D-14 (decided on 2026-11-25): a feature's model is chosen with the kit's Select, with the kit's
+// options, grouped with the kit's groups where the list holds more than one kind; none comes last.
+test("a model choice is the kit's Select with the kit's options and groups, and passes on the model chosen", async context => {
+    const w = world({ engine: "Deepgram" });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const chosen: unknown[] = [];
+    const choice = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
+    const drawn = draw(choice, { ...choice.props, onChange: (value: unknown) => { chosen.push(value); } });
+    const select = findIn(drawn, node => node.type === kitStandIns.Select);
+    assert.equal(select.props.value, "skip");
+    const groups = nodesIn(select).filter(node => node.type === kitStandIns.SelectOptGroup);
+    assert.deepEqual(groups.map(group => group.props.label), ["first_run_setup.speech.group_japanese", "first_run_setup.speech.group_multilingual"]);
+    assert.deepEqual(nodesIn(select).filter(node => node.type === kitStandIns.SelectOption).map(option => option.props.value),
+        ["irodori-v41-f16", "qwen3-06b-q8", "skip"]);
+    assert.deepEqual(nodesIn(drawn).filter(node => node.type === "select" || node.type === "option" || node.type === "optgroup"), []);
+    select.props.onChange({ target: { value: "qwen3-06b-q8" } });
+    assert.deepEqual(chosen, ["qwen3-06b-q8"]);
+    // Each option says the model and its size, marks the recommended one, adds the hardware warning
+    // where the model may be too heavy, and none comes last.
+    const marked = draw(choice, { ...choice.props, recommended: "irodori-v41-f16", warned: (entry: { id: string }) => entry.id === "qwen3-06b-q8" });
+    assert.deepEqual(nodesIn(marked).filter(node => node.type === kitStandIns.SelectOption).map(option => [option.props.value, option.props.children]),
+        [["irodori-v41-f16", "first_run_setup.choice.option_recommended"], ["qwen3-06b-q8", "first_run_setup.choice.option · model_catalog.hardware_warning.option"],
+            ["skip", "first_run_setup.choice.skip"]]);
+});

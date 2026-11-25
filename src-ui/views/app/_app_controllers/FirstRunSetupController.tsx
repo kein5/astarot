@@ -29,6 +29,7 @@ import { weightRequest } from "../../../logics/configs/ctranslate2License";
 import type { WeightRequest } from "../../../logics/configs/ctranslate2License";
 import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
+import { Select, SelectOptGroup, SelectOption } from "../../kit/index.ts";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as ui from "./FirstRunSetupController.css.ts";
@@ -439,20 +440,20 @@ interface ModelChoiceProps {
 const ModelChoice = ({ label, choices, recommended, value, onChange, groupOf, warned }: ModelChoiceProps) => {
     const { t } = useI18n();
     // The recommended mark is part of the words, so each language places it as it writes it.
-    const option = (entry: SetupEntry) => <option key={entry.id} value={entry.id}>
+    const option = (entry: SetupEntry) => <SelectOption key={entry.id} value={entry.id}>
         {[t(entry.id === recommended ? "first_run_setup.choice.option_recommended" : "first_run_setup.choice.option",
             { name: familyLabel(entry), size: gib(entry.total_bytes) }),
             warned?.(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-    </option>;
+    </SelectOption>;
     const groups = groupOf ? [...new Set(choices.map(groupOf))] : [];
     return <label className={ui.choice}>
         <span>{label}</span>
-        <select value={value} onChange={event => onChange(event.target.value)}>
+        <Select value={value} onChange={event => onChange(event.target.value)}>
             {groupOf
-                ? groups.map(group => <optgroup key={group} label={group}>{choices.filter(entry => groupOf(entry) === group).map(option)}</optgroup>)
+                ? groups.map(group => <SelectOptGroup key={group} label={group}>{choices.filter(entry => groupOf(entry) === group).map(option)}</SelectOptGroup>)
                 : choices.map(option)}
-            <option value={SKIP}>{t("first_run_setup.choice.skip")}</option>
-        </select>
+            <SelectOption value={SKIP}>{t("first_run_setup.choice.skip")}</SelectOption>
+        </Select>
     </label>;
 };
 

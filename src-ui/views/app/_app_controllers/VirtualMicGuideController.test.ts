@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, nodesIn } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn, kitStandIns } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
@@ -73,7 +73,7 @@ test("without a cable it says why, points to the cable's own page and keeps look
     assert.deepEqual(buttons.map(button => button.props.children), ["virtual_mic.close", "virtual_mic.install.open_page"]);
     assert.equal(buttons[1].props.autoFocus, true);
     // No test tone and no setting without a cable.
-    assert.equal(s.all(tree, "select").length, 0);
+    assert.equal(nodesIn(tree).filter(node => node.type === kitStandIns.Select).length, 0);
 });
 
 test("Close and Escape close it and change no setting; it opens again only when asked", async context => {
@@ -148,4 +148,30 @@ test("every text the guide shows exists in English and Japanese", () => {
         const strings = readLocale(language);
         for (const key of keys) assert.equal(typeof localeAt(strings, key), "string", `${language}: ${key}`);
     }
+});
+
+// D-14 (decided on 2026-11-25): with more than one cable, the choice of the cable is the kit's
+// Select, with the kit's options. A choice starts the check over; while a check runs it waits.
+test("with several cables the cable is chosen with the kit's Select, which waits while the tone plays", async context => {
+    const OTHER = { playback: id("Voicemeeter Input"), recording: id("Voicemeeter Out B1"), playback_label: "Voicemeeter Input", recording_label: "Voicemeeter Out B1" };
+    const s = await setup(context, { notice: false, opened: true, current: status({ cables: [CABLE, OTHER] }) });
+    const choice = (tree: unknown) => {
+        const found = nodesIn(tree).find(node => node.type === kitStandIns.Select);
+        assert.ok(found);
+        return found;
+    };
+    let tree = s.render();
+    assert.deepEqual([choice(tree).props.value, choice(tree).props.disabled], [CABLE.playback, false]);
+    assert.deepEqual(nodesIn(choice(tree)).filter(node => node.type === kitStandIns.SelectOption).map(option => [option.props.value, option.props.children]),
+        [[CABLE.playback, CABLE.playback_label], [OTHER.playback, OTHER.playback_label]]);
+    assert.deepEqual(nodesIn(tree).filter(node => node.type === "select" || node.type === "option"), []);
+    const label = nodesIn(tree).find(node => node.type === "label" && nodesIn(node).some(inner => inner.type === kitStandIns.Select));
+    assert.equal(text(s.all(label, "span")[0]), "virtual_mic.found.choose");
+    choice(tree).props.onChange({ target: { value: OTHER.playback } });
+    tree = s.render();
+    assert.equal(choice(tree).props.value, OTHER.playback);
+    assert.deepEqual(s.all(tree, "dd").map(text), [OTHER.playback_label, OTHER.recording_label]);
+    assert.ok(s.calls.includes("reset"), "a new choice starts the check over");
+    s.state.check = { ...IDLE, phase: "running", playback: OTHER.playback, level: 0.4 };
+    assert.equal(choice(s.render()).props.disabled, true);
 });

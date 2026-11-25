@@ -34,8 +34,6 @@ export const choice = style({
     marginBottom: ".8rem",
 });
 
-globalStyle(`${choice} select`, { minWidth: 0, maxWidth: "100%" });
-
 export const meter_row = style({
     display: "flex",
     flexWrap: "wrap",
