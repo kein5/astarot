@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, kitStandIns } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as languageNames from "../common/languageNames.ts";
@@ -106,7 +106,8 @@ test("a translation model on the PC that the app can use offers no check or prep
 });
 
 const checkboxes = (tree: unknown) => nodesIn(tree).filter(node => node.type === "input" && node.props.type === "checkbox");
-const start = (tree: unknown) => findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.start");
+// The review's buttons are the kit's (D-23).
+const start = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.start");
 
 test("the review of a non-commercial model asks for a second checkbox and sends what was ticked", async context => {
     const s = await dialog(context, nllb);
@@ -184,7 +185,7 @@ test("reopening the review clears an earlier acknowledgement", async context => 
     let tree = s.render();
     checkboxes(tree).forEach(box => { box.props.onChange({ target: { checked: true } }); });
     tree = s.render();
-    findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
     tree = s.render();
     findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     tree = s.render();

@@ -9,7 +9,7 @@ import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as runtimeStyles from "./VcRuntimeSetup.css.ts";
-import { Badge, Button, Progress } from "../../../../../kit/index.ts";
+import { Badge, Button, Dialog, DialogFooter, DialogHeader, DialogTitle, Progress } from "../../../../../kit/index.ts";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
@@ -94,9 +94,10 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
                 disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</Button>}
         </div>
-        {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <div className={styles.dialog_text}>
-                <h3>{t("vc_runtime.warning_title")}</h3>
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
+        {open && <Dialog ref={dialog} open={open} onOpenChange={close} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("vc_runtime.warning_title")}</DialogTitle>
                 <p>{t(`vc_runtime.notice_${entry.notice}`)}</p>
                 <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })}</p>
                 <p>{t(`vc_runtime.connection_notice_${entry.notice}`)}</p>
@@ -104,15 +105,15 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
                 <p>{t("model_downloads.license_links")}: {entry.licenses.map(url => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{url}</a> </span>)}</p>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
                 <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{entry.destination}</code></p>
-            </div>
+            </DialogHeader>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("vc_runtime.consent")}</label>
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={!consent || busy} onClick={() => {
+            <DialogFooter>
+                <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
+                <Button disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
                     send("/run/start_vc_runtime_setup", { id: engine, consent: true, version: entry.version }); close();
-                }}>{t("vc_runtime.start")}</button>
-            </div>
-        </dialog>}
+                }}>{t("vc_runtime.start")}</Button>
+            </DialogFooter>
+        </Dialog>}
     </section>;
 };

@@ -268,8 +268,9 @@ test("the forms' primary action is Lilac: the plain class name primary is matche
     // would be given a generated name and never match.
     assert.doesNotMatch(css, /export const primary\b/);
     assert.match(css, /inForm\("button\.primary"\), \{ background: "var\(--primary_600_color/);
+    // Agreeing to a download stays the primary action, now the kit's (D-23).
     const downloads = read(box + "advanced_settings/ModelDownloads.tsx");
-    assert.match(downloads, /className="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
+    assert.match(downloads, /<Button tone="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
 });
 
 test("a guide link reads as a link wherever it sits", () => {
@@ -402,11 +403,9 @@ test("download dialogs write byte counts in the display language", () => {
     }
 });
 test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
-    // The forms' dialogs.
+    // The forms' dialogs still written by hand. The kit's Dialog dims with the same (Dialog.test.ts),
+    // and the translation's license dialog is the kit's.
     const form = read(box + "advanced_settings/VoiceSettings.css.ts");
-    assert.deepEqual([...form.matchAll(/::backdrop"\), \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
-    // The translation's license dialog.
-    for (const file of [box + "translation/Translation.css.ts"]) {
-        assert.deepEqual([...read(file).matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"'], file);
-    }
+    assert.deepEqual([...form.matchAll(/::backdrop`\), \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
+    assert.doesNotMatch(read(box + "translation/Translation.css.ts"), /backdrop/);
 });

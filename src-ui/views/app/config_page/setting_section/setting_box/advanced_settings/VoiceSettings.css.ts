@@ -15,6 +15,7 @@ export const problem_slot = style({});
 export const checkLabel = style({});
 export const fieldCheck = style({});
 export const dialog_text = style({});
+export const dialog_files = style({});
 export const actions = style({});
 export const count = style({});
 export const hinted = style({});
@@ -217,8 +218,11 @@ globalStyle(inForm('input[type="checkbox"]'), {
 });
 // A checkbox among a form's fields is at least 24px high, like the other controls there.
 globalStyle(inForm(`input[type="checkbox"].${fieldCheck}`), { width: "2.4rem", height: "2.4rem", minHeight: "2.4rem", marginTop: 0 });
+// A dialog of the forms still written by hand; the kit's Dialog (data-slot="dialog-content") draws
+// its own frame, gap and backdrop, and its buttons are the kit's.
+const HAND_BUILT_DIALOG = 'dialog:not([data-slot="dialog-content"])';
 // shadcn/ui's DialogContent: at most 51.2rem wide (sm:max-w-lg), 1.6rem between its parts (gap-4).
-globalStyle(inForm("dialog"), {
+globalStyle(inForm(HAND_BUILT_DIALOG), {
     maxWidth: "min(51.2rem, calc(100vw - 3.2rem))",
     maxHeight: "calc(100dvh - 3.2rem)",
     overflowY: "auto",
@@ -230,15 +234,16 @@ globalStyle(inForm("dialog"), {
 });
 // shadcn/ui's bg-black/50. Written as a colour, not a token: a ::backdrop takes custom properties
 // from its dialog only in newer engines (Safari 17.4, Chrome 122), and an older WebKitGTK would not dim.
-globalStyle(inForm("dialog::backdrop"), { background: "#00000080" });
-globalStyle(inForm("dialog button"), { margin: ".8rem .8rem 0 0" });
+globalStyle(inForm(`${HAND_BUILT_DIALOG}::backdrop`), { background: "#00000080" });
+globalStyle(inForm(`${HAND_BUILT_DIALOG} button`), { margin: ".8rem .8rem 0 0" });
 // A consent dialog reads as a document: its title and facts are one part (dialog_text), a
 // fact a paragraph with air between them; the consent and the actions are parts of their own.
-globalStyle(inForm("dialog[open]"), { display: "grid", gap: "1.6rem", alignContent: "start" });
+globalStyle(inForm(`${HAND_BUILT_DIALOG}[open]`), { display: "grid", gap: "1.6rem", alignContent: "start" });
 globalStyle(inForm(`.${dialog_text}`), { display: "grid", gap: ".8rem", minWidth: 0 });
 globalStyle(inForm("dialog > h3", `.${dialog_text} > h3`), { margin: 0, fontSize: "1.8rem", lineHeight: 1.4, color: vars.dark_200_color });
 globalStyle(inForm(`.${dialog_text} > h3`), { marginBottom: ".4rem" });
-globalStyle(inForm("dialog > ul", `.${dialog_text} > ul`), {
+// The files a consent dialog downloads, under its facts.
+globalStyle(inForm(`ul.${dialog_files}`), {
     margin: 0,
     paddingLeft: "2rem",
     listStyle: "disc",

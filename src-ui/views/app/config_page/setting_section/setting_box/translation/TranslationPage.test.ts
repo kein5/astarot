@@ -347,8 +347,10 @@ test("the license dialog confirms only once its box is ticked, and names the mod
     const dialog = (action: "select" | "download" = "select") => p.draw(elementOf(p.module.CTranslate2LicenseDialog, { ...props, action }), runtime);
     const drawn = dialog();
     assert.deepEqual(p.consent.asked.at(-1), { open: true, fallback: null });
-    assert.deepEqual([drawn.type, drawn.props.ref, drawn.props["aria-label"]], ["dialog", "dialog", "config_page.translation.ctranslate2_weight_type.confirm_title"]);
-    assert.equal(textOf(findIn(drawn, node => node.type === "h3")), "config_page.translation.ctranslate2_weight_type.confirm_title");
+    // The kit's Dialog (D-23), shown while drawn, named by its title alone, as before (D-43).
+    assert.deepEqual([drawn.type, drawn.props.ref, drawn.props.open, "aria-describedby" in drawn.props, drawn.props["aria-describedby"]],
+        [kitStandIns.Dialog, "dialog", true, true, undefined]);
+    assert.equal(textOf(findIn(drawn, node => node.type === kitStandIns.DialogTitle)), "config_page.translation.ctranslate2_weight_type.confirm_title");
     assert.equal(textOf(findIn(drawn, node => node.type === "p")),
         `config_page.translation.ctranslate2_weight_type.confirm_body {"weight_type":"NLLB-200 distilled 600M · int8","license":"CC-BY-NC-4.0"}`);
     // The two links in one line, apart.
@@ -360,10 +362,14 @@ test("the license dialog confirms only once its box is ticked, and names the mod
         ["https://card.example", "_blank", "noreferrer", "config_page.translation.ctranslate2_weight_type.model_card_link"]);
     assert.equal(textOf(findIn(drawn, node => node.type === "label")), "config_page.translation.ctranslate2_weight_type.confirm_check");
 
-    const buttons = () => ofType(dialog(), "button").map(node => node.props);
+    // The kit's Button: cancel plain, confirm primary, in the footer at the dialog's right (D-24).
+    const kitButtons = (tree: unknown) => nodesIn(tree).filter(node => node.type === kitStandIns.Button);
+    const buttons = () => kitButtons(dialog()).map(node => node.props);
+    const footer = findIn(drawn, node => node.type === kitStandIns.DialogFooter);
+    assert.deepEqual([footer.props.className, kitButtons(footer).length], ["license_actions", 2]);
     const [cancel, confirm] = buttons();
-    assert.deepEqual([cancel.type, cancel.autoFocus, cancel.children], ["button", true, "config_page.translation.ctranslate2_weight_type.confirm_cancel"]);
-    assert.deepEqual([confirm.type, confirm.disabled, confirm.children], ["button", true, "config_page.translation.ctranslate2_weight_type.confirm_select"]);
+    assert.deepEqual([cancel.tone, cancel.autoFocus, cancel.children], [undefined, true, "config_page.translation.ctranslate2_weight_type.confirm_cancel"]);
+    assert.deepEqual([confirm.tone, confirm.disabled, confirm.children], ["primary", true, "config_page.translation.ctranslate2_weight_type.confirm_select"]);
     // Pressed before the box is ticked (the button is disabled), nothing happens.
     confirm.onClick();
     assert.deepEqual(events, []);
@@ -379,15 +385,14 @@ test("the license dialog confirms only once its box is ticked, and names the mod
     assert.equal(p.consent.closed, 1, "closed before the choice is made");
 
     // The cancel button and Escape both close it and cancel.
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
     buttons()[0].onClick();
-    let prevented = 0;
-    dialog().props.onCancel({ preventDefault: () => { prevented++; } });
+    dialog().props.onOpenChange(false);
     assert.deepEqual(events, ["confirm", "cancel", "cancel"]);
-    assert.equal(prevented, 1);
     assert.equal(p.consent.closed, 3);
 
     // The download review asks with the download's words.
-    assert.equal(ofType(dialog("download"), "button")[1].props.children, "config_page.translation.ctranslate2_weight_type.confirm_download");
+    assert.equal(kitButtons(dialog("download"))[1].props.children, "config_page.translation.ctranslate2_weight_type.confirm_download");
 });
 
 test("the license dialog's links open in the system browser in the app, and fall back to the page's own link elsewhere", async () => {

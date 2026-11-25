@@ -10,14 +10,14 @@ const MODEL = { id: "ppocr", target: "ocr", name: "PP-OCR small", provider: "Pad
     notice: "ppocr", artifacts: [], total_bytes: 31_457_280, destination: "/models/ocr", source: "https://example.invalid/ppocr" };
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
 
-async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> = {}, pending: object | null = null) {
+async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> = {}, pending: object | null = null, model: object = MODEL) {
     const runtime = hooks();
     const sent: unknown[] = [];
     const { OcrModels } = await loadModule<typeof import("./OcrModels.tsx")>(new URL("./OcrModels.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": {},
-        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: { catalog_version: "1", models: [MODEL] },
+        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: { catalog_version: "1", models: [model] },
             state: { jobs }, error: null, pending, send: (...request: unknown[]) => sent.push(request) }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts",
@@ -108,4 +108,38 @@ test("the cancel waits while a request is out or the download is being cancelled
     assert.equal(cancel(failed), null);
     assert.equal(find(card(failed), node => node.type === kitStandIns.Progress), null, "a job that does not run has no bar");
     assert.ok(find(card(failed), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review"));
+});
+
+// The review is the kit's Dialog (D-23): its title and facts in the header, the consent under them,
+// Back and Start in the footer in that order, Back with the first focus and Start the primary
+// Button (#462). It is named by its title alone, as before (D-43).
+test("the review is the kit's Dialog, with Back and the primary Start in its footer", async () => {
+    const files = [{ filename: "det.onnx", size: 9_880_512 }, { filename: "rec.yml", size: 150_579 }];
+    const s = await ocrModels("list", {}, null, { ...MODEL, artifacts: files });
+    const review = findIn(card(s.draw({ missing: ["ppocr"] })), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review");
+    review.props.onClick();
+    const dialog = findIn(s.draw({ missing: ["ppocr"] }), node => node.type === kitStandIns.Dialog);
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    const header = findIn(dialog, node => node.type === kitStandIns.DialogHeader);
+    assert.equal(findIn(header, node => node.type === kitStandIns.DialogTitle).props.children, "model_downloads.warning_title");
+    // Where it goes, in a line that breaks anywhere, and each file with its exact size, keyed by its
+    // name (the harness reads the keys as React.Children gives them).
+    const destination = findIn(header, node => node.type === "code");
+    assert.deepEqual([destination.props.children, destination.props.style], ["/models/ocr", { overflowWrap: "anywhere" }]);
+    assert.equal(findIn(header, node => node.type === "p" && [node.props.children].flat().some(child => child?.type === "code")).props.children[0], "model_downloads.destination");
+    const list = findIn(header, node => node.type === "ul");
+    assert.equal(list.props.className, "dialog_files");
+    assert.deepEqual(nodesIn(list).filter(node => node.type === "li").map(item => [item.key, [item.props.children].flat().join("")]), [
+        [".$det.onnx", 'det.onnx · model_downloads.exact_bytes:{"bytes":"9,880,512"}'], [".$rec.yml", 'rec.yml · model_downloads.exact_bytes:{"bytes":"150,579"}']]);
+    const consent = findIn(dialog, node => node.type === "label");
+    assert.deepEqual([consent.props.className, [consent.props.children].flat().at(-1)], ["checkLabel", "model_downloads.consent"]);
+    const footer = findIn(dialog, node => node.type === kitStandIns.DialogFooter);
+    const buttons = nodesIn(footer).filter(node => node.type === kitStandIns.Button).map(node => [node.props.children, node.props.tone, node.props.autoFocus]);
+    assert.deepEqual(buttons, [["model_downloads.back", undefined, true], ["model_downloads.start", "primary", undefined]]);
+    // The consent stays a native checkbox (D-16), between the facts and the buttons.
+    const parts = [dialog.props.children].flat(2).filter(Boolean).map((child: TreeNode) => child.type);
+    assert.deepEqual(parts, [kitStandIns.DialogHeader, "label", kitStandIns.DialogFooter]);
+    // Escape: the kit's Dialog asks its owner to close it.
+    dialog.props.onOpenChange(false);
+    assert.equal(find(s.draw({ missing: ["ppocr"] }), node => node.type === kitStandIns.Dialog), null);
 });

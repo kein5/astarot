@@ -27,8 +27,10 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         getAttribute: () => null, closest: () => null, focus: () => focus.push(name) });
     const fallbackControl = control("nearby control");
     const scope = { ...control("model group"), tabIndex: -1, querySelectorAll: () => [fallbackControl] };
-    const section = { ...control("model section"), tabIndex: -1, querySelectorAll: () => [fallbackControl] };
-    const opener = { ...control("opener"), closest: () => scope };
+    // The caller's section holds a control of its own, apart from the model row's.
+    const section = { ...control("model section"), tabIndex: -1, querySelectorAll: () => [control("section control")] };
+    // The opener's model row or setting, which the hook looks for by these attributes.
+    const opener = { ...control("opener"), closest: (selector: string) => selector === "[data-model-download], [data-setting-id]" ? scope : null };
     stubGlobals(context, { document: { activeElement: opener } });
     const modal = { open: false, showModal() { this.open = true; },
         close() { this.open = false; order.push("close"); } };
@@ -96,8 +98,9 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         ? { ids: [entry.id], missing: [entry.id], onChanged: () => {}, title: "OCR models" }
         : { weight: entry, action: "select", fallback: { current: section },
             onCancel: end, onConfirm: () => { calls.push(["select"]); end(); } };
+    // The dialogs are the kit's Dialog (D-23), its buttons the kit's Button.
     const render = () => runtime.render(Component, props, tree => {
-        const dialog = find(tree, node => node.type === "dialog");
+        const dialog = find(tree, node => node.type === kitStandIns.Dialog);
         // The test points the refs at its stand-ins.
         if (dialog) setRef(dialog, modal);
         if (tree.type === "section") setRef(tree, section);
@@ -115,7 +118,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         if (ended) runtime.unmount();
         else {
             assert.equal(modal.open, false, "close() precedes the render that removes the dialog");
-            assert.equal(find(render(), node => node.type === "dialog"), null);
+            assert.equal(find(render(), node => node.type === kitStandIns.Dialog), null);
         }
         await Promise.resolve();
     };
@@ -128,7 +131,7 @@ for (const kind of ["catalog", "ocr", "nllb"] as const) {
             test(`${kind}: ${path} closes before unmount and restores focus (${openerState} opener)`, async context => {
                 const s = await fixture(context, kind, openerState);
                 let tree = s.tree;
-                const start = () => findIn(tree, node => node.type === "button" &&
+                const start = () => findIn(tree, node => node.type === kitStandIns.Button &&
                     ["model_downloads.start", "config_page.translation.ctranslate2_weight_type.confirm_select"].includes(node.props.children));
                 assert.equal(s.modal.open, true);
                 assert.equal(start().props.disabled, true);
@@ -141,10 +144,9 @@ for (const kind of ["catalog", "ocr", "nllb"] as const) {
                     assert.equal(s.calls.filter(([endpoint]) => !endpoint.startsWith("/get/")).length, 0);
                     start().props.onClick();
                 } else if (path === "escape") {
-                    let prevented = false;
-                    findIn(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
-                    assert.equal(prevented, true);
-                } else findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+                    // The kit's Dialog keeps Esc from closing it and asks its owner (Dialog.test.ts).
+                    findIn(tree, node => node.type === kitStandIns.Dialog).props.onOpenChange(false);
+                } else findIn(tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
                 assert.equal(s.modal.open, false);
                 await s.commit();
                 assert.deepEqual(s.focus, [openerState === "present" ? "opener" : "nearby control"]);
@@ -163,7 +165,7 @@ for (const kind of ["catalog", "ocr", "nllb"] as const) {
 test("a pending download with no enabled nearby control returns focus to its named section", async context => {
     const s = await fixture(context, "catalog", "disabled");
     s.fallbackControl.disabled = true;
-    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
     await s.commit();
     assert.deepEqual(s.focus, ["model section"]);
 });
@@ -171,7 +173,7 @@ test("a pending download with no enabled nearby control returns focus to its nam
 test("NLLB falls back to the labelled section when its template has no enabled controls", async context => {
     const s = await fixture(context, "nllb", "disabled");
     s.fallbackControl.disabled = true;
-    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
     await s.commit();
     assert.deepEqual(s.focus, ["model section"]);
 });
@@ -179,7 +181,7 @@ test("NLLB falls back to the labelled section when its template has no enabled c
 test("removing the entire model row uses a control in the stable section", async context => {
     const s = await fixture(context, "ocr", "removed");
     s.scope.isConnected = false;
-    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
     await s.commit();
-    assert.deepEqual(s.focus, ["nearby control"]);
+    assert.deepEqual(s.focus, ["section control"]);
 });
