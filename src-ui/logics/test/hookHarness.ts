@@ -235,6 +235,11 @@ export const kitStandIns = {
     Textarea: ({ invalid = false, mono = false, fill = false, inFrame = false, ...rest }: Record<string, unknown>) =>
         jsx.jsx("textarea", { "data-slot": "textarea", "aria-invalid": invalid || undefined, "data-mono": mono, "data-fill": fill,
             "data-in-frame": inFrame, ...rest }),
+    // The kit's choice card: a <label> round a native radio, what the card shows and the choice's name.
+    ChoiceCard: ({ title, children, className, ...input }: Record<string, unknown>) =>
+        jsx.jsxs("label", { "data-slot": "field-label", className, children: [
+            jsx.jsx("input", { "data-slot": "radio-group-item", ...input, type: "radio" }), children,
+            jsx.jsx("span", { "data-slot": "field-title", children: title })] }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

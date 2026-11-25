@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { hooks, kitStandIns } from "./hookHarness.ts";
+import type { TreeNode } from "./hookHarness.ts";
 
 // The harness runs a render's effects as React does: the layout effects first, then the passive
 // ones; for each kind the clean-ups first, then the effects, in the order the component calls
@@ -169,4 +170,12 @@ test("the kit's stand-in keeps the kit's defaults", () => {
         value: "words" });
     assert.deepEqual(kitStandIns.Textarea({ invalid: true, mono: true, fill: true, inFrame: true }).props,
         { "data-slot": "textarea", "aria-invalid": true, "data-mono": true, "data-fill": true, "data-in-frame": true });
+    // The choice card: a label round a radio that stays a radio, the card's contents, then the name.
+    assert.match(kit("ChoiceCard.tsx"), /<label data-slot="field-label"[\s\S]*\{\.\.\.input\} type="radio" \/>\s*\{children\}\s*<span data-slot="field-title"/);
+    const choice: TreeNode = kitStandIns.ChoiceCard({ name: "theme", value: "forest", checked: true, title: "Forest", className: "place", children: "picture" });
+    assert.deepEqual([choice.type, choice.props["data-slot"], choice.props.className], ["label", "field-label", "place"]);
+    const [radio, picture, name] = choice.props.children;
+    assert.deepEqual([radio.type, radio.props], ["input", { "data-slot": "radio-group-item", name: "theme", value: "forest", checked: true, type: "radio" }]);
+    assert.equal(picture, "picture");
+    assert.deepEqual([name.type, name.props], ["span", { "data-slot": "field-title", children: "Forest" }]);
 });

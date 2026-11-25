@@ -26,6 +26,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 | `Card` and its parts `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` and `CardFooter` | One unit, such as a model, an engine or an entry, in a quiet frame with no fill and no shadow; `active` gives the one in use the active frame and tint, and `as="li"` makes the card an item of a list (D-28, #1204) | — |
 | `Badge` | A short word with square corners that says a state; `tone`, `variant` (outline, solid, tint, dashed) and `mark` (check, ring, alert) only repeat the words (D-29, #1204) | — |
 | `InlineConfirm` and its parts `InlineConfirmTrigger`, `InlineConfirmContent`, `InlineConfirmDescription`, `InlineConfirmCancel` and `InlineConfirmAction` | A delete confirmation inside the row it is about. Back takes the focus when it opens, and after Back the focus returns to the trigger. Its owner decides whether it is open (#1189) | The kit's `Button`, in parts named after AlertDialog's |
+| `ChoiceCard` | One choice of a group, drawn as a card: what it shows over its name. The choice in use has the accent frame and a check after its name. The screen gives it its width (#1177) | The native `<input type="radio">` inside a `<label>`. The cards with the same `name` are one group, so the arrow keys move the choice |
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
 
@@ -127,6 +128,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | `Card` と、そのパーツの `CardHeader`、`CardTitle`、`CardDescription`、`CardContent`、`CardFooter` | モデル、エンジン、項目のような 1 つの単位。塗りと影のない控えめな枠。`active` で使用中のものを使用中の枠と淡い塗りにし、`as="li"` で一覧の項目にする（D-28、#1204） | — |
 | `Badge` | 状態を示す、角の四角い短い言葉。`tone`、`variant`（outline、solid、tint、dashed）、`mark`（check、ring、alert）は言葉を繰り返すだけ（D-29、#1204） | — |
 | `InlineConfirm` と、そのパーツの `InlineConfirmTrigger`、`InlineConfirmContent`、`InlineConfirmDescription`、`InlineConfirmCancel`、`InlineConfirmAction` | 行の中に出す削除の確認。開くと「戻る」がフォーカスを受け、「戻る」のあとは開いたボタンにフォーカスを戻す。開くかどうかは持ち主が決める（#1189） | kit の `Button`。パーツの名前は AlertDialog に合わせた |
+| `ChoiceCard` | まとまりの中の 1 つの選択肢をカードとして描く。見せるものの下に名前。使っている選択肢には、アクセントの色の枠と、名前の後のチェック。幅は画面が決める（#1177） | `<label>` の中のネイティブの `<input type="radio">`。`name` が同じカードが 1 つのまとまりになり、矢印キーで選択が動く |
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 

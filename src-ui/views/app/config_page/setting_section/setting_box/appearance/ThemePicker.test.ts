@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { drawWith, find, findIn, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { drawWith, find, findIn, hooks, kitStandIns, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as themes from "../../../../../../logics/theme/themes.ts";
 
@@ -14,19 +14,17 @@ async function load(world: World) {
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@logics_configs": { useAppearance: () => ({ currentTheme: { data: world.theme, state: "ok" },
             setTheme: (value: unknown) => { world.sent.push(value); } }) },
-        "@images/check_mark.svg?react": "check-svg",
         "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_components/color_entry_with_save_button/ColorEntryWithSaveButton": { ColorEntryWithSaveButton: "color-entry" },
         "../../../../../../logics/theme/themes.ts": themes,
     });
     const draw = () => runtime.render(module.ThemeContainer);
-    // The tiles as drawn: each tile's name, whether it is in use, and its radio. A tile has hooks
-    // of its own, so it is drawn apart from the row's.
+    // The tiles as drawn: each tile's kit choice card, which holds the radio's props, and whether
+    // it is in use. A tile has hooks of its own, so it is drawn apart from the row's.
     const tiles = (tree: TreeNode) => nodesIn(tree).filter(node => typeof node.props?.onChoose === "function").map(node => {
         const drawn = drawWith(hooks(), node);
-        const radio = findIn(drawn, child => child.type === "input");
-        return { id: node.props.id as string, drawn, radio, checked: radio.props.checked as boolean,
-            check: find(drawn, child => child.props?.className === "check" && child.props?.["aria-hidden"] === "true") !== null };
+        assert.equal(drawn.type, kitStandIns.ChoiceCard, "a tile is the kit's choice card");
+        return { id: node.props.id as string, drawn, radio: drawn.props, checked: drawn.props.checked as boolean };
     });
     const entries = (tree: TreeNode) => nodesIn(tree).filter(node => node.type === "color-entry");
     return { runtime, draw, tiles, entries };
@@ -45,9 +43,13 @@ test("every preset and Custom are tiles in one group, the one in use framed and 
     const drawn = tiles(tree);
     assert.deepEqual(drawn.map(tile => tile.id), [...themes.PRESETS.map(preset => preset.id), "custom"]);
     assert.deepEqual(drawn.filter(tile => tile.checked).map(tile => tile.id), ["midnight"]);
-    // In use is said by the check after the name and by the radio, not by the frame's colour alone.
-    assert.deepEqual(drawn.filter(tile => tile.check).map(tile => tile.id), ["midnight"]);
-    assert.ok(drawn.every(tile => tile.radio.props.type === "radio" && tile.radio.props.name === "theme"));
+    // One radio group named "theme"; each card is named by its theme's name and holds its id, for
+    // its place in the page's layout. The kit draws the frame and the check of the one in use from
+    // the radio (kit/ChoiceCard.css.ts), so in use is not said by the frame's colour alone.
+    assert.deepEqual(drawn.map(tile => [tile.radio.name, tile.radio.value, tile.radio.className, tile.radio["data-theme-option"]]),
+        drawn.map(tile => ["theme", tile.id, "tile", tile.id]));
+    assert.deepEqual(drawn.map(tile => tile.radio.title), [...themes.PRESETS.map(preset => `config_page.appearance.theme.presets.${preset.id}`),
+        "config_page.appearance.theme.custom"]);
     // The picture is drawn in the tile's own theme, and is not read out.
     const lagoon = drawn.find(tile => tile.id === "lagoon");
     assert.ok(lagoon);
@@ -60,7 +62,7 @@ test("every preset and Custom are tiles in one group, the one in use framed and 
 test("choosing a tile applies it at once and keeps the user's own colours; the one in use does nothing", async () => {
     const world: World = { theme: { preset: "midnight", custom }, sent: [] };
     const { draw, tiles } = await load(world);
-    const pick = (id: string) => tiles(draw()).find(tile => tile.id === id)?.radio.props.onChange();
+    const pick = (id: string) => tiles(draw()).find(tile => tile.id === id)?.radio.onChange();
     pick("midnight");
     assert.deepEqual(world.sent, []);
     pick("forest");

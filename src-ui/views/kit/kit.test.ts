@@ -74,6 +74,29 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     }
     assert.match(read("Badge.tsx"), /<span data-slot="badge"/);
     assert.match(read("index.ts"), /export \{ Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,/);
+    // A choice card: shadcn/ui's Field example of a RadioGroupItem inside a FieldLabel.
+    const choice = read("ChoiceCard.tsx");
+    for (const slot of ["field-label", "radio-group-item", "field-title", "radio-group-indicator"]) {
+        assert.match(choice, new RegExp(`data-slot="${slot}"`), slot);
+    }
+    assert.match(read("index.ts"), /export \{ ChoiceCard, type ChoiceCardProps \}/);
+});
+
+test("a choice card keeps the native radio, and its frame, check and ring follow the radio", () => {
+    // D-16: the radio buttons stay native inputs; the arrow keys of the group are the browser's.
+    assert.match(read("ChoiceCard.tsx"), /<input data-slot="radio-group-item" className=\{radio\} \{\.\.\.input\} type="radio" \/>/);
+    const css = read("ChoiceCard.css.ts");
+    // The radio is out of sight but not out of reach (no display: none, which would take it out of
+    // the focus order and the arrow keys).
+    const radio = css.slice(css.indexOf("export const radio"), css.indexOf("export const card"));
+    assert.match(radio, /position: "absolute",\s*width: "1px",\s*height: "1px",[\s\S]*clip: "rect\(0 0 0 0\)"/);
+    assert.doesNotMatch(radio, /display|visibility|opacity/);
+    // In use: the accent frame inside the card, and the check after the name; the ring is the kit's.
+    assert.match(css, /"&:has\(> input:checked\)": \{ borderColor: vars\.primary_600_color, boxShadow: `inset 0 0 0 \.1rem \$\{vars\.primary_600_color\}` \}/);
+    assert.match(css, /"&:has\(> input:focus-visible\)": focusRing,/);
+    assert.match(css, /"&:has\(> input:disabled\)": disabledLook,/);
+    const check = css.slice(css.indexOf("export const check"));
+    assert.match(check, /display: "none",[\s\S]*\[`\$\{card\}:has\(> input:checked\) &`\]: \{ display: "block" \}/);
 });
 
 test("what needs the user is a card in the warning's amber; the other rows are quiet, in one frame", () => {
@@ -125,7 +148,7 @@ test("the confirmation inside a row stays in the row: no dialog, no popover, the
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
+    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "ChoiceCard.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
         "Switch.tsx", "TextField.tsx", "Textarea.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }

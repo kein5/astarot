@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
-import CheckSvg from "@images/check_mark.svg?react";
+import { ChoiceCard } from "../../../../../kit/index.ts";
 import { FormRow } from "../_components/form_row/FormRow";
 import { ColorEntryWithSaveButton } from "../_components/color_entry_with_save_button/ColorEntryWithSaveButton";
 import {
@@ -66,13 +65,14 @@ interface ThemeTileProps {
     onChoose: () => void;
 }
 
+// A tile is the kit's choice card (U-07): the native radio of the "theme" group, the picture, and
+// the name with the check of the one in use.
 const ThemeTile = ({ id, name, colors, checked, onChoose }: ThemeTileProps) => {
     // The picture's colours are the theme's own, whatever theme the page is drawn in.
     const tokens = useMemo(() => deriveTokens(colors), [colors]);
     return (
-        <label className={clsx(styles.tile, { [styles.tileSelected]: checked })} data-theme-option={id}>
-            <input type="radio" name="theme" value={id} className={styles.radio} checked={checked}
-                onChange={() => { if (!checked) onChoose(); }} />
+        <ChoiceCard className={styles.tile} data-theme-option={id} name="theme" value={id} checked={checked} title={name}
+            onChange={() => { if (!checked) onChoose(); }}>
             <span className={styles.preview} aria-hidden="true" style={{
                 "--theme_tile_rail": tokens["--vox_rail"], "--theme_tile_canvas": tokens["--vox_canvas"],
                 "--theme_tile_surface": tokens["--vox_surface"], "--theme_tile_accent": tokens["--primary_600_color"],
@@ -83,11 +83,7 @@ const ThemeTile = ({ id, name, colors, checked, onChoose }: ThemeTileProps) => {
                     <span className={styles.previewAccent} />
                 </span>
             </span>
-            <span className={styles.name}>
-                {name}
-                {checked && <CheckSvg className={styles.check} aria-hidden="true" />}
-            </span>
-        </label>
+        </ChoiceCard>
     );
 };
 
