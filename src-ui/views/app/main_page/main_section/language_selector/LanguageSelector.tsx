@@ -3,6 +3,7 @@ import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
 import { Empty, EmptyDescription } from "@common_components";
+import { TextField } from "../../../../kit/index.ts";
 import type { SelectableLanguage } from "@store";
 import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import * as styles from "./LanguageSelector.css.ts";
@@ -19,6 +20,10 @@ type LanguageSelectorProps = {
 
 // `hint` says what the language is for, in both directions (#569). It stays in sight above the
 // list and describes the search field, which has the focus when the list opens.
+//
+// The filter and the grid stay hand-built (U-01, D-36): Enter picks the first match and the grid
+// is two-dimensional, which a listbox does not fit. Their look is the kit's: the filter is the
+// kit's TextField, and the language buttons take the kit's tokens, focus ring and radius.
 export const LanguageSelector = ({ title, hint, onClickFunction }: LanguageSelectorProps) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
@@ -39,16 +44,18 @@ export const LanguageSelector = ({ title, hint, onClickFunction }: LanguageSelec
             <LanguageSelectorTopBar title={title}/>
             <div className={styles.language_list_scroll_wrapper}>
                 <div className={styles.filter_row}>
-                    <input ref={filter} type="search" data-slot="input" className={styles.filter} value={query}
-                        placeholder={t("main_page.language_selector.filter")} aria-label={t("main_page.language_selector.filter")}
-                        aria-describedby={hint ? hint_id : undefined}
-                        onChange={event => setQuery(event.target.value)}
-                        onKeyDown={event => {
-                            if (isLanguagePickKey(event) && shown.length) {
-                                event.preventDefault();
-                                onClickFunction({ language: shown[0].language, country: shown[0].country });
-                            }
-                        }} />
+                    <div className={styles.filter}>
+                        <TextField ref={filter} type="search" value={query}
+                            placeholder={t("main_page.language_selector.filter")} aria-label={t("main_page.language_selector.filter")}
+                            aria-describedby={hint ? hint_id : undefined}
+                            onChange={event => setQuery(event.target.value)}
+                            onKeyDown={event => {
+                                if (isLanguagePickKey(event) && shown.length) {
+                                    event.preventDefault();
+                                    onClickFunction({ language: shown[0].language, country: shown[0].country });
+                                }
+                            }} />
+                    </div>
                     {hint && <p id={hint_id} className={styles.hint}>{hint}</p>}
                 </div>
                 {shown.length ? (

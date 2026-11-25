@@ -6,7 +6,7 @@ export const container = style({
     flexShrink: 0,
     height: vars.main_page_topbar_height,
     // The title stays clear of the back button on the left.
-    paddingInline: "9rem",
+    paddingInline: "11rem",
     backgroundColor: vars.dark_850_color,
     display: "flex",
     justifyContent: "center",
@@ -26,28 +26,9 @@ export const title = style({
     },
 });
 
+// The kit's plain Button, 4rem high, at the bar's start and level with the title; the bar gives
+// it only its place.
 export const go_back_button_wrapper = style({
     position: "absolute",
-    border: 0,
-    color: "inherit",
-    font: "inherit",
-    fontWeight: 500,
-    left: 0,
-    backgroundColor: vars.dark_800_color,
-    padding: "0 2rem 0 1.6rem",
-    height: "100%",
-    minWidth: "8rem",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_750_color },
-        "&:active": { backgroundColor: vars.dark_875_color },
-    },
-});
-
-export const go_back_button_label = style({
-    fontSize: "1.4rem",
-    color: vars.dark_400_color,
+    left: "1.6rem",
 });
