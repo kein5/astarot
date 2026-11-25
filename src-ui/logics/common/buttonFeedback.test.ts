@@ -46,6 +46,9 @@ function hooks() {
             }];
         },
         useRef: <T,>(initial: T) => memo(() => ({ current: initial }), []),
+        // An id that stays the same across renders, as hookHarness.ts gives (the log row names its
+        // speaker button's description by one).
+        useId: () => memo(() => `test-${index}`, []),
         useMemo: memo, useCallback: <F,>(fn: F, deps: Deps) => memo(() => fn, deps),
         useEffect: effect, useLayoutEffect: effect,
     };

@@ -55,6 +55,14 @@ test("the voices are written with the names given, and the main window names the
     assert.equal(whoButton(tree).props.children, "ミカ・話者B");
     assert.equal(whoButton(tree).props["aria-label"], "ミカ・話者Bに名前を付ける");
     assert.equal(whoButton(tree).props["aria-expanded"], false);
+    // What naming does is the app's tooltip round the button (bare: the button keeps its place in
+    // the row), not a native title, and the button's description, which stays in the page.
+    const tip = findIn(tree, node => node.type === "tooltip");
+    assert.deepEqual([tip.props.title, tip.props.bare, tip.props.placement], ["main_page.message_log.speaker_names_tooltip", true, undefined]);
+    assert.equal(findIn(tip, node => node.type === "button").props["aria-label"], "ミカ・話者Bに名前を付ける");
+    assert.equal(whoButton(tree).props.title, undefined);
+    const about = findIn(tree, node => node.props?.id !== undefined && node.props.id === whoButton(tree).props["aria-describedby"]);
+    assert.deepEqual([about.type, about.props.hidden, about.props.children], ["span", true, "main_page.message_log.speaker_names_tooltip"]);
     assert.equal(find(tree, node => node.type === speakerNames.SpeakerNamesEditor), null);
     whoButton(tree).props.onClick();
     tree = runtime.render(MessageContainer.type, row);
@@ -68,6 +76,7 @@ test("the voices are written with the names given, and the main window names the
         store.is_vr_panel = isVr;
         tree = runtime.render(MessageContainer.type, props);
         assert.equal(who(tree), null);
+        assert.equal(find(tree, node => node.type === "tooltip"), null, "no tooltip without the button");
         assert.ok(find(tree, node => node.type === "p" && node.props.children === "ミカ・話者B"));
     }
 });

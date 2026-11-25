@@ -32,6 +32,7 @@ test("the button names the uses picked and opens the list of uses under it", asy
     let tree = s.render();
     const button = findIn(tree, node => node.type === "button");
     assert.equal(button.props["aria-expanded"], false);
+    assert.equal(button.props.disabled, false, "the uses are known");
     assert.match(button.props["aria-label"], /button_label/);
     assert.match(button.props["aria-label"], /basic\.label.*voice_changer\.label/);
     assert.equal(find(tree, node => node.type === "fieldset"), null, "closed until pressed");
@@ -67,7 +68,6 @@ test("while a pick is saved the boxes wait, and the icon rail closes the list", 
     assert.ok(all(s.render(), node => node.type === "input").every(box => box.props.disabled));
     const compact = s.render({ isCompact: true });
     assert.equal(find(compact, node => node.type === "fieldset"), null);
-    assert.equal(findIn(compact, node => node.type === "button").props.title, findIn(compact, node => node.type === "button").props["aria-label"]);
 });
 
 test("show-all and specific use cases are mutually exclusive in checks, writes, and header summary (#1107)", async () => {
@@ -138,7 +138,11 @@ test("explanations move to right-side tooltips and remain accessible description
         assert.equal(texts.length, 1);
         assert.match(texts[0], /\.label$/);
     }
-    // Compact rail suppresses the help Tooltip so the native icon title stays clean.
+    // The icon rail has neither the help tooltip nor a native title (D-21): the rail widens as soon
+    // as the pointer or the focus reaches it. The button is still named by its words.
     const compact = s.render({ isCompact: true });
-    assert.equal(findIn(compact, node => node.type === Tooltip).props.title, undefined);
+    const compactButton = findIn(compact, node => node.type === "button");
+    assert.deepEqual([findIn(compact, node => node.type === Tooltip).props.title, compactButton.props.title],
+        [undefined, undefined]);
+    assert.match(compactButton.props["aria-label"], /button_label/);
 });
