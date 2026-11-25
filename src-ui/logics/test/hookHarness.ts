@@ -230,9 +230,11 @@ export const kitStandIns = {
         jsx.jsx("button", { type, autoFocus: true, "data-slot": "button", "data-tone": "plain", "data-size": size, ...rest }),
     InlineConfirmAction: ({ size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
         jsx.jsx("button", { type, "data-slot": "button", "data-tone": "danger", "data-size": size, ...rest }),
-    // The kit's textarea is a <textarea> named data-slot="textarea", marked as the text field is, in a form's shape unless it fills its screen.
-    Textarea: ({ invalid = false, mono = false, fill = false, ...rest }: Record<string, unknown>) =>
-        jsx.jsx("textarea", { "data-slot": "textarea", "aria-invalid": invalid || undefined, "data-mono": mono, "data-fill": fill, ...rest }),
+    // The kit's textarea is a <textarea> named data-slot="textarea", marked as the text field is, in a form's shape unless it fills its
+    // screen, with a frame of its own unless it sits in its screen's frame.
+    Textarea: ({ invalid = false, mono = false, fill = false, inFrame = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("textarea", { "data-slot": "textarea", "aria-invalid": invalid || undefined, "data-mono": mono, "data-fill": fill,
+            "data-in-frame": inFrame, ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

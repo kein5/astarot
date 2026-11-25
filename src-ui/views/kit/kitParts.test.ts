@@ -69,10 +69,13 @@ test("a textarea is the text field's look in several lines, a form's field unles
     const plain = runtime.render(module.Textarea, { value: "Speak slowly", rows: 3 });
     assert.equal(plain.type, "textarea");
     assert.deepEqual([plain.props["data-slot"], plain.props["aria-invalid"], plain.props.className, plain.props.value, plain.props.rows],
-        ["textarea", undefined, "field kind=textarea mono=false fill=false", "Speak slowly", 3]);
+        ["textarea", undefined, "field kind=textarea mono=false fill=false inFrame=false", "Speak slowly", 3]);
     const marked = runtime.render(module.Textarea, { invalid: true, mono: true, fill: true, className: "own" });
-    assert.deepEqual([marked.props["aria-invalid"], marked.props.className], [true, "field kind=textarea mono=true fill=true own"]);
+    assert.deepEqual([marked.props["aria-invalid"], marked.props.className], [true, "field kind=textarea mono=true fill=true inFrame=false own"]);
     assert.equal("fill" in marked.props || "invalid" in marked.props || "mono" in marked.props, false, "the element gets no prop of the kit's own");
+    // Inside its screen's frame (the main window's composer).
+    const framed = runtime.render(module.Textarea, { inFrame: true, fill: true });
+    assert.deepEqual([framed.props.className, "inFrame" in framed.props], ["field kind=textarea mono=false fill=true inFrame=true", false]);
 });
 
 test("a select is the system's, in the field's look, with its own options and groups", async () => {

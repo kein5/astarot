@@ -200,7 +200,19 @@ test("a textarea keeps the way each place grows: no field-sizing, an edge to dra
     assert.doesNotMatch(css.replace(/\/\/.*$/gm, ""), /fieldSizing|field-sizing/, "the comments say why; the code does not use it");
     assert.match(css, /\{ variants: \{ kind: "textarea", fill: false \}, style: \{ minHeight: "8rem", resize: "vertical" \} \}/);
     assert.match(css, /\{ variants: \{ kind: "textarea", fill: true \}, style: \{ resize: "none" \} \}/);
-    assert.match(css, /defaultVariants: \{ kind: "text", mono: false, fill: false \}/);
+    assert.match(css, /defaultVariants: \{ kind: "text", mono: false, fill: false, inFrame: false \}/);
+});
+
+test("a textarea inside its screen's frame has no frame of its own and takes the frame's words", () => {
+    // Decided on 2026-11-25 (#1194), as shadcn/ui's InputGroupTextarea sits in an InputGroup.
+    const css = read("Field.css.ts");
+    const inFrame = css.slice(css.indexOf("inFrame: {"), css.indexOf("false: {},", css.indexOf("inFrame: {")));
+    for (const rule of [/minHeight: 0,/, /padding: 0,/, /background: "transparent",/, /border: 0,/, /borderRadius: 0,/, /color: "inherit",/,
+        /fontSize: "inherit",/, /lineHeight: "inherit",/, /"&:focus-visible": \{ outline: "none" \}/]) {
+        assert.match(inFrame, rule);
+    }
+    // The placeholder keeps the field's color: the frame sets none.
+    assert.doesNotMatch(inFrame, /placeholder/);
 });
 
 test("rows are divided by a hairline, groups by space; only field rows stack when narrow", () => {

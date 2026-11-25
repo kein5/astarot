@@ -11,6 +11,8 @@ export const container = style({
     gap: "1rem",
 });
 
+// The composer's frame (DESIGN.md: the composer's larger radius). The field inside is the kit's
+// Textarea without a frame of its own (inFrame), so the frame also sets the size of its words.
 export const message_box_wrapper = style({
     width: "100%",
     height: "100%",
@@ -18,24 +20,22 @@ export const message_box_wrapper = style({
     backgroundColor: vars.vox_surface,
     border: `0.1rem solid ${vars.dark_750_color}`,
     borderRadius: "1.2rem",
+    fontSize: "1.6rem",
     selectors: {
         "&:focus-within": { borderColor: vars.primary_300_color },
     },
-    "@container": { [SHORT]: { padding: ".6rem 1.2rem" } },
+    "@container": { [SHORT]: { padding: ".6rem 1.2rem", fontSize: "1.5rem" } },
 });
 
+// The field fills the frame, whose height is the share of the column the user dragged it to.
 export const message_box_input_area = style({
-    width: "100%",
     height: "100%",
-    fontSize: "1.6rem",
-    resize: "none",
     selectors: {
         // A short box at a large UI size: the hint stays on one line, and an empty box
         // shows no scrollbar for it.
-        "&::placeholder": { color: vars.dark_450_color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+        "&::placeholder": { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
         "&:placeholder-shown": { overflowY: "hidden" },
     },
-    "@container": { [SHORT]: { fontSize: "1.5rem" } },
 });
 
 // Square, at most 10rem, at the foot of a tall composer (where typing ends)

@@ -81,3 +81,18 @@ export const lineEnd = style({ marginInlineStart: "auto" });
 // it (flex: 1 is the screen's layout, not the kit's).
 export const fillBox = style({ display: "flex", flexDirection: "column", width: "min(48rem, 100%)", height: "12rem" });
 export const fillField = style({ flex: 1 });
+
+// A frame drawn by the screen, as the main window's composer draws one (MessageInputBox.css.ts):
+// its border, fill, 12px radius, focus color and size of words. A Textarea with inFrame sits in it.
+export const composerFrame = style({
+    boxSizing: "border-box",
+    width: "min(48rem, 100%)",
+    height: "10rem",
+    padding: "1.2rem 1.4rem",
+    backgroundColor: vars.vox_surface,
+    border: `.1rem solid ${vars.dark_750_color}`,
+    borderRadius: "1.2rem",
+    fontSize: "1.6rem",
+    selectors: { "&:focus-within": { borderColor: vars.primary_300_color } },
+});
+export const composerField = style({ height: "100%" });
