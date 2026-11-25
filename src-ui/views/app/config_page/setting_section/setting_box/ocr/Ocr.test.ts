@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { findIn, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { drawWith, findIn, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as ocrReadiness from "../../../../../../logics/configs/ocrReadiness.ts";
 
@@ -16,17 +16,20 @@ test("the chatbox detector's part keeps one size before and after the readiness 
     const runtime = hooks();
     let answer: object | null = null, startup: object | null = null;
     let saved = true;
-    const { OcrChatboxDetector_Box, Main_Container } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
+    const toggleOcrChatboxFilter = () => undefined;
+    const { OcrChatboxDetector_Box, Main_Container, Ocr } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ language: (id: string) => id }) },
         "@logics_configs": {
             useOcr: () => ({ currentOcrReadiness: { state: "ok", data: answer }, currentOcrModelReadiness: { state: "ok", data: startup },
                 getOcrReadiness: () => undefined, currentOcrSourceLanguage: { state: "ok", data: "Japanese" }, currentOcrWindowTitle: { state: "ok", data: "VRChat" },
                 currentOcrCaptureStatus: { state: "ok", data: null }, currentOcrUseChatboxDetector: { state: "ok", data: saved },
-                toggleOcrUseChatboxDetector: () => undefined }),
+                toggleOcrUseChatboxDetector: () => undefined,
+                currentOcrChatboxFilter: { state: "ok", data: true }, toggleOcrChatboxFilter,
+                currentOcrPollIntervalMs: { state: "ok", data: 1000 }, currentOcrMinConfidence: { state: "ok", data: 0.5 } }),
             useSaveButtonLogic: () => ({}),
         },
         "../../../../../../logics/configs/ocrReadiness": ocrReadiness,
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
+        "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
         "../_components": { SectionLabelComponent: "label" },
         "./OcrRegions": { OcrRegions: "regions" },
         "./OcrModels": { OcrModels: "models" },
@@ -41,7 +44,7 @@ test("the chatbox detector's part keeps one size before and after the readiness 
         answer = value;
         const tree = runtime.render(OcrChatboxDetector_Box, {});
         const pick = (type: string) => findIn(tree, (node: TreeNode) => node.type === type, type).props;
-        const { variable, is_available, toggleFunction } = pick("checkbox");
+        const { variable, is_available, toggleFunction } = pick("switch");
         const { current, words, align } = pick("stable-words");
         const { ids, missing, checking } = pick("models");
         return { checked: variable.data, is_available, toggles: !!toggleFunction, current, words, align, ids, missing, checking };
@@ -75,6 +78,13 @@ test("the chatbox detector's part keeps one size before and after the readiness 
     answer = { required_models: ["ppocrv6-small"], missing_models: [] };
     assert.deepEqual(models(), { ids: ["ppocrv6-small"], missing: [], checking: false });
     startup = null;
+    // The chatbox filter is a switch of its own row, after the detector's part (K-02).
+    const named = (name: string) => (node: TreeNode) => typeof node.type === "function" && node.type.name === name;
+    const detection = findIn(runtime.render(Ocr, {}), named("Detection_Container"));
+    const filterPart = findIn(drawWith(runtime, detection), named("OcrChatboxFilter_Box"));
+    const filter = findIn(drawWith(runtime, filterPart), (node: TreeNode) => node.type === "switch").props;
+    assert.deepEqual([filter.setting_id, filter.label, filter.desc, filter.variable.data, filter.toggleFunction],
+        ["ocr_chatbox_filter", "config_page.ocr.chatbox_filter.label", "config_page.ocr.chatbox_filter.desc", true, toggleOcrChatboxFilter]);
     // A core whose readiness names no detector has none to offer.
     answer = { engine: true };
     assert.equal(runtime.render(OcrChatboxDetector_Box, {}), null);
@@ -95,7 +105,7 @@ test("the window name saves by itself and refuses an empty name in words", async
             },
         },
         "../../../../../../logics/configs/ocrReadiness": {},
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
+        "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
         "../_components": { SectionLabelComponent: "label" },
         "./OcrRegions": { OcrRegions: "regions" },
         "./OcrModels": { OcrModels: "models" },

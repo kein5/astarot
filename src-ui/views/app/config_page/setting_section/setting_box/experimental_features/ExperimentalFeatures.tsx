@@ -15,7 +15,7 @@ import {
     experimentalFeatureRequest,
 } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
-import { ActionButtonContainer, CheckboxContainer, DropdownMenuContainer } from "../_templates/Templates";
+import { ActionButtonContainer, SwitchContainer, DropdownMenuContainer } from "../_templates/Templates";
 import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
@@ -86,7 +86,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                     const lead = experimentalFeatureLeadKey(id);
                     return (
                         <div key={id}>
-                            <CheckboxContainer
+                            <SwitchContainer
                                 setting_id={`experimental_features.${id}`}
                                 label={t(experimentalFeatureLabelKey(id))}
                                 // The tray companion changes how the app starts, which is read before it is
@@ -137,7 +137,7 @@ const VrPanelItem = ({ current, toggle, resetLauncher }: VrPanelProps) => {
     const key = "config_page.experimental_features.items.vr_panel";
     return (
         <div>
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="experimental_features.vr_panel"
                 label={t(`${key}.label`)}
                 desc={t(`${key}.desc`)}
@@ -157,7 +157,7 @@ const VrPanelItem = ({ current, toggle, resetLauncher }: VrPanelProps) => {
     );
 };
 
-// Where the tray companion's hexagram hides: shown under its checkbox while it is on.
+// Where the tray companion's hexagram hides: shown under its switch while it is on.
 const TrayCompanionEdge = ({ current, set }: NonNullable<ListProps["edge"]>) => {
     const { t } = useI18n();
     const key = "config_page.experimental_features.items.tray_companion.edge";

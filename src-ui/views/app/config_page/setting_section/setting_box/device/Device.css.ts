@@ -75,8 +75,8 @@ export const device_contents = style({
     gap: "1.2rem",
 });
 
-// 自動選択 at the start of the field column, its box where the lists start: the checkbox's own
-// padding, its target, reaches into the gap between the columns instead.
+// 自動選択 at the start of the field column, its switch where the lists start: the space around
+// the switch, its target, reaches into the gap between the columns instead.
 export const auto_select = style({
     display: "flex",
     marginInlineStart: "-0.8rem",

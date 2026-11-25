@@ -21,28 +21,28 @@ import {
     DropdownMenu,
     ThresholdComponent,
     RadioButton,
+    SettingSwitch,
 } from "../_components";
-import { Checkbox } from "@common_components";
-import type { CheckboxValue } from "../../../../../common_components/checkbox/Checkbox";
+import type { SettingSwitchValue } from "../_components/setting_switch/SettingSwitch";
 import type { AtomState } from "@store";
 import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 // Which part of a device container a place draws: the device rows, or the sensitivity in 「詳細設定」.
 type ContainerPart = "device" | "sensitivity";
 
-export interface AutoSelectCheckboxProps {
+export interface AutoSelectSwitchProps {
     secondary_label?: string;
-    variable: CheckboxValue;
+    variable: SettingSwitchValue;
     toggleFunction?: () => void;
 }
 
-// "Auto select" in a device row: a settings checkbox with its name beside it, like
-// every other on/off setting (#436). It heads the field column, over the lists it chooses for,
-// on the microphone and the speaker alike, so which choice it makes is read from where it is.
-export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }: AutoSelectCheckboxProps) => (
+// "Auto select" in a device row: a settings switch with its name beside it, like every other
+// on/off setting (K-02, decided on 2026-11-25). It heads the field column, over the lists it
+// chooses for, on the microphone and the speaker alike, so which choice it makes is read from
+// where it is.
+export const AutoSelectSwitch = ({ secondary_label, variable, toggleFunction }: AutoSelectSwitchProps) => (
     <div className={styles.auto_select}>
-        <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
-            size="2.4rem" padding="0.8rem" />
+        <SettingSwitch show_label dense label={secondary_label} variable={variable} toggleFunction={toggleFunction} />
     </div>
 );
 
@@ -144,7 +144,7 @@ const MicContainer = ({ part }: { part: ContainerPart }) => {
                 dropdown_settings={[
                     // First in the column of lists, over the host and the device it chooses.
                     {
-                        insert_component: AutoSelectCheckbox,
+                        insert_component: AutoSelectSwitch,
                         insert_component_props: {
                             secondary_label: t("config_page.device.label_auto_select"),
                             variable: currentEnableAutoMicSelect,
@@ -277,7 +277,7 @@ const SpeakerContainer = ({ part }: { part: ContainerPart }) => {
             <div className={device_container_class} data-setting-id="speaker_device">
                 <LabelComponent label={t("config_page.device.speaker_device.label")} />
                 <div className={styles.device_contents}>
-                    <AutoSelectCheckbox
+                    <AutoSelectSwitch
                         secondary_label={t("config_page.device.label_auto_select")}
                         variable={currentEnableAutoSpeakerSelect}
                         toggleFunction={toggleEnableAutoSpeakerSelect}

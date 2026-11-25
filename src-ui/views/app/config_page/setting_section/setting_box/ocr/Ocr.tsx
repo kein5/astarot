@@ -8,7 +8,7 @@ import { useSaveButtonLogic } from "@logics_configs";
 import { detectorStatus } from "../../../../../../logics/configs/ocrReadiness";
 
 import {
-    CheckboxContainer,
+    SwitchContainer,
     DropdownMenuContainer,
     EntryWithSaveButtonContainer,
     SliderContainer,
@@ -125,7 +125,7 @@ export const OcrChatboxDetector_Box = () => {
     const installed = status?.installed === true;
     return (
         <div className={styles.detector}>
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="ocr_use_chatbox_detector"
                 label={t("config_page.ocr.detector.label")}
                 desc={t("config_page.ocr.detector.desc")}
@@ -147,7 +147,7 @@ const OcrChatboxFilter_Box = () => {
     const { t } = useI18n();
     const { currentOcrChatboxFilter, toggleOcrChatboxFilter } = useOcr();
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="ocr_chatbox_filter"
             label={t("config_page.ocr.chatbox_filter.label")}
             desc={t("config_page.ocr.chatbox_filter.desc")}

@@ -18,7 +18,7 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         setTelemetryNotice: (answer: unknown) => { calls.push(["answer", answer]); return Promise.resolve(); },
         getTelemetry: () => calls.push(["read"]),
     };
-    const CheckboxContainer = () => null;
+    const SwitchContainer = () => null;
     const module = await loadModule<typeof import("./AdvancedSettings.tsx")>(new URL("./AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
@@ -36,7 +36,7 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "../../../../../../logics/common/useConsentDialog": {},
         "@logics_common": {},
         "@logics_configs": { useOthers: () => others, useAdvancedSettings: () => ({}) },
-        "../_templates/Templates": { CheckboxContainer },
+        "../_templates/Templates": { SwitchContainer },
         "../_components": { SectionLabelComponent: () => null },
         "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
@@ -45,14 +45,14 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
     // The page's own telemetry row, a component that takes no props.
     const Telemetry = componentOf(findIn(page, node => componentName(node) === "TelemetryContainer"));
     const tree = runtime.render(Telemetry);
-    const checkbox = findIn(tree, node => node.type === CheckboxContainer);
+    const checkbox = findIn(tree, node => node.type === SwitchContainer);
     return { calls, checkbox };
 }
 
 test("while the notice is unanswered the switch is off, says no choice was made, and one press sends", async () => {
     const { calls, checkbox } = await render({ enabled: true, pending: true });
     assert.equal(checkbox.props.variable.data, false);
-    // Said in the setting's own row, under its description, and read with the checkbox.
+    // Said in the setting's own row, under its description, and read with the switch.
     assert.equal(checkbox.props.note, "config_page.advanced_settings.telemetry.unanswered");
     assert.ok(checkbox.props.note_id);
     assert.equal(checkbox.props["aria-describedby"], checkbox.props.note_id);

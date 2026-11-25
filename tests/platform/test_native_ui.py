@@ -64,10 +64,10 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
         ui.wait_main_ready()
         # The page was renamed from "VR" (#554); the desktop captions' switch is in sight on it.
-        ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
-        assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked") is False
-        ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] input').click(); return true;")
-        ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked === true")
+        ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] [role=switch]')
+        assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').getAttribute('aria-checked')") == "false"
+        ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').click(); return true;")
+        ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').getAttribute('aria-checked') === 'true'")
         deadline = time.monotonic() + 15
         while (found := x11_window("ASTAROT Captions")) is None or "IsViewable" not in found[1]:
             assert time.monotonic() < deadline, "the caption window did not appear"

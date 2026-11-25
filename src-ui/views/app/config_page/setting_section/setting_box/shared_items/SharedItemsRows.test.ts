@@ -23,7 +23,7 @@ async function sharedItems(osc: Setting = ok(true)) {
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useIsOscAvailable: () => ({ currentIsOscAvailable: osc, oscUnavailableLabelKey: "config_page.others.osc_unavailable_reason" }) },
         "@logics_configs": { useOthers: () => others },
-        "../_templates/Templates": { CheckboxContainer: "checkbox", MessageFormatContainer: "message-format" },
+        "../_templates/Templates": { SwitchContainer: "switch", MessageFormatContainer: "message-format" },
     });
     const draw = (name: string) => runtime.render(componentNamed(module, name));
     return { calls, others, draw };
@@ -48,7 +48,7 @@ test("each shared switch is where the settings search looks for it, says what it
     const s = await sharedItems();
     for (const [name, base, key, desc] of SWITCHES) {
         const row = s.draw(name);
-        assert.equal(row.type, "checkbox", name);
+        assert.equal(row.type, "switch", name);
         assert.equal(row.props.setting_id, settingTarget("others", key), name);
         assert.deepEqual([row.props.setting_id, row.props.label, row.props.desc], [key, `config_page.others.${key}.label`, desc], name);
         assert.deepEqual(row.props.variable, ok(`current${base} value`), name);
@@ -61,7 +61,7 @@ test("the VRChat mic mute sync says why it cannot work while OSC is unavailable,
     for (const [osc, warnings] of [[false, [{ label: "config_page.others.osc_unavailable_reason" }]], [true, []], [null, []]] as const) {
         const s = await sharedItems(ok(osc));
         const row = s.draw("VrcMicMuteSyncContainer");
-        assert.equal(row.type, "checkbox");
+        assert.equal(row.type, "switch");
         assert.deepEqual([row.props.setting_id, row.props.label, row.props.desc, row.props.is_available, row.props.add_warnings],
             ["vrc_mic_mute_sync", "config_page.others.vrc_mic_mute_sync.label", "config_page.others.vrc_mic_mute_sync.desc", osc, warnings], String(osc));
         assert.equal(row.props.setting_id, settingTarget("others", "vrc_mic_mute_sync"));

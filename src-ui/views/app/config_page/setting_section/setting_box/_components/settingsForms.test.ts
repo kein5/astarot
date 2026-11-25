@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { styleOf } from "../../../../../../logics/test/styleSource.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
@@ -83,56 +85,123 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     assert.equal(document.activeElement, entryNode);
 });
 
-test("checkbox input stays mounted and focused through pending, including rejection", async t => {
+// The settings' on/off control is the kit's switch (K-02, decided on 2026-11-25), named by its row.
+const loadSettingSwitch = (runtime: ReturnType<typeof hooks>) => loadModule<typeof import("./setting_switch/SettingSwitch.tsx")>(
+    new URL("./setting_switch/SettingSwitch.tsx", import.meta.url), runtime);
+const switchIn = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Switch);
+
+test("a setting's switch stays mounted and focused through pending, including rejection", async t => {
     const runtime = hooks(), document: FakeDocument = { body: {} };
     stubGlobals(t, { document });
-    const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+    const { SettingSwitch } = await loadSettingSwitch(runtime);
     let toggles = 0;
     const props = { label: "Show resend button", variable: { state: "ok", data: false }, toggleFunction: () => toggles++ };
-    const render = () => runtime.render(Checkbox, props);
-    const original = findIn(render(), node => node.type === "input");
+    const render = () => runtime.render(SettingSwitch, props);
+    const original = switchIn(render());
+    // Named by its row's label; on and off as the store holds it.
+    assert.deepEqual([original.props["aria-label"], original.props.checked], ["Show resend button", false]);
     const focused = focusNode(document); focused.focus();
-    original.props.onChange();
+    original.props.onCheckedChange(true);
     assert.equal(toggles, 1);
     for (const state of ["pending", "ok"]) {
         props.variable.state = state;
-        const tree = render(), input = findIn(tree, node => node.type === "input");
-        assert.equal(input.type, original.type);
-        assert.equal(input.key, original.key);
-        assert.notEqual(input.props.disabled, true);
-        assert.equal(input.props["aria-busy"], state === "pending");
-        assert.equal(input.props["aria-disabled"], state === "pending");
-        // The input remains in the same child slot, immediately before its focus drawing.
+        const tree = render(), control = switchIn(tree);
+        assert.equal(control.key, original.key);
+        assert.equal(control.props.id, original.props.id);
+        assert.notEqual(control.props.disabled, true);
+        assert.equal(control.props["aria-busy"], state === "pending");
+        assert.equal(control.props["aria-disabled"], state === "pending");
+        assert.equal(control.props["data-disabled"], undefined, "drawn as usable while it waits");
+        // The switch stays in the first child of its label, which is the target around it.
         const label = findIn(tree, node => node.type === "label");
-        assert.equal(label.props.children[0].props, input.props);
-        assert.equal(label.props.children[1].props.className, "cbx");
+        assert.equal(label.props.htmlFor, control.props.id);
+        assert.equal(label.props.children[0].props.className, "slot");
+        assert.equal(label.props.children[0].props.children.props, control.props);
+        assert.equal(label.props["data-pending"], state === "pending" || undefined);
+        assert.equal(label.props["data-unavailable"], undefined);
         assert.equal(document.activeElement, focused);
         if (state === "pending") {
-            input.props.onChange();
-            const click = key(); input.props.onClick(click);
-            const space = key(" "); input.props.onKeyDown(space);
-            assert.equal(click.defaultPrevented, true);
-            assert.equal(space.defaultPrevented, true);
+            control.props.onCheckedChange(true);
+            const click = key(); control.props.onClick(click);
+            const space = key(" "); control.props.onKeyDown(space);
+            const enter = key("Enter"); control.props.onKeyDown(enter);
+            assert.deepEqual([click.defaultPrevented, space.defaultPrevented, enter.defaultPrevented], [true, true, true]);
             assert.equal(toggles, 1);
-            assert.equal(label.props.children[2].props["aria-hidden"], "true");
+            // The spinner beside it says that it waits; it is not read.
+            assert.deepEqual([label.props.children[1].props.className, label.props.children[1].props["aria-hidden"]], ["loader", "true"]);
+        } else {
+            assert.equal(label.props.children[1], false);
+            let stopped = false;
+            const click = { ...key(), stopPropagation() { stopped = true; } }; control.props.onClick(click);
+            const space = key(" "); control.props.onKeyDown(space);
+            const other = key("a"); control.props.onKeyDown(other);
+            assert.deepEqual([click.defaultPrevented, space.defaultPrevented, other.defaultPrevented], [false, false, false]);
+            // The press stays with the switch, as the checkbox's did: the row around it does not get it too.
+            assert.equal(stopped, true);
         }
     }
 });
 
+test("a setting's switch keeps the confirmed value while it waits, and a switch with its name beside it is named by it", async () => {
+    const runtime = hooks();
+    const { SettingSwitch } = await loadSettingSwitch(runtime);
+    let calls = 0;
+    const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => { calls++; } };
+    for (const confirmed of [false, true]) {
+        props.variable.data = confirmed;
+        const control = switchIn(runtime.render(SettingSwitch, props));
+        control.props.onCheckedChange(!confirmed);
+        assert.equal(control.props.checked, confirmed);
+        assert.equal(control.props["aria-disabled"], true);
+    }
+    assert.equal(calls, 0);
+    props.variable.state = "ok";
+    switchIn(runtime.render(SettingSwitch, props)).props.onCheckedChange(false);
+    assert.equal(calls, 1);
+    // A value that is not true is off.
+    assert.equal(switchIn(runtime.render(SettingSwitch, { ...props, variable: { state: "ok", data: "yes" } })).props.checked, false);
+    // With show_label the name is drawn beside the switch, inside its label, instead of aria-label.
+    const labelled = runtime.render(SettingSwitch, { ...props, show_label: true });
+    const label = findIn(labelled, node => node.type === "label");
+    assert.equal(switchIn(labelled).props["aria-label"], undefined);
+    assert.equal(label.props.htmlFor, switchIn(labelled).props.id);
+    assert.deepEqual([label.props.children[2].props.className, label.props.children[2].props.children], ["text", "Auto select"]);
+    assert.equal(label.props.className, "target");
+    // A switch among other controls has the smaller target.
+    assert.equal(findIn(runtime.render(SettingSwitch, { ...props, dense: true }), node => node.type === "label").props.className, "target dense");
+    // Without a toggle it does nothing.
+    switchIn(runtime.render(SettingSwitch, { label: "Detector", variable: { state: "ok", data: false } })).props.onCheckedChange(true);
+});
+
+test("a switch that cannot be used still shows its keyboard focus at full strength, as the box did", () => {
+    // The kit draws it half as strong, its ring too; the slot around it draws the kit's ring again.
+    const css = readFileSync(new URL("./setting_switch/SettingSwitch.css.ts", import.meta.url), "utf8");
+    assert.match(css, /import \{ focusRing \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/kit\/shared\.css\.ts";/);
+    assert.match(styleOf(css, "slot"), /'&:has\(> \[data-slot="switch"\]\[data-disabled\]:focus-visible\)': focusRing,/);
+    assert.match(styleOf(css, "slot"), /borderRadius: "999rem",/);
+});
+
 for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OCR detector not installed"]) {
-    test(`unavailable checkbox ignores click, Space and change: ${label}`, async () => {
+    test(`an unavailable switch ignores click, Space, Enter and change, still takes focus: ${label}`, async () => {
         const runtime = hooks();
-        const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+        const { SettingSwitch } = await loadSettingSwitch(runtime);
         let calls = 0;
-        const tree = runtime.render(Checkbox, { label, variable: { state: "ok", data: false }, is_available: false,
+        const tree = runtime.render(SettingSwitch, { label, variable: { state: "ok", data: false }, is_available: false,
             "aria-describedby": "warning", toggleFunction: () => calls++ });
-        const input = findIn(tree, node => node.type === "input");
-        assert.equal(input.props["aria-disabled"], true);
-        assert.equal(input.props["aria-describedby"], "warning");
+        const control = switchIn(tree);
+        assert.equal(control.props["aria-disabled"], true);
+        // Drawn as the kit draws a switch that cannot be used, and kept in the tab order to be read with its warning.
+        assert.equal(control.props["data-disabled"], "");
+        assert.notEqual(control.props.disabled, true);
+        assert.equal(control.props["aria-busy"], false);
+        assert.equal(control.props["aria-describedby"], "warning");
+        assert.equal(findIn(tree, node => node.type === "label").props["data-unavailable"], true);
         for (const [handler, name] of [["onClick", undefined], ["onKeyDown", " "], ["onKeyDown", "Enter"]] as const) {
-            const event = key(name); input.props[handler](event); assert.equal(event.defaultPrevented, true);
+            const event = key(name); control.props[handler](event); assert.equal(event.defaultPrevented, true);
         }
-        input.props.onChange();
+        // Tab and the other keys still move on from it.
+        const tab = key("Tab"); control.props.onKeyDown(tab); assert.equal(tab.defaultPrevented, false);
+        control.props.onCheckedChange(true);
         assert.equal(calls, 0);
     });
 }

@@ -31,7 +31,7 @@ async function appearancePage(values: Record<string, unknown> = {}, options: { l
         "@logics_common": { useWindow: () => ({ asyncUpdateBreakPoint: breakPoint }) },
         "@logics_configs": { useAppearance: () => settings },
         "./ThemePicker": { ThemeContainer: "theme" },
-        "../_templates/Templates": { SliderContainer: "slider", DropdownMenuContainer: "dropdown", RadioButtonContainer: "radio", CheckboxContainer: "checkbox" },
+        "../_templates/Templates": { SliderContainer: "slider", DropdownMenuContainer: "dropdown", RadioButtonContainer: "radio", SwitchContainer: "switch" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },

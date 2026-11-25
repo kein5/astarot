@@ -22,12 +22,12 @@ async function page(info: AppUpdateState["info"], status: AppUpdateState["status
         "../_components/hint/Hint": { HintDescriptions: "hints" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "link" },
-        "../_templates/Templates": { CheckboxContainer: "checkbox" },
+        "../_templates/Templates": { SwitchContainer: "switch" },
     });
     const tree = runtime.render(Updater);
     const one = (type: string) => nodesIn(tree).filter(node => node.type === type);
     return { tree, calls, buttons: nodesIn(tree).filter(node => node.type === kitStandIns.Button),
-        heading: one("heading")[0], policies: one("p").filter(node => node.props.className === "policy"), checkbox: one("checkbox")[0] };
+        heading: one("heading")[0], policies: one("p").filter(node => node.props.className === "policy"), toggle: one("switch")[0] };
 }
 const info = (kind: string, mode: "install" | "manual" | "package_manager" | "disabled") =>
     ({ kind, mode, channel: "stable", current_version: "0.6.0", package_manager: null });
@@ -48,12 +48,12 @@ test("why a copy cannot update here stays on screen", async () => {
     }
 });
 
-test("that the app asks at each start stays on screen beside its checkbox; whom it asks is the hint", async () => {
-    const { checkbox } = await page(info("windows_installer", "install"));
-    assert.deepEqual([checkbox.props.lead, checkbox.props.desc, checkbox.props.keep_desc],
-        ["app_update.check_at_start_lead", "app_update.check_at_start_desc", undefined]);
+test("that the app asks at each start stays on screen beside its switch; whom it asks is the hint", async () => {
+    const { toggle } = await page(info("windows_installer", "install"));
+    assert.deepEqual([toggle.props.label, toggle.props.lead, toggle.props.desc, toggle.props.keep_desc],
+        ["app_update.check_at_start", "app_update.check_at_start_lead", "app_update.check_at_start_desc", undefined]);
     // A copy that never checks has no such setting.
-    assert.equal((await page(info("deb", "package_manager"))).checkbox, undefined);
+    assert.equal((await page(info("deb", "package_manager"))).toggle, undefined);
 });
 
 // Install is the kit's primary Button and Check its quiet one, the outline beside the filled one.

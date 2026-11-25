@@ -11,7 +11,7 @@ import {
 } from "@logics_configs";
 
 import {
-    CheckboxContainer,
+    SwitchContainer,
     MessageFormatContainer,
 } from "../_templates/Templates";
 
@@ -20,7 +20,7 @@ export const AutoClearMessageInputBoxContainer = () => {
     const { currentEnableAutoClearMessageInputBox, toggleEnableAutoClearMessageInputBox } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="auto_clear_the_message_box"
             label={t("config_page.others.auto_clear_the_message_box.label")}
             variable={currentEnableAutoClearMessageInputBox}
@@ -33,7 +33,7 @@ export const SendOnlyTranslatedMessagesContainer = () => {
     const { currentEnableSendOnlyTranslatedMessages, toggleEnableSendOnlyTranslatedMessages } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="send_only_translated_messages"
             label={t("config_page.others.send_only_translated_messages.label")}
             variable={currentEnableSendOnlyTranslatedMessages}
@@ -46,7 +46,7 @@ export const AutoExportMessageLogsContainer = () => {
     const { currentEnableAutoExportMessageLogs, toggleEnableAutoExportMessageLogs } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="auto_export_message_logs"
             label={t("config_page.others.auto_export_message_logs.label")}
             desc={t("config_page.others.auto_export_message_logs.desc")}
@@ -68,7 +68,7 @@ export const VrcMicMuteSyncContainer = () => {
     }
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="vrc_mic_mute_sync"
             label={t("config_page.others.vrc_mic_mute_sync.label")}
             desc={t("config_page.others.vrc_mic_mute_sync.desc")}
@@ -84,7 +84,7 @@ export const SendMessageToVrcContainer = () => {
     const { currentEnableSendMessageToVrc, toggleEnableSendMessageToVrc } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="send_message_to_vrc"
             label={t("config_page.others.send_message_to_vrc.label")}
             desc={t("config_page.others.send_message_to_vrc.desc")}
@@ -100,7 +100,7 @@ export const EnableNotificationVrcSfxContainer = () => {
     const { currentEnableNotificationVrcSfx, toggleEnableNotificationVrcSfx } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="notification_vrc_sfx"
             label={t("config_page.others.notification_vrc_sfx.label")}
             desc={t("config_page.others.notification_vrc_sfx.desc")}
@@ -115,7 +115,7 @@ export const SendReceivedMessageToVrcContainer = () => {
     const { currentEnableSendReceivedMessageToVrc, toggleEnableSendReceivedMessageToVrc } = useOthers();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="send_received_message_to_vrc"
             label={t("config_page.others.send_received_message_to_vrc.label")}
             desc={t("config_page.others.send_received_message_to_vrc.desc")}
@@ -176,7 +176,7 @@ export const ConvertMessageToRomajiContainer = () => {
     const desc = [desc_1, desc_2, desc_romaji].join("\n");
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="convert_message_to_romaji"
             label={t("config_page.others.convert_message_to_romaji.label")}
             desc={desc}
@@ -195,7 +195,7 @@ export const ConvertMessageToHiraganaContainer = () => {
     const desc = [desc_1, desc_2].join("\n");
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="convert_message_to_hiragana"
             label={t("config_page.others.convert_message_to_hiragana.label")}
             desc={desc}

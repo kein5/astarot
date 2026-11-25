@@ -23,7 +23,7 @@ async function setup(context: TestContext) {
     const saved = { tracker: "HMD", x_pos: 0, y_pos: 0 };
     const { Vr } = await loadModule<typeof import("./Vr.tsx")>(new URL("./Vr.tsx", import.meta.url), bindings, {
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
-        "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
+        "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": {},
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
@@ -101,7 +101,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
-        "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
+        "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" },
@@ -201,7 +201,7 @@ test("sample text button stays disabled with a hint while both caption overlays 
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
-        "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
+        "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "@logics_configs": { useVr: () => ({

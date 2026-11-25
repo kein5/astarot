@@ -8,7 +8,7 @@ const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(t
 // The hint module (#614): `on` is whether the page keeps descriptions out of sight.
 const hintModule = (on: boolean) => ({ "../hint/Hint": { Hint: "hint", useHintDescriptions: () => on } });
 
-async function setup(hints = false) {
+async function setup(hints = false, narrow = false) {
     const runtime = hooks();
     const { LabelComponent } = await loadModule<typeof import("../_components/label_component/LabelComponent.tsx")>(new URL(base + "label_component/LabelComponent.tsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
@@ -22,10 +22,10 @@ async function setup(hints = false) {
     const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter",
-        HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check" };
+        HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check", SettingSwitch: "switch" };
     const templates = await loadModule(new URL("./Templates.tsx", import.meta.url), runtime, {
-        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
-        "../_components": components, "@common_components": { Checkbox: "checkbox" },
+        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: narrow } }) },
+        "../_components": components,
     });
     // A template of Templates.tsx, named as the tests loop over them, with the props each test
     // builds: only the ones that template reads here.
@@ -38,7 +38,7 @@ async function setup(hints = false) {
     return { runtime, template, components, render };
 }
 
-for (const name of ["Checkbox", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
+for (const name of ["Switch", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
     test(`${name} template connects description and warning IDs without changing its label`, async () => {
         const s = await setup();
         const props = { label: "Setting", desc: "Help", add_warnings: [{ label: "Unavailable" }], "aria-describedby": "existing-help" };
@@ -153,10 +153,27 @@ test("FormRow preserves a field's error relation while adding its description", 
     assert.equal(findIn(tree, node => node.type === "label").props.htmlFor, input.props.id);
 });
 
+// K-02 (decided on 2026-11-25): a setting turned on and off is the settings' switch, at the row's
+// end like the other single controls, and the row keeps it there in a narrow window.
+test("an on/off setting's row draws the settings' switch at its end, named by the row's label", async () => {
+    const s = await setup();
+    const toggleFunction = () => {};
+    const row = s.render("SwitchContainer", { label: "Setting", variable: { state: "ok", data: true }, toggleFunction, setting_id: "setting" });
+    assert.deepEqual([row.props.control_align, row.props.add_break_point, row.props.setting_id], ["end", false, "setting"]);
+    const control = row.props.children[1];
+    assert.equal(control.type, "switch");
+    assert.deepEqual([control.props.label, control.props.variable.data, control.props.toggleFunction], ["Setting", true, toggleFunction]);
+    // In a narrow window a row that may stack puts its field under its label; the switch's row does not.
+    const narrow = await setup(false, true);
+    const wrapper = (name: string) => drawWith(narrow.runtime, narrow.render(name, { label: "Setting", variable: { state: "ok", data: true } }));
+    assert.equal(wrapper("SwitchContainer").props.className, "container control_end");
+    assert.equal(wrapper("SliderContainer").props.className, "container is_break_point");
+});
+
 // #614: on a page that keeps descriptions out of sight, a row's description is its label's hint.
 test("with hints on, a label's description is its hint, still the control's description, unless kept", async () => {
     const s = await setup(true);
-    const tree = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    const tree = s.render("SwitchContainer", { label: "Setting", desc: "Help" });
     const label = findIn(tree, node => node.type === s.components.LabelComponent);
     const control = tree.props.children[1];
     const rendered = draw(label);
@@ -168,7 +185,7 @@ test("with hints on, a label's description is its hint, still the control's desc
     // The label's own element holds the label only: the hint is beside it, not in its name.
     assert.equal(findIn(rendered, node => node.props?.id === label.props.label_id).props.children, "Setting");
     assert.equal(findIn(rendered, node => node.props?.["data-hint-host"]).props["data-hint-host"], true);
-    const kept = s.render("CheckboxContainer", { label: "UI Language", desc: "UIの言語", keep_desc: true });
+    const kept = s.render("SwitchContainer", { label: "UI Language", desc: "UIの言語", keep_desc: true });
     const keptLabel = findIn(kept, node => node.type === s.components.LabelComponent);
     const keptRendered = draw(keptLabel);
     assert.ok(find(keptRendered, node => node.type === "description"));
@@ -183,7 +200,7 @@ test("with hints on, a label's description is its hint, still the control's desc
 test("a row's lead stays on screen under the label, its details are the hint after it, and the control is described by both", async () => {
     const s = await setup(true);
     const props = { label: "Send usage data", lead: "Sends that the app started.", desc: "What goes with it.", "aria-describedby": "state" };
-    const tree = s.render("CheckboxContainer", props);
+    const tree = s.render("SwitchContainer", props);
     const label = findIn(tree, node => node.type === s.components.LabelComponent);
     const control = tree.props.children[1];
     const rendered = draw(label);
@@ -197,15 +214,15 @@ test("a row's lead stays on screen under the label, its details are the hint aft
     assert.ok(!find(rendered, node => node.props?.["data-hint-host"]));
     assert.equal(findIn(rendered, node => node.props?.id === label.props.label_id).props.children, "Send usage data");
     // The ids hold through a second render, as the others do.
-    assert.equal(s.render("CheckboxContainer", props).props.children[1].props["aria-describedby"], control.props["aria-describedby"]);
+    assert.equal(s.render("SwitchContainer", props).props.children[1].props["aria-describedby"], control.props["aria-describedby"]);
     // On a page that shows descriptions, the sentence comes first and the details are the description.
     const shown = await setup(false);
-    const plain = draw(findIn(shown.render("CheckboxContainer", props), node => node.type === shown.components.LabelComponent));
+    const plain = draw(findIn(shown.render("SwitchContainer", props), node => node.type === shown.components.LabelComponent));
     const parts = nodesIn(plain).filter(node => node.type === "lead" || node.type === "description");
     assert.deepEqual(parts.map(node => [node.type, node.props.text, node.props.details]),
         [["lead", "Sends that the app started.", undefined], ["description", "What goes with it.", undefined]]);
     // A row without a lead is described as before.
-    const none = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    const none = s.render("SwitchContainer", { label: "Setting", desc: "Help" });
     assert.equal(none.props.children[1].props["aria-describedby"], findIn(draw(findIn(none, node => node.type === s.components.LabelComponent)), node => node.type === "hint").props.id);
 });
 

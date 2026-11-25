@@ -27,7 +27,7 @@ import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { rvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
 import type { DirectVoiceSelection, DirectVoiceVariant } from "../../../../../../logics/voice/directVoiceDraft";
 import type { DirectVoiceSettings as SavedDirectVoice } from "../../../../../../logics/voice/useVoice";
-import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption, Switch, TextField } from "../../../../../kit/index.ts";
 
 // The direct voice form: the mode, Seed-VC's and RVC's paths and RVC's numbers.
 interface DirectVoiceDraft extends DirectVoiceSelection {
@@ -110,6 +110,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
     };
     const reasonId = useId();
     const numbersErrorId = useId();
+    const highpassId = useId();
     useEffect(() => {
         setDirectDraftBlocked(dirty || saving);
         return () => setDirectDraftBlocked(false);
@@ -212,9 +213,10 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                     value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
                     onChange={e => setDraft({ ...draft, rvc_threads: e.target.valueAsNumber })} />
             </label>
-            <label className={styles.checkLabel}>
-                <input type="checkbox" className={styles.fieldCheck} checked={!!draft.rvc_highpass} disabled={busy}
-                    onChange={e => setDraft({ ...draft, rvc_highpass: e.target.checked })} />
+            {/* On or off: the kit's switch with its name beside it (K-02, decided on 2026-11-25); it saves at once. */}
+            <label className={styles.checkLabel} htmlFor={highpassId}>
+                <Switch id={highpassId} checked={!!draft.rvc_highpass} disabled={busy}
+                    onCheckedChange={on => form.change({ ...draft, rvc_highpass: on })} />
                 {t("voice.vc_rvc_highpass")}
             </label>
         </SetupSection>}
