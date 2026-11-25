@@ -285,7 +285,8 @@ test("a model downloaded before a restart says so, and in use only when its file
     // Getting a downloaded file ready still goes through the review and consent.
     action(cards[1]).props.onClick();
     assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
-    const dialog = find(render(), node => node.type === "dialog");
+    // The review is the kit's Dialog (D-23).
+    const dialog = find(render(), node => node.type === kitStandIns.Dialog);
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
     // The audition (#415) follows the card's own action in its row, with the card's status and
     // model id; the RVC form's values and the chosen input reach it when the page has them.

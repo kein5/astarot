@@ -21,6 +21,7 @@ import { createLanguageNames } from "../../../../../../logics/common/languageNam
 import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 import { USER_MODEL_FILES, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
@@ -474,9 +475,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t('model_downloads.memory_boundary')}</p>
         </Fold>}
         {engines && targets.includes("japanese") && <EngineCatalog layout={layout} />}
-        {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <div className={styles.dialog_text}>
-                <h3>{t("model_downloads.warning_title")}</h3>
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
+        {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
                 <p>{selected.name} · {selected.provider}</p>
                 <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
                 {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
@@ -493,22 +495,22 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
                 <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
-            </div>
+                <ul className={styles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+            </DialogHeader>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             {/* One more checkbox per restriction, each ticked on its own (#411). */}
             {selectedRestrictions.filter(kind => RESTRICTION_KINDS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>
                 <input type="checkbox" checked={acknowledged.includes(kind)} aria-describedby={`${restrictionId}-${kind}`}
                     onChange={event => acknowledge(kind, event.target.checked)} />
                 {t(`model_downloads.restriction.${kind}.acknowledge`, { license: selected.license })}</label>)}
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" className="primary" disabled={!agreed || busy} onClick={() => {
+            <DialogFooter>
+                <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
+                <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
                     send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id); close();
-                }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
-            </div>
-        </dialog>}
+                }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</Button>
+            </DialogFooter>
+        </Dialog>}
         {error && <p role="alert">{t([`user_models.errors.${error}`, `model_downloads.errors.${error}`, "model_downloads.errors.download_failed"])}</p>}
         {!catalog && <button type="button" onClick={() => send("/get/data/model_download_catalog")}>{t("voice.retry")}</button>}
     </section>;

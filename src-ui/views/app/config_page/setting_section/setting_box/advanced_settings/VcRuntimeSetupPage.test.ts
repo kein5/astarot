@@ -38,7 +38,9 @@ async function runtimeSetup(context: TestContext, given: Partial<Runtimes> = {},
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: (...args: unknown[]) => { consent.asked.push(args); return { dialog: "dialog", close: () => { consent.closed++; } }; } },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => options.hints ?? false },
-        "../../../../../kit/index.ts": { Button: "button", Badge: "badge", Progress: kitStandIns.Progress },
+        // The kit's parts by the elements they draw; the review is the kit's Dialog (D-23).
+        "../../../../../kit/index.ts": { Button: "button", Badge: "badge", Progress: kitStandIns.Progress, Dialog: "dialog", DialogHeader: "dialog-header",
+            DialogTitle: "dialog-title", DialogFooter: "dialog-footer" },
     });
     let props: Record<string, unknown> = { engine: "rvc" };
     const drawOrNothing = (next: Record<string, unknown> = {}) => {
@@ -219,14 +221,18 @@ test("the review says what will be fetched and from where, and starts only once 
     tree = r.draw();
     assert.deepEqual(r.consent.asked.at(-1), [true, tree.props.ref]);
     const dialog = findIn(tree, node => node.type === "dialog");
-    assert.deepEqual([dialog.props.ref, dialog.props["aria-label"]], ["dialog", "vc_runtime.warning_title"]);
-    assert.deepEqual(nodesIn(dialog).filter(node => node.type === "h3").map(textOf), ["vc_runtime.warning_title"]);
-    assert.deepEqual(lines(findIn(dialog, node => node.type === "div")).map(([, words]) => words), ["vc_runtime.notice_rvc_gpu", SIZE, "vc_runtime.connection_notice_rvc_gpu",
+    // Shown while the review is open, named by its title alone, as before (D-43).
+    assert.deepEqual([dialog.props.ref, dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], ["dialog", true, true, undefined]);
+    assert.deepEqual(nodesIn(dialog).filter(node => node.type === "dialog-title").map(textOf), ["vc_runtime.warning_title"]);
+    assert.deepEqual(lines(findIn(dialog, node => node.type === "dialog-header")).map(([, words]) => words), ["vc_runtime.notice_rvc_gpu", SIZE, "vc_runtime.connection_notice_rvc_gpu",
         "vc_runtime.no_start_rvc_gpu", "model_downloads.license_links:  https://example.com/license  https://example.com/notice ", "model_downloads.destination: C:/state/vc_runtimes/rvc"]);
     assert.deepEqual(nodesIn(dialog).filter(node => node.type === "a").map(link => [link.props.href, link.props.target, link.props.rel, link.props.style]),
         entry.licenses.map(url => [url, "_blank", "noreferrer", { overflowWrap: "anywhere" }]));
     assert.deepEqual(nodesIn(dialog).filter(node => node.type === "code").map(code => [textOf(code), code.props.style]), [[entry.destination, { overflowWrap: "anywhere" }]]);
     const start = () => buttonNamed(findIn(r.draw(), node => node.type === "dialog"), "vc_runtime.start");
+    // Back and Start in the kit's footer, both plain as before; the consent stays a native checkbox (D-16).
+    assert.deepEqual(buttons(findIn(dialog, node => node.type === "dialog-footer")),
+        [["model_downloads.back", undefined, undefined], ["vc_runtime.start", true, undefined]]);
     assert.equal(start().props.disabled, true);
     start().props.onClick();
     assert.equal(r.sent.some(call => call[0] === "/run/start_vc_runtime_setup"), false);
@@ -252,9 +258,9 @@ test("the review says what will be fetched and from where, and starts only once 
     back.props.onClick();
     assert.equal(find(r.draw(), node => node.type === "dialog"), null);
     buttonNamed(r.draw(), "vc_runtime.review").props.onClick();
-    let prevented = 0;
-    findIn(r.draw(), node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented++; } });
-    assert.deepEqual([prevented, find(r.draw(), node => node.type === "dialog"), r.consent.closed], [1, null, 3]);
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+    findIn(r.draw(), node => node.type === "dialog").props.onOpenChange(false);
+    assert.deepEqual([find(r.draw(), node => node.type === "dialog"), r.consent.closed], [null, 3]);
 });
 
 test("the review's license links open in the system browser in the app, and one that fails to open is shown to copy", async context => {
@@ -285,6 +291,6 @@ test("the review's license links open in the system browser in the app, and one 
 test("a runtime without words of its own for a step says the common ones", async context => {
     const r = await runtimeSetup(context, { catalog: { runtimes: [{ ...entry, notice: "plain" }] } });
     buttonNamed(r.draw(), "vc_runtime.review").props.onClick();
-    const said = lines(findIn(findIn(r.draw(), node => node.type === "dialog"), node => node.type === "div")).map(([, words]) => words);
+    const said = lines(findIn(findIn(r.draw(), node => node.type === "dialog"), node => node.type === "dialog-header")).map(([, words]) => words);
     assert.deepEqual(said.slice(0, 4), ["vc_runtime.notice_plain", SIZE, "vc_runtime.connection_notice_plain", "vc_runtime.no_start"]);
 });

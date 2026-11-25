@@ -240,6 +240,14 @@ export const kitStandIns = {
         jsx.jsxs("label", { "data-slot": "field-label", className, children: [
             jsx.jsx("input", { "data-slot": "radio-group-item", ...input, type: "radio" }), children,
             jsx.jsx("span", { "data-slot": "field-title", children: title })] }),
+    // The kit's dialog is a <dialog> named data-slot="dialog-content"; open and onOpenChange are the
+    // owner's, read by a test from the element the screen draws, and do not reach the <dialog>.
+    Dialog: ({ open: _open, onOpenChange: _onOpenChange, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("dialog", { "data-slot": "dialog-content", ...rest }),
+    DialogHeader: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-header", ...props }),
+    DialogTitle: (props: Record<string, unknown>) => jsx.jsx("h2", { "data-slot": "dialog-title", ...props }),
+    DialogDescription: (props: Record<string, unknown>) => jsx.jsx("p", { "data-slot": "dialog-description", ...props }),
+    DialogFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-footer", ...props }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

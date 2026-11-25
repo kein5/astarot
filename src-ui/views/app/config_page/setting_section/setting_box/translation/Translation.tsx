@@ -49,7 +49,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 
 import {
     deepl_auth_key_url,
@@ -439,28 +439,29 @@ export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, 
     };
     const key = (name: string) => `config_page.translation.ctranslate2_weight_type.${name}`;
 
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return (
-        <dialog ref={dialog} className={styles.license_dialog} aria-label={t(key("confirm_title"))} onCancel={event => { event.preventDefault(); cancel(); }}>
-            <div className={styles.license_text}>
-                <h3>{t(key("confirm_title"))}</h3>
+        <Dialog ref={dialog} open onOpenChange={cancel} aria-describedby={undefined}>
+            <DialogHeader className={styles.license_text}>
+                <DialogTitle>{t(key("confirm_title"))}</DialogTitle>
                 <p>{t(key("confirm_body"), { weight_type: weightLabel(weight.id, null), license: weight.license })}</p>
                 <p>
                     <a href={weight.license_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.license_url)}>{t(key("license_link"))} ({weight.license})</a>
                     {" · "}
                     <a href={weight.model_card_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.model_card_url)}>{t(key("model_card_link"))}</a>
                 </p>
-            </div>
+            </DialogHeader>
             <label className={styles.license_check}>
                 <input type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />
                 {t(key("confirm_check"))}
             </label>
-            <div className={styles.license_actions}>
-                <button type="button" autoFocus onClick={cancel}>{t(key("confirm_cancel"))}</button>
-                <button type="button" className={styles.confirm_button} disabled={!checked} onClick={confirm}>
+            <DialogFooter className={styles.license_actions}>
+                <Button autoFocus onClick={cancel}>{t(key("confirm_cancel"))}</Button>
+                <Button tone="primary" disabled={!checked} onClick={confirm}>
                     {t(key(action === "download" ? "confirm_download" : "confirm_select"))}
-                </button>
-            </div>
-        </dialog>
+                </Button>
+            </DialogFooter>
+        </Dialog>
     );
 };
 

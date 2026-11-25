@@ -32,9 +32,9 @@ async function dialog() {
     return { runtime, render, content, element, calls, changes };
 }
 
-const event = () => {
+const event = (open = false) => {
     const seen = { prevented: false };
-    return { seen, value: unchecked<Event>({ preventDefault() { seen.prevented = true; } }) };
+    return { seen, value: unchecked<Event>({ preventDefault() { seen.prevented = true; }, currentTarget: { open } }) };
 };
 
 test("the dialog opens as a modal while open, and closes when open turns false", async () => {
@@ -62,6 +62,10 @@ test("Esc and the dialog's own closing ask the owner of open, as shadcn/ui's onO
     assert.deepEqual(changes, [false, false]);
     // Closed through open: nothing more to tell.
     content(render(false)).props.onClose(event().value);
+    assert.deepEqual(changes, [false, false]);
+    // Closed and shown again before the event came (React's StrictMode replays the effects that way):
+    // the dialog is open, so the owner keeps it open.
+    content(render(true)).props.onClose(event(true).value);
     assert.deepEqual(changes, [false, false]);
     runtime.unmount();
 });

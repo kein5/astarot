@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 
 // #462: blue marks the main action (DESIGN.md). Every download review's start button is one,
-// so each button that says model_downloads.start carries className="primary".
+// so each button that says model_downloads.start is the kit's primary Button (tone="primary"), or
+// carries the forms' className="primary" while it is still written by hand.
 const root = fileURLToPath(new URL("../../../../../../../", import.meta.url));
 const sources = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
     entry.isDirectory() ? sources(join(dir, entry.name)) : /\.(jsx|tsx)$/.test(entry.name) ? [join(dir, entry.name)] : []);
@@ -15,8 +16,9 @@ test("#462: every download review's start button is the primary button", () => {
     for (const file of sources(root)) {
         const text = readFileSync(file, "utf8");
         for (const match of text.matchAll(/"model_downloads\.start"/g)) {
-            const button = text.slice(text.lastIndexOf("<button", match.index), match.index);
-            starts.push({ file: file.slice(root.length), primary: button.includes('className="primary"') });
+            const opened = Math.max(text.lastIndexOf("<button", match.index), text.lastIndexOf("<Button", match.index));
+            const button = text.slice(opened, match.index);
+            starts.push({ file: file.slice(root.length), primary: button.includes('className="primary"') || button.startsWith('<Button tone="primary"') });
         }
     }
     // The built-in CTranslate2 review had one too, until #1015.

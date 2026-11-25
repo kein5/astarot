@@ -122,7 +122,10 @@ const accentBadges = (tree: unknown) => ofType(tree, kitStandIns.Badge).filter(n
 const named = (tree: unknown, name: string) => nodesIn(tree).filter(node => componentName(node) === name);
 const cards = (tree: unknown) => nodesIn(tree).filter(node => node.props?.["data-model-download"] === true);
 const cardNamed = (tree: unknown, label: string) => findIn(tree, node => node.props?.["data-model-download"] === true && node.props["aria-label"] === label, `the card ${label}`);
-const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === "button" && textOf(node) === words, `the button ${words}`);
+// The page's own buttons, or the kit's Button of its review dialog (the kit's Dialog, D-23).
+const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => (node.type === "button" || node.type === kitStandIns.Button) && textOf(node) === words, `the button ${words}`);
+const isDialog = (node: TreeNode) => node.type === kitStandIns.Dialog;
+const ofPart = (tree: unknown, part: unknown) => nodesIn(tree).filter(node => node.type === part);
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 // A card's line that names the type of its only file: the word and the type.
 const variantLines = (card: TreeNode) => ofType(card, "p").filter(node => ofType(node, "span").length === 2).map(node => texts(node, "span"));
@@ -602,11 +605,12 @@ test("the review shows what the download is, where it goes and what it needs, an
     const p = await catalogPage(context, { catalog: catalogOf([row]) });
     buttonNamed(p.draw(), "model_downloads.review").props.onClick();
     let tree = p.draw();
-    let dialog = findIn(tree, node => node.type === "dialog");
-    assert.deepEqual([dialog.props.ref, dialog.props["aria-label"]], ["dialog", "model_downloads.warning_title"]);
+    let dialog = findIn(tree, isDialog);
+    // Shown while a model is under review, named by its title alone, as before (D-43).
+    assert.deepEqual([dialog.props.ref, dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], ["dialog", true, true, undefined]);
     assert.deepEqual(p.consent.asked.at(-1), { open: true, fallback: tree.props.ref }, "focus goes back to the catalog when it closes");
-    assert.deepEqual(texts(dialog, "h3"), ["model_downloads.warning_title"]);
-    const lines = texts(findIn(dialog, node => node.type === "div"), "p");
+    assert.deepEqual(ofPart(dialog, kitStandIns.DialogTitle).map(textOf), ["model_downloads.warning_title"]);
+    const lines = texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p");
     assert.deepEqual(lines.slice(0, 2), ["Model · Q8_0 · Maker", `model_downloads.exact_bytes {"bytes":"1,073,741,824"} (1.00 GiB) · CC-BY-NC-4.0`]);
     // The restriction notes are drawn by their own part, between these lines.
     assert.deepEqual(lines.slice(2), ["model_downloads.notice_general", "model_downloads.asr_requirements", "model_downloads.connection_notice", "model_downloads.no_start",
@@ -617,14 +621,14 @@ test("the review shows what the download is, where it goes and what it needs, an
     // Each restriction is a note, and a box of its own that points to it.
     const notes = named(dialog, "RestrictionNote").map(node => node.props);
     assert.deepEqual(notes.map(note => [note.kind, note.license]), [["non_commercial", "CC-BY-NC-4.0"], ["gemma_terms", "CC-BY-NC-4.0"]]);
-    const boxes = () => ofType(findIn(p.draw(), node => node.type === "dialog"), "input");
+    const boxes = () => ofType(findIn(p.draw(), isDialog), "input");
     assert.deepEqual(boxes().map(box => [box.props.type, box.props.checked, box.props["aria-describedby"]]),
         [["checkbox", false, undefined], ["checkbox", false, notes[0].id], ["checkbox", false, notes[1].id]]);
     assert.notEqual(notes[0].id, notes[1].id);
     assert.deepEqual(texts(dialog, "label"), ["model_downloads.consent", `model_downloads.restriction.non_commercial.acknowledge {"license":"CC-BY-NC-4.0"}`,
         `model_downloads.restriction.gemma_terms.acknowledge {"license":"CC-BY-NC-4.0"}`]);
-    const start = () => buttonNamed(findIn(p.draw(), node => node.type === "dialog"), "model_downloads.start");
-    assert.deepEqual([start().props.disabled, start().props.className], [true, "primary"]);
+    const start = () => buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start");
+    assert.deepEqual([start().props.disabled, start().props.tone], [true, "primary"]);
     start().props.onClick();
     assert.equal(p.sent.filter(call => call[0] === "/run/start_model_download").length, 0, "a press of the disabled button does nothing");
     boxes()[0].props.onChange({ target: { checked: true } });
@@ -647,27 +651,27 @@ test("the review shows what the download is, where it goes and what it needs, an
     assert.deepEqual(p.sent.at(-1), ["/run/start_model_download", { id: "m", consent: true, catalog_version: "v7", acknowledged: ["non_commercial", "gemma_terms"] }]);
     assert.equal(p.consent.closed, 1);
     tree = p.draw();
-    assert.equal(find(tree, node => node.type === "dialog"), null);
+    assert.equal(find(tree, isDialog), null);
     // Opened again, nothing is ticked.
     buttonNamed(tree, "model_downloads.review").props.onClick();
-    dialog = findIn(p.draw(), node => node.type === "dialog");
+    dialog = findIn(p.draw(), isDialog);
     assert.deepEqual(boxes().map(box => box.props.checked), [false, false, false]);
     const back = buttonNamed(dialog, "model_downloads.back");
     assert.equal(back.props.autoFocus, true);
     back.props.onClick();
-    assert.equal(find(p.draw(), node => node.type === "dialog"), null);
+    assert.equal(find(p.draw(), isDialog), null);
     assert.equal(p.consent.closed, 2);
     buttonNamed(p.draw(), "model_downloads.review").props.onClick();
-    let prevented = 0;
-    findIn(p.draw(), node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented++; } });
-    assert.equal(prevented, 1);
-    assert.equal(find(p.draw(), node => node.type === "dialog"), null, "Escape closes it too");
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+    findIn(p.draw(), isDialog).props.onOpenChange(false);
+    assert.equal(find(p.draw(), isDialog), null, "Escape closes it too");
+    assert.equal(p.consent.closed, 3);
 });
 
 test("a restriction the app has no words for is shown as another one, and keeps the download from starting", async context => {
     const p = await catalogPage(context, { catalog: catalogOf([model("m", { name: "M", restrictions: ["future_terms"] })]) });
     buttonNamed(p.draw(), "model_downloads.review").props.onClick();
-    const dialog = findIn(p.draw(), node => node.type === "dialog");
+    const dialog = findIn(p.draw(), isDialog);
     const [note] = named(dialog, "RestrictionNote");
     const drawn = componentOf(note)(note.props);
     assert.deepEqual([drawn.type, drawn.props.id], ["p", note.props.id]);
@@ -679,7 +683,7 @@ test("a restriction the app has no words for is shown as another one, and keeps 
     // No box for it: the consent alone never starts the download.
     assert.equal(ofType(dialog, "input").length, 1);
     ofType(dialog, "input")[0].props.onChange({ target: { checked: true } });
-    assert.equal(buttonNamed(findIn(p.draw(), node => node.type === "dialog"), "model_downloads.start").props.disabled, true);
+    assert.equal(buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start").props.disabled, true);
 });
 
 test("the review of a file already on the PC prepares it, and says what each use needs", async context => {
@@ -690,10 +694,10 @@ test("the review of a file already on the PC prepares it, and says what each use
     const review = (label: string) => {
         const card = cardNamed(p.draw(), label);
         findIn(card, node => node.type === "button" && node.props.disabled === false).props.onClick();
-        const dialog = findIn(p.draw(), node => node.type === "dialog");
-        const lines = texts(findIn(dialog, node => node.type === "div"), "p");
+        const dialog = findIn(p.draw(), isDialog);
+        const lines = texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p");
         buttonNamed(dialog, "model_downloads.back").props.onClick();
-        return { lines, start: texts(dialog, "button")[1] };
+        return { lines, start: ofPart(dialog, kitStandIns.Button).map(textOf)[1] };
     };
     const rvc = review("rvc");
     assert.ok(rvc.lines.includes("model_downloads.rvc_requirements"));
@@ -716,7 +720,7 @@ test("the review warns about a model too heavy for the PC, and says nothing for 
     const p = await catalogPage(context, { catalog: catalogOf(rows), hardware: readyHardware([gpu("GPU0", 4 * GiB, 8 * GiB)]) });
     const warningsIn = (label: string) => {
         buttonNamed(cardNamed(p.draw(), label), "model_downloads.review").props.onClick();
-        const dialog = findIn(p.draw(), node => node.type === "dialog");
+        const dialog = findIn(p.draw(), isDialog);
         buttonNamed(dialog, "model_downloads.back").props.onClick();
         return named(dialog, "WarningNote").map(node => node.props.warning.reason);
     };
@@ -729,13 +733,13 @@ test("the review's links open in the system browser in the app, and one that fai
     const links = async (options: PageOptions) => {
         const p = await catalogPage(context, { catalog: catalogOf([row]) }, options);
         buttonNamed(p.draw(), "model_downloads.review").props.onClick();
-        const anchors = ofType(findIn(p.draw(), node => node.type === "dialog"), "a");
+        const anchors = ofType(findIn(p.draw(), isDialog), "a");
         assert.deepEqual(anchors.map(a => [a.props.href, a.props.target, a.props.rel]), [["https://example.com/source", "_blank", "noreferrer"],
             ...row.licenses as string[]].map(item => Array.isArray(item) ? item : [item, "_blank", "noreferrer"]));
         return { p, click: async (i: number) => {
             let prevented = 0;
-            await ofType(findIn(p.draw(), node => node.type === "dialog"), "a")[i].props.onClick({ preventDefault: () => { prevented++; } });
-            const alert = find(findIn(p.draw(), node => node.type === "dialog"), node => node.props?.role === "alert");
+            await ofType(findIn(p.draw(), isDialog), "a")[i].props.onClick({ preventDefault: () => { prevented++; } });
+            const alert = find(findIn(p.draw(), isDialog), node => node.props?.role === "alert");
             return { prevented, alert: alert && [texts(alert, "p"), ofType(alert, "code").map(code => [textOf(code), code.props.style])] };
         } };
     };
@@ -754,9 +758,9 @@ test("the review's links open in the system browser in the app, and one that fai
     assert.deepEqual(await failing.click(3), { prevented: 1, alert: null }, "a link that opens clears the error");
     fail = true;
     await failing.click(1);
-    buttonNamed(findIn(failing.p.draw(), node => node.type === "dialog"), "model_downloads.back").props.onClick();
+    buttonNamed(findIn(failing.p.draw(), isDialog), "model_downloads.back").props.onClick();
     buttonNamed(failing.p.draw(), "model_downloads.review").props.onClick();
-    assert.equal(find(findIn(failing.p.draw(), node => node.type === "dialog"), node => node.props?.role === "alert"), null, "closing clears it too");
+    assert.equal(find(findIn(failing.p.draw(), isDialog), node => node.props?.role === "alert"), null, "closing clears it too");
 });
 
 test("an error of the downloads or of the models of one's own is said in their words, or as a failed download", async context => {

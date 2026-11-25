@@ -9,7 +9,7 @@ import * as styles from "./Ocr.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
-import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Progress } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Dialog, DialogFooter, DialogHeader, DialogTitle, Progress } from "../../../../../kit/index.ts";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
@@ -146,9 +146,10 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                 })}
             </CatalogList>
         </CatalogSection>
-        {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <div className={voiceStyles.dialog_text}>
-                <h3>{t("model_downloads.warning_title")}</h3>
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
+        {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
                 <p>{selected.name} · {selected.provider}</p>
                 <p>{t("model_downloads.exact_bytes", { bytes: Number(selected.total_bytes).toLocaleString("en-US") })} · {selected.license}</p>
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
@@ -159,18 +160,18 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{new URL(url).hostname === "www.apache.org" || url.endsWith("/LICENSE") ? selected.license : `${t("model_downloads.model_card")} (${i + 1})`}</a> </span>)}</p>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
                 <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {t("model_downloads.exact_bytes", { bytes: Number(file.size).toLocaleString("en-US") })}</li>)}</ul>
-            </div>
+                <ul className={voiceStyles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {t("model_downloads.exact_bytes", { bytes: Number(file.size).toLocaleString("en-US") })}</li>)}</ul>
+            </DialogHeader>
             <label className={voiceStyles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
-            <div className={voiceStyles.actions}>
-                <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
+            <DialogFooter>
+                <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
                 {/* Start is the dialog's main action: blue like the voice models' (#462). */}
-                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
+                <Button tone="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
                     send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
-                }}>{t("model_downloads.start")}</button>
-            </div>
-        </dialog>}
+                }}>{t("model_downloads.start")}</Button>
+            </DialogFooter>
+        </Dialog>}
         {error && <p role="alert">{failure(error)}</p>}
     </section>;
 };

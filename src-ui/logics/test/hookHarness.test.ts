@@ -178,4 +178,19 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.deepEqual([radio.type, radio.props], ["input", { "data-slot": "radio-group-item", name: "theme", value: "forest", checked: true, type: "radio" }]);
     assert.equal(picture, "picture");
     assert.deepEqual([name.type, name.props], ["span", { "data-slot": "field-title", children: "Forest" }]);
+    // The dialog: a <dialog> named data-slot="dialog-content"; its open and onOpenChange stay off
+    // the element, as the kit keeps them, and its parts are the kit's elements with their names.
+    assert.match(kit("Dialog.tsx"), /<dialog\s+ref=\{attach\}\s+data-slot="dialog-content"/);
+    const onOpenChange = () => {};
+    const dialog = kitStandIns.Dialog({ open: true, onOpenChange, className: "place", children: "words" });
+    assert.equal(dialog.type, "dialog");
+    assert.deepEqual(dialog.props, { "data-slot": "dialog-content", className: "place", children: "words" });
+    const parts: ["DialogHeader" | "DialogTitle" | "DialogDescription" | "DialogFooter", string, string][] = [["DialogHeader", "div", "dialog-header"],
+        ["DialogTitle", "h2", "dialog-title"], ["DialogDescription", "p", "dialog-description"], ["DialogFooter", "div", "dialog-footer"]];
+    for (const [name, element, slot] of parts) {
+        assert.match(kit("Dialog.tsx"), new RegExp(`export const ${name} = [^\\n]*\\n\\s*(const ids = [^\\n]*\\n\\s*return )?<${element} [^>]*data-slot="${slot}"`));
+        const drawn = kitStandIns[name]({ className: "place", children: "words" });
+        assert.equal(drawn.type, element, name);
+        assert.deepEqual(drawn.props, { "data-slot": slot, className: "place", children: "words" }, name);
+    }
 });

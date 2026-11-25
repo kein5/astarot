@@ -53,8 +53,10 @@ export function Dialog({ open, onOpenChange, className, children, onCancel, onCl
                 }}
                 onClose={event => {
                     onClose?.(event);
-                    // Closed by the dialog itself, not by `open`: tell the owner.
-                    if (open) onOpenChange(false);
+                    // Closed by the dialog itself, not by `open`: tell the owner. The event comes a
+                    // task later, so a dialog shown again since then (React's StrictMode closes and
+                    // shows it again in one go) stays open.
+                    if (open && !event.currentTarget.open) onOpenChange(false);
                 }}
                 {...rest}
             >
