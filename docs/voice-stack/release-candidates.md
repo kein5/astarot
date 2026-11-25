@@ -226,7 +226,7 @@ python tools/native_acceptance.py --appimage <absolute path of the AppImage> --v
 
 | Group | What it checks | What it needs |
 |---|---|---|
-| `appimage` | Starting through FUSE and by extraction, drawing, shutdown, using the settings screen, mute after a restart | AppImage |
+| `appimage` | Starting through FUSE and by extraction, drawing, shutdown, using the settings screen | AppImage |
 | `ui` | The main screen and the settings screen (display scale 100% and 150%) | `xwininfo` (for the test of the desktop subtitle window; the `xorg-xwininfo` package on CachyOS and Arch Linux, `x11-utils` on Ubuntu and Debian) |
 | `vrchat` | A sentence typed in the app appears in a real VRChat chatbox bubble and can be read back with chat reading | `--vrchat`, the OCR models |
 | `vrchat-voice` | One typed sentence appears in a real VRChat bubble and is heard exactly once through the managed virtual microphone. Mute stops only the voice, and after the app exits the microphone is silent (#746) | `--vrchat`, the OCR models, a prepared managed route, `pw-record` |
@@ -644,7 +644,7 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 
 | グループ | 確かめること | 要るもの |
 |---|---|---|
-| `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作。管理対象の経路のミュートを解除すると画面が「Voice enabled (confirmed)」になり、再起動のあとはミュートに戻ること（#838） | AppImage、`python tools/build_voice_gate.py`で組んだゲートの補助 |
+| `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作 | AppImage |
 | `ui` | 基本画面と設定画面（表示倍率100%と150%） | `xwininfo`（デスクトップの字幕の窓の試験。CachyOSとArch Linuxでは `xorg-xwininfo`、UbuntuとDebianでは `x11-utils` のパッケージ） |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
 | `vrchat-voice` | 入力した1つの文が、実際のVRChatの吹き出しに出て、管理対象の仮想マイクで1回だけ聞こえること。ミュートで声だけが止まり、アプリを終了したあとはマイクが無音になること（#746） | `--vrchat`、OCRのモデル、準備済みの管理対象の経路、`pw-record` |

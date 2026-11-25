@@ -123,7 +123,7 @@ Windows and other rendering paths retain their configured transparency.
 
 ```sh
 ASTAROT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
-ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 ASTAROT_TEST_NATIVE_ROUTE=1 \
+ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 \
 uv run --no-project --python /usr/bin/python3 tools/display_power_guard.py -- \
 build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_appimage.py -q
@@ -131,15 +131,14 @@ build/dev/headless-venv/bin/python -m pytest \
 
 Supply `ASTAROT_TEST_DRIVER` for a different tauri-driver 2.1.0 location. The system
 Python running the display guard needs Gio. Tests copy the actual image to a
-path with spaces and cover native drawing/shutdown plus private managed routing,
-settings persistence and restart muted, for both FUSE and extraction. The
+path with spaces and cover native drawing/shutdown and the settings screen, for
+both FUSE and extraction. The
 normal-launch test additionally needs ImageMagick and xdotool. It starts the app
 without WebDriver, idles for five seconds, then captures the actual X11 window
 before and after pointer movement. It checks painted interior coverage and
-restores the pointer on completion; no inference control is clicked. The
-routing case needs WirePlumber 0.5. It records no physical microphone and uses
-no inference models. The CI uses Xvfb and tests extraction; it does not claim
-FUSE, physical audio or private routing acceptance on Ubuntu 24.04.
+restores the pointer on completion; no inference control is clicked. It records
+no physical microphone and uses no inference models. The CI uses Xvfb and tests
+extraction; it does not claim FUSE or physical audio acceptance on Ubuntu 24.04.
 
 Both the WebDriver and normal-launch tests pass `VRCT_CONFIG_DIR`, so they remain
 independent of an installed app. For manual AppImage tests with isolated `XDG_*`
@@ -239,13 +238,13 @@ NVIDIA向けのフォールバックが有効なときは、メインのウィ�
 
 ```sh
 ASTAROT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
-ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 ASTAROT_TEST_NATIVE_ROUTE=1 \
+ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 \
 uv run --no-project --python /usr/bin/python3 tools/display_power_guard.py -- \
 build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_appimage.py -q
 ```
 
-tauri-driver 2.1.0が別の場所にあるときは、`ASTAROT_TEST_DRIVER`で指定します。`tools/display_power_guard.py`を動かすシステムのPythonにはGioが要ります。試験は実際のイメージを空白を含むパスにコピーし、FUSEと展開の両方の方式でネイティブの描画と終了、専用の管理対象の経路、設定の保存、ミュートのままの再起動を確かめます。通常起動の試験にはほかにImageMagickとxdotoolも要ります。この試験はWebDriverを使わずにアプリを起動し、5秒待ってから、ポインターを動かす前とあとに実際のX11のウィンドウを撮影します。ウィンドウの内側がどれだけ描画で埋まっているかを確かめ、終わるとポインターを元に戻します。推論に関わる部品は押しません。音声経路の試験にはWirePlumber 0.5が要ります。実際のマイクは録音せず、推論のモデルも使いません。CIはXvfbを使って展開の方式を試験します。Ubuntu 24.04でのFUSE、実際の音声、専用の経路の受け入れは、CIで確かめたことにしていません。
+tauri-driver 2.1.0が別の場所にあるときは、`ASTAROT_TEST_DRIVER`で指定します。`tools/display_power_guard.py`を動かすシステムのPythonにはGioが要ります。試験は実際のイメージを空白を含むパスにコピーし、FUSEと展開の両方の方式でネイティブの描画と終了、設定画面の操作を確かめます。通常起動の試験にはほかにImageMagickとxdotoolも要ります。この試験はWebDriverを使わずにアプリを起動し、5秒待ってから、ポインターを動かす前とあとに実際のX11のウィンドウを撮影します。ウィンドウの内側がどれだけ描画で埋まっているかを確かめ、終わるとポインターを元に戻します。推論に関わる部品は押しません。実際のマイクは録音せず、推論のモデルも使いません。CIはXvfbを使って展開の方式を試験します。Ubuntu 24.04でのFUSEと実際の音声の受け入れは、CIで確かめたことにしていません。
 
 WebDriverの試験も通常起動の試験も`VRCT_CONFIG_DIR`を渡すので、インストール済みのアプリとは関係なく動きます。`XDG_*`のフォルダーを分けて手でAppImageを試験するときは、`ASTAROT_CONFIG_DIR`も`$XDG_CONFIG_HOME/astarot`に設定し、状態の保存先を同じに保ちます。二重起動の防止そのものの試験とそれに要るD-Busについては、[Linuxの受け入れ試験の案内](linux-build-pipeline.md#acceptance-and-exclusions)を参照してください。
 
