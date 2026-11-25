@@ -35,7 +35,7 @@ Reading only what is relevant is enough. You do not need to read everything ever
 | Linux builds, AppImage, GUI tests on a real machine | `docs/voice-stack/linux-build-pipeline.md`, `docs/voice-stack/appimage.md` |
 | Design decisions (ADRs) | `docs/adr/README.md` (the index, what the fields mean, how to write a new ADR) and each ADR. Check an ADR's state in the front matter at its top. |
 
-Issue bodies that maintainers (people and sessions) write take the same split form as pull request bodies (the `pull-request` skill): every section in English first, then a `---` line, then the same sections in Japanese. Where the two differ, the English is right. Comments that maintainers write, such as records of decisions, should take the same form where possible. Reports that outside users file from the issue templates are not covered; they may be in English or Japanese, as the templates say.
+Issue bodies that agents (sessions) write take the same split form as pull request bodies (the `pull-request` skill): every section in English first, then a `---` line, then the same sections in Japanese. Where the two differ, the English is right. Comments that agents write, such as records of decisions, take the same form. Issues and comments that people write may be in English or Japanese; they need not carry both. Reports that outside users file from the issue templates may also stay in one language, as before.
 
 ## Entry points for development and verification
 
@@ -175,7 +175,7 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
 | 設計判断（ADR） | `docs/adr/README.md`（索引、項目の意味、新しい ADR の書き方）と各 ADR。状態は冒頭の front matter で確かめる |
 
-保守担当者（人とセッション）が書く Issue の本文は、PR の本文（`pull-request` スキル）と同じ分割形で書きます。前半に英語ですべての節を書き、`---` の区切り線のあとに、同じ内容を日本語ですべての節に書きます。食い違うときは英語が正です。判断の記録など、保守担当者が書くコメントも、できるだけ同じ形で書きます。外部の利用者が Issue のテンプレートから出す報告は対象外で、テンプレートのとおり英語でも日本語でも構いません。
+エージェント（セッション）が書く Issue の本文は、PR の本文（`pull-request` スキル）と同じ分割形で書きます。前半に英語ですべての節を書き、`---` の区切り線のあとに、同じ内容を日本語ですべての節に書きます。食い違うときは英語が正です。判断の記録など、エージェントが書くコメントも同じ形で書きます。人が書く Issue とコメントは、英語でも日本語でも構いません（2か国語は求めません）。外部の利用者が Issue のテンプレートから出す報告も、今までどおり片方の言語で構いません。
 
 ## 開発と検証の入口
 
