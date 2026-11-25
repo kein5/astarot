@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, nodesIn, unchecked } from "../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import type { FocusOcrModelsOptions } from "../../../logics/ocr/useOcrSetup.ts";
 
@@ -21,7 +21,7 @@ async function fixture(context: TestContext) {
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(OcrSetupController);
     const click = (key: string) => {
-        const button = find(render(), node => node.type === "button" && node.props.children === `ocr_setup.${key}`);
+        const button = find(render(), node => node.type === kitStandIns.Button && node.props.children === `ocr_setup.${key}`);
         assert.ok(button);
         return button.props.onClick();
     };
@@ -33,10 +33,22 @@ test("the guide is hidden until chat reading is turned on without its models", a
     const s = await fixture(context);
     assert.equal(s.render(), null);
     const tree = s.show();
-    assert.ok(find(tree, node => node.type === "dialog"));
+    // In the forms' section (the words) and the shared host, which takes no room of its own.
+    assert.deepEqual(String(tree?.props.className).split(" ").sort(), ["container", "host"]);
+    // The kit's Dialog, shown while the guide is open and named by its title alone, as before (D-43).
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
+    assert.ok(dialog);
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(find(dialog, node => node.type === kitStandIns.DialogTitle)?.props.children, "ocr_setup.title");
+    assert.deepEqual(nodesIn(find(dialog, node => node.type === kitStandIns.DialogHeader)).filter(node => node.type === "p").map(node => node.props.children),
+        ["ocr_setup.body", "ocr_setup.next"]);
     const focused = find(tree, node => node.props?.autoFocus);
     assert.ok(focused);
     assert.equal(focused.props.children, "ocr_setup.close", "initial focus is the safe action");
+    // Close, then the way to the models as the primary Button, in the footer in that order (D-24).
+    const footer = find(dialog, node => node.type === kitStandIns.DialogFooter);
+    assert.deepEqual(nodesIn(footer).filter(node => node.type === kitStandIns.Button).map(node => [node.props.children, node.props.tone]),
+        [["ocr_setup.close", undefined], ["ocr_setup.review", "primary"]]);
 });
 
 test("going to the models opens the OCR settings tab and focuses the models; nothing is downloaded", async context => {
@@ -52,11 +64,10 @@ test("closing, or Escape, leaves everything as it was", async context => {
     s.show();
     s.click("close");
     assert.equal(s.render(), null);
-    let prevented = false;
-    const dialog = find(s.show(), node => node.type === "dialog");
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+    const dialog = find(s.show(), node => node.type === kitStandIns.Dialog);
     assert.ok(dialog);
-    dialog.props.onCancel({ preventDefault: () => { prevented = true; } });
-    assert.equal(prevented, true);
+    dialog.props.onOpenChange(false);
     assert.equal(s.render(), null);
     assert.deepEqual(s.events, [["close"], ["close"]]);
 });

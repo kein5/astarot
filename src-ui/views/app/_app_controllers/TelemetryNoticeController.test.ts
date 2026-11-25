@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, nodesIn } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 
 const TelemetryContents = () => null;
@@ -22,7 +22,8 @@ async function setup(context: TestContext, notice: unknown) {
     const render = () => runtime.render(TelemetryNoticeController);
     const buttons = () => {
         const found: TreeNode[] = [];
-        find(render(), node => { if (node.type === "button") found.push(node); return false; });
+        // The answers and "later" are the kit's Button.
+        find(render(), node => { if (node.type === kitStandIns.Button) found.push(node); return false; });
         return found;
     };
     return { render, buttons, sent, refreshed, state, remount: runtime.remount };
@@ -39,9 +40,14 @@ test("the notice is asked only while the backend says it is pending", async cont
         assert.equal(s.render(), null);
     }
     const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
-    const dialog = find(s.render(), node => node.type === "dialog");
+    // The kit's Dialog, shown while the notice is pending and named by its title alone, as before (D-43).
+    const tree = s.render();
+    // In the forms' section (the words) and the shared host, which takes no room of its own.
+    assert.deepEqual(String(tree?.props.className).split(" ").sort(), ["container", "host"]);
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
     assert.ok(dialog);
-    assert.equal(dialog.props["aria-label"], "telemetry_notice.title");
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(find(dialog, node => node.type === kitStandIns.DialogTitle)?.props.children, "telemetry_notice.title");
     const texts: unknown[] = [];
     find(dialog, node => { if (node.type === "p") texts.push(node.props.children); return false; });
     // Why it is asked, what is sent, what is not, and where to change it.
@@ -53,6 +59,13 @@ test("the notice is asked only while the backend says it is pending", async cont
     // The two answers, then a way out that is not an answer.
     assert.deepEqual(s.buttons().map(button => button.props.children),
         ["telemetry_notice.send", "telemetry_notice.dont_send", "telemetry_notice.later"]);
+    // The answers are the kit's plain Button in the footer, neither of them first in focus; "later"
+    // is the kit's quiet Button on its own line under them (decided on 2026-11-25).
+    const footer = find(dialog, node => node.type === kitStandIns.DialogFooter);
+    assert.deepEqual(nodesIn(footer).filter(node => node.type === kitStandIns.Button).map(node => [node.props.children, node.props.tone, node.props.autoFocus]),
+        [["telemetry_notice.send", undefined, undefined], ["telemetry_notice.dont_send", undefined, undefined]]);
+    const later = [dialog.props.children].flat(3).find((child: TreeNode) => child?.props?.children === "telemetry_notice.later");
+    assert.deepEqual([later?.type, later?.props.tone, later?.props.className, later?.props.autoFocus], [kitStandIns.Button, "quiet", "ownLine", undefined]);
 });
 
 test("each answer is sent once", async context => {
@@ -80,12 +93,11 @@ test("Decide later and Escape put the notice away for this run without answering
     assert.deepEqual(later.refreshed, []);
 
     const dismissed = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
-    let prevented = false;
-    const dialog = find(dismissed.render(), node => node.type === "dialog");
+    const dialog = find(dismissed.render(), node => node.type === kitStandIns.Dialog);
     assert.ok(dialog);
-    dialog.props.onCancel({ preventDefault: () => { prevented = true; } });
-    // The page closes the dialog itself (so focus goes back where it was), and no answer is sent.
-    assert.equal(prevented, true);
+    // Escape: the kit's Dialog keeps it open and asks the page (Dialog.test.ts), which closes it
+    // itself (so focus goes back where it was); no answer is sent.
+    dialog.props.onOpenChange(false);
     assert.equal(dismissed.render(), null);
     assert.deepEqual(dismissed.sent, []);
 });

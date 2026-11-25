@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, nodesIn, kitStandIns } from "../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, nodesIn } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
@@ -40,7 +40,8 @@ async function setup(context: TestContext, { notice = true, current = status(), 
     context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
     const render = () => { runtime.render(VirtualMicGuideController); return runtime.render(VirtualMicGuideController); };
-    const all = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
+    // An element type, or a kit part by its stand-in: the guide is the kit's Dialog, its buttons the kit's Button.
+    const all = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
     return { render, all, calls, state, url: VB_CABLE_URL, remount: runtime.remount };
 }
 
@@ -68,23 +69,32 @@ test("without a cable it says why, points to the cable's own page and keeps look
     assert.equal(s.url, "https://vb-audio.com/Cable/");
     // It looked again as soon as it opened (the timer repeats it).
     assert.ok(s.calls.includes("refresh"));
-    const buttons = s.all(tree, "button");
+    const buttons = s.all(tree, kitStandIns.Button);
     // One way out, and the cable's page first; nothing about opening by itself.
     assert.deepEqual(buttons.map(button => button.props.children), ["virtual_mic.close", "virtual_mic.install.open_page"]);
     assert.equal(buttons[1].props.autoFocus, true);
+    // Close, then the cable's page as the primary Button, in the kit's footer (D-24); the dialog is
+    // named by its title alone, as before (D-43).
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
+    assert.ok(dialog);
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(find(dialog, node => node.type === kitStandIns.DialogTitle)?.props.children, "virtual_mic.title");
+    assert.deepEqual(s.all(find(dialog, node => node.type === kitStandIns.DialogFooter), kitStandIns.Button).map(button => button.props.tone),
+        [undefined, "primary"]);
     // No test tone and no setting without a cable.
     assert.equal(nodesIn(tree).filter(node => node.type === kitStandIns.Select).length, 0);
 });
 
 test("Close and Escape close it and change no setting; it opens again only when asked", async context => {
     const s = await setup(context);
-    s.all(s.render(), "button")[0].props.onClick();
+    s.all(s.render(), kitStandIns.Button)[0].props.onClick();
     assert.deepEqual(s.calls.filter(call => call !== "refresh"), ["closed", "close"]);
     assert.equal(s.render(), null);
     const escaped = await setup(context);
-    const dialog = find(escaped.render(), node => node.type === "dialog");
+    const dialog = find(escaped.render(), node => node.type === kitStandIns.Dialog);
     assert.ok(dialog);
-    dialog.props.onCancel({ preventDefault() {} });
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+    dialog.props.onOpenChange(false);
     assert.deepEqual(escaped.calls.filter(call => call !== "refresh"), ["closed", "close"]);
     // Asked again, it opens again.
     escaped.state.opened = true;
@@ -98,10 +108,16 @@ test("with a cable it shows both ends, checks with the tone and ends at VRChat's
     assert.deepEqual(facts, [CABLE.playback_label, CABLE.recording_label]);
     const headings = s.all(tree, "h4").map(text);
     assert.deepEqual(headings, ["virtual_mic.found.heading", "virtual_mic.test.heading", "virtual_mic.vrchat.heading"]);
+    // In the forms' section (the words) and the shared host, which takes no room of its own.
+    assert.deepEqual(String(tree?.props.className).split(" ").sort(), ["container", "host"]);
+    // TTS does not play into the cable: the line says so.
+    assert.ok(s.all(tree, "p").map(text).includes("virtual_mic.found.output_unset"));
     // TTS does not play into the cable yet: say so and offer the TTS settings, without changing them.
-    const buttons = s.all(tree, "button");
+    const buttons = s.all(tree, kitStandIns.Button);
     assert.deepEqual(buttons.map(button => button.props.children),
         ["virtual_mic.found.open_tts", "virtual_mic.test.start", "virtual_mic.done"]);
+    // The tone's button is the primary one and takes the first focus; Done is plain, in the footer.
+    assert.deepEqual(buttons.map(button => [button.props.tone, button.props.autoFocus]), [[undefined, undefined], ["primary", true], [undefined, undefined]]);
     assert.equal(s.calls.filter(call => Array.isArray(call)).length, 0);
     // The tone plays only when asked, into the cable shown.
     buttons[1].props.onClick();
@@ -120,12 +136,14 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
     const meter = find(tree, node => node.props?.role === "meter");
     assert.ok(meter);
     assert.equal(meter.props["aria-valuenow"], 62);
-    const buttons = s.all(tree, "button");
-    // TTS already plays into the cable: no settings button.
+    const buttons = s.all(tree, kitStandIns.Button);
+    // TTS already plays into the cable: no settings button, and the line says it does.
     assert.deepEqual(buttons.map(button => button.props.disabled), [true, true]);
-    const dialog = find(tree, node => node.type === "dialog");
+    assert.ok(s.all(tree, "p").map(text).includes("virtual_mic.found.output_set"));
+    assert.equal(text(buttons[0]), "virtual_mic.test.running", "the tone's button says the check runs");
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
     assert.ok(dialog);
-    dialog.props.onCancel({ preventDefault() {} });
+    dialog.props.onOpenChange(false);
     assert.ok(!s.calls.includes("close"));
 });
 

@@ -8,7 +8,7 @@ import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
 import { preferredCable } from "../../../logics/voice/virtualMic.ts";
-import { Select, SelectOption } from "../../kit/index.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle, Select, SelectOption } from "../../kit/index.ts";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as noticeStyles from "./TelemetryNoticeController.css.ts";
@@ -81,14 +81,14 @@ export const VirtualMicGuideController = () => {
     const labels: CableLabels = cable ? { playback: cable.playback_label, recording: cable.recording_label } : {};
     const outputOnCable = cable && status?.tts_output_is_cable && status.tts_output !== null;
 
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("virtual_mic.title")}
-            onCancel={event => { event.preventDefault(); putAway(); }}>
-            <div className={noticeStyles.notice}>
-                <h3>{t("virtual_mic.title")}</h3>
+        <Dialog ref={dialog} open={open} onOpenChange={putAway} aria-describedby={undefined}>
+            <DialogHeader className={noticeStyles.notice}>
+                <DialogTitle>{t("virtual_mic.title")}</DialogTitle>
                 <p className={noticeStyles.purpose}>{t("virtual_mic.purpose")}</p>
                 <p>{t("virtual_mic.not_needed")}</p>
-            </div>
+            </DialogHeader>
 
             {!found && <section className={guideStyles.step} aria-labelledby="virtual-mic-install">
                 <h4 id="virtual-mic-install">{t("virtual_mic.install.heading")}</h4>
@@ -126,7 +126,7 @@ export const VirtualMicGuideController = () => {
                         </div>
                     </dl>
                     <p>{outputOnCable ? t("virtual_mic.found.output_set", labels) : t("virtual_mic.found.output_unset", labels)}</p>
-                    {!outputOnCable && <p><button type="button" onClick={openTtsSettings}>{t("virtual_mic.found.open_tts")}</button></p>}
+                    {!outputOnCable && <p><Button onClick={openTtsSettings}>{t("virtual_mic.found.open_tts")}</Button></p>}
                 </section>
 
                 <section className={guideStyles.step} aria-labelledby="virtual-mic-test">
@@ -134,10 +134,10 @@ export const VirtualMicGuideController = () => {
                     <p>{t("virtual_mic.test.what", labels)}</p>
                     <p className={guideStyles.note}>{t("virtual_mic.test.heard_by_others")}</p>
                     <div className={guideStyles.meter_row}>
-                        <button type="button" className="primary" autoFocus disabled={running}
+                        <Button tone="primary" autoFocus disabled={running}
                             onClick={() => startCheck(cable.playback)}>
                             {t(running ? "virtual_mic.test.running" : "virtual_mic.test.start")}
-                        </button>
+                        </Button>
                         <div className={guideStyles.meter} role="meter" aria-label={t("virtual_mic.test.meter", labels)}
                             aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(check.level * 100)}>
                             <div className={guideStyles.meter_fill} style={{ transform: `scaleX(${check.level})` }} />
@@ -154,15 +154,15 @@ export const VirtualMicGuideController = () => {
             </>}
 
             {/* One way out: "Done" once a cable is found, "Close" while there is none. */}
-            <div className={styles.actions}>
+            <DialogFooter>
                 {found
-                    ? <button type="button" disabled={running} onClick={finish}>{t("virtual_mic.done")}</button>
+                    ? <Button disabled={running} onClick={finish}>{t("virtual_mic.done")}</Button>
                     : <>
-                        <button type="button" onClick={finish}>{t("virtual_mic.close")}</button>
-                        <button type="button" className="primary" autoFocus onClick={openDownloadPage}>{t("virtual_mic.install.open_page")}</button>
+                        <Button onClick={finish}>{t("virtual_mic.close")}</Button>
+                        <Button tone="primary" autoFocus onClick={openDownloadPage}>{t("virtual_mic.install.open_page")}</Button>
                     </>}
-            </div>
-        </dialog>
+            </DialogFooter>
+        </Dialog>
     </div>;
 };
 

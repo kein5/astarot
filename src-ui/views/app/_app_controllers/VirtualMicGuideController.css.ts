@@ -42,7 +42,6 @@ export const meter_row = style({
     margin: ".4rem 0 .8rem",
 });
 
-globalStyle(`${meter_row} button`, { margin: 0 });
 
 // Drawn with a transform, not the meter element: WebView2 and WebKitGTK style <meter> apart.
 export const meter = style({

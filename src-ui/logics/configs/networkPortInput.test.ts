@@ -4,7 +4,7 @@ import i18next from "i18next";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { rvcBlockChoiceId, rvcBlockChoices } from "./rvcBlockChoices.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find, findIn, componentName, componentOf, unchecked } from "../test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, findIn, componentName, componentOf, nodesIn, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
@@ -223,23 +223,30 @@ test("a new connection key is made only after the question is answered", async (
     button.props.onclickFunction();
     assert.deepEqual(s.ipc, []);
     tree = s.runtime.render(s.tokenComponent);
-    const dialog = find(tree, node => node.type === "dialog");
+    // The kit's Dialog (D-23), named by its title alone, as before (D-43).
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
     assert.ok(dialog && s.dialogs.at(-1) === true);
-    const [cancel] = findIn(dialog, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(findIn(dialog, node => node.type === kitStandIns.DialogTitle).props.children, "config_page.advanced_settings.websocket_token.confirm_title");
+    // What stops working, under the title in the header.
+    assert.deepEqual(nodesIn(findIn(dialog, node => node.type === kitStandIns.DialogHeader)).filter(node => node.type === "p").map(node => node.props.children),
+        ["config_page.advanced_settings.websocket_token.confirm_body"]);
+    // Cancel, then making the key, both plain as before, in the kit's footer (D-24).
+    const footerButtons = (node: TreeNode) => nodesIn(findIn(node, child => child.type === kitStandIns.DialogFooter)).filter(child => child.type === kitStandIns.Button);
+    const [cancel, make] = footerButtons(dialog);
+    assert.deepEqual([cancel.props.children, cancel.props.tone, make.props.children, make.props.tone],
+        ["config_page.advanced_settings.websocket_token.confirm_cancel", undefined, "config_page.advanced_settings.websocket_token.confirm_ok", undefined]);
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
-    // Drawn in the app's dialog frame: the forms' container (border, padding, buttons) and the
-    // shared frame (width), as every dialog on that frame; with the frame alone it was bare.
+    // Inside the forms' container (the words) and the shared host, which takes no room of its own.
     assert.deepEqual(String(tree.props.children[1].props.className).split(" ").sort(), ["container", "host"]);
     cancel.props.onClick();
     assert.deepEqual(s.ipc, []);
     assert.equal(s.runtime.render(s.tokenComponent).props.children[1], false);
 
     s.runtime.render(s.tokenComponent).props.children[0].props.onclickFunction();
-    const again = find(s.runtime.render(s.tokenComponent), node => node.type === "dialog");
-    const buttons = findIn(again, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
-    await buttons[1].props.onClick();
+    const again = find(s.runtime.render(s.tokenComponent), node => node.type === kitStandIns.Dialog);
+    assert.ok(again);
+    await footerButtons(again)[1].props.onClick();
     assert.deepEqual(s.ipc, [["/run/regenerate_websocket_auth_token", undefined]]);
     assert.deepEqual(s.notices, ["config_page.advanced_settings.websocket_token.done"]);
 });
