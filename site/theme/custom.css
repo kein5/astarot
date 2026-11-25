@@ -547,11 +547,6 @@ body {
   width: clamp(132px, 23vw, 245px);
 }
 
-.rp-home-hero .rp-home-hero__image-img {
-  width: 100%;
-  height: auto;
-}
-
 .rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) .rp-home-hero__container {
   min-width: 0;
 }
