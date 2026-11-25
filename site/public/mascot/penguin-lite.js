@@ -512,7 +512,7 @@
       var dt = self.last == null ? 0 : Math.min(0.05, (now - self.last) / 1000);
       self.last = now;
       self.step(dt);
-      if (self.visible) self._tick();
+      if (self.running && self.visible) self._tick();
     });
   };
 
@@ -523,6 +523,7 @@
       if (this.jumpT >= JUMP.total) {
         this.jumpT = -1;
         if (this._exprBefore) { this.setExpression(this._exprBefore); this._exprBefore = null; }
+        this._emit('jumpend');
       }
     }
     // まばたき

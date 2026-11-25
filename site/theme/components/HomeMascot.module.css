@@ -1,14 +1,27 @@
 .stage {
   width: 100%;
+  margin: 0;
   text-align: center;
 }
 
 .picture {
+  composes: control from "./Control.module.css";
   position: relative;
+  display: block;
+  width: 100%;
   aspect-ratio: 7 / 10;
+  padding: 0;
+  border: 0;
+  border-radius: var(--a-radius-control);
+  background: transparent;
 }
 
-.picture img {
+.picture:enabled {
+  cursor: pointer;
+}
+
+.picture img,
+.animation svg {
   display: block;
   width: 100%;
   height: auto;
@@ -24,29 +37,9 @@
   pointer-events: none;
 }
 
-.animation svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.controls {
-  min-height: 36px;
-}
-
-.toggle {
-  composes: control from "./Control.module.css";
-  min-height: 36px;
-  padding: 4px 8px;
-  border: 1px solid var(--a-border);
-  border-radius: var(--a-radius-control);
-  color: var(--a-text);
-  background: var(--a-surface);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.toggle:hover {
-  border-color: var(--a-field-border);
-  background: var(--a-surface-hover);
+.caption {
+  margin-top: 4px;
+  color: var(--a-secondary-text);
+  font-size: 14px;
+  line-height: 1.5;
 }
