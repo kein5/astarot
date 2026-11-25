@@ -35,4 +35,4 @@ jobs:
         run: node node_modules/@playwright/test/cli.js install-deps webkit
       - run: cargo build --locked --offline --manifest-path native/browser-core-bridge/Cargo.toml
       - run: node node_modules/vite/bin/vite.js build --config tests/integration/vite.config.ts --logLevel warn
-      - run: node node_modules/@playwright/test/cli.js test --config tests/integration/playwright.config.ts --project webkit roprobe-1073.spec.ts --repeat-each 200 --reporter line
+      - run: node node_modules/@playwright/test/cli.js test roprobe-1073.spec.ts --config tests/integration/playwright.config.ts --project=webkit --repeat-each=200 --reporter=line
