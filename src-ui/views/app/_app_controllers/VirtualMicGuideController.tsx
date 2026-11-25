@@ -8,6 +8,7 @@ import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
 import { preferredCable } from "../../../logics/voice/virtualMic.ts";
+import { Select, SelectOption } from "../../kit/index.ts";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as noticeStyles from "./TelemetryNoticeController.css.ts";
@@ -111,10 +112,10 @@ export const VirtualMicGuideController = () => {
                     <h4 id="virtual-mic-found">{t("virtual_mic.found.heading")}</h4>
                     {cables.length > 1 && <label className={guideStyles.choice}>
                         <span>{t("virtual_mic.found.choose")}</span>
-                        <select value={cable.playback} disabled={running}
+                        <Select value={cable.playback} disabled={running}
                             onChange={event => { setChosen(event.target.value); resetCheck(); }}>
-                            {cables.map(item => <option key={item.playback} value={item.playback}>{item.playback_label}</option>)}
-                        </select>
+                            {cables.map(item => <SelectOption key={item.playback} value={item.playback}>{item.playback_label}</SelectOption>)}
+                        </Select>
                     </label>}
                     <dl className={dialogStyles.facts}>
                         <div className={dialogStyles.fact}>
