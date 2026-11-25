@@ -1,6 +1,7 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../theme/vars.css.ts";
-import { loader as loaderRule, toggleInteractiveParent } from "../../../../common_css/mixins.ts";
+import { loader as loaderRule } from "../../../../common_css/mixins.ts";
+import { focusRing } from "../../../../kit/shared.css.ts";
 
 // The states the switch's parts share (MainFunctionSwitch.tsx gives them to each part).
 export const is_active = style({});
@@ -21,8 +22,8 @@ export const container = style({
     padding: ".6rem 1rem",
 });
 
+// The row: the label of the kit's switch at its end (D-19), so a press anywhere on it presses the switch.
 export const switch_container = style([
-    toggleInteractiveParent,
     {
         position: "relative",
         display: "flex",
@@ -38,7 +39,8 @@ export const switch_container = style([
         selectors: {
             "&:hover": { backgroundColor: vars.dark_800_color },
             "&:active": { backgroundColor: vars.dark_875_color },
-            "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.3rem" },
+            // The kit's switch draws its own focus ring; in the icon rail, where it is hidden, the row draws it.
+            [`&.${is_compact_mode}:has([data-slot="switch"]:focus-visible)`]: { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.3rem" },
             // On is seen at a glance, also in the icon rail: a blue tint on the row and
             // a blue icon. The switch, and in the rail the bar on the right, still say it.
             [`&.${is_active}`]: { backgroundColor: vars.vox_highlight_tint },
@@ -124,7 +126,8 @@ export const settings_button = style({
     },
 });
 
-// Read by screen readers as the description of a disabled switch; shown as its tooltip.
+// Read by screen readers as the description of a disabled switch; shown as its tooltip. The icon
+// rail's switch too: focused and read, its row drawn in its place.
 export const visually_hidden = style({
     position: "absolute",
     width: ".1rem",
@@ -214,18 +217,17 @@ export const switch_indicator = style({
 
 export const loader = style(loaderRule({ size: "2rem", lineWidth: "0.2rem", position: "left", positionAmount: "50%" }));
 
-export const toggle_control = style({
-    vars: {
-        "--toggle_width": "3.6rem",
-        "--toggle_height": "1.4rem",
-    },
+// Where the kit's switch sits, at the row's end. Off and cannot be turned on, it is drawn as the kit
+// draws a switch that cannot be used (half as strong), its focus ring too; it still takes focus so
+// that its reason is heard, so the slot draws the kit's ring again around it at full strength. In
+// the icon rail the slot is visually hidden and the row shows the focus.
+export const switch_slot = style({
     display: "flex",
-    justifyContent: "end",
+    flex: "none",
     alignItems: "center",
+    borderRadius: "999rem",
     selectors: {
-        [`&.${is_compact_mode}`]: { display: "none" },
-        // Off and cannot be turned on: the switch fades with its row.
-        [`&.${is_unavailable}`]: { opacity: 0.5 },
+        '&:has(> [data-slot="switch"][data-disabled]:focus-visible)': focusRing,
     },
 });
 

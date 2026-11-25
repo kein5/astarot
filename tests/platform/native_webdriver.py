@@ -199,6 +199,8 @@ class NativeWebDriver:
         then stays where it was, and a user presses it again.
         """
         find = f"[...document.querySelectorAll('[role=switch]')].find(e => e.getAttribute('aria-label') === {json.dumps(label)})"
+        # A user presses the switch's row, its label (#1200): the icon rail hides the switch itself.
+        target = f"(({find}).closest('label') ?? {find})"
         want = "true" if on else "false"
         self.wait(f"const e = {find}; return !!e && !e.disabled && e.getAttribute('aria-disabled') !== 'true';")
         deadline = time.monotonic() + 20
@@ -207,7 +209,7 @@ class NativeWebDriver:
             if state[0] == want and state[1] != "true":
                 return
             if state[1] != "true":
-                self.element_command(self.evaluate(f"return {find}"), "click")
+                self.element_command(self.evaluate(f"return {target}"), "click")
             settle = time.monotonic() + 3
             while time.monotonic() < settle:
                 if self.evaluate(f"return {find}.getAttribute('aria-checked')") == want:
@@ -221,8 +223,12 @@ class NativeWebDriver:
         if not self.evaluate("return document.querySelector('[data-main-page][data-showing=config]') !== null"):
             self.open_settings()
         if not self.evaluate(f"return document.querySelector({json.dumps(selector)}) !== null"):
-            element = self.evaluate("return [...document.querySelectorAll('button[aria-label], [role=button]')].find(e => e.getAttribute('aria-label') === arguments[0] && e.getClientRects().length);", tab)
-            self.element_command(element, "click")
+            # The settings tab, not the main page's switch of the same name: since #1200 that switch
+            # is a <button> too, and behind the settings it cannot be pressed. Wait until the tab is drawn.
+            find = ("[...document.querySelectorAll('button[aria-label]:not([role=switch]), [role=button]')]"
+                    f".find(e => e.getAttribute('aria-label') === {json.dumps(tab)} && e.getClientRects().length)")
+            self.wait(f"return !!{find}")
+            self.element_command(self.evaluate(f"return {find}"), "click")
         self.wait(f"return document.querySelector({json.dumps(selector)}) !== null")
         self.open_fold_around(selector)
 

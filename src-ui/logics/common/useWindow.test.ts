@@ -29,6 +29,31 @@ for (const [physical, ratio, scaling, narrow] of [
     assert.deepEqual(updates, narrow ? [true] : []);
 });
 
+// #1200: the narrow layout arrives after an await. Drawn as an ordinary update, a flushSync in a
+// ResizeObserver callback (virtua's, where it measures the log) drew it, the rail turned to icons and
+// resized the log inside that callback, and WebKit reported a ResizeObserver loop. As a transition it waits.
+test("the narrow layout is drawn as a transition, so a flushSync elsewhere does not draw it", async context => {
+    const attributes = new Set<string>(), updates: unknown[] = [];
+    let inTransition = false;
+    stubGlobals(context, { devicePixelRatio: 1, document: { documentElement: {
+        hasAttribute: (name: string) => attributes.has(name),
+        toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); },
+    } } });
+    const runtime = hooks();
+    const { useWindow } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), runtime, {
+        react: { ...runtime.api, startTransition: (update: () => void) => { inTransition = true; update(); inTransition = false; } },
+        "@tauri-apps/api/window": {},
+        "@store": { store: { appWindow: { innerSize: async () => ({ width: 700 }) } },
+            useStore_IsBreakPoint: () => ({ updateIsBreakPoint: (value: unknown) => updates.push([value, inTransition]) }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
+    });
+    await useWindow().asyncUpdateBreakPoint();
+    assert.deepEqual(updates, [[true, true]]);
+    // Still narrow: the page already has the narrow layout, and nothing is drawn again.
+    await useWindow().asyncUpdateBreakPoint();
+    assert.deepEqual(updates, [[true, true]]);
+});
+
 // The window is placed before it is first shown (src-tauri/src/window_placement.rs). The UI
 // used to place it once the engine was ready, so it showed centred and then jumped.
 test("the window is placed before it shows, and the UI does not move it afterwards", async () => {

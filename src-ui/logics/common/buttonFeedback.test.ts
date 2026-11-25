@@ -13,7 +13,7 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
-import { find, findIn, held, isInitializer, isUpdater, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
+import { find, findIn, held, isInitializer, isUpdater, kitStandIns, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
 import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
 type Deps = readonly unknown[] | undefined;
@@ -99,6 +99,8 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
 
 const button = (tree: unknown) => findIn(tree, node => node.type === "button");
 const switchNode = (tree: unknown) => findIn(tree, node => node.props?.role === "switch");
+// The kit's switch in a tree, drawn by its stand-in: the element it stands for.
+const kitSwitch = (tree: unknown) => kitStandIns.Switch(findIn(tree, node => node.type === kitStandIns.Switch).props);
 type ActionButtonModule = typeof import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx");
 type ActionButtonProps = import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx").ActionButtonProps;
 const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx";
@@ -277,13 +279,14 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
         "../../../../../logics/configs/usagePresets.ts": usagePresetsModule,
-        "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
+        "../../../../kit/index.ts": kitStandIns,
     });
     let calls = 0;
     const props: Partial<ComponentProps<typeof SwitchContainer>> = { currentState: { data: false, state: "pending" }, SvgComponent: icon, toggleFunction: () => { calls++; } };
     const press = () => {
         // Test data: only the fields the switch reads in this test.
-        const control = switchNode(runtime.render(SwitchContainer, unchecked<ComponentProps<typeof SwitchContainer>>(props)));
+        // The row is the label of the kit's switch (D-19): the switch, as the kit's stand-in draws it.
+        const control = switchNode(kitSwitch(runtime.render(SwitchContainer, unchecked<ComponentProps<typeof SwitchContainer>>(props))));
         control.props.onClick();
         control.props.onKeyDown({ key: "Enter", preventDefault() {} });
         assert.equal(control.props["aria-checked"], false);
