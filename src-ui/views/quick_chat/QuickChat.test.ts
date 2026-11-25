@@ -121,6 +121,9 @@ test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshr
     assert.match(css, /export const field = style\(\{ flex: 1 \}\);/);
     assert.match(css, /:focus-visible:not\(\[data-slot\]\)`, \{ outline/);
     assert.doesNotMatch(css, /textarea/);
+    // Send is the kit's Button; the window keeps only its place in the row.
+    assert.match(css, /export const send = style\(\{ flexShrink: 0 \}\);/);
+    assert.doesNotMatch(css, /\$\{container\} button/);
     assert.match(css, /export const actions = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
     assert.match(css, /export const length_warning = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
     assert.doesNotMatch(css, /https?:|fontFace/);
@@ -186,6 +189,44 @@ test('main publishes saved appearance on initial configuration and later changes
     assert.equal(contexts.at(-1)?.font_family, 'Local font');
     assert.deepEqual(contexts.at(-1)?.theme, theme);
     runtime.unmount();
+});
+
+test("send is the kit's primary Button, which waits while the field is empty or a message is handed off", async t => {
+    const subject = await setup(t);
+    const send = () => findIn(subject.render(), node => node.type === kitStandIns.Button).props;
+    assert.deepEqual([send().tone, send().className, send().children, send().disabled], ['primary', 'send', 'quick_chat.send', true]);
+    subject.field().onChange({ target: { value: '   ' } });
+    assert.equal(send().disabled, true, 'only spaces');
+    subject.field().onChange({ target: { value: 'こんにちは' } });
+    assert.equal(send().disabled, false);
+    const before = subject.focusCount;
+    send().onClick();
+    assert.equal(subject.submissions.length, 1);
+    assert.equal(send().disabled, true, 'while the message is handed off');
+    subject.bridge.handoff.resolve(true); await flush();
+    // Sent and cleared: the field takes the focus back, and send waits for new words.
+    assert.equal(subject.field().value, '');
+    assert.equal(subject.focusCount, before + 1);
+    assert.equal(send().disabled, true);
+    subject.runtime.unmount(); await flush();
+});
+
+test('the line beside send says how Enter works, that a message is on its way, or why it was not sent', async t => {
+    const subject = await setup(t);
+    const line = () => {
+        const actions = findIn(subject.render(), node => node.props?.className === 'actions');
+        return findIn(actions, node => node.type === 'span').props;
+    };
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.hint']);
+    subject.setContext({ enter_to_send: false }); await subject.callbacks.context();
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.hint_enter_newline']);
+    subject.field().onChange({ target: { value: 'こんにちは' } });
+    findIn(subject.render(), node => node.type === kitStandIns.Button).props.onClick();
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.sending']);
+    // Not taken by the main window: the words stay, and the line says why, as an alert.
+    subject.bridge.handoff.resolve(false); await flush();
+    assert.deepEqual([line().role, line().children], ['alert', 'quick_chat.quick_chat_not_ready']);
+    subject.runtime.unmount(); await flush();
 });
 
 test('a message longer than the chatbox shows is described by the warning under the field', async t => {

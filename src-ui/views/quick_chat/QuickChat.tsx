@@ -5,7 +5,7 @@ import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
 import { applyThemeTokens, themeSetting, themeTokens } from '../../logics/theme/themes.ts';
 import * as styles from './QuickChat.css.ts';
-import { Textarea } from '../kit/index.ts';
+import { Button, Textarea } from '../kit/index.ts';
 
 // The bridge to the main window. A host without a resizable window leaves out growBy.
 export type QuickChatBridge = Omit<typeof quickChatBridge, 'growBy'> & Partial<Pick<typeof quickChatBridge, 'growBy'>>;
@@ -107,7 +107,7 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
         </p>}
         <div className={styles.actions}>
             <span role={error ? 'alert' : 'status'}>{error ? t(`quick_chat.${error}`) : pending ? t('quick_chat.sending') : t(context.enter_to_send ? 'quick_chat.hint' : 'quick_chat.hint_enter_newline')}</span>
-            <button type="button" disabled={pending || !value.trim()} onClick={submit}>{t('quick_chat.send')}</button>
+            <Button tone="primary" className={styles.send} disabled={pending || !value.trim()} onClick={submit}>{t('quick_chat.send')}</Button>
         </div>
     </main>;
 };

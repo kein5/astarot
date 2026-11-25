@@ -48,7 +48,6 @@ const mediumButtons = [
     [views + "app/others/startup/StartupFailedDialog.css.ts", "globalStyle(`$" + "{actions} button`, {"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const copy_error_message_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const status_link_button = style({"],
-    [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button`, {"],
 ];
 
 test("buttons set their words in medium weight, as shadcn/ui's Button does", () => {
@@ -70,7 +69,6 @@ const halfDisabled = [
     [box + "updater/Updater.css.ts", "export const refresh_button = style({", '"&:disabled": {'],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button:disabled`, {"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({", '"&:disabled": {'],
-    [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button:disabled`, {"],
 ];
 
 test("a button or form control that cannot be used is half as strong, as in shadcn/ui", () => {
