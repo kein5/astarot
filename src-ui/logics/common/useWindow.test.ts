@@ -54,6 +54,73 @@ test("the narrow layout is drawn as a transition, so a flushSync elsewhere does 
     assert.deepEqual(updates, [[true, true]]);
 });
 
+const narrowRoot = (attributes: Set<string>) => ({ documentElement: {
+    hasAttribute: (name: string) => attributes.has(name),
+    toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); },
+} });
+
+// The saved UI size arrives with the render that mounts the settings page. Decided only after the
+// window answered (about 0.3 s later), the narrow layout came at that page's first layout, and
+// WebKitGTK sometimes stopped laying the page out: the settings menu stayed outside the window. The
+// width measured before decides at once; the window's answer still has the last word.
+test("a new UI size takes the narrow layout at once from the width last measured, then the window's answer decides", async context => {
+    const attributes = new Set<string>(), updates: unknown[] = [];
+    stubGlobals(context, { devicePixelRatio: 1.5, document: narrowRoot(attributes) });
+    const answers: ((size: { width: number }) => void)[] = [];
+    const appearance = { currentUiScaling: { data: 100 } };
+    const { useWindow } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), hooks(), {
+        "@tauri-apps/api/window": {},
+        "@store": { store: { appWindow: { innerSize: () => new Promise(resolve => answers.push(resolve)) } },
+            useStore_IsBreakPoint: () => ({ updateIsBreakPoint: (value: unknown) => updates.push(value) }) },
+        "@logics_configs": { useAppearance: () => appearance },
+    });
+    // Nothing measured yet: the layout waits for the window's size.
+    const first = useWindow().asyncUpdateBreakPoint();
+    answers[0]({ width: 1305 }); // 870 CSS pixels
+    await first;
+    assert.equal(attributes.has("data-narrow"), false, "870px at UI 100% is wide");
+    appearance.currentUiScaling = { data: 150 };
+    const second = useWindow().asyncUpdateBreakPoint();
+    assert.equal(attributes.has("data-narrow"), true, "870px at UI 150% is narrow before the window answers");
+    assert.deepEqual(updates, [true]);
+    answers[1]({ width: 1305 });
+    await second;
+    assert.deepEqual(updates, [true], "the same answer changes nothing");
+    // The window made wider meanwhile: its answer decides.
+    const third = useWindow().asyncUpdateBreakPoint();
+    assert.equal(attributes.has("data-narrow"), true);
+    answers[2]({ width: 1950 }); // 1300 CSS pixels
+    await third;
+    assert.equal(attributes.has("data-narrow"), false);
+    assert.deepEqual(updates, [true, false]);
+});
+
+// As the UI size itself (UiSizeController), the layout it brings is decided before the browser
+// paints: in the render's layout effects, not after it.
+test("the controller decides the narrow layout for a new UI size before the browser paints", async context => {
+    const attributes = new Set<string>(), updates: unknown[] = [];
+    stubGlobals(context, { devicePixelRatio: 1, document: narrowRoot(attributes) });
+    const runtime = hooks(), appearance = { currentUiScaling: { data: 100 } };
+    let answer: (size: { width: number }) => void = () => {};
+    const appWindow = { innerSize: () => new Promise<{ width: number }>(resolve => { answer = resolve; }) };
+    const { WindowGeometryController } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), runtime, {
+        // Only what runs before the browser paints: the passive effects (useEffect) never run here.
+        react: { ...runtime.api, useEffect: () => {}, startTransition: (update: () => void) => update() },
+        "@tauri-apps/api/window": {},
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
+        "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: (value: unknown) => updates.push(value) }) },
+        "@logics_configs": { useAppearance: () => appearance },
+    });
+    runtime.render(WindowGeometryController);
+    answer({ width: 870 });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(attributes.has("data-narrow"), false);
+    appearance.currentUiScaling = { data: 150 };
+    runtime.render(WindowGeometryController);
+    assert.equal(attributes.has("data-narrow"), true);
+    assert.deepEqual(updates, [true]);
+});
+
 // The window is placed before it is first shown (src-tauri/src/window_placement.rs). The UI
 // used to place it once the engine was ready, so it showed centred and then jumped.
 test("the window is placed before it shows, and the UI does not move it afterwards", async () => {

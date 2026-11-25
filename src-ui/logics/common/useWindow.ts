@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef } from "react";
+import { startTransition, useEffect, useLayoutEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -11,6 +11,8 @@ import { store } from "@store";
 // window ends the app, and the shell plugin then kills the backend.
 const SHUTDOWN_WAIT_MS = 2000;
 let closing: Promise<void> | null = null;
+// The main window's width in CSS pixels, as innerSize last answered (asyncUpdateBreakPoint).
+let measuredWidth: number | undefined;
 let releaseCloseRequest: (() => void) | null = null;
 
 // The main window, which its entry point (views/app/index.tsx) sets before anything here runs.
@@ -88,24 +90,34 @@ export const useWindow = () => {
     // The saved geometry is applied before the window is first shown
     // (src-tauri/src/window_placement.rs), not here.
 
-    const asyncUpdateBreakPoint = async () => {
-        const size = await mainWindow(appWindow).innerSize();
-        // innerSize is in physical pixels; the breakpoint, like the CSS
-        // (max-width: 800px) queries, is in CSS pixels. At 150% display
-        // scaling an 800px-wide window is 1200 physical pixels.
-        const width = size.width / (globalThis.devicePixelRatio || 1);
+    const applyBreakPoint = (width: number) => {
         const dynamicBreakPoint = 800 * (currentUiScaling.data / 100);
         const narrow = width <= dynamicBreakPoint;
         // Every update re-renders whatever reads IsBreakPoint, so only send changes.
         if (document.documentElement.hasAttribute("data-narrow") === narrow) return;
-        // Drawn as a transition: the window's size arrives after an await, and a flushSync (virtua's,
-        // in the ResizeObserver callback where it measures the log) would draw a waiting update with
-        // it. The rail turning to icons then resized the log inside that callback, and WebKit reported
+        // Drawn as a transition: a flushSync elsewhere (virtua's, in the ResizeObserver callback where
+        // it measures the log) would draw a waiting update with it. The rail turning to icons then
+        // resized the log inside that callback, and WebKit reported
         // "ResizeObserver loop completed with undelivered notifications" (#1200, as MessageContainer).
         startTransition(() => updateIsBreakPoint(narrow));
         // CSS width queries miss the UI size: at 200% an 870px window lays
         // out like a 435px one. Narrow styles also key on this attribute.
         document.documentElement.toggleAttribute("data-narrow", narrow);
+    };
+
+    const asyncUpdateBreakPoint = async () => {
+        // Decided at once from the width last measured, then again from the window's size. A new UI
+        // size (the saved one, at the start) then changes the layout in the render that brought it,
+        // before the settings page that render mounts is laid out. Decided only after the window
+        // answered, the change came about 0.3 s later, at that page's first layout; WebKitGTK 2.52
+        // then sometimes stopped laying the page out, and the settings menu stayed outside the window.
+        if (measuredWidth !== undefined) applyBreakPoint(measuredWidth);
+        const size = await mainWindow(appWindow).innerSize();
+        // innerSize is in physical pixels; the breakpoint, like the CSS
+        // (max-width: 800px) queries, is in CSS pixels. At 150% display
+        // scaling an 800px-wide window is 1200 physical pixels.
+        measuredWidth = size.width / (globalThis.devicePixelRatio || 1);
+        applyBreakPoint(measuredWidth);
     };
 
     const asyncToggleMaximizeApp = async () => {
@@ -156,7 +168,8 @@ export const WindowGeometryController = ({ saveGeometry = true }: { saveGeometry
 
     // Also decide at startup and once the saved UI size arrives: a window that opens
     // narrow (or at a large UI size) never fires a resize event, so it kept the wide layout.
-    useEffect(() => {
+    // Before the browser paints, as the UI size itself is applied (UiSizeController).
+    useLayoutEffect(() => {
         asyncUpdateBreakPoint();
     }, [currentUiScaling.data]);
 
