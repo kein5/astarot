@@ -1,6 +1,7 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../../../theme/vars.css.ts";
 import { loader as spinner } from "../../../../../../common_css/mixins.ts";
+import { focusRing } from "../../../../../../kit/shared.css.ts";
 
 export const dense = style({});
 
@@ -25,6 +26,16 @@ export const target = style({
         [`&.${dense}`]: { padding: ".8rem 0 .8rem .8rem" },
         "&[data-pending]": { cursor: "wait" },
         "&[data-unavailable]": { cursor: "not-allowed" },
+    },
+});
+
+// Around the kit's switch. A switch that cannot be used is drawn half as strong, its focus ring too;
+// it still takes focus here, so the ring is drawn again around it at full strength, the kit's ring.
+export const slot = style({
+    display: "inline-flex",
+    borderRadius: "999rem",
+    selectors: {
+        '&:has(> [data-slot="switch"][data-disabled]:focus-visible)': focusRing,
     },
 });
 

@@ -26,7 +26,8 @@ export interface SettingSwitchProps {
 // the name beside it, for a switch inside a row of other controls (a device's "Auto select"). Its
 // label around it is the target a press lands on, as large as the checkbox's was, so the row keeps
 // its height. While its change waits for the core, or while it cannot be used, it stays in place
-// and in the tab order (aria-busy, aria-disabled) and ignores presses and keys, so focus is kept.
+// and in the tab order (aria-busy, aria-disabled) and ignores presses and keys, so focus is kept;
+// its focus ring is then drawn at full strength around it, as the box's was (slot).
 export const SettingSwitch = ({
     label,
     variable,
@@ -44,26 +45,28 @@ export const SettingSwitch = ({
         <div className={styles.container}>
             <label htmlFor={id} className={clsx(styles.target, { [styles.dense]: dense })}
                 data-pending={pending || undefined} data-unavailable={!is_available || undefined}>
-                <Switch
-                    id={id}
-                    checked={variable.data === true}
-                    aria-label={show_label ? undefined : label}
-                    aria-describedby={describedBy}
-                    aria-busy={pending}
-                    aria-disabled={unavailable}
-                    // Drawn as the kit draws a switch that cannot be used, without leaving the tab order.
-                    data-disabled={is_available ? undefined : ""}
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        if (unavailable) event.preventDefault();
-                    }}
-                    onKeyDown={(event) => {
-                        if (unavailable && (event.key === " " || event.key === "Enter")) event.preventDefault();
-                    }}
-                    onCheckedChange={() => {
-                        if (!unavailable && toggleFunction) toggleFunction();
-                    }}
-                />
+                <span className={styles.slot}>
+                    <Switch
+                        id={id}
+                        checked={variable.data === true}
+                        aria-label={show_label ? undefined : label}
+                        aria-describedby={describedBy}
+                        aria-busy={pending}
+                        aria-disabled={unavailable}
+                        // Drawn as the kit draws a switch that cannot be used, without leaving the tab order.
+                        data-disabled={is_available ? undefined : ""}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (unavailable) event.preventDefault();
+                        }}
+                        onKeyDown={(event) => {
+                            if (unavailable && (event.key === " " || event.key === "Enter")) event.preventDefault();
+                        }}
+                        onCheckedChange={() => {
+                            if (!unavailable && toggleFunction) toggleFunction();
+                        }}
+                    />
+                </span>
                 {pending && <span className={styles.loader} aria-hidden="true"></span>}
                 {show_label && <span className={styles.text}>{label}</span>}
             </label>

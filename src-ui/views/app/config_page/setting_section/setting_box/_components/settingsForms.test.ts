@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { styleOf } from "../../../../../../logics/test/styleSource.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
@@ -110,10 +112,11 @@ test("a setting's switch stays mounted and focused through pending, including re
         assert.equal(control.props["aria-busy"], state === "pending");
         assert.equal(control.props["aria-disabled"], state === "pending");
         assert.equal(control.props["data-disabled"], undefined, "drawn as usable while it waits");
-        // The switch stays the first child of its label, which is the target around it.
+        // The switch stays in the first child of its label, which is the target around it.
         const label = findIn(tree, node => node.type === "label");
         assert.equal(label.props.htmlFor, control.props.id);
-        assert.equal(label.props.children[0].props, control.props);
+        assert.equal(label.props.children[0].props.className, "slot");
+        assert.equal(label.props.children[0].props.children.props, control.props);
         assert.equal(label.props["data-pending"], state === "pending" || undefined);
         assert.equal(label.props["data-unavailable"], undefined);
         assert.equal(document.activeElement, focused);
@@ -168,6 +171,14 @@ test("a setting's switch keeps the confirmed value while it waits, and a switch 
     assert.equal(findIn(runtime.render(SettingSwitch, { ...props, dense: true }), node => node.type === "label").props.className, "target dense");
     // Without a toggle it does nothing.
     switchIn(runtime.render(SettingSwitch, { label: "Detector", variable: { state: "ok", data: false } })).props.onCheckedChange(true);
+});
+
+test("a switch that cannot be used still shows its keyboard focus at full strength, as the box did", () => {
+    // The kit draws it half as strong, its ring too; the slot around it draws the kit's ring again.
+    const css = readFileSync(new URL("./setting_switch/SettingSwitch.css.ts", import.meta.url), "utf8");
+    assert.match(css, /import \{ focusRing \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/kit\/shared\.css\.ts";/);
+    assert.match(styleOf(css, "slot"), /'&:has\(> \[data-slot="switch"\]\[data-disabled\]:focus-visible\)': focusRing,/);
+    assert.match(styleOf(css, "slot"), /borderRadius: "999rem",/);
 });
 
 for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OCR detector not installed"]) {
