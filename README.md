@@ -58,7 +58,7 @@ The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/re
 
 What has been checked for the current version, per package and feature, and what CI covers versus a real PC, is on **[Platform support](https://kein5.github.io/astarot/en/guide/support)**.
 
-Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
+`SHA256SUMS-*` lists the SHA-256 of every download (Windows ZIP packages also carry an individual `.sha256` for the installer); these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
 
 Known limitations:
 - Chat reading (OCR) needs its models, which are not shipped: download them in Settings → Chat reading (OCR) → Recognition models after agreeing to their terms. On Linux it reads the VRChat window through XWayland. A native Wayland window (VRChat inside gamescope, for example) is read after you share it: Settings → Chat reading (OCR) → "Share a window…" opens your desktop's own window dialog.

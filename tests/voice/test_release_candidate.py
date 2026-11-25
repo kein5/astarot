@@ -30,11 +30,12 @@ def candidate(tmp_path):
 
 def test_stage_alias_and_verify(candidate):
     result = verify(candidate, "windows", SHA, VERSION)
-    assert "ASTAROT_setup.exe" in {entry["name"] for entry in result["assets"]}
-    for entry in result["assets"]:
-        assert (candidate / (entry["name"] + ".sha256")).read_bytes() == entry[
-            "sha256"
-        ].encode("ascii")
+    by_name = {entry["name"]: entry for entry in result["assets"]}
+    assert "ASTAROT_setup.exe" in by_name
+    assert (candidate / "ASTAROT.zip.sha256").read_bytes() == by_name["ASTAROT.zip"][
+        "sha256"
+    ].encode("ascii")
+    assert not (candidate / "ASTAROT_setup.exe.sha256").exists()
 
 
 def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch):
@@ -57,11 +58,11 @@ def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch)
 
     monkeypatch.setattr(subprocess, "run", download)
     payload = prepare(tmp_path / "draft", {"windows": "123"}, SHA, VERSION, "develop")
-    for name in ("ASTAROT.zip", "ASTAROT_setup.exe"):
-        assert (payload / (name + ".sha256")).read_bytes() == (
-            candidate / (name + ".sha256")
-        ).read_bytes()
-        assert len((payload / (name + ".sha256")).read_bytes()) == 64
+    assert (payload / "ASTAROT.zip.sha256").read_bytes() == (
+        candidate / "ASTAROT.zip.sha256"
+    ).read_bytes()
+    assert len((payload / "ASTAROT.zip.sha256").read_bytes()) == 64
+    assert not (payload / "ASTAROT_setup.exe.sha256").exists()
 
 
 def _draft(candidate, tmp_path, monkeypatch, attestation):
@@ -247,9 +248,12 @@ def _linux_assets(tmp_path, suffixes, version=VERSION):
 def test_linux_candidate_carries_archive_appimage_deb_and_rpm(tmp_path):
     assets = _linux_assets(tmp_path, ("release.tar.gz", "release.AppImage",
                                       "release.deb", "release.rpm"))
-    stage(tmp_path / "out", assets, "linux", SHA, VERSION)
-    names = {entry["name"] for entry in verify(tmp_path / "out", "linux", SHA, VERSION)["assets"]}
+    out = tmp_path / "out"
+    stage(out, assets, "linux", SHA, VERSION)
+    names = {entry["name"] for entry in verify(out, "linux", SHA, VERSION)["assets"]}
     assert {name.rsplit(".", 1)[-1] for name in names} == {"gz", "AppImage", "deb", "rpm"}
+    assert not list(out.glob("*.sha256"))
+    assert [line.split("  ")[1] for line in (out / "SHA256SUMS").read_text().splitlines()] == sorted(names)
 
 
 def test_linux_candidate_without_its_packages_is_refused(tmp_path):
@@ -351,7 +355,9 @@ def test_a_release_before_0_8_carries_copies_under_the_names_up_to_0_6(tmp_path)
     assert names == {"ASTAROT.zip", "ASTAROT_setup.exe", "VRCT-VOX.zip", "VRCT-VOX_setup.exe"}
     for copy, name in (("VRCT-VOX.zip", "ASTAROT.zip"), ("VRCT-VOX_setup.exe", "ASTAROT_setup.exe")):
         assert (out / copy).read_bytes() == (out / name).read_bytes()
-        assert (out / (copy + ".sha256")).read_bytes() == (out / (name + ".sha256")).read_bytes()
+    assert (out / "VRCT-VOX.zip.sha256").read_bytes() == (out / "ASTAROT.zip.sha256").read_bytes()
+    assert not (out / "ASTAROT_setup.exe.sha256").exists()
+    assert not (out / "VRCT-VOX_setup.exe.sha256").exists()
     sums = (out / "SHA256SUMS").read_text().splitlines()
     assert [line.split("  ")[1] for line in sums] == sorted(names)
     assert {entry["name"] for entry in verify(out, "windows", SHA, COPY_VERSION)["assets"]} == names
@@ -365,6 +371,7 @@ def test_the_linux_files_have_their_copies_too(tmp_path):
     names = {entry["name"] for entry in verify(out, "linux", SHA, COPY_VERSION)["assets"]}
     assert names == {f"{prefix}-{COPY_VERSION}-linux-x64-release{suffix}" for prefix in ("ASTAROT", "VRCT-VOX")
                      for suffix in (".tar.gz", ".AppImage", ".deb", ".rpm")}
+    assert not list(out.glob("*.sha256"))
 
 
 def test_a_copy_that_differs_from_its_file_is_refused(tmp_path):

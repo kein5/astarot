@@ -54,7 +54,7 @@ The Windows ZIP holds `astarot.exe` and `_internal/` (up to 0.6.x the executable
 
 Windows has one package. Up to 0.5, a CUDA package (`VRCT-VOX_cuda.zip`) was built as well. Up to 0.4 it bundled the CUDA libraries for the Python backend, and from 0.5.0 its contents were the same as the standard package. #288 dropped the CUDA package. The installer accepts the GPU choice (`/EDITION=gpu`) that apps up to 0.5 pass when they update, and downloads the single ZIP ([one package for Windows](voice-stack/single-package.md)).
 
-From 0.7.0 the package names start with `ASTAROT` (section 2.10 of ADR-014). When the packages go on a release, copies under their names up to 0.6.x (`VRCT-VOX.zip`, `VRCT-VOX_setup.exe`, `VRCT-VOX-<version>-linux-x64-release.*`) go on it as well as `ASTAROT.zip`, `ASTAROT_setup.exe` and `ASTAROT-<version>-linux-x64-release.*`. The contents are the same, and the copies also get `.sha256` files and lines in `SHA256SUMS`. This keeps outside links such as `releases/latest/download/VRCT-VOX_setup.exe` working. The copies are made when the candidates are built (`tools/release_candidate.py`), and they go on releases during 0.7.x (`LEGACY_COPIES_UNTIL`). `latest.json` points only to the new names.
+From 0.7.0 the package names start with `ASTAROT` (section 2.10 of ADR-014). When the packages go on a release, copies under their names up to 0.6.x (`VRCT-VOX.zip`, `VRCT-VOX_setup.exe`, `VRCT-VOX-<version>-linux-x64-release.*`) go on it as well as `ASTAROT.zip`, `ASTAROT_setup.exe` and `ASTAROT-<version>-linux-x64-release.*`. The contents are the same, and the copies also get lines in `SHA256SUMS` (plus a `.sha256` file for `VRCT-VOX.zip`). This keeps outside links such as `releases/latest/download/VRCT-VOX_setup.exe` working. The copies are made when the candidates are built (`tools/release_candidate.py`), and they go on releases during 0.7.x (`LEGACY_COPIES_UNTIL`). `latest.json` points only to the new names.
 
 `_internal/` contains the following (`tools/app_resources.py`).
 
@@ -222,7 +222,7 @@ WindowsのZIPには`astarot.exe`と`_internal/`を収めます（0.6.xまでの�
 
 Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）も作っていました。0.4まではPythonバックエンドのためにCUDAのライブラリを同梱していて、0.5.0からは標準版と同じ中身でした。#288でCUDA版をやめました。インストーラーは、0.5までのアプリが更新のときに渡すGPUの選択（`/EDITION=gpu`）を受け付け、1つのZIPを取ります（[Windowsの配布物の一本化](voice-stack/single-package.md)）。
 
-0.7.0から配布物の名前は`ASTAROT`で始まります（ADR-014の2.10）。リリースに載せるときは、`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.*`に加えて、それぞれの0.6.xまでの名前（`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`）の写しも載せます。中身は同じで、`.sha256`と`SHA256SUMS`の行も付けます。`releases/latest/download/VRCT-VOX_setup.exe`のような外のリンクを生かすためです。写しを作るのは候補の作成（`tools/release_candidate.py`）で、載せるのは0.7.xの間です（`LEGACY_COPIES_UNTIL`）。`latest.json`は新しい名前だけを指します。
+0.7.0から配布物の名前は`ASTAROT`で始まります（ADR-014の2.10）。リリースに載せるときは、`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.*`に加えて、それぞれの0.6.xまでの名前（`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`）の写しも載せます。中身は同じで、`SHA256SUMS`の行も付けます（`VRCT-VOX.zip`には個別の`.sha256`も付けます）。`releases/latest/download/VRCT-VOX_setup.exe`のような外のリンクを生かすためです。写しを作るのは候補の作成（`tools/release_candidate.py`）で、載せるのは0.7.xの間です（`LEGACY_COPIES_UNTIL`）。`latest.json`は新しい名前だけを指します。
 
 `_internal/`の中身は次のとおりです（`tools/app_resources.py`）。
 

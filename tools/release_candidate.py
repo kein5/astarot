@@ -31,10 +31,20 @@ WINDOWS_PACKAGE = f"{PREFIX}.zip"
 WINDOWS_INSTALLER = f"{PREFIX}_setup.exe"
 LINUX_FORMATS = (".tar.gz", ".AppImage", ".deb", ".rpm")
 # Releases before this version also carry each file under its name up to 0.6.x: the same bytes,
-# with its .sha256 and its line in SHA256SUMS, so that links such as
+# with its line in SHA256SUMS (and .sha256 for Windows ZIPs), so that links such as
 # releases/latest/download/VRCT-VOX_setup.exe keep working. latest.json names only the new
 # files (tools/updater_manifest.py). This is the one place that decides how long.
 LEGACY_COPIES_UNTIL = (0, 8, 0)
+
+
+def needs_sidecar(platform, name):
+    """Whether a release asset carries an individual .sha256 sidecar file.
+
+    Only Windows ZIP packages carry one: the NSIS installer downloads <zip>.sha256
+    when /VERSION installs another version (or in a build without PACKAGE_SHA256).
+    Every release file on both platforms is listed in SHA256SUMS.
+    """
+    return platform == "windows" and name.endswith(".zip")
 
 
 def linux_stem(version):
@@ -126,15 +136,19 @@ def stage(output, assets, platform, commit, version):
         entries.append(
             dict(name=name, size=destination.stat().st_size, sha256=digest(destination))
         )
-        # NSIS reads exactly 64 ASCII bytes, without a trailing newline.
-        (output / (name + ".sha256")).write_text(
-            entries[-1]["sha256"], encoding="ascii"
-        )
+        if needs_sidecar(platform, name):
+            # NSIS reads exactly 64 ASCII bytes, without a trailing newline.
+            (output / (name + ".sha256")).write_text(
+                entries[-1]["sha256"], encoding="ascii"
+            )
     sources = {entry["name"]: entry for entry in entries}
     for copy, name in legacy_copies(platform, version).items():
         _copy(output / name, output / copy)
         entries.append(dict(sources[name], name=copy))
-        (output / (copy + ".sha256")).write_text(sources[name]["sha256"], encoding="ascii")
+        if needs_sidecar(platform, copy):
+            (output / (copy + ".sha256")).write_text(
+                sources[name]["sha256"], encoding="ascii"
+            )
     entries.sort(key=lambda entry: entry["name"])
     manifest = dict(
         schema=1,
@@ -180,7 +194,7 @@ def verify(directory, platform, commit, version):
         if by_name[copy]["sha256"] != by_name[name]["sha256"] or by_name[copy]["size"] != by_name[name]["size"]:
             raise ValueError(f"A copy under the name up to 0.6.x differs from its file: {copy}")
     if {path.name for path in directory.iterdir()} != set(filenames) | {
-        name + ".sha256" for name in filenames
+        name + ".sha256" for name in filenames if needs_sidecar(platform, name)
     } | {
         "candidate-manifest.json",
         "SHA256SUMS",
@@ -196,11 +210,12 @@ def verify(directory, platform, commit, version):
             or digest(path) != entry["sha256"]
         ):
             raise ValueError(f"Candidate checksum mismatch: {entry['name']}")
-        checksum = directory / (entry["name"] + ".sha256")
-        if checksum.is_symlink() or checksum.read_bytes() != entry["sha256"].encode(
-            "ascii"
-        ):
-            raise ValueError(f"Installer checksum sidecar mismatch: {entry['name']}")
+        if needs_sidecar(platform, entry["name"]):
+            checksum = directory / (entry["name"] + ".sha256")
+            if checksum.is_symlink() or checksum.read_bytes() != entry["sha256"].encode(
+                "ascii"
+            ):
+                raise ValueError(f"Installer checksum sidecar mismatch: {entry['name']}")
     expected_sums = "".join(
         f"{entry['sha256']}  {entry['name']}\n" for entry in entries
     )

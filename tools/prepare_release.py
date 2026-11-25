@@ -10,7 +10,7 @@ import subprocess
 import sys
 from urllib.parse import quote
 
-from tools.release_candidate import REPOSITORY, ROOT, verify
+from tools.release_candidate import REPOSITORY, ROOT, needs_sidecar, verify
 
 WORKFLOWS = {"linux": "build-linux.yml", "windows": "release.yml"}
 # main publishes stable releases; develop publishes betas (GitHub prereleases).
@@ -119,10 +119,11 @@ def prepare(output, run_ids, commit, version, branch):
             if destination.exists():
                 raise ValueError("Overlapping candidate names")
             shutil.copyfile(directory / entry["name"], destination)
-            shutil.copyfile(
-                directory / (entry["name"] + ".sha256"),
-                payload / (entry["name"] + ".sha256"),
-            )
+            if needs_sidecar(platform, entry["name"]):
+                shutil.copyfile(
+                    directory / (entry["name"] + ".sha256"),
+                    payload / (entry["name"] + ".sha256"),
+                )
         shutil.copyfile(
             directory / "candidate-manifest.json",
             payload / f"candidate-{platform}.json",
