@@ -122,6 +122,60 @@ def install_launchers(appdir):
     opener.chmod(0o755)
 
 
+# Libraries that linuxdeploy's exclusion list leaves to the host, kept in the image only so that
+# the GUI starts on a system without them (#1205). The host's copy is used whenever there is one:
+# libpipewire loads the host's PipeWire modules and must match them. AppRun adds a library's own
+# folder, usr/lib/fallback/<name>, to the GUI's library path only when the host has no copy.
+FALLBACK_LIBRARIES = ('libpipewire-0.3.so.0',)
+FALLBACK_DIR = 'usr/lib/fallback'
+# What a fallback library may need in turn: the C library and the compiler's runtime, which an
+# AppImage always takes from the host.
+BASE_LIBRARIES = frozenset({'libc.so.6', 'libm.so.6', 'libgcc_s.so.1', 'ld-linux-x86-64.so.2',
+                            'libdl.so.2', 'libpthread.so.0', 'librt.so.1'})
+
+
+def linked_library(binary, name):
+    """The file the build host's loader gives `binary` for `name` (ldd)."""
+    listing = subprocess.run(['ldd', str(binary)], capture_output=True, text=True, check=True,
+                             timeout=60).stdout
+    for line in listing.splitlines():
+        soname, arrow, rest = line.strip().partition(' => ')
+        if soname == name and arrow:
+            path = rest.rsplit(' (', 1)[0].strip()
+            if path and path != 'not found':
+                return Path(path)
+    raise ValueError(f'{binary} does not resolve {name} on the build host')
+
+
+def needed_libraries(library):
+    """The DT_NEEDED names of an ELF file (readelf -d)."""
+    dynamic = subprocess.run(['readelf', '-d', str(library)], capture_output=True, text=True,
+                             check=True, timeout=60).stdout
+    return [line.split('[', 1)[1].split(']', 1)[0] for line in dynamic.splitlines() if '(NEEDED)' in line]
+
+
+def install_fallback_libraries(appdir, gui):
+    """Copies each fallback library the GUI links on the build host into its own folder."""
+    for name in FALLBACK_LIBRARIES:
+        source = linked_library(gui, name).resolve()
+        extra = sorted(set(needed_libraries(source)) - BASE_LIBRARIES)
+        if extra:
+            raise ValueError(f'{name} needs more than the base system: {", ".join(extra)}')
+        target = Path(appdir) / FALLBACK_DIR / name
+        target.mkdir(parents=True)
+        shutil.copyfile(source, target / name)
+
+
+def check_fallback_libraries(appdir):
+    appdir = Path(appdir)
+    for name in FALLBACK_LIBRARIES:
+        if not (appdir / FALLBACK_DIR / name / name).is_file():
+            raise ValueError(f'missing fallback library: {name}')
+        # On the GUI's library path (RUNPATH $ORIGIN/../lib) it would hide the host's copy.
+        if os.path.lexists(appdir / 'usr/lib' / name):
+            raise ValueError(f'{name} is in usr/lib, where it hides the host copy')
+
+
 def check_appdir(appdir):
     appdir = Path(appdir)
     check_tree(appdir, allow_directory_links=True)
@@ -132,6 +186,7 @@ def check_appdir(appdir):
     for name in RUNTIME:
         if name != 'astarot' and not (appdir / 'usr/lib/astarot' / name).is_file():
             raise ValueError(f'missing AppDir runtime file: {name}')
+    check_fallback_libraries(appdir)
     verify_bundle(appdir / 'usr/lib/astarot/_internal/build/speechcpp')
 
 
@@ -195,6 +250,8 @@ def main():
                PATH=str(args.tools_dir.resolve()) + os.pathsep + os.environ['PATH'])
     run([tools['linuxdeploy-x86_64.AppImage'], '--appdir', appdir, '--executable', gui,
          '--desktop-file', desktop, '--icon-file', icon, '--plugin', 'gtk'], env=env)
+    # After linuxdeploy, which would otherwise rewrite it; never in usr/lib (check_appdir).
+    install_fallback_libraries(appdir, candidate / 'astarot')
     # Nothing that rewrites ELF bytes may run over the pinned engine and the helpers in _internal.
     install_payload(candidate, appdir)
     install_launchers(appdir)
@@ -220,7 +277,8 @@ def main():
     destination.with_name(name + '.sha256').write_text(f'{digest}  {name}\n', encoding='utf-8')
     report = {'schema': 1, 'sha256': digest, 'bytes': destination.stat().st_size,
               'source_candidate': source, 'tools': json.loads(MANIFEST.read_text(encoding='utf-8')), 'files': after,
-              'limits': ['Host glibc/kernel/GPU drivers/PipeWire remain requirements.',
+              'limits': ['Host glibc/kernel/GPU drivers remain requirements; audio needs the host PipeWire '
+                         '(the bundled libpipewire is used only where the host has none, so that the app starts).',
                          'Not a final dependency license/SBOM/security clearance.']}
     destination.with_name(name + '.manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f'Unpublished inspected AppImage: {destination.resolve()}')

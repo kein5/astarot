@@ -696,6 +696,14 @@ Development dependencies were added for the component catalog of the UI kit (Sto
 - They add 147 indirect dependencies to `package-lock.json`. 137 of them are MIT. The others are Apache-2.0 (`aria-query`, `doctrine`), BSD-2-Clause (`esprima`, `esutils`), BSD-3-Clause (`source-map` 0.6.1) and BlueOak-1.0.0 (`glob`, `minimatch`, `minipass`, `path-scurry`, `lru-cache`).
 - osv-scanner reports two moderate advisories on the indirect `glob` 13.0.7 and `minimatch` 10.2.6. They are listed in `osv-scanner.toml` with the reason and the day to look at them again.
 
+## libpipewire in the AppImage (2026-11-25, #1205)
+
+The AppImage now carries `libpipewire-0.3.so.0`, the PipeWire client library, so that it starts on a system without PipeWire. The launcher uses this copy only when the host has no libpipewire of its own ([AppImage notes](appimage.md#run)). No other package format changes.
+
+- Which file: the one the GUI links on the build host, in `usr/lib/fallback/libpipewire-0.3.so.0/`. In the Linux CI that is the PipeWire 1.6.10 it builds in an isolated prefix (`tools/ci/setup_pipewire.sh`). The build checks that it needs nothing beyond the C library.
+- License: MIT. PipeWire's `LICENSE` names two exceptions, the `libspa-alsa` plugin (LGPL) and `libjackserver` (GPL-2). Neither is in the image. The license text is `licenses/appimage/PipeWire-pipewire-COPYING`, listed in `licenses/appimage/NOTICE.md` and shipped in `usr/share/licenses/astarot-appimage/`.
+- NOTICE does not list the libraries linuxdeploy copies into the image (GTK, WebKit, GLib and their dependencies), and does not list this one either. Their record is `licenses/appimage/NOTICE.md`.
+
 ## The reading analyzer and dictionary (2026-11-16)
 
 Message readings (hiragana and romaji) are analyzed with Sudachi, as in Python. The core uses sudachi.rs as the analyzer and reads the dictionary from `_internal/build/sudachi/system.dic`. The comparison of candidates is in item 3 of the decisions needed in [core integration](core-integration.md).
@@ -1421,6 +1429,14 @@ UIの部品のカタログ（Storybook、`src-ui/views/kit_catalog/`）のため
 - npmの開発の依存：`storybook` 10.6.7と`@storybook/react-vite` 10.6.7（どちらもMIT）。10.6.7は、2026-11-25の時点で公開から14日たった最新の版（[開発の手引き](../development.md)）。10.6.8は2026-11-20に出た。
 - `package-lock.json`に間接の依存が147増えた。137はMITで、ほかはApache-2.0（`aria-query`、`doctrine`）、BSD-2-Clause（`esprima`、`esutils`）、BSD-3-Clause（`source-map` 0.6.1）、BlueOak-1.0.0（`glob`、`minimatch`、`minipass`、`path-scurry`、`lru-cache`）。
 - 間接の依存の`glob` 13.0.7と`minimatch` 10.2.6に、osv-scannerが中程度の勧告を2件出す。`osv-scanner.toml`に、例外として理由と見直す日を書いた。
+
+## AppImageのlibpipewire（2026-11-25、#1205）
+
+PipeWireのないシステムでも起動するように、AppImageにPipeWireのクライアントのライブラリ`libpipewire-0.3.so.0`を入れた。起動の処理がこの写しを使うのは、ホストに自分のlibpipewireがないときだけ（[AppImageの説明](appimage.md#実行)）。ほかの配布形式は変わらない。
+
+- どのファイルか：ビルドのホストでGUIがリンクしているファイルで、`usr/lib/fallback/libpipewire-0.3.so.0/`に置く。LinuxのCIでは、隔離した場所に組むPipeWire 1.6.10（`tools/ci/setup_pipewire.sh`）になる。Cライブラリより先に何も要らないことを、ビルドで確かめる。
+- ライセンス：MIT。PipeWireの`LICENSE`は例外を2つ挙げる。`libspa-alsa`のプラグイン（LGPL）と`libjackserver`（GPL-2）で、どちらもイメージには入らない。ライセンス文は`licenses/appimage/PipeWire-pipewire-COPYING`で、`licenses/appimage/NOTICE.md`に載せ、`usr/share/licenses/astarot-appimage/`に入れる。
+- NOTICEは、linuxdeployがイメージに写すライブラリ（GTK、WebKit、GLibとその依存）を載せておらず、これも載せない。記録は`licenses/appimage/NOTICE.md`にある。
 
 ## 読みの解析器と辞書（2026-11-16）
 
