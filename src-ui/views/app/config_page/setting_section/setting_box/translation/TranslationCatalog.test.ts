@@ -43,7 +43,8 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../advanced_settings/catalogHeading": heading,
-        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
+            CatalogState: "catalog-state" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
@@ -55,6 +56,10 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
 }
 const classOf = (node: TreeNode | null | undefined): string => String(node?.props?.className ?? "");
 const head = (card: TreeNode) => findIn(card, node => classOf(node) === "card_head");
+// A part of a card by name: the kit's Card parts, the catalogs' state badge, or the class of a part of its own.
+const KIT_PARTS = new Map<unknown, string>([[kitStandIns.CardHeader, "CardHeader"], [kitStandIns.CardTitle, "CardTitle"],
+    [kitStandIns.CardContent, "CardContent"], [kitStandIns.CardFooter, "CardFooter"], ["catalog-state", "state"]]);
+const partOf = (node: TreeNode) => KIT_PARTS.get(node.type) ?? classOf(node);
 
 test("every card of the translation catalog ends its name's line with the state, as the model catalog's cards do", async context => {
     const { cards } = await catalog(context);
@@ -62,13 +67,27 @@ test("every card of the translation catalog ends its name's line with the state,
     for (const [id, card] of cards) {
         const parts: (TreeNode | false | null | undefined)[] = [head(card).props.children].flat();
         const shown = parts.filter((part): part is TreeNode => typeof part === "object" && part !== null);
-        assert.equal(shown[0].type, "strong", id);
-        assert.equal(classOf(shown.at(-1)), "badge status", `${id}: the state is the last part of the head`);
-        assert.equal(shown.filter(part => classOf(part).includes("status")).length, 1, id);
+        assert.equal(partOf(shown[0]), "CardTitle", id);
+        assert.equal(partOf(shown.at(-1) ?? shown[0]), "state", `${id}: the state is the last part of the head`);
+        assert.equal(shown.filter(part => partOf(part) === "state").length, 1, id);
     }
-    // The state is on the card too, so the entry in use is told by its frame.
-    assert.deepEqual([...cards].map(([id, card]) => [id, card.props["data-status"]]),
-        [["mine", "in_use"], ["llm", "no_server"], ["shipped", "not_downloaded"], ["home", "ready"], ["cloud", "ready"]]);
+    // Each is the kit's Card, an item of the list; the entry in use is told by its frame.
+    assert.deepEqual([...cards].map(([id, card]) => [id, card.type, card.props.as, card.props.active, card.props["data-status"]]), [
+        ["mine", kitStandIns.Card, "li", true, "in_use"], ["llm", kitStandIns.Card, "li", false, "no_server"],
+        ["shipped", kitStandIns.Card, "li", false, "not_downloaded"], ["home", kitStandIns.Card, "li", false, "ready"],
+        ["cloud", kitStandIns.Card, "li", false, "ready"]]);
+    // An entry the user added takes the focus the page points at and is named; a shipped one is its head alone.
+    assert.deepEqual([...cards].map(([id, card]) => [id, card.props.tabIndex, card.props.role, card.props["aria-label"]]), [
+        ["mine", -1, "group", "Mine"], ["llm", -1, "group", "LLM"], ["shipped", undefined, undefined, undefined],
+        ["home", -1, "group", "Home"], ["cloud", undefined, undefined, undefined]]);
+    // The "added by you" mark is on the name's line in the list, once.
+    const own = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge && badge.props.children === "translation_catalog.badge.user")
+        .map(badge => `${badge.props.tone} ${badge.props.variant}`);
+    for (const id of ["mine", "llm", "home"]) {
+        const card = cards.get(id);
+        assert.ok(card, id);
+        assert.deepEqual([own(head(card)), own(card)], [["strong dashed"], ["strong dashed"]], id);
+    }
 });
 
 test("in the grid a card's first line is its name and its state, and its marks are the line under it", async context => {
@@ -77,10 +96,13 @@ test("in the grid a card's first line is its name and its state, and its marks a
         const card = cards.get(id);
         assert.ok(card, id);
         const headLine = findIn(card, node => classOf(node) === "card_head");
-        assert.deepEqual([headLine.props.children].flat().filter(Boolean).map(node => node.type === "strong" ? "name" : classOf(node)),
-            ["name", "badge status"], id);
+        assert.deepEqual([headLine.props.children].flat().filter(Boolean).map(partOf), ["CardTitle", "state"], id);
         const marks = findIn(card, node => classOf(node) === "card_badges");
-        assert.ok(nodesIn(marks).some(node => classOf(node) === "badge"), `${id}: its kind under the name`);
+        assert.ok(nodesIn(marks).some(node => node.type === kitStandIns.Badge), `${id}: its kind under the name`);
+        // An entry the user added says so under its name in the grid, with the dashed edge, and not on the name's line.
+        const own = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge && badge.props.children === "translation_catalog.badge.user")
+            .map(badge => `${badge.props.tone} ${badge.props.variant}`);
+        assert.deepEqual([own(headLine), own(marks)], id === "mine" ? [[], ["strong dashed"]] : [[], []], id);
     }
 });
 
@@ -91,8 +113,8 @@ test("an added entry's card is what it is, its facts, then its notes and actions
         assert.ok(card, id);
         const blocks: TreeNode[] = [card.props.children].flat();
         // The facts are the catalogs' own part (catalogLayout.tsx): beside in the list, folded in the grid.
-        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : classOf(node);
-        assert.deepEqual(blocks.map(block), ["card_intro", "catalog-facts > facts card_spec", "card_foot"], id);
+        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : partOf(node);
+        assert.deepEqual(blocks.map(block), ["CardHeader", "catalog-facts > facts", "CardFooter"], id);
         const foot = blocks[2];
         assert.ok(find(foot, node => classOf(node) === "actions"), `${id}: the actions are in the foot`);
         // What keeps an entry from running is said beside the actions it explains.
@@ -107,9 +129,13 @@ test("an added entry's card is what it is, its facts, then its notes and actions
 
 test("an entry's state badge names its state, so whether it is on the PC is drawn by its shape and mark", async context => {
     const { cards } = await catalog(context);
-    const state = (id: string) => findIn(cards.get(id), node => classOf(node) === "badge status").props["data-tone"];
-    // Not downloaded yet (an outline with an empty ring), can be used (filled, with a check), in use.
-    assert.deepEqual(["shipped", "cloud", "mine"].map(state), ["not_downloaded", "ready", "in_use"]);
+    // The catalogs' state badge (catalogLayout.tsx's CatalogState) draws each state's look.
+    const state = (id: string) => findIn(cards.get(id), node => node.type === "catalog-state").props;
+    // Not downloaded yet (an outline with an empty ring), can be used (a check), in use (filled, with a check),
+    // and an entry that cannot run as it is, drawn as a problem; the words name the entry's own state.
+    assert.deepEqual(["shipped", "cloud", "mine", "llm"].map(id => [state(id).state, state(id).children]), [
+        ["not_downloaded", "translation_catalog.state.not_downloaded"], ["ready", "translation_catalog.state.ready"],
+        ["in_use", "translation_catalog.state.in_use"], ["missing", "translation_catalog.state.no_server"]]);
 });
 
 test("each group is a part of the catalog, folded, with what it is for and how many entries it has", async context => {
@@ -142,9 +168,12 @@ test("the catalog lists a built-in model as the model list does, by the download
     const name = (id: string) => {
         const card = cards.get(id);
         assert.ok(card, id);
-        return findIn(head(card), node => node.type === "strong").props.children;
+        return findIn(head(card), node => node.type === kitStandIns.CardTitle).props.children;
     };
     assert.equal(name("m2m100_418M-ct2-int8"), "M2M100 418M · int8");
+    // The built-in model in use carries the active frame, as an entry the user added does.
+    const used = cards.get("m2m100_418M-ct2-int8");
+    assert.deepEqual([used?.props["data-status"], used?.props.active], ["in_use", true]);
     assert.equal(name("mine"), "Mine");
 });
 
@@ -213,7 +242,8 @@ test("when a group has no user-added entries, its empty state names that group's
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../advanced_settings/catalogHeading": heading,
-        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
+            CatalogState: "catalog-state" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     const groups = nodesIn(runtime.render(module.TranslationCatalogSection))

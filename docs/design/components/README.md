@@ -23,6 +23,8 @@ This is the record of an experiment that rebuilds the settings screen's componen
 | `Dialog` and its parts `DialogHeader`, `DialogFooter`, `DialogTitle` and `DialogDescription` | A modal dialog. The title and the description become the dialog's accessible name and description. Its owner decides whether it is open, through `open` and `onOpenChange` | The native `<dialog>` (`showModal()`) |
 | `SettingGroup` and `SettingRow` | A group with a heading, and one row in it | — |
 | `ItemGroup`, `Item` and its parts `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemDescription` and `ItemActions` | A list of rows: a mark, a name over its words, and the row's actions under them. `attention` makes a row that needs the user a card in the warning's amber, and an `outline` group holds the quiet rows in one frame. The `compact` size puts the words beside the name, with `muted` and `removed` rows (#1188) | The native `<ul>` and `<li>` |
+| `Card` and its parts `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` and `CardFooter` | One unit, such as a model, an engine or an entry, in a quiet frame with no fill and no shadow; `active` gives the one in use the active frame and tint, and `as="li"` makes the card an item of a list (D-28, #1204) | — |
+| `Badge` | A short word with square corners that says a state; `tone`, `variant` (outline, solid, tint, dashed) and `mark` (check, ring, alert) only repeat the words (D-29, #1204) | — |
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
 
@@ -121,6 +123,8 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | `Dialog` と、そのパーツの `DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` | モーダルのダイアログ。題名と説明がダイアログの名前と説明になる。開くかどうかは `open` と `onOpenChange` で持ち主が決める | ネイティブの `<dialog>`（`showModal()`） |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 | `ItemGroup`、`Item` と、そのパーツの `ItemMedia`、`ItemContent`、`ItemTitle`、`ItemDescription`、`ItemActions` | 行の一覧。印、説明の上の名前、その下の行の操作。`attention` で対応が要る行を警告の琥珀色のカードにし、`outline` の一覧は控えめな行を 1 つの枠にまとめる。`compact` の大きさは名前の横に説明を置き、`muted` と `removed` の行がある（#1188） | ネイティブの `<ul>` と `<li>` |
+| `Card` と、そのパーツの `CardHeader`、`CardTitle`、`CardDescription`、`CardContent`、`CardFooter` | モデル、エンジン、項目のような 1 つの単位。塗りと影のない控えめな枠。`active` で使用中のものを使用中の枠と淡い塗りにし、`as="li"` で一覧の項目にする（D-28、#1204） | — |
+| `Badge` | 状態を示す、角の四角い短い言葉。`tone`、`variant`（outline、solid、tint、dashed）、`mark`（check、ring、alert）は言葉を繰り返すだけ（D-29、#1204） | — |
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 

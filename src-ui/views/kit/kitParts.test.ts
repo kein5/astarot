@@ -196,3 +196,38 @@ test("an item's mark draws its state's shapes and is hidden from screen readers;
     const icon = runtime.render(module.ItemMedia, { children: "icon" });
     assert.deepEqual([icon.props["data-state"], icon.props["aria-hidden"], icon.props.children], [undefined, undefined, "icon"]);
 });
+
+test("a card is a <div>, or an <li> in a list, asks for the active look when it is the one in use, and its parts keep their slots", async () => {
+    const { runtime, module } = await kit<typeof import("./Card.tsx")>("./Card.tsx", { "./Card.css.ts": styleModule(["card"]) });
+    const plain = runtime.render(module.Card, { children: "parts", role: "group", "aria-label": "Model" });
+    assert.deepEqual([plain.type, plain.props["data-slot"], plain.props.className, plain.props.children, plain.props.role, plain.props["aria-label"]],
+        ["div", "card", "card active=undefined", "parts", "group", "Model"]);
+    assert.equal(runtime.render(module.Card, { as: "div" }).type, "div");
+    // As an item of a list, and the one in use: the element gets neither prop as an attribute.
+    const item = runtime.render(module.Card, { as: "li", active: true, className: "own", tabIndex: -1, id: "model", children: "parts" });
+    assert.deepEqual([item.type, item.props["data-slot"], item.props.className, item.props.tabIndex, item.props.id, item.props.children],
+        ["li", "card", "card active=true own", -1, "model", "parts"]);
+    assert.deepEqual(["as", "active"].filter(key => key in item.props || key in plain.props), []);
+    for (const [part, slot, look] of [["CardHeader", "card-header", "header"], ["CardTitle", "card-title", "title"],
+        ["CardDescription", "card-description", "description"], ["CardContent", "card-content", "content"], ["CardFooter", "card-footer", "footer"]] as const) {
+        const drawn = runtime.render(module[part], { className: "own", id: part, children: "words" });
+        assert.deepEqual([drawn.type, drawn.props["data-slot"], drawn.props.className, drawn.props.id, drawn.props.children],
+            ["div", slot, `${look} own`, part, "words"], part);
+    }
+});
+
+test("a badge is a <span> with its words, asks for its look, and draws the warning's \"!\" hidden from assistive technology", async () => {
+    const { runtime, module } = await kit<typeof import("./Badge.tsx")>("./Badge.tsx", { "./Badge.css.ts": styleModule(["badge"]) });
+    const words = (node: TreeNode) => [node.props.children].flat().filter(child => child !== null);
+    const plain = runtime.render(module.Badge, { children: "Built in", title: "the app's own" });
+    assert.deepEqual([plain.type, plain.props["data-slot"], plain.props.className, words(plain), plain.props.title],
+        ["span", "badge", "badge tone=undefined variant=undefined mark=undefined", ["Built in"], "the app's own"]);
+    const state = runtime.render(module.Badge, { tone: "active", variant: "solid", mark: "check", className: "status", children: "In use" });
+    assert.deepEqual([state.props.className, words(state)], ["badge tone=active variant=solid mark=check status", ["In use"]]);
+    // The check and the ring are drawn by the badge's own look; only the "!" has an element.
+    assert.equal(nodesIn(state).filter(node => node.type === "span").length, 1);
+    const warning = runtime.render(module.Badge, { tone: "warning", mark: "alert", children: "May be too heavy" });
+    const [mark, ...rest] = words(warning);
+    assert.deepEqual([mark.type, mark.props.className, mark.props["aria-hidden"], mark.props.children, rest],
+        ["span", "alertMark", "true", undefined, ["May be too heavy"]]);
+});

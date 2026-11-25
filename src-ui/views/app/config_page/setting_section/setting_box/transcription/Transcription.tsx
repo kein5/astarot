@@ -3,7 +3,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SpeechServers } from "../advanced_settings/SpeechServers";
 import { useI18n } from "@useI18n";
 import * as styles from "./Transcription.css.ts";
-import * as catalogStyles from "../advanced_settings/VoiceSettings.css.ts";
+import { Badge } from "../../../../../kit/index.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { AsrApiEntries } from "./AsrApiEntries";
 import { genNumObjArray } from "@utils";
@@ -352,8 +352,8 @@ const CloudTranscription_Container = () => {
                 const name = t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`);
                 return (
                     <SetupSection key={engine.id} attention={in_use}
-                        title={engine.own ? <>{name} <span className={catalogStyles.badge} data-tone="own">
-                            {t("config_page.transcription.select_transcription_engine.badge_own")}</span></> : name}
+                        title={engine.own ? <>{name} <Badge tone="strong" variant="dashed">
+                            {t("config_page.transcription.select_transcription_engine.badge_own")}</Badge></> : name}
                         status={t(`config_page.translation.provider_${in_use ? "in_use" : usable ? "ready" : "not_set"}`)}>
                         {withUrl(engine)
                             ? <CredentialPair settings={transcription} base={engine.base} provider={engine.key} section="transcription" />

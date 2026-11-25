@@ -67,6 +67,12 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     for (const slot of ["item-group", "item", "item-media", "item-content", "item-title", "item-description", "item-actions"]) {
         assert.match(item, new RegExp(`data-slot="${slot}"`), slot);
     }
+    const card = read("Card.tsx");
+    for (const slot of ["card", "card-header", "card-title", "card-description", "card-content", "card-footer"]) {
+        assert.match(card, new RegExp(`data-slot="${slot}"`), slot);
+    }
+    assert.match(read("Badge.tsx"), /<span data-slot="badge"/);
+    assert.match(read("index.ts"), /export \{ Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,/);
 });
 
 test("what needs the user is a card in the warning's amber; the other rows are quiet, in one frame", () => {
@@ -101,7 +107,7 @@ test("compact rows put the words under the name in a narrow list, and a row take
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Button.tsx", "Dialog.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
+    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "Dialog.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });
@@ -146,6 +152,36 @@ test("a row's label names its control and its description describes it", () => {
     assert.match(row, /<label htmlFor=\{id\}/);
     assert.match(row, /children\(\{ id, "aria-describedby": descriptionId \}\)/);
     assert.match(row, /<section className=\{styles\.group\} aria-labelledby=\{headingId\}>/);
+});
+
+test("a card keeps the catalogs' look: its room and frame, no fill and no shadow; the one in use the active frame and tint (D-28)", () => {
+    const css = read("Card.css.ts");
+    const base = css.slice(css.indexOf("base: {"), css.indexOf("variants: {"));
+    assert.match(base, /display: "grid",\s*gap: "1\.2rem",\s*minWidth: 0,\s*padding: "1\.6rem",\s*border: `\.1rem solid \$\{vars\.dark_800_color\}`,\s*borderRadius: vars\.vox_radius,/);
+    assert.doesNotMatch(base, /background|boxShadow/, "no fill and no shadow");
+    assert.match(css, /true: \{ borderColor: vars\.vox_state_active, background: vars\.vox_highlight_tint \}/);
+    // The parts: the name's block tight inside, the content and the footer a little apart inside.
+    assert.match(css, /export const header = style\(\{ display: "grid", gap: "\.4rem", minWidth: 0 \}\);/);
+    assert.match(css, /export const title = style\(\{ fontSize: "1\.5rem", fontWeight: 600, color: vars\.dark_200_color \}\);/);
+    assert.match(css, /export const content = style\(\{ display: "grid", gap: "\.8rem", minWidth: 0 \}\);/);
+    assert.match(css, /export const footer = style\(\{ display: "grid", gap: "\.8rem", minWidth: 0 \}\);/);
+});
+
+test("a badge keeps its square corners and says its state in words; fills and marks only repeat them (D-29)", () => {
+    const css = read("Badge.css.ts");
+    const base = css.slice(css.indexOf("base: {"), css.indexOf("variants: {"));
+    assert.match(base, /padding: "\.1rem \.8rem",\s*border: `\.1rem solid \$\{vars\.dark_700_color\}`,\s*borderRadius: "\.4rem",\s*fontSize: "1\.2rem",\s*fontWeight: 500,\s*lineHeight: 1\.6,/);
+    assert.doesNotMatch(base, /9999|50%|rounded|background/, "square corners, no fill");
+    // A filled badge has dark words; the active tone fills with its own colour.
+    assert.match(css, /solid: \{ background: vars\.dark_300_color, borderColor: vars\.dark_300_color, color: vars\.dark_950_color \}/);
+    assert.match(css, /\{ variants: \{ tone: "active", variant: "solid" \}, style: \{ background: vars\.vox_state_active, borderColor: vars\.vox_state_active \} \}/);
+    assert.match(css, /tint: \{ background: vars\.vox_highlight_tint \}/);
+    assert.match(css, /dashed: \{ borderStyle: "dashed" \}/);
+    // The check is a filled circle with a tick, the ring an empty circle, drawn in the words' colour.
+    assert.match(css, /const CHECK = mask\("[^"]*%3Cpath d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z/);
+    assert.match(css, /const RING = mask\("[^"]*%3Ccircle cx='8' cy='8' r='5\.6' fill='none'/);
+    assert.match(css, /backgroundColor: "currentColor",\s*WebkitMask: shape,\s*mask: shape,/);
+    assert.match(css, /"&::before": \{ content: '"!"' \}/);
 });
 
 test("the gallery is served by the dev server only", () => {

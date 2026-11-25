@@ -14,7 +14,8 @@ import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "./catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "./catalogLayout";
+import { Badge, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Progress } from "../../../../../kit/index.ts";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
@@ -26,7 +27,6 @@ import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
-import { Progress } from "../../../../../kit/index.ts";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -152,7 +152,7 @@ const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: Model
 // It ends the name's line, in the same place on every card.
 const StatusBadge = ({ status }: { status: DownloadStatus }) => {
     const { t } = useI18n();
-    return <span className={`${styles.badge} ${styles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
+    return <CatalogState state={status}>{t(`model_catalog.status.${status}`)}</CatalogState>;
 };
 
 
@@ -160,8 +160,7 @@ const StatusBadge = ({ status }: { status: DownloadStatus }) => {
 // head, and a plain note that says why. Only guidance: nothing here stops the choice or download.
 const WarningBadge = () => {
     const { t } = useI18n();
-    return <span className={styles.badge} data-tone="hardware_warning">
-        <span className={styles.warning_mark} aria-hidden="true" />{t("model_catalog.hardware_warning.badge")}</span>;
+    return <Badge tone="warning" mark="alert">{t("model_catalog.hardware_warning.badge")}</Badge>;
 };
 const WarningNote = ({ warning }: { warning: HardwareWarning }) => {
     const { t } = useI18n();
@@ -385,22 +384,23 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // the file and its facts, then what runs and what can be done. In the grid a card keeps
         // what it is, its size and hardware, and what can be done; the file's choice, the
         // languages, the terms and the notes are in its fold.
-        return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
-            <div className={styles.card_intro}>
+        return <Card as="li" key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label}
+            active={shownStatus === "in_use"} data-status={shownStatus}>
+            <CardHeader>
                 {/* The name and the state on one line, so every card's state is at the same place;
                     what speaks for or against the model under it. */}
                 <div className={styles.card_head}>
-                    <strong>{label}</strong>
+                    <CardTitle>{label}</CardTitle>
                     <StatusBadge status={shownStatus} />
                 </div>
                 {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
-                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{recommended}</span>}
-                    {fits && <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
+                    {suggested.length > 0 && <Badge tone="accent">{recommended}</Badge>}
+                    {fits && <Badge tone="accent">{t("model_catalog.fits_memory")}</Badge>}
                     {warning && <WarningBadge />}
                 </div>}
-                {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
+                {current.profile?.summary && <CardDescription>{t(`model_downloads.summary.${current.profile.summary}`)}</CardDescription>}
                 {!grid && warning && <WarningNote warning={warning} />}
-            </div>
+            </CardHeader>
             {grid && <ModelFacts entry={current} guidance={factsGuidance} part="key" className={styles.card_key} />}
             {grid
                 ? <CatalogFacts layout="grid" summary={variantLabel(current) !== current.name
@@ -410,14 +410,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     {auditionNote}
                     {guidanceFold}
                 </CatalogFacts>
-                : <div className={styles.card_spec}>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</div>}
-            <div className={styles.card_foot}>
+                : <CardContent>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</CardContent>}
+            <CardFooter>
                 {run}
                 {!grid && prepareHint}
                 {!grid && auditionNote}
                 {!grid && guidanceFold}
-            </div>
-        </li>;
+            </CardFooter>
+        </Card>;
     };
 
     return <section ref={section} tabIndex={-1} className={styles.container} aria-label={t("model_downloads.title")}>

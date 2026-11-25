@@ -7,9 +7,9 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import * as styles from "./Ocr.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
-import { Button, Progress } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Progress } from "../../../../../kit/index.ts";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
@@ -111,21 +111,21 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     const terms = <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>;
                     // The card's parts in the order they are read (#614), as a model catalog's card:
                     // what it is and its state, its size and terms, then what runs and the download.
-                    return <li key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
-                        className={voiceStyles.card} data-status={status}>
-                        <div className={voiceStyles.card_intro}>
+                    return <Card as="li" key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
+                        data-status={status}>
+                        <CardHeader>
                             <div className={voiceStyles.card_head}>
-                                <strong>{entry.name}</strong>
-                                <span className={`${voiceStyles.badge} ${voiceStyles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>
+                                <CardTitle>{entry.name}</CardTitle>
+                                <CatalogState state={status}>{t(`model_catalog.status.${status}`)}</CatalogState>
                             </div>
                             {/* Why the page lists it: needed for the reading language, or optional. */}
-                            <div className={voiceStyles.card_badges}><span className={voiceStyles.badge}>{note}</span></div>
-                        </div>
+                            <div className={voiceStyles.card_badges}><Badge>{note}</Badge></div>
+                        </CardHeader>
                         {layout === "grid" && <dl className={`${voiceStyles.facts} ${voiceStyles.card_key}`}>{size}</dl>}
                         {layout === "grid"
                             ? <CatalogFacts layout="grid"><dl className={voiceStyles.facts}>{terms}</dl></CatalogFacts>
-                            : <dl className={`${voiceStyles.facts} ${voiceStyles.card_spec}`}>{size}{terms}</dl>}
-                        <div className={voiceStyles.card_foot}>
+                            : <CardContent><dl className={voiceStyles.facts}>{size}{terms}</dl></CardContent>}
+                        <CardFooter>
                             {job && (active || job.phase === "failed") && <EnvReadout tone={job.phase === "failed" ? "failed" : "neutral"}
                                 progress={active && job.phase !== "cancelling" ? "working" : undefined}>
                                 <p>{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${megabytes(bytesOf(job.received_bytes) ?? 0)} / ${megabytes(bytesOf(job.total_bytes) ?? 0)}`}</p>
@@ -141,8 +141,8 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
                                     {t("model_downloads.review")}</Button>}
                             </div>
-                        </div>
-                    </li>;
+                        </CardFooter>
+                    </Card>;
                 })}
             </CatalogList>
         </CatalogSection>

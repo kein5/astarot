@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { find, findIn, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { find, findIn, hooks, kitStandIns, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 
 // The model catalogs' two layouts (catalogLayout.tsx): a list, one card a row with its facts
 // beside it, and a grid, cards side by side with their details in a fold. One choice for every
@@ -51,9 +50,10 @@ test("a catalog's list says its layout, and a grid card's facts are a fold of th
         assert.deepEqual([list.type, list.props.className, list.props.role, list.props["data-layout"], list.props.children],
             ["ul", "catalog", "list", layout, "cards"]);
     }
-    // In the list the facts are the card's own block, beside what the model is.
+    // In the list the facts are the card's own block (the kit's CardContent), beside what the model is.
     const listed = runtime.render(module.CatalogFacts, { layout: "list", children: facts });
     assert.equal(find(listed, node => node.type === "fold"), null);
+    assert.deepEqual([listed.type, listed.props.children], [kitStandIns.CardContent, facts]);
     assert.equal(findIn(listed, node => node.type === "dl").props.className, "facts");
     // In the grid they are folded under the card's words.
     const folded = runtime.render(module.CatalogFacts, { layout: "grid", children: facts });
@@ -103,15 +103,27 @@ test("a part of the translation review's catalog is not folded: its heading and 
 
 // The state badges of every catalog share these rules (VoiceSettings.css.ts): a model on the PC
 // is a filled badge with a check, one that is not is an outline with an empty ring.
-test("whether a model is on the PC is told by the state badge's shape and mark, not by its words alone", () => {
-    const source = readFileSync(new URL("./VoiceSettings.css.ts", import.meta.url), "utf8");
-    const rules = source.slice(source.indexOf("const state = "), source.indexOf("// The \"!\" of a model"));
-    assert.match(rules, /`\$\{selector\}::before`[^}]*mask: "var\(--status_mark\) center/, "a mark drawn before the words");
-    assert.match(rules, /state\("not_downloaded", "not_set"\)\.join\(", "\), \{\s*vars: \{ "--status_mark": `url\("data:image\/svg\+xml,[^"]*circle[^"]*"\)` \},\s*background: "transparent",/,
-        "not yet: an outline with an empty ring");
-    assert.match(rules, /state\("downloaded", "in_use", "ready"\)\.join\(", "\), \{\s*vars: \{ "--status_mark": `url\("data:image\/svg\+xml,[^"]*path/,
-        "on the PC: a check");
-    assert.match(rules, /state\("downloaded"\)\.join\(", "\), \{ background: "var\(--dark_300_color/, "downloaded: filled light");
-    assert.match(rules, /state\("in_use"\)\.join\(", "\), \{ background: "var\(--vox_state_active/, "in use: filled in the active color");
+test("whether a model is on the PC is told by the state badge's fill and mark, not by its words alone", async () => {
+    const { runtime, module } = await layouts("list");
+    // The kit's Badge, at the end of the name's line (the status place), with the state's words.
+    const drawn = runtime.render(module.CatalogState, { state: "in_use", children: "In use" });
+    assert.deepEqual([drawn.type, drawn.props.className, drawn.props.children], [kitStandIns.Badge, "status", "In use"]);
+    const look = (state: string) => {
+        const { tone, variant, mark } = runtime.render(module.CatalogState, { state, children: state }).props;
+        return [tone, variant, mark];
+    };
+    // On the PC: filled with a check; in use, filled in the active color; ready, the active outline tinted.
+    assert.deepEqual(look("downloaded"), [undefined, "solid", "check"]);
+    assert.deepEqual(look("in_use"), ["active", "solid", "check"]);
+    assert.deepEqual(look("ready"), ["active", "tint", "check"]);
+    // Not yet: an outline with an empty ring, its words quieter.
+    assert.deepEqual(look("not_downloaded"), ["muted", undefined, "ring"]);
+    assert.deepEqual(look("not_set"), ["muted", undefined, "ring"]);
+    // Connected: the active outline; working or not answering: amber; a problem: red; no mark.
+    assert.deepEqual(look("connected"), ["active", undefined, undefined]);
+    for (const state of ["working", "checking", "not_connected", "changed"]) assert.deepEqual(look(state), ["warning", undefined, undefined], state);
+    for (const state of ["url_invalid", "missing"]) assert.deepEqual(look(state), ["failed", undefined, undefined], state);
+    // Any other state is a plain outline, a name an object has of its own included.
+    for (const state of ["unchecked", "unsupported", "toString", "constructor"]) assert.deepEqual(look(state), [undefined, undefined, undefined], state);
 });
 

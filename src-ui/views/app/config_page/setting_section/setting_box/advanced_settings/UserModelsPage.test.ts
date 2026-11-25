@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { find, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { find, findIn, hooks, kitStandIns, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as modelCatalog from "../../../../../../logics/voice/modelCatalog.ts";
 import * as fileDrop from "../../../../../../logics/common/fileDrop.ts";
@@ -30,7 +30,7 @@ async function userModels(context: TestContext, models: unknown[] | null, option
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/hint/Hint": { useHintDescriptions: () => options.hints ?? false },
-        "./catalogLayout": { CatalogFacts: "catalog-facts" },
+        "./catalogLayout": { CatalogFacts: "catalog-facts", CatalogState: "catalog-state" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
     });
     const cards = (props: Record<string, unknown>) => runtime.render(module.UserModelCards, { target: "rvc", busy: false, ...props });
@@ -45,7 +45,8 @@ const textOf = (value: unknown): string => {
     const node = treeNode(value);
     return node ? textOf(node.props.children) : "";
 };
-const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
+// type: an element's tag, or a part of the kit (kitStandIns).
+const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 const cardsIn = (drawn: unknown) => [drawn].flat().map(item => treeNode(item)).filter((item): item is TreeNode => item !== null);
 const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === "button" && textOf(node) === words, `the button ${words}`);
@@ -55,12 +56,18 @@ test("a registered model's card says it is the user's, its state, its files and 
     const u = await userModels(context, [own("a"), own("b", { status: "missing" }), own("c", { target: "japanese", paths: { model: "/c.gguf" } })]);
     const [card, missing, ...others] = cardsIn(u.cards({ expected: { rvc: { model: "/m/other.pth" } } }));
     assert.equal(others.length, 0, "only this use's models");
-    assert.deepEqual([card.type, card.props["data-user-model"], card.props.tabIndex, card.props.role, card.props["aria-label"], card.props["data-status"]],
-        ["li", true, -1, "group", "Voice a", "registered"]);
-    assert.deepEqual(ofType(card, "strong").map(textOf), ["Voice a"]);
-    const badges = (node: TreeNode) => ofType(node, "span").map(span => [span.props["data-tone"], textOf(span), classesOf(span).length]);
-    assert.deepEqual(badges(card), [["own", "user_models.badge", 1], ["downloaded", "user_models.status.registered", 2]]);
-    assert.deepEqual(badges(missing), [["own", "user_models.badge", 1], ["missing", "user_models.status.missing", 2]]);
+    // The kit's Card, an item of the catalog's list, not the one in use.
+    assert.deepEqual([card.type, card.props.as, card.props.active, card.props["data-user-model"], card.props.tabIndex, card.props.role,
+        card.props["aria-label"], card.props["data-status"]], [kitStandIns.Card, "li", false, true, -1, "group", "Voice a", "registered"]);
+    assert.deepEqual(ofType(card, kitStandIns.CardTitle).map(textOf), ["Voice a"]);
+    // The badges in their order: the user's own (the dashed edge), then the state, a registered model's drawn as downloaded.
+    const badges = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge || badge.type === "catalog-state")
+        .map(badge => badge.type === "catalog-state" ? ["state", badge.props.state, textOf(badge)] : [`${badge.props.tone} ${badge.props.variant}`, textOf(badge)]);
+    assert.deepEqual(badges(card), [["strong dashed", "user_models.badge"], ["state", "downloaded", "user_models.status.registered"]]);
+    assert.deepEqual(badges(missing), [["strong dashed", "user_models.badge"], ["state", "missing", "user_models.status.missing"]]);
+    // The model in use carries the active frame.
+    const [used] = cardsIn(u.cards({ expected: { rvc: { model: "/m/a.pth" } } }));
+    assert.deepEqual([used.props["data-status"], used.props.active], ["in_use", true]);
     assert.equal(findIn(card, node => node.type === "catalog-facts").props.layout, "list");
     assert.deepEqual(facts(card), [[["user_models.file.model", "/m/a.pth"], ["user_models.file.index", "/m/a.index"], ["user_models.size", "2.00 GiB"]]]);
     assert.deepEqual(ofType(card, "code").map(code => code.props.style), [{ overflowWrap: "anywhere" }, { overflowWrap: "anywhere" }]);
@@ -69,9 +76,9 @@ test("a registered model's card says it is the user's, its state, its files and 
     assert.deepEqual(facts(single), [[["user_models.file.model", "/d.pth"], ["user_models.size", "2.00 GiB"]]]);
     // In the grid: the mark under the name, the size on the card, the files in the fold.
     const [grid] = cardsIn(u.cards({ layout: "grid" }));
-    assert.deepEqual(badges(grid), [["downloaded", "user_models.status.registered", 2], ["own", "user_models.badge", 1]]);
+    assert.deepEqual(badges(grid), [["state", "downloaded", "user_models.status.registered"], ["strong dashed", "user_models.badge"]]);
     assert.deepEqual(facts(grid), [[["user_models.size", "2.00 GiB"]], [["user_models.file.model", "/m/a.pth"], ["user_models.file.index", "/m/a.index"]]]);
-    assert.deepEqual(ofType(grid, "dl").map(list => classesOf(list).length), [2, 2], "each list of facts in its place on the card");
+    assert.deepEqual(ofType(grid, "dl").map(classesOf), [["facts", "card_key"], ["facts"]], "each list of facts in its place on the card");
     assert.equal(findIn(grid, node => node.type === "catalog-facts").props.layout, "grid");
     assert.deepEqual(cardsIn(u.cards({ target: "vad" })), []);
     assert.deepEqual(cardsIn((await userModels(context, null)).cards({})), [], "before the list arrives, no cards");

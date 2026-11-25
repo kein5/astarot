@@ -21,7 +21,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
             state: { jobs }, error: null, pending, send: (...request: unknown[]) => sent.push(request) }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts",
-            CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
+            CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section", CatalogState: "catalog-state" },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
     });
     const draw = (props: { missing: string[]; checking?: boolean; ids?: string[] }) => runtime.render(OcrModels,
@@ -31,9 +31,13 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
 
 const part = (tree: TreeNode) => findIn(tree, node => node.type === "catalog-section").props;
 const card = (tree: TreeNode) => findIn(tree, node => node.props?.["data-model-download"] !== undefined);
+// A card's parts by name: the kit's Card parts, the catalog's fold, or the classes of a part of its own.
+const KIT_PARTS = new Map<unknown, string>([[kitStandIns.CardHeader, "CardHeader"], [kitStandIns.CardContent, "CardContent"],
+    [kitStandIns.CardFooter, "CardFooter"]]);
 const parts = (node: TreeNode) => [node.props.children].flat(2).filter(Boolean)
-    .map(child => child.type === "catalog-facts" ? "catalog-facts" : String(child.props.className));
-const state = (node: TreeNode) => findIn(node, child => child.props?.className === "badge status").props;
+    .map(child => child.type === "catalog-facts" ? "catalog-facts" : KIT_PARTS.get(child.type) ?? String(child.props.className));
+// The card's state: the catalogs' state badge (catalogLayout.tsx's CatalogState), which draws each state's look.
+const state = (node: TreeNode) => findIn(node, child => child.type === "catalog-state").props;
 
 test("the models are a part of a catalog, folded as every catalog's part, with their readout", async () => {
     const s = await ocrModels("list");
@@ -60,19 +64,23 @@ test("a model's card says its state by the catalogs' badges, why it is listed, i
     for (const layout of ["list", "grid"] as const) {
         const s = await ocrModels(layout);
         const missing = card(s.draw({ missing: ["ppocr"] }));
-        assert.deepEqual([state(missing)["data-tone"], state(missing).children], ["not_downloaded", "model_catalog.status.not_downloaded"]);
-        assert.ok(find(missing, node => node.props?.className === "badge" && node.props.children === "Needed"), "why the page lists it");
+        // The kit's Card, an item of the catalog's list.
+        assert.deepEqual([missing.type, missing.props.as, missing.props["data-status"], missing.props.tabIndex, missing.props.role, missing.props["aria-label"]],
+            [kitStandIns.Card, "li", "not_downloaded", -1, "group", "PP-OCR small"]);
+        assert.deepEqual([state(missing).state, state(missing).children], ["not_downloaded", "model_catalog.status.not_downloaded"]);
+        assert.ok(find(missing, node => node.type === kitStandIns.Badge && node.props.tone === undefined && node.props.children === "Needed"),
+            "why the page lists it, in a plain badge");
         // In the list the size and the terms are one table beside what the model is; in the grid
         // the size is on the card and the terms are in its fold.
-        assert.deepEqual(parts(missing), layout === "list" ? ["card_intro", "facts card_spec", "card_foot"]
-            : ["card_intro", "facts card_key", "catalog-facts", "card_foot"]);
+        assert.deepEqual(parts(missing), layout === "list" ? ["CardHeader", "CardContent", "CardFooter"]
+            : ["CardHeader", "facts card_key", "catalog-facts", "CardFooter"]);
         const words = nodesIn(missing).filter(node => node.type === "dd").map(node => node.props.children);
         assert.ok(words.includes("30.0 MB"), layout);
         assert.ok(nodesIn(missing).some(node => node.type === "dd" && [node.props.children].flat().join("").includes("PaddlePaddle")), layout);
         findIn(missing, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review").props.onClick();
         // Downloaded: the filled badge, and nothing left to do.
         const there = card(s.draw({ missing: [] }));
-        assert.equal(state(there)["data-tone"], "downloaded");
+        assert.equal(state(there).state, "downloaded");
         assert.equal(find(there, node => node.type === kitStandIns.Button), null);
     }
 });
@@ -80,7 +88,7 @@ test("a model's card says its state by the catalogs' badges, why it is listed, i
 test("a download in progress says so on its card, with its progress and a way to cancel it", async () => {
     const s = await ocrModels("grid", { ppocr: { job_id: "job", phase: "downloading", received_bytes: 10_485_760, total_bytes: 31_457_280 } });
     const running = card(s.draw({ missing: ["ppocr"] }));
-    assert.equal(state(running)["data-tone"], "working");
+    assert.equal(state(running).state, "working");
     const bar = findIn(running, node => node.type === kitStandIns.Progress).props;
     assert.deepEqual([bar["aria-label"], bar.value, bar.max], ["model_downloads.progress", 10_485_760, 31_457_280]);
     assert.ok(find(running, node => node.type === "readout"), "what runs, on the card");

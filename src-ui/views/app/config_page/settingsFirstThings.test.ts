@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, nodesIn, componentName, draw, drawWith } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn, componentName, draw, drawWith, kitStandIns } from "../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
@@ -191,6 +191,7 @@ test("each API speech recognition provider is one fold; the selected one stays o
     const transcription = await loadModule<typeof import("./setting_section/setting_box/transcription/Transcription.tsx")>(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@logics_configs": { useTranscription: () => state },
+        "../../../../../kit/index.ts": kitStandIns,
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../_components/setup_section/SetupSection": { SetupSection },
     });
@@ -210,12 +211,12 @@ test("each API speech recognition provider is one fold; the selected one stays o
         ["config_page.transcription.select_transcription_engine.engines.deepgram", "provider_in_use", true],
         ["config_page.transcription.select_transcription_engine.engines.custom_whisper config_page.transcription.select_transcription_engine.badge_own", "provider_not_set", false],
     ]);
-    // The mark is the catalogs' badge for what the user added (dashed edge).
+    // The mark is the catalogs' badge for what the user added: the kit's Badge with the dashed edge.
     const lastFold = all(drawWith(runtime, cloud), node => node.type === SetupSection).at(-1);
     assert.ok(lastFold);
-    const badge = find(lastFold.props.title, node => node.props?.["data-tone"]);
+    const badge = find(lastFold.props.title, node => node.type === kitStandIns.Badge);
     assert.ok(badge);
-    assert.equal(badge.props["data-tone"], "own");
+    assert.deepEqual([badge.props.tone, badge.props.variant], ["strong", "dashed"]);
     const groupDrawn = draw(group);
     assert.ok(groupDrawn);
     assert.equal(groupDrawn.props["data-engine-group"], "api");

@@ -116,4 +116,28 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     const optGroup = kitStandIns.SelectOptGroup({ label: "Fruit" });
     assert.equal(optGroup.type, "optgroup");
     assert.deepEqual(optGroup.props, { "data-slot": "native-select-optgroup", label: "Fruit" });
+    // The card: a <div> named data-slot="card" unless it is an <li>, not the one in use unless told; its parts are <div>s.
+    assert.match(kit("Card.css.ts"), /defaultVariants: \{ active: false \}/);
+    assert.match(kit("Card.tsx"), /<div data-slot="card" /);
+    assert.match(kit("Card.tsx"), /<li data-slot="card" /);
+    const card = kitStandIns.Card({ children: "parts" });
+    assert.equal(card.type, "div");
+    assert.deepEqual(card.props, { "data-slot": "card", "data-active": false, children: "parts" });
+    const item = kitStandIns.Card({ as: "li", active: true, role: "group" });
+    assert.equal(item.type, "li");
+    assert.deepEqual(item.props, { "data-slot": "card", "data-active": true, role: "group" });
+    for (const [part, slot] of [["CardHeader", "card-header"], ["CardTitle", "card-title"], ["CardDescription", "card-description"],
+        ["CardContent", "card-content"], ["CardFooter", "card-footer"]] as const) {
+        assert.match(kit("Card.tsx"), new RegExp(`<div data-slot="${slot}"`), part);
+        const drawnPart = kitStandIns[part]({ className: "place" });
+        assert.deepEqual([drawnPart.type, drawnPart.props], ["div", { "data-slot": slot, className: "place" }], part);
+    }
+    // The badge: a <span> named data-slot="badge", a neutral outline with no mark unless it asks.
+    assert.match(kit("Badge.css.ts"), /defaultVariants: \{ tone: "neutral", variant: "outline" \}/);
+    assert.match(kit("Badge.tsx"), /<span data-slot="badge"/);
+    const badge = kitStandIns.Badge({ children: "Built in" });
+    assert.equal(badge.type, "span");
+    assert.deepEqual(badge.props, { "data-slot": "badge", "data-tone": "neutral", "data-variant": "outline", "data-mark": undefined, children: "Built in" });
+    assert.deepEqual(kitStandIns.Badge({ tone: "active", variant: "solid", mark: "check" }).props,
+        { "data-slot": "badge", "data-tone": "active", "data-variant": "solid", "data-mark": "check" });
 });
