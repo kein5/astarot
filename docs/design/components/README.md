@@ -88,7 +88,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | ID | Question | Proposal in this experiment |
 |---|---|---|
 | K-01 | Whether to adopt these components, and if so, which page to replace first | Replace the pages that stages 1 and 2 of #554 rebuild, when they rebuild the settings screen. Decided on 2026-11-24: the screens use them now, before #554's rebuild, replacing the rows of the [hand-built inventory](hand-built-inventory.md) from the easiest (H-04) |
-| K-02 | Whether to make every on/off setting a switch (item 1 of #436) | Make them switches. Keep checkboxes only for confirming consent |
+| K-02 | Whether to make every on/off setting a switch (item 1 of #436) | Make them switches. Keep checkboxes only for confirming consent. Decided on 2026-11-25 as proposed |
 | K-03 | Whether to use the thin lines between rows on every page, or only space on pages with few items | Use them on every page |
 | K-04 | When to remove the existing components (`_DropdownMenu`, `FormRow`, the toggle in `mixins.ts`) | Remove them page by page, as each page's replacement is finished |
 | K-05 | How the native select field's list looks in WebKitGTK | Check on a real Linux machine |
@@ -183,7 +183,7 @@ DESIGN.md の「Components」で、部品の設計、見た目、構造を shadc
 | ID | 問い | この実験での案 |
 |---|---|---|
 | K-01 | この部品を本採用するか。するなら、どのページから置き換えるか | #554 の段 1・段 2 で設定画面を組み直すときに、そのページから置き換える。2026-11-24 の決定で、#554 の組み直しを待たずに画面で使います。[手作りの部品の棚卸し](hand-built-inventory.md)の行を、易しいものから置き換えます（H-04） |
-| K-02 | 設定のオンとオフをすべてスイッチにそろえるか（#436 の 1） | スイッチにそろえる。チェックボックスは同意の確認だけに残す |
+| K-02 | 設定のオンとオフをすべてスイッチにそろえるか（#436 の 1） | スイッチにそろえる。チェックボックスは同意の確認だけに残す。2026-11-25 に案のとおり決まりました |
 | K-03 | 行の間の細い線は、すべてのページで使うか。項目が少ないページでは余白だけにするか | すべてのページで使う |
 | K-04 | 既存の部品（`_DropdownMenu`、`FormRow`、`mixins.ts` のトグル）をいつ消すか | 置き換えが終わったページから順に消す |
 | K-05 | WebKitGTK でネイティブの選択欄の一覧がどう見えるか | Linux の実機で確かめる |
