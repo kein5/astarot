@@ -2,10 +2,6 @@ import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../../theme/vars.css.ts";
 
 export const is_disabled = style({});
-export const open_below = style({});
-export const open_above = style({});
-export const align_start = style({});
-export const align_end = style({});
 
 export const container = style({
     display: "flex",
@@ -46,23 +42,8 @@ export const swatch_wrapper = style({
     flexShrink: 0,
 });
 
-export const popover_paper = style({
-    position: "absolute",
-    zIndex: 1000,
-    padding: "1.2rem",
-    backgroundColor: vars.dark_950_color,
-    border: `0.1rem solid ${vars.dark_800_color}`,
-    borderRadius: "0.8rem",
-    boxShadow: vars.vox_shadow_overlay,
-    selectors: {
-        [`&.${open_below}`]: { top: "calc(100% + 0.4rem)", bottom: "auto" },
-        [`&.${open_above}`]: { bottom: "calc(100% + 0.4rem)", top: "auto" },
-        [`&.${align_start}`]: { left: 0, right: "auto" },
-        [`&.${align_end}`]: { right: 0, left: "auto" },
-    },
-});
-
-// The colour picker (react-colorful) fills the popover, with larger handles.
+// The colour picker (react-colorful) fills the kit's PopoverContent (ColorEntryWithSaveButton.tsx),
+// with larger handles.
 export const popover_content = style({
     width: "20rem",
     height: "20rem",

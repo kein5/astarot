@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
@@ -329,36 +330,46 @@ test("an API key field that saves by itself leaves, reverts and says its problem
 
 // #1111: a color field that saves by itself saves when focus leaves it and when the picker closes
 // after a color is chosen. Escape in the field puts the saved color back, but with the picker open
-// it only closes the picker, which keeps the chosen color.
-test("a color field that saves by itself saves on leaving and on closing the picker", async t => {
-    const runtime = hooks(), document = eventTarget();
-    stubGlobals(t, { document, window: eventTarget() });
+// it only closes the picker, which keeps the chosen color. The picker is the kit's Popover (D-25):
+// the swatch opens it, and Radix tells when Escape or a press outside closes it.
+async function colorField(t: TestContext) {
+    const runtime = hooks();
+    stubGlobals(t, { document: eventTarget(), window: eventTarget() });
     const { ColorEntryWithSaveButton } = await loadModule<typeof import("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx")>(
         new URL("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
-            clsx: { clsx }, "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
+            clsx: { clsx }, "@useI18n": { useI18n: () => ({ t: (key: string, values?: { label?: string }) => values?.label ? `${key}: ${values.label}` : key }) },
             "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
             "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    return { runtime, ColorEntryWithSaveButton };
+}
+const entryOf = (tree: unknown) => findIn(tree, node => node.type === "entry");
+const swatchOf = (tree: unknown) => findIn(tree, node => node.type === "button");
+const popoverOf = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Popover);
+const pickerOf = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.PopoverContent);
+const pressEvent = () => { const event = { prevented: false, preventDefault() { event.prevented = true; } }; return event; };
+
+test("a color field that saves by itself saves on leaving and on closing the picker", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
     let saves: string[] = [], reverts = 0;
     const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "ok",
         saveFunction: () => saves.push("first"), onRevert: () => reverts++, error: null };
-    const entryOf = (tree: unknown) => findIn(tree, node => node.type === "entry");
-    const swatchOf = (tree: unknown) => findIn(tree, node => node.type === "button");
     let tree = runtime.render(ColorEntryWithSaveButton, props);
     entryOf(tree).props.onBlur();
     assert.deepEqual(saves, ["first"], "leaving the field saves");
     entryOf(tree).props.onKeyDown(key("Escape"));
     assert.equal(reverts, 1, "Escape in the field puts the saved color back");
     // Open the picker, choose a color (the page's save now reads it), and close the picker.
-    swatchOf(tree).props.onClick();
+    popoverOf(tree).props.onOpenChange(true);
     tree = runtime.render(ColorEntryWithSaveButton, props);
-    assert.equal(swatchOf(tree).props["aria-expanded"], true);
+    assert.deepEqual([swatchOf(tree).props["aria-expanded"], popoverOf(tree).props.open], [true, true]);
     entryOf(tree).props.onKeyDown(key("Escape"));
     assert.equal(reverts, 1, "with the picker open, Escape does not revert");
     saves = []; props.saveFunction = () => saves.push("chosen");
     tree = runtime.render(ColorEntryWithSaveButton, props);
-    document.dispatch("keydown", { key: "Escape" });
+    // Escape or a press outside: Radix closes it.
+    popoverOf(tree).props.onOpenChange(false);
     tree = runtime.render(ColorEntryWithSaveButton, props);
-    assert.equal(swatchOf(tree).props["aria-expanded"], false);
+    assert.deepEqual([swatchOf(tree).props["aria-expanded"], popoverOf(tree).props.open], [false, false]);
     assert.deepEqual(saves, ["chosen"], "closing the picker saves the chosen color with the latest save");
     // The problem is said under the field and tied to it.
     props.error = "Enter # and six characters.";
@@ -367,6 +378,90 @@ test("a color field that saves by itself saves on leaving and on closing the pic
     assert.equal(problem.props.text, props.error);
     assert.equal(entryOf(tree).props["aria-invalid"], true);
     assert.equal(entryOf(tree).props["aria-describedby"], problem.props.id);
+    runtime.unmount();
+});
+
+test("the color picker is the kit's Popover after the swatch: it leaves the focus on the swatch and stays open until Escape or a press outside", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
+    const saves: string[] = [], chosen: string[] = [];
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: " #12ab34 ", state: "ok",
+        saveFunction: () => saves.push("save"), onChangeFunction: value => chosen.push(value) };
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    const trigger = findIn(tree, node => node.type === kitStandIns.PopoverTrigger);
+    assert.equal(trigger.props.asChild, true);
+    assert.equal(findIn(trigger, node => node.type === "button").props["aria-label"], "config_page.common.open_color_picker: Font color", "the swatch opens it");
+    const picker = pickerOf(tree);
+    assert.deepEqual([picker.props.portal, picker.props.side, picker.props.align, picker.props.collisionPadding, picker.props["aria-label"], picker.props.className],
+        [false, "bottom", "end", 8, "config_page.common.open_color_picker: Font color", undefined], "drawn after the swatch, so Tab goes into it");
+    assert.equal(findIn(picker, node => node.type === "picker").props.color, "#12ab34");
+    // Opening it leaves the focus on the swatch; the focus leaving it keeps it open.
+    for (const handler of ["onOpenAutoFocus", "onFocusOutside"]) {
+        const event = pressEvent();
+        picker.props[handler](event);
+        assert.equal(event.prevented, true, handler);
+    }
+    // Closed by Escape: the focus goes back to the swatch, without scrolling. Closed by a press
+    // outside: it stays where it went, once. A press on the swatch is not outside.
+    const focused: unknown[] = [];
+    const swatchNode = { focus: (options?: unknown) => focused.push(options) };
+    // A press, by the elements it went through, from the one pressed out to the page.
+    const pressOn = (...path: unknown[]) => ({ detail: { originalEvent: { composedPath: () => path } } });
+    setRef(swatchOf(tree), swatchNode);
+    const close = pressEvent();
+    picker.props.onCloseAutoFocus(close);
+    assert.deepEqual([close.prevented, focused], [true, [{ preventScroll: true }]]);
+    picker.props.onPointerDownOutside(pressOn({ id: "field" }, { id: "page" }));
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.deepEqual(focused, [{ preventScroll: true }]);
+    // A press on the swatch (on the color inside it too) is not outside.
+    picker.props.onPointerDownOutside(pressOn({ id: "color" }, swatchNode, { id: "page" }));
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.deepEqual(focused, [{ preventScroll: true }, { preventScroll: true }]);
+    // With no swatch drawn, a press is outside, and nothing is focused.
+    setRef(swatchOf(tree), null);
+    assert.doesNotThrow(() => picker.props.onPointerDownOutside(pressOn({ id: "page" })));
+    assert.doesNotThrow(() => picker.props.onCloseAutoFocus(pressEvent()));
+    setRef(swatchOf(tree), swatchNode);
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.equal(focused.length, 3, "the next close by Escape gives the focus back again");
+    // Pressing the swatch opens it; pressed again while open, it stays open.
+    let press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, false, "Radix opens it");
+    popoverOf(tree).props.onOpenChange(true);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, true, "pressing the swatch while open keeps it open");
+    findIn(pickerOf(tree), node => node.type === "picker").props.onChange("#000000");
+    assert.deepEqual([chosen, saves], [["#000000"], []]);
+    assert.equal(findIn(swatchOf(tree), node => node.type === "span").props.style.backgroundColor, "#12ab34");
+    // A color that is not #RRGGBB shows an empty swatch and a white picker.
+    for (const variable of ["red", "x#12ab34", "#12ab34x", "#12ab3", null]) {
+        props.variable = variable;
+        tree = runtime.render(ColorEntryWithSaveButton, props);
+        assert.equal(findIn(pickerOf(tree), node => node.type === "picker").props.color, "#FFFFFF", String(variable));
+        assert.equal(findIn(swatchOf(tree), node => node.type === "span").props.style.backgroundColor, "transparent", String(variable));
+    }
+    runtime.unmount();
+});
+
+test("while a save waits, the swatch does not open the picker, the picker does not change the color, and closing it does not save", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
+    const saves: string[] = [], chosen: string[] = [];
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "pending",
+        saveFunction: () => saves.push("save"), onChangeFunction: value => chosen.push(value) };
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.equal(swatchOf(tree).props["aria-disabled"], true);
+    const press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, true, "Radix does not open it");
+    // Opened before the save began: the picker changes nothing and closing it saves nothing.
+    popoverOf(tree).props.onOpenChange(true);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    findIn(pickerOf(tree), node => node.type === "picker").props.onChange("#000000");
+    popoverOf(tree).props.onOpenChange(false);
+    assert.deepEqual([chosen, saves], [[], []]);
     runtime.unmount();
 });
 
