@@ -197,6 +197,15 @@ test("production sources have no dynamic code or unreviewed resource loaders", (
     }
 });
 
+// A modal Radix Popover locks the page's scrolling with a <style> made at run time, which the
+// policy does not allow (no unsafe-inline): the app's popovers are never modal (kit/Popover.tsx).
+test("no popover of the app is modal", () => {
+    for (const file of files("src-ui").filter(name => /\.tsx$/.test(name) && !/\.test\./.test(name))) {
+        // The element's props run to its first ">" that does not end an arrow function.
+        assert.doesNotMatch(read(file), /<(?:RadixPopover\.Root|Popover)\b(?:=>|[^>])*\bmodal\b/, file);
+    }
+});
+
 test("guards detect direct, indirect and computed eval and remote script/style/font loading", () => {
     for (const code of ["eval('x')", "(0, eval)('x')", "const run = window['eval']; run('x')", "new Function('x')", "Function('x')", "new globalThis['Function']('x')", "WebAssembly.compile(bytes)", "setTimeout('x', 1)", "import('https://cdn.invalid/a.js')", "const s = document.createElement('script')", "element.src = url", "const x = <script src={url} />", "const x = <img src='https://cdn.invalid/a.png' />", "new FontFace('remote', url)", "fetch(url)"]) {
         assert.notEqual(jsProblems(code).length, 0, code);
@@ -222,7 +231,7 @@ test("emitted production dependencies and HTML agree with the policy (run after 
     assert.deepEqual(built.filter(file => file.endsWith(".html")).sort(), ["dist/caption-overlay.html",
         "dist/companion-handle.html", "dist/companion-panel.html", "dist/index.html", "dist/quick-chat.html", "dist/vr.html"]);
     const hashes: string[] = [];
-    let styleInjectors = 0, precedenceStyles = 0;
+    let styleInjectors = 0, precedenceStyles = 0, scrollLockStyles = 0;
     for (const file of built) {
         if (file.endsWith(".js")) {
             const code = read(file);
@@ -235,6 +244,12 @@ test("emitted production dependencies and HTML agree with the policy (run after 
                 // element" above), so it does not run; it carries no stylesheet to hash.
                 const start = node.start ?? 0;
                 if (code.slice(Math.max(0, start - 300), start).includes("data-precedence")) precedenceStyles++;
+                // react-style-singleton makes the <style> with which react-remove-scroll locks the
+                // page's scrolling (it reads get-nonce's __webpack_nonce__ just before). Radix's
+                // Popover draws it only when modal, and the kit's Popover is never modal (below),
+                // so it does not run; its stylesheet is made at run time and has no hash to allow.
+                else if (code.slice(Math.max(0, start - 300), start).includes("__webpack_nonce__")
+                    && /^document\.createElement\(.style.\);\w+\.type=.text\/css.;/.test(code.slice(start))) scrollLockStyles++;
                 else styleInjectors++;
             });
         } else if (file.endsWith(".css")) assert.deepEqual(cssProblems(read(file)), [], file);
@@ -243,5 +258,6 @@ test("emitted production dependencies and HTML agree with the policy (run after 
     }
     assert.equal(styleInjectors, injectedStyles.length, "Review new or changed runtime style injectors");
     assert.equal(precedenceStyles, 1, "Review react-dom's <style precedence> resource after a react-dom change");
+    assert.ok(scrollLockStyles <= 1, "Review react-remove-scroll's style singleton after a Radix change");
     assert.deepEqual(hashes.sort(), sources(security.csp, "style-src").filter(value => value !== "'self'").sort());
 });

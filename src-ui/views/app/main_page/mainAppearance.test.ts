@@ -34,13 +34,15 @@ const canvas = `--${token(read("MainPage.css.ts"), /backgroundColor:\s*vars\.(\w
 // These styles are in vanilla-extract: `vars.x` is `var(--x)`, and a state's rule `"&:hover": {` reads as `&:hover {`.
 const tokens = (css: string) => css.replace(/\bvars\.(\w+)/g, "var(--$1)").replace(/backgroundColor:|background:/g, "background:").replace(/"&:(hover|active)": \{/g, "&:$1 {");
 const top = tokens(read("main_section/top_bar/right_side_components/_buttons/OpenQuickSettingButton.css.ts"));
+// The quick settings' rows are the kit's Toggle (D-27): its surface at rest and under the pointer.
+const toggle = tokens(read("../../kit/Toggle.css.ts"));
+const toggleBase = toggle.slice(toggle.indexOf("base: {"), toggle.indexOf("variants: {"));
 const close = tokens(read("../others/modal_controller/ModalController.css.ts").split("export const close_button = style({")[1]);
 const off = token(top.split("is_disabled}`]: {")[1].split("}")[0], fg);
 const messages = tokens(read("main_section/message_container/log_box/message_container/MessageContainer.css.ts").split("export const category = style({")[1]);
 const pairs = [
-    ["top-bar off resting", off, canvas],
-    ["top-bar off hover", off, token(top.split("&:hover {")[1], bg)],
-    ["top-bar off pressed", off, token(top.split("&:active {")[1], bg)],
+    ["top-bar off resting", off, token(toggleBase, bg)],
+    ["top-bar off hover", off, token(toggleBase.split('"&:hover:not(:disabled)": {')[1], bg)],
     ["quick-dialog close resting", token(close, fg), token(close, bg)],
     ["quick-dialog close hover", token(close, fg), token(close.split("&:hover {")[1], bg)],
     ["quick-dialog close pressed", token(close, fg), token(close.split("&:active {")[1], bg)],

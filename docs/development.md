@@ -256,7 +256,7 @@ npm run test:coverage    # coverage (HTML and json-summary in build/coverage/ui)
 - `import.meta.hot` (Vite's hot module replacement) is one of the stand-ins too. If the test passes it under the name `HOT_DEPENDENCY` (`harnessModules.ts`), the module uses it. If not, it is `undefined`, as in a build. A test that carries state across a replacement passes the same stand-in and loads the module again (`useHotkeys.test.ts`).
 - When you move an existing `.js` file to `.ts`, rewrite every reference in the same commit: the imports in views, the loading in tests, and the paths that Python tests or tools point to.
 - `src-ui/views/app/_index_css/variables.css` is the source of truth for the values of the design tokens. From vanilla-extract, `vars` in `src-ui/views/theme/vars.css.ts` refers to the same variables. When you add a token, write it in both (`vars.test.ts` detects any mismatch).
-- Radix UI is used for behavior and accessibility; the look comes from vanilla-extract. When you add a Radix component, check whether it inserts a `<style>` element at runtime. The CSP allows inserted styles by hash, and `contentSecurityPolicy.test.ts` counts them.
+- Radix UI is used for behavior and accessibility; the look comes from vanilla-extract. When you add a Radix component, check whether it inserts a `<style>` element at runtime. The CSP allows inserted styles by hash, and `contentSecurityPolicy.test.ts` counts them. Radix's Popover brings react-remove-scroll's `<style>`, which it inserts only when the popover is modal; the app's popovers are never modal, so the test counts that one apart and checks that no popover is made modal.
 
 ### UI lint and formatting (Biome)
 
@@ -817,7 +817,7 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - `import.meta.hot`（Viteのモジュールの差し替え）も、差し替え品の1つです。試験が `HOT_DEPENDENCY`（`harnessModules.ts`）の名前で渡せば、モジュールはそれを使います。渡さなければ `undefined` で、ビルドしたときと同じです。差し替えをまたいで状態を引き継ぐ試験は、同じ品を渡してモジュールを読み直します（`useHotkeys.test.ts`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
-- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。
+- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。RadixのPopoverはreact-remove-scrollの `<style>` を連れてきますが、差し込むのはモーダルのときだけです。アプリのポップオーバーはモーダルにしないので、試験はそれを別に数え、モーダルにしたポップオーバーがないことを確かめます。
 
 ### UIのlintと整形（Biome）
 
