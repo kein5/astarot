@@ -535,3 +535,24 @@ body {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+
+/* Keep the home actions before the mascot when the hero stacks on narrow screens. */
+.rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) {
+  gap: 24px;
+}
+
+.rp-home-hero .rp-home-hero__image {
+  flex: 0 0 auto;
+  align-self: center;
+  width: clamp(132px, 23vw, 245px);
+}
+
+.rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) .rp-home-hero__container {
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) {
+    flex-direction: column;
+  }
+}

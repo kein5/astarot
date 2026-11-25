@@ -1,0 +1,52 @@
+.stage {
+  width: 100%;
+  text-align: center;
+}
+
+.picture {
+  position: relative;
+  aspect-ratio: 7 / 10;
+}
+
+.picture img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.replaced {
+  opacity: 0;
+}
+
+.animation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.animation svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.controls {
+  min-height: 36px;
+}
+
+.toggle {
+  composes: control from "./Control.module.css";
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
+  color: var(--a-text);
+  background: var(--a-surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  border-color: var(--a-field-border);
+  background: var(--a-surface-hover);
+}

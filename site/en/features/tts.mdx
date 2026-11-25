@@ -15,7 +15,9 @@ A new installation starts with "Basic" under "Used for", which hides the switch 
 - A speech model, run by the [speech.cpp](https://github.com/nyosegawa/speech.cpp) servers that come with the app. Japanese is spoken with Irodori-TTS and other languages with Qwen3-TTS. Neither model comes with the app: download one, or point to a file you have ([Model downloads](../guide/models), [Use your own models](../guide/custom-models#tts)). Japanese can also come from VOICEVOX or another engine you install instead ([Read Japanese with VOICEVOX or another engine](#read-japanese-with-voicevox-or-another-engine)).
 - A virtual microphone, for VRChat to hear the speech. On Windows, install a virtual cable ([Windows audio route](../guide/windows-audio)). On Linux you can use "Managed virtual microphone (Linux)" ([Linux audio route](../guide/linux-audio)).
 
-## First steps
+## Steps
+
+### First steps
 
 1. Under Settings → "Text to speech (TTS)" → "Models and servers", download a model with "Download a default model", or enter the path of a <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> file you have.
 2. Settings save by themselves: a typed path when you press Enter or leave the field. Then press "Start server". Saving alone does not load the model.
@@ -30,7 +32,7 @@ Japanese and the other languages start on the bundled server. With a bundled ser
 
 The [first setup](../guide/first-setup) screen can also choose and download the speech model.
 
-## Read Japanese with VOICEVOX or another engine
+### Read Japanese with VOICEVOX or another engine
 
 Japanese can also be read in the voices of a speech engine you install and run yourself: VOICEVOX, COEIROINK, AivisSpeech or SHAREVOX. The app does not install or start the engine.
 
@@ -47,7 +49,7 @@ While an engine is chosen, Japanese speech uses neither the speech.cpp server no
 Each voice has its own terms of use. In videos or streams, credit the voice as its terms say (for example `VOICEVOX:ずんだもん`). COEIROINK voices need the credit "COEIROINK:voice name".
 :::
 
-## Get your voice into VRChat
+### Get your voice into VRChat
 
 Choose the virtual microphone under "Output device", and choose the same one as your microphone in VRChat.
 
@@ -66,14 +68,36 @@ On Linux, use "VRCT Managed Virtual Microphone" ([Linux audio route](../guide/li
 
 Why a virtual microphone is needed is in [How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed).
 
-## Hear it yourself
+### Start speaking sooner (Japanese, GPU)
+
+"Low-latency standby (Irodori GPU)" shortens the time before speech starts. It is off by default.
+
+While nothing is being spoken, it keeps running short calculations on the GPU so that speech can start right away. That uses more power and can compete with the game for the GPU.
+
+### Stop
+
+There are three ways to stop, each with a different scope. "Stop speech" and "Mute" are always at the top of the main screen.
+
+| Action | What stops |
+|---|---|
+| Turn off "Text to speech (TTS)" on the main screen | New speech, the speech playing now and the speech waiting its turn. Text sending, the voice changer and translation continue |
+| "Stop speech" | The speech playing now, the speech waiting its turn, a voice sample and the virtual microphone's test tone. With nothing to stop, it cannot be pressed. Pressed, it shows "Stopping…" and then "Stopped". "Stop speech" under Settings → "Text to speech (TTS)" does the same |
+| "Mute" | What ASTAROT sends to VRChat: with the managed virtual microphone, both speech and the voice changer; with an external virtual cable, speech only. It lasts until you unmute, and the button shows "Muted" meanwhile. Press it again to unmute. "Mute now" and "Unmute" under Settings → "Device" → "More settings" → "Audio route" do the same |
+
+All can be assigned to [hotkeys](./quick-chat#hotkeys). After a restart, speech and the bundled servers start off.
+
+## Check that it works
+
+Play a sample to hear the voice. If you want others to hear it in VRChat, also check the virtual microphone in VRChat.
+
+### Hear it yourself
 
 Under "More settings" → "Monitor", turn on "Hear it on my speakers" and choose a "Monitor output" to play the same speech that goes to VRChat on your own speakers or headphones.
 
 - What VRChat receives does not change.
 - Use headphones, so your microphone does not pick up the sound from your speakers.
 
-## Play a sample of the voice
+### Play a sample of the voice
 
 You can hear the voice of the model in use on your own, without turning speech on. After changing the voice or the seed, play it again to compare.
 
@@ -86,26 +110,12 @@ You can hear the voice of the model in use on your own, without turning speech o
 - Only the model in use can play a sample. The other cards say why they cannot.
 - Voice changer (RVC) models play a sample with "Play sample" on their cards on the "Voice changer (RVC)" page ([Voice changer](./voice-conversion)).
 
-## Start speaking sooner (Japanese, GPU)
+## Troubleshooting
 
-"Low-latency standby (Irodori GPU)" shortens the time before speech starts. It is off by default.
-
-While nothing is being spoken, it keeps running short calculations on the GPU so that speech can start right away. That uses more power and can compete with the game for the GPU.
-
-## Stop
-
-There are three ways to stop, each with a different scope. "Stop speech" and "Mute" are always at the top of the main screen.
-
-| Action | What stops |
-|---|---|
-| Turn off "Text to speech (TTS)" on the main screen | New speech, the speech playing now and the speech waiting its turn. Text sending, the voice changer and translation continue |
-| "Stop speech" | The speech playing now, the speech waiting its turn, a voice sample and the virtual microphone's test tone. With nothing to stop, it cannot be pressed. Pressed, it shows "Stopping…" and then "Stopped". "Stop speech" under Settings → "Text to speech (TTS)" does the same |
-| "Mute" | What ASTAROT sends to VRChat: with the managed virtual microphone, both speech and the voice changer; with an external virtual cable, speech only. It lasts until you unmute, and the button shows "Muted" meanwhile. Press it again to unmute. "Mute now" and "Unmute" under Settings → "Device" → "More settings" → "Audio route" do the same |
-
-All can be assigned to [hotkeys](./quick-chat#hotkeys). After a restart, speech and the bundled servers start off.
-
-## When it does not work
+### When it does not work
 
 - If VRChat does not hear it, see [Troubleshooting](../guide/troubleshooting#vrchat-does-not-hear-the-speech).
 - If the same text is spoken twice, turn off the other tool that reads the same chat, such as VRCT-TTS by upstream VRCT's author.
 - If a model you brought does not work, see [Use your own models](../guide/custom-models#tts).
+
+See [Troubleshooting](../guide/troubleshooting) for fixes by symptom.

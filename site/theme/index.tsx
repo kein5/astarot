@@ -2,9 +2,18 @@
 // Parts that pages use in Markdown (Term, CopyText, OsTabs, StepProgress, Needs, FeatureRows,
 // PageToc, ManualRedirect) are registered in rspress.config.ts (`markdown.globalComponents`).
 import { Head, useLang, usePage, withBase } from '@rspress/core/runtime'
-import { Layout as BaseLayout, HomeLayout as BaseHomeLayout, type HomeLayoutProps } from '@rspress/core/theme-original'
+import {
+  Layout as BaseLayout,
+  HomeLayout as BaseHomeLayout,
+  HomeBackground,
+  HomeFeature,
+  HomeFooter,
+  HomeHero,
+  type HomeLayoutProps,
+} from '@rspress/core/theme-original'
 import { useEffect } from 'react'
 import { HomeActions, HomeShot, HomeShowcase } from './components/Home'
+import { HomeMascot } from './components/HomeMascot'
 import { RouteStrip } from './components/RouteStrip'
 import { TermTooltip } from './components/TermTooltip'
 import { LOCALE_KEY } from './lib/locale'
@@ -118,7 +127,19 @@ function PageTitle() {
 // The hero's buttons, the download button first (front matter `heroActions`). Rspress 2.1.3's
 // Layout does not pass afterHeroActions on to the home layout, so the home layout takes it here.
 function HomeLayout(props: HomeLayoutProps) {
-  return <BaseHomeLayout {...props} afterHeroActions={<HomeActions />} />
+  if (import.meta.env.SSG_MD) return <BaseHomeLayout {...props} />
+  return (
+    <>
+      <HomeBackground />
+      {props.beforeHero}
+      <HomeHero afterHeroActions={<HomeActions />} image={<HomeMascot />} />
+      {props.afterHero}
+      {props.beforeFeatures}
+      <HomeFeature />
+      {props.afterFeatures}
+      <HomeFooter />
+    </>
+  )
 }
 
 export function Layout() {
