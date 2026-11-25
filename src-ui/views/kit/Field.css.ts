@@ -42,14 +42,44 @@ export const field = recipe({
                 cursor: "pointer",
                 selectors: { "&:disabled": { opacity: 1 } },
             },
+            // Several lines (shadcn/ui's Textarea, U-06). How tall it is depends on where it is
+            // (fill, below); it never grows with its text by itself (no field-sizing: content, D-13).
+            textarea: {},
         },
         mono: {
             // Addresses, ports, paths and keys (#476).
             true: { fontFamily: "var(--vox_font_mono)" },
             false: {},
         },
+        // Only for several lines: the field fills the room its screen gives it (Quick Chat's
+        // window) and grows and shrinks with that room, instead of having an edge to drag.
+        fill: { true: {}, false: {} },
+        // Only for several lines: a field inside a frame its screen draws (the main window's
+        // composer), as shadcn/ui's InputGroupTextarea sits in an InputGroup. The frame draws the
+        // border, the fill, the focus (:focus-within), the room around the words and their size;
+        // the field keeps its words and the placeholder's color (decided on 2026-11-25).
+        inFrame: {
+            true: {
+                minHeight: 0,
+                padding: 0,
+                background: "transparent",
+                border: 0,
+                borderRadius: 0,
+                color: "inherit",
+                fontSize: "inherit",
+                lineHeight: "inherit",
+                selectors: { "&:focus-visible": { outline: "none" } },
+            },
+            false: {},
+        },
     },
-    defaultVariants: { kind: "text", mono: false },
+    compoundVariants: [
+        // In a form: 8rem to start, and its lower edge can be dragged down to give the text room.
+        { variants: { kind: "textarea", fill: false }, style: { minHeight: "8rem", resize: "vertical" } },
+        // Filling its screen's room: nothing to drag, and the field's floor of 4rem (one line).
+        { variants: { kind: "textarea", fill: true }, style: { resize: "none" } },
+    ],
+    defaultVariants: { kind: "text", mono: false, fill: false, inFrame: false },
 });
 
 export const selectWrap = style({

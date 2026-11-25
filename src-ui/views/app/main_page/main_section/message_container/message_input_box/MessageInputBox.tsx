@@ -11,6 +11,7 @@ import { store, Atom_MessageLogs, useStore_MessageInputValue } from "@store";
 import { chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
 import { CHATBOX_LENGTH_WARNING_ID } from "./ChatboxLengthWarning";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
+import { Textarea } from "../../../../../kit/index.ts";
 import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
 
 // Enter in the box or a press of the send button. Only a key repeats.
@@ -122,9 +123,12 @@ export const MessageInputBox = memo(function MessageInputBox() {
 
     return (
         <div className={styles.container}>
+            {/* The composer's frame; the field inside it has none of its own (decided on 2026-11-25). */}
             <div className={styles.message_box_wrapper}>
-                <textarea
+                <Textarea
                     ref={log_box_ref}
+                    inFrame
+                    fill
                     className={styles.message_box_input_area}
                     data-message-input=""
                     onChange={onChangeFunction}

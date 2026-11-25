@@ -160,4 +160,13 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.match(confirm, /<Button tone="danger" \{\.\.\.props\} \/>/);
     assert.deepEqual(kitStandIns.InlineConfirmAction({ disabled: true, children: "Remove" }).props,
         { type: "button", "data-slot": "button", "data-tone": "danger", "data-size": "regular", disabled: true, children: "Remove" });
+    // The textarea: a <textarea> named data-slot="textarea", aria-invalid only while the value is wrong, a form's field unless it fills.
+    assert.match(kit("Textarea.tsx"), /invalid = false, mono = false, fill = false, inFrame = false, className/);
+    assert.match(kit("Textarea.tsx"), /data-slot="textarea"\s*aria-invalid=\{invalid \|\| undefined\}/);
+    const lines = kitStandIns.Textarea({ value: "words" });
+    assert.equal(lines.type, "textarea");
+    assert.deepEqual(lines.props, { "data-slot": "textarea", "aria-invalid": undefined, "data-mono": false, "data-fill": false, "data-in-frame": false,
+        value: "words" });
+    assert.deepEqual(kitStandIns.Textarea({ invalid: true, mono: true, fill: true, inFrame: true }).props,
+        { "data-slot": "textarea", "aria-invalid": true, "data-mono": true, "data-fill": true, "data-in-frame": true });
 });

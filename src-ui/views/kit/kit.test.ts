@@ -49,6 +49,7 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     // naming each part included (docs/design/components/shadcn-alignment.md).
     assert.match(read("Button.tsx"), /<button type=\{type\} data-slot="button"/);
     assert.match(read("TextField.tsx"), /data-slot="input"/);
+    assert.match(read("Textarea.tsx"), /<textarea\s*data-slot="textarea"/);
     const select = read("Select.tsx");
     for (const slot of ["native-select-wrapper", "native-select", "native-select-icon", "native-select-option", "native-select-optgroup"]) {
         assert.match(select, new RegExp(`data-slot="${slot}"`), slot);
@@ -125,7 +126,7 @@ test("the confirmation inside a row stays in the row: no dialog, no popover, the
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
     for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
-        "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
+        "Switch.tsx", "TextField.tsx", "Textarea.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });
@@ -191,6 +192,27 @@ test("a progress bar keeps the forms' look: one palette at two lightnesses, .6re
     // The engines' own bar is turned off, or they draw theirs instead of the kit's.
     assert.match(css, /appearance: "none",\s*WebkitAppearance: "none",/);
     assert.doesNotMatch(css, /opacity|color-mix/);
+});
+
+test("a textarea keeps the way each place grows: no field-sizing, an edge to drag in a form, none when it fills", () => {
+    // D-13 (2026-11-25): field-sizing: content is not Baseline Widely available, so a field does not grow with its text.
+    const css = read("Field.css.ts");
+    assert.doesNotMatch(css.replace(/\/\/.*$/gm, ""), /fieldSizing|field-sizing/, "the comments say why; the code does not use it");
+    assert.match(css, /\{ variants: \{ kind: "textarea", fill: false \}, style: \{ minHeight: "8rem", resize: "vertical" \} \}/);
+    assert.match(css, /\{ variants: \{ kind: "textarea", fill: true \}, style: \{ resize: "none" \} \}/);
+    assert.match(css, /defaultVariants: \{ kind: "text", mono: false, fill: false, inFrame: false \}/);
+});
+
+test("a textarea inside its screen's frame has no frame of its own and takes the frame's words", () => {
+    // Decided on 2026-11-25 (#1194), as shadcn/ui's InputGroupTextarea sits in an InputGroup.
+    const css = read("Field.css.ts");
+    const inFrame = css.slice(css.indexOf("inFrame: {"), css.indexOf("false: {},", css.indexOf("inFrame: {")));
+    for (const rule of [/minHeight: 0,/, /padding: 0,/, /background: "transparent",/, /border: 0,/, /borderRadius: 0,/, /color: "inherit",/,
+        /fontSize: "inherit",/, /lineHeight: "inherit",/, /"&:focus-visible": \{ outline: "none" \}/]) {
+        assert.match(inFrame, rule);
+    }
+    // The placeholder keeps the field's color: the frame sets none.
+    assert.doesNotMatch(inFrame, /placeholder/);
 });
 
 test("rows are divided by a hairline, groups by space; only field rows stack when narrow", () => {

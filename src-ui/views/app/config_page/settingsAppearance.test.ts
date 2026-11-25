@@ -287,7 +287,7 @@ test("#436: the settings rows' select is the kit's field, as the forms' select i
     assert.match(row, /import \{ Select, SelectOption \} from "(\.\.\/)+kit\/index\.ts";/);
     assert.match(row, /<Select\n/);
     const form = read(box + "advanced_settings/VoiceSettings.css.ts");
-    assert.match(form, /inForm\("input", "select", "textarea"\), \{\s*width: "100%",\s*minWidth: 0,\s*background: "var\(--vox_surface, #18253b\)",\s*border: "\.1rem solid var\(--vox_field_border, #5e6570\)",\s*\}\);/);
+    assert.match(form, /inForm\("input", "select"\), \{\s*width: "100%",\s*minWidth: 0,\s*background: "var\(--vox_surface, #18253b\)",\s*border: "\.1rem solid var\(--vox_field_border, #5e6570\)",\s*\}\);/);
     const field = read("../../kit/Field.css.ts");
     assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
     assert.match(field, /background: vars\.vox_surface/);

@@ -404,9 +404,10 @@ test("composer reads history only on explicit recall and sees the latest retaine
         "@logics_main": { useMessageLogScroll: () => ({ scrollToBottom() {} }) },
         "../../../../../../logics/common/chatboxLength": chatboxLength,
         "./ChatboxLengthWarning": { CHATBOX_LENGTH_WARNING_ID: "chatbox_length_warning" },
+        "../../../../../kit/index.ts": { Textarea: kitStandIns.Textarea },
     });
     assert.equal(MessageInputBox.$$typeof, Symbol.for("react.memo"));
-    const render = () => findIn(runtime.render(MessageInputBox.type), node => node.type === "textarea");
+    const render = () => findIn(runtime.render(MessageInputBox.type), node => node.type === kitStandIns.Textarea);
     const key = (name: string, shiftKey = false) => render().props.onKeyDown({ key: name, keyCode: name === "Enter" ? 13 : 0,
         shiftKey, nativeEvent: { isComposing: composing }, preventDefault() {} });
     render();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import i18next from "i18next";
 import type { i18n as I18n } from "i18next";
-import { asTimerFunction, find, hooks, isRecord, loadModule, unchecked } from "../test/hookHarness.ts";
+import { asTimerFunction, find, findIn, hooks, isRecord, kitStandIns, loadModule, unchecked } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, deferred, flush } from "../test/bridgeHarness.ts";
 import { branchAt, readLocale, textAt } from "../test/locales.ts";
 import { keepRecentLogs } from "./messageLogLimit.ts";
@@ -201,7 +201,7 @@ async function composer(subject: Subject, autoClear = false) {
     });
     const render = () => runtime.render(MessageInputBox.type);
     const field = () => {
-        const textarea = find(render(), node => node.type === "textarea");
+        const textarea = find(render(), node => node.type === kitStandIns.Textarea);
         assert.ok(textarea);
         return textarea;
     };
@@ -228,6 +228,21 @@ for (const success of [true, false]) for (const autoClear of [true, false]) {
         assert.equal(subject.endpoints[sendIndex - 1], "/run/stop_typing_message_box");
     });
 }
+
+// Decided on 2026-11-25 (#1194): the field is the kit's Textarea without a frame of its own inside
+// the composer's frame, filling it; the frame keeps the composer's look and the size of its words.
+test("the composer's field is the kit's Textarea inside the composer's frame, named and described as before", async () => {
+    const subject = await setup(), input = await composer(subject);
+    const field = input.field().props;
+    assert.deepEqual([field.inFrame, field.fill, field.className, field["data-message-input"], field["aria-label"], field.placeholder],
+        [true, true, "message_box_input_area", "", "studio.message_input", "studio.message_placeholder"]);
+    const frame = findIn(input.render(), node => node.props?.className === "message_box_wrapper");
+    assert.equal(findIn(frame, node => node.type === kitStandIns.Textarea).props.inFrame, true);
+    // Over the chatbox's 144 characters, the warning under the composer describes the field.
+    assert.equal(field["aria-describedby"], undefined);
+    input.change("a".repeat(145));
+    assert.equal(input.field().props["aria-describedby"], "length-warning");
+});
 
 test("desktop empty submit, user clear, programmatic clear and blur reset typing", async () => {
     const subject = await setup(), input = await composer(subject);

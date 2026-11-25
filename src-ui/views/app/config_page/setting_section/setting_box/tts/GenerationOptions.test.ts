@@ -12,9 +12,11 @@ interface Options {
     seed?: string;
     instructions?: string;
     modelOptions?: Record<string, unknown>;
+    // The page's words; the harness's own gives the key alone.
+    t?: (key: string, values?: Record<string, unknown>) => string;
 }
 
-async function setup({ seed = "invalid", instructions = "\u0001", modelOptions = {} }: Options = {}) {
+async function setup({ seed = "invalid", instructions = "\u0001", modelOptions = {}, t }: Options = {}) {
     const runtime = hooks();
     const draft = { japanese_seed: seed, japanese_instructions: instructions, japanese_server: "external", japanese_url: "" };
     const { GenerationOptions, validGenerationOptions } = await loadModule<typeof import("./GenerationOptions.tsx")>(new URL("./GenerationOptions.tsx", import.meta.url), runtime, {
@@ -23,14 +25,15 @@ async function setup({ seed = "invalid", instructions = "\u0001", modelOptions =
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        ...(t ? { "@useI18n": { useI18n: () => ({ t }) } } : {}),
     });
     return { runtime, draft, GenerationOptions, validGenerationOptions,
         render: () => runtime.render(GenerationOptions, { role: "japanese", draft, field: () => {}, errorId: "options-error" }) };
 }
 type Setup = Awaited<ReturnType<typeof setup>>;
-// The seed is the kit's TextField, which takes invalid; the instruction is a native textarea.
-const kind = (type: string) => type === "input" ? kitStandIns.TextField : type;
-const invalidOf = (field: TreeNode) => field.type === kitStandIns.TextField ? field.props.invalid : field.props["aria-invalid"];
+// The seed is the kit's TextField and the instruction the kit's Textarea; both take invalid.
+const kind = (type: string) => type === "input" ? kitStandIns.TextField : kitStandIns.Textarea;
+const invalidOf = (field: TreeNode) => field.props.invalid;
 
 test("invalid TTS seed and instruction point to the shared form error and clear after correction", async () => {
     const s = await setup();
@@ -60,6 +63,28 @@ test("the seed and instruction fields show an example while they are empty", asy
     s.draft.japanese_seed = "0";
     const tree = s.render();
     for (const type of ["input", "textarea"]) assert.equal(findIn(tree, node => node.type === kind(type)).props.placeholder, "voice_ui.example");
+    s.runtime.unmount();
+});
+
+test("the instruction is the kit's Textarea in a form's shape, with its limit, its rows and its draft field", async () => {
+    const s = await setup({ seed: "", instructions: "" });
+    const written: string[][] = [];
+    const tree = s.runtime.render(s.GenerationOptions, { role: "japanese", draft: s.draft, errorId: "options-error",
+        field: (key: string, value: string) => { written.push([key, value]); } });
+    const field = findIn(tree, node => node.type === kitStandIns.Textarea).props;
+    // Not fill: a form's field starts at 8rem and has an edge to drag (Field.css.ts).
+    assert.deepEqual([field.fill, field.mono, field.maxLength, field.rows, field["aria-label"], field.value], [undefined, undefined, 8000, 3, "voice_ui.instruction", ""]);
+    // A valid instruction is described by its count alone.
+    assert.equal(field["aria-describedby"], findIn(tree, node => node.type === "row").props.actions.props.id);
+    field.onChange({ target: { value: "ゆっくり話す" } });
+    assert.deepEqual(written, [["japanese_instructions", "ゆっくり話す"]]);
+    s.runtime.unmount();
+});
+
+test("the count under the instruction counts characters as they are typed, an emoji as one", async () => {
+    const s = await setup({ seed: "", instructions: "ゆっくり😀", t: (key, values) => values ? `${key} ${JSON.stringify(values)}` : key });
+    const count = findIn(s.render(), node => node.type === "row").props.actions;
+    assert.equal(count.props.children, 'voice_ui.instruction_count {"count":5}');
     s.runtime.unmount();
 });
 

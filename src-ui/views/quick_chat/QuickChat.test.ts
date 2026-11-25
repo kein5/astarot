@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'vitest';
 import type { TestContext } from 'vitest';
-import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef } from '../../logics/test/hookHarness.ts';
+import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef, kitStandIns } from '../../logics/test/hookHarness.ts';
 import { deferred, flush } from '../../logics/test/bridgeHarness.ts';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';
 import * as themes from '../../logics/theme/themes.ts';
@@ -46,14 +46,14 @@ async function setup(testContext: TestContext) {
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
         setRef(tree, {});
-        setRef(findIn(tree, node => node.type === 'textarea'), field);
+        setRef(findIn(tree, node => node.type === kitStandIns.Textarea), field);
     });
     render(); await flush(); render();
     return { runtime, render, properties, callbacks, removals, bridge: fake, submissions,
         setContext: (next: Partial<typeof context>) => { context = { ...context, ...next }; },
         setRead: (read: () => Promise<unknown>) => { contextRead = read; },
         get focusCount() { return focusCount; }, get hideCount() { return hideCount; },
-        field: () => findIn(render(), node => node.type === 'textarea').props,
+        field: () => findIn(render(), node => node.type === kitStandIns.Textarea).props,
     };
 }
 
@@ -102,6 +102,7 @@ test('appearance updates preserve Quick Chat IME, repeat, pending and failed-han
     assert.equal(subject.submissions.length, 0);
     enter(); enter();
     assert.equal(subject.submissions.length, 1);
+    assert.equal(subject.field().readOnly, true, 'the draft cannot change while it is handed off');
     subject.setContext({ ui_scaling: 160 }); await subject.callbacks.context();
     subject.render().props.onKeyDown({ key: 'Escape', nativeEvent: {}, preventDefault() {} });
     assert.equal(subject.hideCount, 1);
@@ -109,13 +110,17 @@ test('appearance updates preserve Quick Chat IME, repeat, pending and failed-han
     subject.bridge.handoff.resolve(false); await flush();
     assert.equal(subject.field().value, 'こんにちは');
     assert.equal(subject.submissions.length, 1);
+    assert.equal(subject.field().readOnly, false);
     subject.runtime.unmount();
 });
 
 test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshrinking status text', async () => {
     const css = await readFile(new URL('./QuickChat.css.ts', import.meta.url), 'utf8');
     assert.match(css, /height: "100%",[^\n]*overflow: "auto"/);
-    assert.match(css, /textarea`, \{\s*flex: 1, minHeight: "3rem"/);
+    // The field fills the window above the actions; the kit's Textarea draws it and its focus ring.
+    assert.match(css, /export const field = style\(\{ flex: 1 \}\);/);
+    assert.match(css, /:focus-visible:not\(\[data-slot\]\)`, \{ outline/);
+    assert.doesNotMatch(css, /textarea/);
     assert.match(css, /export const actions = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
     assert.match(css, /export const length_warning = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
     assert.doesNotMatch(css, /https?:|fontFace/);
@@ -183,9 +188,20 @@ test('main publishes saved appearance on initial configuration and later changes
     runtime.unmount();
 });
 
+test('a message longer than the chatbox shows is described by the warning under the field', async t => {
+    const subject = await setup(t);
+    assert.equal(subject.field()['aria-describedby'], undefined);
+    subject.field().onChange({ target: { value: 'あ'.repeat(chatboxLength.CHATBOX_MAX_LENGTH + 1) } });
+    const warning = findIn(subject.render(), node => node.type === 'p' && node.props.id !== undefined);
+    assert.equal(subject.field()['aria-describedby'], warning.props.id);
+    subject.runtime.unmount(); await flush();
+});
+
 test('the Quick Chat box shows the same hint as the main window composer while it is empty', async t => {
     const subject = await setup(t);
     assert.equal(subject.field().placeholder, 'studio.message_placeholder');
     assert.equal(subject.field()['aria-label'], 'quick_chat.message');
+    // The kit's Textarea, filling the window: no edge to drag, the window's height is the field's.
+    assert.deepEqual([subject.field().fill, subject.field().className], [true, 'field']);
     subject.runtime.unmount(); await flush();
 });
