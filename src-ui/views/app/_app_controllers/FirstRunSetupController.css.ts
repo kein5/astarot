@@ -2,43 +2,20 @@ import { globalStyle, style } from "@vanilla-extract/css";
 import type { GlobalStyleRule } from "@vanilla-extract/css";
 import { vars } from "../../theme/vars.css.ts";
 
-// The first-run setup (#557), drawn as shadcn/ui's Dialog with its parts (Header, Title,
-// Description, Footer) and its findings as the kit's Item list (views/kit/Item.tsx), which draws
-// the rows itself (DESIGN.md "Components"). The dialog keeps the app's dialog
-// frame (LegacyModelDownloadDialog.css.ts) and the forms' controls (VoiceSettings.css.ts);
-// these rules lay out what is inside it. Each part is scoped under the dialog (`${dialog} &`), so
-// the forms' rules for every p, heading and dialog button do not reach it.
+// The first-run setup (#557): the kit's Dialog with its parts (Header, Title, Description, Footer),
+// and its findings as the kit's Item list (views/kit/Item.tsx), which draws the rows itself
+// (DESIGN.md "Components"). The kit draws the dialog's frame and parts, and the forms
+// (VoiceSettings.css.ts) its native controls; these rules lay out what is inside it. Each part is
+// scoped under the dialog (`${dialog} &`), so the forms' rules for every p and heading do not
+// reach it.
 
 export const dialog = style({});
-
-// The frame gives it shadcn/ui's DialogContent width and gap, as every dialog of the app. Its own
-// line height, with three classes to come after the frame's `.host dialog.dialog`.
-globalStyle(`${dialog}${dialog}${dialog}`, { lineHeight: 1.5 });
 
 // A part's rules under the dialog; `more` adds rules for selectors of the part itself ("& + &").
 const within = (rules: GlobalStyleRule, more: Record<string, GlobalStyleRule> = {}) => style({
     selectors: { [`${dialog} &`]: rules, ...Object.fromEntries(Object.entries(more).map(([selector, rule]) => [`${dialog} ${selector}`, rule])) },
 });
 const separated = { "& + &": { borderTop: `.1rem solid ${vars.vox_border}` } };
-
-// Header: the title and what the setup is for (DialogHeader, gap-2).
-export const header = within({ display: "grid", gap: ".8rem" });
-export const title = within({
-    margin: 0,
-    fontSize: "1.8rem",
-    fontWeight: 600,
-    lineHeight: 1.4,
-    color: vars.dark_basic_text_color,
-});
-export const description = within({
-    margin: 0,
-    maxWidth: "none",
-    fontSize: "1.4rem",
-    lineHeight: 1.6,
-    color: vars.vox_secondary_text,
-    textWrap: "pretty",
-    wordBreak: "auto-phrase",
-});
 
 // A part of the setup: its subheading, then its contents.
 export const section = within({ display: "grid", gap: "1.2rem", minWidth: 0 });
@@ -133,14 +110,8 @@ globalStyle(`${dialog} ${step} progress`, { gridColumn: "2 / -1", display: "bloc
 // The recognition is ready: the words in the active state's colour.
 export const finished = within({ margin: 0, maxWidth: "none", fontSize: "1.4rem", color: vars.vox_state_active });
 
-// A row of buttons; the forms give every dialog button a margin, taken back here.
+// A row of buttons.
 export const actions = within({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".8rem" });
-globalStyle(`${dialog} ${actions} button, ${dialog} [data-slot="item-actions"] button`, { margin: 0 });
 
-// Footer: closing the setup, apart from the steps above it (DialogFooter).
-export const footer = within({
-    display: "grid",
-    gap: "1.2rem",
-    paddingTop: "1.6rem",
-    borderTop: `.1rem solid ${vars.vox_border}`,
-});
+// In the footer (the kit's DialogFooter), a line of its own under Later and Done.
+export const footerLine = within({ flexBasis: "100%" });

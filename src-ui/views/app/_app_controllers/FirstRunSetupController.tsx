@@ -29,11 +29,11 @@ import { weightRequest } from "../../../logics/configs/ctranslate2License";
 import type { WeightRequest } from "../../../logics/configs/ctranslate2License";
 import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
-import { Select, SelectOptGroup, SelectOption } from "../../kit/index.ts";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as ui from "./FirstRunSetupController.css.ts";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle, Progress } from "../../kit/index.ts";
+import { Button, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Item, ItemActions, ItemContent, ItemDescription, ItemGroup,
+    ItemMedia, ItemTitle, Progress, Select, SelectOptGroup, SelectOption } from "../../kit/index.ts";
 import type { ItemState } from "../../kit/index.ts";
 
 const ACTIVE: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
@@ -225,13 +225,14 @@ export const FirstRunSetupController = () => {
     const translationWarned = (entry: SetupEntry) => translationMode !== null && !!hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const recognitionDone = recognitionReady;
 
+    // The kit's Dialog (D-23). What the setup is for is drawn as its description; the dialog is
+    // named by its title alone and has no description, as before the kit (D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={`${dialogStyles.dialog} ${ui.dialog}`} aria-label={t("first_run_setup.title")}
-            onCancel={event => { event.preventDefault(); finish(false); }}>
-            <div className={ui.header} data-slot="dialog-header">
-                <h3 className={ui.title} data-slot="dialog-title">{t("first_run_setup.title")}</h3>
-                <p className={ui.description} data-slot="dialog-description">{t("first_run_setup.purpose")}</p>
-            </div>
+        <Dialog ref={dialog} open={open} onOpenChange={() => finish(false)} className={ui.dialog} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("first_run_setup.title")}</DialogTitle>
+                <DialogDescription>{t("first_run_setup.purpose")}</DialogDescription>
+            </DialogHeader>
             <Findings recognition={recognition} onLeave={() => finish(false)}
                 translationPreparing={translationRun?.phase === "running"} translationHere={!!translationOffered}
                 translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog && translationValue !== SKIP} />
@@ -247,11 +248,12 @@ export const FirstRunSetupController = () => {
                             : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
                                 catalogReady={!!downloads.catalog} />}
                     </>}
+                {/* Stop is the kit's danger Button, as every stop (D-10). */}
                 {!recognitionDone && <div className={ui.actions}>
-                    {!run && !recognitionSkipped && <button type="button" className="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
-                        {t("first_run_setup.recognition.start")}</button>}
-                    {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
-                    {run?.phase === "failed" && <button type="button" className="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</button>}
+                    {!run && !recognitionSkipped && <Button tone="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
+                        {t("first_run_setup.recognition.start")}</Button>}
+                    {running && <Button tone="danger" onClick={stop}>{t("first_run_setup.recognition.stop")}</Button>}
+                    {run?.phase === "failed" && <Button tone="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</Button>}
                     {!running && <OpenSettings tab="transcription" label={t("first_run_setup.recognition.choose_other")} onLeave={() => finish(false)} />}
                 </div>}
             </section>}
@@ -270,16 +272,15 @@ export const FirstRunSetupController = () => {
             {/* The setup's end (#955): which switches on the main screen to turn on, for the features
                 prepared; the others can stay off. Nothing is turned on here. */}
             {finished && <NextSteps features={features} />}
-            <div className={ui.footer} data-slot="dialog-footer">
-                <div className={ui.actions}>
-                    <button type="button" onClick={() => finish(false)}>{t("first_run_setup.later")}</button>
-                    {finished && <button type="button" className="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</button>}
-                </div>
-                {!finished && setup.notice === true && <div className={dialogStyles.alternative}>
-                    <button type="button" onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</button>
+            <DialogFooter>
+                <Button onClick={() => finish(false)}>{t("first_run_setup.later")}</Button>
+                {finished && <Button tone="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</Button>}
+                {/* Ending the suggestion: the kit's quiet Button, on its own line under the two (decided on 2026-11-25). */}
+                {!finished && setup.notice === true && <div className={ui.footerLine}>
+                    <Button tone="quiet" onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</Button>
                 </div>}
-            </div>
-        </dialog>
+            </DialogFooter>
+        </Dialog>
     </div>;
 };
 
@@ -576,10 +577,10 @@ const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyRead
                 {failed && <p className={ui.text}>{t(key("kept"))}</p>}
                 </>}
                 <div className={ui.actions}>
-                    {!run && shown && <button type="button" className="primary" disabled={!ready} onClick={begin}>
-                        {t("first_run_setup.recognition.start")}</button>}
-                    {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
-                    {failed && <button type="button" className="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</button>}
+                    {!run && shown && <Button tone="primary" disabled={!ready} onClick={begin}>
+                        {t("first_run_setup.recognition.start")}</Button>}
+                    {running && <Button tone="danger" onClick={stop}>{t("first_run_setup.recognition.stop")}</Button>}
+                    {failed && <Button tone="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</Button>}
                     {!running && <OpenSettings tab={settingsTab} label={settingsLabel} onLeave={onLeave} />}
                 </div>
             </>}
@@ -619,8 +620,8 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     // Translation settings, where an API key is registered or another model prepared (decided in
     // #938). The model's list not read yet: the row waits for it. Nothing to prepare here: only
     // the Translation settings. A download started elsewhere shows how far it has come.
-    const openTranslationSettings = <button type="button" onClick={() => { onLeave(); updateSelectedConfigTabId("translation"); updateIsOpenedConfigPage(true); }}>
-        {t("first_run_setup.found.translation_open_settings")}</button>;
+    const openTranslationSettings = <Button onClick={() => { onLeave(); updateSelectedConfigTabId("translation"); updateIsOpenedConfigPage(true); }}>
+        {t("first_run_setup.found.translation_open_settings")}</Button>;
     const translationProgress = translation ? downloadProgress(translation.weight) : null;
     const translationRow = (): Pick<FindingProps, "state" | "action" | "children"> => {
         if (!translation) return { state: "ready", children: t("first_run_setup.found.translation_ready") };
@@ -638,7 +639,7 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     // its row goes to the cards, and its words say when it is needed.
     const virtualMicRow: FindingProps | null = cables === null ? null : { id: "virtual_mic", state: cables > 0 ? "ready" : "attention",
         name: t("first_run_setup.found.virtual_mic"),
-        action: <button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>,
+        action: <Button onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</Button>,
         children: t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing") };
     const rows: FindingProps[] = [
         { id: "mic", state: micName ? "ready" : "attention", name: t("first_run_setup.found.mic"),
@@ -771,5 +772,5 @@ const failureText = (t: TFunction, code: string | undefined) => {
 const OpenSettings = ({ tab, label, onLeave }: { tab: string; label: string; onLeave: () => void }) => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    return <button type="button" onClick={() => { onLeave(); updateSelectedConfigTabId(tab); updateIsOpenedConfigPage(true); }}>{label}</button>;
+    return <Button onClick={() => { onLeave(); updateSelectedConfigTabId(tab); updateIsOpenedConfigPage(true); }}>{label}</Button>;
 };

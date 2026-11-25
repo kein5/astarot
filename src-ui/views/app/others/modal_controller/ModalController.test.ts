@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, refOf, setRef } from "../../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, stubGlobals, eventTarget, unchecked, setRef } from "../../../../logics/test/hookHarness.ts";
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
@@ -27,8 +27,6 @@ async function fixture(context: TestContext) {
     const render = () => runtime.render(ModalController, { fallback: unchecked<Parameters<typeof ModalController>[0]["fallback"]>(fallback) }, tree => {
         const dialog = find(tree, node => node.type === "dialog");
         if (dialog) setRef(dialog, modal);
-        const button = find(tree, node => node.type === "button");
-        if (button && refOf(button)) setRef(button, control("close"));
     });
     context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,
@@ -43,9 +41,14 @@ test("quick settings uses a named native modal with initial close focus", async 
     // #939: the subtitle overlay switches in place; this dialog shows only the update page.
     assert.equal(s.modal.open, true);
     assert.equal(s.modal.opens, 1);
-    const close = find(tree, node => node.type === "button");
+    // The close button is the kit's plain Button (decided on 2026-11-25), in its row at the panel's top
+    // right; the frame and the backdrop stay the modal's own (decision 2 of #764).
+    const close = find(tree, node => node.type === kitStandIns.Button);
     assert.ok(close);
-    assert.equal(close.props.autoFocus, true);
+    assert.deepEqual([close.props.autoFocus, close.props.tone, close.props.children], [true, undefined, "common.close_button_label"]);
+    const row = find(tree, node => node.props?.className === "close_row");
+    assert.equal(find(row, node => node.type === kitStandIns.Button)?.props.children, "common.close_button_label");
+    assert.equal(tree.props.className, "container");
     s.render();
     assert.equal(s.modal.opens, 1, "ordinary rerenders do not reopen the dialog");
 });
@@ -66,7 +69,7 @@ for (const action of ["close button", "backdrop", "Escape"]) {
                 assert.ok(backdrop);
                 backdrop.props.onClick();
             } else {
-                const close = find(tree, node => node.type === "button");
+                const close = find(tree, node => node.type === kitStandIns.Button);
                 assert.ok(close);
                 close.props.onClick();
             }

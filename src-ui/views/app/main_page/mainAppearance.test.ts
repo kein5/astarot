@@ -37,15 +37,16 @@ const top = tokens(read("main_section/top_bar/right_side_components/_buttons/Ope
 // The quick settings' rows are the kit's Toggle (D-27): its surface at rest and under the pointer.
 const toggle = tokens(read("../../kit/Toggle.css.ts"));
 const toggleBase = toggle.slice(toggle.indexOf("base: {"), toggle.indexOf("variants: {"));
-const close = tokens(read("../others/modal_controller/ModalController.css.ts").split("export const close_button = style({")[1]);
+// The update modal's close button is the kit's plain Button (decided on 2026-11-25).
+const close = tokens(read("../../kit/Button.css.ts").split("plain: {")[1].split("quiet: {")[0]);
 const off = token(top.split("is_disabled}`]: {")[1].split("}")[0], fg);
 const messages = tokens(read("main_section/message_container/log_box/message_container/MessageContainer.css.ts").split("export const category = style({")[1]);
 const pairs = [
     ["top-bar off resting", off, token(toggleBase, bg)],
     ["top-bar off hover", off, token(toggleBase.split('"&:hover:not(:disabled)": {')[1], bg)],
     ["quick-dialog close resting", token(close, fg), token(close, bg)],
-    ["quick-dialog close hover", token(close, fg), token(close.split("&:hover {")[1], bg)],
-    ["quick-dialog close pressed", token(close, fg), token(close.split("&:active {")[1], bg)],
+    ["quick-dialog close hover", token(close, fg), token(close.split('"&:hover:not(')[1], bg)],
+    ["quick-dialog close pressed", token(close, fg), token(close.split('"&:active:not(')[1], bg)],
     ["received category", token(messages.split("received_message}`]: {")[1], fg), canvas],
     ["OCR category", token(messages.split("ocr_category}`]: {")[1], fg), canvas],
 ];
