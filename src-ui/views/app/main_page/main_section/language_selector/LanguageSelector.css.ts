@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../theme/vars.css.ts";
+import { colourTransition, focusRing } from "../../../../kit/shared.css.ts";
 
 export const container = style({
     position: "absolute",
@@ -29,6 +30,9 @@ export const language_list = style({
     columnWidth: "16rem",
 });
 
+// A language: a row of the grid, with no fill or frame until the pointer is on it (U-01 stays
+// hand-built, D-36). Its fill under the pointer is the kit's (shadcn/ui's accent), and so are its
+// corners and its focus ring.
 export const language_button = style({
     breakInside: "avoid-column",
     overflowWrap: "anywhere",
@@ -36,14 +40,17 @@ export const language_button = style({
     width: "100%",
     textAlign: "left",
     border: 0,
+    borderRadius: vars.vox_radius,
     background: "none",
     color: "inherit",
     font: "inherit",
     padding: "0.8rem 0.6rem",
     cursor: "pointer",
+    transition: colourTransition,
     selectors: {
-        "&:hover": { backgroundColor: vars.dark_825_color },
-        "&:active": { backgroundColor: vars.dark_888_color },
+        "&:hover": { backgroundColor: vars.vox_secondary_hover },
+        "&:active": { backgroundColor: vars.dark_925_color },
+        "&:focus-visible": focusRing,
     },
 });
 
@@ -61,17 +68,8 @@ export const filter_row = style({
     backgroundColor: vars.dark_875_color,
 });
 
-export const filter = style({
-    width: "100%",
-    maxWidth: "32rem",
-    padding: "0.8rem 1.2rem",
-    font: "inherit",
-    fontSize: "1.4rem",
-    color: vars.dark_200_color,
-    backgroundColor: vars.vox_surface,
-    border: `0.1rem solid ${vars.vox_field_border}`,
-    borderRadius: vars.vox_radius,
-});
+// The filter is the kit's TextField; the row gives it only its width.
+export const filter = style({ maxWidth: "32rem" });
 
 // What the language is for (#569): one line under the search field, in the description colour.
 export const hint = style({
