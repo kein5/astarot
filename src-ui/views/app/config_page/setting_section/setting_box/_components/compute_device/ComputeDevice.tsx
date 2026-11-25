@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import type { TranslationComputeDevice } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
-import type { DropdownSelection } from "../_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../dropdown_menu/DropdownMenu";
 
 import {
     MultiDropdownMenuContainer,

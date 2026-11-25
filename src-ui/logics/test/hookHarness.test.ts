@@ -100,4 +100,20 @@ test("the kit's stand-in keeps the kit's defaults", () => {
         const drawn = kitStandIns[part]({ className: "place" });
         assert.deepEqual([drawn.type, drawn.props], ["div", { "data-slot": slot, className: "place" }], part);
     }
+    // The select: a native <select> named data-slot="native-select", aria-invalid only while the
+    // value is wrong; its options and groups are plain <option> and <optgroup> that name themselves.
+    assert.match(kit("Select.tsx"), /\{ invalid = false, className, children, \.\.\.rest \}/);
+    assert.match(kit("Select.tsx"), /<select\s+data-slot="native-select"\s+aria-invalid=\{invalid \|\| undefined\}/);
+    assert.match(kit("Select.tsx"), /<option data-slot="native-select-option" \{\.\.\.props\} \/>/);
+    assert.match(kit("Select.tsx"), /<optgroup data-slot="native-select-optgroup" \{\.\.\.props\} \/>/);
+    const select = kitStandIns.Select({ value: "b", children: "choices" });
+    assert.equal(select.type, "select");
+    assert.deepEqual(select.props, { "data-slot": "native-select", "aria-invalid": undefined, value: "b", children: "choices" });
+    assert.deepEqual(kitStandIns.Select({ invalid: true }).props, { "data-slot": "native-select", "aria-invalid": true });
+    const option = kitStandIns.SelectOption({ value: "b", children: "Banana" });
+    assert.equal(option.type, "option");
+    assert.deepEqual(option.props, { "data-slot": "native-select-option", value: "b", children: "Banana" });
+    const optGroup = kitStandIns.SelectOptGroup({ label: "Fruit" });
+    assert.equal(optGroup.type, "optgroup");
+    assert.deepEqual(optGroup.props, { "data-slot": "native-select-optgroup", label: "Fruit" });
 });

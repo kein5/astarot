@@ -153,7 +153,6 @@ test("fields and outlined controls draw their edge with the field border", () =>
     const views = "../";
     for (const path of [
         "kit/Field.css.ts", "kit/Switch.css.ts",
-        "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts",
         "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.css.ts",
         "app/config_page/search_bar/SearchBar.css.ts",
         "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.css.ts",

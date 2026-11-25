@@ -274,19 +274,18 @@ test("the saved chat reading language is named like the list's entries, so auto 
     assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
     assert.match(source, /const label = \(id: string\) => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
-test("#436: the legacy dropdown is the same field as the forms' select, so an empty one still shows", () => {
-    const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts");
-    const field = styleOf(legacy, "dropdown_toggle_button");
+test("#436: the settings rows' select is the kit's field, as the forms' select is, so an empty one still shows", () => {
+    // D-14 (decided 2026-11-25): the rows' select fields are the kit's Select, a native <select>.
+    const row = read(box + "_components/dropdown_menu/DropdownMenu.tsx");
+    assert.match(row, /import \{ Select, SelectOption \} from "(\.\.\/)+kit\/index\.ts";/);
+    assert.match(row, /<Select\n/);
     const form = read(box + "advanced_settings/VoiceSettings.css.ts");
     assert.match(form, /inForm\("input", "select", "textarea"\), \{\s*width: "100%",\s*minWidth: 0,\s*background: "var\(--vox_surface, #18253b\)",\s*border: "\.1rem solid var\(--vox_field_border, #5e6570\)",\s*\}\);/);
-    assert.match(field, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
-    assert.match(field, /border: "0\.1rem solid var\(--vox_field_border, #5e6570\)"/);
-    assert.match(field, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
+    const field = read("../../kit/Field.css.ts");
     assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
-    assert.match(field, /"&:focus-visible": \{ outline: `0\.2rem solid \$\{vars\.primary_200_color\}`/);
-    const list = styleOf(legacy, "dropdown_content");
-    assert.match(list, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
-    assert.match(list, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
+    assert.match(field, /background: vars\.vox_surface/);
+    assert.match(field, /border: `\.1rem solid \$\{vars\.vox_field_border\}`/);
+    assert.match(field, /borderRadius: vars\.vox_radius/);
 });
 test("the settings text entry is the same field as the kit's text field and the forms' inputs", () => {
     // docs/design/components/shadcn-alignment.md: _Entry takes the kit's fill, border, radius and

@@ -13,7 +13,7 @@ import { GpuCheck } from "./GpuCheck.tsx";
 import { Button } from "../../../../../kit/index.ts";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
 import { rvcBlockChoiceId, rvcBlockChoices } from "../../../../../../logics/configs/rvcBlockChoices";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { logDirectoryErrorKey, pickLogDirectory, validateLogDirectoryInput } from "../../../../../../logics/configs/logDestination";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";

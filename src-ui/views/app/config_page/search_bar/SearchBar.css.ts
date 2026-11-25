@@ -103,8 +103,8 @@ export const clear_icon = style({
 });
 
 // ドロップダウン結果リスト
-// The list opens on the surface, as shadcn/ui's popover lists do and as the field's own
-// dropdowns (_DropdownMenu, the forms' selects) already do, with the kit's border and corners.
+// The list opens on the surface, as shadcn/ui's popover lists do and as the select fields'
+// lists do where the engine lets them (the kit's Field.css.ts), with the kit's border and corners.
 export const dropdown_results = style({
     position: "absolute",
     top: "calc(100% + 0.6rem)",

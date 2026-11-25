@@ -2,7 +2,6 @@ import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../../../theme/vars.css.ts";
 
 export const is_break_point = style({});
-export const is_disabled = style({});
 
 export const container = style({
     display: "flex",
@@ -30,13 +29,11 @@ export const each_dropdown_menu_wrapper = style({
     flexDirection: "column",
     gap: "0.4rem",
     whiteSpace: "nowrap",
-    // Compact width sized to its content at the row's right end rather than stretching across the column (#1096).
+    // Compact width sized to its content at the row's right end rather than stretching across the
+    // column (#1096). The kit's select fills it: as wide as its longest choice, within these bounds.
     width: "fit-content",
     minWidth: "min(20rem, 100%)",
     maxWidth: "min(32rem, 100%)",
-    selectors: {
-        [`&.${is_disabled}`]: { pointerEvents: "none" },
-    },
 });
 
 export const secondary_label = style({

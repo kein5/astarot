@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, componentNamed, draw, drawWith } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, componentNamed, draw, drawWith, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 const base = "../_components/";
@@ -18,9 +18,7 @@ async function setup(hints = false) {
     const { DownloadModels } = await loadModule<typeof import("../_components/download_models/DownloadModels.tsx")>(new URL(base + "download_models/DownloadModels.tsx", import.meta.url), hooks(), {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
-    const { DropdownMenu, MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks(), {
-        "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: "dropdown" },
-    });
+    const { DropdownMenu, MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks());
     const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter",
@@ -121,11 +119,14 @@ test("multi-select row has a group label and each dropdown receives the shared h
     const label = tree.props.children[0], control = tree.props.children[1], group = draw(control);
     assert.equal(group.props.role, "group");
     assert.equal(group.props["aria-labelledby"], label.props.label_id);
+    const named = [];
     for (const dropdown of all(group, node => node.type === s.components.DropdownMenu)) {
-        const atom = findIn(draw(dropdown), node => node.type === "dropdown");
-        assert.equal(atom.props["aria-describedby"], label.props.description_id);
-        assert.ok(["Device", "Type"].includes(atom.props.secondary_label));
+        // The kit's select: named by its own words, described by the row's help.
+        const select = findIn(draw(dropdown), node => node.type === kitStandIns.Select);
+        assert.equal(select.props["aria-describedby"], label.props.description_id);
+        named.push(select.props["aria-label"]);
     }
+    assert.deepEqual(named, ["Device", "Type"]);
 });
 
 for (const name of ["WordFilter", "MessageFormat"] as const) test(`${name} shares one label and description across its two rows`, async () => {
