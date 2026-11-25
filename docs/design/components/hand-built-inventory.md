@@ -130,7 +130,7 @@ Page names are the names the app shows (here in English).
 | Translation | `translation/Translation.tsx` | The license confirmation `<dialog>` (with its own classes) and its checkbox, the button that opens the fields for adding an entry | The kit's `Dialog`, the kit's `Button` (the button that opens the fields replaced, #1169; the license dialog waits for D-23, D-24 and D-43, and its checkbox for D-16) | Medium | — |
 |  | `translation/TranslationCatalog.tsx` | `<input>` elements for the name, folder, languages, URL, model and key, 3 `<select>` elements, the delete confirmation inside a row, the add and use buttons | The kit's `TextField`, the kit's `Select`, the kit's `Button`. Cards: U-09; the confirmation inside a row: U-10 (the fields and the buttons replaced, #1169; the selects wait for D-14, the cards for U-09 and the confirmation inside a row for U-10) | Medium | The key field keeps `type="password"` and `autoComplete="off"` |
 | Speech recognition (ASR) | `transcription/RealtimeASRSettings.tsx` | 6 `<select>` elements, a URL field, the built-in vocabulary checkbox, the refresh, start and stop buttons | The kit's `Select`, the kit's `TextField`, a switch (K-02), the kit's `Button` | Medium | The form saves by itself, as the other pages' forms do (#1111): a choice at once, the address on Enter or when focus leaves the form |
-|  | `transcription/VocabularyList.tsx`, `VocabularyFiles.tsx` | A list of rows with `<input>` fields for the spelling and the reading, a quiet button on each row, a hidden file `<input>` with import and export buttons | The kit's `TextField`, the kit's `Button`. The row list: U-11 (the fields and the buttons replaced, #1170; the row list waits for U-11) | Medium | Choosing a file this way differs from the shared `FileDropZone` (where you drop the file) |
+|  | `transcription/VocabularyList.tsx`, `VocabularyFiles.tsx` | A list of rows with `<input>` fields for the spelling and the reading, a quiet button on each row, a hidden file `<input>` with import and export buttons | The kit's `TextField`, the kit's `Button`. The row list: U-11 (the fields and the buttons replaced, #1170; the row list replaced with the kit's compact `Item` and its buttons made plain under H-08 and H-09, #1188) | Medium | Choosing a file this way differs from the shared `FileDropZone` (where you drop the file) |
 |  | `transcription/AsrApiEntries.tsx` | The name, URL, model and key `<input>` elements of the form that adds an API, its protocol `<select>`, the cards' use and remove buttons, the delete confirmation inside a card | The kit's `TextField`, the kit's `Select`, the kit's `Button`. Cards: U-09; the confirmation inside a card: U-10 (the fields and the buttons replaced, #1170; the select waits for D-14, the cards for U-09 and the confirmation inside a card for U-10) | Medium | The same shape as the translation catalog's API form and cards (#414) |
 | Captions and VR | `vr/Vr.tsx` | Switches for which settings are shown ("Single line" and "Multiple lines", "Position" and "Rotation"; each is 2 `div role="button"` elements with `aria-pressed`), the reset-to-default button, the test send button | The switches: U-03; the buttons: the kit's `Button` (the buttons replaced, #1172; the switches wait for U-03 and D-27) | High | The test send button keeps the width of its longer label, so that its width does not change when it is pressed (#912) |
 | Hotkeys | `hotkeys/Hotkeys.tsx`, `_components/hotkeys_entry/HotkeysEntry.tsx` | The button that opens Quick Chat, the button that clears a hotkey | The kit's `Button` (replaced, #1131) | Low | The rest uses the row family |
@@ -148,7 +148,7 @@ Dialogs that open over a screen. Each one is a native `<dialog>` written on its 
 
 | Dialog | Location | Hand-built elements in the dialog | Complications |
 |---|---|---|---|
-| Setup | `_app_controllers/FirstRunSetupController.tsx` | `<select>`, 3 checkboxes, 2 `<progress>` elements, 12 `<button>` elements. The rows of "What was found" (in Item's shape, `data-slot` only) | The row shape is U-08. Its own `FirstRunSetupController.css.ts` is added to the shared dialog classes. Keep the rule that sets apart the rows that need action by placement and shape (DESIGN.md, "Components", #759) (the 2 progress bars replaced by the kit's `Progress`, #1193) |
+| Setup | `_app_controllers/FirstRunSetupController.tsx` | `<select>`, 3 checkboxes, 2 `<progress>` elements, 12 `<button>` elements. The rows of "What was found" (in Item's shape, `data-slot` only) | The row shape is U-08. Its own `FirstRunSetupController.css.ts` is added to the shared dialog classes. Keep the rule that sets apart the rows that need action by placement and shape (DESIGN.md, "Components", #759) (the 2 progress bars replaced by the kit's `Progress`, #1193) (the rows of "What was found" replaced with the kit's `Item`, the rule kept as its attention variant, #1188) |
 | Chat reading setup | `_app_controllers/OcrSetupController.tsx` | 2 `<button>` elements | The shared dialog classes |
 | Usage data notice | `_app_controllers/TelemetryNoticeController.tsx` | 3 `<button>` elements | Its own SCSS is added to the shared dialog classes |
 | Speech recognition consent | `_app_controllers/TranscriptionConsentController.tsx` | 3 `<button>` elements | The shared dialog classes |
@@ -198,10 +198,10 @@ Under decision H-02, a shared component is made for every one of U-01 to U-12 an
 | U-05 | A horizontal progress bar | Setup, model downloads, the runtime download, the OCR model download | Progress (Radix) | D-32. For circular progress there is `CircularProgress` | Add (H-02) (added as the kit's `Progress`, the system's `<progress>` in the forms' look, #1193) |
 | U-06 | A multi-line input field | The main input field, Quick Chat, the TTS generation options | Textarea | D-13 | Add (H-02) |
 | U-07 | Choices shaped as cards (radio) | Theme selection | No component. One of the Field examples has choice cards that wrap a RadioGroupItem in a FieldLabel | D-16 | Add (H-02) |
-| U-08 | A status row (badge, name, description, control) | "What was found" in setup | Item | "Other components" in the comparison document. Not split out as a component yet | Add (H-02) |
+| U-08 | A status row (badge, name, description, control) | "What was found" in setup | Item | "Other components" in the comparison document. Not split out as a component yet | Add (H-02) (added as the kit's `Item`; the rows that need the user are its attention variant, #1188) |
 | U-09 | Cards and badges | Model downloads, the translation catalog, the OCR models, the engine catalog | Card, Badge | D-28, D-29 | Add (H-02) |
 | U-10 | A delete confirmation shown inside a row | Models you added yourself, the translation catalog | AlertDialog or Popover come close | No established pattern | Add (H-02) |
-| U-11 | A list of rows with fields and controls that can be edited in place (`<ul>`) | The term dictionary list | Table (without Radix) or Item | "Other components" in the comparison document | Add (H-02) |
+| U-11 | A list of rows with fields and controls that can be edited in place (`<ul>`) | The term dictionary list | Table (without Radix) or Item | "Other components" in the comparison document | Add (H-02) (made with the kit's `Item`, its compact size, as H-08 says, #1188) |
 | U-12 | A non-modal alert dialog | Startup failure | AlertDialog (Radix) | D-23 | Add (H-02). The place that would use it now, the startup failure dialog, is not replaced (H-03), so no screen uses it |
 
 ## Decisions made
@@ -352,7 +352,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 翻訳 | `translation/Translation.tsx` | ライセンスの確認の `<dialog>`（独自のクラス）とチェックボックス、追加の欄を開くボタン | kit の `Dialog`、kit の `Button`（入力欄を開くボタンは置き換えた、#1169。ライセンスのダイアログは D-23、D-24、D-43 を、そのチェックボックスは D-16 を待つ） | 中 | — |
 |  | `translation/TranslationCatalog.tsx` | 名前、フォルダー、言語、URL、モデル、鍵の `<input>`、3 個の `<select>`、行の中の削除の確認、追加と使うボタン | kit の `TextField`、kit の `Select`、kit の `Button`。カードは U-09、行の中の確認は U-10（欄とボタンは置き換えた、#1169。選択欄は D-14 を、カードは U-09 を、行の中の確認は U-10 を待つ） | 中 | 鍵の欄は `type="password"` と `autoComplete="off"` を保ちます |
 | 音声認識（ASR） | `transcription/RealtimeASRSettings.tsx` | 6 個の `<select>`、URL の欄、組み込みの語彙のチェックボックス、更新・始める・止めるのボタン | kit の `Select`、kit の `TextField`、スイッチ（K-02）、kit の `Button` | 中 | フォームは、ほかのページのフォームと同じく自分で保存します（#1111）。選択はすぐに、アドレスはEnterかフォームを離れたときに保存します |
-|  | `transcription/VocabularyList.tsx`、`VocabularyFiles.tsx` | 書き方と読みの `<input>` が並ぶ行の一覧、行ごとの quiet のボタン、隠したファイルの `<input>` と読み込み・書き出しのボタン | kit の `TextField`、kit の `Button`。行の一覧は U-11（欄とボタンは置き換えた、#1170。行の一覧は U-11 を待つ） | 中 | ファイルを選ぶ形は、共通の `FileDropZone`（落とす形）とは違います |
+|  | `transcription/VocabularyList.tsx`、`VocabularyFiles.tsx` | 書き方と読みの `<input>` が並ぶ行の一覧、行ごとの quiet のボタン、隠したファイルの `<input>` と読み込み・書き出しのボタン | kit の `TextField`、kit の `Button`。行の一覧は U-11（欄とボタンは置き換えた、#1170。行の一覧は H-08 と H-09 のとおり kit の compact の `Item` に置き換え、ボタンは plain にした、#1188） | 中 | ファイルを選ぶ形は、共通の `FileDropZone`（落とす形）とは違います |
 |  | `transcription/AsrApiEntries.tsx` | API を足すフォームの名前、URL、モデル、鍵の `<input>` とプロトコルの `<select>`、カードの使うと削除のボタン、カードの中の削除の確認 | kit の `TextField`、kit の `Select`、kit の `Button`。カードは U-09、カードの中の確認は U-10（欄とボタンは置き換えた、#1170。選択欄は D-14 を、カードは U-09 を、カードの中の確認は U-10 を待つ） | 中 | 翻訳のカタログの API のフォームとカードと同じ形です（#414） |
 | 字幕とVR | `vr/Vr.tsx` | 表示する設定の切り替え（「1 行」と「複数行」、「位置」と「回転」。それぞれ 2 つの `div role="button"` と `aria-pressed`）、既定に戻すボタン、試しに送るボタン | 切り替えは U-03、ボタンは kit の `Button`（ボタンは置き換えた、#1172。切り替えは U-03 と D-27 を待つ） | 高 | 試しに送るボタンは、押しても幅が変わらないように長い方の文言の幅を保っています（#912） |
 | ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | Quick Chat を開くボタン、ショートカットを消すボタン | kit の `Button`（置き換えた、#1131） | 低 | ほかは行の部品の系統です |
@@ -370,7 +370,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 
 | ダイアログ | 場所 | ダイアログの中の手作り | 引っかかり |
 |---|---|---|---|
-| 初期設定 | `_app_controllers/FirstRunSetupController.tsx` | `<select>`、3 個のチェックボックス、2 個の `<progress>`、12 個の `<button>`。「いまの状態」の行（Item の形、`data-slot` だけ） | 行の形は U-08。共有のダイアログのクラスに、独自の `FirstRunSetupController.css.ts` を足しています。対応が要る行を配置と形で分ける規則（DESIGN.md「Components」、#759）を保ちます（2 個の進み具合は kit の `Progress` に置き換えた、#1193） |
+| 初期設定 | `_app_controllers/FirstRunSetupController.tsx` | `<select>`、3 個のチェックボックス、2 個の `<progress>`、12 個の `<button>`。「いまの状態」の行（Item の形、`data-slot` だけ） | 行の形は U-08。共有のダイアログのクラスに、独自の `FirstRunSetupController.css.ts` を足しています。対応が要る行を配置と形で分ける規則（DESIGN.md「Components」、#759）を保ちます（2 個の進み具合は kit の `Progress` に置き換えた、#1193）（「いまの状態」の行は kit の `Item` に置き換え、規則は attention の形として保った、#1188） |
 | チャット読み取りの準備 | `_app_controllers/OcrSetupController.tsx` | 2 個の `<button>` | 共有のダイアログのクラス |
 | 利用状況の送信の知らせ | `_app_controllers/TelemetryNoticeController.tsx` | 3 個の `<button>` | 共有のダイアログのクラスに、独自の SCSS を足しています |
 | 音声認識の同意 | `_app_controllers/TranscriptionConsentController.tsx` | 3 個の `<button>` | 共有のダイアログのクラス |
@@ -420,10 +420,10 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 | U-05 | 横に伸びる進み具合 | 初期設定、モデルの取得、実行環境の取得、OCR のモデルの取得 | Progress（Radix） | D-32。丸い進み具合は `CircularProgress` があります | 足す（H-02）（kit の `Progress` として足した。フォームの見た目のままのネイティブの `<progress>`、#1193） |
 | U-06 | 複数行の入力欄 | メインの入力欄、Quick Chat、読み上げの生成の設定 | Textarea | D-13 | 足す（H-02） |
 | U-07 | カードの形をした選択肢（radio） | テーマの選択 | 部品はありません。Field の例に、FieldLabel で RadioGroupItem を包む選択肢のカードがあります | D-16 | 足す（H-02） |
-| U-08 | 状態の行（印、名前、説明、操作） | 初期設定の「いまの状態」 | Item | 照合の文書の「そのほか」。部品にはまだ分けていません | 足す（H-02） |
+| U-08 | 状態の行（印、名前、説明、操作） | 初期設定の「いまの状態」 | Item | 照合の文書の「そのほか」。部品にはまだ分けていません | 足す（H-02）（kit の `Item` として足した。対応が要る行は attention の形、#1188） |
 | U-09 | カードと印 | モデルの取得、翻訳のカタログ、OCR のモデル、エンジンのカタログ | Card、Badge | D-28、D-29 | 足す（H-02） |
 | U-10 | 行の中で出す削除の確認 | 自分で足したモデル、翻訳のカタログ | AlertDialog か Popover が近い | 決まった形はありません | 足す（H-02） |
-| U-11 | 欄と操作が並ぶ、その場で直せる行の一覧（`<ul>`） | 用語辞書の一覧 | Table（Radix を使わない）か Item | 照合の文書の「そのほか」 | 足す（H-02） |
+| U-11 | 欄と操作が並ぶ、その場で直せる行の一覧（`<ul>`） | 用語辞書の一覧 | Table（Radix を使わない）か Item | 照合の文書の「そのほか」 | 足す（H-02）（H-08 のとおり kit の `Item` の compact の大きさで作った、#1188） |
 | U-12 | モーダルでない警告のダイアログ | 起動の失敗 | AlertDialog（Radix） | D-23 | 足す（H-02）。いま使う場所の起動の失敗は置き換えの対象にしない（H-03）ので、画面で使う場所はありません |
 
 ## 決まった判断

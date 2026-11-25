@@ -190,6 +190,18 @@ export const kitStandIns = {
         jsx.jsx("div", { "data-slot": "popover-content", ...rest }),
     // The kit's progress bar is the system's <progress> named data-slot="progress"; no value, no amount (indeterminate).
     Progress: (props: Record<string, unknown>) => jsx.jsx("progress", { "data-slot": "progress", ...props }),
+    // The kit's Item list: a <ul> of <li> rows, each with the look it asked for (data-variant,
+    // data-size); a mark drawn for a state is hidden from screen readers, as its words say it.
+    ItemGroup: ({ variant = "default", size = "default", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("ul", { "data-slot": "item-group", "data-variant": variant, "data-size": size, ...rest }),
+    Item: ({ variant = "default", size = "default", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("li", { "data-slot": "item", "data-variant": variant, "data-size": size, ...rest }),
+    ItemMedia: ({ state, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("div", { "data-slot": "item-media", "data-state": state, "aria-hidden": state ? "true" : undefined, ...rest }),
+    ItemContent: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-content", ...props }),
+    ItemTitle: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-title", ...props }),
+    ItemDescription: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-description", ...props }),
+    ItemActions: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-actions", ...props }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, findIn, nodesIn } from "../../logics/test/hookHarness.ts";
+import { draw, hooks, loadModule, findIn, nodesIn } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 
 // The kit's parts drawn with the code they run (kit.test.ts reads their sources and styles): what
@@ -151,4 +151,48 @@ test("a popover's content is Radix's, 4px from its trigger, in a portal unless t
     const inline = runtime.render(module.PopoverContent, { portal: false, inset: "tight", align: "end", sideOffset: 0 });
     assert.deepEqual([inline.type, inline.props.className, inline.props.align, inline.props.sideOffset, inline.props.portal],
         ["popover-content", "content inset=tight", "end", 0, undefined]);
+});
+
+test("an item list is a <ul> of <li> rows that ask for their look, and say it as shadcn/ui's Item does", async () => {
+    const { runtime, module } = await kit<typeof import("./Item.tsx")>("./Item.tsx", { "./Item.css.ts": styleModule(["group", "item"]) });
+    const group = runtime.render(module.ItemGroup, { children: "rows", "aria-label": "Terms" });
+    assert.deepEqual([group.type, group.props["data-slot"], group.props.className, group.props["aria-label"], group.props.children],
+        ["ul", "item-group", "group variant=undefined size=undefined", "Terms", "rows"]);
+    assert.equal(runtime.render(module.ItemGroup, { variant: "outline", size: "compact", className: "own" }).props.className,
+        "group variant=outline size=compact own");
+    const row = runtime.render(module.Item, { children: "row", "data-state": "own" });
+    assert.deepEqual([row.type, row.props["data-slot"], row.props["data-variant"], row.props["data-size"], row.props.className, row.props["data-state"]],
+        ["li", "item", "default", "default", "item variant=default size=default", "own"]);
+    const card = runtime.render(module.Item, { variant: "attention", size: "compact", className: "own" });
+    assert.deepEqual([card.props["data-variant"], card.props["data-size"], card.props.className],
+        ["attention", "compact", "item variant=attention size=compact own"]);
+    for (const [part, slot, className] of [["ItemContent", "item-content", "content"], ["ItemTitle", "item-title", "title"],
+        ["ItemDescription", "item-description", "description"], ["ItemActions", "item-actions", "actions"]] as const) {
+        const drawn = runtime.render(module[part], { children: "words", className: "own", role: "status" });
+        assert.deepEqual([drawn.type, drawn.props["data-slot"], drawn.props.className, drawn.props.children, drawn.props.role],
+            ["div", slot, `${className} own`, "words", "status"], part);
+    }
+});
+
+test("an item's mark draws its state's shapes and is hidden from screen readers; without a state it holds its children", async () => {
+    // The shapes' classes are a plain object of classes, each named as its key.
+    const shapes = new Proxy({}, { get: (_, key) => key });
+    const styles = new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key === "markShape" ? shapes : key });
+    const { runtime, module } = await kit<typeof import("./Item.tsx")>("./Item.tsx", { "./Item.css.ts": styles });
+    const drawn = (state: import("./Item.tsx").ItemState) => {
+        const media = runtime.render(module.ItemMedia, { state });
+        assert.deepEqual([media.type, media.props["data-slot"], media.props["data-state"], media.props["aria-hidden"], media.props.className],
+            ["div", "item-media", state, "true", "media"]);
+        const mark = draw(findIn(media, node => typeof node.type === "function", "the mark"));
+        assert.deepEqual([mark.type, mark.props.viewBox, mark.props.className], ["svg", "0 0 16 16", "mediaSvg"]);
+        return nodesIn(mark).filter(node => node.type === "circle" || node.type === "path").map(node => `${String(node.type)} ${node.props.className}`);
+    };
+    // Ready: a lilac disc with a check; attention: an amber disc with "!"; checking: the spinning
+    // arc; neutral: a quiet ring.
+    assert.deepEqual(drawn("ready"), ["circle ready", "path glyph"]);
+    assert.deepEqual(drawn("attention"), ["circle attention", "path glyph"]);
+    assert.deepEqual(drawn("checking"), ["circle arc"]);
+    assert.deepEqual(drawn("neutral"), ["circle ring"]);
+    const icon = runtime.render(module.ItemMedia, { children: "icon" });
+    assert.deepEqual([icon.props["data-state"], icon.props["aria-hidden"], icon.props.children], [undefined, undefined, "icon"]);
 });
