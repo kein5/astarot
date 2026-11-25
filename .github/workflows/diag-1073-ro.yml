@@ -1,0 +1,38 @@
+name: diag 1073 webkit resize observer
+# A temporary branch's workflow (Issue #1073): runs the narrow overlay rail scene in WebKit many
+# times and prints what changed inside ResizeObserver callbacks when WebKit reports a loop. Not to
+# be merged.
+on:
+  push:
+    branches: [diag/1073-webkit-ro]
+permissions:
+  contents: read
+jobs:
+  webkit:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CI: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: node python rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/browser-core-bridge
+          save-if: false
+      - run: npm ci --ignore-scripts
+      - run: python tools/dev.py setup --scope integration
+      - if: runner.os == 'Linux'
+        run: node node_modules/@playwright/test/cli.js install-deps webkit
+      - run: cargo build --locked --offline --manifest-path native/browser-core-bridge/Cargo.toml
+      - run: node node_modules/vite/bin/vite.js build --config tests/integration/vite.config.ts --logLevel warn
+      - run: node node_modules/@playwright/test/cli.js test --config tests/integration/playwright.config.ts --project webkit roprobe-1073.spec.ts --repeat-each 200 --reporter line
