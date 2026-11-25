@@ -9,7 +9,7 @@ import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as runtimeStyles from "./VcRuntimeSetup.css.ts";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Progress } from "../../../../../kit/index.ts";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
@@ -76,7 +76,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
             progress={active && job.phase !== "cancelling" ? "working" : job.phase === "ready" ? "done" : undefined}>
             <p>{own(`vc_runtime.phase_${job.phase}`, t(`vc_runtime.phase_${job.phase}`))}{active && job.step > 0 && ` · ${job.step} / ${job.steps}`}</p>
         </EnvReadout>}
-        {active && <progress className={styles.progress} aria-label={t("vc_runtime.progress")}
+        {active && <Progress aria-label={t("vc_runtime.progress")}
             value={job.total_bytes ? job.received_bytes : job.step} max={job.total_bytes || job.steps} />}
         {job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
         {/* Installed, but its GPU check failed: it converts on the CPU. */}

@@ -32,6 +32,7 @@ import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresen
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as ui from "./FirstRunSetupController.css.ts";
+import { Progress } from "../../kit/index.ts";
 
 const ACTIVE: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const finiteNumber = (value: unknown): value is number => Number.isFinite(value);
@@ -563,7 +564,7 @@ const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyRead
                                 : modelState === "working" && active ? t(`model_downloads.phase_${job.phase}`) : stateText(modelState)}
                         </span>
                         {running && active && job.phase === "downloading" && (job.total_bytes ?? 0) > 0 &&
-                            <progress className={styles.progress} value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={modelLabel} />}
+                            <Progress value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={modelLabel} />}
                     </li>}
                     {switches && <li className={ui.step} data-state={switchState}>
                         <span className={ui.stepLabel}>{t(key("step_switch"), { name: shown.name })}</span>
@@ -767,7 +768,7 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
                             : t(`first_run_setup.recognition.state_${state}`)}
                     </span>
                     {state === "working" && active && job.phase === "downloading" && (job.total_bytes ?? 0) > 0 &&
-                        <progress className={styles.progress} value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={label} />}
+                        <Progress value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={label} />}
                 </li>;
             })}
         </ol>}

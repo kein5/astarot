@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { find, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { find, findIn, hooks, kitStandIns, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // The setup of a voice engine's runtime (VcRuntimeSetup.tsx): what the section says about the
 // runtime, its download and its job, and the review that starts it. The runtimes hook is a stand-in
 // that holds the catalog and the jobs the test gives and records what the section sends; the kit's
-// Button is the element it stands for, with the props the section gives it.
+// Button is the element it stands for, with the props the section gives it, and its Progress the
+// harness's stand-in.
 
 // useVcRuntimes.ts's list: that module is not loaded here, for its own imports.
 const activeSetupPhases = ["queued", "tools", "python", "packages", "engine", "libraries", "assets", "verifying", "cancelling"];
@@ -37,7 +38,7 @@ async function runtimeSetup(context: TestContext, given: Partial<Runtimes> = {},
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: (...args: unknown[]) => { consent.asked.push(args); return { dialog: "dialog", close: () => { consent.closed++; } }; } },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => options.hints ?? false },
-        "../../../../../kit/index.ts": { Button: "button" },
+        "../../../../../kit/index.ts": { Button: "button", Progress: kitStandIns.Progress },
     });
     let props: Record<string, unknown> = { engine: "rvc" };
     const drawOrNothing = (next: Record<string, unknown> = {}) => {
@@ -143,7 +144,7 @@ test("a setup that runs reads out its step and progress, can be cancelled, and k
     let tree = r.draw();
     const readout = () => findIn(r.draw(), node => node.type === "readout");
     assert.deepEqual([readout().props.tone, readout().props.progress, textOf(readout())], ["neutral", "working", "vc_runtime.phase_packages · 2 / 5"]);
-    const bar = findIn(tree, node => node.type === "progress").props;
+    const bar = findIn(tree, node => node.type === kitStandIns.Progress).props;
     assert.deepEqual([bar["aria-label"], bar.value, bar.max], ["vc_runtime.progress", 3, 9]);
     assert.deepEqual(buttons(tree), [["vc_runtime.cancel", false, undefined]]);
     buttonNamed(tree, "vc_runtime.cancel").props.onClick();
@@ -154,7 +155,7 @@ test("a setup that runs reads out its step and progress, can be cancelled, and k
     tree = r.draw();
     assert.equal(textOf(readout()), "vc_runtime.phase_engine_rvc_gpu");
     r.runtimes.state = { observation_id: "3", jobs: { rvc: { job_id: "j", phase: "libraries", step: 3, steps: 5, received_bytes: 7, total_bytes: 0 } }, installed: {} };
-    const counted = findIn(r.draw(), node => node.type === "progress").props;
+    const counted = findIn(r.draw(), node => node.type === kitStandIns.Progress).props;
     assert.deepEqual([counted.value, counted.max], [3, 5], "nothing downloaded in this step: its steps are counted");
     // Cancelling: no progress shown as working, no second cancel; another request waiting: no cancel either.
     r.runtimes.state = { observation_id: "3", jobs: { rvc: { job_id: "j", phase: "cancelling", step: 3, steps: 5, received_bytes: 0, total_bytes: 0 } }, installed: {} };
@@ -175,7 +176,7 @@ test("a setup that ended says how: ready, failed with its reason, waiting for a 
         const r = await runtimeSetup(context, { state: { observation_id: "1", jobs: { rvc: job(extra) }, installed }, ...given });
         const tree = r.draw();
         const readout = findIn(tree, node => node.type === "readout");
-        return { tone: readout.props.tone, progress: readout.props.progress, words: textOf(readout), lines: lines(tree), buttons: buttons(tree), bar: find(tree, node => node.type === "progress") };
+        return { tone: readout.props.tone, progress: readout.props.progress, words: textOf(readout), lines: lines(tree), buttons: buttons(tree), bar: find(tree, node => node.type === kitStandIns.Progress) };
     };
     const ready = await view({ phase: "ready" }, { rvc: "C:/rvc" });
     assert.deepEqual([ready.tone, ready.progress, ready.words, ready.bar], ["active", "done", "vc_runtime.phase_ready", null]);

@@ -188,6 +188,8 @@ export const kitStandIns = {
     PopoverAnchor: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "popover-anchor", ...props }),
     PopoverContent: ({ portal: _portal, inset: _inset, ...rest }: Record<string, unknown>) =>
         jsx.jsx("div", { "data-slot": "popover-content", ...rest }),
+    // The kit's progress bar is the system's <progress> named data-slot="progress"; no value, no amount (indeterminate).
+    Progress: (props: Record<string, unknown>) => jsx.jsx("progress", { "data-slot": "progress", ...props }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

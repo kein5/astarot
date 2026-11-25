@@ -62,11 +62,12 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     for (const slot of ["toggle", "toggle-group", "toggle-group-item"]) assert.match(pressed, new RegExp(`data-slot="${slot}"`), slot);
     const popover = read("Popover.tsx");
     for (const slot of ["popover", "popover-trigger", "popover-anchor", "popover-content"]) assert.match(popover, new RegExp(`data-slot="${slot}"`), slot);
+    assert.match(read("Progress.tsx"), /<progress data-slot="progress"/);
 });
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Button.tsx", "Dialog.tsx", "Popover.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
+    for (const file of ["Button.tsx", "Dialog.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });
@@ -80,6 +81,18 @@ test("the select is drawn like shadcn/ui's NativeSelect", () => {
     // is not dimmed a second time.
     assert.match(css, /"&:has\(select:disabled\)": \{ opacity: disabledLook\.opacity \}/);
     assert.match(css, /select: \{[\s\S]*?"&:disabled": \{ opacity: 1 \}/);
+});
+
+test("a progress bar keeps the forms' look: one palette at two lightnesses, .6rem with round ends", () => {
+    // D-32 (2026-11-25): not shadcn/ui's primary/20 track, which is the value's colour made transparent.
+    const css = read("Progress.css.ts");
+    assert.match(css, /height: "\.6rem",[\s\S]*?borderRadius: "\.3rem",[\s\S]*?background: vars\.dark_825_color,/);
+    assert.match(css, /"&::-webkit-progress-bar": \{ background: vars\.dark_825_color, borderRadius: "\.3rem" \}/);
+    assert.match(css, /"&::-webkit-progress-value": \{ background: vars\.primary_500_color, borderRadius: "\.3rem" \}/);
+    assert.match(css, /"&::-moz-progress-bar": \{ background: vars\.primary_500_color, borderRadius: "\.3rem" \}/);
+    // The engines' own bar is turned off, or they draw theirs instead of the kit's.
+    assert.match(css, /appearance: "none",\s*WebkitAppearance: "none",/);
+    assert.doesNotMatch(css, /opacity|color-mix/);
 });
 
 test("rows are divided by a hairline, groups by space; only field rows stack when narrow", () => {

@@ -26,6 +26,7 @@ import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
+import { Progress } from "../../../../../kit/index.ts";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -305,7 +306,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     <p>{!own && `${entry.name}: `}{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${gib(job.received_bytes)} / ${gib(job.total_bytes)}`}</p>
                 </EnvReadout>
                 {/* The bar spans the card under its readout; the actions share one row below. */}
-                {active && <progress className={styles.progress} aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
+                {active && <Progress aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
                 {job.error_code && <p role="alert">{failure(job.error_code)}</p>}
                 {job.phase === "ready" && <p>{t("model_downloads.apply_hint")}</p>}
                 {(active || job.phase === "ready") && <div className={styles.actions}>

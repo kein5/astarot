@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, componentOf, find, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, find, findIn, hooks, kitStandIns, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../../logics/common/languageNames.ts";
 import * as modelCatalog from "../../../../../../logics/voice/modelCatalog.ts";
@@ -477,7 +477,7 @@ test("a download's readout follows its phase, with its progress, its error and t
         Object.assign(p.downloads, { state: { observation_id: "1", jobs: { m: job } }, pending: null }, extra);
         const card = cardNamed(p.draw({ targets: ["asr"], expected: { asr: { model: "/m.gguf" } }, blocked: false, ...props }), "Model");
         const readout = findIn(card, node => node.type === "readout");
-        const progress = find(card, node => node.type === "progress");
+        const progress = find(card, node => node.type === kitStandIns.Progress);
         return { card, tone: readout.props.tone, progress: readout.props.progress, words: textOf(readout),
             bar: progress && [progress.props["aria-label"], progress.props.value, progress.props.max], alerts: texts(card, "p").filter((_, i) => ofType(card, "p")[i].props.role === "alert"),
             buttons: ofType(card, "button").map(node => [textOf(node), node.props.disabled, node.props.className]), notes: texts(card, "p") };

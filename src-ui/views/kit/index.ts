@@ -9,3 +9,4 @@ export { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, typ
 export { SettingGroup, SettingRow, type SettingGroupProps, type SettingRowProps, type SettingControlProps } from "./Setting.tsx";
 export { Toggle, ToggleGroup, ToggleGroupItem, type ToggleGroupItemProps, type ToggleGroupProps, type ToggleProps } from "./Toggle.tsx";
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger, type PopoverContentProps } from "./Popover.tsx";
+export { Progress, type ProgressProps } from "./Progress.tsx";

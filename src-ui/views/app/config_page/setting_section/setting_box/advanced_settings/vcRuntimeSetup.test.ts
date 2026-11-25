@@ -49,7 +49,7 @@ test("a setup waiting for the next start says to restart and offers no start", a
     const VcRuntimeSetup = await load(runtime, vc);
     const tree = runtime.render(VcRuntimeSetup, { engine: "rvc" });
     assert.ok(words(tree).includes("vc_runtime.phase_restart_required"), "the wait is not said");
-    assert.ok(!nodesIn(tree).some(node => node.type === "progress"), "it is drawn as running");
+    assert.ok(!nodesIn(tree).some(node => node.type === kitStandIns.Progress), "it is drawn as running");
     assert.deepEqual(buttons(tree), []);
 
     // Failed, the same runtime offers to resume.

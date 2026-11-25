@@ -52,6 +52,17 @@ test("a text field is text, marks a wrong value only when told, and asks for the
         ["password", true, "field kind=text mono=true own"]);
 });
 
+test("a progress bar is the system's <progress>, with the amount it is given or none", async () => {
+    const { runtime, module } = await kit<typeof import("./Progress.tsx")>("./Progress.tsx", { "./Progress.css.ts": styleModule([]) });
+    const counted = runtime.render(module.Progress, { value: 3, max: 9, "aria-label": "Download progress", className: "own" });
+    assert.equal(counted.type, "progress");
+    assert.deepEqual([counted.props["data-slot"], counted.props.className, counted.props.value, counted.props.max, counted.props["aria-label"]],
+        ["progress", "progress own", 3, 9, "Download progress"]);
+    // Without a value the bar does not know how far it is: the element gets no value at all.
+    const unknown = runtime.render(module.Progress, { "aria-label": "Download progress" });
+    assert.deepEqual([unknown.props.className, "value" in unknown.props, "max" in unknown.props], ["progress", false, false]);
+});
+
 test("a select is the system's, in the field's look, with its own options and groups", async () => {
     const { runtime, module } = await kit<typeof import("./Select.tsx")>("./Select.tsx", { "./Field.css.ts": styleModule(["field"]) });
     const drawn = runtime.render(module.Select, { value: "a", children: "the options", className: "own" });
