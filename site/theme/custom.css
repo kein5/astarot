@@ -502,7 +502,7 @@ body {
   text-underline-offset: 4px;
 }
 
-/* ---------- The home footer ---------- */
+/* ---------- The guide footer ---------- */
 
 .site-footer {
   max-width: 1152px;
@@ -517,4 +517,21 @@ body {
 
 .site-footer p {
   margin: 0;
+}
+
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 24px;
+}
+
+.site-footer nav:not(:last-child) {
+  margin-bottom: 12px;
+}
+
+.site-footer a {
+  color: var(--a-link);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
