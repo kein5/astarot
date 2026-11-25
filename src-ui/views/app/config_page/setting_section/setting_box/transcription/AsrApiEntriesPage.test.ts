@@ -201,10 +201,12 @@ test("the add form names its fields, offers the protocols the backend has, and s
     assert.deepEqual([url.type, url.mono, url.maxLength, url.spellCheck, url.placeholder], ["url", true, 2048, false, "http://192.168.1.10:8000/v1"]);
     assert.deepEqual([model.type, model.mono, model.maxLength, model.spellCheck, model.placeholder], [undefined, undefined, 200, false, "translation_catalog.placeholder.model"]);
     assert.deepEqual([key.type, key.mono, key.autoComplete, key.spellCheck, key["aria-describedby"]], ["password", true, "off", false, undefined]);
-    const protocol = findIn(tree, node => node.type === "select").props;
+    const protocol = findIn(tree, node => node.type === kitStandIns.Select).props;
     assert.deepEqual([protocol.value, protocol.disabled], ["deepgram", false]);
-    assert.deepEqual(ofType(tree, "option").map(option => [option.props.value, textOf(option)]), [["deepgram", "config_page.transcription.api_entries.protocol.deepgram"],
+    assert.deepEqual(ofType(tree, kitStandIns.SelectOption).map(option => [option.props.value, textOf(option)]), [["deepgram", "config_page.transcription.api_entries.protocol.deepgram"],
         ["openai_compatible", "config_page.transcription.api_entries.protocol.openai_compatible"]]);
+    // D-14 (decided on 2026-11-25): the protocol is the kit's Select, with the kit's options.
+    assert.deepEqual([...ofType(tree, "select"), ...ofType(tree, "option")], []);
     const lead = findIn(tree, node => node.type === "lead").props;
     assert.deepEqual([lead.id, lead.text, lead.details], [url["aria-describedby"], "config_page.transcription.api_entries.url_lead", "translation_catalog.url_details"]);
     const row = findIn(tree, node => node.type === "div" && find(node, inner => inner.type === kitStandIns.Button) !== null && [node.props.children].flat().length === 1);
@@ -217,10 +219,10 @@ test("the add form names its fields, offers the protocols the backend has, and s
     assert.equal(ofType(tree, kitStandIns.TextField)[1].props["aria-describedby"], `${lead.id} ${warning.props.id}`);
     // One protocol or none known: nothing to choose, the default one.
     const one = await apiEntries(context, { catalog: { api: [], protocols: ["absent_kind"] } });
-    const select = findIn(one.form(), node => node.type === "select").props;
-    assert.deepEqual([select.value, select.disabled, ofType(one.form(), "option").map(textOf)], ["absent_kind", true, ["absent_kind"]], "a protocol without words is named as it is");
+    const select = findIn(one.form(), node => node.type === kitStandIns.Select).props;
+    assert.deepEqual([select.value, select.disabled, ofType(one.form(), kitStandIns.SelectOption).map(textOf)], ["absent_kind", true, ["absent_kind"]], "a protocol without words is named as it is");
     const none = await apiEntries(context, { catalog: { api: [], protocols: [] } });
-    assert.deepEqual([findIn(none.form(), node => node.type === "select").props.value, ofType(none.form(), "option").map(option => option.props.value)], ["openai_compatible", ["openai_compatible"]]);
+    assert.deepEqual([findIn(none.form(), node => node.type === kitStandIns.Select).props.value, ofType(none.form(), kitStandIns.SelectOption).map(option => option.props.value)], ["openai_compatible", ["openai_compatible"]]);
     // On a page that shows descriptions as hints, what to fill in is the title's hint.
     const hinted = await apiEntries(context, {}, { hints: true });
     const fold = hinted.form();
@@ -242,7 +244,7 @@ test("the form refuses what cannot pass, then sends the entry, and clears only o
     type(1, "https://asr.example/v1");
     type(2, "whisper-large");
     type(3, " key ");
-    findIn(a.form(), node => node.type === "select").props.onChange({ target: { value: "deepgram" } });
+    findIn(a.form(), node => node.type === kitStandIns.Select).props.onChange({ target: { value: "deepgram" } });
     buttonNamed(a.form(), "translation_catalog.add_do").props.onClick();
     assert.equal(problem(), null);
     assert.deepEqual(a.sent.at(-1), [REGISTER, { name: "Mine", protocol: "deepgram", url: "https://asr.example/v1", model: "whisper-large", auth_key: "key" }]);
@@ -266,7 +268,7 @@ test("the form refuses what cannot pass, then sends the entry, and clears only o
     a.form();
     a.state.pending = null;
     a.form();
-    assert.deepEqual([...ofType(a.form(), kitStandIns.TextField).map(node => node.props.value), findIn(a.form(), node => node.type === "select").props.value],
+    assert.deepEqual([...ofType(a.form(), kitStandIns.TextField).map(node => node.props.value), findIn(a.form(), node => node.type === kitStandIns.Select).props.value],
         ["", "", "", "", "openai_compatible"]);
     // What is typed next stays.
     type(0, "Next");
@@ -290,4 +292,25 @@ test("Enter in a field adds as a form would, except while something is sent; Ent
     key("Enter", { tagName: "INPUT" });
     assert.equal(prevented, 2);
     assert.equal(a.sent.some(call => call[0] === REGISTER), false);
+});
+
+// D-14 and H-07 on one page: the add form's protocol is the kit's Select and a card asks before a
+// removal with the kit's confirmation inside it. Asking in a card leaves the form's choice as it
+// is, and while the removal is sent the form's list waits too, as all of the page's requests do.
+test("the form's protocol list and a card's confirmation work side by side", async context => {
+    const a = await apiEntries(context, { catalog: { api: [item("a")], protocols: ["deepgram", "openai_compatible"] } });
+    const protocol = () => findIn(a.form(), node => node.type === kitStandIns.Select, "the protocol list").props;
+    protocol().onChange({ target: { value: "openai_compatible" } });
+    assert.deepEqual([protocol().value, protocol().disabled], ["openai_compatible", false]);
+    const element = a.part("EntryCard"), runtime = hooks();
+    const card = () => a.draw(element.type, { item: item("a"), layout: "list" }, runtime);
+    buttonNamed(card(), "translation_catalog.remove").props.onClick();
+    assert.ok(find(card(), isConfirm), "the card asks first");
+    assert.deepEqual([protocol().value, protocol().disabled], ["openai_compatible", false], "the form keeps its choice");
+    buttonNamed(card(), "translation_catalog.remove_do").props.onClick();
+    assert.deepEqual(a.sent.at(-1), ["/run/remove_transcription_catalog_entry", { id: "a" }]);
+    a.state.pending = { endpoint: "/run/remove_transcription_catalog_entry" };
+    assert.deepEqual([protocol().value, protocol().disabled], ["openai_compatible", true], "the list waits while the removal is sent");
+    a.state.pending = null;
+    assert.equal(protocol().disabled, false);
 });

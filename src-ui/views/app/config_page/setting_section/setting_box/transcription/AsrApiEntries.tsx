@@ -14,7 +14,7 @@ import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
 import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent,
-    InlineConfirmDescription, InlineConfirmTrigger, TextField } from "../../../../../kit/index.ts";
+    InlineConfirmDescription, InlineConfirmTrigger, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 const REGISTER = "/run/register_transcription_catalog_entry";
 
@@ -141,10 +141,10 @@ const AddForm = ({ protocols }: { protocols: readonly string[] }) => {
                     placeholder={t("config_page.transcription.api_entries.placeholder_name")} onChange={set("name")} />
             </label>
             <label>{t("translation_catalog.field.protocol")}
-                <select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
+                <Select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
                     {(protocols.length ? protocols : ["openai_compatible"]).map(protocol =>
-                        <option key={protocol} value={protocol}>{t(`config_page.transcription.api_entries.protocol.${protocol}`, { defaultValue: protocol })}</option>)}
-                </select>
+                        <SelectOption key={protocol} value={protocol}>{t(`config_page.transcription.api_entries.protocol.${protocol}`, { defaultValue: protocol })}</SelectOption>)}
+                </Select>
             </label>
             <label>{t("translation_catalog.field.url")}
                 <TextField mono type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}

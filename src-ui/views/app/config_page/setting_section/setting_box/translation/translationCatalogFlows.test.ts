@@ -91,8 +91,8 @@ async function mounted(context: TestContext, group: "engine" | "api", pick: (nod
     const component = componentOf(node), props = node.props;
     return () => runtime.render(component, props);
 }
-const form = (context: TestContext, group: "engine" | "api") =>
-    mounted(context, group, node => componentName(node) === (group === "engine" ? "EngineForm" : "ApiForm"), `the ${group} form`);
+const form = (context: TestContext, group: "engine" | "api", t?: Translate) =>
+    mounted(context, group, node => componentName(node) === (group === "engine" ? "EngineForm" : "ApiForm"), `the ${group} form`, t);
 const card = (context: TestContext, group: "engine" | "api", id: string, t?: Translate) =>
     mounted(context, group, node => componentName(node) === "EntryCard" && node.props.item.id === id, `the card of ${id}`, t);
 
@@ -105,8 +105,8 @@ function textOf(value: unknown): string {
 }
 const labelled = (tree: TreeNode, key: string) => {
     const label = findIn(tree, node => node.type === "label" && textOf(node).startsWith(key), `the field ${key}`);
-    // The fields are the kit's TextField; the selects are still native (D-14).
-    return findIn(label, node => node.type === kitStandIns.TextField || node.type === "select", `the control of ${key}`);
+    // The fields are the kit's TextField; the selects are the kit's Select (D-14).
+    return findIn(label, node => node.type === kitStandIns.TextField || node.type === kitStandIns.Select, `the control of ${key}`);
 };
 const type = (tree: TreeNode, key: string, value: string) => labelled(tree, key).props.onChange({ target: { value } });
 // The catalog's buttons are the kit's Button.
@@ -213,8 +213,8 @@ test("a translation LLM asks for its .gguf file and device, and its card waits f
     const llm = draw();
     assert.ok(textOf(llm).includes("translation_catalog.add_help.engine_llamacpp"));
     assert.equal(find(llm, node => node.type === "label" && textOf(node).startsWith("translation_catalog.field.folder")), null);
-    assert.deepEqual(nodesIn(labelled(llm, "translation_catalog.field.device")).filter(node => node.type === "option").map(node => node.props.value),
-        ["auto", "cpu"]);
+    assert.deepEqual(nodesIn(labelled(llm, "translation_catalog.field.device")).filter(node => node.type === kitStandIns.SelectOption)
+        .map(node => [node.props.value, textOf(node)]), [["auto", "translation_catalog.device.auto"], ["cpu", "translation_catalog.device.cpu"]]);
     type(draw(), "translation_catalog.field.name", "TranslateGemma 4B");
     type(draw(), "translation_catalog.field.file", "C:\\Models\\translategemma");
     button(draw(), "translation_catalog.add_do").props.onClick();
@@ -374,6 +374,10 @@ test("the forms' fields and the cards' actions are the kit's parts", async conte
         .map(key => labelled(engine, key));
     assert.deepEqual(fields.map(field => [field.type === kitStandIns.TextField, field.props.spellCheck, field.props.mono ?? false]),
         [[true, false, false], [true, false, true], [true, false, false]]);
+    // D-14 (decided on 2026-11-25): the lists are the kit's Select, with the kit's options.
+    const native = (tree: unknown) => nodesIn(tree).filter(node => node.type === "select" || node.type === "option");
+    assert.equal(labelled(engine, "translation_catalog.field.runtime").type, kitStandIns.Select);
+    assert.deepEqual(native(engine), []);
     assert.equal(button(engine, "translation_catalog.add_do").props.disabled, false);
     reset(catalogWith([], [], []));
     assert.equal(button((await form(context, "engine"))(), "translation_catalog.add_do").props.disabled, true, "no engine to run a model");
@@ -383,6 +387,8 @@ test("the forms' fields and the cards' actions are the kit's parts", async conte
         .map(key => labelled(api, key));
     assert.deepEqual(apiFields.map(field => [field.props.type ?? "text", field.props.spellCheck, field.props.mono ?? false]),
         [["text", false, false], ["url", false, true], ["text", false, false], ["password", false, true]]);
+    assert.equal(labelled(api, "translation_catalog.field.protocol").type, kitStandIns.Select);
+    assert.deepEqual(native(api), []);
     const mine: EngineItem = { id: "tr-1", weight: "user:tr-1", origin: "user", name: "My NLLB", runtime: "onnx",
         folder: "C:\\Models", languages: ["ja"], available: true, in_use: false };
     reset(catalogWith([mine]));
@@ -407,4 +413,52 @@ test("an entry in use can be removed unless it is the translation engine in use,
     assert.equal(button(idle, "translation_catalog.remove").props.disabled, false);
     assert.ok(!textOf(idle).includes("translation_catalog.remove_in_use"));
     assert.ok(!textOf(idle).includes("translation_catalog.key_memory_help"), "an engine has no key");
+});
+
+// D-14 (decided on 2026-11-25): the add forms' lists are the kit's Select. A list with one choice
+// cannot be changed, and none can while a change is being sent. Without the backend's list the form
+// offers the default, and a choice without words in the language is named as the backend names it.
+test("the add forms' lists offer what the backend has, and are fixed while one choice or a change is sent", async context => {
+    // The words of a language that has these keys: a key it lacks gives the defaultValue the page passes, as i18next does.
+    const known = new Set(["translation_catalog.runtime.onnx", "translation_catalog.protocol.openai_compatible", "translation_catalog.field.runtime",
+        "translation_catalog.field.protocol"]);
+    const words: Translate = (key, options) => known.has(key) ? key : (options as { defaultValue?: string } | undefined)?.defaultValue ?? key;
+    const choices = (tree: TreeNode, key: string) => {
+        const select = labelled(tree, key);
+        return [select.type === kitStandIns.Select, select.props.value, select.props.disabled,
+            nodesIn(select).filter(node => node.type === kitStandIns.SelectOption).map(node => [node.props.value, textOf(node)])];
+    };
+    const runtime = "translation_catalog.field.runtime", protocol = "translation_catalog.field.protocol";
+    reset({ ...catalogWith([], [], ["onnx", "llamacpp"]), protocols: ["openai_compatible", "other_kind"] });
+    assert.deepEqual(choices((await form(context, "engine", words))(), runtime), [true, "onnx", false, [["onnx", "translation_catalog.runtime.onnx"], ["llamacpp", "llamacpp"]]]);
+    assert.deepEqual(choices((await form(context, "api", words))(), protocol),
+        [true, "openai_compatible", false, [["openai_compatible", "translation_catalog.protocol.openai_compatible"], ["other_kind", "other_kind"]]]);
+    hook.pending = { endpoint: REGISTER, id: null, group: "engine" };
+    assert.equal(labelled((await form(context, "engine", words))(), runtime).props.disabled, true);
+    assert.equal(labelled((await form(context, "api", words))(), protocol).props.disabled, true);
+    reset({ ...catalogWith([], [], ["onnx"]), protocols: ["openai_compatible"] });
+    assert.deepEqual(choices((await form(context, "engine", words))(), runtime), [true, "onnx", true, [["onnx", "translation_catalog.runtime.onnx"]]]);
+    assert.deepEqual(choices((await form(context, "api", words))(), protocol), [true, "openai_compatible", true, [["openai_compatible", "translation_catalog.protocol.openai_compatible"]]]);
+    reset({ ...catalogWith([], [], []), protocols: [] });
+    assert.deepEqual(choices((await form(context, "engine", words))(), runtime), [true, "onnx", true, [["onnx", "translation_catalog.runtime.onnx"]]]);
+    assert.deepEqual(choices((await form(context, "api", words))(), protocol), [true, "openai_compatible", true, [["openai_compatible", "translation_catalog.protocol.openai_compatible"]]]);
+});
+
+// D-14 and H-07 on one page: the API form's protocol is the kit's Select and a card asks before a
+// removal with the kit's confirmation inside it. Asking in a card leaves the form's choice as it
+// is, and while the removal is sent the form's list waits too, as every list of the catalog does.
+test("the API form's protocol list and a card's confirmation work side by side", async context => {
+    reset({ ...catalogWith([], [{ id: "tr-1", origin: "user", name: "Home server", protocol: "openai_compatible",
+        url: "http://192.168.1.5:8000/v1", model: "", has_key: true, key_in_memory: false, in_use: false }]), protocols: ["openai_compatible", "other_kind"] });
+    const drawForm = await form(context, "api"), drawCard = await card(context, "api", "tr-1");
+    const protocol = () => labelled(drawForm(), "translation_catalog.field.protocol");
+    protocol().props.onChange({ target: { value: "other_kind" } });
+    assert.deepEqual([protocol().type, protocol().props.value, protocol().props.disabled], [kitStandIns.Select, "other_kind", false]);
+    button(drawCard(), "translation_catalog.remove").props.onClick();
+    assert.ok(find(drawCard(), node => node.type === kitStandIns.InlineConfirmContent), "the card asks first");
+    assert.deepEqual([protocol().props.value, protocol().props.disabled], ["other_kind", false], "the form keeps its choice");
+    button(drawCard(), "translation_catalog.remove_do").props.onClick();
+    assert.deepEqual(sentTo("/run/remove_translation_catalog_entry").at(-1), { id: "tr-1" });
+    hook.pending = { endpoint: "/run/remove_translation_catalog_entry", id: "tr-1", group: "api" };
+    assert.deepEqual([protocol().props.value, protocol().props.disabled], ["other_kind", true], "the list waits while the removal is sent");
 });
