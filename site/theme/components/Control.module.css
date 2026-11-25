@@ -1,0 +1,10 @@
+/* Shared type and focus treatment for the home actions, download menu and OS tabs. */
+.control {
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
+}

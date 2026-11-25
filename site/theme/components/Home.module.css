@@ -21,6 +21,7 @@
 
 /* The app's control radius instead of pills. */
 .button {
+  composes: control from "./Control.module.css";
   display: inline-flex;
   align-items: center;
   height: 44px;
@@ -28,7 +29,6 @@
   border: 1px solid transparent;
   border-radius: var(--a-radius-control);
   font-size: 15px;
-  font-weight: 600;
   white-space: nowrap;
   text-decoration: none;
   transition:
@@ -54,11 +54,6 @@
 .alt:hover {
   border-color: var(--a-field-border);
   background: var(--a-surface-hover);
-}
-
-.button:focus-visible {
-  outline: 2px solid var(--a-focus);
-  outline-offset: 2px;
 }
 
 /* ---------- The picture of the app ---------- */
