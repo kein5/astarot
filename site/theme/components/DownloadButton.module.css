@@ -14,6 +14,14 @@
   color: var(--a-on-primary);
 }
 
+.main {
+  composes: control from "./Control.module.css";
+}
+
+.toggle {
+  composes: control from "./Control.module.css";
+}
+
 .main,
 .toggle {
   display: inline-flex;
@@ -24,7 +32,6 @@
   background: none;
   font: inherit;
   font-size: 15px;
-  font-weight: 600;
   color: inherit;
   white-space: nowrap;
   text-decoration: none;
@@ -56,8 +63,6 @@
 .main:focus-visible,
 .toggle:focus-visible {
   position: relative;
-  outline: 2px solid var(--a-focus);
-  outline-offset: 2px;
 }
 
 .icon,

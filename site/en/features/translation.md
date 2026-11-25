@@ -10,7 +10,13 @@ What you say is translated into the "Target language" on the main screen, and wh
 
 ![Settings → Translation](/screenshots/en/translation.webp)
 
-## Translate on your PC
+## What you need
+
+For local translation, choose and prepare a model. To use an external API, prepare the information required by its provider.
+
+## Steps
+
+### Translate on your PC
 
 Translation runs on your PC, so your text is not sent anywhere. Open "Model and device" under "AI translation (local)" and choose a model under "Translation model".
 
@@ -36,7 +42,7 @@ Some models cannot translate some languages. For example, M2M100 does not suppor
 
 "Processing device for AI translation" chooses whether translation runs on the CPU or the GPU. To translate on the GPU, download the CUDA build or the DirectML build (Windows) under "ONNX Runtime for translating on the GPU" beside it; the one that suits your GPU is marked "For your GPU". Before the download you check the source, license and size and agree. Then choose it as the processing device and restart ASTAROT. A model that cannot run on the GPU runs on the CPU.
 
-## Use an external translation API
+### Use an external translation API
 
 You can use DeepL, PLaMo, Gemini, OpenAI, Groq, OpenRouter, Google Cloud Translation and Papago Translation (NAVER Cloud Platform). Register the credentials for your service (for Papago, the client ID and client secret), then choose it under "Translator" on the main screen.
 
@@ -46,19 +52,27 @@ You can use DeepL, PLaMo, Gemini, OpenAI, Groq, OpenRouter, Google Cloud Transla
 
 Under "What the LLM engines are asked" in "More settings", you can set how much the translation varies ("Temperature") and "Additional instructions" added to the prompt (for example, "Translate without honorifics"). Both are sent to LLM engines only.
 
-## Use local LLMs and compatible servers
+### Use local LLMs and compatible servers
 
 You can use LM Studio, Ollama and OpenAI-compatible endpoints. A model of your own works too once you load it into one of these servers ([Use your own models](../guide/custom-models#translation)). Check the connection with "Connection check", then choose a model. If you point the OpenAI-compatible endpoint at a non-official URL, check its pricing, security and compatibility yourself.
 
 If you change the URL while an API key is saved, you are asked to enter the key again, so that the saved key is not sent to a different server. To switch to a server that needs no key, delete the saved key first.
 
-## Add your own models and APIs to the translation catalog
+### Add your own models and APIs to the translation catalog
 
 "Translation catalog" under Settings → "Translation" has two groups, inference engines and APIs. "Add a model of your own" adds a model you prepared, and "Add an API" adds an API to translate with ([Use your own models](../guide/custom-models#translation)).
 
 - A translation LLM such as TranslateGemma is added as a GGUF file and runs on llama.cpp's server (the Vulkan build). The app does not include the server; it is downloaded after you agree. Before you add the model, a check asks you to confirm Gemma's terms of use.
 - Models placed in the `translation-models` folder by earlier versions are no longer listed. Add them again with "Add a model of your own".
 
-## Unavailable engines
+## Check that it works
+
+Turn on "Translation" and send a short message. Check that the translation appears in the conversation log in the target language.
+
+## Troubleshooting
+
+### Unavailable engines
 
 The Google, Bing and Papago web translators are unavailable. Upstream VRCT's translator engine code is licensed for official VRCT only.
+
+See [Troubleshooting](../guide/troubleshooting) for fixes by symptom.

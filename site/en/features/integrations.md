@@ -4,7 +4,13 @@ You can pass translations and captions to streaming software or your own tools. 
 
 ![Settings → Advanced](/screenshots/en/advanced.webp)
 
-## Show captions in a stream (OBS browser source)
+## What you need
+
+Prepare OBS or a tool that can connect to a WebSocket server. For connections from another PC, have the certificate and key described below ready.
+
+## Steps
+
+### Show captions in a stream (OBS browser source)
 
 "Enable OBS Browser Source" serves a page for OBS to load, which shows translations. Each line fades out after a while.
 
@@ -16,13 +22,13 @@ If you already use an OBS browser source, copy the URL from the app again and re
 
 You can change the maximum number of messages, display time, fade-out time, font size and color, and the outline.
 
-## Receive them in your own tools (WebSocket)
+### Receive them in your own tools (WebSocket)
 
 "Enable WebSocket server" sends translations and captions over WebSocket, for your own tools and similar apps. With the default host and port, the URL has the form `ws://127.0.0.1:2231/?token=<key>`; copy it with the copy button on the "WebSocket URL" row. It uses the same key as the OBS URL.
 
 While the OBS browser source is on, the WebSocket settings cannot be changed. Turn the OBS browser source off first.
 
-## Use it from other PCs
+### Use it from other PCs
 
 From OBS or tools on other PCs, the connection is encrypted. For that you need a certificate and private key (PEM) for the LAN IP address of the PC that runs ASTAROT. Without a certificate, other PCs cannot connect.
 
@@ -40,8 +46,16 @@ With the host set back to `127.0.0.1`, it works only on the PC that runs ASTAROT
 Other devices on your network can then connect too. Change it only when you need to.
 :::
 
-## Make a new key
+### Make a new key
 
 If someone else may have seen a copied URL, press "Make a new connection key". After you confirm, the key changes and the old URLs stop working at once. Open WebSocket connections are closed too.
 
 Afterwards, copy the WebSocket and OBS URLs again and set them in OBS and your tools.
+
+## Check that it works
+
+Send a message and check that it appears in OBS or that your tool receives it.
+
+## Troubleshooting
+
+If the connection is refused, check that its server is on and copy the URL with its key from the app again.

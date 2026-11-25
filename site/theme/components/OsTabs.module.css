@@ -26,7 +26,8 @@
     width var(--a-motion) var(--a-ease);
 }
 
-.segmented button {
+.tab {
+  composes: control from "./Control.module.css";
   position: relative;
   z-index: 1;
   min-width: 88px;
@@ -36,7 +37,6 @@
   background: none;
   font: inherit;
   font-size: 14px;
-  font-weight: 600;
   line-height: 20px;
   color: var(--rp-c-text-2);
   cursor: pointer;
@@ -46,11 +46,6 @@
 .segmented button[aria-selected='true'],
 .segmented button:hover {
   color: var(--rp-c-text-1);
-}
-
-.segmented button:focus-visible {
-  outline: 2px solid var(--a-focus);
-  outline-offset: 1px;
 }
 
 .panel {
