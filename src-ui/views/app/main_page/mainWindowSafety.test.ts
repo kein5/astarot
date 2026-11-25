@@ -347,7 +347,7 @@ test("a switch whose setup is missing is disabled, says why, and its icon leads 
     assert.equal(rows.length, 6);
     // The way to the setup is the icon beside the switch; waiting sends it to the usual page.
     const iconButton = (id: string) => {
-        const button = find(s.SwitchRow(rows[at(id)].props), node => node.type === "button");
+        const button = find(s.SwitchRow(rows[at(id)].props), node => node.type === kitStandIns.Button);
         assert.ok(button);
         return button;
     };
@@ -376,6 +376,23 @@ test("a switch that is on stays usable when its setup goes missing, so it can be
     const before = s.requests.length;
     switchOf(s.SwitchContainer(rows[index].props)).props.onClick();
     assert.deepEqual(s.requests.slice(before), ["/set/disable/ocr_capture"]);
+});
+
+test("a feature's settings button shows the feature's state in its icon: on, or on its way", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = runningChild();
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: {}, directState: {} }, { compact: false, blocks: {} });
+    const rows: TreeNode[] = b.runtime.render(s.MainFunctionSwitch).props.children;
+    const translation = rows.find(node => node.props.switch_id === "translation");
+    assert.ok(translation);
+    const icon = (currentState: { data: boolean; state: string }) => {
+        const [tip] = s.SwitchRow({ ...translation.props, currentState }).props.children;
+        return inTooltip(tip).props.children.props.className;
+    };
+    assert.equal(icon({ data: false, state: "ok" }), "switch_svg");
+    assert.equal(icon({ data: true, state: "ok" }), "switch_svg is_active");
+    assert.equal(icon({ data: false, state: "pending" }), "switch_svg is_pending");
 });
 
 test("in the icon rail a blocked switch names itself in its tooltip and has no button", async () => {
@@ -416,8 +433,8 @@ test("each feature's icon is a named button to its settings, the same while star
         const row = s.SwitchRow(node.props);
         const [tip, control] = row.props.children;
         const button = inTooltip(tip);
-        assert.equal(button.type, "button");
-        assert.equal(button.props.type, "button");
+        // The kit's plain Button in its smallest square (icon-xs, decided on 2026-11-25), so the row keeps room for the name.
+        assert.deepEqual([button.type, button.props.size, button.props.tone, button.props.className], [kitStandIns.Button, "icon-xs", undefined, "settings_button"]);
         // Its name is also its tooltip; the icon inside is not read.
         assert.ok(button.props["aria-label"]);
         assert.equal(tip.props.title, button.props["aria-label"]);

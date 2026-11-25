@@ -80,7 +80,7 @@ The app: the kit's `Button` (experimental, not used on the screens yet). The scr
 | Aspect | ASTAROT | shadcn/ui | Handling |
 |---|---|---|---|
 | variant | `tone`: primary, plain (default), quiet, danger (the roles in DESIGN.md, #474) | `variant`: default, secondary, outline, ghost, destructive, link | Decide (D-10) |
-| size | `size`: regular (4rem), compact (3.2rem), icon (a 4rem square, #694) | default (3.6rem), xs, sm (3.2rem), lg (4rem), icon, icon-xs, icon-sm, icon-lg | The height is D-03. The kit got the `icon` size (#694). Merging the screens' icon-only buttons (`ActionButton`, `reset_button`, `close_button`) waits until using the kit on the screens is decided (K-01). Whether to add `icon-sm` and the others is part of D-03 and D-10 |
+| size | `size`: regular (4rem), compact (3.2rem), icon (a 4rem square, #694), icon-xs (a 2.8rem square, #1219) | default (3.6rem), xs, sm (3.2rem), lg (4rem), icon, icon-xs, icon-sm, icon-lg | The height is D-03. The kit got the `icon` size (#694), and `icon-xs` for an icon button in a dense row, the main rail's settings buttons (decided on 2026-11-25, #1219). It is the kit's smallest square: shadcn/ui's `icon-xs` is 2.4rem, and its `icon-sm` (3.2rem) is the kit's compact height. Merging the screens' icon-only buttons (`ActionButton`, `reset_button`, `close_button`) waits until using the kit on the screens is decided (K-01). Whether to add `icon-sm` and the others is part of D-03 and D-10 |
 | Rendering as another element | None (a link that looks like a button draws a separate `<a>`) | `asChild` (Radix's `Slot`) | Decide (D-12) |
 | Padding | `.8rem 1.6rem`. With an icon, the sides are 1.2rem, and 1rem at compact (#694) | default is `px-4 py-2` (1.6rem, .8rem), and `px-3` with an icon. sm is `px-3`, and `px-2.5` with an icon | Match. The padding with an icon was aligned (#694) |
 | Corner radius | 8px | `rounded-md` (8px) | Match |
@@ -540,7 +540,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | variant | `tone`: primary、plain（既定）、quiet、danger（DESIGN.md #474 の役割） | `variant`: default、secondary、outline、ghost、destructive、link | 判断（D-10） |
-| size | `size`: regular（4rem）、compact（3.2rem）、icon（4rem の正方形、#694） | default（3.6rem）、xs、sm（3.2rem）、lg（4rem）、icon、icon-xs、icon-sm、icon-lg | 高さは D-03。kit に `icon` の size を足した（#694）。画面のアイコンだけのボタン（`ActionButton`、`reset_button`、`close_button`）をまとめるのは、kit を画面で使うと決めてから（K-01）。`icon-sm` などを足すかは D-03 と D-10 に含める |
+| size | `size`: regular（4rem）、compact（3.2rem）、icon（4rem の正方形、#694）、icon-xs（2.8rem の正方形、#1219） | default（3.6rem）、xs、sm（3.2rem）、lg（4rem）、icon、icon-xs、icon-sm、icon-lg | 高さは D-03。kit に `icon` の size を足した（#694）。詰まった行の中のアイコンのボタン（メインのレールの設定のボタン）向けに `icon-xs` を足した（2026-11-25 の決定、#1219）。kit でいちばん小さい正方形で、shadcn/ui の `icon-xs` は 2.4rem、`icon-sm`（3.2rem）は kit の compact の高さ。画面のアイコンだけのボタン（`ActionButton`、`reset_button`、`close_button`）をまとめるのは、kit を画面で使うと決めてから（K-01）。`icon-sm` などを足すかは D-03 と D-10 に含める |
 | 別の要素で描く | なし（リンクのボタンは `<a>` を別に描く） | `asChild`（Radix の `Slot`） | 判断（D-12） |
 | 余白 | `.8rem 1.6rem`。アイコンがあると左右は 1.2rem、compact では 1rem（#694） | default は `px-4 py-2`（1.6rem、.8rem）。アイコンがあると `px-3`。sm は `px-3`、アイコンがあると `px-2.5` | 一致。アイコン付きの余白は寄せた（#694） |
 | 角丸 | 8px | `rounded-md`（8px） | 一致 |

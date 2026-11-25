@@ -265,11 +265,11 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
         })} data-lead={props.lead || undefined}>
             {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
             <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
-                <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
+                <Button size="icon-xs" className={styles.settings_button} data-feature-settings={props.switch_id}
                     aria-label={label} onClick={openSettings}>
                     <SvgComponent aria-hidden="true" className={clsx(styles.switch_svg, {
                         [styles.is_active]: active, [styles.is_pending]: pending })} />
-                </button>
+                </Button>
             </Tooltip>
             <SwitchContainer {...props} inRow />
         </div>

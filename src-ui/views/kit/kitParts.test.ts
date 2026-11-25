@@ -29,6 +29,9 @@ test("a button is type=button unless it says otherwise, and asks for its tone an
         ["button", "button", "button tone=undefined size=undefined", "Save", "Save the settings"]);
     const submit = runtime.render(module.Button, { type: "submit", tone: "primary", size: "compact", className: "own" });
     assert.deepEqual([submit.props.type, submit.props.className], ["submit", "button tone=primary size=compact own"]);
+    const square = runtime.render(module.Button, { size: "icon-xs", "aria-label": "Open the translator list" });
+    assert.deepEqual([square.props.type, square.props.className, square.props["aria-label"]],
+        ["button", "button tone=undefined size=icon-xs", "Open the translator list"]);
 });
 
 test("a switch is Radix's root with its thumb, named as shadcn/ui names them", async () => {

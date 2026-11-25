@@ -87,6 +87,11 @@ export const button = recipe({
             },
             // Only an icon: the button's name is its aria-label.
             icon: { width: "4rem", height: "4rem", padding: 0 },
+            // Only an icon, inside a dense row (the main rail's feature rows), so the row keeps room
+            // for its words: a 2.8rem square, a pointer target over 24 CSS pixels (decided on
+            // 2026-11-25, #1219). The kit's smallest square: shadcn/ui's icon-xs is 2.4rem, and its
+            // icon-sm is 3.2rem, the kit's compact height.
+            "icon-xs": { width: "2.8rem", height: "2.8rem", minHeight: "2.8rem", padding: 0 },
         },
     },
     defaultVariants: { tone: "plain", size: "regular" },

@@ -14,7 +14,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 
 | Component | What it has | Where its behavior comes from |
 |---|---|---|
-| `Button` | 4 looks (primary, plain, quiet, danger) and 3 sizes (regular, compact and icon, the last for icon-only buttons) | The native `<button>`. Defaults to `type="button"` |
+| `Button` | 4 looks (primary, plain, quiet, danger) and 4 sizes (regular, compact, and icon and icon-xs for icon-only buttons; icon-xs is a 2.8rem square for an icon button in a dense row, #1219) | The native `<button>`. Defaults to `type="button"` |
 | `TextField` | A text field. `invalid` gives it a red border when the value is not valid. Addresses and ports use `mono` for a monospaced font | The native `<input>` |
 | `Select` | A select field in the same frame as the text field. The arrow is an SVG. Options are written with `SelectOption` and `SelectOptGroup` | The native `<select>`, `<option>` and `<optgroup>` |
 | `Switch` | On and off. When on, a Dark Plum thumb sits on a Lilac track | Radix UI's Switch |
@@ -116,7 +116,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 
 | 部品 | 中身 | 振る舞いの出どころ |
 |---|---|---|
-| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 3 つの大きさ（regular、compact、アイコンだけの icon） | ネイティブの `<button>`。既定は `type="button"` |
+| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 4 つの大きさ（regular、compact、アイコンだけの icon と icon-xs。icon-xs は、詰まった行の中のアイコンのボタン向けの 2.8rem の正方形、#1219） | ネイティブの `<button>`。既定は `type="button"` |
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
 | `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
