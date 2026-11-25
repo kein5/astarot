@@ -63,7 +63,7 @@ PR、Issue、コミット、リリースノート、文書は公開物です。�
    gh pr create --base develop --title "<type>(<scope>): <summary>" --body-file <本文のファイル>
    ```
 
-3. 本文は`.github/pull_request_template.md`に従い、文書の2か国語化と同じ分割形で書きます。前半に英語ですべての節を書き、`---`の区切り線のあとに同じ内容を日本語ですべての節に書きます。英語は`docs/writing/english-guideline.md`、日本語は`docs/writing/japanese-guideline.md`に従います。
+3. 本文は`.github/pull_request_template.md`に従い、文書の2か国語化と同じ分割形で書きます。前半に英語ですべての節を書き、`---`の区切り線のあとに同じ内容を日本語ですべての節に書きます。英語は`docs/writing/english-guideline.md`、日本語は`docs/writing/japanese-guideline.md`に従います。エージェントが書くIssueの本文とコメントも同じ形です（`AGENTS.md`）。
 
    | 英語の節 | 日本語の節 | 書くこと |
    |---|---|---|
