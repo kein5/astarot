@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import i18next from "i18next";
 import clsx from "clsx";
-import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, kitStandIns, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt, branchAt } from "../../../../../../logics/test/locales.ts";
 import { astarot_discord_invite_url } from "../../../../../../logics/ui_configs.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
@@ -82,7 +82,8 @@ for (const language of ["en", "ja"]) {
         assert.equal(new Set(names).size, 2);
         let button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], false);
-        button.props.onClick();
+        // The swatch opens the kit's Popover (Radix asks it to open).
+        findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === kitStandIns.Popover).props.onOpenChange(true);
         button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], true);
         runtime.unmount();
