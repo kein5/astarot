@@ -37,7 +37,8 @@ async function apiEntries(context: TestContext, given: Partial<Catalog> = {}, op
         "../../../../../../logics/transcription/transcriptionCatalog.ts": transcriptionCatalog,
         "../../../../../../logics/translation/translationCatalog.ts": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
-        "../advanced_settings/catalogLayout": { CatalogFacts: "catalog-facts", CatalogList: "catalog-list", useCatalogLayout: () => options.layout ?? "list" },
+        "../advanced_settings/catalogLayout": { CatalogFacts: "catalog-facts", CatalogList: "catalog-list", CatalogState: "catalog-state",
+            useCatalogLayout: () => options.layout ?? "list" },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/hint/Hint": { useHintDescriptions: () => options.hints ?? false },
         "../_components/lead/Lead": { Lead: "lead" },
@@ -108,31 +109,35 @@ test("a card says it is the user's, its state, where it points, its model and wh
         const element = a.part("EntryCard");
         return a.draw(element.type, { item: entry, layout });
     };
-    const badges = (node: TreeNode) => ofType(node, "span").filter(span => span.props["data-tone"] !== undefined).map(span => [span.props["data-tone"], textOf(span), classesOf(span).length]);
+    // The badges in their order: the user's own (the kit's Badge, dashed), and the state (the catalogs' state badge).
+    const badges = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge || badge.type === "catalog-state")
+        .map(badge => badge.type === "catalog-state" ? ["state", badge.props.state, textOf(badge)] : [`${badge.props.tone} ${badge.props.variant}`, textOf(badge)]);
     let shown = draw(item("a"));
-    assert.deepEqual([shown.type, shown.props["data-catalog-item"], shown.props["data-status"], shown.props.tabIndex, shown.props.role, shown.props["aria-label"]],
-        ["li", "a", "ready", -1, "group", "API a"]);
-    assert.deepEqual(ofType(shown, "strong").map(textOf), ["API a"]);
-    assert.deepEqual(badges(shown), [["own", "translation_catalog.badge.user", 1], ["ready", "translation_catalog.state.ready", 2]]);
+    // The kit's Card, an item of the list, not the one in use.
+    assert.deepEqual([shown.type, shown.props.as, shown.props.active, shown.props["data-catalog-item"], shown.props["data-status"], shown.props.tabIndex,
+        shown.props.role, shown.props["aria-label"]], [kitStandIns.Card, "li", false, "a", "ready", -1, "group", "API a"]);
+    assert.deepEqual(ofType(shown, kitStandIns.CardTitle).map(textOf), ["API a"]);
+    assert.deepEqual(badges(shown), [["strong dashed", "translation_catalog.badge.user"], ["state", "ready", "translation_catalog.state.ready"]]);
     const facts = (node: TreeNode) => ofType(node, "div").filter(row => find(row, inner => inner.type === "dt") !== null && ofType(row, "div").length === 1)
         .map(row => [textOf(findIn(row, inner => inner.type === "dt")), textOf(findIn(row, inner => inner.type === "dd"))]);
     assert.deepEqual(facts(shown), [["translation_catalog.fact.url", "https://a.example/v1"], ["translation_catalog.fact.model", "whisper-1"], ["translation_catalog.fact.key", "translation_catalog.key_kept"]]);
     assert.equal(findIn(shown, node => node.type === "catalog-facts").props.layout, "list");
-    assert.equal(classesOf(findIn(shown, node => node.type === "dl")).length, 2, "the facts in their place on the card");
+    assert.deepEqual(classesOf(findIn(shown, node => node.type === "dl")), ["facts"], "the catalogs' facts");
     assert.deepEqual(ofType(shown, "p").map(textOf), []);
     // In the grid the mark is under the name.
-    assert.deepEqual(badges(draw(item("a"), "grid")), [["ready", "translation_catalog.state.ready", 2], ["own", "translation_catalog.badge.user", 1]]);
+    assert.deepEqual(badges(draw(item("a"), "grid")), [["state", "ready", "translation_catalog.state.ready"], ["strong dashed", "translation_catalog.badge.user"]]);
     // No model: the first the server offers. A key kept only until the app closes, or none.
     shown = draw(item("b", { model: "", has_key: false, key_in_memory: true }));
     assert.deepEqual(facts(shown).slice(1), [["translation_catalog.fact.model", "translation_catalog.model_first"], ["translation_catalog.fact.key", "translation_catalog.key_memory"]]);
     assert.deepEqual(ofType(shown, "p").map(node => [node.props.role, textOf(node)]), [[undefined, "translation_catalog.key_memory_help"]]);
     shown = draw(item("c", { has_key: false }));
-    assert.deepEqual([shown.props["data-status"], badges(shown)[1], facts(shown)[2][1]], ["no_key", ["missing", "translation_catalog.state.no_key", 2], "translation_catalog.key_none"]);
+    assert.deepEqual([shown.props["data-status"], badges(shown)[1], facts(shown)[2][1]], ["no_key", ["state", "missing", "translation_catalog.state.no_key"], "translation_catalog.key_none"]);
     assert.deepEqual(ofType(shown, "p").map(node => [node.props.role, textOf(node)]), [["alert", "translation_catalog.state_help.no_key"]]);
     shown = draw(item("d", { status: "unsupported" }));
-    assert.deepEqual([badges(shown)[1], ofType(shown, "p").map(textOf)], [["unsupported", "translation_catalog.state.unsupported", 2], ["translation_catalog.state_help.unsupported"]]);
+    assert.deepEqual([badges(shown)[1], ofType(shown, "p").map(textOf)], [["state", "unsupported", "translation_catalog.state.unsupported"], ["translation_catalog.state_help.unsupported"]]);
     shown = draw(item("e", { in_use: true }));
-    assert.deepEqual([badges(shown)[1], ofType(shown, "p").map(textOf)], [["in_use", "translation_catalog.state.in_use", 2], []]);
+    // The entry in use carries the active frame.
+    assert.deepEqual([shown.props.active, badges(shown)[1], ofType(shown, "p").map(textOf)], [true, ["state", "in_use", "translation_catalog.state.in_use"], []]);
 });
 
 test("Use points the custom Whisper server at a ready entry, and Remove asks first in the card", async context => {

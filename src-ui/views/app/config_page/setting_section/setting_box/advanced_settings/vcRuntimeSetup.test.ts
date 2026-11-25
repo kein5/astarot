@@ -67,11 +67,11 @@ test("a build that fits the GPU leads with the main action; one that is not need
     const review = (tree: unknown) => nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "vc_runtime.review");
     const fits = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "fits" });
     assert.equal(fits?.props["data-fit"], "fits");
-    assert.ok(nodesIn(fits).some(node => node.type === "span" && node.props["data-tone"] === "recommended" && node.props.children === "vc_runtime.fit_fits"));
+    assert.ok(nodesIn(fits).some(node => node.type === kitStandIns.Badge && node.props.tone === "accent" && node.props.children === "vc_runtime.fit_fits"));
     assert.ok(words(fits).includes("vc_runtime.help_rvc_gpu"));
     assert.equal(review(fits)?.props.tone, "primary");
     const unneeded = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
-    assert.ok(nodesIn(unneeded).some(node => node.type === "span" && node.props["data-tone"] === undefined && node.props.children === "vc_runtime.fit_unneeded"));
+    assert.ok(nodesIn(unneeded).some(node => node.type === kitStandIns.Badge && node.props.tone === "neutral" && node.props.children === "vc_runtime.fit_unneeded"));
     assert.ok(!words(unneeded).includes("vc_runtime.help_rvc_gpu"), "its summary is left out");
     assert.equal(review(unneeded), undefined, "a build not needed for the GPU offers no download");
     // Alone (the voice changer's), it has neither the badge nor the main action.

@@ -92,7 +92,7 @@ async function catalogPage(context: TestContext, given: Partial<Downloads> = {},
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => options.hints ?? false },
         "./catalogHeading": { catalogHeading: (...args: unknown[]) => createElement("catalog-heading", { args }) },
         "./catalogLayout": { useCatalogLayout: () => options.layout ?? "list", CatalogList: "catalog-list", CatalogFacts: "catalog-facts",
-            CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
+            CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section", CatalogState: "catalog-state" },
         "./EngineCatalog": { EngineCatalog: "engine-catalog" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
@@ -114,8 +114,11 @@ const textOf = (value: unknown): string => {
     const node = treeNode(value);
     return node ? textOf(node.props.children) : "";
 };
-const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
-const texts = (tree: unknown, type: string) => ofType(tree, type).map(textOf);
+// type: an element's tag, or a part of the kit (kitStandIns).
+const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
+const texts = (tree: unknown, type: unknown) => ofType(tree, type).map(textOf);
+// The words of a card's badges in the accent tone: what speaks for the model (recommended, fits the memory).
+const accentBadges = (tree: unknown) => ofType(tree, kitStandIns.Badge).filter(node => node.props.tone === "accent").map(textOf);
 const named = (tree: unknown, name: string) => nodesIn(tree).filter(node => componentName(node) === name);
 const cards = (tree: unknown) => nodesIn(tree).filter(node => node.props?.["data-model-download"] === true);
 const cardNamed = (tree: unknown, label: string) => findIn(tree, node => node.props?.["data-model-download"] === true && node.props["aria-label"] === label, `the card ${label}`);
@@ -210,14 +213,14 @@ test("a speech output catalog asks how much memory to keep for VR, and its advic
     // 1 GiB and its 25% allowance, with 2 GiB kept for VR, do not fit in 3 GiB free.
     assert.deepEqual(advice(tree).slice(0, 3), ["GPU0: Card · model_downloads.hardware_free: 3.00 GiB / model_downloads.hardware_total: 8.00 GiB", measured,
         "model_downloads.advice_low_memory"]);
-    assert.equal(find(tree, node => node.props?.["data-tone"] === "recommended"), null);
+    assert.deepEqual(accentBadges(tree), []);
     select.props.onChange({ target: { value: "alone" } });
     tree = p.draw();
     select = headroom(tree);
     assert.equal(select.props.value, "alone");
     // With half a GiB kept they do: the model is suggested by name, and its card says it fits.
     assert.deepEqual(advice(tree).slice(2, 4), ["model_downloads.advice_fits", "model_downloads.recommended: Voice A · F16"]);
-    assert.equal(textOf(findIn(cardNamed(tree, "Voice A"), node => node.props?.["data-tone"] === "recommended")), "model_catalog.fits_memory");
+    assert.deepEqual(accentBadges(cardNamed(tree, "Voice A")), ["model_catalog.fits_memory"]);
 
     // The refresh and the memory boundary are the page's own while it reads the GPU itself.
     const refresh = buttonNamed(tree, "model_downloads.hardware_refresh");
@@ -317,9 +320,10 @@ test("a model of several files offers them by type, size and state, and says whe
     assert.deepEqual(ofType(select, "option").map(option => option.props.value), ["whisper-q8", "whisper-q4"]);
     assert.deepEqual([card.props.tabIndex, card.props.role, card.props["data-status"]], [-1, "group", "downloaded"]);
     // Whom the model is for, from all its files; that it fits; its summary.
-    assert.deepEqual(ofType(card, "span").filter(node => node.props["data-tone"] === "recommended").map(textOf),
+    assert.deepEqual(accentBadges(card),
         [`model_catalog.recommended_for {"languages":"Japanese, English, and Korean"}`, "model_catalog.fits_memory"]);
-    assert.ok(texts(card, "p").includes("model_downloads.summary.whisper"));
+    // What the model is: the card's description.
+    assert.deepEqual(texts(card, kitStandIns.CardDescription), ["model_downloads.summary.whisper"]);
     assert.equal(texts(card, "p").includes("model_downloads.manual_choice"), false, "the suggested file is not a choice the user made");
     assert.equal(named(card, "WarningBadge").length, 0);
 
@@ -356,9 +360,8 @@ test("a model of one file names its type unless the name is the type, and a grid
     tree = grid.draw();
     const moon = cardNamed(tree, "Moon");
     // Two languages are a count in the grid's short badge; one is named.
-    assert.deepEqual(ofType(moon, "span").filter(node => node.props["data-tone"] === "recommended").map(textOf), [`model_catalog.recommended_for_count {"count":2}`]);
-    assert.deepEqual(ofType(cardNamed(tree, "Plain"), "span").filter(node => node.props["data-tone"] === "recommended").map(textOf),
-        [`model_catalog.recommended_for {"languages":"Japanese"}`]);
+    assert.deepEqual(accentBadges(moon), [`model_catalog.recommended_for_count {"count":2}`]);
+    assert.deepEqual(accentBadges(cardNamed(tree, "Plain")), [`model_catalog.recommended_for {"languages":"Japanese"}`]);
     assert.deepEqual(named(moon, "ModelFacts").map(node => node.props.part), ["key", "rest"]);
     assert.equal(findIn(moon, node => node.type === "catalog-facts").props.summary, `model_catalog.layout.facts_of {"file":"F16"}`);
     assert.equal(findIn(cardNamed(tree, "Plain"), node => node.type === "catalog-facts").props.summary, undefined);
@@ -372,8 +375,8 @@ test("a model of one file names its type unless the name is the type, and a grid
 
 test("a model suggested for many languages names three and counts the rest", async context => {
     const p = await catalogPage(context, { catalog: catalogOf([model("many", { name: "Many · F16", profile: { summary: "many", recommended_for: ["ja", "en", "ko", "fr", "de"], cpu: "absent", gpu: "absent" } })]) });
-    const badge = findIn(cardNamed(p.draw(), "Many"), node => node.props?.["data-tone"] === "recommended");
-    assert.equal(textOf(badge), `model_catalog.recommended_for {"languages":"model_catalog.languages_more {\\"languages\\":\\"Japanese, English, and Korean\\",\\"count\\":2}"}`);
+    assert.deepEqual(accentBadges(cardNamed(p.draw(), "Many")),
+        [`model_catalog.recommended_for {"languages":"model_catalog.languages_more {\\"languages\\":\\"Japanese, English, and Korean\\",\\"count\\":2}"}`]);
 });
 
 test("the facts list the languages, the size, the hardware, the memory a translation needs and the terms, by the part asked for", async context => {
@@ -442,9 +445,10 @@ test("the languages are named in the UI's language, and in English when the UI h
 test("a card's state badge says the state of the file shown", async context => {
     const p = await catalogPage(context, { catalog: catalogOf([model("x")]) });
     const tree = p.draw();
+    // The catalogs' state badge (catalogLayout.tsx's CatalogState), which draws each state's look.
     for (const status of ["working", "ready", "in_use", "downloaded", "not_downloaded"]) {
         const badge = drawPart(tree, "StatusBadge", { status });
-        assert.deepEqual([badge.type, badge.props["data-tone"], textOf(badge), classesOf(badge).length], ["span", status, `model_catalog.status.${status}`, 2], status);
+        assert.deepEqual([badge.type, badge.props.state, textOf(badge)], ["catalog-state", status, `model_catalog.status.${status}`], status);
     }
 });
 
@@ -453,8 +457,9 @@ test("a hardware warning says why the model may be too heavy, on the GPU or in t
         hardware: readyHardware([gpu("GPU0", GiB, 2 * GiB)]) });
     const tree = p.draw();
     const badge = drawPart(tree, "WarningBadge", {});
-    assert.deepEqual([badge.props["data-tone"], textOf(badge)], ["hardware_warning", "model_catalog.hardware_warning.badge"]);
-    assert.equal(ofType(badge, "span")[1].props["aria-hidden"], "true");
+    // The kit's Badge in amber with the "!" mark, which it hides from assistive technology (kitParts.test.ts).
+    assert.deepEqual([badge.type, badge.props.tone, badge.props.variant, badge.props.mark, textOf(badge)],
+        [kitStandIns.Badge, "warning", undefined, "alert", "model_catalog.hardware_warning.badge"]);
     const note = (warning: object) => textOf(drawPart(tree, "WarningNote", { warning }));
     const reason = (key: string, values: object) => `model_catalog.hardware_warning.note ${JSON.stringify({ reason: `model_catalog.hardware_warning.${key} ${JSON.stringify(values)}` })}`;
     assert.equal(note({ reason: "low_memory", required: 3 * GiB, available: 2 * GiB, reserve: GiB, device: { kind: "gpu" } }),
@@ -886,7 +891,7 @@ test("each use is advised on its own models, and the local translation gets no G
     assert.ok(adviceOf(tree, "japanese").includes("model_downloads.recommended: Voice 2 · F16"));
     assert.equal(adviceOf(tree, "multilingual").some(line => line.startsWith("model_downloads.recommended")), false);
     assert.ok(adviceOf(tree, "multilingual").includes("model_downloads.advice_unverified"));
-    const fits = (label: string) => ofType(cardNamed(tree, label), "span").some(node => textOf(node) === "model_catalog.fits_memory");
+    const fits = (label: string) => accentBadges(cardNamed(tree, label)).includes("model_catalog.fits_memory");
     assert.deepEqual([fits("Voice 1"), fits("Voice 2"), fits("ASR"), fits("Tr")], [false, true, true, false]);
 });
 

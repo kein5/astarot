@@ -24,17 +24,12 @@ export const download_entry = style({});
 export const catalog_group = style({});
 export const catalog_advice = style({});
 export const catalog = style({});
-export const card = style({});
-export const card_intro = style({});
 export const card_key = style({});
-export const card_spec = style({});
-export const card_foot = style({});
 export const card_head = style({});
 export const catalog_head = style({});
 export const section_head = style({});
 export const status = style({});
 export const card_badges = style({});
-export const badge = style({});
 export const warning_mark = style({});
 export const hardware_warning = style({});
 export const restriction = style({});
@@ -307,16 +302,23 @@ globalStyle(error_code, { fontSize: "1.2rem", color: vars.dark_400_color, overfl
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 globalStyle(download_entry, { display: "grid", gap: ".8rem", minWidth: 0 });
 // The model catalog: one group per use (a subheading and space, no frame), one card per model.
-// A card is a real unit (one model or engine), so it keeps a quiet frame (DESIGN.md, Roles).
-// What a card is, what state it is in and what it offers are read from where its parts sit
-// (#614): its name with its state at the end of that line, in the same place on every card; what
-// speaks for or against it and what it is under the name; its file and facts in one table whose
-// values start at one place on every card; then what runs and its actions, starting at the card's
-// edge. The card in use carries the active color on its frame and the lilac tint, as a switch that is on.
+// A card is a real unit (one model or engine), so it keeps a quiet frame (DESIGN.md, Roles): the
+// kit's Card (D-28), its parts named by their data-slot. What a card is, what state it is in and
+// what it offers are read from where its parts sit (#614): its name with its state at the end of
+// that line, in the same place on every card; what speaks for or against it and what it is under
+// the name; its file and facts in one table whose values start at one place on every card; then
+// what runs and its actions, starting at the card's edge. These rules lay the cards out; the cards'
+// own look is the kit's.
 globalStyle(catalog_group, { display: "grid", gap: ".8rem", minWidth: 0 });
 // What the GPU reading says for this use, a readout of this session, in one block under the heading.
 globalStyle(catalog_advice, { display: "grid", gap: ".2rem", minWidth: 0 });
 globalStyle(catalog, { display: "grid", gap: "1.2rem", margin: 0, padding: 0, listStyle: "none", minWidth: 0 });
+// A catalog's card and its parts.
+const card = `${catalog} > [data-slot="card"]`;
+const HEADER = '[data-slot="card-header"]', CONTENT = '[data-slot="card-content"]', FOOTER = '[data-slot="card-footer"]';
+// The facts' terms take one width on every card, so their values start at one place down the list.
+// 14rem holds the longest Japanese term with its hint mark; a longer English one wraps.
+globalStyle(card, { vars: { "--catalog_term": "14rem" } });
 // The grid layout of a catalog (catalogLayout.tsx): the cards side by side, as many as fit at
 // 26rem or more, each read down in three parts: what the model is (its name, state and words), its
 // details in a fold, then what runs and its actions; a model's card has its size and hardware
@@ -325,20 +327,21 @@ globalStyle(catalog, { display: "grid", gap: "1.2rem", margin: 0, padding: 0, li
 // the same lines across a row. A card is not a container (containment would end the subgrid): its
 // fold is (catalogLayout.css.ts), so the facts in it stack as in a narrow window.
 const grid = `${catalog}[data-layout="grid"]`;
+const gridCard = `${grid} > [data-slot="card"]`;
 globalStyle(grid, { gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 26rem), 1fr))" });
-globalStyle(`${grid} > ${card}:has(> ${card_foot})`, { gridRow: "span 3", gridTemplateRows: "subgrid", rowGap: "1.2rem" });
+globalStyle(`${gridCard}:has(> ${FOOTER})`, { gridRow: "span 3", gridTemplateRows: "subgrid", rowGap: "1.2rem" });
 // A model's card has a fourth part, its size and hardware, between what it is and its fold.
-globalStyle(`${grid} > ${card}:has(> ${card_key})`, { gridRow: "span 4" });
+globalStyle(`${gridCard}:has(> ${card_key})`, { gridRow: "span 4" });
 // A part shorter than the row it shares keeps its lines at the top, not spread over the row.
-globalStyle(`${grid} > ${card} > ${card_intro}, ${grid} > ${card} > ${card_key}, ${grid} > ${card} > ${card_foot}`, { alignContent: "start" });
+globalStyle(`${gridCard} > ${HEADER}, ${gridCard} > ${card_key}, ${gridCard} > ${FOOTER}`, { alignContent: "start" });
 // The size and the hardware on the card: each term over its value, in the card's width.
-globalStyle(`${grid} > ${card} > ${card_key}`, { gridTemplateColumns: "minmax(0, 1fr)", rowGap: ".1rem" });
-globalStyle(`${grid} > ${card} > ${card_key} dd`, { marginBottom: ".4rem" });
+globalStyle(`${gridCard} > ${card_key}`, { gridTemplateColumns: "minmax(0, 1fr)", rowGap: ".1rem" });
+globalStyle(`${gridCard} > ${card_key} dd`, { marginBottom: ".4rem" });
 // The name's line is the name and the state, the state at the top right of every card: a long
 // name wraps in its own column.
 globalStyle(`${grid} ${card_head}`, { display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" });
 // A card of a name alone (an entry the app ships) is one row; the cards of a row are as tall as each other.
-globalStyle(`${grid} > ${card}:not(:has(> ${card_foot}))`, { alignContent: "start" });
+globalStyle(`${gridCard}:not(:has(> ${FOOTER}))`, { alignContent: "start" });
 // A catalog's heading and its layout buttons on one line; the buttons go under it where they do
 // not fit beside it.
 globalStyle(catalog_head, { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: ".8rem 1.6rem", minWidth: 0 });
@@ -347,29 +350,11 @@ globalStyle(catalog_head, { display: "flex", flexWrap: "wrap", alignItems: "cent
 globalStyle(`${catalog_head}.${section_head}`, { alignItems: "flex-end" });
 globalStyle(`${catalog_head}.${section_head} > [data-section-label]`, { flex: "1 1 auto" });
 globalStyle(`${catalog_head}.${section_head} > :last-child`, { marginBottom: "1.2rem" });
-globalStyle(card, {
-    display: "grid",
-    gap: "1.2rem",
-    minWidth: 0,
-    padding: "1.6rem",
-    // The facts' terms take one width on every card, so their values start at one place down the list.
-    // 14rem holds the longest Japanese term with its hint mark; a longer English one wraps.
-    vars: { "--catalog_term": "14rem" },
-    border: ".1rem solid var(--dark_800_color, #344662)",
-    borderRadius: "var(--vox_radius, .8rem)",
-});
-globalStyle(`${card}:focus-visible`, { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".3rem" });
-globalStyle(`${card} > strong, ${card} ${card_head} > strong`, { fontSize: "1.5rem", fontWeight: 600, color: vars.dark_200_color });
-globalStyle(`${card}[data-status="in_use"]`, { borderColor: "var(--vox_state_active, #b797f8)", background: vars.vox_highlight_tint });
-// The name's line and what the model is, read as one; the file and its facts; the actions and
-// what they started. Each block is tight inside and apart from the next.
-globalStyle(card_intro, { display: "grid", gap: ".4rem", minWidth: 0 });
-globalStyle(`${card_spec}, ${card_foot}`, { display: "grid", gap: ".8rem", minWidth: 0 });
 // A wide card is read across, not down: what the model is and what can be done on the left, the
 // file and its facts on the right. A narrow one (a narrow window, the translation review) keeps
 // the one column.
 const WIDE_CARD = "(min-width: 80rem)";
-const wideCard = `${card}:has(> ${card_spec})`;
+const wideCard = `${card}:has(> ${CONTENT})`;
 globalStyle(wideCard, {
     "@container": {
         [WIDE_CARD]: {
@@ -380,77 +365,20 @@ globalStyle(wideCard, {
         },
     },
 });
-globalStyle(`${wideCard} > ${card_intro}`, { "@container": { [WIDE_CARD]: { gridArea: "intro" } } });
-globalStyle(`${wideCard} > ${card_spec}`, { "@container": { [WIDE_CARD]: { gridArea: "spec", alignContent: "start" } } });
-globalStyle(`${wideCard} > ${card_foot}`, { "@container": { [WIDE_CARD]: { gridArea: "foot", alignContent: "start" } } });
+globalStyle(`${wideCard} > ${HEADER}`, { "@container": { [WIDE_CARD]: { gridArea: "intro" } } });
+globalStyle(`${wideCard} > ${CONTENT}`, { "@container": { [WIDE_CARD]: { gridArea: "spec", alignContent: "start" } } });
+globalStyle(`${wideCard} > ${FOOTER}`, { "@container": { [WIDE_CARD]: { gridArea: "foot", alignContent: "start" } } });
 // A warning under what the model is, with the space of the next block above it.
-globalStyle(`${card_intro} > ${hardware_warning}`, { marginTop: ".8rem" });
+globalStyle(`${HEADER} > ${hardware_warning}`, { marginTop: ".8rem" });
+// The name's line: the name, then the badges, the state last.
 globalStyle(card_head, { display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".6rem 1rem", minWidth: 0 });
-// The state badge ends the name's line, so the states of all cards are read down one edge.
+// The state badge (CatalogState, catalogLayout.tsx) ends the name's line, so the states of all
+// cards are read down one edge.
 globalStyle(status, { marginInlineStart: "auto" });
 // What speaks for or against a model (recommended, fits the memory, may be too heavy), under its name.
 globalStyle(card_badges, { display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".6rem", minWidth: 0 });
-// A word on a card's head. Its words say the state; the color only repeats them.
-globalStyle(badge, {
-    display: "inline-block",
-    padding: ".1rem .8rem",
-    border: ".1rem solid var(--dark_700_color, #4a5d7c)",
-    borderRadius: ".4rem",
-    fontSize: "1.2rem",
-    fontWeight: 500,
-    lineHeight: 1.6,
-    color: vars.vox_secondary_text,
-    whiteSpace: "normal",
-    overflowWrap: "anywhere",
-});
-const tone = (...names: string[]) => names.map(name => `${badge}[data-tone="${name}"]`).join(", ");
-globalStyle(tone("recommended"), { borderColor: vars.primary_500_color, color: vars.primary_200_color });
-globalStyle(tone("in_use", "connected", "ready"), { borderColor: "var(--vox_state_active, #80acff)", color: "var(--vox_state_active, #80acff)" });
-globalStyle(tone("downloaded"), { color: vars.dark_200_color });
-globalStyle(tone("working", "checking", "not_connected", "changed"), { borderColor: "var(--vox_state_warning, #cb944f)", color: "var(--vox_state_warning, #cb944f)" });
-globalStyle(tone("url_invalid", "missing"), { borderColor: "var(--vox_state_failed, #f08a85)", color: "var(--vox_state_failed, #f08a85)" });
-// A model the user registered (#403): set apart from the reviewed catalog by a dashed edge.
-globalStyle(tone("own"), { borderStyle: "dashed", color: vars.dark_200_color });
-globalStyle(tone("hardware_warning"), {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: ".5rem",
-    borderColor: "var(--vox_state_warning, #cb944f)",
-    color: "var(--vox_state_warning, #cb944f)",
-});
-// A card's state at the end of its name's line: whether the model is on the PC is told by the
-// badge's shape and mark as well as its words, in both layouts and every catalog. On the PC
-// (downloaded, in use, checked and ready, an entry that can be used): a filled badge with a check.
-// The words of a filled badge are dark on its light fill.
-// Not yet (not downloaded, an API without its key): an outline with an empty ring, its words
-// quieter. The marks are drawn here, so they are never part of the words read out or searched.
-const state = (...names: string[]) => names.map(name => `${badge}.${status}[data-tone="${name}"]`);
-const marked = state("not_downloaded", "not_set", "downloaded", "in_use", "ready");
-globalStyle(marked.join(", "), { display: "inline-flex", alignItems: "center", gap: ".5rem" });
-globalStyle(marked.map(selector => `${selector}::before`).join(", "), {
-    content: '""',
-    flex: "none",
-    width: "1.2rem",
-    height: "1.2rem",
-    backgroundColor: "currentColor",
-    WebkitMask: "var(--status_mark) center / contain no-repeat",
-    mask: "var(--status_mark) center / contain no-repeat",
-});
-globalStyle(state("not_downloaded", "not_set").join(", "), {
-    vars: { "--status_mark": `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5.6' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E")` },
-    background: "transparent",
-    borderColor: "var(--dark_700_color, #4a5d7c)",
-    color: "var(--vox_description_text, #a3adc0)",
-});
-globalStyle(state("downloaded", "in_use", "ready").join(", "), {
-    vars: { "--status_mark": `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.4 5.3-4.1 4.2a.8.8 0 0 1-1.1 0L4.6 8.9a.8.8 0 1 1 1.1-1.1l1 1 3.6-3.6a.8.8 0 0 1 1.1 1.1z'/%3E%3C/svg%3E")` },
-});
-// On the PC: a solid light badge; in use: solid in the active color the card's frame has;
-// checked and ready to apply, or an entry that can be used: the active outline, tinted.
-globalStyle(state("downloaded").join(", "), { background: "var(--dark_300_color, #e0dbe6)", borderColor: "var(--dark_300_color, #e0dbe6)", color: "var(--dark_950_color, #1c0f27)" });
-globalStyle(state("in_use").join(", "), { background: "var(--vox_state_active, #b797f8)", borderColor: "var(--vox_state_active, #b797f8)", color: "var(--dark_950_color, #1c0f27)" });
-globalStyle(state("ready").join(", "), { background: vars.vox_highlight_tint });
-// The "!" of a model that may be too heavy for the user's PC. The words beside it say the same.
+// The "!" of the notes below, a model that may be too heavy for the user's PC and what a license
+// restricts. The words beside it say the same. The badge's is the kit Badge's (mark="alert").
 globalStyle(warning_mark, {
     display: "inline-flex",
     flex: "none",

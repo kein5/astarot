@@ -207,6 +207,17 @@ export const kitStandIns = {
     ItemTitle: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-title", ...props }),
     ItemDescription: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-description", ...props }),
     ItemActions: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-actions", ...props }),
+    // The kit's card: a <div>, or an <li> when it is one item of a list; the one in use asks for the active look.
+    Card: ({ as, active = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx(as === "li" ? "li" : "div", { "data-slot": "card", "data-active": active, ...rest }),
+    CardHeader: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-header", ...props }),
+    CardTitle: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-title", ...props }),
+    CardDescription: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-description", ...props }),
+    CardContent: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-content", ...props }),
+    CardFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-footer", ...props }),
+    // The kit's badge: a <span> with its words, a neutral outline unless it asks for another look.
+    Badge: ({ tone = "neutral", variant = "outline", mark, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("span", { "data-slot": "badge", "data-tone": tone, "data-variant": variant, "data-mark": mark, ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

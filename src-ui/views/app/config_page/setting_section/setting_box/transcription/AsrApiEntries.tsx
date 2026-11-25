@@ -7,13 +7,13 @@ import { asrApiRequest, asrEntryState } from "../../../../../../logics/transcrip
 import type { AsrApiForm, AsrApiItem } from "../../../../../../logics/transcription/transcriptionCatalog.ts";
 import { ENTRY_NAME_LIMIT } from "../../../../../../logics/translation/translationCatalog.ts";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
-import { CatalogFacts, CatalogList, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { CatalogFacts, CatalogList, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, TextField } from "../../../../../kit/index.ts";
 
 const REGISTER = "/run/register_transcription_catalog_entry";
 
@@ -55,20 +55,20 @@ const EntryCard = ({ item, layout }: { item: AsrApiItem; layout: CatalogLayout }
     const id = useId();
     const state = asrEntryState(item);
     const busy = !!pending;
-    return <li className={styles.card} data-catalog-item={item.id} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
-        <div className={styles.card_intro}><div className={styles.card_head}>
-            <strong>{item.name}</strong>
-            {layout === "list" && <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={state === "no_key" ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+        <CardHeader><div className={styles.card_head}>
+            <CardTitle>{item.name}</CardTitle>
+            {layout === "list" && <Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge>}
+            <CatalogState state={state === "no_key" ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span></div>}
-        </div>
-        <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
+        {layout === "grid" && <div className={styles.card_badges}><Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge></div>}
+        </CardHeader>
+        <CatalogFacts layout={layout}><dl className={styles.facts}>
             <div><dt>{t("translation_catalog.fact.url")}</dt><dd><code>{item.url}</code></dd></div>
             <div><dt>{t("translation_catalog.fact.model")}</dt><dd>{item.model || t("translation_catalog.model_first")}</dd></div>
             <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
         </dl></CatalogFacts>
-        <div className={styles.card_foot}>
+        <CardFooter>
             {(state === "unsupported" || state === "no_key") && <p role="alert">{t(`translation_catalog.state_help.${state}`)}</p>}
             {item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
             {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
@@ -85,8 +85,8 @@ const EntryCard = ({ item, layout }: { item: AsrApiItem; layout: CatalogLayout }
                     <Button tone="danger" disabled={busy} onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
                     <span id={`${id}-use`} hidden>{t("config_page.transcription.api_entries.use_help")}</span>
                 </div>}
-        </div>
-    </li>;
+        </CardFooter>
+    </Card>;
 };
 
 // Clears the form once the answer to its own request came back without a refusal.

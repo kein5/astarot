@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { find, findIn, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { find, findIn, hooks, kitStandIns, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 const ENGINES = {
@@ -25,7 +25,7 @@ test("an engine card's state and readout keep the space of their longest state",
         "../tts/TtsEngine": { TTS_ENGINES: ENGINES },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
-        "./catalogLayout": { CatalogFacts: "facts", CatalogList: "list", CatalogSection: "section" },
+        "./catalogLayout": { CatalogFacts: "facts", CatalogList: "list", CatalogSection: "section", CatalogState: "catalog-state" },
     });
     const tree = runtime.render(EngineCatalog, { layout: "grid" });
     const card = (id: string) => findIn(tree, node => node.props?.["data-engine-card"] === id, id);
@@ -40,4 +40,38 @@ test("an engine card's state and readout keep the space of their longest state",
     }
     assert.equal(find(card("coeiroink"), node => node.type === "stable-words" && node.props.align === "center"), null);
     runtime.unmount();
+});
+
+// The engine chosen to read Japanese is the one in use: its card carries the active frame and says
+// so in the active outline, at the end of the name's line in the list and under the name in the grid.
+test("the engine in use carries the active frame and says so, on the name's line in the list and under the name in the grid", async () => {
+    for (const layout of ["list", "grid"] as const) {
+        const runtime = hooks();
+        const { EngineCatalog } = await loadModule<typeof import("./EngineCatalog.tsx")>(new URL("./EngineCatalog.tsx", import.meta.url), runtime, {
+            "@tauri-apps/api/core": { isTauri: () => false },
+            "@tauri-apps/plugin-opener": { openUrl: async () => undefined },
+            "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: { japanese_engine: "voicevox" }, send: () => undefined, engineChecks: {} }) },
+            "../tts/TtsEngine": { TTS_ENGINES: ENGINES },
+            "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+            "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
+            "./catalogLayout": { CatalogFacts: "facts", CatalogList: "list", CatalogSection: "section", CatalogState: "catalog-state" },
+        });
+        const tree = runtime.render(EngineCatalog, { layout });
+        const card = (id: string) => findIn(tree, node => node.props?.["data-engine-card"] === id, id);
+        // Each engine is the kit's Card, an item of the catalog's list.
+        assert.deepEqual([card("voicevox").type, card("voicevox").props.as, card("voicevox").props.active, card("voicevox").props["data-status"]],
+            [kitStandIns.Card, "li", true, "in_use"], layout);
+        assert.deepEqual([card("coeiroink").props.active, card("coeiroink").props["data-status"]], [false, undefined], layout);
+        const inUse = (node: TreeNode | null) => nodesIn(node).filter(each => each.type === kitStandIns.Badge && each.props.children === "model_catalog.status.in_use")
+            .map(each => each.props.tone);
+        const head = findIn(card("voicevox"), node => node.props?.className === "card_head");
+        const marks = find(card("voicevox"), node => node.props?.className === "card_badges");
+        assert.deepEqual([inUse(head), inUse(marks)], layout === "list" ? [["active"], []] : [[], ["active"]], layout);
+        assert.deepEqual(inUse(card("coeiroink")), [], layout);
+        // Its state before a check, and what the engine is, as the card's description.
+        assert.equal(findIn(head, node => node.type === "catalog-state").props.state, "unchecked", layout);
+        assert.deepEqual(nodesIn(card("voicevox")).filter(node => node.type === kitStandIns.CardDescription).map(node => node.props.children),
+            ["model_catalog.engine.summary.voicevox"], layout);
+        runtime.unmount();
+    }
 });

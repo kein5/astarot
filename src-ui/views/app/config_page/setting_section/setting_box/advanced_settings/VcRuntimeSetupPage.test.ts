@@ -7,8 +7,8 @@ import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 // The setup of a voice engine's runtime (VcRuntimeSetup.tsx): what the section says about the
 // runtime, its download and its job, and the review that starts it. The runtimes hook is a stand-in
 // that holds the catalog and the jobs the test gives and records what the section sends; the kit's
-// Button is the element it stands for, with the props the section gives it, and its Progress the
-// harness's stand-in.
+// Button and Badge are the elements they stand for, with the props the section gives them, and its
+// Progress the harness's stand-in.
 
 // useVcRuntimes.ts's list: that module is not loaded here, for its own imports.
 const activeSetupPhases = ["queued", "tools", "python", "packages", "engine", "libraries", "assets", "verifying", "cancelling"];
@@ -38,7 +38,7 @@ async function runtimeSetup(context: TestContext, given: Partial<Runtimes> = {},
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: (...args: unknown[]) => { consent.asked.push(args); return { dialog: "dialog", close: () => { consent.closed++; } }; } },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => options.hints ?? false },
-        "../../../../../kit/index.ts": { Button: "button", Progress: kitStandIns.Progress },
+        "../../../../../kit/index.ts": { Button: "button", Badge: "badge", Progress: kitStandIns.Progress },
     });
     let props: Record<string, unknown> = { engine: "rvc" };
     const drawOrNothing = (next: Record<string, unknown> = {}) => {
@@ -106,11 +106,12 @@ test("one of a pair of builds says whether it fits the GPU; the one that fits le
     const r = await runtimeSetup(context, {}, { hints: true });
     let tree = r.draw({ fit: "fits" });
     assert.equal(tree.props["data-fit"], "fits");
-    const badge = (node: TreeNode) => findIn(node, item => item.type === "span" && textOf(item).startsWith("vc_runtime.fit_"));
-    assert.deepEqual([badge(tree).props["data-tone"], textOf(badge(tree))], ["recommended", "vc_runtime.fit_fits"]);
+    // The accent tone for the build that fits.
+    const badge = (node: TreeNode) => findIn(node, item => item.type === "badge" && textOf(item).startsWith("vc_runtime.fit_"));
+    assert.deepEqual([badge(tree).props.tone, textOf(badge(tree))], ["accent", "vc_runtime.fit_fits"]);
     assert.deepEqual(buttons(tree), [["vc_runtime.review", false, "primary"]]);
     tree = r.draw({ fit: "unneeded" });
-    assert.deepEqual([badge(tree).props["data-tone"], textOf(badge(tree)), tree.props["aria-describedby"]], [undefined, "vc_runtime.fit_unneeded", undefined]);
+    assert.deepEqual([badge(tree).props.tone, textOf(badge(tree)), tree.props["aria-describedby"]], ["neutral", "vc_runtime.fit_unneeded", undefined]);
     assert.equal(find(tree, node => node.type === "hint"), null);
     assert.deepEqual(buttons(tree), []);
     const plain = await runtimeSetup(context);

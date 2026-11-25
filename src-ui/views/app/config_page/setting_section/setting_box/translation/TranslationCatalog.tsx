@@ -7,7 +7,7 @@ import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiR
 import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
@@ -16,7 +16,7 @@ import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, TextField } from "../../../../../kit/index.ts";
 
 // The two groups of the catalog, and an entry with the group it is in.
 type CatalogGroupId = "engine" | "api";
@@ -96,20 +96,21 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
 const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
+    // A license that bars commercial use is a caution: amber.
     const kind = <>
-        <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
-        {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
-        {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
+        <Badge>{t("translation_catalog.badge.builtin")}</Badge>
+        {group === "api" && item.kind && <Badge>{t(`translation_catalog.kind.${item.kind}`)}</Badge>}
+        {"non_commercial" in item && item.non_commercial && <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge>}
     </>;
-    return <li className={styles.card} data-catalog-item={item.id} data-status={state}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
-            <strong>{group === "engine" ? weightLabel(item.weight, null) : item.name}</strong>
+            <CardTitle>{group === "engine" ? weightLabel(item.weight, null) : item.name}</CardTitle>
             {layout === "list" && kind}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`translation_catalog.state.${state}`)}</span>
+            <CatalogState state={state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
         {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
-    </li>;
+    </Card>;
 };
 
 // The states of an entry that cannot be used as it is, drawn as a problem.
@@ -133,16 +134,16 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
     const busy = !!pending;
     // Laid out as a card of the model catalog: what it is and its state, its facts, then its
     // notes and actions.
-    return <li className={styles.card} data-catalog-item={item.id} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
         {/* In the grid the "added by you" mark is the line under the name, as on the shipped cards. */}
-        <div className={styles.card_intro}><div className={styles.card_head}>
-            <strong>{item.name}</strong>
-            {layout === "list" && <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
+        <CardHeader><div className={styles.card_head}>
+            <CardTitle>{item.name}</CardTitle>
+            {layout === "list" && <Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge>}
+            <CatalogState state={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span></div>}
-        </div>
-        <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
+        {layout === "grid" && <div className={styles.card_badges}><Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge></div>}
+        </CardHeader>
+        <CatalogFacts layout={layout}><dl className={styles.facts}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
                 {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
@@ -157,7 +158,7 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
         </dl></CatalogFacts>
-        <div className={styles.card_foot}>
+        <CardFooter>
             {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
             {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
@@ -175,8 +176,8 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
                         onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
                     {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
                 </div>}
-        </div>
-    </li>;
+        </CardFooter>
+    </Card>;
 };
 
 const REGISTER = "/run/register_translation_catalog_entry";

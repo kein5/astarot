@@ -12,3 +12,5 @@ export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger, type PopoverCon
 export { Progress, type ProgressProps } from "./Progress.tsx";
 export { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle,
     type ItemGroupProps, type ItemMediaProps, type ItemProps, type ItemState } from "./Item.tsx";
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, type CardProps } from "./Card.tsx";
+export { Badge, type BadgeProps } from "./Badge.tsx";

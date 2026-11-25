@@ -6,6 +6,7 @@ import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
 import { SectionLabelComponent } from "../_components";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import * as pair from "./TranslationGpuRuntimes.css.ts";
+import { Badge } from "../../../../../kit/index.ts";
 
 // The GPU builds of ONNX Runtime for the local translation (core-integration, decision 2 (c)).
 // The packages ship the CPU build only. These are fetched after the user's consent, where they
@@ -59,7 +60,7 @@ export const TranslationGpuRuntimes = () => {
                 {others.map(id => <VcRuntimeSetup key={id} engine={id} fit="unneeded" />)}
                 {needsNvidia && <section className={styles.download_entry} data-fit="unavailable" aria-label={t("vc_runtime.title", { name: CUDA_NAME })}>
                     <strong>{t("vc_runtime.title", { name: CUDA_NAME })}</strong>
-                    <div className={styles.card_badges}><span className={styles.badge}>{t("config_page.translation.gpu_runtimes.needs_nvidia")}</span></div>
+                    <div className={styles.card_badges}><Badge>{t("config_page.translation.gpu_runtimes.needs_nvidia")}</Badge></div>
                 </section>}
             </div>
             : <VcRuntimeSetup engine={fitting} />}

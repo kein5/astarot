@@ -9,7 +9,7 @@ import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as runtimeStyles from "./VcRuntimeSetup.css.ts";
-import { Button, Progress } from "../../../../../kit/index.ts";
+import { Badge, Button, Progress } from "../../../../../kit/index.ts";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
@@ -63,7 +63,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
             ? <div className={runtimeStyles.titleLine} data-hint-host><strong>{title}</strong><Hint text={help} id={helpId} focusable /></div>
             : <strong>{title}</strong>}
         {fit && <div className={styles.card_badges}>
-            <span className={styles.badge} data-tone={fit === "fits" ? "recommended" : undefined}>{t(`vc_runtime.fit_${fit}`)}</span>
+            <Badge tone={fit === "fits" ? "accent" : "neutral"}>{t(`vc_runtime.fit_${fit}`)}</Badge>
         </div>}
         {help && !hints && <p>{help}</p>}
         {/* The saved folder holds a runtime this version cannot use (the earlier PyTorch RVC runtime). */}

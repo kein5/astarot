@@ -70,3 +70,9 @@ export const narrowBox = style({ width: "min(20rem, 100%)" });
 
 // An icon inside a kit button: shadcn/ui's size-4, drawn in the button's text colour.
 export const icon = style({ width: "1.6rem", height: "1.6rem", flexShrink: 0, fill: "currentColor" });
+
+// A card as wide as a catalog's card in a narrow window, and the name's line the catalogs give it:
+// the name, then the state at the line's end (the catalogs' own layout, VoiceSettings.css.ts).
+export const cardBox = style({ width: "min(48rem, 100%)" });
+export const nameLine = style({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".6rem 1rem", minWidth: 0 });
+export const lineEnd = style({ marginInlineStart: "auto" });
