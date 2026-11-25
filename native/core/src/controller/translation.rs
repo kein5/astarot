@@ -398,6 +398,30 @@ struct Said {
     source: String,
     text: String,
     time: String,
+    /// Who said it, where the game audio's voices were told apart (#1034): the session the labels
+    /// belong to and the labels. Never the names the user gave them.
+    voices: Option<super::messages::Voices>,
+}
+
+/// The history as the AI providers get it (#1034). The speech server labels the voices anew in
+/// each session, so only one session's labels are kept: the session of the text to translate when
+/// its voices were told apart, else the latest session with labels. The other sessions' messages
+/// stay, without their labels.
+fn labelled_history(items: &[Said], session: Option<&str>) -> Vec<HistoryItem> {
+    let latest = || items.iter().rev().find_map(|s| s.voices.as_ref().filter(|v| !v.speakers.is_empty()).map(|v| v.session.as_str()));
+    let kept = session.or_else(latest);
+    items
+        .iter()
+        .map(|s| HistoryItem {
+            source: s.source.clone(),
+            text: s.text.clone(),
+            time: s.time.clone(),
+            speakers: match &s.voices {
+                Some(v) if Some(v.session.as_str()) == kept => v.speakers.clone(),
+                _ => Vec::new(),
+            },
+        })
+        .collect()
 }
 
 #[derive(Default)]
@@ -1122,6 +1146,7 @@ impl Core {
         country: &str,
         text: &str,
         history: &[HistoryItem],
+        speakers: &[String],
     ) -> Attempt {
         if source == Some(target) {
             return Attempt::Text(text.to_string());
@@ -1169,6 +1194,7 @@ impl Core {
             glossary: &glossary,
             temperature,
             instructions: &instructions,
+            speakers,
         };
         match self.translation.translate(provider, &session, &request) {
             Ok(text) => Attempt::Text(text),
@@ -1184,7 +1210,8 @@ impl Core {
 
     /// The conversation history the chat providers get (`getTranslationHistory`), if the
     /// translation still goes where the message was admitted to.
-    fn history_for(&self, engine: &str, generation: u64) -> Vec<HistoryItem> {
+    /// `session`: the session of the text to translate, when its voices were told apart (#1034).
+    fn history_for(&self, engine: &str, generation: u64, session: Option<&str>) -> Vec<HistoryItem> {
         let config = self.config();
         let mut history = self.translation.history.lock().unwrap();
         let current = config.history_generation();
@@ -1196,16 +1223,19 @@ impl Core {
         if !config.get_bool("ENABLE_TRANSLATION") || !selected || generation != current {
             return Vec::new();
         }
-        history
-            .items
-            .iter()
-            .map(|s| HistoryItem { source: s.source.clone(), text: s.text.clone(), time: s.time.clone() })
-            .collect()
+        labelled_history(&history.items, session)
     }
 
     /// `addTranslationHistory`: kept only while translation is on and the destination is the
     /// one the message was admitted to.
-    pub(crate) fn add_history(&self, source: &str, text: &str, snapshot: &super::messages::Snapshot) {
+    /// `voices`: who said it (#1034), the labels and their session; never the names the user gave them.
+    pub(crate) fn add_history(
+        &self,
+        source: &str,
+        text: &str,
+        voices: Option<&super::messages::Voices>,
+        snapshot: &super::messages::Snapshot,
+    ) {
         let text = text.trim();
         if text.is_empty() {
             return;
@@ -1224,13 +1254,15 @@ impl Core {
             return;
         }
         let time = crate::local_time::message_time(&crate::local_time::now());
-        history.items.push(Said { source: source.to_string(), text: text.to_string(), time });
+        let voices = voices.filter(|v| !v.speakers.is_empty()).cloned();
+        history.items.push(Said { source: source.to_string(), text: text.to_string(), time, voices });
         let excess = history.items.len().saturating_sub(HISTORY_ITEMS);
         history.items.drain(..excess);
     }
 
     /// `getTranslate`: the selected engine, then the local translation when it failed or
-    /// lacked the languages. `Err` only when the GPU ran out of memory.
+    /// lacked the languages. `Err` only when the GPU ran out of memory. `voices`: who spoke `text`
+    /// (#1034), for the AI providers' prompt.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn translate(
         &self,
@@ -1240,14 +1272,17 @@ impl Core {
         target: &str,
         country: &str,
         text: &str,
+        voices: Option<&super::messages::Voices>,
         generation: u64,
     ) -> Result<Translated, String> {
-        let history = self.history_for(engine, generation);
+        let voices = voices.filter(|v| !v.speakers.is_empty());
+        let history = self.history_for(engine, generation, voices.map(|v| v.session.as_str()));
+        let speakers = voices.map(|v| v.speakers.as_slice()).unwrap_or(&[]);
         let empty = |attempt: Attempt| match attempt {
             Attempt::Text(t) if t.trim().is_empty() && !text.trim().is_empty() => Attempt::Failed,
             other => other,
         };
-        let first = empty(self.attempt(engine, weight, source, target, country, text, &history));
+        let first = empty(self.attempt(engine, weight, source, target, country, text, &history, speakers));
         let primary_failed = match first {
             Attempt::Text(t) => return Ok(Translated { text: t, success: true, provenance: "translated" }),
             Attempt::OutOfMemory(message) => return Err(message),
@@ -1256,7 +1291,7 @@ impl Core {
         };
         let mut fallback = Attempt::Failed;
         for _ in 0..20 {
-            fallback = self.attempt(LOCAL_ENGINE, weight, source, target, country, text, &[]);
+            fallback = self.attempt(LOCAL_ENGINE, weight, source, target, country, text, &[], &[]);
             match fallback {
                 Attempt::Text(_) | Attempt::Unsupported | Attempt::OutOfMemory(_) => break,
                 Attempt::Failed if self.translation.local.loaded().is_none() => break,
@@ -1566,6 +1601,43 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 mod tests {
     use super::*;
     use crate::languages::{translation, DEFAULT_TRANSLATION_WEIGHT, TRANSLATION_WEIGHTS};
+
+    fn said(source: &str, text: &str, voices: Option<(&str, &[&str])>) -> Said {
+        Said {
+            source: source.into(),
+            text: text.into(),
+            time: "12:34".into(),
+            voices: voices.map(|(session, speakers)| super::super::messages::Voices {
+                session: session.into(),
+                speakers: speakers.iter().map(|s| s.to_string()).collect(),
+            }),
+        }
+    }
+
+    fn labels(history: &[HistoryItem]) -> Vec<String> {
+        history.iter().map(|h| format!("{}:{}", h.text, h.speakers.join(","))).collect()
+    }
+
+    #[test]
+    fn only_one_listening_session_s_labels_reach_the_prompt() {
+        // #1034: the speech server labels the voices anew in each session, so "A" of an earlier
+        // session may be another voice. Its messages stay, without their labels.
+        let items = [
+            said("speaker", "before", Some(("s1", &["A"]))),
+            said("mic", "mine", None),
+            said("speaker", "after", Some(("s2", &["A", "B"]))),
+            said("speaker", "unheard", None),
+        ];
+        // The text to translate came from the second session.
+        assert_eq!(labels(&labelled_history(&items, Some("s2"))), ["before:", "mine:", "after:A,B", "unheard:"]);
+        // ... or from the first one, still running somewhere else.
+        assert_eq!(labels(&labelled_history(&items, Some("s1"))), ["before:A", "mine:", "after:", "unheard:"]);
+        // A text without labels (typed, the microphone): the latest session with labels.
+        assert_eq!(labels(&labelled_history(&items, None)), ["before:", "mine:", "after:A,B", "unheard:"]);
+        // Nothing told apart: nothing labelled.
+        let plain = [said("chat", "hi", None), said("mic", "yo", None)];
+        assert_eq!(labels(&labelled_history(&plain, None)), ["hi:", "yo:"]);
+    }
 
     #[test]
     fn the_prompt_lists_the_languages_the_contract_recorded() {

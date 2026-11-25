@@ -179,6 +179,7 @@ fn run(document: &Value, case: &Value) -> (Value, Option<f64>) {
                     source: h["source"].as_str().unwrap().into(),
                     text: h["text"].as_str().unwrap().into(),
                     time: time_of(h["timestamp"].as_str().unwrap_or("")),
+                    speakers: Vec::new(),
                 })
                 .collect();
             let supported = strings(&document["supported_languages"][engine]);
@@ -191,6 +192,7 @@ fn run(document: &Value, case: &Value) -> (Value, Option<f64>) {
                 glossary: &[],
                 temperature: None,
                 instructions: "",
+                speakers: &[],
             };
             match provider.translate(&transport, &call, &request) {
                 Ok(text) => json!({ "text": text }),
