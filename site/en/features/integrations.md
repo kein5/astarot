@@ -22,6 +22,12 @@ You can change the maximum number of messages, display time, fade-out time, font
 
 While the OBS browser source is on, the WebSocket settings cannot be changed. Turn the OBS browser source off first.
 
+## Who spoke
+
+When the game audio's voices are told apart ([Tell speakers apart](./transcription#tell-speakers-apart)), the OBS browser source shows who spoke above each caption, and the WebSocket messages carry it too. By default this is the voice's letter ("A", "B" and so on), not a name you gave the voice, so names do not appear on your stream.
+
+To show the names too, turn on "Send the names given to voices" under Advanced. A name given after a caption was sent shows from the next caption.
+
 ## Use it from other PCs
 
 From OBS or tools on other PCs, the connection is encrypted. For that you need a certificate and private key (PEM) for the LAN IP address of the PC that runs ASTAROT. Without a certificate, other PCs cannot connect.

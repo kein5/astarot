@@ -336,6 +336,9 @@ pub struct Core {
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
     translation: translation::Translators,
     messages: messages::Messages,
+    /// The names the user gave the voices of the latest realtime sessions, for the WebSocket
+    /// messages (#1035).
+    speaker_names: speakers::SpeakerNames,
     audio: Arc<audio_devices::AudioDevices>,
     /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
@@ -389,6 +392,7 @@ impl Core {
             adapters: std::sync::OnceLock::new(),
             translation,
             messages: messages::Messages::default(),
+            speaker_names: speakers::SpeakerNames::default(),
             audio,
             vr: std::sync::OnceLock::new(),
             ocr: Arc::default(),

@@ -257,6 +257,7 @@ export interface SettingValues {
     OscPort: number;
     EnableOscQuery: boolean;
     EnableWebsocket: boolean;
+    EnableWebsocketSpeakerNames: boolean;
     WebsocketHost: string;
     WebsocketPort: number;
     WebsocketAuthToken: string;

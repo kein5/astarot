@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（506件: 削除 13、取得 225、実行 52、有効化 44、無効化 46、設定 126）
+## 要求（509件: 削除 13、取得 226、実行 52、有効化 45、無効化 47、設定 126）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -215,6 +215,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/websocket_auth_token` | 取得 | 可 | useAdvancedSettings.updateFromBackendWebsocketAuthToken | ログで伏せる |
 | `/get/data/websocket_tls` | 取得 | 可 | useAdvancedSettings.updateFromBackendWebsocketTls |  |
 | `/get/data/websocket_server` | 取得 | 可 | useAdvancedSettings.updateFromBackendEnableWebsocket |  |
+| `/get/data/websocket_speaker_names` | 取得 | 可 | useAdvancedSettings.updateFromBackendEnableWebsocketSpeakerNames | ログで伏せる |
+| `/set/enable/websocket_speaker_names` | 有効化 | 可 | useAdvancedSettings.setSuccessEnableWebsocketSpeakerNames | ログで伏せる |
+| `/set/disable/websocket_speaker_names` | 無効化 | 可 | useAdvancedSettings.setSuccessEnableWebsocketSpeakerNames | ログで伏せる |
 | `/get/data/obs_browser_source` | 取得 | 可 | useAdvancedSettings.updateFromBackendEnableObsBrowserSource |  |
 | `/get/data/obs_browser_source_port` | 取得 | 可 | useAdvancedSettings.updateFromBackendObsBrowserSourcePort |  |
 | `/get/data/obs_browser_source_max_messages` | 取得 | 可 | useAdvancedSettings.updateFromBackendObsBrowserSourceMaxMessages |  |
@@ -668,7 +671,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/set/enable/talk_ai_screen`
 
 
-## UIだけにあるルート（61件）
+## UIだけにあるルート（62件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -731,5 +734,6 @@ UIに受信先が定義されているが、中核の要求と通知にはない
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`
+- `/set/data/websocket_speaker_names`
 - `/set/disable/tray_companion_wheel_hint_shown`
 - `/set/enable/tray_companion_wheel_hint_shown`

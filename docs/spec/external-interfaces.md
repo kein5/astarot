@@ -49,6 +49,7 @@ The points where ASTAROT exchanges data with other programs. The interface betwe
 | Authentication | Connect with `?token=<WEBSOCKET_AUTH_TOKEN>`. If it does not match, HTTP 403 is returned before the connection opens. The token is created at first startup and shown masked on the settings screen. If the saved value is null, only whitespace, an empty string or not a string, a newly generated default secret is saved. Without a non-empty token, the server does not start. Regenerating it with `/run/regenerate_websocket_auth_token` drops connections that used the old token at once and refuses that token from then on |
 | Receiving | Not used. The app registers no receive handler, and received messages are discarded on the event loop (not passed to a worker thread). One message is at most 64 KiB. Per connection, it accepts on average up to 10 messages and 128 KiB per second, and up to 20 messages and 256 KiB in a short burst. A connection that exceeds either is closed with 1008 (policy violation), and if it has not closed after 2 seconds, its transport is aborted (security audit SEC-06). The limits are the `INCOMING_*` and `MAX_INCOMING_MESSAGE_SIZE` constants in `native/adapters/src/websocket.rs` |
 | Sending | For each processed message, the [message shape](data-and-persistence.md#websocketとobsへ送るメッセージ) is sent to all clients. When the OBS display settings change, `SETTINGS_UPDATED` is sent |
+| Speakers | Each message carries the labels of the voices that spoke (`speakers`). The names the user gave the voices (`speaker_names`) are added only while `WEBSOCKET_SPEAKER_NAMES` is on ("Send the names given to voices" under Advanced, off by default), so that no name reaches a stream unless the user chose it (#1035) |
 
 The host and port are saved, and the server restarted, only after they pass the validation in [network settings](data-and-persistence.md#ネットワーク設定). WebSocket and OBS both use IPv4 only, with the same bind pre-check and the same format for the URL that is copied.
 
@@ -101,6 +102,7 @@ Delivery yields control back to the loop every 32 connections and after each mes
 - HTTP handles at most 16 requests at once, and connections beyond that are closed. Reading has a 5-second deadline, and so does the whole request; the deadlines are checked every 0.1 seconds and unfinished connections are closed. On shutdown, new intake stops, accepted connections are closed, and the app waits up to 2 seconds in total for the listener and each request to end. If work remains, the owner is kept, and the next start is not allowed until it ends.
 - The page connects to the WebSocket server to receive captions. When the connection drops, it retries with a wait that starts at 0.5 seconds and grows 1.5 times each time, up to 8 seconds. Each time, it fetches the current port again from `/obs/connection`, so it can connect to a new port even if it missed the change notification. The re-fetch gives up after 5 seconds, and authentication failures, invalid responses and network failures are retried with the same wait.
 - Display settings and their ranges: maximum number of messages 14 (1 to 50), display time 60 seconds (1 to 120), fade-out 12 seconds (0 to 120), text size 40 (10 to 200), text color `#FFFFFF`, outline 3 (0 to 20), outline color `#000000`.
+- When a message has `speakers`, the page shows who spoke on a smaller line above the text, as the VR logs do: each voice's name if the message carries one, and its label otherwise, joined by "·" (`Mika·B`), at most 48 characters. A message without labels is shown as before (#1035).
 
 ## Cloud and network services
 
@@ -494,6 +496,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 | 認証 | 接続時に`?token=<WEBSOCKET_AUTH_TOKEN>`を付ける。合わなければ接続前にHTTP 403。トークンは初回起動時に作り、設定画面では伏せて表示する。保存値がnull・空白だけ・空文字列・文字列以外なら、新しく生成した既定の秘密値を保存する。空でないトークンがなければサーバーを起動しない。`/run/regenerate_websocket_auth_token`で作り直すと、古いトークンでの接続をすぐに切り、以後は拒否する |
 | 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は`native/adapters/src/websocket.rs`の`INCOMING_*`と`MAX_INCOMING_MESSAGE_SIZE`の定数 |
 | 送信 | 処理したメッセージごとに[メッセージの形](data-and-persistence.md#websocketとobsへ送るメッセージ)を全クライアントへ送る。OBSの表示設定が変わると`SETTINGS_UPDATED`を送る |
+| 話した人 | どのメッセージにも、話した声のラベル（`speakers`）を付ける。利用者が声に付けた名前（`speaker_names`）は、`WEBSOCKET_SPEAKER_NAMES`がオンの間だけ足す（詳細設定の「声に付けた名前も送る」、既定はオフ）。利用者が選ばない限り、配信に名前が出ないようにするためである（#1035） |
 
 ホストとポートは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)の検証に通ってから保存・再起動する。WebSocketとOBSをIPv4に統一し、bindの事前確認とコピーするURLの形式をそろえる。
 
@@ -546,6 +549,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - HTTPの同時処理は16件までとし、超過した接続は閉じる。読み取りの待機は5秒、要求全体も5秒を期限とし、0.1秒周期で期限を確認して未完了の接続を閉じる。停止時は新規受付を止め、受け付けた接続を閉じて、待受処理と各要求の終了を合計2秒まで待つ。残った処理があれば所有者を保持し、終了するまで次の起動を認めない。
 - ページはWebSocketサーバーに接続して字幕を受け取る。切れたら0.5秒から1.5倍ずつ、最大8秒の待ち時間で再試行する。毎回`/obs/connection`から現在のポートを取り直すため、変更通知を受け取れなくても新しいポートへ接続できる。再取得は5秒で打ち切り、認証失敗・不正な応答・通信失敗でも同じ待ち時間で再試行する。
 - 表示の設定と範囲: 最大メッセージ数14（1〜50）、表示時間60秒（1〜120）、フェードアウト12秒（0〜120）、文字の大きさ40（10〜200）、文字色`#FFFFFF`、縁取り3（0〜20）、縁取りの色`#000000`。
+- メッセージに`speakers`があるときは、VRのログと同じく、本文の上の小さい行に話した人を出す。メッセージに名前があればその名前、なければラベルを「·」でつなぎ（`Mika·B`）、48文字までにする。ラベルのないメッセージは、これまでどおりに出す（#1035）。
 
 ## クラウドとネットワークのサービス
 

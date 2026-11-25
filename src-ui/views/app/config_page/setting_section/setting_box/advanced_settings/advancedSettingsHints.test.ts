@@ -78,12 +78,30 @@ test("the general descriptions are left to become hints: the rows that carry one
         key("telemetry.label"),
         key("osc_query.label"),
         key("websocket_host.label"), key("websocket_tls_cert_file.label"), key("websocket_tls_key_file.label"), key("websocket_token.label"),
+        // The names given to voices (#1035), last in the WebSocket section.
+        key("websocket_speaker_names.label"),
         key("enable_obs_browser_source.label"),
         key("obs_browser_source_max_messages.label"), key("obs_browser_source_display_duration.label"),
         key("obs_browser_source_fadeout_duration.label"), key("obs_browser_source_font_size.label"),
         key("obs_browser_source_font_outline_thickness.label"),
         key("rvc_block_ms.label"),
     ]);
+});
+
+test("the names given to voices are a switch of their own in the WebSocket section (#1035)", async () => {
+    const { rows: all } = await rows({ currentEnableWebsocketSpeakerNames: false });
+    const labels = all.map(row => row.props.label);
+    // After the WebSocket rows, before the OBS ones.
+    assert.equal(labels.indexOf(key("websocket_speaker_names.label")), labels.indexOf(key("websocket_token.label")) + 1);
+    const row = all.find(row => row.props.label === key("websocket_speaker_names.label"))?.props;
+    assert.equal(row?.setting_id, "websocket_speaker_names", "the settings search can open it");
+    assert.equal(row?.desc, key("websocket_speaker_names.desc"));
+    assert.deepEqual(row?.variable, { state: "ok", data: false });
+    assert.equal(typeof row?.toggleFunction, "function");
+    assert.equal(row?.is_available, undefined, "it can be chosen whether or not the servers run");
+    for (const language of ["en", "ja"]) {
+        for (const part of ["label", "desc"]) assert.equal(typeof localeAt(readLocale(language), key(`websocket_speaker_names.${part}`)), "string", `${language} ${part}`);
+    }
 });
 
 test("the OSC and GPU check headings carry what their sections are as hints; the usage data's contents stay", async () => {

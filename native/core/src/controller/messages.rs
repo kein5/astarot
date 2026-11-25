@@ -1008,7 +1008,7 @@ impl Core {
             // WebSocket (and the OBS page, which reads it)
             if current() {
                 let sources = if spec.multi_target { &snapshot.your } else { &snapshot.target };
-                let event = json!({
+                let mut event = json!({
                     "type": spec.websocket_type,
                     "src_languages": language_payload(sources),
                     "dst_languages": language_payload(snapshot.destinations()),
@@ -1016,6 +1016,13 @@ impl Core {
                     "translation": translations,
                     "transliteration": readings_translations,
                 });
+                // Who spoke (#1035), added to the fields above so that a receiver keeps working.
+                let speakers = voices.map(|v| v.speakers.as_slice()).unwrap_or(&[]);
+                event["speakers"] = json!(speakers);
+                if self.config().get_bool("WEBSOCKET_SPEAKER_NAMES") {
+                    let session = voices.map(|v| v.session.as_str()).unwrap_or("");
+                    event["speaker_names"] = Value::Object(self.speaker_names.of(session, speakers));
+                }
                 if let Some(Err(_)) = self.websocket_send(&event.to_string()) {
                     self.output_failed("websocket", spec, id.as_ref(), &current, &mut failures);
                 }

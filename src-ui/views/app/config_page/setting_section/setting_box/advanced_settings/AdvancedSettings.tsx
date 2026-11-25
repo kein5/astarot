@@ -441,7 +441,26 @@ const WebsocketContainer = () => {
             <WebsocketTlsContainer />
             <WebsocketUrlContainer />
             <WebsocketTokenContainer />
+            <WebsocketSpeakerNamesContainer />
         </div>
+    );
+};
+
+// The WebSocket and OBS captions always say which voice spoke (A, B, ...); the names the user
+// gave the voices go with them only when this is on, so that no name reaches a stream unless
+// chosen (#1035).
+const WebsocketSpeakerNamesContainer = () => {
+    const { t } = useI18n();
+    const { currentEnableWebsocketSpeakerNames, toggleEnableWebsocketSpeakerNames } = useAdvancedSettings();
+
+    return (
+        <CheckboxContainer
+            setting_id="websocket_speaker_names"
+            label={t("config_page.advanced_settings.websocket_speaker_names.label")}
+            desc={t("config_page.advanced_settings.websocket_speaker_names.desc")}
+            variable={currentEnableWebsocketSpeakerNames}
+            toggleFunction={toggleEnableWebsocketSpeakerNames}
+        />
     );
 };
 
