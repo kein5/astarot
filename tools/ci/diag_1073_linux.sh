@@ -12,6 +12,14 @@ for i in $(seq 1 "$runs"); do
   pkill -x gnome-keyring-d 2>/dev/null
   sleep 0.2
   rm -rf "$HOME/.local/share/keyrings" "${XDG_RUNTIME_DIR:-/nonexistent}"/keyring*
+  if [ "${REINSTALL:-}" = 1 ]; then
+    # As the CI step: the package is installed, and the daemon starts right after.
+    if [ "$i" = 1 ]; then
+      sudo apt-get -o Acquire::Retries=3 update >/dev/null && sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends gnome-keyring dbus >/dev/null
+    else
+      sudo apt-get install -y --reinstall --no-install-recommends gnome-keyring >/dev/null 2>&1
+    fi
+  fi
   case $variant in
     current) command="printf ci | gnome-keyring-daemon --unlock --components=secrets >/dev/null && $tests" ;;
     fixed) command="bash tools/ci/with_unlocked_keyring.sh bash -c '$tests'" ;;
@@ -23,6 +31,8 @@ for i in $(seq 1 "$runs"); do
     echo "::group::run $i failed"
     grep -a 'Activating\|control socket\|discover_other\|panicked\|left:\|right:\|FAILED\|::error::\|exit status\|reason\|owner' "$RUNNER_TEMP/run-$i.log" | cut -c1-400
     pgrep -a gnome-keyring || true
+    ls -la "${XDG_RUNTIME_DIR:-/nonexistent}"/keyring* 2>&1 | head -10
+    systemctl --user list-units --all 'gnome-keyring*' --no-legend 2>&1 | head -5 || true
     sudo dmesg | grep -i 'keyring\|segfault\|traps' | tail -5 || true
     sudo journalctl -b --no-pager 2>/dev/null | grep -i 'keyring' | tail -10 || true
     echo "::endgroup::"
