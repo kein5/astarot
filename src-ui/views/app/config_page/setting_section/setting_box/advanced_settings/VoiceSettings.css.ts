@@ -14,7 +14,6 @@ export const more = style({});
 export const problem_slot = style({});
 export const checkLabel = style({});
 export const fieldCheck = style({});
-export const dialog_text = style({});
 export const dialog_files = style({});
 export const actions = style({});
 export const count = style({});
@@ -236,12 +235,7 @@ globalStyle(inForm(HAND_BUILT_DIALOG), {
 // from its dialog only in newer engines (Safari 17.4, Chrome 122), and an older WebKitGTK would not dim.
 globalStyle(inForm(`${HAND_BUILT_DIALOG}::backdrop`), { background: "#00000080" });
 globalStyle(inForm(`${HAND_BUILT_DIALOG} button`), { margin: ".8rem .8rem 0 0" });
-// A consent dialog reads as a document: its title and facts are one part (dialog_text), a
-// fact a paragraph with air between them; the consent and the actions are parts of their own.
 globalStyle(inForm(`${HAND_BUILT_DIALOG}[open]`), { display: "grid", gap: "1.6rem", alignContent: "start" });
-globalStyle(inForm(`.${dialog_text}`), { display: "grid", gap: ".8rem", minWidth: 0 });
-globalStyle(inForm("dialog > h3", `.${dialog_text} > h3`), { margin: 0, fontSize: "1.8rem", lineHeight: 1.4, color: vars.dark_200_color });
-globalStyle(inForm(`.${dialog_text} > h3`), { marginBottom: ".4rem" });
 // The files a consent dialog downloads, under its facts.
 globalStyle(inForm(`ul.${dialog_files}`), {
     margin: 0,

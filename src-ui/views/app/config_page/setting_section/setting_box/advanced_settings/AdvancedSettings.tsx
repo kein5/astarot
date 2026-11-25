@@ -10,7 +10,7 @@ import { Description } from "../_components/description/Description";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
 import { GpuCheck } from "./GpuCheck.tsx";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
 import { rvcBlockChoiceId, rvcBlockChoices } from "../../../../../../logics/configs/rvcBlockChoices";
 import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
@@ -641,18 +641,18 @@ const WebsocketTokenContainer = () => {
             IconComponent={RefreshSvg}
             onclickFunction={() => setOpen(true)}
         />
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
         {open && <div className={`${voiceStyles.container} ${dialogStyles.host}`}>
-            <dialog ref={dialog} className={dialogStyles.dialog} aria-label={key("confirm_title")}
-                onCancel={event => { event.preventDefault(); cancel(); }}>
-                <div className={voiceStyles.dialog_text}>
-                    <h3>{key("confirm_title")}</h3>
+            <Dialog ref={dialog} open={open} onOpenChange={cancel} aria-describedby={undefined}>
+                <DialogHeader>
+                    <DialogTitle>{key("confirm_title")}</DialogTitle>
                     <p>{key("confirm_body")}</p>
-                </div>
-                <div className={voiceStyles.actions}>
-                    <button type="button" autoFocus onClick={cancel}>{key("confirm_cancel")}</button>
-                    <button type="button" onClick={regenerate}>{key("confirm_ok")}</button>
-                </div>
-            </dialog>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button autoFocus onClick={cancel}>{key("confirm_cancel")}</Button>
+                    <Button onClick={regenerate}>{key("confirm_ok")}</Button>
+                </DialogFooter>
+            </Dialog>
         </div>}
     </>;
 };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import i18next from "i18next";
-import { hooks, loadModule, stubGlobals, find, findIn, componentName, setRef } from "../test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, stubGlobals, find, findIn, componentName, nodesIn, setRef } from "../test/hookHarness.ts";
 import type { TestContext } from "vitest";
 import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
 import { readLocale } from "../test/locales.ts";
@@ -27,7 +27,7 @@ const componentURL = new URL("../../views/app/config_page/setting_section/settin
 const weightType = "nllb-200-distilled-600M-ct2-int8";
 
 async function dialogFixture(context: TestContext, language: string, catalog: unknown,
-    extra: { note?: string | null; onCatalogStart?: (id: string) => void } = {}) {
+    extra: { note?: string | null; onCatalogStart?: (id: string) => void; extraAction?: { label: string; onClick: () => void } } = {}) {
     const translations = i18next.createInstance();
     const resource = readLocale(language);
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
@@ -49,8 +49,8 @@ async function dialogFixture(context: TestContext, language: string, catalog: un
     const props = { weightType, onCancel: () => events.closed++, ...extra };
     const modal = { open: false, showModal() { this.open = true; events.opened++; }, close() { this.open = false; } };
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
-        // The fake modal goes where React would put the dialog: into the element's ref.
-        setRef(findIn(tree, node => node.type === "dialog"), modal);
+        // The fake modal goes where React would put the dialog: into the kit's Dialog's ref (D-23).
+        setRef(findIn(tree, node => node.type === kitStandIns.Dialog), modal);
     });
     context.onTestFinished(() => runtime.unmount());
     render();
@@ -66,16 +66,23 @@ for (const language of ["en", "ja"]) {
         assert.equal(s.reads[0][0], "/get/data/model_download_catalog");
         assert.equal(s.events.opened, 1);
         assert.notEqual(find(tree, node => node.props?.role === "status" && node.props.children === s.t("model_downloads.loading")), null);
-        assert.equal(findIn(tree, node => node.type === "button" && node.props.autoFocus).props.children, s.t("model_downloads.back"));
+        assert.equal(findIn(tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.children, s.t("model_downloads.back"));
+        // Shown while drawn, named by its title alone, as before (D-43), with its one button in the footer.
+        // In the forms' section (the catalog's words) and the shared host, which takes no room of its own.
+        assert.deepEqual(String(tree.props.className).split(" ").sort(), ["container", "host"]);
+        const dialog = findIn(tree, node => node.type === kitStandIns.Dialog);
+        assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+        assert.equal(findIn(dialog, node => node.type === kitStandIns.DialogTitle).props.children, s.t("model_downloads.warning_title"));
+        assert.deepEqual(nodesIn(findIn(dialog, node => node.type === kitStandIns.DialogFooter)).filter(node => node.type === kitStandIns.Button)
+            .map(node => [node.props.children, node.props.tone]), [[s.t("model_downloads.back"), undefined]]);
         s.downloads.error = "backend_unavailable";
         assert.notEqual(find(s.render(), node => node.props?.role === "status"
             && node.props.children === s.t("legacy_model_downloads.review_unavailable")), null);
     });
     test(`${language}: Escape closes the review and gives the focus back`, async context => {
         const s = await dialogFixture(context, language, published("nllb-200-distilled-600m-onnx-int8"));
-        let prevented = false;
-        findIn(s.render(), node => node.type === "dialog").props.onCancel({ preventDefault() { prevented = true; } });
-        assert.equal(prevented, true);
+        // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+        findIn(s.render(), node => node.type === kitStandIns.Dialog).props.onOpenChange(false);
         s.runtime.unmount();
         await Promise.resolve();
         assert.equal(s.events.closed, 1);
@@ -91,8 +98,8 @@ for (const language of ["en", "ja"]) {
         assert.equal(find(tree, node => node.type === "code"), null);
         assert.match(s.t("legacy_model_downloads.translation_own_model"), language === "ja" ? /自分のモデルを追加/ : /Add a model of your own/);
         assert.equal(paragraph("model_downloads.loading"), null);
-        assert.equal(find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start")), null);
-        const close = findIn(tree, node => node.type === "button" && node.props.autoFocus);
+        assert.equal(find(tree, node => node.type === kitStandIns.Button && node.props.children === s.t("model_downloads.start")), null);
+        const close = findIn(tree, node => node.type === kitStandIns.Button && node.props.autoFocus);
         assert.equal(close.props.children, s.t("legacy_model_downloads.close"));
         close.props.onClick();
         assert.equal(s.events.closed, 1);
@@ -118,6 +125,24 @@ for (const language of ["en", "ja"]) {
         // Without a model to fetch, nothing follows: the note stays away.
         const none = await dialogFixture(context, language, { models: [] }, { note: "the switch goes on" });
         assert.equal(find(none.render(), node => node.type === "p" && node.props.children === "the switch goes on"), null);
+    });
+    // Decided on 2026-11-25: the kit's quiet Button, on its own line under the footer.
+    test(`${language}: another way forward is a quiet button under the footer that closes the review first`, async context => {
+        const order: string[] = [];
+        const s = await dialogFixture(context, language, published("m2m100-418m-onnx-int8"),
+            { extraAction: { label: "use without it", onClick: () => order.push(`go on, closed ${s.events.closed}`) } });
+        const dialog = findIn(s.render(), node => node.type === kitStandIns.Dialog);
+        const button = findIn(dialog, node => node.type === kitStandIns.Button && node.props.children === "use without it");
+        assert.deepEqual([button.props.tone, button.props.className], ["quiet", "ownLine"]);
+        // A part of the dialog of its own, after the footer.
+        const parts = [dialog.props.children].flat(3).filter(Boolean);
+        assert.equal(parts.at(-1)?.props.children, "use without it");
+        assert.equal(parts.at(-2)?.type, kitStandIns.DialogFooter);
+        button.props.onClick();
+        assert.deepEqual(order, ["go on, closed 1"]);
+        // Without one, no such button.
+        const plain = await dialogFixture(context, language, published("m2m100-418m-onnx-int8"));
+        assert.equal(find(plain.render(), node => node.props?.className === "ownLine"), null);
     });
     test(`${language}: the review opened from a model's row shows that model's variants`, async context => {
         const s = await dialogFixture(context, language, published("m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"));

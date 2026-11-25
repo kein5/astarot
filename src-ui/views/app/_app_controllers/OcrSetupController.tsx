@@ -5,6 +5,7 @@ import { useOcrSetup, focusOcrModels } from "../../../logics/ocr/useOcrSetup";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../kit/index.ts";
 
 // Turning chat reading on without its models used to end in a notice that named a
 // settings path and vanished. This says what is missing where the user is and
@@ -26,18 +27,18 @@ export const OcrSetupController = () => {
         updateIsOpenedConfigPage(true);
         focusOcrModels();
     };
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("ocr_setup.title")}
-            onCancel={event => { event.preventDefault(); cancel(); }}>
-            <div className={styles.dialog_text}>
-                <h3>{t("ocr_setup.title")}</h3>
+        <Dialog ref={dialog} open={open} onOpenChange={cancel} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("ocr_setup.title")}</DialogTitle>
                 <p>{t("ocr_setup.body")}</p>
                 <p>{t("ocr_setup.next")}</p>
-            </div>
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={cancel}>{t("ocr_setup.close")}</button>
-                <button type="button" className="primary" onClick={review}>{t("ocr_setup.review")}</button>
-            </div>
-        </dialog>
+            </DialogHeader>
+            <DialogFooter>
+                <Button autoFocus onClick={cancel}>{t("ocr_setup.close")}</Button>
+                <Button tone="primary" onClick={review}>{t("ocr_setup.review")}</Button>
+            </DialogFooter>
+        </Dialog>
     </div>;
 };

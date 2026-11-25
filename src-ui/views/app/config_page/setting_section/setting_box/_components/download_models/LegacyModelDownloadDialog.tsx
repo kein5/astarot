@@ -10,6 +10,7 @@ import { translationCatalogIds } from "../../../../../../../logics/main/setupNee
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
 import type { TranslationDevice } from "../../../../../../../logics/voice/modelHardwareWarning";
 import { CustomModelLink } from "../custom_model_link/CustomModelLink";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../../kit/index.ts";
 
 // The review of a translation model (#1015). Native modal scope, initial focus on Back and the
 // shared catalog form styles.
@@ -55,9 +56,12 @@ export const LegacyModelDownloadDialog = ({ weightType, onCancel, extraAction = 
     // The translation models the app can use: their weights count as downloaded in the core, which
     // checks every file before it does. Their cards offer no check or preparation again (#947).
     const usable = (currentCTranslate2WeightTypeStatus?.data ?? []).filter(item => item.is_downloaded).flatMap(item => translationCatalogIds(item.id));
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); cancel(); }}>
-            <h3>{t("model_downloads.warning_title")}</h3>
+        <Dialog ref={dialog} open onOpenChange={cancel} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
+            </DialogHeader>
             {catalog ? <>
                 {translationRows.length > 0
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} usable={usable}
@@ -70,12 +74,12 @@ export const LegacyModelDownloadDialog = ({ weightType, onCancel, extraAction = 
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
                 <CustomModelLink section="translation" />
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={cancel}>{t(catalog ? "legacy_model_downloads.close" : "model_downloads.back")}</button>
-            </div>
-            {extraAction && <p className={dialogStyles.alternative}>
-                <button type="button" onClick={() => { cancel(); extraAction.onClick(); }}>{extraAction.label}</button>
-            </p>}
-        </dialog>
+            <DialogFooter>
+                <Button autoFocus onClick={cancel}>{t(catalog ? "legacy_model_downloads.close" : "model_downloads.back")}</Button>
+            </DialogFooter>
+            {/* Another way forward: the kit's quiet Button, on its own line under the footer
+                (decided on 2026-11-25). */}
+            {extraAction && <Button tone="quiet" className={dialogStyles.ownLine} onClick={() => { cancel(); extraAction.onClick(); }}>{extraAction.label}</Button>}
+        </Dialog>
     </div>;
 };
