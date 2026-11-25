@@ -313,6 +313,21 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.match(field, /borderRadius: vars\.vox_radius/);
     // Hover makes the edge lighter, never darker than the field border.
     assert.match(field, /"&:hover": \{ borderColor: vars\.dark_550_color \}/);
+    // The search stays hand-built (D-36), in the kit's field look: with the focus in the input,
+    // the kit's focus ring and the Lilac border of a focused field (kit/Field.css.ts), and the
+    // kit's colour transitions.
+    assert.match(field, /"&:has\(> input:focus-visible\)": \{ \.\.\.focusRing, borderColor: vars\.primary_600_color \}/);
+    assert.match(read("../../kit/Field.css.ts"), /"&:focus-visible": \{ \.\.\.focusRing, borderColor: vars\.primary_600_color \}/);
+    assert.match(field, /transition: colourTransition,/);
+    assert.match(css, /import \{ colourTransition, focusRing \} from "\.\.\/\.\.\/\.\.\/kit\/shared\.css\.ts";/);
+    // D-40: the details inside the field stay: the .8rem sides, the 1.5rem magnifier, the 1.3rem words.
+    assert.match(field, /padding: "0 0\.8rem",\s*gap: "0\.7rem",/);
+    assert.match(styleOf(css, "search_icon"), /width: "1\.5rem",\s*height: "1\.5rem",/);
+    assert.match(styleOf(css, "search_input"), /fontSize: "1\.3rem",/);
+    // The list takes the kit's border and corners, and the result under the pointer or chosen by
+    // the arrows the kit's fill for it (shadcn/ui's accent).
+    assert.match(styleOf(css, "dropdown_results"), /border: `0\.1rem solid \$\{vars\.vox_border\}`,\s*borderRadius: vars\.vox_radius,/);
+    assert.match(styleOf(css, "result_item"), /\[`&:hover, &\.\$\{is_active\}`\]: \{ backgroundColor: vars\.vox_secondary_hover \}/);
     const jsx = read("search_bar/SearchBar.tsx");
     assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
     assert.match(jsx, /data-slot="input-group-control"/);
