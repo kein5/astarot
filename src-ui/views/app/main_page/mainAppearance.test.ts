@@ -43,7 +43,8 @@ const off = token(top.split("is_disabled}`]: {")[1].split("}")[0], fg);
 const messages = tokens(read("main_section/message_container/log_box/message_container/MessageContainer.css.ts").split("export const category = style({")[1]);
 const pairs = [
     ["top-bar off resting", off, token(toggleBase, bg)],
-    ["top-bar off hover", off, token(toggleBase.split('"&:hover:not(:disabled)": {')[1], bg)],
+    // Under the pointer while it can be used: the base's first hover rule.
+    ["top-bar off hover", off, token(toggleBase.split("&:hover")[1], bg)],
     ["quick-dialog close resting", token(close, fg), token(close, bg)],
     ["quick-dialog close hover", token(close, fg), token(close.split('"&:hover:not(')[1], bg)],
     ["quick-dialog close pressed", token(close, fg), token(close.split('"&:active:not(')[1], bg)],

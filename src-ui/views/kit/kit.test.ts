@@ -300,6 +300,17 @@ test("toggles and popovers are Radix's; a popover is not modal, so no <style> is
     assert.match(popover, /from "@radix-ui\/react-popover"/);
     // Radix's popover is modal only when asked; the kit never asks (react-remove-scroll would add a <style>).
     assert.doesNotMatch(popover, /\bmodal\s*[=:{]/);
+    // A panel lies over every layer the screens draw (the rail opened over the conversation is 40)
+    // and under the tooltips (1500).
+    assert.match(read("Popover.css.ts"), /zIndex: 1000,/);
+    assert.match(readFileSync(new URL("../common_components/tooltip/Tooltip.css.ts", import.meta.url), "utf8"), /zIndex: 1500,/);
     // Mute keeps its amber while pressed (D-27): the warning tone of the toggle.
     assert.match(read("Toggle.css.ts"), /warning: \{\s*selectors: \{\s*\[on\]: \{ borderColor: vars\.vox_state_warning, color: vars\.vox_state_warning/);
+    // A toggle that waits keeps its place in the Tab order (aria-disabled) and is drawn as one that
+    // cannot be used, as the kit's Button is; hovering it changes nothing.
+    const toggle = read("Toggle.css.ts");
+    assert.match(toggle, /const unusable = "&:disabled, &\[aria-disabled='true'\]";/);
+    assert.equal(toggle.match(/\[unusable\]: disabledLook/g)?.length, 2, "the toggle and the group's item");
+    assert.match(toggle, /const usable = ":not\(:disabled\):not\(\[aria-disabled='true'\]\)";/);
+    assert.doesNotMatch(toggle, /:hover:not\(:disabled\)/);
 });

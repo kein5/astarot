@@ -272,18 +272,24 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
         ["sidebar_section/language_settings/add_remove_target_language_buttons/AddRemoveTargetLanguageButtons.tsx", "AddRemoveTargetLanguageButtons", {}],
         ["main_section/message_container/message_log_settings_container/MessageLogSettingsContainer.tsx", "MessageLogSettingsContainer", {}],
     ] as const;
-    // The drawn controls a key can press: role="button", through the parts each draws of its own.
+    // The drawn controls a key can press: role="button", or a <button> (the kit's Button, Toggle and
+    // ToggleGroupItem, drawn by their stand-ins) that acts on the key itself, through the parts each
+    // draws of its own.
     const controls = (tree: unknown): TreeNode[] => {
+        // A part may draw several elements (the kit's Popover draws its trigger and its content).
+        if (Array.isArray(tree)) return tree.flatMap(controls);
         const node = treeNode(tree);
         if (!node) return [];
         // A part the page draws of its own, drawn as React would.
         if (typeof node.type === "function") return controls(draw(node));
-        return [node.props.role === "button" ? node : null,
+        const pressable = node.props.role === "button" || (node.type === "button" && typeof node.props.onKeyDown === "function");
+        return [pressable ? node : null,
             ...[node.props.children].flat(Infinity).flatMap(controls)].filter((control): control is TreeNode => Boolean(control));
     };
     for (const [path, name, props] of cases) {
         // Each case's module draws the part named in it with the case's props.
         const module = await loadModule<Record<string, Part>>(new URL(path, import.meta.url), runtime, imports);
+        assert.ok(controls(runtime.render(module[name], props)).length > 0, `${name} draws a control a key presses`);
         for (const key of ["Enter", " "]) {
             const render = () => controls(runtime.render(module[name], props));
             for (let index = 0; index < render().length; index++) {

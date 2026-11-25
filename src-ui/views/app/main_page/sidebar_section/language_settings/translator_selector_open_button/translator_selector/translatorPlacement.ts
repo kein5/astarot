@@ -1,5 +1,6 @@
-// Where the translator list popover goes in the window. No DOM is touched here:
-// the component measures the button, rail, panel and window, and hands them in.
+// Where the translator list popover opens. No DOM is touched here: the component measures the
+// button, the rail, the panel and the window, and hands them in; the kit's Popover (Radix) places
+// the panel from the side chosen here and keeps it inside the window.
 
 export interface Box {
     left: number;
@@ -8,53 +9,42 @@ export interface Box {
     height: number;
 }
 
-export interface Size {
-    width: number;
-    height: number;
-}
-
-export interface PopoverInput {
+export interface SideInput {
     anchor: Box;
     railRight: number;
-    panel: Size;
-    viewport: Size;
+    panelWidth: number;
+    viewportWidth: number;
     gap: number;
     margin: number;
-    topEdge: number;
 }
 
-export interface PopoverPlacement {
-    left: number;
-    top: number;
-    maxHeight: number;
+export interface PopoverSide {
+    side: "right" | "top";
+    align: "end" | "start";
+    // From the button's edge on that side, in px.
+    sideOffset: number;
 }
 
-const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, Math.max(low, high)));
-
-// Opens beside the rail on the right, aligned with the translator button's foot, so neither
-// the rail's switches and language controls nor the conversation moves (#1095). When a narrow
-// window has no room beside the rail, it stays inside the window above the button instead,
-// capped to the workspace below the title bar.
-export function placeTranslatorPopover({ anchor, railRight, panel, viewport, gap, margin, topEdge }: PopoverInput): PopoverPlacement {
-    const minTop = Math.max(margin, topEdge + margin);
-    const maxHeight = Math.max(120, Math.floor(viewport.height - minTop - margin));
-    const width = Math.min(panel.width, Math.max(0, viewport.width - margin * 2));
-    const height = Math.min(panel.height, maxHeight);
-    const rightStart = Math.max(anchor.left + anchor.width, railRight) + gap;
-
-    if (rightStart + width <= viewport.width - margin) {
-        return {
-            left: Math.round(rightStart),
-            top: Math.round(clamp(anchor.top + anchor.height - height, minTop, viewport.height - margin - height)),
-            maxHeight,
-        };
+// Opens beside the rail on the right, its foot aligned with the button's, so neither the rail's
+// switches and language controls nor the conversation moves (#1095): the offset reaches past the
+// rail's edge. When a narrow window has no room beside the rail for the panel's full width, it
+// opens above the button, from its left edge, inside the window (a panel shrunk to a window that
+// cannot hold it never has room beside the rail).
+export function translatorPopoverSide({ anchor, railRight, panelWidth, viewportWidth, gap, margin }: SideInput): PopoverSide {
+    const anchorRight = anchor.left + anchor.width;
+    const rightStart = Math.max(anchorRight, railRight) + gap;
+    if (rightStart + panelWidth <= viewportWidth - margin) {
+        return { side: "right", align: "end", sideOffset: Math.round(rightStart - anchorRight) };
     }
+    return { side: "top", align: "start", sideOffset: Math.round(gap) };
+}
 
-    return {
-        left: Math.round(clamp(anchor.left, margin, viewport.width - margin - width)),
-        top: Math.round(clamp(anchor.top - gap - height, minTop, viewport.height - margin - height)),
-        maxHeight,
-    };
+// How tall the panel may be, in px: the window below the title bar (topEdge), less the margin
+// above and below, and never less than 120. It is fixed from the window, not from where Radix places
+// the panel: a height that followed the place would resize the panel each time Radix placed it, and
+// WebKit reports that loop of its ResizeObserver as an error on the page.
+export function translatorPanelMaxHeight({ viewportHeight, topEdge, margin }: { viewportHeight: number; topEdge: number; margin: number }): number {
+    return Math.max(120, Math.floor(viewportHeight - topEdge - margin * 2));
 }
 
 // Whether the trigger button is still in sight inside the scrolling rail.

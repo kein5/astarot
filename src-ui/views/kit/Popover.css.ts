@@ -7,7 +7,10 @@ import { vars } from "../theme/vars.css.ts";
 // (a menu of toggles) takes the tight inset.
 export const content = recipe({
     base: {
-        zIndex: 30,
+        // In a portal at the end of the page, over every layer the screens draw (the rail opened
+        // over the conversation is 40, a slider's value 100) and under the tooltips (1500), so a
+        // panel opened from a part of a layer stays above it. Radix's wrapper takes this level.
+        zIndex: 1000,
         maxWidth: "calc(100vw - 2.4rem)",
         border: `.1rem solid ${vars.vox_border}`,
         borderRadius: vars.vox_radius,

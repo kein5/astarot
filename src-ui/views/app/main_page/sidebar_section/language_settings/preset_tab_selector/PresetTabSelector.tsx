@@ -1,36 +1,35 @@
+import { useLanguageSettings } from "@logics_main";
+import { ToggleGroup, ToggleGroupItem } from "../../../../../kit/index.ts";
 import * as styles from "./PresetTabSelector.css.ts";
 
+const PRESETS = ["1", "2", "3"] as const;
+
+// The three presets beside the 「言語設定」 heading, as the kit's ToggleGroup (D-27, decided on
+// 2026-11-25): three radios named by their numbers, the preset in use checked. Each is a stop of
+// the Tab key, as the three buttons were (rovingFocus off). While the language settings are busy
+// they stay focusable but dimmed (aria-disabled) and a press waits. Pressing the preset in use with
+// the pointer changes nothing (Radix offers an empty value then); Enter and Space act on the key
+// going down, once while it is held, and ask for the preset even when it is the one in use, as
+// they did before the kit. The preset in use is the engine's: a placeholder until it is sent
+// (data-skeleton, MainPage.css.ts).
 export const PresetTabSelector = () => {
-    return (
-        <div className={styles.container}>
-            <Tab preset_number={"1"} />
-            <Tab preset_number={"2"} />
-            <Tab preset_number={"3"} />
-        </div>
-    );
-};
-
-import clsx from "clsx";
-
-import { useLanguageSettings } from "@logics_main";
-
-const Tab = (props: { preset_number: string }) => {
     const { canChangeLanguageSettings, isLanguageSettingsBusy, currentSelectedPresetTabNumber, setSelectedPresetTabNumber } = useLanguageSettings();
-    const onclickFunction = () => {
+    const press = (preset_number: string) => {
         if (!canChangeLanguageSettings()) return;
-        setSelectedPresetTabNumber(props.preset_number);
+        setSelectedPresetTabNumber(preset_number);
     };
-
-    const class_names = clsx(styles.tab_container, {
-        [styles.is_selected]: (currentSelectedPresetTabNumber.data === props.preset_number) ? true : false
-    });
+    const selected = currentSelectedPresetTabNumber.data;
 
     return (
-        // The selected tab is the engine's; a placeholder until it is sent.
-        <div className={class_names} data-skeleton="" aria-disabled={isLanguageSettingsBusy} onClick={onclickFunction}
-            role="button" tabIndex={0} aria-pressed={currentSelectedPresetTabNumber.data === props.preset_number}
-            onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; onclickFunction(); } }}>
-            <p className={styles.tab_number}>{props.preset_number}</p>
-        </div>
+        <ToggleGroup type="single" rovingFocus={false} className={styles.container} value={selected}
+            onValueChange={value => { if (value && value !== selected) press(value); }}>
+            {PRESETS.map(preset_number => (
+                <ToggleGroupItem key={preset_number} value={preset_number} className={styles.tab} data-skeleton=""
+                    aria-disabled={isLanguageSettingsBusy}
+                    onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; press(preset_number); } }}>
+                    {preset_number}
+                </ToggleGroupItem>
+            ))}
+        </ToggleGroup>
     );
 };

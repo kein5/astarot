@@ -8,6 +8,10 @@ import { colourTransition, disabledLook, focusRing } from "./shared.css.ts";
 // lilac tint, as a card in use does. The warning tone is mute's: amber while pressed, as the stop
 // actions have always drawn it (D-27 keeps it). Its words say the state too; colour only repeats them.
 const on = "&[data-state='on']";
+// A toggle that cannot be used now but keeps its place in the Tab order (aria-disabled, while
+// something waits) is drawn as a disabled one, as the kit's Button does.
+const usable = ":not(:disabled):not([aria-disabled='true'])";
+const unusable = "&:disabled, &[aria-disabled='true']";
 export const toggle = recipe({
     base: {
         display: "inline-flex",
@@ -31,9 +35,9 @@ export const toggle = recipe({
         cursor: "pointer",
         transition: colourTransition,
         selectors: {
-            "&:hover:not(:disabled)": { background: vars.vox_secondary_hover },
+            [`&:hover${usable}`]: { background: vars.vox_secondary_hover },
             "&:focus-visible": focusRing,
-            "&:disabled": disabledLook,
+            [unusable]: disabledLook,
         },
     },
     variants: {
@@ -41,13 +45,13 @@ export const toggle = recipe({
             accent: {
                 selectors: {
                     [on]: { borderColor: vars.vox_state_active, background: vars.vox_highlight_tint },
-                    [`${on}:hover:not(:disabled)`]: { background: vars.vox_highlight_tint },
+                    [`${on}:hover${usable}`]: { background: vars.vox_highlight_tint },
                 },
             },
             warning: {
                 selectors: {
                     [on]: { borderColor: vars.vox_state_warning, color: vars.vox_state_warning, background: vars.dark_900_color },
-                    [`${on}:hover:not(:disabled)`]: { background: vars.dark_850_color },
+                    [`${on}:hover${usable}`]: { background: vars.dark_850_color },
                 },
             },
         },
@@ -99,10 +103,10 @@ export const groupItem = style({
     cursor: "pointer",
     transition: colourTransition,
     selectors: {
-        "&:hover:not(:disabled)": { background: vars.vox_secondary_hover },
+        [`&:hover${usable}`]: { background: vars.vox_secondary_hover },
         [on]: { background: vars.dark_850_color, color: vars.dark_200_color, fontWeight: 600 },
-        [`${on}:hover:not(:disabled)`]: { background: vars.dark_850_color },
+        [`${on}:hover${usable}`]: { background: vars.dark_850_color },
         "&:focus-visible": { ...focusRing, outlineOffset: ".1rem" },
-        "&:disabled": disabledLook,
+        [unusable]: disabledLook,
     },
 });
