@@ -12,7 +12,7 @@ import { PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
 import type { VoiceSettings } from "../../../../../../logics/voice/useVoice";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption } from "../../../../../kit/index.ts";
 
 // The route the saved settings name: "external" or "managed", as the core sends it.
 const routingOf = (settings: VoiceSettings): string | undefined => typeof settings.routing === "string" ? settings.routing : undefined;
@@ -72,11 +72,11 @@ export const VoiceRouteSettings = ({ subheading = false }: { subheading?: boolea
         {/* What the route is shared by and when it can change: the heading's line, or its hint on a page reviewed against #614. */}
         <SectionLabelComponent sub={subheading} label={t("voice.routing")} desc={t(usesOutputDevice(directState) ? "voice_ui.route_hint_device" : "voice_ui.route_hint")} />
         {form.draft && <form {...form.groupProps} aria-busy={form.saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
-            <label>{t("voice.routing")}<select aria-label={t("voice.routing")} value={routingOf(form.draft)} disabled={busy}
+            <label>{t("voice.routing")}<Select aria-label={t("voice.routing")} value={routingOf(form.draft)} disabled={busy}
                 onChange={e => form.setDraft({ ...form.draft, routing: e.target.value })}>
-                <option value="external">{t("voice.routing_external")}</option>
-                {!usesOutputDevice(directState) && <option value="managed">{t("voice.routing_managed")}</option>}
-            </select></label>
+                <SelectOption value="external">{t("voice.routing_external")}</SelectOption>
+                {!usesOutputDevice(directState) && <SelectOption value="managed">{t("voice.routing_managed")}</SelectOption>}
+            </Select></label>
             {/* What to do in VRChat stays in view; how the microphone is prepared is its hint (#614). */}
             {form.draft.routing === "managed" && <Lead text={t("voice.managed_lead")} details={t("voice.managed_details")} />}
         </form>}

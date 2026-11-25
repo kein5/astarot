@@ -49,9 +49,9 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
         sent.push(value === undefined ? [endpoint] : [endpoint, value]);
         return endpoint === "/set/data/voice_settings" ? Promise.resolve({ status: 200, result: { ...voice.settings, ...(value as object) } }) : true;
     }, updateError: () => {} };
-    // The kit's Button and TextField as the elements they stand for, with the props the page gives
-    // them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
-    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
+    // The kit's Button, TextField and Select as the elements they stand for, with the props the page
+    // gives them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
+    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input", Select: "select", SelectOption: "option" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         

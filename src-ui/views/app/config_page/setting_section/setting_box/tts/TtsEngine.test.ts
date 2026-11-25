@@ -9,14 +9,17 @@ interface Options {
     draft: VoiceSettings;
     saved?: VoiceSettings | null;
     engineVoices?: EngineVoices | null;
+    // The words as a language would write them, with the values put in; the keys alone by default.
+    translate?: (key: string, values?: object) => string;
 }
 
 // The engine part of the TTS page (ADR-008), with the voice hook and the readout stubbed.
-async function setup({ draft, saved = draft, engineVoices = null }: Options) {
+async function setup({ draft, saved = draft, engineVoices = null, translate }: Options) {
     const runtime = hooks();
     const sent: [string, unknown][] = [];
     const state: { draft: VoiceSettings } = { draft: { ...draft } };
     const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule<typeof import("./TtsEngine.tsx")>(new URL("./TtsEngine.tsx", import.meta.url), runtime, {
+        ...(translate ? { "@useI18n": { useI18n: () => ({ t: translate }) } } : {}),
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: async () => {} },
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ engineVoices, send: (endpoint: string, data: unknown) => sent.push([endpoint, data]) }) },
@@ -42,8 +45,8 @@ async function setup({ draft, saved = draft, engineVoices = null }: Options) {
         validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS };
 }
 
-const selects = (tree: unknown) => nodesIn(tree).filter(node => node.type === "select");
-const options = (node: unknown) => nodesIn(node).filter(child => child.type === "option");
+const selects = (tree: unknown) => nodesIn(tree).filter(node => node.type === kitStandIns.Select);
+const options = (node: unknown) => nodesIn(node).filter(child => child.type === kitStandIns.SelectOption);
 
 const voicevox = { japanese_engine: "voicevox", voicevox_url: "http://127.0.0.1:50021",
     engine_voice_id: "3", engine_voice_speaker: "ずんだもん", engine_voice_style: "ノーマル" };
@@ -66,7 +69,7 @@ test("an installed engine is checked at once, and its voices are grouped by spea
     assert.deepEqual(s.sent, [["/get/data/tts_engine_voices", { engine: "voicevox", url: "http://127.0.0.1:50021" }]]);
     const voice = selects(tree)[1];
     const groups: unknown[] = [];
-    find(voice, node => { if (node.type === "optgroup") groups.push(node.props.label); return false; });
+    find(voice, node => { if (node.type === kitStandIns.SelectOptGroup) groups.push(node.props.label); return false; });
     assert.deepEqual(groups, ["四国めたん", "ずんだもん"]);
     assert.equal(voice.props.value, "3");
     // The saved voice is in the list, so it is not repeated as a saved-only entry.
@@ -213,4 +216,44 @@ test("a number out of its range is marked invalid and points at the error", asyn
     assert.equal(fields[1].props["aria-describedby"], undefined);
     assert.ok(fields.every(field => field.props.placeholder === "voice_ui.example"));
     s.runtime.unmount();
+});
+
+test("the engine's lists are the kit's Select with the kit's options and groups, named as before", async () => {
+    // D-14 (decided on 2026-11-25): the settings' select fields are the kit's Select.
+    const translate = (key: string, values?: object) => values ? `${key} ${JSON.stringify(values)}` : key;
+    const native = (tree: unknown) => nodesIn(tree).filter(node => node.type === "select" || node.type === "option" || node.type === "optgroup");
+    const labelOf = (tree: unknown, select: TreeNode) => [findIn(tree, node => node.type === "label"
+        && find(node, inner => inner.type === kitStandIns.Select && inner.props["aria-label"] === select.props["aria-label"]) !== null).props.children].flat()[0];
+    const texts = (node: unknown) => options(node).map(option => [option.props.value, [option.props.children].flat().join("")]);
+    // AI voice: the row says what the engine needs and offers speech.cpp first.
+    const ai = await setup({ draft: { japanese_engine: "speechcpp" }, translate });
+    let tree = ai.render();
+    const row = findIn(tree, node => node.type === "row");
+    assert.deepEqual([row.props.label, row.props.description], ["voice_ui.engine.label", "voice_ui.engine.description_speechcpp"]);
+    assert.deepEqual(texts(selects(tree)[0])[0], ["speechcpp", "voice_ui.engine.speechcpp"]);
+    ai.runtime.unmount();
+    // An installed engine: its voices under their speakers, each speaker with only its own styles.
+    const s = await setup({ draft: { ...voicevox, japanese_engine: "coeiroink", coeiroink_url: "http://127.0.0.1:50032" }, engineVoices: { ...connected, engine: "coeiroink" }, translate });
+    tree = s.render();
+    assert.equal(findIn(tree, node => node.type === "row").props.description, "voice_ui.engine.description");
+    assert.deepEqual(selects(tree).map(node => node.props["aria-label"]), ["voice_ui.engine.label", "voice_ui.engine.voice"]);
+    const voice = selects(tree)[1];
+    assert.equal(labelOf(tree, voice), "voice_ui.engine.voice");
+    assert.deepEqual(texts(voice)[0], ["", "voice_ui.engine.voice_unset"]);
+    assert.deepEqual(nodesIn(voice).filter(node => node.type === kitStandIns.SelectOptGroup).map(group => [group.props.label, options(group).map(option => option.props.value)]),
+        [["四国めたん", ["2"]], ["ずんだもん", ["3", "1"]]]);
+    // COEIROINK's sampling rate, each rate in the words of the language.
+    const coeiroink = s.renderCoeiroink();
+    const rate = selects(coeiroink)[0];
+    assert.deepEqual([rate.props["aria-label"], labelOf(coeiroink, rate)], ["voice_ui.engine.coeiroink.coeiroink_sampling_rate", "voice_ui.engine.coeiroink.coeiroink_sampling_rate"]);
+    assert.deepEqual(texts(rate)[0], ["16000", 'voice_ui.engine.coeiroink.rate_option {"rate":"16000"}']);
+    assert.deepEqual([...native(tree), ...native(coeiroink)], []);
+    s.runtime.unmount();
+    // No voice chosen: the list shows "not set"; a saved voice the engine does not list is named.
+    const unset = await setup({ draft: { japanese_engine: "voicevox", voicevox_url: "http://127.0.0.1:50021" }, engineVoices: connected, translate });
+    assert.equal(selects(unset.render())[1].props.value, "");
+    unset.runtime.unmount();
+    const gone = await setup({ draft: { ...voicevox, engine_voice_id: "9", engine_voice_style: "ささやき" }, engineVoices: connected, translate });
+    assert.deepEqual(texts(selects(gone.render())[1])[1], ["9", 'voice_ui.engine.voice_saved {"speaker":"ずんだもん","style":"ささやき"}']);
+    gone.runtime.unmount();
 });

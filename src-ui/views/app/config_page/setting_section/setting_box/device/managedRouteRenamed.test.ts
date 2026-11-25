@@ -76,3 +76,53 @@ test("the route's close, mute and unmute are the kit's plain buttons and send th
         assert.equal((await draw(route)).buttons[1].props.disabled, true);
     }
 });
+
+// The route is the kit's Select (D-14, decided on 2026-11-25), named by its label as before: the
+// managed route is offered only while the voice does not go to an output device, and the choice
+// waits while the route is changing.
+test("the route is chosen with the kit's Select, which offers the managed route only without an output device", async () => {
+    const draw = async (outputDevice: boolean, directState: Record<string, unknown>) => {
+        const runtime = hooks(), drafts: unknown[] = [];
+        const form = { draft: { routing: "external" }, saving: false, groupProps: {}, commit: () => { drafts.push("commit"); }, setDraft: (next: unknown) => { drafts.push(next); } };
+        const { VoiceRouteSettings } = await loadModule<typeof import("./VoiceRouteSettings.tsx")>(new URL("./VoiceRouteSettings.tsx", import.meta.url), runtime, {
+            "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "en" } }) },
+            "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: form.draft, directState, directPending: false, error: null,
+                updateError: () => {}, send: () => {} }) },
+            "../../../../../../logics/voice/routeState": { usesOutputDevice: () => outputDevice },
+            "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => form },
+            "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
+            "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+            "../_components/lead/Lead": { Lead: "lead" },
+            "../_components/form_row/FormRow": { FormRow: "row" },
+            "../_components/page_pointer/PagePointer": { PageLinkButton: "link" },
+            "../../../../../../logics/voice/voiceErrorText.ts": { voiceErrorText: () => "" },
+        });
+        const tree = runtime.render(VoiceRouteSettings, {});
+        const select = nodesIn(tree).find(node => node.type === kitStandIns.Select);
+        assert.ok(select);
+        const options = nodesIn(select).filter(node => node.type === kitStandIns.SelectOption).map(node => node.props.value);
+        const words = nodesIn(select).filter(node => node.type === kitStandIns.SelectOption).map(node => node.props.children);
+        const native = nodesIn(tree).filter(node => node.type === "select" || node.type === "option");
+        const label = nodesIn(tree).find(node => node.type === "label");
+        const element = nodesIn(tree).find(node => node.type === "form");
+        return { select, options, words, native, label, form: element, drafts, unmount: () => runtime.unmount() };
+    };
+    const ready = await draw(false, { observation_id: "o-1" });
+    assert.deepEqual([ready.select.props["aria-label"], ready.select.props.value, ready.select.props.disabled], ["voice.routing", "external", false]);
+    assert.deepEqual([ready.options, ready.words, ready.native], [["external", "managed"], ["voice.routing_external", "voice.routing_managed"], []]);
+    assert.equal([ready.label?.props.children].flat()[0], "voice.routing");
+    // Enter in the form saves it, as the form's own submit, without leaving the page.
+    let prevented = false;
+    ready.form?.props.onSubmit({ preventDefault: () => { prevented = true; } });
+    assert.deepEqual([prevented, ready.drafts], [true, ["commit"]]);
+    ready.drafts.length = 0;
+    ready.select.props.onChange({ target: { value: "managed" } });
+    assert.deepEqual(ready.drafts, [{ routing: "managed" }]);
+    ready.unmount();
+    const device = await draw(true, { observation_id: "o-1" });
+    assert.deepEqual(device.options, ["external"]);
+    device.unmount();
+    const changing = await draw(false, { observation_id: "o-1", pending: true });
+    assert.equal(changing.select.props.disabled, true);
+    changing.unmount();
+});

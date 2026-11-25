@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import type { ReactElement } from "react";
-import { hooks, loadModule, stubGlobals, eventTarget, find, componentNamed, isRecord } from "../test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, eventTarget, find, componentNamed, isRecord, kitStandIns } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { flush } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
@@ -65,7 +65,7 @@ async function setup(context: TestContext) {
     // which saves it at once (#1111, decided 3).
     const edit = (index: number, value: string) => {
         const tree = render()[index];
-        const select = find(tree, node => node.type === "select");
+        const select = find(tree, node => node.type === kitStandIns.Select);
         const group = find(tree, node => typeof node.props?.onChange === "function" && (node.type === "form" || node.type === "fieldset"));
         assert.ok(select && group);
         select.props.onChange({ target: { value } });
@@ -105,7 +105,7 @@ test("a rejected route choice stays chosen when the output form saves successful
     await s.reply(0, 409); await s.reply(1, 200);
     assert.equal(s.state.settings.routing, "external");
     assert.equal(s.state.settings.output_device, "output-b");
-    const select = find(s.render()[0], node => node.type === "select");
+    const select = find(s.render()[0], node => node.type === kitStandIns.Select);
     assert.ok(select);
     assert.equal(select.props.value, "managed");
     assert.equal(s.requests.length, 2);
