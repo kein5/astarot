@@ -320,3 +320,31 @@ test("after the way back the focus returns to the trigger once it is drawn again
     assert.deepEqual(focused, ["Remove again"]);
     runtime.unmount();
 });
+
+test("a choice card is a label round a native radio, what it shows and its name, named as shadcn/ui's choice card", async () => {
+    const { runtime, module } = await kit<typeof import("./ChoiceCard.tsx")>("./ChoiceCard.tsx", {
+        "./ChoiceCard.css.ts": styleModule([]),
+    });
+    const onChange = () => {};
+    const drawn = runtime.render(module.ChoiceCard, { name: "theme", value: "forest", checked: true, onChange, title: "Forest",
+        className: "place", children: "picture" });
+    assert.deepEqual([drawn.type, drawn.props["data-slot"], drawn.props.className], ["label", "field-label", "card place"]);
+    const [radio, picture, name] = drawn.props.children;
+    assert.equal(radio.type, "input");
+    assert.deepEqual([radio.props.type, radio.props["data-slot"], radio.props.className, radio.props.name, radio.props.value,
+        radio.props.checked, radio.props.onChange], ["radio", "radio-group-item", "radio", "theme", "forest", true, onChange]);
+    // What the card shows comes between the radio and the name; the card adds nothing to it.
+    assert.equal(picture, "picture");
+    assert.deepEqual([name.type, name.props["data-slot"], name.props.className], ["span", "field-title", "title"]);
+    const [words, mark] = name.props.children;
+    assert.equal(words, "Forest");
+    // The check after the name (an SVG, which the harness draws as nothing) is drawn on every card
+    // and shown by the style only on the one in use, so it follows the radio itself; it is a
+    // picture, not read out.
+    assert.deepEqual([typeof mark.type, mark.props["data-slot"], mark.props.className, mark.props["aria-hidden"]],
+        ["function", "radio-group-indicator", "check", "true"]);
+    // A radio stays a radio, whatever the caller passes.
+    const unchecked = runtime.render(module.ChoiceCard, { title: "Custom", type: "checkbox", disabled: true });
+    const input = findIn(unchecked, node => node.type === "input", "the radio");
+    assert.deepEqual([input.props.type, input.props.checked, input.props.disabled], ["radio", undefined, true]);
+});

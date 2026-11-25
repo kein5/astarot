@@ -17,3 +17,4 @@ export { Badge, type BadgeProps } from "./Badge.tsx";
 export { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent, InlineConfirmDescription, InlineConfirmTrigger,
     type InlineConfirmContentProps, type InlineConfirmProps } from "./InlineConfirm.tsx";
 export { Textarea, type TextareaProps } from "./Textarea.tsx";
+export { ChoiceCard, type ChoiceCardProps } from "./ChoiceCard.tsx";

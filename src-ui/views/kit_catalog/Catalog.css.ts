@@ -96,3 +96,17 @@ export const composerFrame = style({
     selectors: { "&:focus-within": { borderColor: vars.primary_300_color } },
 });
 export const composerField = style({ height: "100%" });
+
+// A choice card takes the width its screen gives it: the theme tiles of Settings → Appearance.
+export const choiceCard = style({ width: "10.4rem" });
+
+// What a theme card shows here: its base and its accent side by side, for the picture the
+// Appearance page draws (ThemePicker.tsx). The colours are the theme's, set on the element.
+export const themeSwatch = style({
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    height: "4.4rem",
+    borderRadius: ".4rem",
+    overflow: "hidden",
+    border: `.1rem solid ${vars.dark_1000_color_66}`,
+});
