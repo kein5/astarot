@@ -47,8 +47,18 @@ async function setup(context: TestContext, { settings = DEFAULT_SETTINGS, placem
         assert.ok(node);
         return node;
     };
-    return { saved, item };
+    return { saved, item, runtime, DesktopCaptionOverlay };
 }
+
+test("the desktop captions are turned on by a switch of their own, under their heading (K-02)", async context => {
+    const s = await setup(context);
+    const tree = s.runtime.render(s.DesktopCaptionOverlay, { part: "enable" });
+    assert.ok(tree);
+    const [heading, row] = tree.props.children;
+    assert.deepEqual([heading.type, heading.props.label], ["section", "config_page.vr.section_label_desktop_overlay"]);
+    assert.deepEqual([row.type, row.props.setting_id, row.props.label, row.props.desc, row.props.variable.data],
+        ["switch", "desktop_overlay", "config_page.vr.desktop_overlay.label", "config_page.vr.desktop_overlay.desc", true]);
+});
 
 test("the reset puts a dragged window back on its edge and the size back to the default", async context => {
     const s = await setup(context, { settings: { ...DEFAULT_SETTINGS, position: "top", font_size: 44 }, placement: { x: 300, y: 200 } });

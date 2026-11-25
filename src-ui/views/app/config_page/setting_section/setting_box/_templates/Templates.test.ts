@@ -8,7 +8,7 @@ const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(t
 // The hint module (#614): `on` is whether the page keeps descriptions out of sight.
 const hintModule = (on: boolean) => ({ "../hint/Hint": { Hint: "hint", useHintDescriptions: () => on } });
 
-async function setup(hints = false) {
+async function setup(hints = false, narrow = false) {
     const runtime = hooks();
     const { LabelComponent } = await loadModule<typeof import("../_components/label_component/LabelComponent.tsx")>(new URL(base + "label_component/LabelComponent.tsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
@@ -24,7 +24,7 @@ async function setup(hints = false) {
         Slider: "slider", WordFilter: "word-filter",
         HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check", SettingSwitch: "switch" };
     const templates = await loadModule(new URL("./Templates.tsx", import.meta.url), runtime, {
-        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
+        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: narrow } }) },
         "../_components": components,
     });
     // A template of Templates.tsx, named as the tests loop over them, with the props each test
@@ -163,6 +163,11 @@ test("an on/off setting's row draws the settings' switch at its end, named by th
     const control = row.props.children[1];
     assert.equal(control.type, "switch");
     assert.deepEqual([control.props.label, control.props.variable.data, control.props.toggleFunction], ["Setting", true, toggleFunction]);
+    // In a narrow window a row that may stack puts its field under its label; the switch's row does not.
+    const narrow = await setup(false, true);
+    const wrapper = (name: string) => drawWith(narrow.runtime, narrow.render(name, { label: "Setting", variable: { state: "ok", data: true } }));
+    assert.equal(wrapper("SwitchContainer").props.className, "container control_end");
+    assert.equal(wrapper("SliderContainer").props.className, "container is_break_point");
 });
 
 // #614: on a page that keeps descriptions out of sight, a row's description is its label's hint.

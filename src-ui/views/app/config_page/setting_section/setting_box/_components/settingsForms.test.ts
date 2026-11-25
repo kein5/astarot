@@ -115,6 +115,7 @@ test("a setting's switch stays mounted and focused through pending, including re
         assert.equal(label.props.htmlFor, control.props.id);
         assert.equal(label.props.children[0].props, control.props);
         assert.equal(label.props["data-pending"], state === "pending" || undefined);
+        assert.equal(label.props["data-unavailable"], undefined);
         assert.equal(document.activeElement, focused);
         if (state === "pending") {
             control.props.onCheckedChange(true);
@@ -127,10 +128,13 @@ test("a setting's switch stays mounted and focused through pending, including re
             assert.deepEqual([label.props.children[1].props.className, label.props.children[1].props["aria-hidden"]], ["loader", "true"]);
         } else {
             assert.equal(label.props.children[1], false);
-            const click = key(); control.props.onClick(click);
+            let stopped = false;
+            const click = { ...key(), stopPropagation() { stopped = true; } }; control.props.onClick(click);
             const space = key(" "); control.props.onKeyDown(space);
             const other = key("a"); control.props.onKeyDown(other);
             assert.deepEqual([click.defaultPrevented, space.defaultPrevented, other.defaultPrevented], [false, false, false]);
+            // The press stays with the switch, as the checkbox's did: the row around it does not get it too.
+            assert.equal(stopped, true);
         }
     }
 });
@@ -184,6 +188,8 @@ for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OC
         for (const [handler, name] of [["onClick", undefined], ["onKeyDown", " "], ["onKeyDown", "Enter"]] as const) {
             const event = key(name); control.props[handler](event); assert.equal(event.defaultPrevented, true);
         }
+        // Tab and the other keys still move on from it.
+        const tab = key("Tab"); control.props.onKeyDown(tab); assert.equal(tab.defaultPrevented, false);
         control.props.onCheckedChange(true);
         assert.equal(calls, 0);
     });

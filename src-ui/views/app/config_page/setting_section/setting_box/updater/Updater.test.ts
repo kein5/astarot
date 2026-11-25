@@ -50,8 +50,8 @@ test("why a copy cannot update here stays on screen", async () => {
 
 test("that the app asks at each start stays on screen beside its switch; whom it asks is the hint", async () => {
     const { toggle } = await page(info("windows_installer", "install"));
-    assert.deepEqual([toggle.props.lead, toggle.props.desc, toggle.props.keep_desc],
-        ["app_update.check_at_start_lead", "app_update.check_at_start_desc", undefined]);
+    assert.deepEqual([toggle.props.label, toggle.props.lead, toggle.props.desc, toggle.props.keep_desc],
+        ["app_update.check_at_start", "app_update.check_at_start_lead", "app_update.check_at_start_desc", undefined]);
     // A copy that never checks has no such setting.
     assert.equal((await page(info("deb", "package_manager"))).toggle, undefined);
 });
