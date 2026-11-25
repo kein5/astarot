@@ -78,4 +78,26 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.equal(bar.type, "progress");
     assert.deepEqual(bar.props, { "data-slot": "progress", value: 3, max: 9, "aria-label": "words" });
     assert.deepEqual(kitStandIns.Progress({}).props, { "data-slot": "progress" });
+    // The Item list: a <ul> of <li> rows, default and default-sized unless asked; a mark for a
+    // state is hidden from screen readers.
+    assert.match(kit("Item.css.ts"), /defaultVariants: \{ variant: "default", size: "default" \}/);
+    assert.match(kit("Item.tsx"), /<ul data-slot="item-group"/);
+    assert.match(kit("Item.tsx"), /<li data-slot="item" data-variant=\{variant\} data-size=\{size\}/);
+    assert.match(kit("Item.tsx"), /data-slot="item-media" data-state=\{state\} aria-hidden=\{state \? "true" : undefined\}/);
+    const group = kitStandIns.ItemGroup({ children: "rows" });
+    assert.equal(group.type, "ul");
+    assert.deepEqual(group.props, { "data-slot": "item-group", "data-variant": "default", "data-size": "default", children: "rows" });
+    assert.deepEqual(kitStandIns.ItemGroup({ variant: "outline", size: "compact" }).props,
+        { "data-slot": "item-group", "data-variant": "outline", "data-size": "compact" });
+    const row = kitStandIns.Item({ "data-state": "own" });
+    assert.equal(row.type, "li");
+    assert.deepEqual(row.props, { "data-slot": "item", "data-variant": "default", "data-size": "default", "data-state": "own" });
+    assert.deepEqual(kitStandIns.Item({ variant: "attention", size: "compact" }).props, { "data-slot": "item", "data-variant": "attention", "data-size": "compact" });
+    assert.deepEqual(kitStandIns.ItemMedia({ state: "ready" }).props, { "data-slot": "item-media", "data-state": "ready", "aria-hidden": "true" });
+    assert.deepEqual(kitStandIns.ItemMedia({ children: "icon" }).props, { "data-slot": "item-media", "data-state": undefined, "aria-hidden": undefined, children: "icon" });
+    for (const [part, slot] of [["ItemContent", "item-content"], ["ItemTitle", "item-title"], ["ItemDescription", "item-description"], ["ItemActions", "item-actions"]] as const) {
+        assert.match(kit("Item.tsx"), new RegExp(`<div data-slot="${slot}"`), part);
+        const drawn = kitStandIns[part]({ className: "place" });
+        assert.deepEqual([drawn.type, drawn.props], ["div", { "data-slot": slot, className: "place" }], part);
+    }
 });

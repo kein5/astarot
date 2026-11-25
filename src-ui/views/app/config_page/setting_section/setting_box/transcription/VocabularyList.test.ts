@@ -24,7 +24,7 @@ async function setup(vocabulary: Vocabulary, { hints = false, builtin = BUILTIN 
         onVocabulary: (next: Vocabulary) => { given.push(next); props.vocabulary = next; } };
     const render = () => runtime.render(VocabularyList, props);
     // The row of a written form, and a button in it by its accessible name.
-    const row = (tree: unknown, written: string) => findIn(tree, node => node.type === "li" && nodesIn(node).some(child => child.props?.children === written));
+    const row = (tree: unknown, written: string) => findIn(tree, node => node.type === kitStandIns.Item && nodesIn(node).some(child => child.props?.children === written));
     const button = (scope: unknown, label: string) => findIn(scope, node => node.type === kitStandIns.Button && String(node.props["aria-label"] ?? node.props.children).startsWith(label));
     // The add row's fields, by their labels.
     const field = (label: string) => findIn(findIn(render(), node => node.type === "label" && node.props.children?.[0] === label), node => node.type === kitStandIns.TextField).props;
@@ -37,7 +37,7 @@ const words = (node: TreeNode): string[] => nodesIn(node).flatMap(child => typeo
 test("the rows say the readings in use and the user's change; the summary counts the terms in use", async () => {
     const s = await setup({ builtin: true, terms: ["猫丸=ねこまる", "Friends+=ふれぷら"], removed: ["Quest"] });
     const tree = s.render();
-    const states = nodesIn(tree).filter(node => node.type === "li").map(node => node.props["data-state"]);
+    const states = nodesIn(tree).filter(node => node.type === kitStandIns.Item).map(node => node.props["data-state"]);
     assert.deepEqual(states, ["own", "builtin", "changed", "removed"], "the user's own terms come first, as the core uses them");
     assert.ok(words(s.row(tree, "Friends+")).includes("ふれぷら"));
     // No badge on a row (#792): its state is its place and look, and the words of its buttons.
@@ -169,7 +169,7 @@ test("with the built-in terms off, or before their list arrives, the list is the
     for (const [vocabulary, builtin] of [[{ builtin: false, terms: ["Quest=くえすと"] }, BUILTIN], [{ builtin: true, terms: ["Quest=くえすと"] }, null]] as const) {
         const s = await setup(vocabulary, { builtin });
         const tree = s.render();
-        assert.deepEqual(nodesIn(tree).filter(node => node.type === "li").map(node => node.props["data-state"]), ["own"]);
+        assert.deepEqual(nodesIn(tree).filter(node => node.type === kitStandIns.Item).map(node => node.props["data-state"]), ["own"]);
         assert.equal(find(tree, node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_restore_all"), null);
         s.field("realtime.vocabulary_new_written").onChange({ target: { value: "黒猫" } });
         findIn(s.render(), node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_add").props.onClick();
@@ -194,14 +194,14 @@ test("the dictionary's fields and buttons are the kit's parts: the rows' small, 
         assert.deepEqual([s.field(label).spellCheck, s.field(label).mono, s.field(label).invalid], [false, undefined, undefined], label);
     }
     assert.deepEqual([s.button(tree, "realtime.vocabulary_add").props.tone, s.button(tree, "realtime.vocabulary_add").props.size], [undefined, undefined]);
-    // Fifty rows of actions stay a list: the kit's compact buttons, quiet, except deleting a term
-    // of the user's, which removes something.
+    // Fifty rows of actions stay a list: the kit's compact buttons, plain (H-09: quiet is never
+    // used alone), except deleting a term of the user's, which removes something.
     const kinds = (written: string) => nodesIn(s.row(tree, written)).filter(node => node.type === kitStandIns.Button)
         .map(node => [String(node.props.children), node.props.tone, node.props.size]);
-    assert.deepEqual(kinds("猫丸"), [["realtime.vocabulary_change_readings", "quiet", "compact"], ["realtime.vocabulary_remove_short", "danger", "compact"]]);
-    assert.deepEqual(kinds("Friends+"), [["realtime.vocabulary_change_readings", "quiet", "compact"], ["realtime.vocabulary_restore", "quiet", "compact"],
-        ["realtime.vocabulary_take_out", "quiet", "compact"]]);
-    assert.deepEqual(kinds("Quest"), [["realtime.vocabulary_put_back", "quiet", "compact"]]);
+    assert.deepEqual(kinds("猫丸"), [["realtime.vocabulary_change_readings", undefined, "compact"], ["realtime.vocabulary_remove_short", "danger", "compact"]]);
+    assert.deepEqual(kinds("Friends+"), [["realtime.vocabulary_change_readings", undefined, "compact"], ["realtime.vocabulary_restore", undefined, "compact"],
+        ["realtime.vocabulary_take_out", undefined, "compact"]]);
+    assert.deepEqual(kinds("Quest"), [["realtime.vocabulary_put_back", undefined, "compact"]]);
     assert.deepEqual([s.button(tree, "realtime.vocabulary_restore_all").props.tone, s.button(tree, "realtime.vocabulary_restore_all").props.size], [undefined, undefined]);
     // The readings being changed: the kit's field, marked wrong while the rules refuse it, and two
     // plain buttons of the page's size.
@@ -216,4 +216,61 @@ test("the dictionary's fields and buttons are the kit's parts: the rows' small, 
     for (const label of ["realtime.vocabulary_readings_apply", "realtime.vocabulary_readings_cancel"]) {
         assert.deepEqual([s.button(editing, label).props.tone, s.button(editing, label).props.size], [undefined, undefined], label);
     }
+});
+
+test("the list is the kit's compact Item rows: the written form, its readings, its buttons, and its state by its look", async () => {
+    const s = await setup({ builtin: true, terms: ["猫丸", "Friends+=ふれぷら"], removed: ["Quest"] });
+    const tree = s.render();
+    // The list keeps its name, the number of terms in use.
+    const group = findIn(tree, node => node.type === kitStandIns.ItemGroup, "the list");
+    assert.deepEqual([group.props.size, group.props.variant, group.props["aria-label"]], ["compact", undefined, "realtime.vocabulary_list:{\"count\":3}"]);
+    // Every row compact; a term whose readings the user changed on a tinted ground, one taken out quiet.
+    const rows = nodesIn(group).filter(node => node.type === kitStandIns.Item);
+    assert.deepEqual(rows.map(node => [node.props["data-state"], node.props.size, node.props.variant]),
+        [["own", "compact", "default"], ["builtin", "compact", "default"], ["changed", "compact", "muted"], ["removed", "compact", "removed"]]);
+    // The written form is the row's title, the readings its description, the buttons its actions.
+    const parts = (written: string) => {
+        const row = s.row(tree, written);
+        const content = findIn(row, node => node.type === kitStandIns.ItemContent, "the content");
+        return {
+            title: findIn(content, node => node.type === kitStandIns.ItemTitle, "the title").props.children,
+            description: words(findIn(content, node => node.type === kitStandIns.ItemDescription, "the description")),
+            actions: nodesIn(findIn(row, node => node.type === kitStandIns.ItemActions, "the actions")).filter(node => node.type === kitStandIns.Button).length,
+        };
+    };
+    assert.deepEqual(parts("Friends+"), { title: "Friends+", description: ["ふれぷら"], actions: 3 });
+    assert.deepEqual(parts("Quest"), { title: "Quest", description: ["クエスト"], actions: 1 });
+    assert.deepEqual(parts("猫丸"), { title: "猫丸", description: ["realtime.vocabulary_no_reading"], actions: 2 });
+    // Changing the readings: the field takes the description's place, and the actions are put away.
+    s.button(s.row(tree, "VRChat"), "realtime.vocabulary_change_readings_of").props.onClick();
+    const editing = s.row(s.render(), "VRChat");
+    assert.equal(find(editing, node => node.type === kitStandIns.ItemDescription), null);
+    assert.equal(find(editing, node => node.type === kitStandIns.ItemActions), null);
+    assert.ok(find(findIn(editing, node => node.type === kitStandIns.ItemContent), node => node.type === kitStandIns.TextField));
+});
+
+test("each row keeps its own identity, a term of the user's apart from a built-in one; a refused add is said in the problem's colour", async () => {
+    const s = await setup({ builtin: true, terms: ["猫丸", "Friends+=ふれぷら"], removed: ["Quest"] });
+    // The keys as React wrote them while listing the children (".$" first, "=" and ":" escaped).
+    const keys = nodesIn(s.render()).filter(node => node.type === kitStandIns.Item)
+        .map(node => String(node.key).replace(/^\.\$/, "").replace(/=2/g, ":").replace(/=0/g, "="));
+    assert.deepEqual(keys, ["own:猫丸", "builtin:VRChat=ブイアールチャット,ブイチャ", "builtin:Friends+=フレンドプラス,フレプラ", "builtin:Quest=クエスト"]);
+    const line = () => findIn(s.render(), node => node.type === "p" && node.props.role === "status").props.className;
+    assert.equal(line(), undefined);
+    s.field("realtime.vocabulary_new_written").onChange({ target: { value: "猫丸" } });
+    findIn(s.render(), node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_add").props.onClick();
+    assert.equal(line(), "problem", "a term in the dictionary already");
+    s.field("realtime.vocabulary_new_written").onChange({ target: { value: "黒猫" } });
+    findIn(s.render(), node => node.type === kitStandIns.Button && node.props.children === "realtime.vocabulary_add").props.onClick();
+    assert.equal(line(), undefined, "added");
+});
+
+test("with the user's terms at their limit, changing a built-in term's readings says the list is full", async () => {
+    const terms = Array.from({ length: vocabularyTerms.MAX_USER_TERMS }, (_, i) => `term${i}`);
+    const s = await setup({ builtin: true, terms });
+    s.button(s.row(s.render(), "VRChat"), "realtime.vocabulary_change_readings_of").props.onClick();
+    findIn(s.row(s.render(), "VRChat"), node => node.type === kitStandIns.TextField).props.onChange({ target: { value: "ぶいちゃ" } });
+    const row = s.row(s.render(), "VRChat");
+    assert.ok(find(row, node => node.props?.role === "status" && node.props.children === "realtime.vocabulary_readings_full"));
+    assert.equal(s.button(row, "realtime.vocabulary_readings_apply").props.disabled, true);
 });

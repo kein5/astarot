@@ -311,12 +311,13 @@ test("each finding is marked by its state, with its words and its action apart",
         // draws one level): drawn here with the props it was given, as the dialog would.
         const list = draw(s.part(s.render(), "Findings"));
         const rows: FindingRow[] = nodesIn(list).filter(isFinding).map(node => node.props);
-        // Where each row is drawn: the cards of what needs the user, or the quiet list after them.
-        const placed = (className: string) => {
-            const group = find(list, node => node.type === "ul" && node.props.className === className);
+        // Where each row is drawn: the cards of what needs the user (the kit's ItemGroup as it is),
+        // or the quiet list after them (its outline).
+        const placed = (variant: string | undefined) => {
+            const group = find(list, node => node.type === kitStandIns.ItemGroup && node.props.variant === variant);
             return nodesIn(group).filter(isFinding).map(node => shortName(node.props));
         };
-        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list, calls: w.calls };
+        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed(undefined), settled: placed("outline"), list, calls: w.calls };
     };
     const states = (rows: Record<string, FindingRow>) => Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state]));
 
@@ -329,6 +330,7 @@ test("each finding is marked by its state, with its words and its action apart",
     // the rest follow in the quiet list. Each keeps its order within its place.
     assert.deepEqual(needing.urgent, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
     assert.deepEqual(needing.settled, []);
+    assert.equal(find(needing.list, node => node.type === kitStandIns.ItemGroup && node.props.variant === "outline"), null, "no empty frame");
     assert.equal(needing.rows.mic.children, "first_run_setup.found.mic_missing");
     const lines = needing.rows.vrchat.children;
     assert.ok(Array.isArray(lines));
@@ -346,7 +348,7 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.deepEqual(states(ready.rows),
         { mic: "ready", vrchat: "ready", virtual_mic: "ready", translation: "ready", recognition: "ready" });
     // Nothing to do: no card at all, only the quiet list.
-    assert.equal(find(ready.list, node => node.type === "ul" && node.props.className === "urgent"), null);
+    assert.equal(find(ready.list, node => node.type === kitStandIns.ItemGroup && node.props.variant === undefined), null);
     assert.deepEqual(ready.settled, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
     assert.equal(ready.rows.mic.children, "Microphone (USB)");
     assert.ok(!ready.rows.translation.action, "nothing to do: no button");
@@ -383,6 +385,33 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.deepEqual([elsewhere.rows.vrchat.state, elsewhere.rows.recognition.state], ["checking", "neutral"]);
     assert.deepEqual(elsewhere.urgent, ["translation"]);
     assert.deepEqual(elsewhere.settled, ["mic", "vrchat", "virtual_mic", "recognition"]);
+});
+
+// The rows are the kit's Item (U-08): the attention card for what needs the user, quiet rows in the
+// outline group for the rest; the mark of the row's state, the name over the words, and the action.
+test("a finding is drawn as the kit's Item, its look and mark from its state", async context => {
+    const s = await setup(context, world({ mic: "NoDevice", vrchat: "checking", cables: [{ playback: "CABLE Input", recording: "CABLE Output" }],
+        catalog: NO_TRANSLATION, weight: "m2m100_1.2B-ct2-int8", needs: [{ id: "translation", action: "choose" }] }));
+    const list = draw(s.part(s.render(), "Findings"));
+    assert.equal(findIn(list, node => node.type === "h4", "the heading").props.children, "first_run_setup.found.heading");
+    const drawn = Object.fromEntries(nodesIn(list).filter(isFinding).map(node => [shortName(node.props), draw(node)]));
+    const look = (name: string) => {
+        const row = drawn[name];
+        const media = findIn(row, node => node.type === kitStandIns.ItemMedia, "the mark");
+        const content = findIn(row, node => node.type === kitStandIns.ItemContent, "the content");
+        const description = findIn(content, node => node.type === kitStandIns.ItemDescription, "the words");
+        const actions = find(row, node => node.type === kitStandIns.ItemActions);
+        return [row.type === kitStandIns.Item, row.props.variant, row.props["data-state"], media.props.state,
+            findIn(content, node => node.type === kitStandIns.ItemTitle, "the name").props.children, description.props.role, !!actions];
+    };
+    assert.deepEqual(look("mic"), [true, "attention", "attention", "attention", "first_run_setup.found.mic", undefined, false]);
+    // The VRChat words change by themselves, so they are announced.
+    assert.deepEqual(look("vrchat"), [true, "default", "checking", "checking", "first_run_setup.found.vrchat", "status", false]);
+    assert.deepEqual(look("virtual_mic"), [true, "default", "ready", "ready", "first_run_setup.found.virtual_mic", undefined, true]);
+    assert.deepEqual(look("translation"), [true, "attention", "attention", "attention", "first_run_setup.found.translation", undefined, true]);
+    // The action is the row's own button, under its words.
+    const action = findIn(findIn(drawn.translation, node => node.type === kitStandIns.ItemActions), node => node.type === "button", "the button");
+    assert.equal(action.props.children, "first_run_setup.found.translation_open_settings");
 });
 
 test("every string it uses is in both languages", () => {
@@ -601,6 +630,17 @@ test("only text to speech: the setup ends with its switch to turn on and the oth
     assert.ok(done());
     // Nothing is turned on: no switch is sent.
     assert.ok(!w.sent.some(([endpoint]) => /enable|toggle/.test(endpoint)));
+    // The next steps are the findings' quiet rows (the kit's outline ItemGroup): ready for the
+    // feature to turn on, neither for the others, each with its switch's words.
+    const steps = draw(next);
+    assert.equal(findIn(steps, node => node.type === "h4", "the heading").props.children, "first_run_setup.next.heading");
+    const group = findIn(steps, node => node.type === kitStandIns.ItemGroup, "the rows");
+    assert.equal(group.props.variant, "outline");
+    assert.deepEqual(nodesIn(group).filter(isFinding).map(node => [node.props.id, node.props.state, node.props.name, node.props.children]), [
+        ["next-recognition", "neutral", "first_run_setup.next.name_recognition", "first_run_setup.next.unused"],
+        ["next-translation", "neutral", "first_run_setup.next.name_translation", "first_run_setup.next.unused"],
+        ["next-speech", "ready", "first_run_setup.next.name_speech", "first_run_setup.next.use"],
+    ]);
 });
 
 // #955: a model that may be too heavy for the PC says so in its choice, as the catalog's file choice does.

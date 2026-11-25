@@ -32,7 +32,8 @@ import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresen
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as ui from "./FirstRunSetupController.css.ts";
-import { Progress } from "../../kit/index.ts";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle, Progress } from "../../kit/index.ts";
+import type { ItemState } from "../../kit/index.ts";
 
 const ACTIVE: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const finiteNumber = (value: unknown): value is number => Number.isFinite(value);
@@ -293,14 +294,14 @@ const NextSteps = ({ features }: { features: Record<SetupFeature, FeatureView> }
     const { t } = useI18n();
     return <section className={ui.section} aria-labelledby="first-run-next">
         <h4 id="first-run-next" className={ui.sectionTitle}>{t("first_run_setup.next.heading")}</h4>
-        <ul className={ui.items}>
+        <ItemGroup variant="outline">
             {(Object.keys(features) as SetupFeature[]).map(feature => {
                 const outcome = featureOutcome(features[feature]);
                 return <Finding key={feature} id={`next-${feature}`} state={outcome === "use" ? "ready" : "neutral"} name={t(`first_run_setup.next.name_${feature}`)}>
                     {t(outcome === "use" ? "first_run_setup.next.use" : "first_run_setup.next.unused", { switches: t(FEATURE_SWITCHES[feature]) })}
                 </Finding>;
             })}
-        </ul>
+        </ItemGroup>
     </section>;
 };
 
@@ -654,17 +655,17 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     const settled = rows.filter(row => row.state !== "attention");
     return <section className={ui.section} aria-labelledby="first-run-found">
         <h4 id="first-run-found" className={ui.sectionTitle}>{t("first_run_setup.found.heading")}</h4>
-        {urgent.length > 0 && <ul className={ui.urgent} data-slot="item-group" data-state="attention">
-            {urgent.map(row => <Finding key={row.id} {...row} />)}</ul>}
-        {settled.length > 0 && <ul className={ui.items} data-slot="item-group">
-            {settled.map(row => <Finding key={row.id} {...row} />)}</ul>}
+        {urgent.length > 0 && <ItemGroup data-state="attention">
+            {urgent.map(row => <Finding key={row.id} {...row} />)}</ItemGroup>}
+        {settled.length > 0 && <ItemGroup variant="outline">
+            {settled.map(row => <Finding key={row.id} {...row} />)}</ItemGroup>}
     </section>;
 };
 
-// How a row reads at a glance. ready: nothing to do; attention: the user has something to do
-// (its words say what); checking: not known yet; neutral: neither, such as a choice made
-// elsewhere.
-type FindingState = "ready" | "attention" | "checking" | "neutral";
+// How a row reads at a glance, as the kit's Item marks it. ready: nothing to do; attention: the
+// user has something to do (its words say what); checking: not known yet; neutral: neither, such as
+// a choice made elsewhere.
+type FindingState = ItemState;
 const VRCHAT_STATES: Record<VrchatPresenceState, FindingState> = {
     found: "ready", not_found: "attention", checking: "checking", unknown: "neutral", sending_off: "neutral", osc_query_off: "neutral",
 };
@@ -672,7 +673,8 @@ const RECOGNITION_STATES: Record<RecognitionState, FindingState> = {
     ready: "ready", needs_setup: "attention", unknown: "checking", cloud: "neutral", own_server: "neutral",
 };
 
-// One row (shadcn/ui's Item): the mark, the name over what was found, and the row's action.
+// One row, the kit's Item (shadcn/ui's): the mark, the name over what was found, and the row's
+// action under the words. A row that needs the user is the attention card.
 interface FindingProps {
     id: string;
     state: FindingState;
@@ -682,31 +684,14 @@ interface FindingProps {
     children: ReactNode;
 }
 const Finding = ({ state, name, live = false, action, children }: FindingProps) =>
-    <li className={state === "attention" ? ui.urgentItem : ui.item} data-slot="item" data-state={state}>
-        <StateMark state={state} />
-        <div className={ui.content} data-slot="item-content">
-            <span className={ui.itemTitle} data-slot="item-title">{name}</span>
-            <span className={ui.itemDescription} data-slot="item-description" role={live ? "status" : undefined}>{children}</span>
-        </div>
-        {action && <div className={ui.itemActions} data-slot="item-actions">{action}</div>}
-    </li>;
-
-// The mark only repeats what the row's words say, so it is hidden from screen readers.
-const StateMark = ({ state }: { state: FindingState }) =>
-    <span className={ui.mark} data-slot="item-media" data-state={state} aria-hidden="true">
-        <svg viewBox="0 0 16 16">
-            {state === "ready" && <>
-                <circle className={ui.markShape.ready} cx="8" cy="8" r="7" />
-                <path className={ui.markShape.glyph} d="M4.6 8.3l2.3 2.3 4.5-4.6" />
-            </>}
-            {state === "attention" && <>
-                <circle className={ui.markShape.attention} cx="8" cy="8" r="7" />
-                <path className={ui.markShape.glyph} d="M8 4.4v4.4M8 11.4v.2" />
-            </>}
-            {state === "checking" && <circle className={ui.markShape.arc} cx="8" cy="8" r="6" />}
-            {state === "neutral" && <circle className={ui.markShape.ring} cx="8" cy="8" r="6.2" />}
-        </svg>
-    </span>;
+    <Item variant={state === "attention" ? "attention" : "default"} data-state={state}>
+        <ItemMedia state={state} />
+        <ItemContent>
+            <ItemTitle>{name}</ItemTitle>
+            <ItemDescription role={live ? "status" : undefined}>{children}</ItemDescription>
+        </ItemContent>
+        {action && <ItemActions>{action}</ItemActions>}
+    </Item>;
 
 // The consent for the recognition models, then each step's progress.
 interface RecognitionSetupProps {

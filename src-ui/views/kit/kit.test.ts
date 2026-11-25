@@ -63,11 +63,45 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     const popover = read("Popover.tsx");
     for (const slot of ["popover", "popover-trigger", "popover-anchor", "popover-content"]) assert.match(popover, new RegExp(`data-slot="${slot}"`), slot);
     assert.match(read("Progress.tsx"), /<progress data-slot="progress"/);
+    const item = read("Item.tsx");
+    for (const slot of ["item-group", "item", "item-media", "item-content", "item-title", "item-description", "item-actions"]) {
+        assert.match(item, new RegExp(`data-slot="${slot}"`), slot);
+    }
+});
+
+test("what needs the user is a card in the warning's amber; the other rows are quiet, in one frame", () => {
+    // DESIGN.md "Components" (#759, #614): the layout says it before the words are read.
+    const css = read("Item.css.ts");
+    const attention = css.slice(css.indexOf("const attention = style({"), css.indexOf("const muted"));
+    assert.match(attention, /borderLeft: `\.3rem solid \$\{vars\.vox_state_warning\}`/);
+    assert.match(attention, /background: vars\.vox_warning_tint/);
+    assert.match(attention, /minHeight: "6\.4rem"/);
+    // The frame of the quiet rows, a hairline between two of them.
+    assert.match(css, /const outlineGroup = style\(\{\s*gap: 0,\s*border: `\.1rem solid \$\{vars\.vox_border\}`/);
+    assert.match(css, /\[`\$\{outlineGroup\} > & \+ &`\]: \{ borderTop: `\.1rem solid \$\{vars\.vox_border\}` \}/);
+    // The mark grows with the card and the name takes full strength (1.5rem / 600).
+    assert.match(css, /\[`\$\{attention\} > &`\]: \{ width: "2\.4rem", height: "2\.4rem"/);
+    assert.match(css, /\[`\$\{attention\} &`\]: \{ fontSize: "1\.5rem", fontWeight: 600/);
+    // A variant's room wins over its size's, and the frame's rows touch at any size: the classes
+    // that win are declared after the ones they override.
+    assert.ok(css.indexOf("const attention = style(") > css.indexOf("const compactSize = style("));
+    assert.ok(css.indexOf("const outlineGroup = style(") > css.indexOf("const compactGroup = style("));
+    // The spinning arc stands still for reduced motion.
+    assert.match(css, /"@media": \{ "\(prefers-reduced-motion: reduce\)": \{ animation: "none" \} \}/);
+});
+
+test("compact rows put the words under the name in a narrow list, and a row taken out is struck through", () => {
+    const css = read("Item.css.ts");
+    assert.match(css, /gridTemplateColumns: "minmax\(8rem, 14rem\) minmax\(0, 1fr\)"/);
+    assert.match(css, /"@container": \{ "\(max-width: 52rem\)": \{ gridTemplateColumns: "minmax\(0, 1fr\)", rowGap: 0 \} \}/);
+    assert.match(css, /\[`\$\{removed\} &`\]: \{ fontWeight: 400, color: vars\.dark_500_color, textDecoration: "line-through" \}/);
+    // The group is the container the rows measure.
+    assert.match(css, /containerType: "inline-size"/);
 });
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Button.tsx", "Dialog.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
+    for (const file of ["Button.tsx", "Dialog.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });

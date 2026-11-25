@@ -10,3 +10,5 @@ export { SettingGroup, SettingRow, type SettingGroupProps, type SettingRowProps,
 export { Toggle, ToggleGroup, ToggleGroupItem, type ToggleGroupItemProps, type ToggleGroupProps, type ToggleProps } from "./Toggle.tsx";
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger, type PopoverContentProps } from "./Popover.tsx";
 export { Progress, type ProgressProps } from "./Progress.tsx";
+export { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle,
+    type ItemGroupProps, type ItemMediaProps, type ItemProps, type ItemState } from "./Item.tsx";
