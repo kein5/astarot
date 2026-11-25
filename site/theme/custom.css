@@ -502,7 +502,7 @@ body {
   text-underline-offset: 4px;
 }
 
-/* ---------- The home footer ---------- */
+/* ---------- The guide footer ---------- */
 
 .site-footer {
   max-width: 1152px;
@@ -519,6 +519,23 @@ body {
   margin: 0;
 }
 
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 24px;
+}
+
+.site-footer nav:not(:last-child) {
+  margin-bottom: 12px;
+}
+
+.site-footer a {
+  color: var(--a-link);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 /* Keep the home actions before the mascot when the hero stacks on narrow screens. */
 .rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) {
   gap: 24px;
@@ -528,11 +545,6 @@ body {
   flex: 0 0 auto;
   align-self: center;
   width: clamp(132px, 23vw, 245px);
-}
-
-.rp-home-hero .rp-home-hero__image-img {
-  width: 100%;
-  height: auto;
 }
 
 .rp-home-hero.rp-home-hero:not(.rp-home-hero--no-image) .rp-home-hero__container {
