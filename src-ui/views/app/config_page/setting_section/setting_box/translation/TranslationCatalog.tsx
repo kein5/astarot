@@ -17,7 +17,7 @@ import { Lead } from "../_components/lead/Lead";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
 import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent,
-    InlineConfirmDescription, InlineConfirmTrigger, TextField } from "../../../../../kit/index.ts";
+    InlineConfirmDescription, InlineConfirmTrigger, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // The two groups of the catalog, and an entry with the group it is in.
 type CatalogGroupId = "engine" | "api";
@@ -241,10 +241,10 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
             </label>
             {/* The engine first: it says whether a folder or a file is asked for. */}
             <label>{t("translation_catalog.field.runtime")}
-                <select value={form.runtime} disabled={busy || runtimes.length < 2} onChange={set("runtime")}>
+                <Select value={form.runtime} disabled={busy || runtimes.length < 2} onChange={set("runtime")}>
                     {(runtimes.length ? runtimes : ["onnx"]).map(runtime =>
-                        <option key={runtime} value={runtime}>{t(`translation_catalog.runtime.${runtime}`, { defaultValue: runtime })}</option>)}
-                </select>
+                        <SelectOption key={runtime} value={runtime}>{t(`translation_catalog.runtime.${runtime}`, { defaultValue: runtime })}</SelectOption>)}
+                </Select>
             </label>
             <label>{t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}
                 {/* A path, in the kit's monospaced font (#476). */}
@@ -252,9 +252,9 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("folder")} />
             </label>
             {llamacpp && <label>{t("translation_catalog.field.device")}
-                <select value={form.device} disabled={busy} onChange={set("device")}>
-                    {LLAMA_DEVICES.map(device => <option key={device} value={device}>{t(`translation_catalog.device.${device}`)}</option>)}
-                </select>
+                <Select value={form.device} disabled={busy} onChange={set("device")}>
+                    {LLAMA_DEVICES.map(device => <SelectOption key={device} value={device}>{t(`translation_catalog.device.${device}`)}</SelectOption>)}
+                </Select>
             </label>}
             <label>{t("translation_catalog.field.languages")}
                 <TextField value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
@@ -301,10 +301,10 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
                     placeholder={t("translation_catalog.placeholder.api_name")} onChange={set("name")} />
             </label>
             <label>{t("translation_catalog.field.protocol")}
-                <select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
+                <Select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
                     {(protocols.length ? protocols : ["openai_compatible"]).map(protocol =>
-                        <option key={protocol} value={protocol}>{t(`translation_catalog.protocol.${protocol}`, { defaultValue: protocol })}</option>)}
-                </select>
+                        <SelectOption key={protocol} value={protocol}>{t(`translation_catalog.protocol.${protocol}`, { defaultValue: protocol })}</SelectOption>)}
+                </Select>
             </label>
             <label>{t("translation_catalog.field.url")}
                 {/* An address, in the kit's monospaced font (#476). */}
