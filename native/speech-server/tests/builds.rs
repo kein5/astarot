@@ -21,7 +21,8 @@ impl Folder {
     fn new() -> Folder {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let name = format!("vrct-speech-builds-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
-        let path = std::env::temp_dir().join(name);
+        // Beside the stand-in, on its file system, so that it can be linked there.
+        let path = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
         std::fs::create_dir_all(&path).unwrap();
         Folder(path.canonicalize().unwrap())
     }
@@ -50,7 +51,12 @@ fn bundle(root: &Path, name: &str, variant: &str, pc: Pc) -> (String, String) {
     let folder = root.join(name);
     std::fs::create_dir_all(&folder).unwrap();
     let binary = folder.join(EXECUTABLE);
-    std::fs::copy(FAKE, &binary).unwrap();
+    // A hard link, never a copy (#1073): a copy is open for writing while it is written, a process
+    // another test starts at that moment holds that handle until it runs its own program, and
+    // running the copy then fails with "Text file busy" (ETXTBSY) on Linux. A layout made again in
+    // the same folder links it again.
+    let _ = std::fs::remove_file(&binary);
+    std::fs::hard_link(FAKE, &binary).unwrap();
     let meta = json!({"schema": 1, "version": astarot_speech_server::bundle::VERSION, "variant": variant});
     std::fs::write(folder.join("bundle.json"), meta.to_string()).unwrap();
     let cpu = json!({"name": "CPU", "description": "Fake CPU", "kind": "cpu", "memory_total": 1u64 << 34});

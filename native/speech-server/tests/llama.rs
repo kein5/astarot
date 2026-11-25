@@ -3,7 +3,7 @@
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -20,7 +20,8 @@ impl Folder {
     fn new() -> Folder {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let name = format!("vrct-llama-server-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
-        let path = std::env::temp_dir().join(name);
+        // Beside the stand-in, on its file system, so that `place` can link it.
+        let path = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
         std::fs::create_dir_all(&path).unwrap();
         Folder(path.canonicalize().unwrap())
     }
@@ -36,6 +37,14 @@ impl Drop for Folder {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// Puts the stand-in at `to` as a hard link, never as a copy (#1073). A copy is open for writing
+/// while it is written, and a server another test of this process starts at that moment holds
+/// that handle until it runs its own program: running the copy then fails with "Text file busy"
+/// (ETXTBSY) on Linux.
+fn place(to: &Path) {
+    std::fs::hard_link(FAKE, to).unwrap();
 }
 
 fn options(model: PathBuf, device: Device) -> Options {
@@ -189,7 +198,7 @@ fn a_server_that_dies_after_it_was_ready_is_reported() {
 fn the_devices_are_those_the_server_lists() {
     let folder = Folder::new();
     let copy = folder.0.join(if cfg!(windows) { "llama-server.exe" } else { "llama-server" });
-    std::fs::copy(FAKE, &copy).unwrap();
+    place(&copy);
     // A build without Vulkan lists none.
     assert_eq!(list_devices(&copy, &None), Some(Vec::new()));
     std::fs::write(folder.0.join("devices.txt"), "  Vulkan0: Intel(R) Iris(R) Xe Graphics (16296 MiB, 15527 MiB free)\n  Vulkan1: NVIDIA GeForce RTX 3060 Ti (8238 MiB, 7460 MiB free)\n").unwrap();
