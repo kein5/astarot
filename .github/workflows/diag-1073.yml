@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         variant: [current, fixed]
-        copy: [1, 2, 3]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,14 +34,13 @@ jobs:
             sleep $((attempt * 20))
           done
       - run: cargo test --locked --manifest-path native/core/Cargo.toml --lib --test secret_store --no-run
-      - run: bash tools/ci/diag_1073_linux.sh ${{ matrix.variant }} 60
+      - run: bash tools/ci/diag_1073_linux.sh ${{ matrix.variant }} 150
   windows:
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         variant: [current, serial, credrace]
-        copy: [1, 2]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,4 +58,4 @@ jobs:
           save-if: false
       - if: matrix.variant != 'credrace'
         run: cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store --no-run
-      - run: pwsh -File tools/ci/diag_1073_windows.ps1 -Variant ${{ matrix.variant }} -Runs 100
+      - run: pwsh -File tools/ci/diag_1073_windows.ps1 -Variant ${{ matrix.variant }} -Runs 200
