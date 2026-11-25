@@ -27,7 +27,7 @@ import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { rvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
 import type { DirectVoiceSelection, DirectVoiceVariant } from "../../../../../../logics/voice/directVoiceDraft";
 import type { DirectVoiceSettings as SavedDirectVoice } from "../../../../../../logics/voice/useVoice";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // The direct voice form: the mode, Seed-VC's and RVC's paths and RVC's numbers.
 interface DirectVoiceDraft extends DirectVoiceSelection {
@@ -177,10 +177,10 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
         <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
         {variant === "all" && <label>{t("voice.direct_mode")}
-            <select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
-                <option value="passthrough">{t("voice.direct_passthrough")}</option>
-                <option value="converted">{t("voice.direct_converted")}</option>
-            </select>
+            <Select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
+                <SelectOption value="passthrough">{t("voice.direct_passthrough")}</SelectOption>
+                <SelectOption value="converted">{t("voice.direct_converted")}</SelectOption>
+            </Select>
         </label>}
         {converted && rvc && ([["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]] as const).map(([name, min, max, step]) =>
             <label key={name}>{t(`voice.vc_${name}`)}
@@ -200,10 +200,10 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 threads: draft.rvc_threads ? draft.rvc_threads : t("voice_ui.rvc_threads_auto"),
                 highpass: t(draft.rvc_highpass ? "voice_ui.rvc_highpass_on" : "voice_ui.rvc_highpass_off") })}>
             <label>{t("voice.vc_rvc_device")}
-                <select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
+                <Select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
                     onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
-                    {rvcDevices(directmlOffered, draft.rvc_device).map(device => <option key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</option>)}
-                </select>
+                    {rvcDevices(directmlOffered, draft.rvc_device).map(device => <SelectOption key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</SelectOption>)}
+                </Select>
             </label>
             <label>{t("voice.vc_rvc_threads")}
                 <TextField type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy}
@@ -221,11 +221,11 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         </fieldset>
         <FormRow label={t("voice.input_source")} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
             actions={<Button onClick={() => send("/get/data/direct_voice_sources")}>{t("voice.refresh_inputs")}</Button>}>
-            <select aria-label={t("voice.input_source")} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
-                <option value="">{t("voice.select_input")}</option>
-                {selected && !source && <option value={selected}>{t("voice.disconnected")}</option>}
-                {sources.map(item => <option key={key(item.id)} value={key(item.id)}>{item.label}</option>)}
-            </select>
+            <Select aria-label={t("voice.input_source")} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
+                <SelectOption value="">{t("voice.select_input")}</SelectOption>
+                {selected && !source && <SelectOption value={selected}>{t("voice.disconnected")}</SelectOption>}
+                {sources.map(item => <SelectOption key={key(item.id)} value={key(item.id)}>{item.label}</SelectOption>)}
+            </Select>
         </FormRow>
         {(managed || deviceRoute) && <VoiceRouteControls />}
         {/* In the control column, under the input it starts (#473, #478). */}

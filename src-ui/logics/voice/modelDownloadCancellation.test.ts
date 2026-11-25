@@ -192,9 +192,9 @@ test("the cards take the layout chosen on the heading's line, and one model aske
     const details = findIn(model, node => node.type === "catalog-facts");
     assert.equal(details.props.summary, "model_catalog.layout.facts_of", "the fold names the file type");
     assert.equal(findIn(other, node => node.type === "catalog-facts").props.summary, undefined, "one file of the model's name: Details");
-    assert.ok(find(details, node => node.type === "select"), "the choice of the file is in the fold");
+    assert.ok(find(details, node => node.type === kitStandIns.Select), "the choice of the file is in the fold");
     assert.equal(findIn(details, node => componentName(node) === "ModelFacts").props.part, "rest", "the languages and the terms in the fold");
-    assert.equal(find(findIn(model, node => node.type === kitStandIns.CardHeader), node => node.type === "select"), null);
+    assert.equal(find(findIn(model, node => node.type === kitStandIns.CardHeader), node => node.type === kitStandIns.Select), null);
     assert.ok(find(findIn(model, node => node.type === kitStandIns.CardFooter), node => node.type === "button"), "the actions stay on the card");
     // Whom it is suggested for is one short word: how many languages, or the one, in the accent badge.
     const badge = (card: TreeNode) => findIn(card, node => node.type === kitStandIns.Badge && node.props.tone === "accent").props.children;
@@ -245,8 +245,8 @@ test("the catalog groups models by use, one card per recognizer with its file ty
     // Each use is a part of the catalog of its own (catalogLayout.tsx's CatalogSection), named by it.
     const groups = () => nodesIn(render()).filter(node => node.type === "catalog-section").map(node => node.props.title);
     const cards = () => nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
-    const select = (card: TreeNode) => find(card, node => node.type === "select");
-    const choice = (card: TreeNode) => findIn(card, node => node.type === "select");
+    const select = (card: TreeNode) => find(card, node => node.type === kitStandIns.Select);
+    const choice = (card: TreeNode) => findIn(card, node => node.type === kitStandIns.Select);
     const values = (node: TreeNode) => [node.props.children].flat(2).filter(Boolean).map(option => option.props.value);
     assert.deepEqual(groups(), ["model_catalog.group.asr", "model_catalog.group.vad"]);
     assert.deepEqual(cards().map(card => card.props["aria-label"]), ["qwen", "v3", "VAD"]);

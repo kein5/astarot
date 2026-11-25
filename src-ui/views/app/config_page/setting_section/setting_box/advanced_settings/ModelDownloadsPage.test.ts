@@ -200,11 +200,11 @@ test("a speech output catalog keeps its GPU reading fresh every five seconds, an
 test("a speech output catalog asks how much memory to keep for VR, and its advice follows the choice", async context => {
     const voice = model("voice-a", { target: "multilingual", name: "Voice A · F16", guidance: checked(GiB) });
     const p = await catalogPage(context, { catalog: catalogOf([voice]), hardware: readyHardware([gpu("GPU0", 3 * GiB, 8 * GiB, "Card")]) });
-    const headroom = (tree: unknown) => findIn(tree, node => node.type === "select" && node.props["aria-label"] === "model_downloads.headroom");
+    const headroom = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Select && node.props["aria-label"] === "model_downloads.headroom");
     let tree = p.draw({ targets: ["multilingual"] });
     let select = headroom(tree);
     assert.equal(select.props.value, "vr");
-    assert.deepEqual(ofType(select, "option").map(option => [option.props.value, textOf(option)]),
+    assert.deepEqual(ofType(select, kitStandIns.SelectOption).map(option => [option.props.value, textOf(option)]),
         [["vr", "model_downloads.headroom_vr"], ["alone", "model_downloads.headroom_alone"]]);
     const label = findIn(tree, node => node.type === "label" && find(node, inner => inner.props?.["aria-label"] === "model_downloads.headroom") !== null);
     assert.equal([label.props.children].flat()[0], "model_downloads.headroom");
@@ -249,13 +249,13 @@ test("a page that reads the GPU once for several catalogs passes its headroom do
     assert.ok(lines.includes("model_downloads.multiple_gpus"), "two GPUs: the reading says which one it used");
     const shared = p.draw({ reserve: "alone" });
     assert.deepEqual(texts(findIn(shared, node => node.type === "catalog-section"), "p").slice(0, 2), ["model_downloads.advice_fits", "model_downloads.recommended: Voice A · F16"]);
-    assert.equal(find(shared, node => node.type === "select"), null, "no headroom of its own");
+    assert.equal(find(shared, node => node.type === kitStandIns.Select), null, "no headroom of its own");
     assert.equal(find(shared, node => node.type === "fold" && node.props.summary === "model_downloads.memory_boundary_summary"), null);
     assert.deepEqual(texts(shared, "button"), ["model_downloads.review"]);
     // Speech recognition has no such advice.
     const asr = await catalogPage(context, { catalog: catalogOf([model("asr-a")]), hardware: readyHardware([gpu("GPU0", 3 * GiB, 8 * GiB)]) });
     const tree = asr.draw();
-    assert.equal(find(tree, node => node.type === "select" || node.props?.summary === "model_downloads.memory_boundary_summary"), null);
+    assert.equal(find(tree, node => node.type === kitStandIns.Select || node.props?.summary === "model_downloads.memory_boundary_summary"), null);
     assert.equal(texts(tree, "p").some(text => text.startsWith("model_downloads.advice_")), false);
 });
 
@@ -310,14 +310,16 @@ test("a model of several files offers them by type, size and state, and says whe
         state: { observation_id: "1", jobs: {}, downloaded: { "whisper-q8": { model: "/q8.gguf" } } } });
     let tree = p.draw({ targets: ["asr"], expected: { asr: { model: "/other.gguf" } } });
     let card = cardNamed(tree, "Whisper");
-    const select = findIn(card, node => node.type === "select");
+    const select = findIn(card, node => node.type === kitStandIns.Select);
     assert.equal(select.props["aria-label"], `model_catalog.variant_of {"model":"Whisper"}`);
     assert.equal([findIn(card, node => node.type === "label").props.children].flat()[0], "model_catalog.variant");
     // The suggested file is shown first. The other is too heavy for an 8 GiB GPU: its option says so.
     assert.equal(select.props.value, "whisper-q8");
-    assert.deepEqual(texts(select, "option"), ["Q8_0 · 2.00 GiB · model_downloads.asr_type_default · model_catalog.status.downloaded",
+    assert.deepEqual(texts(select, kitStandIns.SelectOption), ["Q8_0 · 2.00 GiB · model_downloads.asr_type_default · model_catalog.status.downloaded",
         "Q4_K · 1.00 GiB · model_catalog.hardware_warning.option"]);
-    assert.deepEqual(ofType(select, "option").map(option => option.props.value), ["whisper-q8", "whisper-q4"]);
+    assert.deepEqual(ofType(select, kitStandIns.SelectOption).map(option => option.props.value), ["whisper-q8", "whisper-q4"]);
+    // D-14 (decided on 2026-11-25): the choice of the file is the kit's Select; the card draws no list of its own.
+    assert.deepEqual([...ofType(card, "select"), ...ofType(card, "option")], []);
     assert.deepEqual([card.props.tabIndex, card.props.role, card.props["data-status"]], [-1, "group", "downloaded"]);
     // Whom the model is for, from all its files; that it fits; its summary.
     assert.deepEqual(accentBadges(card),
@@ -330,13 +332,13 @@ test("a model of several files offers them by type, size and state, and says whe
     select.props.onChange({ target: { value: "whisper-q4" } });
     tree = p.draw();
     card = cardNamed(tree, "Whisper");
-    assert.equal(findIn(card, node => node.type === "select").props.value, "whisper-q4");
+    assert.equal(findIn(card, node => node.type === kitStandIns.Select).props.value, "whisper-q4");
     assert.ok(texts(card, "p").includes("model_downloads.manual_choice"));
     // The file shown is too heavy: a mark on the head, and the note under it in the list.
     assert.equal(named(card, "WarningBadge").length, 1);
     assert.equal(named(card, "WarningNote").length, 1);
     assert.equal(card.props["data-status"], "not_downloaded");
-    findIn(card, node => node.type === "select").props.onChange({ target: { value: "whisper-q8" } });
+    findIn(card, node => node.type === kitStandIns.Select).props.onChange({ target: { value: "whisper-q8" } });
     assert.equal(texts(cardNamed(p.draw(), "Whisper"), "p").includes("model_downloads.manual_choice"), false, "back on the suggested file");
 });
 
@@ -350,7 +352,7 @@ test("a model of one file names its type unless the name is the type, and a grid
     const variant = variantLines;
     assert.deepEqual(variant(cardNamed(tree, "Moon")), [["model_catalog.variant", "F16"]]);
     assert.deepEqual(variant(cardNamed(tree, "Plain")), []);
-    assert.equal(find(cardNamed(tree, "Moon"), node => node.type === "select"), null);
+    assert.equal(find(cardNamed(tree, "Moon"), node => node.type === kitStandIns.Select), null);
     // In the list: the warning note under the name, and the facts beside the file.
     assert.equal(named(cardNamed(tree, "Heavy"), "WarningNote").length, 1);
     assert.deepEqual(named(cardNamed(tree, "Moon"), "ModelFacts").map(node => node.props.part), [undefined]);
@@ -538,7 +540,7 @@ test("a download of another file of the model stays in sight, named, while it ru
     const p = await catalogPage(context, { catalog: catalogOf(rows), state: { observation_id: "1", jobs: {
         "m-q4": { job_id: "a", phase: "downloading", received_bytes: GiB / 4, total_bytes: GiB }, "m-q2": { job_id: "b", phase: "failed", error_code: "disk_full" } } } });
     let card = cardNamed(p.draw(), "Model");
-    assert.equal(findIn(card, node => node.type === "select").props.value, "m-q8");
+    assert.equal(findIn(card, node => node.type === kitStandIns.Select).props.value, "m-q8");
     assert.deepEqual(texts(card, "readout"), ["Model · Q4_K: model_downloads.phase_downloading · 0.25 GiB / 1.00 GiB"]);
     p.downloads.state = { observation_id: "2", jobs: { "m-q4": { job_id: "a", phase: "ready" }, "m-q8": { job_id: "c", phase: "applied" } } };
     card = cardNamed(p.draw(), "Model");
@@ -813,14 +815,14 @@ test("the shared GPU reading names the device, its free and total memory and whe
     let tree = readout();
     assert.deepEqual([tree.type, tree.props.role, tree.props["aria-label"]], ["div", "group", "model_downloads.hardware_title"]);
     assert.deepEqual(texts(tree, "h3"), ["model_downloads.hardware_title"]);
-    const select = findIn(tree, node => node.type === "select");
+    const select = findIn(tree, node => node.type === kitStandIns.Select);
     assert.deepEqual([select.props["aria-label"], select.props.value], ["model_downloads.headroom", "vr"]);
-    assert.deepEqual(ofType(select, "option").map(option => [option.props.value, textOf(option)]),
+    assert.deepEqual(ofType(select, kitStandIns.SelectOption).map(option => [option.props.value, textOf(option)]),
         [["vr", "model_downloads.headroom_vr"], ["alone", "model_downloads.headroom_alone"]]);
     assert.equal([findIn(tree, node => node.type === "label").props.children].flat()[0], "model_downloads.headroom");
     select.props.onChange({ target: { value: "alone" } });
     assert.deepEqual(chosen, ["alone"]);
-    assert.equal(findIn(readout("alone"), node => node.type === "select").props.value, "alone");
+    assert.equal(findIn(readout("alone"), node => node.type === kitStandIns.Select).props.value, "alone");
     tree = readout();
     const shown = findIn(tree, node => node.type === "readout");
     assert.equal(shown.props.live, false);
@@ -903,19 +905,19 @@ test("a model's file in use is shown first; the suggestion and another model's c
         state: { observation_id: "1", jobs: {}, downloaded: { "w-q4": { model: "/q4.gguf" } } } });
     let tree = p.draw({ targets: ["asr"], expected: { asr: { model: "/q4.gguf" } } });
     let card = cardNamed(tree, "Whisper");
-    const select = findIn(card, node => node.type === "select");
+    const select = findIn(card, node => node.type === kitStandIns.Select);
     assert.equal(select.props.value, "w-q4", "the file in use, before the suggested one");
-    assert.deepEqual(texts(select, "option"), ["Q8_0 · 1.00 GiB · model_downloads.asr_type_default", "Q4_K · 1.00 GiB · model_catalog.status.in_use"]);
+    assert.deepEqual(texts(select, kitStandIns.SelectOption), ["Q8_0 · 1.00 GiB · model_downloads.asr_type_default", "Q4_K · 1.00 GiB · model_catalog.status.in_use"]);
     assert.equal(texts(card, "p").includes("model_downloads.manual_choice"), false, "the user chose nothing");
     assert.deepEqual(variantLines(card), [], "several files: their type is in the choice");
     assert.equal(findIn(tree, node => node.type === "catalog-section").props.readout, `model_catalog.group_readout {"count":2,"obtained":1}`);
     // The suggested model is Whisper: Moon's card neither fits nor says the user left the suggestion.
     card = cardNamed(tree, "Moon");
     assert.equal(ofType(card, "span").some(node => textOf(node) === "model_catalog.fits_memory"), false);
-    findIn(card, node => node.type === "select").props.onChange({ target: { value: "m-b" } });
+    findIn(card, node => node.type === kitStandIns.Select).props.onChange({ target: { value: "m-b" } });
     tree = p.draw();
     card = cardNamed(tree, "Moon");
-    assert.equal(findIn(card, node => node.type === "select").props.value, "m-b");
+    assert.equal(findIn(card, node => node.type === kitStandIns.Select).props.value, "m-b");
     assert.equal(texts(card, "p").includes("model_downloads.manual_choice"), false);
 });
 
@@ -951,4 +953,12 @@ test("a translation model on the CPU is compared with the RAM, not with the spee
     const p = await catalogPage(context, { catalog: catalogOf([row]), hardware: readyHardware([{ name: "CPU", kind: "cpu", memory_total: 64 * GiB, memory_free: 32 * GiB },
         gpu("GPU0", 2 * GiB, 4 * GiB, "NVIDIA RTX")]) });
     assert.equal(named(cardNamed(p.draw({ targets: ["translation"], translationDevice: { device: "cpu", device_index: 0 } }), "NLLB"), "WarningBadge").length, 0);
+});
+
+test("a card's choice of the file keeps the column's width: the rule sizes the kit Select's wrapper, never the kit's field", async () => {
+    // The forms give the kit Select's wrapper a compact width; on a card the file's choice takes the
+    // facts' value column instead, as the card's own select did.
+    const css = (await import("node:fs")).readFileSync(new URL("./VoiceSettings.css.ts", import.meta.url), "utf8");
+    assert.match(css, /globalStyle\(variants\.map\(selector => `\$\{selector\} \[data-slot="native-select-wrapper"\]`\)\.join\(", "\), \{ width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" \}\);/);
+    assert.doesNotMatch(css, /\$\{selector\} select`/);
 });
