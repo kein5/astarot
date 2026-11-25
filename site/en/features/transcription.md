@@ -69,6 +69,7 @@ Game audio captions can show who is speaking. ASTAROT tells the voices apart and
 To use it, download and apply the diarization model under "Models and servers" â†’ "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
 - The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. In the VR subtitle overlay, "Multiple lines" shows it after "Receive" and "Single line" above the words.
+- The OBS browser source shows the letter above the words, and WebSocket messages carry it too ([OBS and WebSocket](./integrations#who-spoke)).
 - When the same person keeps talking, the conversation log shows who it is on the first line only, so their lines read as one run.
 - Speakers are told apart by the sound of their voices, so their names are not known. People with similar voices can be taken for one person.
 - When two people speak with little pause, their words end up in one caption. It then shows both, as "Speaker A, B".
@@ -79,7 +80,7 @@ To use it, download and apply the diarization model under "Models and servers" â
 
 ### Name the speakers
 
-Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR subtitle overlay (single line and multiple lines). A single-line caption already showing is not drawn again; the next one has the name.
+Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR subtitle overlay (single line and multiple lines). A single-line caption already showing is not drawn again; the next one has the name. The OBS browser source and WebSocket show the name only when "Send the names given to voices" is on under Advanced (off by default).
 
 Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
 
