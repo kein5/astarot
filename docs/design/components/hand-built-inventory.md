@@ -30,7 +30,7 @@ Components aligned with shadcn/ui. The sample page (`src-ui/kit-lab.html`) shows
 |---|---|---|
 | `Button` | `tone` (primary, plain, quiet, danger) and `size` (regular, compact, icon) | Button |
 | `TextField` | A native `<input>`, with `invalid` and `mono` | Input |
-| `Select`, `SelectOption`, `SelectOptGroup` | Wraps a native `<select>` | NativeSelect |
+| `Select`, `SelectOption`, `SelectOptGroup` | Wraps a native `<select>`. Where the engine supports `appearance: base-select` (WebView2), the open list is in the forms' look and a long value wraps (#1210) | NativeSelect |
 | `Switch` | Radix UI's Switch | Switch |
 | `Toggle`, `ToggleGroup`, `ToggleGroupItem` | Radix UI's Toggle and ToggleGroup: `tone` (accent, warning) and `size` (regular, compact, icon) (#1175) | Toggle, ToggleGroup |
 | `Popover`, `PopoverTrigger`, `PopoverAnchor`, `PopoverContent` | Radix UI's Popover, never modal: `inset` (regular, tight) (#1175) | Popover |
@@ -253,7 +253,7 @@ shadcn/ui に寄せた部品です。見本のページ（`src-ui/kit-lab.html`�
 |---|---|---|
 | `Button` | `tone`（primary、plain、quiet、danger）と `size`（regular、compact、icon） | Button |
 | `TextField` | ネイティブの `<input>`。`invalid` と `mono` | Input |
-| `Select`、`SelectOption`、`SelectOptGroup` | ネイティブの `<select>` を包む | NativeSelect |
+| `Select`、`SelectOption`、`SelectOptGroup` | ネイティブの `<select>` を包む。エンジンが `appearance: base-select` に対応していれば（WebView2）、開いた一覧はフォームの見た目になり、長い値は折り返す（#1210） | NativeSelect |
 | `Switch` | Radix UI の Switch | Switch |
 | `Toggle`、`ToggleGroup`、`ToggleGroupItem` | Radix UI の Toggle と ToggleGroup。`tone`（accent、warning）と `size`（regular、compact、icon）（#1175） | Toggle、ToggleGroup |
 | `Popover`、`PopoverTrigger`、`PopoverAnchor`、`PopoverContent` | Radix UI の Popover。モーダルにはしない。`inset`（regular、tight）（#1175） | Popover |

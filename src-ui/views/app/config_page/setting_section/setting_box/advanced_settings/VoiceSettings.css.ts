@@ -525,7 +525,8 @@ globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: 
 globalStyle(link_button, { display: "inline-flex", alignItems: "center", minHeight: "4rem" });
 // The shared GPU and memory group: space and a subheading, no frame.
 globalStyle(hardware, { display: "grid", gap: ".8rem", minWidth: 0, containerType: "inline-size" });
-// The select list's first frame (see the base-select rules for the form's select).
-globalStyle(`${container} select:open::picker(select)`, {
+// The select list's first frame (see the base-select rules for the form's select). The kit's
+// select has its own (kit/Field.css.ts).
+globalStyle(inForm("select:open::picker(select)"), {
     "@supports": { [BASE_SELECT]: { "@starting-style": { opacity: 0, transform: "translateY(-.6rem) scaleY(.94)" } } },
 });

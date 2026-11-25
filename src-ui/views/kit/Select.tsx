@@ -6,11 +6,13 @@ export type SelectProps = ComponentProps<"select"> & { invalid?: boolean };
 export type SelectOptionProps = ComponentProps<"option">;
 export type SelectOptGroupProps = ComponentProps<"optgroup">;
 
-// A native <select> in the field's clothes. The system draws the open list, so keyboard use,
-// screen readers and the VR panel's pointer behave as they do everywhere else; Radix Select was
-// left out of this experiment because it writes a <style> element at run time (see
-// docs/design/components/README.md). It is shadcn/ui's NativeSelect (DESIGN.md): the same
-// parts, named by the same data-slot. A ref is one of the props and goes on to the <select>.
+// A native <select> in the field's clothes. It stays the engine's own control, so screen readers
+// and the VR panel's pointer behave as they do everywhere else; where the engine can style the open
+// list (`appearance: base-select`, WebView2) the list is in the app's look and a long value wraps,
+// elsewhere the system draws it (Field.css.ts). Radix Select was left out of this experiment
+// because it writes a <style> element at run time (see docs/design/components/README.md). It is
+// shadcn/ui's NativeSelect (DESIGN.md): the same parts, named by the same data-slot. A ref is
+// one of the props and goes on to the <select>.
 export function Select({ invalid = false, className, children, ...rest }: SelectProps) {
     return (
         <span className={selectWrap} data-slot="native-select-wrapper">

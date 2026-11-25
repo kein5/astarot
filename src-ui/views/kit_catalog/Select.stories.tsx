@@ -4,8 +4,10 @@ import { PRESETS } from "../../logics/theme/themes.ts";
 import { Select, SelectOptGroup, SelectOption, type SelectProps } from "../kit/index.ts";
 import * as styles from "./Catalog.css.ts";
 
-// The system's <select> in the field's look (shadcn/ui's NativeSelect). The open list is drawn by the
-// system: WebView2 takes the field's colours for its rows, WebKitGTK partly (Field.css.ts).
+// The system's <select> in the field's look (shadcn/ui's NativeSelect). Where the engine can style
+// the open list (`appearance: base-select`: WebView2, and the Chromium of the catalog) the list drops
+// from the field in the app's look, and a long value wraps; WebKitGTK keeps the system's list and
+// cuts a long value at the field's edge (Field.css.ts).
 
 const FONTS = ["Yu Gothic UI", "Noto Sans JP", "Meiryo UI"];
 
@@ -65,7 +67,8 @@ export const Invalid: Story = { render: () => <ThemeSelect invalid /> };
 // The wrapper dims the field and its chevron together.
 export const Disabled: Story = { render: () => <ThemeSelect disabled /> };
 
-// A long choice stays inside the field; the chevron keeps its room.
+// A long choice stays inside the field and wraps where the engine draws the list itself; the
+// chevron keeps its room.
 export const LongOption: Story = {
     render: () => (
         <div className={styles.narrowBox}>
