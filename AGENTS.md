@@ -35,6 +35,8 @@ Reading only what is relevant is enough. You do not need to read everything ever
 | Linux builds, AppImage, GUI tests on a real machine | `docs/voice-stack/linux-build-pipeline.md`, `docs/voice-stack/appimage.md` |
 | Design decisions (ADRs) | `docs/adr/README.md` (the index, what the fields mean, how to write a new ADR) and each ADR. Check an ADR's state in the front matter at its top. |
 
+Issue bodies that maintainers (people and sessions) write take the same split form as pull request bodies (the `pull-request` skill): every section in English first, then a `---` line, then the same sections in Japanese. Where the two differ, the English is right. Comments that maintainers write, such as records of decisions, should take the same form where possible. Reports that outside users file from the issue templates are not covered; they may be in English or Japanese, as the templates say.
+
 ## Entry points for development and verification
 
 The entry point is `python tools/dev.py`. The versions of Node, Rust, Python, uv and Cocogitto are pinned in `mise.toml`, and `mise install` installs them. Frequent steps are set up as mise tasks (`mise run doctor`, `mise run check`, `mise run check:voice` and others; `mise tasks` lists them), and they run the same `tools/dev.py`. The npm scripts do not carry these shortcuts. They keep only what does not work without npm (Vite, Tauri, Vitest and type checking, plus launching and building the app). Check the list of scopes, the setup steps and the exit codes in `docs/development.md` and with `--help`.
@@ -172,6 +174,8 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
 | 設計判断（ADR） | `docs/adr/README.md`（索引、項目の意味、新しい ADR の書き方）と各 ADR。状態は冒頭の front matter で確かめる |
+
+保守担当者（人とセッション）が書く Issue の本文は、PR の本文（`pull-request` スキル）と同じ分割形で書きます。前半に英語ですべての節を書き、`---` の区切り線のあとに、同じ内容を日本語ですべての節に書きます。食い違うときは英語が正です。判断の記録など、保守担当者が書くコメントも、できるだけ同じ形で書きます。外部の利用者が Issue のテンプレートから出す報告は対象外で、テンプレートのとおり英語でも日本語でも構いません。
 
 ## 開発と検証の入口
 
