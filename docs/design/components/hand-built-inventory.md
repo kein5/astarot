@@ -43,7 +43,7 @@ Components aligned with shadcn/ui. The sample page (`src-ui/kit-lab.html`) shows
 |---|---|---|
 | `Checkbox` | Hides the native input and draws a box | Many settings pages through the settings' `CheckboxContainer`; "Device" |
 | `Tooltip` | A tooltip (not Radix, #766) | The main rail, the top bar, the title bar, the input field, stop and mute, the resend button |
-| `ToggleSwitch` | A `div` switch that does not take focus | Only the main feature switches |
+| `ToggleSwitch` | A `div` switch that does not take focus | Only the main feature switches (removed, #1200: they are the kit's `Switch`, D-19) |
 | `Empty`, `EmptyDescription` | "No results" | Settings search, the language list |
 | `CircularProgress` | Circular progress | Download buttons, the updating indicator |
 | `ResetButton`, `CloseButton` | Icon-only buttons | `ResetButton`: message formats and "Captions and VR"; `CloseButton`: notifications and the error screen |
@@ -88,7 +88,7 @@ Before the per-screen tables, these are the hand-built elements that every scree
 | Swapping languages, and adding and removing target languages (`LanguageSwapButton.tsx`, `AddRemoveTargetLanguageButtons.tsx`) | `div role="button"` | The kit's `Button` (`size="icon"`) (replaced, #1123) | Low | Turning the `div` into a `button` needs no decision (the same reasoning as item 11 of "Differences that can be aligned without a decision" in the comparison document) |
 | Translation engine selection (`TranslatorSelectorOpenButton.tsx`, `translator_selector/TranslatorSelector.tsx`) | The open button is a `div role="button"` with `aria-expanded`. Each engine in the opened list is a `div role="button"` with `aria-pressed` | The open button: the kit's `Button`. The opened list: U-04; choosing an engine: U-03 | High | Only one engine can be chosen, so radio behavior fits better than a group of `aria-pressed` buttons. Engines that cannot be used are taken out of the focus order |
 | Preset switching (`preset_tab_selector/PresetTabSelector.tsx`) | 3 `div role="button"` elements with `aria-pressed` | U-03 | High | Item 11 of "Differences that can be aligned without a decision" in the comparison document (turning the `div` into a `button`) is not applied yet |
-| Main feature switches (`main_function_switch/MainFunctionSwitch.tsx`) | The whole row is `role="switch"`, drawn inside with `ToggleSwitch`. The "Other features" and settings buttons | The kit's `Switch` (D-19); the buttons: the kit's `Button` | High | The pressable whole row, the way waiting is shown, the tooltip with the reason a feature cannot be used and the display in the compact rail have to be kept |
+| Main feature switches (`main_function_switch/MainFunctionSwitch.tsx`) | The whole row is `role="switch"`, drawn inside with `ToggleSwitch`. The "Other features" and settings buttons | The kit's `Switch` (D-19); the buttons: the kit's `Button` (the switches replaced, #1200; each row is the switch's label. The "Other features" and settings buttons are not replaced here) | High | The pressable whole row, the way waiting is shown, the tooltip with the reason a feature cannot be used and the display in the compact rail have to be kept |
 | Quick settings (`QuickSettingsMenu` in `top_bar/right_side_components/RightSideComponents.tsx`, `_buttons/OpenQuickSettingButton.tsx`) | Custom opening and closing (it closes on Esc, on a press outside and when focus leaves) and a `role="group"` panel. The items inside are `aria-pressed` buttons | The panel: U-04; the items: U-03 | High | The contents are a set of toggles, not a menu (`role="menu"`) (D-25) |
 | The "Inputs and outputs" panel (the open button in `RightSideComponents.tsx`, `io_flow_panel/IoFlowPanel.tsx`) | An open button with `aria-expanded` and `aria-controls`, a close button | The kit's `Button` (replaced, #1122) | Low | The open and close relationship stays as it is |
 | The update notice button (`RightSideComponents.tsx`) | `<button>` | The kit's `Button` (replaced, #1122) | Low | Its tooltip uses `Tooltip` |
@@ -265,7 +265,7 @@ shadcn/ui に寄せた部品です。見本のページ（`src-ui/kit-lab.html`�
 |---|---|---|
 | `Checkbox` | ネイティブの input を隠して箱を描く | 設定の `CheckboxContainer` を通して多くの設定のページ、「デバイス」 |
 | `Tooltip` | 吹き出し（Radix ではない、#766） | メインのレール、上のバー、タイトルバー、入力欄、停止とミュート、再送のボタン |
-| `ToggleSwitch` | フォーカスを受けない `div` のスイッチ | メインの機能のスイッチだけ |
+| `ToggleSwitch` | フォーカスを受けない `div` のスイッチ | メインの機能のスイッチだけ（削除した、#1200。それらは kit の `Switch`、D-19） |
 | `Empty`、`EmptyDescription` | 「結果なし」 | 設定の検索、言語の一覧 |
 | `CircularProgress` | 丸い進み具合 | 取得のボタン、更新中の表示 |
 | `ResetButton`、`CloseButton` | アイコンだけのボタン | `ResetButton` はメッセージの形と「字幕とVR」、`CloseButton` は通知とエラーの画面 |
@@ -310,7 +310,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 言語の入れ替えと、訳す言語の足し引き（`LanguageSwapButton.tsx`、`AddRemoveTargetLanguageButtons.tsx`） | `div role="button"` | kit の `Button`（`size="icon"`）（置き換えた、#1123） | 低 | `div` を `button` にするのは判断なしで寄せられます（照合の文書の「判断なしで寄せられる差」の 11 と同じ考え方） |
 | 翻訳エンジンの選択（`TranslatorSelectorOpenButton.tsx`、`translator_selector/TranslatorSelector.tsx`） | 開くボタンが `div role="button"` と `aria-expanded`。開いた一覧の各エンジンが `div role="button"` と `aria-pressed` | 開くボタンは kit の `Button`。開いた一覧は U-04、エンジンの選択は U-03 | 高 | 一つだけを選ぶ選択なので、`aria-pressed` のボタンの集まりより radio の振る舞いが合います。使えないエンジンはフォーカスから外しています |
 | プリセットの切り替え（`preset_tab_selector/PresetTabSelector.tsx`） | 3 つの `div role="button"` と `aria-pressed` | U-03 | 高 | 照合の文書の「判断なしで寄せられる差」の 11（`div` を `button` にする）は、まだ入っていません |
-| メインの機能のスイッチ（`main_function_switch/MainFunctionSwitch.tsx`） | 行全体が `role="switch"`。中の見た目は `ToggleSwitch`。「ほかの機能」と設定のボタン | kit の `Switch`（D-19）、ボタンは kit の `Button` | 高 | 行全体を押せる形、待ちの表し方、使えない理由の吹き出し、小さいレールでの表示を保つ必要があります |
+| メインの機能のスイッチ（`main_function_switch/MainFunctionSwitch.tsx`） | 行全体が `role="switch"`。中の見た目は `ToggleSwitch`。「ほかの機能」と設定のボタン | kit の `Switch`（D-19）、ボタンは kit の `Button`（スイッチは置き換えた、#1200。行はスイッチのラベル。「ほかの機能」と設定のボタンはここでは置き換えていない） | 高 | 行全体を押せる形、待ちの表し方、使えない理由の吹き出し、小さいレールでの表示を保つ必要があります |
 | クイック設定（`top_bar/right_side_components/RightSideComponents.tsx` の `QuickSettingsMenu`、`_buttons/OpenQuickSettingButton.tsx`） | 自作の開閉（Esc、外を押す、フォーカスが外に出ると閉じる）と `role="group"` の面。中の項目は `aria-pressed` のボタン | 面は U-04、中の項目は U-03 | 高 | 中身はトグルの集まりで、メニュー（`role="menu"`）ではありません（D-25） |
 | 「入力と出力」のパネル（`RightSideComponents.tsx` の開くボタン、`io_flow_panel/IoFlowPanel.tsx`） | `aria-expanded` と `aria-controls` の開くボタン、閉じるボタン | kit の `Button`（置き換えた、#1122） | 低 | 開閉の関係は今のまま残します |
 | 更新の知らせのボタン（`RightSideComponents.tsx`） | `<button>` | kit の `Button`（置き換えた、#1122） | 低 | 吹き出しは `Tooltip` を使っています |

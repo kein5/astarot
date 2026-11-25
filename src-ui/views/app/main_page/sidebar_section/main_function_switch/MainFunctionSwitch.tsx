@@ -32,8 +32,8 @@ import {
     useIsMainPageCompactMode,
     useMainFunction,
 } from "@logics_main";
-import { ToggleSwitch } from "../../../../common_components/toggle_switch/ToggleSwitch";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
+import { Switch } from "../../../../kit/index.ts";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -243,10 +243,10 @@ export const settingsLabel = (destination: SwitchBlockAction, t: TFunction) => {
 };
 
 // One row of the wide rail: the feature's icon is a button that opens its settings, the rest
-// of the row is the switch. The two are siblings because a switch cannot hold a button (its
-// children are not read out). The icon button is the same size in every state, so nothing
-// moves when the engine's state arrives. The icon rail has no room for two targets: there the
-// icon stays part of the switch and the settings open from the gear at the rail's foot.
+// of the row is the switch's label. The two are siblings because a label names one control
+// only. The icon button is the same size in every state, so nothing moves when the engine's
+// state arrives. The icon rail has no room for two targets: there the icon stays part of the
+// switch's label and the settings open from the gear at the rail's foot.
 type SwitchRowProps = SwitchContainerProps & {
     settingsLabel: string;
     openSettings: () => void;
@@ -279,7 +279,7 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
 // blockedReason: why the switch cannot be turned on yet and where to provide it. The switch is
 // then disabled and says so in its tooltip and to screen readers; it keeps its place in the
 // tab order so that the reason can be heard.
-// starting: the engine has not sent the switch's state yet; the toggle is a placeholder.
+// starting: the engine has not sent the switch's state yet; the switch is a placeholder.
 // unavailableText: why no switch can be used (the engine is gone). The rail says it once at its
 // head (EngineReadout); the switch adds no line for it, and keeps it in its name and tooltip.
 // inRow: the icon is drawn by SwitchRow as its own button; the row draws the background.
@@ -302,9 +302,15 @@ type SwitchContainerProps = {
     lead?: boolean;
 };
 
+// The row is the label of the kit's switch at its end (D-19, decided on 2026-11-25): pressing
+// anywhere on it presses the switch, once. The switch is named as the row was (aria-label), and
+// the row's words are read only as that name, not once more beside it: they are aria-hidden, as
+// they were inside the row that was the switch. The icon rail has no room for the switch: there it
+// is visually hidden, still focused and pressed through the row, whose ring shows its focus.
 export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
-    const reasonId = `main_switch_${switch_id}_reason`;
+    const switchId = `main_switch_${switch_id}`;
+    const reasonId = `${switchId}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
     const label = splitFeatureLabel(switchLabel);
     const active = !unavailable && currentState.data === true;
@@ -329,20 +335,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
 
     return (
         <Tooltip bare placement="right" title={tooltip}>
-            <div
-                className={getClassNames(styles.switch_container)} data-lead={(lead && !inRow) || undefined}
-                role="switch" aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel} aria-checked={active}
-                aria-busy={pending} aria-disabled={blocked} tabIndex={0}
-                aria-describedby={blockedReason ? reasonId : undefined}
-                onClick={() => { if (!blocked) toggleFunction(); }}
-                onKeyDown={event => {
-                    if (event.key === " " || event.key === "Enter") {
-                        event.preventDefault();
-                        if (!event.repeat && !blocked) toggleFunction();
-                    }
-                }}
-            >
-                <div className={styles.label_wrapper}>
+            <label htmlFor={switchId} className={getClassNames(styles.switch_container)} data-lead={(lead && !inRow) || undefined}>
+                <div className={styles.label_wrapper} aria-hidden="true">
                     {!inRow && <SvgComponent className={getClassNames(styles.switch_svg)} />}
                     <p className={getClassNames(styles.switch_label)}>
                         {label.name}
@@ -354,18 +348,33 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                     {children}
                 </div>
 
-                <ToggleSwitch
-                    isActive={active}
-                    isPending={pending}
-                    skeleton={starting}
-                    className={getClassNames(styles.toggle_control)}
-                />
+                <span className={currentIsMainPageCompactMode.data ? styles.visually_hidden : styles.switch_slot}>
+                    <Switch
+                        id={switchId}
+                        checked={active}
+                        aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel}
+                        aria-busy={pending} aria-disabled={blocked}
+                        aria-describedby={blockedReason ? reasonId : undefined}
+                        // Greyed out as the kit draws a switch that cannot be used, still in the tab order.
+                        data-disabled={greyed ? "" : undefined}
+                        // While the engine starts, a flat block of the switch's size (MainPage.css.ts).
+                        data-skeleton={starting ? "" : undefined}
+                        // A press anywhere on the row reaches the switch through its label: one press, one toggle.
+                        onClick={() => { if (!blocked) toggleFunction(); }}
+                        onKeyDown={event => {
+                            if (event.key === " " || event.key === "Enter") {
+                                event.preventDefault();
+                                if (!event.repeat && !blocked) toggleFunction();
+                            }
+                        }}
+                    />
+                </span>
 
                 <div className={getClassNames(styles.switch_indicator)}></div>
                 {pending && (
                     <span className={styles.loader}></span>
                 )}
-            </div>
+            </label>
         </Tooltip>
     );
 };
