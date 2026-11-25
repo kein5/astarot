@@ -181,11 +181,8 @@ To test duplicate-launch prevention itself, leave `VRCT_CONFIG_DIR` unset and us
 a release build with a working D-Bus session bus shared by both launches.
 On a physical desktop run under `tools/display_power_guard.py` via system Python/Gio.
 CI explicitly uses `ASTAROT_TEST_XVFB=1` with Xvfb, checks its server and real rendering.
-Setting `ASTAROT_TEST_NATIVE_ROUTE=1` additionally tests a private PipeWire graph and
-managed mute/resume/restart (requires WirePlumber 0.5's policy profile). This is a
-local acceptance option; Ubuntu 24.04 CI runs the remaining smoke cases and does
-not claim audio-graph acceptance. None of these tests record the physical microphone,
-contact VRChat, or load inference models.
+Ubuntu 24.04 CI runs these smoke cases and does not claim audio-graph acceptance.
+None of these tests record the physical microphone, contact VRChat, or load inference models.
 
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
@@ -296,7 +293,7 @@ ASTAROT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
   -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q
 ```
 
-`python tools/dev.py setup --scope headless`がこの試験の環境を`uv.lock`から用意します（pytestとほかの試験のツールだけで、アプリの依存は入りません）。試験は空白を含むパスに展開し、インストールしたものを読み取り専用にします。そして、Pythonのバックエンドがないこと、同梱した両方のエンジンのビルドが起動すること、インストールしたファイルのハッシュが変わっていないことを確かめます。GUIの試験では`ASTAROT_TEST_NATIVE_GUI=1`と、tauri-driver 2.1.0の実行ファイルを指す`ASTAROT_TEST_DRIVER`も設定します。共通の`NativeWebDriver`の起動処理は`VRCT_CONFIG_DIR`を明示して渡します。既定は既存の`$XDG_CONFIG_HOME/vrct-vox`で、呼び出し側が上書きした値はそのまま使います。これでリリースビルドの試験をインストール済みのアプリと並べて実行できます。デバッグビルドと、`VRCT_CONFIG_DIR`を設定した起動は、[二重起動の防止](../spec/ipc-protocol.md#起動と初期化)の対象になりません。`XDG_*`のフォルダーを分けて手で試験するときは、同じ設定のフォルダーを指す`VRCT_CONFIG_DIR`も渡します。`XDG_*`を変えるだけでは二重起動の防止の対象から外れません。二重起動の防止そのものを試験するときは、`VRCT_CONFIG_DIR`を設定せずにリリースビルドを使い、動いているD-Busのセッションバスを2回の起動で共有します。実機のデスクトップでは、システムのPythonとGioで動かす`tools/display_power_guard.py`の下で実行します。CIは`ASTAROT_TEST_XVFB=1`を明示してXvfbを使い、そのサーバーと実際の描画を確かめます。`ASTAROT_TEST_NATIVE_ROUTE=1`を設定すると、専用のPipeWireのグラフと、管理対象の経路のミュート、再開、再起動も試験します（WirePlumber 0.5のポリシーのプロファイルが要ります）。これは手元で受け入れ試験をするときの選択肢です。Ubuntu 24.04のCIは残りのスモークテストを流し、音声のグラフの受け入れを確かめたことにはしていません。これらの試験はどれも実際のマイクを録音せず、VRChatに接続せず、推論のモデルも読み込みません。
+`python tools/dev.py setup --scope headless`がこの試験の環境を`uv.lock`から用意します（pytestとほかの試験のツールだけで、アプリの依存は入りません）。試験は空白を含むパスに展開し、インストールしたものを読み取り専用にします。そして、Pythonのバックエンドがないこと、同梱した両方のエンジンのビルドが起動すること、インストールしたファイルのハッシュが変わっていないことを確かめます。GUIの試験では`ASTAROT_TEST_NATIVE_GUI=1`と、tauri-driver 2.1.0の実行ファイルを指す`ASTAROT_TEST_DRIVER`も設定します。共通の`NativeWebDriver`の起動処理は`VRCT_CONFIG_DIR`を明示して渡します。既定は既存の`$XDG_CONFIG_HOME/vrct-vox`で、呼び出し側が上書きした値はそのまま使います。これでリリースビルドの試験をインストール済みのアプリと並べて実行できます。デバッグビルドと、`VRCT_CONFIG_DIR`を設定した起動は、[二重起動の防止](../spec/ipc-protocol.md#起動と初期化)の対象になりません。`XDG_*`のフォルダーを分けて手で試験するときは、同じ設定のフォルダーを指す`VRCT_CONFIG_DIR`も渡します。`XDG_*`を変えるだけでは二重起動の防止の対象から外れません。二重起動の防止そのものを試験するときは、`VRCT_CONFIG_DIR`を設定せずにリリースビルドを使い、動いているD-Busのセッションバスを2回の起動で共有します。実機のデスクトップでは、システムのPythonとGioで動かす`tools/display_power_guard.py`の下で実行します。CIは`ASTAROT_TEST_XVFB=1`を明示してXvfbを使い、そのサーバーと実際の描画を確かめます。Ubuntu 24.04のCIはこれらのスモークテストを流し、音声のグラフの受け入れを確かめたことにはしていません。これらの試験はどれも実際のマイクを録音せず、VRChatに接続せず、推論のモデルも読み込みません。
 
 収集の処理と、最後のツリーとtarの検査は、OCRの重み、Mia2026の素材、安全でないリンク、パスのトラバーサル、重複したパス、特殊ファイル、中を検査できない入れ子のアーカイブを拒否します。これらはパスと種類の検査で、わざと名前を変えた重みを見つけるものではありません。元のライセンスと通知文書は残します。`astarot`と`astarot-rvc-worker`に組み込んだRustのクレートは、ライセンスの文書と一緒に`_internal/licenses/rust/`に一覧にします（`tools/rust_licenses.py`。Cargoのレジストリのソースが要るので、`--offline`のビルドではソースをキャッシュしておく必要があります）。クレートがライセンスの文書を公開しておらず、`licenses/rust/supplements.json`に確認済みの項目もないときは、ビルドが止まります。Silero v5のVADのファイルとPythonのパッケージの通知文書は、Pythonのバックエンドと一緒になくなりました。OCRの重みはいずれにしても除外します。
 

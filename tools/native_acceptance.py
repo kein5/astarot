@@ -48,7 +48,7 @@ def groups():
     """name -> (tests, extra environment, needs, kind). kind: "any" or "packaged"."""
     on = "1"
     return {
-        "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on, "ASTAROT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
+        "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on}, [], "packaged"),
         "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"ASTAROT_TEST_NATIVE_ROUTE": on}, [], "any"),
         "vrchat": (["test_native_vrchat_roundtrip.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
         # The same send to the chatbox and, spoken, to the managed microphone (#746). It reads the
