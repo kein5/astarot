@@ -13,6 +13,12 @@ heroActions:
   - theme: alt
     text: Find what you want to do
     link: /en/guide/tasks
+  - theme: alt
+    text: First setup
+    link: /en/guide/first-setup
+  - theme: alt
+    text: Troubleshooting
+    link: /en/guide/troubleshooting
 shot:
   src: /screenshots/en/main.webp
   alt: The ASTAROT main window. A message sent in Japanese has its English translation, and the other player's English reply has its Japanese translation
