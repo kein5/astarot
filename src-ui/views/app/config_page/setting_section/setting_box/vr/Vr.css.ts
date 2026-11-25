@@ -2,7 +2,6 @@ import { globalStyle, style } from "@vanilla-extract/css";
 import type { StyleRule } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
-export const is_selected = style({});
 export const is_disabled = style({});
 export const up = style({});
 
@@ -35,35 +34,9 @@ export const wrapper = style({
     gap: "4rem",
 });
 
+// The kit's ToggleGroup that picks which settings are shown (Vr.tsx): placed under what is above it.
 export const controller_type_switch = style({
     marginTop: "2rem",
-    display: "flex",
-    border: `0.1rem solid ${vars.dark_600_color}`,
-    borderRadius: "var(--vox_radius, 0.8rem)",
-    overflow: "hidden",
-    width: "80%",
-    maxWidth: "44.8rem",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    color: vars.dark_600_color,
-    selectors: {
-        "&:hover": { color: vars.dark_400_color },
-    },
-});
-export const controller_type_switcher = style({
-    width: "100%",
-    textAlign: "center",
-    selectors: {
-        [`&.${is_selected}`]: { backgroundColor: vars.dark_850_color },
-    },
-});
-export const controller_switcher_label = style({
-    padding: "1rem",
-    fontSize: "1.4rem",
-    selectors: {
-        [`${controller_type_switcher}.${is_selected} &`]: { color: vars.dark_200_color },
-    },
 });
 
 // The position and rotation row (#568): the label and its description in the label column,
@@ -83,7 +56,7 @@ globalStyle(axisRow, {
 });
 globalStyle(`${axisRow} > :last-child`, { justifyItems: "stretch" });
 globalStyle(`${axisRow} [role=group]`, { flexDirection: "column", alignItems: "center" });
-globalStyle(`${axis_row} ${controller_type_switch}`, { width: "100%", marginTop: 0 });
+globalStyle(`${axis_row} ${controller_type_switch}`, { marginTop: 0 });
 
 export const position_rotation_controls_box = style({
     marginBlock: "8rem 7rem",

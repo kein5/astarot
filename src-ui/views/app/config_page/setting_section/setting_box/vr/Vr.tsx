@@ -19,7 +19,7 @@ import {
 } from "../_components";
 
 import { ResetButton } from "@common_components";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, ToggleGroup, ToggleGroupItem } from "../../../../../kit/index.ts";
 
 import {
     useVr,
@@ -298,30 +298,18 @@ type PageSwitcherContainerProps = {
     label_2: string;
 };
 
+// Which of two sets of settings is shown, as the kit's ToggleGroup (D-27, decided on 2026-11-25):
+// two radios, the half shown checked. They change what the page shows, not a setting. Each is a
+// stop of the Tab key, as the two halves were (rovingFocus off); choosing the half shown changes
+// nothing (Radix offers an empty value then).
 const PageSwitcherContainer = (props: PageSwitcherContainerProps) => {
-    const toggle_button_class_names__position = clsx(styles.controller_type_switcher, {
-        [styles.is_selected]: props.is_selected,
-    });
-    const toggle_button_class_names__rotation = clsx(styles.controller_type_switcher, {
-        [styles.is_selected]: !props.is_selected,
-    });
-
-    // Two pressable halves; choosing the shown half changes nothing.
-    const half = (selected: boolean, className: string, label: string) => {
-        const choose = () => { if (!selected) props.toggleFunction(); };
-        return (
-            <div className={className} role="button" tabIndex={0} aria-pressed={selected} onClick={choose}
-                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); choose(); } }}>
-                <p className={styles.controller_switcher_label}>{label}</p>
-            </div>
-        );
-    };
-
+    const shown = props.is_selected ? "first" : "second";
     return (
-        <div className={styles.controller_type_switch}>
-            {half(props.is_selected, toggle_button_class_names__position, props.label_1)}
-            {half(!props.is_selected, toggle_button_class_names__rotation, props.label_2)}
-        </div>
+        <ToggleGroup type="single" rovingFocus={false} className={styles.controller_type_switch} value={shown}
+            onValueChange={value => { if (value && value !== shown) props.toggleFunction(); }}>
+            <ToggleGroupItem value="first">{props.label_1}</ToggleGroupItem>
+            <ToggleGroupItem value="second">{props.label_2}</ToggleGroupItem>
+        </ToggleGroup>
     );
 };
 

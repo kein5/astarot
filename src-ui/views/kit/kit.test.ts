@@ -302,4 +302,11 @@ test("toggles and popovers are Radix's; a popover is not modal, so no <style> is
     assert.doesNotMatch(popover, /\bmodal\s*[=:{]/);
     // Mute keeps its amber while pressed (D-27): the warning tone of the toggle.
     assert.match(read("Toggle.css.ts"), /warning: \{\s*selectors: \{\s*\[on\]: \{ borderColor: vars\.vox_state_warning, color: vars\.vox_state_warning/);
+    // A toggle that waits keeps its place in the Tab order (aria-disabled) and is drawn as one that
+    // cannot be used, as the kit's Button is; hovering it changes nothing.
+    const toggle = read("Toggle.css.ts");
+    assert.match(toggle, /const unusable = "&:disabled, &\[aria-disabled='true'\]";/);
+    assert.equal(toggle.match(/\[unusable\]: disabledLook/g)?.length, 2, "the toggle and the group's item");
+    assert.match(toggle, /const usable = ":not\(:disabled\):not\(\[aria-disabled='true'\]\)";/);
+    assert.doesNotMatch(toggle, /:hover:not\(:disabled\)/);
 });

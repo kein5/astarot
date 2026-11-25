@@ -6,9 +6,11 @@ import { leavesKit } from "./formSelectors.ts";
 // The settings forms draw their native controls with rules on the form's container; a kit part in
 // a form keeps the kit's look, because those rules leave it out.
 test("a form's rules for native controls leave out the kit's parts", () => {
-    // The kit's switch is a <button> too (Radix's), so the forms' button rules leave it out as well.
-    assert.equal(leavesKit("button"), 'button:not([data-slot="button"]):not([data-slot="switch"])');
-    assert.equal(leavesKit("button.primary:hover:enabled"), 'button:not([data-slot="button"]):not([data-slot="switch"]).primary:hover:enabled');
+    // The kit's switch, toggle and toggle group's item are <button>s too (Radix's), so the forms'
+    // button rules leave them out as well.
+    const buttons = ':not([data-slot="button"]):not([data-slot="switch"]):not([data-slot="toggle"]):not([data-slot="toggle-group-item"])';
+    assert.equal(leavesKit("button"), `button${buttons}`);
+    assert.equal(leavesKit("button.primary:hover:enabled"), `button${buttons}.primary:hover:enabled`);
     assert.equal(leavesKit("input"), 'input:not([data-slot="input"])');
     assert.equal(leavesKit('input[type="range"]::-webkit-slider-thumb'), 'input:not([data-slot="input"])[type="range"]::-webkit-slider-thumb');
     assert.equal(leavesKit("input::placeholder"), 'input:not([data-slot="input"])::placeholder');
@@ -21,7 +23,7 @@ test("a form's rules for native controls leave out the kit's parts", () => {
     assert.equal(leavesKit("option:checked"), 'option:not([data-slot="native-select-option"]):checked');
     assert.equal(leavesKit("option:focus-visible"), 'option:not([data-slot="native-select-option"]):focus-visible');
     assert.equal(leavesKit("option::checkmark"), 'option:not([data-slot="native-select-option"])::checkmark');
-    const kit = '[data-slot="button"], [data-slot="switch"], [data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="native-select-option"], [data-slot="native-select-optgroup"]';
+    const kit = '[data-slot="button"], [data-slot="switch"], [data-slot="toggle"], [data-slot="toggle-group-item"], [data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="native-select-option"], [data-slot="native-select-optgroup"]';
     assert.equal(leavesKit(":focus-visible"), `:focus-visible:not(${kit})`);
     assert.equal(leavesKit(":disabled"), `:disabled:not(${kit})`);
 });
@@ -32,7 +34,7 @@ test("other selectors, and words that only start like a control, are kept as the
         assert.equal(leavesKit(selector), selector);
     }
     // A control's own state keeps the control's guard only.
-    assert.equal(leavesKit("button:disabled"), 'button:not([data-slot="button"]):not([data-slot="switch"]):disabled');
+    assert.equal(leavesKit("button:disabled"), 'button:not([data-slot="button"]):not([data-slot="switch"]):not([data-slot="toggle"]):not([data-slot="toggle-group-item"]):disabled');
 });
 
 test("every rule of the forms goes through it", () => {

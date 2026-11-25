@@ -74,7 +74,7 @@ const textOf = (value: unknown): string => {
     const node = treeNode(value);
     return node ? textOf(node.props.children) : "";
 };
-const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
+const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
 const part = (tree: unknown, name: string) => findIn(tree, node => componentName(node) === name, name);
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 // The editor of the log shown on the page, drawn with its own runtime.
@@ -125,8 +125,7 @@ test("the overlay's look is edited for the single line log or the multi-line one
         ["small", "overlay_settings_small", "ok", saved, limits, smallDefaults]);
     shown.props.setOverlaySettings({ x: 1 });
     assert.deepEqual(p.calls.at(-1), ["setOverlaySmallLogSettings", { x: 1 }]);
-    const halves = ofType(p.draw(switcher().type, switcher().props), "div").filter(node => node.props.role === "button");
-    halves[1].props.onClick();
+    p.draw(switcher().type, switcher().props).props.onValueChange("second");
     tree = p.drawPage();
     assert.equal(switcher().props.is_selected, false);
     shown = part(tree, "OverlaySettingsContainer");
@@ -136,29 +135,29 @@ test("the overlay's look is edited for the single line log or the multi-line one
     assert.deepEqual(p.calls.at(-1), ["setOverlayLargeLogSettings", { y: 2 }]);
 });
 
-test("each half of a switch says whether it is shown, and pressing or Space or Enter on the other half switches", async context => {
+test("a switch of what is shown is the kit's ToggleGroup: two radios, the half shown on, each a stop of the Tab key; choosing the other switches", async context => {
     const p = await vrPage(context);
     let toggled = 0;
-    const halves = (selected: boolean) => ofType(p.draw(part(p.drawPage(), "PageSwitcherContainer").type,
-        { toggleFunction: () => { toggled++; }, is_selected: selected, label_1: "First", label_2: "Second" }), "div").filter(node => node.props.role === "button");
-    const [first, second] = halves(true);
-    assert.deepEqual([first.props.tabIndex, first.props["aria-pressed"], textOf(first), second.props["aria-pressed"], textOf(second)], [0, true, "First", false, "Second"]);
-    assert.equal(classesOf(first).length, classesOf(second).length + 1, "the half shown is marked");
-    first.props.onClick();
+    const group = (selected: boolean) => p.draw(part(p.drawPage(), "PageSwitcherContainer").type,
+        { toggleFunction: () => { toggled++; }, is_selected: selected, label_1: "First", label_2: "Second" });
+    const shown = group(true);
+    assert.equal(shown.type, kitStandIns.ToggleGroup);
+    assert.deepEqual([shown.props.type, shown.props.rovingFocus, shown.props.value, shown.props.className], ["single", false, "first", "controller_type_switch"]);
+    const items = ofType(shown, kitStandIns.ToggleGroupItem);
+    assert.deepEqual(items.map(item => [item.props.value, textOf(item)]), [["first", "First"], ["second", "Second"]]);
+    // Choosing the half shown, or pressing it again (an empty value), changes nothing.
+    shown.props.onValueChange("first");
+    shown.props.onValueChange("");
     assert.equal(toggled, 0, "choosing the half shown changes nothing");
-    second.props.onClick();
+    shown.props.onValueChange("second");
     assert.equal(toggled, 1);
-    let prevented = 0;
-    const key = (half: TreeNode, name: string) => half.props.onKeyDown({ key: name, preventDefault: () => { prevented++; } });
-    key(second, " ");
-    key(second, "Enter");
-    key(second, "Tab");
-    assert.deepEqual([toggled, prevented], [3, 2]);
-    key(first, "Enter");
-    assert.deepEqual([toggled, prevented], [3, 3]);
-    const [hidden, other] = halves(false);
-    assert.equal(other.props["aria-pressed"], true, "the second half shown");
-    assert.equal(classesOf(other).length, classesOf(hidden).length + 1, "and marked");
+    const other = group(false);
+    assert.equal(other.props.value, "second", "the second half shown");
+    other.props.onValueChange("second");
+    other.props.onValueChange("");
+    assert.equal(toggled, 1);
+    other.props.onValueChange("first");
+    assert.equal(toggled, 2);
 });
 
 test("restoring the defaults puts both logs and the open editor back", async context => {

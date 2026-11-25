@@ -18,21 +18,27 @@ async function layouts(chosen: unknown, hints = false) {
     return { runtime, module, store };
 }
 
-test("the layout buttons say both layouts in words and press the one in use", async () => {
+test("the layout switch is the kit's ToggleGroup: both layouts in words, the one in use on, each a stop of the Tab key", async () => {
     const { runtime, module, store } = await layouts("list");
     const draw = () => runtime.render(module.CatalogLayoutSwitch);
     const tree = draw();
-    assert.deepEqual([tree.props.role, tree.props["aria-label"]], ["group", "model_catalog.layout.label"]);
-    const buttons = () => nodesIn(draw()).filter(node => node.type === "button");
-    assert.deepEqual(buttons().map(button => [findIn(button, node => node.type === "span").props.children, button.props["aria-pressed"]]),
-        [["model_catalog.layout.grid", false], ["model_catalog.layout.list", true]]);
-    assert.ok(buttons().every(button => findIn(button, node => node.type === "svg").props["aria-hidden"] === "true"), "the icons repeat the words");
-    // Pressing the one in use changes nothing; the other changes every catalog's layout.
-    buttons()[1].props.onClick();
+    assert.equal(tree.type, kitStandIns.ToggleGroup);
+    assert.deepEqual([tree.props.type, tree.props.rovingFocus, tree.props.value, tree.props["aria-label"]],
+        ["single", false, "list", "model_catalog.layout.label"]);
+    const items = () => nodesIn(draw()).filter(node => node.type === kitStandIns.ToggleGroupItem);
+    assert.deepEqual(items().map(item => [item.props.value, findIn(item, node => node.type === "span").props.children]),
+        [["grid", "model_catalog.layout.grid"], ["list", "model_catalog.layout.list"]]);
+    assert.ok(items().every(item => findIn(item, node => node.type === "svg").props["aria-hidden"] === "true"), "the icons repeat the words");
+    // Pressing the one in use gives an empty value and changes nothing, nor does a value that is no
+    // layout; the other changes every catalog's layout.
+    const choose = (value: string) => draw().props.onValueChange(value);
+    choose("");
+    choose("list");
+    choose("tiles");
     assert.deepEqual(store.updates, []);
-    buttons()[0].props.onClick();
+    choose("grid");
     assert.deepEqual(store.updates, ["grid"]);
-    assert.deepEqual(buttons().map(button => button.props["aria-pressed"]), [true, false]);
+    assert.equal(draw().props.value, "grid");
 });
 
 test("the grid until the list is chosen: the setting's default, and anything else, is the grid", async () => {
