@@ -71,6 +71,17 @@ for (const locale of ["ja", "en"]) {
                 failures.push(`${locale}/${page}: #${id} is opened from outside the site but is not a heading`);
         }
     }
+    // Check the rendered sidebar, since the locale-prefixed links are generated from shared data.
+    const from = `${locale}/guide/first-setup.html`;
+    const html = pages.get(from)?.html ?? "";
+    const supportLink = [...html.matchAll(/<a\s([^>]+)>/g)].some(([, attrs]) => {
+        const classes = attrs.match(/(?:^|\s)class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
+        return (
+            classes.includes("rp-sidebar-item") &&
+            attrs.match(/(?:^|\s)href="([^"]+)"/)?.[1] === `${BASE}${locale}/guide/support`
+        );
+    });
+    if (!supportLink) failures.push(`${from}: sidebar does not link to the platform support page`);
 }
 
 for (const failure of [...new Set(failures)]) console.error(failure);
