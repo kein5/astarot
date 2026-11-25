@@ -457,7 +457,9 @@ globalStyle(variants.join(", "), {
     "@container": { [NARROW_FACTS]: { gridTemplateColumns: "minmax(0, 1fr)" } },
 });
 globalStyle(variants.map(selector => `${selector} > :last-child`).join(", "), { fontSize: "1.3rem", color: vars.dark_200_color });
-globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" });
+// The choice of the file is the kit's Select: its wrapper, which the field fills, takes the
+// column's width in place of the form's compact one.
+globalStyle(variants.map(selector => `${selector} [data-slot="native-select-wrapper"]`).join(", "), { width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" });
 // An official site, opened like the buttons beside it.
 globalStyle(link_button, { display: "inline-flex", alignItems: "center", minHeight: "4rem" });
 // The shared GPU and memory group: space and a subheading, no frame.

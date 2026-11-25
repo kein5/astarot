@@ -72,9 +72,9 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
     };
     const hook = { send, updateDirectError: (code: unknown) => { errors.push(code); }, setDirectDraftBlocked: (value: boolean) => { blocked.push(value); },
         setSelectedSource: (value: string) => { sent.push(["select", value]); voice.selectedSource = value; } };
-    // The kit's Button and TextField as the elements they stand for, with the props the page gives
-    // them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
-    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
+    // The kit's Button, TextField and Select as the elements they stand for, with the props the page
+    // gives them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
+    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input", Select: "select", SelectOption: "option" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         

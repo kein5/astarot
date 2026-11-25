@@ -15,7 +15,7 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "./catalogLayout";
-import { Badge, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Progress } from "../../../../../kit/index.ts";
+import { Badge, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Progress, Select, SelectOption } from "../../../../../kit/index.ts";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
@@ -93,10 +93,10 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
     const memory = (value: number | null) => isNumber(value) ? gib(value) : t('model_downloads.hardware_unknown');
     return <div className={styles.hardware} aria-label={t('model_downloads.hardware_title')} role="group">
         <h3>{t('model_downloads.hardware_title')}</h3>
-        <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
-            <option value="vr">{t('model_downloads.headroom_vr')}</option>
-            <option value="alone">{t('model_downloads.headroom_alone')}</option>
-        </select></label>
+        <label>{t('model_downloads.headroom')}<Select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
+            <SelectOption value="vr">{t('model_downloads.headroom_vr')}</SelectOption>
+            <SelectOption value="alone">{t('model_downloads.headroom_alone')}</SelectOption>
+        </Select></label>
         <div className={` ${styles.control_column}`}>
             <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
                 {t('model_downloads.hardware_refresh')}</button>
@@ -344,14 +344,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // The file shown and the choice of the others.
         const file = <>
             {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
-                <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
+                <Select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
                     onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
-                    {family.rows.map(entry => <option key={entry.id} value={entry.id}>
+                    {family.rows.map(entry => <SelectOption key={entry.id} value={entry.id}>
                         {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
                             ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
                             warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-                    </option>)}
-                </select></label>}
+                    </SelectOption>)}
+                </Select></label>}
             {/* One file: its type as the first fact, in the terms' column and the values'. */}
             {family.rows.length === 1 && variantLabel(current) !== current.name &&
                 <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
@@ -424,10 +424,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")], undefined, !only && <CatalogLayoutSwitch />)}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
         {hasTTS && !shared && <>
-            <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
-                <option value="vr">{t('model_downloads.headroom_vr')}</option>
-                <option value="alone">{t('model_downloads.headroom_alone')}</option>
-            </select></label>
+            <label>{t('model_downloads.headroom')}<Select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
+                <SelectOption value="vr">{t('model_downloads.headroom_vr')}</SelectOption>
+                <SelectOption value="alone">{t('model_downloads.headroom_alone')}</SelectOption>
+            </Select></label>
             <div className={` ${styles.control_column}`}>
                 <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
                     {t('model_downloads.hardware_refresh')}</button>
