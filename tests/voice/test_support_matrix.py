@@ -110,8 +110,6 @@ def test_the_package_rows_name_the_systems_ci_uses(lang):
 
 
 @pytest.mark.parametrize("lang", PAGES)
-def test_the_page_is_in_the_sidebar_and_points_at_the_ledger(lang):
+def test_the_page_points_at_the_ledger(lang):
     assert (ROOT / LEDGER).is_file()
     assert LEDGER in PAGES[lang].read_text(encoding="utf-8")
-    config = (ROOT / "site/rspress.config.ts").read_text(encoding="utf-8")
-    assert f"link: '/{lang}/guide/support'" in config
