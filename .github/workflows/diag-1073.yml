@@ -1,0 +1,63 @@
+name: diag 1073 secret store
+# A temporary branch's workflow (Issue #1073): how often the tests of native/core/tests/secret_store.rs
+# that use the PC's real OS store fail, set up as voice-tests.yml does it and with the proposed
+# changes. Not to be merged.
+on:
+  push:
+    branches: [diag/1073-secret-store]
+permissions:
+  contents: read
+jobs:
+  linux:
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [current, fixed]
+        copy: [1, 2, 3]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+          save-if: false
+      - run: |
+          for attempt in 1 2 3 4; do
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends gnome-keyring dbus && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+      - run: cargo test --locked --manifest-path native/core/Cargo.toml --lib --test secret_store --no-run
+      - run: bash tools/ci/diag_1073_linux.sh ${{ matrix.variant }} 60
+  windows:
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [current, serial, credrace]
+        copy: [1, 2]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: matrix.variant != 'credrace'
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust
+      - if: matrix.variant != 'credrace'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+          save-if: false
+      - if: matrix.variant != 'credrace'
+        run: cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store --no-run
+      - run: pwsh -File tools/ci/diag_1073_windows.ps1 -Variant ${{ matrix.variant }} -Runs 100
