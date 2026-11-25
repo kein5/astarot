@@ -26,7 +26,7 @@ test("the chatbox detector's part keeps one size before and after the readiness 
             useSaveButtonLogic: () => ({}),
         },
         "../../../../../../logics/configs/ocrReadiness": ocrReadiness,
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
+        "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
         "../_components": { SectionLabelComponent: "label" },
         "./OcrRegions": { OcrRegions: "regions" },
         "./OcrModels": { OcrModels: "models" },
@@ -41,7 +41,7 @@ test("the chatbox detector's part keeps one size before and after the readiness 
         answer = value;
         const tree = runtime.render(OcrChatboxDetector_Box, {});
         const pick = (type: string) => findIn(tree, (node: TreeNode) => node.type === type, type).props;
-        const { variable, is_available, toggleFunction } = pick("checkbox");
+        const { variable, is_available, toggleFunction } = pick("switch");
         const { current, words, align } = pick("stable-words");
         const { ids, missing, checking } = pick("models");
         return { checked: variable.data, is_available, toggles: !!toggleFunction, current, words, align, ids, missing, checking };
@@ -95,7 +95,7 @@ test("the window name saves by itself and refuses an empty name in words", async
             },
         },
         "../../../../../../logics/configs/ocrReadiness": {},
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
+        "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", EntryWithSaveButtonContainer: "entry", SliderContainer: "slider" },
         "../_components": { SectionLabelComponent: "label" },
         "./OcrRegions": { OcrRegions: "regions" },
         "./OcrModels": { OcrModels: "models" },

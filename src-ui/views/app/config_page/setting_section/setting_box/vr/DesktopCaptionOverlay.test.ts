@@ -32,7 +32,7 @@ async function setup(context: TestContext, { settings = DEFAULT_SETTINGS, placem
             setIoFlowOverlaySettings: () => {},
         }) },
         "../_components": { SectionLabelComponent: "section" },
-        "../_templates/Templates": { ActionButtonContainer: "action", CheckboxContainer: "checkbox",
+        "../_templates/Templates": { ActionButtonContainer: "action", SwitchContainer: "switch",
             RadioButtonContainer: "radio", SliderContainer: "slider" },
         "../../../../../../logics/captionOverlay/adjust": adjust,
         "@images/redo.svg?react": "redo", "@images/check_mark.svg?react": "check",

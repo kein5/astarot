@@ -12,7 +12,7 @@ import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { _OpenWebpageButton } from "../_components/_atoms/_open_webpage_button/_OpenWebpageButton";
-import { CheckboxContainer } from "../_templates/Templates";
+import { SwitchContainer } from "../_templates/Templates";
 import { Button } from "../../../../../kit/index.ts";
 
 const RELEASES_URL = "https://github.com/kein5/astarot/releases";
@@ -111,10 +111,10 @@ export const Updater = () => {
                     : t("fork_distribution.releases")}
             />
             {checks &&
-                <CheckboxContainer
+                <SwitchContainer
                     setting_id="check_software_updates"
                     label={t("app_update.check_at_start")}
-                    // That the app asks at each start is read before the box is ticked: that sentence
+                    // That the app asks at each start is read before it is turned on: that sentence
                     // stays on screen. Whom it asks and what the question carries are the label's hint.
                     lead={t("app_update.check_at_start_lead")}
                     desc={t("app_update.check_at_start_desc")}

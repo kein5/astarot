@@ -50,7 +50,7 @@ async function load(context: TestContext, registryModule: typeof registry = regi
         }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string) => { sent.push(endpoint); } }) },
         [REGISTRY_PATH]: registryModule,
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
+        "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
         "../_components": { SectionLabelComponent: "heading" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
@@ -64,7 +64,7 @@ const flat = (tree: TreeNode | null): TreeNode[] => {
     assert.ok(tree);
     return [tree.props.children].flat(Infinity).filter(Boolean);
 };
-// Each feature is a group: its checkbox, and below it any setting of its own.
+// Each feature is a group: its switch, and below it any setting of its own.
 const children = (tree: TreeNode | null) => flat(tree).flatMap(item => (item.type === "div" ? flat(item) : [item]));
 
 test("the page says there is nothing to try while no feature is listed", async context => {
@@ -74,15 +74,15 @@ test("the page says there is nothing to try while no feature is listed", async c
     assert.equal(heading.props.label, "config_page.experimental_features.section_label");
     assert.equal(heading.props.desc, "config_page.experimental_features.notice");
     assert.equal(empty.props.children, "config_page.experimental_features.empty");
-    assert.equal(children(list).some(item => item.type === "checkbox"), false);
+    assert.equal(children(list).some(item => item.type === "switch"), false);
 });
 
-test("each listed feature gets a checkbox with its name and description, off until confirmed on", async context => {
+test("each listed feature gets a switch with its name and description, off until confirmed on", async context => {
     const s = await load(context, fakeRegistry);
     const features = FAKE_IDS.map(id => ({ id }));
     const tree = s.render({ features, current: { state: "ok", data: { second_trial: true, first_trial: "yes" } },
         setValues: () => {} });
-    const switches = children(tree).filter(item => item.type === "checkbox");
+    const switches = children(tree).filter(item => item.type === "switch");
     assert.deepEqual(switches.map(item => item.props.setting_id),
         ["experimental_features.first_trial", "experimental_features.second_trial"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.first_trial.label");
@@ -90,16 +90,16 @@ test("each listed feature gets a checkbox with its name and description, off unt
     assert.deepEqual(switches.map(item => item.props.variable.data), [false, true]);
 });
 
-test("a checkbox asks the backend for that one feature only, and turns an on feature off", async context => {
+test("a switch asks the backend for that one feature only, and turns an on feature off", async context => {
     const s = await load(context, fakeRegistry);
     const writes: unknown[] = [];
     const tree = s.render({ features: FAKE_IDS.map(id => ({ id })), current: { state: "pending", data: { second_trial: true } },
         setValues: value => writes.push(value) });
-    const [first, second] = children(tree).filter(item => item.type === "checkbox");
+    const [first, second] = children(tree).filter(item => item.type === "switch");
     first.props.toggleFunction();
     second.props.toggleFunction();
     assert.deepEqual(writes, [{ first_trial: true }, { second_trial: false }]);
-    // While a request is out the checkbox shows it is busy (it ignores presses then).
+    // While a request is out the switch shows it is busy (it ignores presses then).
     assert.equal(first.props.variable.state, "pending");
 });
 
@@ -129,7 +129,7 @@ test("the tray companion is listed and stays off until the user turns it on", as
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
     const list = inside(draw(tree));
-    const switches = children(list).filter(item => item.type === "checkbox");
+    const switches = children(list).filter(item => item.type === "switch");
     assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
     assert.equal(switches[0].props.variable.data, false);
@@ -137,7 +137,7 @@ test("the tray companion is listed and stays off until the user turns it on", as
     assert.deepEqual(s.writes, [{ tray_companion: true }]);
 });
 
-test("while the tray companion is on, the edge its hexagram hides at can be chosen under its checkbox", async context => {
+test("while the tray companion is on, the edge its hexagram hides at can be chosen under its switch", async context => {
     const s = await load(context);
     const edges: unknown[] = [];
     const edge = { current: { state: "ok", data: "right" }, set: (value: string) => { edges.push(value); } };
@@ -247,14 +247,14 @@ test("#554 (Q-05): the VR panel is listed with the features on trial and keeps i
     const item = flat(list).find(node => typeof node.type === "function" && node.props.current === s.vrPanel);
     assert.ok(item, "the page lists the VR panel");
     const off = drawWith(s.runtime, item);
-    const [checkbox, ...rest] = flat(off);
-    assert.equal(checkbox.type, "checkbox");
-    assert.equal(checkbox.props.setting_id, "experimental_features.vr_panel");
-    assert.equal(checkbox.props.label, "config_page.experimental_features.items.vr_panel.label");
+    const [toggle, ...rest] = flat(off);
+    assert.equal(toggle.type, "switch");
+    assert.equal(toggle.props.setting_id, "experimental_features.vr_panel");
+    assert.equal(toggle.props.label, "config_page.experimental_features.items.vr_panel.label");
     // The value is the VR panel's own (OVERLAY_VR_PANEL): whoever had it on keeps it on.
-    assert.equal(checkbox.props.variable, s.vrPanel);
+    assert.equal(toggle.props.variable, s.vrPanel);
     assert.deepEqual(rest, [], "the launcher's reset shows only while the panel is on");
-    checkbox.props.toggleFunction();
+    toggle.props.toggleFunction();
     assert.deepEqual(s.vrPanelToggles, [true]);
     assert.deepEqual(s.writes, [], "the experimental features' dictionary is not written");
 
@@ -309,14 +309,14 @@ test("the page is not empty while the VR panel is listed", async context => {
 // on screen: the app starts in the tray from then on, which is read before it is turned on.
 test("the features' descriptions are left to become hints; the tray companion keeps the sentence about the next start on screen", async context => {
     const s = await load(context);
-    const tray = children(inside(draw(s.runtime.render(s.module.ExperimentalFeatures, {})))).filter(item => item.type === "checkbox");
+    const tray = children(inside(draw(s.runtime.render(s.module.ExperimentalFeatures, {})))).filter(item => item.type === "switch");
     const item = "config_page.experimental_features.items.tray_companion";
     assert.deepEqual(tray.map(row => [row.props.setting_id, row.props.lead, row.props.desc, row.props.keep_desc]),
         [["experimental_features.tray_companion", `${item}.lead`, `${item}.desc`, undefined]]);
     // A feature that changes nothing about the start keeps nothing on screen.
     const fake = await load(context, fakeRegistry);
     const others = children(fake.render({ features: FAKE_IDS.map(id => ({ id })), current: fake.current, setValues: () => {} }))
-        .filter(item => item.type === "checkbox");
+        .filter(item => item.type === "switch");
     assert.deepEqual(others.map(item => [item.props.lead, item.props.keep_desc]), [[undefined, undefined], [undefined, undefined]]);
     // The VR panel and the settings under a feature that is on: descriptions, and no keep.
     const list = s.render({ features: [{ id: "tray_companion" }], current: { state: "ok", data: { tray_companion: true } }, setValues: () => {},

@@ -72,9 +72,9 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
     };
     const hook = { send, updateDirectError: (code: unknown) => { errors.push(code); }, setDirectDraftBlocked: (value: boolean) => { blocked.push(value); },
         setSelectedSource: (value: string) => { sent.push(["select", value]); voice.selectedSource = value; } };
-    // The kit's Button, TextField and Select as the elements they stand for, with the props the page
-    // gives them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
-    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input", Select: "select", SelectOption: "option" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
+    // The kit's Button, TextField, Select and Switch as the elements they stand for, with the props the
+    // page gives them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
+    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input", Select: "select", SelectOption: "option", Switch: "switch" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         
@@ -329,8 +329,9 @@ test("the RVC worker's device, threads and high-pass are set in a fold whose lin
     const worker = () => findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.rvc_worker_title");
     assert.deepEqual([worker().props.desc, worker().props.status], ["voice_ui.rvc_worker_hint",
         `voice_ui.rvc_worker_status {"device":"voice.vc_rvc_device_auto","threads":"voice_ui.rvc_threads_auto","highpass":"voice_ui.rvc_highpass_on"}`]);
+    // The device is picked from the kit's select, and the high-pass below is the kit's switch.
     const device = inputNamed(worker(), "voice.vc_rvc_device");
-    assert.deepEqual([device.props["aria-label"], device.props.value], ["voice.vc_rvc_device", "auto"]);
+    assert.deepEqual([device.type, device.props["aria-label"], device.props.value, device.props.disabled], ["select", "voice.vc_rvc_device", "auto", false]);
     assert.deepEqual(ofType(device, "option").map(option => [option.props.value, textOf(option)]),
         [["auto", "voice.vc_rvc_device_auto"], ["cuda", "voice.vc_rvc_device_cuda"], ["cpu", "voice.vc_rvc_device_cpu"]], "no DirectML where it is not offered");
     device.props.onChange({ target: { value: "cpu" } });
@@ -338,12 +339,20 @@ test("the RVC worker's device, threads and high-pass are set in a fold whose lin
     assert.deepEqual([threads.props.type, threads.props.min, threads.props.max, threads.props.step, threads.props.placeholder, threads.props.value, threads.props.invalid],
         ["number", 0, rvcStartOptions.MAX_RVC_THREADS, 1, `voice_ui.example {"value":4}`, 0, false]);
     threads.props.onChange({ target: { valueAsNumber: 8 } });
-    const highpass = findIn(worker(), node => node.type === "input" && node.props.type === "checkbox");
-    assert.equal(highpass.props.checked, true);
-    highpass.props.onChange({ target: { checked: false } });
+    // The high-pass filter is on or off: the kit's switch with its name beside it (K-02), which saves at once.
+    const highpass = findIn(worker(), node => node.type === "switch");
+    assert.deepEqual([highpass.props.checked, highpass.props.disabled], [true, false]);
+    const saves = () => v.sent.filter(([endpoint]) => endpoint === "/set/data/direct_voice_settings");
+    const before = saves().length;
+    highpass.props.onCheckedChange(false);
     tree = v.draw();
     assert.equal(worker().props.status, `voice_ui.rvc_worker_status {"device":"voice.vc_rvc_device_cpu","threads":8,"highpass":"voice_ui.rvc_highpass_off"}`);
-    assert.equal(textOf(findIn(worker(), node => node.type === "label" && find(node, inner => inner.props?.type === "checkbox") !== null)), "voice.vc_rvc_highpass");
+    assert.equal(saves().length, before + 1, "saved at once, as the checkbox was");
+    assert.deepEqual(saves().map(([, value]) => (value as { rvc_highpass?: boolean }).rvc_highpass).at(-1), false);
+    const label = findIn(worker(), node => node.type === "label" && find(node, inner => inner.type === "switch") !== null);
+    assert.equal(textOf(label), "voice.vc_rvc_highpass");
+    assert.equal(label.props.htmlFor, findIn(worker(), node => node.type === "switch").props.id, "named by its label");
+    assert.equal(label.props.className, "checkLabel");
     // Threads are a whole number from 0 to the most the worker takes.
     for (const [value, invalid] of [[65, true], [-1, true], [2.5, true], [Number.NaN, true], [64, false]] as const) {
         inputNamed(worker(), "voice.vc_rvc_threads").props.onChange({ target: { valueAsNumber: value } });
@@ -616,7 +625,7 @@ test("a save takes the settings the backend answered with, and an answer that is
     await v.entry().save();
     v.draw();
     assert.equal(inputNamed(v.draw(), "voice.vc_rvc_pitch").props.value, 4);
-    assert.equal(findIn(v.draw(), node => node.type === "input" && node.props.type === "checkbox").props.checked, true, "the worker's default high-pass");
+    assert.equal(findIn(v.draw(), node => node.type === "switch").props.checked, true, "the worker's default high-pass");
     // An answer without settings: the defaults.
     inputNamed(v.draw(), "voice.vc_rvc_pitch").props.onChange({ target: { valueAsNumber: 6 } });
     v.draw();

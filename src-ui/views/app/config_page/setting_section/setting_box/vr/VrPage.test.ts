@@ -41,7 +41,7 @@ async function vrPage(context: TestContext, options: PageOptions = {}) {
         "@ui_configs": { ui_configs },
         "../_components": { Slider: "slider", SectionLabelComponent: "section-label" },
         "../_components/form_row/FormRow": { FormRow: "form-row" },
-        "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox" },
+        "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch" },
         "../_components/page_pointer/PagePointer": { PagePointer: "page-pointer" },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
@@ -95,7 +95,7 @@ test("the page turns each caption overlay on, and its advanced line says whether
     assert.equal(tree.type, "hints");
     assert.deepEqual(ofType(tree, "section-label").map(node => [node.props.label, node.props.sub]), [["config_page.vr.section_label_overlay", undefined],
         ["config_page.vr.section_label_overlay_look", true]]);
-    const boxes = ofType(tree, "checkbox").map(node => node.props);
+    const boxes = ofType(tree, "switch").map(node => node.props);
     assert.deepEqual(boxes.map(box => [box.setting_id, box.label]), [["overlay_small_log", "config_page.vr.overlay_enable_single"], ["overlay_large_log", "config_page.vr.overlay_enable_multi"]]);
     assert.deepEqual([boxes[0].variable, boxes[1].variable], [p.values.currentIsEnabledOverlaySmallLog, p.values.currentIsEnabledOverlayLargeLog]);
     boxes[0].toggleFunction();
@@ -424,7 +424,7 @@ test("the common settings show only translations, voice typing and the font, eac
     const p = await vrPage(context, { values: { currentOverlayShowOnlyTranslatedMessages: ok(true), currentVoiceTypingMode: ok(false) } });
     const common = p.draw(part(p.drawPage(), "CommonSettingsContainer").type);
     assert.deepEqual(ofType(common, "section-label").map(node => [node.props.label, node.props.sub]), [["config_page.vr.common_settings", true]]);
-    const boxes = ofType(common, "checkbox").map(node => node.props);
+    const boxes = ofType(common, "switch").map(node => node.props);
     assert.deepEqual(boxes.map(box => [box.label, box.desc, box.variable]), [
         ["config_page.vr.overlay_show_only_translated_messages.label", undefined, p.values.currentOverlayShowOnlyTranslatedMessages],
         ["config_page.vr.voice_typing_mode.label", "config_page.vr.voice_typing_mode.desc", p.values.currentVoiceTypingMode]]);

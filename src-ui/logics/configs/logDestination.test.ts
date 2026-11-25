@@ -121,7 +121,7 @@ async function mountDestinationRows(options: {
             "../_components/telemetry/TelemetryContents": { TelemetryContents: "telemetry" },
             "./GpuCheck.tsx": { GpuCheck: "gpu-check" },
             "../_templates/Templates": {
-                CheckboxContainer: "checkbox",
+                SwitchContainer: "switch",
                 ActionButtonContainer: "action-row",
                 DropdownMenuContainer: "dropdown",
                 EntryWithSaveButtonContainer: "entry",

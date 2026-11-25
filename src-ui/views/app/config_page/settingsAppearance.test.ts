@@ -158,7 +158,7 @@ test("legacy model information wraps above its action inside the padded row, inc
     }
 });
 
-test("word-filter input/Add wraps within the actual available width and auto-export logs uses the shared checkbox row", () => {
+test("word-filter input/Add wraps within the actual available width and auto-export logs uses the shared switch row", () => {
     const word = read(box + "_components/word_filter/WordFilter.css.ts");
     const entry = styleOf(word, "entry_section_wrapper");
     assert.match(entry, /flexWrap: "wrap"/);
@@ -168,7 +168,7 @@ test("word-filter input/Add wraps within the actual available width and auto-exp
     assert.match(styleOf(word, "add_button"), /flexShrink: 0/);
     assert.match(read("../../kit/Button.css.ts"), /maxWidth: "100%",[\s\S]*?overflowWrap: "anywhere",/);
     const shared = read(box + "shared_items/SharedItems.tsx");
-    assert.match(shared, /export const AutoExportMessageLogsContainer = \(\) => \{[\s\S]*?<CheckboxContainer[\s\S]*?setting_id="auto_export_message_logs"/);
+    assert.match(shared, /export const AutoExportMessageLogsContainer = \(\) => \{[\s\S]*?<SwitchContainer[\s\S]*?setting_id="auto_export_message_logs"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {
         const row = scroller - (3.2 + 4) * rem;
         const add = (2 * 1.4 + 2 * 1.2) * rem; // 追加 + button padding.

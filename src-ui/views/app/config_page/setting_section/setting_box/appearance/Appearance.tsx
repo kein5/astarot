@@ -17,7 +17,7 @@ import {
     SliderContainer,
     DropdownMenuContainer,
     RadioButtonContainer,
-    CheckboxContainer,
+    SwitchContainer,
 } from "../_templates/Templates";
 
 import {
@@ -165,7 +165,7 @@ const ShowResendButtonContainer = () => {
     const { currentShowResendButton, toggleShowResendButton } = useAppearance();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="show_resend_button"
             label={t("config_page.appearance.show_resend_button.label")}
             desc={t("config_page.appearance.show_resend_button.desc")}

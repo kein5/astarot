@@ -8,7 +8,7 @@ import { Slider } from "../_components";
 import { FormRow } from "../_components/form_row/FormRow";
 import {
     RadioButtonContainer,
-    CheckboxContainer,
+    SwitchContainer,
 } from "../_templates/Templates";
 import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
@@ -88,13 +88,13 @@ export const Vr = () => {
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
-                <CheckboxContainer
+                <SwitchContainer
                     setting_id="overlay_small_log"
                     label={t("config_page.vr.overlay_enable_single")}
                     variable={currentIsEnabledOverlaySmallLog}
                     toggleFunction={toggleIsEnabledOverlaySmallLog}
                 />
-                <CheckboxContainer
+                <SwitchContainer
                     setting_id="overlay_large_log"
                     label={t("config_page.vr.overlay_enable_multi")}
                     variable={currentIsEnabledOverlayLargeLog}
@@ -714,12 +714,12 @@ const CommonSettingsContainer = () => {
     return (
         <div className={styles.common_container}>
             <SectionLabelComponent sub label={t("config_page.vr.common_settings")} />
-            <CheckboxContainer
+            <SwitchContainer
                 label={t("config_page.vr.overlay_show_only_translated_messages.label")}
                 variable={currentOverlayShowOnlyTranslatedMessages}
                 toggleFunction={toggleOverlayShowOnlyTranslatedMessages}
             />
-            <CheckboxContainer
+            <SwitchContainer
                 label={t("config_page.vr.voice_typing_mode.label")}
                 desc={t("config_page.vr.voice_typing_mode.desc")}
                 variable={currentVoiceTypingMode}

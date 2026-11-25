@@ -129,12 +129,11 @@ test("every Lilac fill carries Dark Plum text at 4.5:1, and the deep violets car
     }
     // Selection keeps light text, so it sits on a deep violet.
     assert.match(read("../app/_index_css/root.css"), /::selection \{ color: var\(--dark_100_color\); background: var\(--primary_800_color\); \}/);
-    // A checked box's check is on the same Lilac fill, so it is Dark Plum too (shadcn/ui's
-    // primary-foreground check).
-    const checkbox = read("../common_components/checkbox/Checkbox.css.ts");
-    assert.match(checkbox, /const CHECKED = `var\(--checkbox-color, \$\{vars\.primary_600_color\}\)`;/);
-    assert.match(checkbox, /\[`\$\{input\}:checked \+ &`\]: \{\s*backgroundColor: CHECKED,/);
-    assert.match(checkbox, /globalStyle\(`\$\{checkbox_wrapper\} \$\{cbx\} svg`, \{[^}]*stroke: vars\.vox_on_primary,/);
+    // A setting's switch that is on (K-02) has its thumb on the same Lilac track, so the thumb is
+    // Dark Plum too, as a checked box's check was (shadcn/ui's primary-foreground).
+    const kitSwitch = read("../kit/Switch.css.ts");
+    assert.match(kitSwitch, /"&\[data-state='checked'\]": \{ background: vars\.primary_600_color, borderColor: vars\.primary_600_color \}/);
+    assert.match(kitSwitch, /"&\[data-state='checked'\]": \{ transform: "translateX\(2\.2rem\)", background: vars\.vox_on_primary \}/);
 });
 
 test("a field's border reaches 3.5:1 on the surface and 3:1 on every ground, and the focus ring is visible on every ground", () => {

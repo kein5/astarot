@@ -33,7 +33,7 @@ import {
 } from "@logics_configs";
 
 import {
-    CheckboxContainer,
+    SwitchContainer,
     ActionButtonContainer,
     DropdownMenuContainer,
     EntryWithSaveButtonContainer,
@@ -211,7 +211,7 @@ const OscQueryContainer = () => {
     const { currentEnableOscQuery, toggleEnableOscQuery } = useAdvancedSettings();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="osc_query"
             label={t("config_page.advanced_settings.osc_query.label")}
             desc={t("config_page.advanced_settings.osc_query.desc")}
@@ -410,10 +410,10 @@ const TelemetryContainer = () => {
 
     return (
         <>
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="telemetry"
                 label={t("config_page.advanced_settings.telemetry.label")}
-                // What leaves the PC is read before the box is ticked: one sentence stays on screen,
+                // What leaves the PC is read before it is turned on: one sentence stays on screen,
                 // and what goes with it and what is never sent are the label's hint.
                 lead={t("config_page.advanced_settings.telemetry.lead")}
                 desc={t("config_page.advanced_settings.telemetry.desc")}
@@ -456,7 +456,7 @@ const EnableWebsocketContainer = () => {
     }
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             label={t("config_page.advanced_settings.enable_websocket.label")}
             variable={currentEnableWebsocket}
             toggleFunction={toggleEnableWebsocket}
@@ -682,7 +682,7 @@ const EnableObsBrowserSourceContainer = () => {
     const { currentEnableObsBrowserSource, toggleEnableObsBrowserSource } = useAdvancedSettings();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             label={t("config_page.advanced_settings.enable_obs_browser_source.label")}
             desc={t("config_page.advanced_settings.enable_obs_browser_source.desc")}
             variable={currentEnableObsBrowserSource}

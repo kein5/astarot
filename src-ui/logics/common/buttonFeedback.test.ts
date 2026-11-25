@@ -234,33 +234,6 @@ test("an action settling after its settings page closes does not schedule succes
     assert.equal(find(runtime.render(ActionButton, props), node => node.type === props.ClickedIconComponent), null);
 });
 
-test("settings checkboxes reject pointer and keyboard repeats while retaining the confirmed value", async () => {
-    const runtime = hooks();
-    const { Checkbox } = await load<typeof import("../../views/common_components/checkbox/Checkbox.tsx")>("common_components/checkbox/Checkbox.tsx", runtime);
-    let calls = 0;
-    const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => { calls++; } };
-    const input = (tree: unknown) => findIn(tree, node => node.type === "input");
-    for (const confirmed of [false, true]) {
-        props.variable.data = confirmed;
-        const control = input(runtime.render(Checkbox, props));
-        let prevented = 0;
-        control.props.onClick({ stopPropagation() {}, preventDefault() { prevented++; } });
-        for (const key of [" ", "Enter"]) control.props.onKeyDown({ key, preventDefault() { prevented++; } });
-        control.props.onChange();
-        assert.equal(prevented, 3);
-        assert.equal(control.props.checked, confirmed);
-        assert.equal(control.props["aria-disabled"], true);
-    }
-    assert.equal(calls, 0);
-    props.variable.state = "ok";
-    input(runtime.render(Checkbox, props)).props.onChange();
-    assert.equal(calls, 1);
-    // With show_label the label is drawn beside the box and names it, instead of aria-label.
-    const labelled = runtime.render(Checkbox, { ...props, show_label: true });
-    assert.equal(input(labelled).props["aria-label"], undefined);
-    assert.ok(find(labelled, node => node.type === "span" && node.props.children === "Auto select"));
-});
-
 test("main switches block pending repeats but TTS/RVC cancellation remains available", async () => {
     const runtime = hooks();
     const { SwitchContainer } = await load<typeof import("../../views/app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx")>("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx", runtime, {

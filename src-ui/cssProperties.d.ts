@@ -1,4 +1,4 @@
-// Inline styles may set CSS custom properties, as in style={{ "--checkbox-size": size }}.
+// Inline styles may set CSS custom properties, as in style={{ "--range-fill": fill }}.
 import "react";
 
 declare module "react" {

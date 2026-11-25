@@ -310,7 +310,7 @@ test("captions and VR turns the captions on in sight; where they sit, how they l
         assert.match(fold, part);
     assert.match(after, /<PagePointer [^>]*tab="experimental_features"/);
     // The overlay editor no longer carries its own switch: it is the one in sight.
-    assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /CheckboxContainer/);
+    assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /SwitchContainer/);
     const desktop = readFileSync(box("vr/DesktopCaptionOverlay.tsx"), "utf8");
     const enable = desktop.split('if (part === "enable") return (')[1].split("\n    );")[0];
     assert.match(enable, /setting_id="desktop_overlay"/);

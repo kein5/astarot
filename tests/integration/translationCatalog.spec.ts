@@ -95,7 +95,7 @@ test("switching catalog layout persists without showing the saved toast, and so 
 
     // Immediate settings controls (such as toggles) also persist without raising the saved toast.
     await page.getByRole("button", { name: "Advanced", exact: true }).first().click();
-    const logToggle = page.getByRole("checkbox", { name: "Auto save message logs" });
+    const logToggle = page.getByRole("switch", { name: "Auto save message logs" });
     const wasChecked = await logToggle.isChecked();
     await logToggle.click();
     await expect.poll(() => app.settings().LOGGER_FEATURE).toBe(!wasChecked);

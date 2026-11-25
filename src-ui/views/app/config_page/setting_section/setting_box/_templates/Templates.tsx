@@ -19,6 +19,7 @@ import {
     DownloadModels,
     MessageFormat,
     ConnectionCheckButton,
+    SettingSwitch,
 } from "../_components";
 import type { LabelComponentProps } from "../_components/label_component/LabelComponent";
 import type { DropdownMenuProps, MultiDropdownEntry } from "../_components/dropdown_menu/DropdownMenu";
@@ -32,8 +33,7 @@ import type { ActionButtonProps } from "../_components/action_button/ActionButto
 import type { DownloadModelsProps } from "../_components/download_models/DownloadModels";
 import type { MessageFormatProps } from "../_components/message_format/MessageFormat";
 import type { ConnectionCheckButtonProps } from "../_components/connection_check_button/ConnectionCheckButton";
-import { Checkbox } from "@common_components";
-import type { CheckboxProps } from "../../../../../common_components/checkbox/Checkbox";
+import type { SettingSwitchProps } from "../_components/setting_switch/SettingSwitch";
 import { useI18n } from "@useI18n";
 
 // What a row of the settings takes besides its control's own props: the label column, where the
@@ -47,7 +47,7 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its end (checkboxes, radios, lone buttons) or start.
+    // Where the control sits in the field column: its end (switches, radios, lone buttons) or start.
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -163,7 +163,7 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: checkboxes, radios and lone buttons flush at
+        // Where the control sits in the field column: switches, radios and lone buttons flush at
         // its right end (#473, #1096); everything else fills it (#567).
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
@@ -240,10 +240,11 @@ export const SliderContainer = (props: SliderContainerProps) => (
     <CommonContainer Component={Slider} no_padding={true} {...props} />
 );
 
-export type CheckboxContainerProps = TemplateRowProps & Omit<CheckboxProps, "aria-describedby">;
+// A setting turned on and off: the kit's switch at the row's end (K-02, decided on 2026-11-25).
+export type SwitchContainerProps = TemplateRowProps & Omit<SettingSwitchProps, "aria-describedby">;
 
-export const CheckboxContainer = (props: CheckboxContainerProps) => (
-    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="end" />
+export const SwitchContainer = (props: SwitchContainerProps) => (
+    <CommonContainer Component={SettingSwitch} {...props} add_break_point={false} control_align="end" />
 );
 
 export type EntryWithSaveButtonContainerProps = TemplateRowProps & EntryWithSaveButtonProps;

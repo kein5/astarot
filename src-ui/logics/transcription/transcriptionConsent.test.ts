@@ -257,7 +257,7 @@ test("settings keep the selected engine in sight under the radio row's label and
     });
     const { RadioButtonContainer } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_templates/Templates.tsx")>(new URL("_templates/Templates.tsx", root), rowRuntime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
-        "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },
+        "../_components": { LabelComponent, RadioButton, SettingSwitch: "switch" },
     });
     let row: TreeNode = rowRuntime.render(RadioButtonContainer, tree.props);
     row = drawWith(rowRuntime, row);
