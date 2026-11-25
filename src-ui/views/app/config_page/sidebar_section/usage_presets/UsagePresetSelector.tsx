@@ -39,9 +39,13 @@ export const UsagePresetSelector = ({ isCompact }: { isCompact: boolean }) => {
 
     return (
         <div className={styles.container}>
+            {/* In the full rail the tooltip says what the uses do. The icon rail has no tooltip and no
+                title (D-21): the rail widens as soon as the pointer or the keyboard focus reaches it,
+                which shows the button's words, so a tooltip of the icon would open on a button still
+                widening. The words stay the button's name. */}
             <Tooltip bare placement="right" title={isCompact ? undefined : help}>
                 <button type="button" className={styles.toggle} aria-expanded={expanded} aria-controls={listId}
-                    aria-label={name} aria-describedby={helpId} title={isCompact ? name : undefined} disabled={picked === null}
+                    aria-label={name} aria-describedby={helpId} disabled={picked === null}
                     data-usage-presets onClick={() => setOpen(value => !value)}>
                     <TuneSvg aria-hidden="true" className={styles.icon} />
                     <span className={clsx(styles.words, { [styles.hidden]: isCompact })} aria-hidden="true">
