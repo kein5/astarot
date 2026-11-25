@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { startTransition, useEffect, useRef } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -98,7 +98,11 @@ export const useWindow = () => {
         const narrow = width <= dynamicBreakPoint;
         // Every update re-renders whatever reads IsBreakPoint, so only send changes.
         if (document.documentElement.hasAttribute("data-narrow") === narrow) return;
-        updateIsBreakPoint(narrow);
+        // Drawn as a transition: the window's size arrives after an await, and a flushSync (virtua's,
+        // in the ResizeObserver callback where it measures the log) would draw a waiting update with
+        // it. The rail turning to icons then resized the log inside that callback, and WebKit reported
+        // "ResizeObserver loop completed with undelivered notifications" (#1200, as MessageContainer).
+        startTransition(() => updateIsBreakPoint(narrow));
         // CSS width queries miss the UI size: at 200% an 870px window lays
         // out like a 435px one. Narrow styles also key on this attribute.
         document.documentElement.toggleAttribute("data-narrow", narrow);
