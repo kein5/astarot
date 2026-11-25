@@ -6,7 +6,7 @@ import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voi
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
@@ -59,10 +59,10 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         (BigInt(seed) < BigInt(options.seed.minimum) || BigInt(seed) > BigInt(options.seed.maximum));
     const support = (value: unknown) => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);
     return <>
-        <label>{t("voice_ui.seed_mode")}<select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
+        <label>{t("voice_ui.seed_mode")}<Select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
             onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
-            <option value="random">{t("voice_ui.seed_random")}</option><option value="fixed">{t("voice_ui.seed_fixed")}</option>
-        </select></label>
+            <SelectOption value="random">{t("voice_ui.seed_random")}</SelectOption><SelectOption value="fixed">{t("voice_ui.seed_fixed")}</SelectOption>
+        </Select></label>
         {fixed && <label>{t("voice_ui.seed_value")}<TextField inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
             invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}

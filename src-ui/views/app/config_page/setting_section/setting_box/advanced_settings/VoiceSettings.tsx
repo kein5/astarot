@@ -17,7 +17,7 @@ import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import type { VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // The speech.cpp roles, each with its server and its voice.
 const ROLES: readonly VoiceModelRole[] = ["japanese", "multilingual"];
@@ -59,9 +59,9 @@ export const VoiceSettings = () => {
     // them (native/core/src/config/mod.rs, migrate_speech_servers).
     const serverOf = (role: VoiceModelRole) => draft[`${role}_server`] || "bundled";
     const server = (role: VoiceModelRole) => <label>{t(`speech_servers.${role}_selection`)}
-        <select aria-label={t(`speech_servers.${role}_selection`)} value={serverOf(role)} onChange={e => field(`${role}_server`, e.target.value)}>
-            {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
-        </select>
+        <Select aria-label={t(`speech_servers.${role}_selection`)} value={serverOf(role)} onChange={e => field(`${role}_server`, e.target.value)}>
+            {["external", "bundled"].map(value => <SelectOption key={value} value={value}>{t(`speech_servers.${value}`)}</SelectOption>)}
+        </Select>
     </label>;
     // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
     const speechcpp = (role: VoiceModelRole) => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
@@ -80,22 +80,22 @@ export const VoiceSettings = () => {
         <VoiceRouteSummary />
         <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
             <fieldset className={styles.fields}>
-                <label>{t("voice.mode")}<select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
-                    {SPEECH_MODES.map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
-                </select></label>
-                <label>{t("voice.target_slot")}<select aria-label={t("voice.target_slot")} disabled={draft.mode !== "translated" && draft.mic_mode !== "translated"}
+                <label>{t("voice.mode")}<Select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
+                    {SPEECH_MODES.map(mode => <SelectOption key={mode} value={mode}>{t(`voice.${mode}`)}</SelectOption>)}
+                </Select></label>
+                <label>{t("voice.target_slot")}<Select aria-label={t("voice.target_slot")} disabled={draft.mode !== "translated" && draft.mic_mode !== "translated"}
                     value={draft.target_slot} onChange={e => field("target_slot", e.target.value)}>
-                    {["1", "2", "3"].map(slot => <option key={slot}>{slot}</option>)}
-                </select></label>
+                    {["1", "2", "3"].map(slot => <SelectOption key={slot}>{slot}</SelectOption>)}
+                </Select></label>
                 <FormRow label={t("voice.output_device")} description={t("voice_ui.output_hint")}
                     actions={<Button onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</Button>}>
-                    <select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
+                    <Select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
                         onChange={e => field("output_device", e.target.value)}>
-                        <option value="">{t("voice.select_output")}</option>
+                        <SelectOption value="">{t("voice.select_output")}</SelectOption>
                         {draft.output_device && !deviceList.some(d => d.id === draft.output_device) &&
-                            <option value={draft.output_device}>{t("voice.disconnected")}: {draft.output_device}</option>}
-                        {deviceList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
-                    </select>
+                            <SelectOption value={draft.output_device}>{t("voice.disconnected")}: {draft.output_device}</SelectOption>}
+                        {deviceList.map(device => <SelectOption key={device.id} value={device.id}>{device.label}</SelectOption>)}
+                    </Select>
                 </FormRow>
                 <VirtualMicEntry />
                 {ROLES.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
@@ -114,16 +114,16 @@ export const VoiceSettings = () => {
                     <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("voice_ui.monitor_heading")}</span>
                         {hints && <Hint text={t("voice.monitor_hint")} focusable />}</span></legend>
                     {!hints && <Description text={t("voice.monitor_hint")} />}
-                    <label>{t("voice.monitor")}<select aria-label={t("voice.monitor")} value={draft.monitor || "off"} onChange={e => field("monitor", e.target.value)}>
-                        <option value="off">{t("voice.monitor_off")}</option><option value="on">{t("voice.monitor_on")}</option>
-                    </select></label>
-                    <label>{t("voice.monitor_device")}<select aria-label={t("voice.monitor_device")} disabled={draft.monitor !== "on"} value={draft.monitor_device || ""}
+                    <label>{t("voice.monitor")}<Select aria-label={t("voice.monitor")} value={draft.monitor || "off"} onChange={e => field("monitor", e.target.value)}>
+                        <SelectOption value="off">{t("voice.monitor_off")}</SelectOption><SelectOption value="on">{t("voice.monitor_on")}</SelectOption>
+                    </Select></label>
+                    <label>{t("voice.monitor_device")}<Select aria-label={t("voice.monitor_device")} disabled={draft.monitor !== "on"} value={draft.monitor_device || ""}
                         onChange={e => field("monitor_device", e.target.value)}>
-                        <option value="">{t("voice.monitor_default")}</option>
+                        <SelectOption value="">{t("voice.monitor_default")}</SelectOption>
                         {draft.monitor_device && !monitorList.some(d => d.id === draft.monitor_device) &&
-                            <option value={draft.monitor_device}>{t("voice.disconnected")}: {draft.monitor_device}</option>}
-                        {monitorList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
-                    </select></label>
+                            <SelectOption value={draft.monitor_device}>{t("voice.disconnected")}: {draft.monitor_device}</SelectOption>}
+                        {monitorList.map(device => <SelectOption key={device.id} value={device.id}>{device.label}</SelectOption>)}
+                    </Select></label>
                     <label>{t("voice.monitor_volume")}: {draft.monitor_volume ?? "100"}%<input type="range" min="0" max="100" step="5" aria-label={t("voice.monitor_volume")}
                         style={{ "--range-fill": `${draft.monitor_volume ?? "100"}%` }}
                         disabled={draft.monitor !== "on"} value={draft.monitor_volume ?? "100"} onChange={e => field("monitor_volume", String(e.target.value))} /></label>
@@ -135,23 +135,23 @@ export const VoiceSettings = () => {
                     <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
                 </fieldset>)}
                 <FormRow label={t("voice.mic_mode")} description={t("voice.mic_hint")}>
-                    <select aria-label={t("voice.mic_mode")} value={draft.mic_mode || "off"} onChange={e => field("mic_mode", e.target.value)}>
-                        {SPEECH_MODES.map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
-                    </select>
+                    <Select aria-label={t("voice.mic_mode")} value={draft.mic_mode || "off"} onChange={e => field("mic_mode", e.target.value)}>
+                        {SPEECH_MODES.map(mode => <SelectOption key={mode} value={mode}>{t(`voice.${mode}`)}</SelectOption>)}
+                    </Select>
                 </FormRow>
-                <label>{t("voice.direct_policy")}<select aria-label={t("voice.direct_policy")} disabled={!micSpeechOn} value={draft.direct_policy || "suppress"}
+                <label>{t("voice.direct_policy")}<Select aria-label={t("voice.direct_policy")} disabled={!micSpeechOn} value={draft.direct_policy || "suppress"}
                     onChange={e => field("direct_policy", e.target.value)}>
-                    <option value="suppress">{t("voice.direct_suppress")}</option>
+                    <SelectOption value="suppress">{t("voice.direct_suppress")}</SelectOption>
                     {/* Speech through the conversion replaces the voice; the two cannot mix (ADR-007). */}
-                    <option value="mix" disabled={draft.conversion === "on"}>{t("voice.direct_mix")}</option>
-                </select></label>
+                    <SelectOption value="mix" disabled={draft.conversion === "on"}>{t("voice.direct_mix")}</SelectOption>
+                </Select></label>
                 <FormRow label={t("voice.conversion")} description={t("voice.conversion_hint")}>
-                    <select aria-label={t("voice.conversion")} value={draft.conversion || "off"}
+                    <Select aria-label={t("voice.conversion")} value={draft.conversion || "off"}
                         onChange={e => setDraft(current => ({ ...current, conversion: e.target.value,
                             // Mixing cannot go with it; suppressing the voice is the one choice left.
                             ...(e.target.value === "on" && current?.direct_policy === "mix" ? { direct_policy: "suppress" } : {}) }))}>
-                        <option value="off">{t("voice.conversion_off")}</option><option value="on">{t("voice.conversion_on")}</option>
-                    </select>
+                        <SelectOption value="off">{t("voice.conversion_off")}</SelectOption><SelectOption value="on">{t("voice.conversion_on")}</SelectOption>
+                    </Select>
                 </FormRow>
                 </AdvancedSection>
             </fieldset>
@@ -183,13 +183,13 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
             <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
                 <FormRow label={t("voice.output_device")} description={t("voice_ui.output_hint")}
                     actions={<Button onClick={() => send("/get/data/voice_output_devices")}>{t("voice.refresh")}</Button>}>
-                    <select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
+                    <Select aria-label={t("voice.output_device")} disabled={draft.routing === "managed"} value={draft.output_device}
                         onChange={e => setDraft(previous => ({ ...previous, output_device: e.target.value }))}>
-                        <option value="">{t("voice.select_output")}</option>
+                        <SelectOption value="">{t("voice.select_output")}</SelectOption>
                         {draft.output_device && !deviceList.some(d => d.id === draft.output_device) &&
-                            <option value={draft.output_device}>{t("voice.disconnected")}: {draft.output_device}</option>}
-                        {deviceList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
-                    </select>
+                            <SelectOption value={draft.output_device}>{t("voice.disconnected")}: {draft.output_device}</SelectOption>}
+                        {deviceList.map(device => <SelectOption key={device.id} value={device.id}>{device.label}</SelectOption>)}
+                    </Select>
                 </FormRow>
                 <VirtualMicEntry />
             </fieldset>}

@@ -203,3 +203,27 @@ test("the seed field and the check of the model's options are the kit's parts", 
     assert.deepEqual([check.props.disabled, check.props["aria-describedby"]], [false, undefined]);
     s.runtime.unmount();
 });
+
+test("the seed's mode is the kit's Select: random clears the seed and fixed starts it at 0", async () => {
+    // D-14 (decided on 2026-11-25): the settings' select fields are the kit's Select.
+    const s = await setup({ seed: "42", instructions: "" });
+    const set: [string, string][] = [];
+    const tree = s.runtime.render(s.GenerationOptions, { role: "japanese", draft: s.draft, errorId: "options-error",
+        field: (key: string, value: string) => { set.push([key, value]); } });
+    const mode = findIn(tree, node => node.type === kitStandIns.Select);
+    assert.deepEqual([mode.props["aria-label"], mode.props.value], ["voice_ui.seed_mode", "fixed"]);
+    const label = findIn(tree, node => node.type === "label" && find(node, inner => inner.type === kitStandIns.Select) !== null);
+    assert.equal([label.props.children].flat()[0], "voice_ui.seed_mode");
+    const options: unknown[][] = [];
+    find(mode, node => { if (node.type === kitStandIns.SelectOption) options.push([node.props.value, node.props.children]); return false; });
+    assert.deepEqual(options, [["random", "voice_ui.seed_random"], ["fixed", "voice_ui.seed_fixed"]]);
+    assert.equal(find(tree, node => node.type === "select" || node.type === "option"), null, "no native list");
+    mode.props.onChange({ target: { value: "random" } });
+    mode.props.onChange({ target: { value: "fixed" } });
+    assert.deepEqual(set, [["japanese_seed", ""], ["japanese_seed", "0"]]);
+    // No seed: the mode is random.
+    s.draft.japanese_seed = "";
+    const random = s.runtime.render(s.GenerationOptions, { role: "japanese", draft: s.draft, errorId: "options-error", field: () => {} });
+    assert.equal(findIn(random, node => node.type === kitStandIns.Select).props.value, "random");
+    s.runtime.unmount();
+});
