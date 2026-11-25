@@ -1,4 +1,4 @@
-import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import type { CSSProperties } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 import { leavesKit } from "./formSelectors.ts";
@@ -16,10 +16,6 @@ export const checkLabel = style({});
 export const fieldCheck = style({});
 export const dialog_text = style({});
 export const actions = style({});
-export const stop = style({});
-export const is_stopping = style({});
-export const is_stopped = style({});
-export const is_idle = style({});
 export const count = style({});
 export const hinted = style({});
 export const control_column = style({});
@@ -287,17 +283,6 @@ globalStyle(inForm('input[type="range"]::-moz-range-progress'), { height: ".6rem
 globalStyle(inForm('input[type="range"]::-moz-range-thumb'), { width: "1.8rem", height: "1.8rem", border: 0, borderRadius: "50%", background: vars.primary_600_color });
 
 globalStyle(actions, { display: "flex", alignItems: "center", flexWrap: "wrap", gap: ".8rem" });
-// The TTS page's stop, drawn as the top bar's (#937): pressed, it sinks while the core answers and
-// flashes lilac once it has; with nothing to stop it is half-transparent.
-const stopAnswered = keyframes({ from: { background: vars.vox_highlight_tint } });
-globalStyle(`${stop}.${is_stopping}`, { background: vars.dark_925_color, cursor: "progress" });
-globalStyle(`${stop}.${is_stopped}`, {
-    color: vars.primary_200_color,
-    borderColor: vars.primary_600_color,
-    animation: `${stopAnswered} .8s ease-out`,
-    "@media": { "(prefers-reduced-motion: reduce)": { animation: "none" } },
-});
-globalStyle(`${stop}.${is_idle}, ${stop}.${is_idle}:hover, ${stop}.${is_idle}:active`, { opacity: .5, cursor: "not-allowed" });
 // How many characters a field holds, under it at its end, in the description's size and color.
 globalStyle(count, { justifySelf: "end", fontSize: "1.2rem", color: "var(--vox_description_text, #a3adc0)", fontVariantNumeric: "tabular-nums" });
 // A name that no shared row draws, such as a legend, with its hint mark on its line (#614).

@@ -42,8 +42,6 @@ const mediumButtons = [
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button`, {"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({"],
     [views + "app/others/modal_controller/ModalController.css.ts", "export const close_button = style({"],
-    [views + "app/config_page/topbar/Topbar.css.ts", "export const stop = style({"],
-    [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
     [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],
     [box + "_components/_atoms/_download_button/_DownloadButton.css.ts", "export const download_button = style({"],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({"],
@@ -71,8 +69,6 @@ const halfDisabled = [
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({", '"&:disabled": {'],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({", '"&:disabled": {'],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button:disabled`, {"],
-    [views + "app/config_page/topbar/Topbar.css.ts", "export const stop = style({", '"&:disabled": {'],
-    [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({", '"&:disabled": {'],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({", '"&:disabled": {'],
     [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button:disabled`, {"],
 ];

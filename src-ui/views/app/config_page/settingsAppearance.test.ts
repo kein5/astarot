@@ -214,7 +214,14 @@ test("search and every top-bar action occupy disjoint shared-grid areas with aut
         assert.match(styleOf(top, selector), new RegExp(`style\\(\\{\\s*gridArea: "${area}"`));
     }
     assert.match(styleOf(top, "applies_now"), /minWidth: 0,[^}]*overflowWrap: "anywhere"/);
-    assert.match(styleOf(top, "stop"), /flexWrap: "wrap",[\s\S]*maxWidth: "100%",[\s\S]*whiteSpace: "normal"/);
+    // Stop and mute are the kit's Button and Toggle, which never pass their row and wrap their
+    // words (D-10, D-27); the bar lets a queue count or the muted badge go under them.
+    assert.match(styleOf(top, "stop"), /flexWrap: "wrap"/);
+    for (const part of ["Button", "Toggle"]) {
+        const kit = read(`../../kit/${part}.css.ts`);
+        const base = kit.slice(kit.indexOf("base: {"), kit.indexOf("variants: {"));
+        assert.match(base, /maxWidth: "100%",[\s\S]*whiteSpace: "normal",/, part);
+    }
     assert.match(styleOf(top, "stop_actions"), /flexWrap: "wrap"/);
     // The narrow header, for a narrow window and for the UI-size-aware breakpoint alike.
     assert.match(top.slice(top.indexOf("const stopActionsNarrow")), /^[^;]*maxWidth: "24rem"/);

@@ -1,4 +1,4 @@
-import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../theme/vars.css.ts";
 
 // The bar's middle width: the stop's and the save bar's buttons take their short words.
@@ -42,7 +42,6 @@ export const applies_now = style({
     fontSize: "1.3rem",
     color: vars.dark_400_color,
 });
-const focusRing = { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" } as const;
 // A queue count and the muted badge may wrap, leaving search usable.
 const stopActionsNarrow = { margin: "1.6rem 1.6rem .8rem 0", maxWidth: "24rem", justifySelf: "end" } as const;
 export const stop_actions = style({
@@ -58,65 +57,14 @@ export const stop_actions = style({
     "@media": { [NARROW]: stopActionsNarrow },
 });
 
-export const is_attention = style({});
-export const is_stopping = style({});
-export const is_stopped = style({});
-export const is_idle = style({});
-export const is_pressed = style({});
-
-const stopAnswered = keyframes({ from: { background: vars.vox_highlight_tint } });
-
-export const stop = style({
-    display: "inline-flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: ".8rem",
-    maxWidth: "100%",
-    minWidth: 0,
-    minHeight: "4rem",
-    padding: ".8rem 1.2rem",
-    borderRadius: vars.vox_radius,
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    color: vars.dark_200_color,
-    background: vars.dark_900_color,
-    border: `.1rem solid ${vars.dark_800_color}`,
-    cursor: "pointer",
-    whiteSpace: "normal",
-    overflowWrap: "anywhere",
-    transition: "background-color .12s ease, border-color .12s ease, color .12s ease",
-    fontVariantNumeric: "tabular-nums",
-    // In the SCSS order: rules of the same weight that set the same thing, the later one wins.
-    selectors: {
-        "&:hover": { background: vars.dark_850_color },
-        "&:focus-visible": focusRing,
-        // Amber only while something is being spoken or waits in the queue.
-        [`&.${is_attention}`]: { color: vars.vox_state_warning, borderColor: vars.vox_state_warning },
-        // The stop answers its press (#937), as the hexagram's switches do (#911): sunk while the core is
-        // asked, then a short lilac flash with "stopped". Not offered, it reads as disabled and keeps its
-        // tooltip (aria-disabled, not disabled).
-        [`&.${is_stopping}, &.${is_stopping}:hover:not(:disabled)`]: { background: vars.dark_925_color, cursor: "progress" },
-        [`&.${is_stopped}, &.${is_stopped}:hover:not(:disabled)`]: {
-            color: vars.primary_200_color,
-            borderColor: vars.primary_600_color,
-            animation: `${stopAnswered} .8s ease-out`,
-        },
-        [`&.${is_idle}, &.${is_idle}:hover:not(:disabled), &.${is_idle}:active:not(:disabled)`]: {
-            opacity: .5,
-            cursor: "not-allowed",
-            background: vars.dark_900_color,
-        },
-        // Muted is a reported state worth seeing from every page; the text says it too.
-        [`&.${is_pressed}`]: { color: vars.vox_state_warning, borderColor: vars.vox_state_warning, background: vars.dark_900_color },
-        "&:disabled": { opacity: .5, cursor: "not-allowed" },
-        "&:active:not(:disabled)": { background: vars.dark_925_color },
-    },
-    "@media": {
-        "(prefers-reduced-motion: reduce)": { selectors: { [`&.${is_stopped}`]: { animation: "none" } } },
-    },
-});
-// The stop's words of two lengths: the long ones, and the short ones in a narrower window.
+// Stop and mute are the kit's Button (danger) and Toggle (warning) at the regular size, 4rem high
+// as search and back beside them (StopActions). The bar gives them only their place: a queue count
+// and the muted badge may go under the words.
+export const stop = style({ flexWrap: "wrap", minWidth: 0 });
+// The stop's words of two lengths: the long ones, and the short ones in a narrower window. Their
+// digits are as wide as each other, so a queue count keeps the room its words keep (#912).
 export const long = style({
+    fontVariantNumeric: "tabular-nums",
     selectors: { [`${NARROW_PAGE} ${stop} &`]: { display: "none" } },
     "@media": {
         [MIDDLE]: { selectors: { [`${stop} &`]: { display: "none" } } },
@@ -125,6 +73,7 @@ export const long = style({
 });
 export const short = style({
     display: "none",
+    fontVariantNumeric: "tabular-nums",
     selectors: { [`${NARROW_PAGE} ${stop} &`]: { display: "inline" } },
     "@media": {
         [MIDDLE]: { selectors: { [`${stop} &`]: { display: "inline" } } },

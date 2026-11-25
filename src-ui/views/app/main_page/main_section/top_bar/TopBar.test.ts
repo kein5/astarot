@@ -57,6 +57,13 @@ const describedBy = (control: TreeNode) => {
     return words.props.children;
 };
 
+// Stop and mute, as the kit's stand-ins draw them (hookHarness): the Button and the Toggle.
+const kitControls = (tree: unknown) => {
+    const stop = find(tree, node => node.type === kitStandIns.Button), mute = find(tree, node => node.type === kitStandIns.Toggle);
+    assert.ok(stop && mute);
+    return [stop, mute] as const;
+};
+
 // The part of the bar named `name`, found in its tree: a function of the bar's own module (not
 // exported), which the test draws as React would.
 const partNamed = (tree: TreeNode, name: string): DrawnComponent => componentOf(findIn(tree, item => componentName(item) === name));
@@ -236,12 +243,16 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const [first, second] = leading.props.children;
     assert.equal(first.type, "compact");
     assert.equal(second.type, actions.StopActions);
+    assert.equal(second.props.size, "compact", "the bar's buttons are the kit's compact ones");
     const group = runtime.render(second.type, second.props);
-    const [stop, mute] = all(group, node => node.type === "button");
+    // Stop is the kit's danger Button (D-10) and mute the kit's Toggle in its warning tone (D-27),
+    // both at the size the bar asks for.
+    const [stop, mute] = kitControls(group);
+    assert.deepEqual([stop.props.tone, stop.props.size, mute.props.tone, mute.props.size], ["danger", "compact", "warning", "compact"]);
     assert.deepEqual(words(stop), { long: 'voice_ui.topbar_stop_count:{"count":2}', short: 'voice_ui.topbar_stop_short_count:{"count":2}',
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
-    assert.match(stop.props.className, /is_attention/);
+    assert.equal(stop.props["aria-disabled"], undefined, "offered while something is spoken");
     // One name at every width and on every route (#436); the tooltip says what it silences.
     assert.deepEqual(words(mute), { long: "voice_ui.mute_row", short: "voice_ui.mute_row", tiny: "voice_ui.topbar_muted",
         muted_badge: "voice_ui.topbar_muted" });
@@ -254,7 +265,8 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(describedBy(stop), "voice.stop");
     assert.equal(describedBy(mute), "voice.mute_scope_managed");
     assert.deepEqual([stop.props.title, mute.props.title], [undefined, undefined]);
-    assert.equal(mute.props["aria-pressed"], true);
+    // The reported state presses the toggle; the toggle keeps none of its own.
+    assert.deepEqual([mute.props.pressed, mute.props["aria-pressed"], mute.props.onPressedChange], [true, true, undefined]);
     stop.props.onClick(); mute.props.onClick();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
 
@@ -269,7 +281,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(sent.at(-1), "/run/mute_voice");
     // Resume is refused while the route is not ready, for the button and the hotkey alike.
     voice.route = { requested_muted: true, ready: false, pending: false };
-    const blocked = all(runtime.render(second.type, second.props), node => node.type === "button")[1];
+    const blocked = kitControls(runtime.render(second.type, second.props))[1];
     assert.equal(blocked.props.disabled, true);
     const before = sent.length;
     voiceActions.toggleMute(); blocked.props.onClick();
@@ -286,22 +298,22 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
     });
-    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", is_attention: "is_attention",
-        is_pressed: "is_pressed", is_stopping: "is_stopping", is_stopped: "is_stopped", is_idle: "is_idle", muted_badge: "muted_badge",
+    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", muted_badge: "muted_badge",
         stop_status: "stop_status" };
     const draw = () => {
         const group = runtime.render(StopActions, { classes });
-        const stop = all(group, node => node.type === "button")[0];
+        const [stop] = kitControls(group);
         const status = find(group, node => node.props?.role === "status");
         assert.ok(status);
         return { stop, tip: tipped(all(group, node => node.type === "tooltip")[0]), status: status.props.children };
     };
-    // Nothing runs: disabled to the eye and to a screen reader, still focusable, and its tooltip
-    // says when it can be pressed. Neither the button nor the hotkey sends anything.
+    // Nothing runs: disabled to the eye (the kit draws an aria-disabled button at half strength) and
+    // to a screen reader, still focusable, and its tooltip says when it can be pressed. Neither the
+    // button nor the hotkey sends anything. The bar gives it only its place.
     const idle = draw();
     assert.equal(idle.stop.props["aria-disabled"], true);
     assert.equal(idle.stop.props.disabled, undefined, "it keeps its place in the tab order and its tooltip");
-    assert.match(idle.stop.props.className, /is_idle/);
+    assert.deepEqual([idle.stop.props.tone, idle.stop.props.className], ["danger", "stop"]);
     assert.equal(idle.tip.words, "voice_ui.topbar_stop_idle");
     idle.stop.props.onClick(); voiceActions.stop?.();
     assert.deepEqual(sent, []);
@@ -316,13 +328,11 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     assert.deepEqual([offered.stop.props["aria-disabled"], offered.tip.words], [undefined, "voice.stop"]);
     offered.stop.props.onClick();
     assert.deepEqual(sent, ["/run/stop_voice"]);
-    // Waiting for the answer: it says so in the room its words keep, sinks and takes no press;
-    // the shortest words stay, so the narrowest bar does not grow.
+    // Waiting for the answer: it says so in the room its words keep and takes no press; the
+    // shortest words stay, so the narrowest bar does not grow.
     world.stop = { phase: "stopping", press: 1 };
     const stopping = draw();
     assert.deepEqual(words(stopping.stop), { long: "voice_ui.topbar_stopping", short: "voice_ui.topbar_stopping", tiny: "voice_ui.topbar_stop_tiny" });
-    assert.match(stopping.stop.props.className, /is_stopping/);
-    assert.doesNotMatch(stopping.stop.props.className, /is_attention/);
     assert.deepEqual([stopping.stop.props["aria-busy"], stopping.stop.props["aria-disabled"]], [true, true]);
     stopping.stop.props.onClick();
     assert.equal(sent.length, 1);
@@ -330,28 +340,26 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     assert.ok(kept);
     // The room also holds a two-digit queue, so the queue emptying does not move mute either.
     assert.deepEqual(kept.props.words, ["voice_ui.topbar_stop", 'voice_ui.topbar_stop_count:{"count":99}', "voice_ui.topbar_stopping", "voice_ui.topbar_stopped"]);
-    // Answered: "stopped" with the lilac flash, and a line for screen readers.
+    // Answered: "stopped", and a line for screen readers.
     world.stop = { phase: "stopped", press: 1 };
     voice.status = { active: false, queued: 0 };
     const stopped = draw();
     assert.equal(words(stopped.stop).long, "voice_ui.topbar_stopped");
-    assert.match(stopped.stop.props.className, /is_stopped/);
+    assert.equal(stopped.stop.props["aria-busy"], undefined);
     assert.equal(stopped.status, "voice_ui.topbar_stopped_announce");
     assert.equal(stopped.stop.props["aria-disabled"], true, "nothing more to press until something runs again");
     world.stop = { phase: "idle", press: 1 };
     assert.equal(draw().status, "");
 });
 
-test("the stop's answer is styled alike in both bars, and its words are in en and ja", () => {
-    // Both bars' styles are in vanilla-extract (#957): the same rules, written as their styles.
+test("both bars give stop and mute only their place, and the stop's words are in en and ja", () => {
+    // The kit draws them (D-10, D-27): a bar's class on them sets no look of its own, which would
+    // win or lose by the order of the stylesheets.
     for (const sheet of ["./TopBar.css.ts", "../../../config_page/topbar/Topbar.css.ts"]) {
         const css = readFileSync(new URL(sheet, import.meta.url), "utf8");
-        const stop = styleOf(css, "stop");
-        assert.match(stop, /\[`&\.\$\{is_stopping\}, &\.\$\{is_stopping\}:hover:not\(:disabled\)`\]: \{ background: vars\.dark_925_color, cursor: "progress" \}/, sheet);
-        assert.match(stop, /\[`&\.\$\{is_stopped\}, [^`]*`\]: \{\s*color: vars\.primary_200_color,\s*borderColor: vars\.primary_600_color,\s*animation: `\$\{stopAnswered\} \.8s ease-out`,/, sheet);
-        assert.match(css, /const stopAnswered = keyframes\(\{ from: \{ background: vars\.vox_highlight_tint \} \}\);/, sheet);
-        assert.match(stop, /"\(prefers-reduced-motion: reduce\)": \{ selectors: \{ \[`&\.\$\{is_stopped\}`\]: \{ animation: "none" \} \} \}/, sheet);
-        assert.match(stop, /\[`&\.\$\{is_idle\}, [^`]*`\]: \{\s*opacity: \.5,\s*cursor: "not-allowed",/, sheet);
+        assert.doesNotMatch(styleOf(css, "stop"),
+            /padding|fontSize|fontWeight|color|background|border|minHeight|maxWidth|opacity|outline|cursor|animation|selectors/, sheet);
+        assert.doesNotMatch(css, /keyframes|is_attention|is_pressed|is_stopping|is_stopped|is_idle/, sheet);
         assert.match(styleOf(css, "stop_status"), /position: "absolute",\s*width: "1px",\s*height: "1px",/, sheet);
     }
     for (const language of ["en", "ja"]) {
@@ -368,13 +376,16 @@ test("the settings bar draws the same actions without the shortest words", async
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
     });
-    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
-        is_pressed: "is_pressed", muted_badge: "muted_badge" };
+    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", muted_badge: "muted_badge" };
     const group = runtime.render(StopActions, { classes });
     assert.deepEqual(all(group, node => node.type === "span" && node.props.className !== undefined).map(node => node.props.className),
         ["long", "short", "long", "short"]);
-    const [, mute] = all(group, node => node.type === "button");
-    assert.equal(mute.props["aria-pressed"], undefined, "no reported state, no toggle");
+    // The settings bar asks for no size: the kit's regular one, 4rem high as search and back.
+    const [stop, mute] = kitControls(group);
+    assert.deepEqual([stop.props.size, mute.props.size], [undefined, undefined]);
+    // No reported state, no toggle: the kit's Toggle is drawn off and says nothing of being pressed.
+    assert.deepEqual([mute.props.pressed, mute.props["aria-pressed"]], [false, undefined], "no reported state, no toggle");
+    assert.ok("aria-pressed" in mute.props, "the toggle's own aria-pressed is replaced, not left to the kit");
 });
 
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
