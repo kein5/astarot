@@ -175,6 +175,19 @@ export const kitStandIns = {
     Switch: ({ checked = false, ...rest }: Record<string, unknown>) =>
         jsx.jsx("button", { type: "button", role: "switch", "aria-checked": checked, "data-state": checked ? "checked" : "unchecked",
             "data-slot": "switch", ...rest }),
+    // The kit's toggle is Radix's: a <button> whose aria-pressed and data-state follow pressed; the
+    // accent tone and the regular size unless asked.
+    Toggle: ({ pressed = false, tone = "accent", size = "regular", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", "aria-pressed": pressed, "data-state": pressed ? "on" : "off", "data-slot": "toggle",
+            "data-tone": tone, "data-size": size, ...rest }),
+    ToggleGroup: (props: Record<string, unknown>) => jsx.jsx("div", { role: "group", "data-slot": "toggle-group", ...props }),
+    ToggleGroupItem: (props: Record<string, unknown>) => jsx.jsx("button", { type: "button", "data-slot": "toggle-group-item", ...props }),
+    // The kit's popover: its parts in place, the content drawn whether open or not, so a test reads it.
+    Popover: ({ children }: Record<string, unknown>) => children,
+    PopoverTrigger: (props: Record<string, unknown>) => jsx.jsx("button", { type: "button", "data-slot": "popover-trigger", ...props }),
+    PopoverAnchor: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "popover-anchor", ...props }),
+    PopoverContent: ({ portal: _portal, inset: _inset, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("div", { "data-slot": "popover-content", ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

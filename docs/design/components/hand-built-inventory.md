@@ -32,6 +32,8 @@ Components aligned with shadcn/ui. The sample page (`src-ui/kit-lab.html`) shows
 | `TextField` | A native `<input>`, with `invalid` and `mono` | Input |
 | `Select`, `SelectOption`, `SelectOptGroup` | Wraps a native `<select>` | NativeSelect |
 | `Switch` | Radix UI's Switch | Switch |
+| `Toggle`, `ToggleGroup`, `ToggleGroupItem` | Radix UI's Toggle and ToggleGroup: `tone` (accent, warning) and `size` (regular, compact, icon) (#1175) | Toggle, ToggleGroup |
+| `Popover`, `PopoverTrigger`, `PopoverAnchor`, `PopoverContent` | Radix UI's Popover, never modal: `inset` (regular, tight) (#1175) | Popover |
 | `Dialog`, `DialogHeader`, `DialogFooter`, `DialogTitle`, `DialogDescription` | A native `<dialog>` (`showModal()`), opened and closed through `open` and `onOpenChange` | Dialog |
 | `SettingGroup`, `SettingRow` | A group with a heading, and one row of name, description and control | Close to Field (D-34) |
 
@@ -191,8 +193,8 @@ Under decision H-02, a shared component is made for every one of U-01 to U-12 an
 |---|---|---|---|---|---|
 | U-01 | Language selection (a filter field paired with a grid of language buttons) | The main language selection, the VR UI's language window | Command (cmdk). There is none written with Radix | D-36 | Add (H-02). The VR UI's language window does not use it and is brought in line with the VR UI's components instead (H-03) |
 | U-02 | A search that shows a result list (combobox) | Settings search | Combobox (Base UI), Command (cmdk), InputGroup | D-36, D-40 | Add (H-02) |
-| U-03 | Buttons that stay pressed, and groups of buttons where only one can be chosen | Preset switching, translation engine selection, mute, the quick settings items, the catalog's grid and list, the "Captions and VR" switches for which settings are shown, the volume check (`VolumeCheckButton`), the companion handle's edges (not replaced, H-03) | Toggle, ToggleGroup (Radix). The "Captions and VR" switches change panels within the same page, so they also correspond to Tabs (Radix) | D-27 | Add (H-02). The companion handle does not use it (H-03) |
-| U-04 | A small panel that opens from a button | Quick settings, log display settings, the translation engine list, the color popover, the companion handle's menu (not replaced, H-03) | Popover, DropdownMenu (Radix) | D-25 | Add (H-02). The companion handle does not use it (H-03) |
+| U-03 | Buttons that stay pressed, and groups of buttons where only one can be chosen | Preset switching, translation engine selection, mute, the quick settings items, the catalog's grid and list, the "Captions and VR" switches for which settings are shown, the volume check (`VolumeCheckButton`), the companion handle's edges (not replaced, H-03) | Toggle, ToggleGroup (Radix). The "Captions and VR" switches change panels within the same page, so they also correspond to Tabs (Radix) | D-27 | Added as the kit's `Toggle`, `ToggleGroup` (#1175, H-02). The companion handle does not use it (H-03) |
+| U-04 | A small panel that opens from a button | Quick settings, log display settings, the translation engine list, the color popover, the companion handle's menu (not replaced, H-03) | Popover, DropdownMenu (Radix) | D-25 | Added as the kit's `Popover` (#1175, H-02). The companion handle does not use it (H-03) |
 | U-05 | A horizontal progress bar | Setup, model downloads, the runtime download, the OCR model download | Progress (Radix) | D-32. For circular progress there is `CircularProgress` | Add (H-02) |
 | U-06 | A multi-line input field | The main input field, Quick Chat, the TTS generation options | Textarea | D-13 | Add (H-02) |
 | U-07 | Choices shaped as cards (radio) | Theme selection | No component. One of the Field examples has choice cards that wrap a RadioGroupItem in a FieldLabel | D-16 | Add (H-02) |
@@ -252,6 +254,8 @@ shadcn/ui に寄せた部品です。見本のページ（`src-ui/kit-lab.html`�
 | `TextField` | ネイティブの `<input>`。`invalid` と `mono` | Input |
 | `Select`、`SelectOption`、`SelectOptGroup` | ネイティブの `<select>` を包む | NativeSelect |
 | `Switch` | Radix UI の Switch | Switch |
+| `Toggle`、`ToggleGroup`、`ToggleGroupItem` | Radix UI の Toggle と ToggleGroup。`tone`（accent、warning）と `size`（regular、compact、icon）（#1175） | Toggle、ToggleGroup |
+| `Popover`、`PopoverTrigger`、`PopoverAnchor`、`PopoverContent` | Radix UI の Popover。モーダルにはしない。`inset`（regular、tight）（#1175） | Popover |
 | `Dialog`、`DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` | ネイティブの `<dialog>`（`showModal()`）。開閉は `open` と `onOpenChange` | Dialog |
 | `SettingGroup`、`SettingRow` | 見出し付きのまとまりと、名前・説明・操作の 1 行 | Field に近い（D-34） |
 
@@ -411,8 +415,8 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 |---|---|---|---|---|---|
 | U-01 | 言語の選択（絞り込みの欄と、言語のボタンの格子の組） | メインの言語の選択、VR パネルの言語の窓 | Command（cmdk）。Radix で書いたものはありません | D-36 | 足す（H-02）。VR パネルの言語の窓は使わず、VR パネルの部品にそろえる（H-03） |
 | U-02 | 結果の一覧を出す検索（combobox） | 設定の検索 | Combobox（Base UI）、Command（cmdk）、InputGroup | D-36、D-40 | 足す（H-02） |
-| U-03 | 押したままのボタンと、一つだけを選ぶボタンの集まり | プリセットの切り替え、翻訳エンジンの選択、ミュート、クイック設定の項目、カタログのグリッドとリスト、「字幕とVR」の表示する設定の切り替え、音量の確認（`VolumeCheckButton`）、コンパニオンの取っ手の辺（置き換えの対象外、H-03） | Toggle、ToggleGroup（Radix）。「字幕とVR」の切り替えは、同じページの中のパネルを切り替えるので Tabs（Radix）にも当たります | D-27 | 足す（H-02）。コンパニオンの取っ手は使わない（H-03） |
-| U-04 | ボタンから開く小さな面 | クイック設定、ログの表示の設定、翻訳エンジンの一覧、色のポップオーバー、コンパニオンの取っ手のメニュー（置き換えの対象外、H-03） | Popover、DropdownMenu（Radix） | D-25 | 足す（H-02）。コンパニオンの取っ手は使わない（H-03） |
+| U-03 | 押したままのボタンと、一つだけを選ぶボタンの集まり | プリセットの切り替え、翻訳エンジンの選択、ミュート、クイック設定の項目、カタログのグリッドとリスト、「字幕とVR」の表示する設定の切り替え、音量の確認（`VolumeCheckButton`）、コンパニオンの取っ手の辺（置き換えの対象外、H-03） | Toggle、ToggleGroup（Radix）。「字幕とVR」の切り替えは、同じページの中のパネルを切り替えるので Tabs（Radix）にも当たります | D-27 | kit の `Toggle`、`ToggleGroup` として足した（#1175、H-02）。コンパニオンの取っ手は使わない（H-03） |
+| U-04 | ボタンから開く小さな面 | クイック設定、ログの表示の設定、翻訳エンジンの一覧、色のポップオーバー、コンパニオンの取っ手のメニュー（置き換えの対象外、H-03） | Popover、DropdownMenu（Radix） | D-25 | kit の `Popover` として足した（#1175、H-02）。コンパニオンの取っ手は使わない（H-03） |
 | U-05 | 横に伸びる進み具合 | 初期設定、モデルの取得、実行環境の取得、OCR のモデルの取得 | Progress（Radix） | D-32。丸い進み具合は `CircularProgress` があります | 足す（H-02） |
 | U-06 | 複数行の入力欄 | メインの入力欄、Quick Chat、読み上げの生成の設定 | Textarea | D-13 | 足す（H-02） |
 | U-07 | カードの形をした選択肢（radio） | テーマの選択 | 部品はありません。Field の例に、FieldLabel で RadioGroupItem を包む選択肢のカードがあります | D-16 | 足す（H-02） |

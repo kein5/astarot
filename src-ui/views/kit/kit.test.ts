@@ -58,11 +58,15 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     const toggle = read("Switch.tsx");
     assert.match(toggle, /<RadixSwitch\.Root data-slot="switch"/);
     assert.match(toggle, /<RadixSwitch\.Thumb data-slot="switch-thumb"/);
+    const pressed = read("Toggle.tsx");
+    for (const slot of ["toggle", "toggle-group", "toggle-group-item"]) assert.match(pressed, new RegExp(`data-slot="${slot}"`), slot);
+    const popover = read("Popover.tsx");
+    for (const slot of ["popover", "popover-trigger", "popover-anchor", "popover-content"]) assert.match(popover, new RegExp(`data-slot="${slot}"`), slot);
 });
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Button.tsx", "Dialog.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx"]) {
+    for (const file of ["Button.tsx", "Dialog.tsx", "Popover.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });
@@ -101,4 +105,15 @@ test("the gallery is served by the dev server only", () => {
     const vite = readFileSync(new URL("../../../vite.config.js", import.meta.url), "utf8");
     assert.doesNotMatch(vite, /kit-lab/);
     assert.match(readFileSync(new URL("../../kit-lab.html", import.meta.url), "utf8"), /views\/kit_lab\/index\.tsx/);
+});
+
+test("toggles and popovers are Radix's; a popover is not modal, so no <style> is added at run time", () => {
+    assert.match(read("Toggle.tsx"), /from "@radix-ui\/react-toggle"/);
+    assert.match(read("Toggle.tsx"), /from "@radix-ui\/react-toggle-group"/);
+    const popover = read("Popover.tsx");
+    assert.match(popover, /from "@radix-ui\/react-popover"/);
+    // Radix's popover is modal only when asked; the kit never asks (react-remove-scroll would add a <style>).
+    assert.doesNotMatch(popover, /\bmodal\s*[=:{]/);
+    // Mute keeps its amber while pressed (D-27): the warning tone of the toggle.
+    assert.match(read("Toggle.css.ts"), /warning: \{\s*selectors: \{\s*\[on\]: \{ borderColor: vars\.vox_state_warning, color: vars\.vox_state_warning/);
 });
