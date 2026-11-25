@@ -2,18 +2,20 @@ import { useLang, withBase } from '@rspress/core/runtime'
 import { useEffect, useRef, useState } from 'react'
 import styles from './HomeMascot.module.css'
 
-const PAUSE_KEY = 'astarot-mascot-paused'
 const WORDS = {
-  en: { alt: 'A devil penguin wearing headphones', pause: 'Stop mascot motion', play: 'Resume mascot motion' },
-  ja: { alt: 'ヘッドホンを着けた悪魔ペンギン', pause: 'ペンギンの動きを止める', play: 'ペンギンの動きを再開' },
+  en: { caption: 'Mascot character: Devil Penguin', jump: 'Make the Devil Penguin jump' },
+  ja: { caption: 'マスコットキャラクター 悪魔ペンギン', jump: '悪魔ペンギンをジャンプさせる' },
 }
 
 interface Penguin {
   destroy(): void
+  jump(): void
+  play(): void
+  pause(): void
 }
 
 interface PenguinModel {
-  mount(container: HTMLElement, options: { interactive: boolean; follow: boolean }): Penguin
+  mount(container: HTMLElement, options: { interactive: boolean; autoplay: boolean }): Penguin
 }
 
 let pendingModel: Promise<PenguinModel> | undefined
@@ -44,21 +46,15 @@ function loadModel(): Promise<PenguinModel> {
 export function HomeMascot() {
   const lang = useLang() === 'ja' ? 'ja' : 'en'
   const words = WORDS[lang]
-  const stage = useRef<HTMLDivElement>(null)
-  const artwork = useRef<HTMLDivElement>(null)
+  const stage = useRef<HTMLElement>(null)
+  const artwork = useRef<HTMLSpanElement>(null)
+  const jump = useRef<(() => void) | null>(null)
   const [enabled, setEnabled] = useState(false)
-  const [paused, setPaused] = useState(false)
-  const [running, setRunning] = useState(false)
-  const [hasStarted, setHasStarted] = useState(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const sync = () => setEnabled(!motion.matches)
-    try {
-      setPaused(localStorage.getItem(PAUSE_KEY) === '1')
-    } catch {
-      // Keep the choice for the current page if storage is blocked.
-    }
     sync()
     motion.addEventListener('change', sync)
     return () => motion.removeEventListener('change', sync)
@@ -67,19 +63,32 @@ export function HomeMascot() {
   useEffect(() => {
     const target = artwork.current
     const section = stage.current
-    if (!enabled || paused || !target || !section) return
+    if (!enabled || !target || !section) return
     let active = true
     let observer: IntersectionObserver | undefined
     let penguin: Penguin | undefined
+    let queued = 0
+
+    const onLand = () => {
+      if (--queued > 0) penguin?.jump()
+      else penguin?.pause()
+    }
 
     const start = () => {
       observer?.disconnect()
       void loadModel()
         .then((model) => {
           if (!active) return
-          penguin = model.mount(target, { interactive: false, follow: true })
-          setHasStarted(true)
-          setRunning(true)
+          const mounted = model.mount(target, { interactive: false, autoplay: false })
+          penguin = mounted
+          target.addEventListener('penguinjumpend', onLand)
+          jump.current = () => {
+            if (queued++ === 0) {
+              mounted.jump()
+              mounted.play()
+            }
+          }
+          setReady(true)
         })
         .catch(() => {
           // The static image is already present.
@@ -104,41 +113,32 @@ export function HomeMascot() {
       active = false
       window.removeEventListener('load', observe)
       observer?.disconnect()
+      target.removeEventListener('penguinjumpend', onLand)
+      jump.current = null
       penguin?.destroy()
-      setRunning(false)
+      setReady(false)
     }
-  }, [enabled, paused])
-
-  const toggle = () => {
-    const next = !paused
-    setHasStarted(true)
-    setPaused(next)
-    try {
-      localStorage.setItem(PAUSE_KEY, next ? '1' : '0')
-    } catch {
-      // Keep the choice for the current page if storage is blocked.
-    }
-  }
+  }, [enabled])
 
   return (
-    <div ref={stage} className={styles.stage}>
-      <div className={styles.picture}>
+    <figure ref={stage} className={styles.stage}>
+      <button
+        type="button"
+        className={styles.picture}
+        disabled={!ready}
+        aria-label={words.jump}
+        onClick={() => jump.current?.()}
+      >
         <img
-          className={running ? styles.replaced : undefined}
+          className={ready ? styles.replaced : undefined}
           src={withBase('/mascot/penguin-front-normal.svg')}
-          alt={words.alt}
+          alt=""
           width={560}
           height={800}
         />
-        <div ref={artwork} className={styles.animation} aria-hidden="true" />
-      </div>
-      <div className={styles.controls}>
-        {enabled && (hasStarted || paused) && (
-          <button type="button" className={styles.toggle} onClick={toggle}>
-            {paused ? words.play : words.pause}
-          </button>
-        )}
-      </div>
-    </div>
+        <span ref={artwork} className={styles.animation} aria-hidden="true" />
+      </button>
+      <figcaption className={styles.caption}>{words.caption}</figcaption>
+    </figure>
   )
 }
