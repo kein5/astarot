@@ -217,25 +217,6 @@ globalStyle(inForm('input[type="checkbox"]'), {
 });
 // A checkbox among a form's fields is at least 24px high, like the other controls there.
 globalStyle(inForm(`input[type="checkbox"].${fieldCheck}`), { width: "2.4rem", height: "2.4rem", minHeight: "2.4rem", marginTop: 0 });
-// A dialog of the forms still written by hand; the kit's Dialog (data-slot="dialog-content") draws
-// its own frame, gap and backdrop, and its buttons are the kit's.
-const HAND_BUILT_DIALOG = 'dialog:not([data-slot="dialog-content"])';
-// shadcn/ui's DialogContent: at most 51.2rem wide (sm:max-w-lg), 1.6rem between its parts (gap-4).
-globalStyle(inForm(HAND_BUILT_DIALOG), {
-    maxWidth: "min(51.2rem, calc(100vw - 3.2rem))",
-    maxHeight: "calc(100dvh - 3.2rem)",
-    overflowY: "auto",
-    padding: "2.4rem",
-    border: ".1rem solid var(--dark_600_color, #555d69)",
-    borderRadius: "1.2rem",
-    background: "var(--dark_875_color, #282a2e)",
-    color: "inherit",
-});
-// shadcn/ui's bg-black/50. Written as a colour, not a token: a ::backdrop takes custom properties
-// from its dialog only in newer engines (Safari 17.4, Chrome 122), and an older WebKitGTK would not dim.
-globalStyle(inForm(`${HAND_BUILT_DIALOG}::backdrop`), { background: "#00000080" });
-globalStyle(inForm(`${HAND_BUILT_DIALOG} button`), { margin: ".8rem .8rem 0 0" });
-globalStyle(inForm(`${HAND_BUILT_DIALOG}[open]`), { display: "grid", gap: "1.6rem", alignContent: "start" });
 // The files a consent dialog downloads, under its facts.
 globalStyle(inForm(`ul.${dialog_files}`), {
     margin: 0,
@@ -247,11 +228,6 @@ globalStyle(inForm(`ul.${dialog_files}`), {
 });
 // The consent breaks between phrases where the engine can, not inside a word.
 globalStyle(inForm(`dialog > label.${checkLabel}`), { padding: 0, fontSize: "1.4rem", lineHeight: 1.5, wordBreak: "auto-phrase" });
-// The two answers of a form's own leave confirmation (useSettingsDraft.tsx) are one row, as the
-// save bar's confirmation lays them out (Topbar.css.ts).
-globalStyle(inForm("dialog > [data-leave-actions]"), { display: "flex", flexWrap: "wrap", gap: ".8rem" });
-// A button in a row of actions keeps the row's gap only.
-globalStyle(inForm("dialog > [data-leave-actions] button", `dialog > .${actions} button`), { margin: 0 });
 // A range control looks like the shared Slider (6px groove filled up to the value, 18px Lilac
 // thumb), not a text field. Chromium and WebKit have no part for the filled length, so the
 // form sets --range-fill to the value's share and the groove paints it; the thumb, centred

@@ -9,8 +9,10 @@ const KIT_SLOTS = '[data-slot="button"], [data-slot="switch"], [data-slot="input
 const KIT_SLOT: Record<string, readonly string[]> = { button: ["button", "switch"], input: ["input"], textarea: ["textarea"], select: ["native-select"], option: ["native-select-option"] };
 
 // A selector of a form's rule, as it applies under the form's container: one that starts with a
-// native control leaves out the kit's part of that kind; the focus ring and the dimming leave out
-// every kit part.
+// native control leaves out the kit's part of that kind; one for paragraphs leaves out the kit's
+// paragraphs (a dialog's description) without weighing more, so a screen's own rule for its
+// paragraphs still wins as before; the focus ring and the dimming leave out every kit part.
 export const leavesKit = (selector: string): string => selector
     .replace(/^(button|input|textarea|select|option)(?![\w-])/, tag => tag + KIT_SLOT[tag].map(slot => `:not([data-slot="${slot}"])`).join(""))
+    .replace(/^p(?![\w-])/, "p:not(:where([data-slot]))")
     .replace(/^:(focus-visible|disabled)$/, (_, state: string) => `:${state}:not(${KIT_SLOTS})`);

@@ -43,25 +43,13 @@ export const wrapper = style({
     borderRadius: vars.vox_radius,
 });
 
-// Stays in view while the dialog scrolls; the shared secondary settings button.
-export const close_button = style({
+// The close button's place: at the panel's top right, staying in view while the panel scrolls. The
+// row is as wide as the button, so it covers nothing beside it.
+export const close_row = style({
     position: "sticky",
     top: 0,
     zIndex: 1,
-    display: "block",
+    display: "flex",
+    width: "fit-content",
     marginLeft: "auto",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    minHeight: "3.6rem",
-    padding: ".6rem 1.4rem",
-    color: vars.dark_200_color,
-    background: vars.dark_850_color,
-    border: ".1rem solid transparent",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { background: vars.vox_secondary_hover },
-        "&:active": { background: vars.dark_925_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-    },
 });

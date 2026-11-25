@@ -21,6 +21,8 @@ test("a form's rules for native controls leave out the kit's parts", () => {
     assert.equal(leavesKit("option:checked"), 'option:not([data-slot="native-select-option"]):checked');
     assert.equal(leavesKit("option:focus-visible"), 'option:not([data-slot="native-select-option"]):focus-visible');
     assert.equal(leavesKit("option::checkmark"), 'option:not([data-slot="native-select-option"])::checkmark');
+    // A paragraph of the kit (a dialog's description), left out without weighing more (:where).
+    assert.equal(leavesKit("p"), "p:not(:where([data-slot]))");
     const kit = '[data-slot="button"], [data-slot="switch"], [data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="native-select-option"], [data-slot="native-select-optgroup"]';
     assert.equal(leavesKit(":focus-visible"), `:focus-visible:not(${kit})`);
     assert.equal(leavesKit(":disabled"), `:disabled:not(${kit})`);
@@ -28,7 +30,7 @@ test("a form's rules for native controls leave out the kit's parts", () => {
 
 test("other selectors, and words that only start like a control, are kept as they are", () => {
     for (const selector of ["textareas", "label", "dialog button", "optgroup", "options", "option-list", "summary", "selected", "input-group",
-        "buttons", '[role="alert"]', ":focus-visible:hover"]) {
+        "buttons", '[role="alert"]', ":focus-visible:hover", "pre", "progress"]) {
         assert.equal(leavesKit(selector), selector);
     }
     // A control's own state keeps the control's guard only.

@@ -40,7 +40,6 @@ const mediumButtons = [
     [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm("button"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({"],
-    [views + "app/others/modal_controller/ModalController.css.ts", "export const close_button = style({"],
     [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],
     [box + "_components/_atoms/_download_button/_DownloadButton.css.ts", "export const download_button = style({"],
     [box + "updater/Updater.css.ts", "export const refresh_button = style({"],

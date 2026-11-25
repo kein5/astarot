@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, drawWith, kitStandIns } from "../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, findIn, nodesIn, componentName, draw, drawWith, treeNode } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
+// A button of the setup: the kit's Button (D-23).
+const isButton = (node: TreeNode) => node.type === kitStandIns.Button;
 import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
 import * as needsLogic from "../../../logics/main/setupNeeds.ts";
@@ -134,7 +136,7 @@ async function setup(context: TestContext, w = world()) {
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
     const render = () => { let tree: unknown; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
-    const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button");
+    const buttons = (tree: unknown) => nodesIn(tree).filter(node => isButton(node));
     const button = (tree: unknown, label: string) => {
         const found = buttons(tree).find(node => [node.props.children].flat().includes(label));
         assert.ok(found, label);
@@ -175,6 +177,7 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     assert.deepEqual(logic.planModels(recognition.props.plan).map(entry => entry.id), ["reazonspeech-v2-q8", "silero-vad-v62"]);
     const start = s.button(tree, "first_run_setup.recognition.start");
     assert.equal(start.props.disabled, true, "the start waits for the consent");
+    assert.equal(start.props.tone, "primary", "the step the setup exists for");
     start.props.onClick();
     s.render();
     // <unknown> keeps the assertion from narrowing w.sent, which the run goes on adding to.
@@ -186,9 +189,10 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     s.render();
     assert.deepEqual<unknown>(w.sent, [["/run/start_model_download", { id: "reazonspeech-v2-q8", consent: true, catalog_version: "2026-11-16.3" }]]);
 
-    // Downloading, then verified: applied once against the saved (empty) path.
+    // Downloading, then verified: applied once against the saved (empty) path. While it runs, Stop
+    // is the kit's danger Button, as every stop (D-10).
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
-    s.render();
+    assert.equal(s.button(s.render(), "first_run_setup.recognition.stop").props.tone, "danger");
     assert.equal(w.sent.length, 1);
     // The step that downloads a known size has a bar, named after the step; no bar while the size
     // is not known or once it is checked; before its first bytes it stands at 0.
@@ -229,7 +233,9 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     // No microphone, no recognition turned on: only these requests were sent.
     assert.deepEqual(w.sent.map(([endpoint]) => endpoint), ["/run/start_model_download", "/run/apply_model_download",
         "/run/start_model_download", "/run/apply_model_download", "/set/data/realtime_asr_settings", "/set/data/selected_transcription_engine"]);
-    s.button(tree, "first_run_setup.done").props.onClick();
+    const done = s.button(tree, "first_run_setup.done");
+    assert.deepEqual([done.props.tone, done.props.autoFocus], ["primary", true]);
+    done.props.onClick();
     assert.ok(w.calls.includes("dismiss"));
 });
 
@@ -249,6 +255,7 @@ test("a failed download stops the run at its step; Try again continues from ther
     // Nothing was applied: the settings stay as they were.
     assert.equal(w.sent.some(([endpoint]) => endpoint === "/run/apply_model_download"), false);
 
+    assert.equal(s.button(tree, "first_run_setup.recognition.retry").props.tone, "primary");
     s.button(tree, "first_run_setup.recognition.retry").props.onClick();
     s.render();
     assert.equal(w.sent.filter(([endpoint]) => endpoint === "/run/start_model_download").length, 2);
@@ -284,10 +291,29 @@ test("Later puts it away for this run without dismissing it; Don't show again do
     assert.deepEqual(w.calls.filter(call => call === "dismiss" || call === "close"), ["close"]);
     const v = world();
     s = await setup(context, v);
-    const alternative = find(s.render(), node => node.props?.className === "alternative");
-    assert.ok(alternative);
-    alternative.props.children.props.onClick();
+    const tree = s.render();
+    // The kit's Dialog (D-23): named by its title alone, as before (D-43); what it is for is drawn as
+    // the kit's description. Later is the footer's plain Button, and ending the suggestion the kit's
+    // quiet Button on a line of its own under it (D-24, decided on 2026-11-25).
+    const dialog = findIn(tree, node => node.type === kitStandIns.Dialog);
+    assert.deepEqual([dialog.props.open, dialog.props.className, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]],
+        [true, "dialog", true, undefined]);
+    const header = findIn(dialog, node => node.type === kitStandIns.DialogHeader);
+    assert.deepEqual([findIn(header, node => node.type === kitStandIns.DialogTitle).props.children,
+        findIn(header, node => node.type === kitStandIns.DialogDescription).props.children], ["first_run_setup.title", "first_run_setup.purpose"]);
+    const footer = findIn(dialog, node => node.type === kitStandIns.DialogFooter);
+    assert.deepEqual(nodesIn(footer).filter(node => node.type === kitStandIns.Button).map(node => [node.props.children, node.props.tone]),
+        [["first_run_setup.later", undefined], ["first_run_setup.dont_show", "quiet"]]);
+    const line = findIn(footer, node => node.props?.className === "footerLine");
+    const dontShow = findIn(line, node => node.type === kitStandIns.Button);
+    assert.equal(dontShow.props.children, "first_run_setup.dont_show");
+    dontShow.props.onClick();
     assert.ok(v.calls.includes("dismiss"));
+    // Escape puts it away for this run, as Later does: the kit's Dialog asks the setup (Dialog.test.ts).
+    const e = world();
+    s = await setup(context, e);
+    findIn(s.render(), node => node.type === kitStandIns.Dialog).props.onOpenChange(false);
+    assert.deepEqual(e.calls.filter(call => call === "dismiss" || call === "close"), ["close"]);
 });
 
 // What was found reads at a glance (#557): each row is marked ready, needs the user, being checked
@@ -409,9 +435,9 @@ test("a finding is drawn as the kit's Item, its look and mark from its state", a
     assert.deepEqual(look("vrchat"), [true, "default", "checking", "checking", "first_run_setup.found.vrchat", "status", false]);
     assert.deepEqual(look("virtual_mic"), [true, "default", "ready", "ready", "first_run_setup.found.virtual_mic", undefined, true]);
     assert.deepEqual(look("translation"), [true, "attention", "attention", "attention", "first_run_setup.found.translation", undefined, true]);
-    // The action is the row's own button, under its words.
-    const action = findIn(findIn(drawn.translation, node => node.type === kitStandIns.ItemActions), node => node.type === "button", "the button");
-    assert.equal(action.props.children, "first_run_setup.found.translation_open_settings");
+    // The action is the row's own button, under its words: the kit's plain Button (D-23).
+    const action = findIn(findIn(drawn.translation, node => node.type === kitStandIns.ItemActions), node => node.type === kitStandIns.Button, "the button");
+    assert.deepEqual([action.props.children, action.props.tone], ["first_run_setup.found.translation_open_settings", undefined]);
 });
 
 test("every string it uses is in both languages", () => {
@@ -447,7 +473,7 @@ test("the translation's model is reviewed, downloaded and applied in the setup, 
     assert.equal(nodesIn(drawn).filter(node => node.type === "input" && node.props.type === "checkbox").length, 1);
     assert.ok(find(drawn, node => node.props?.tab === "translation" && node.props?.label === "first_run_setup.found.translation_open_settings"));
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what")?.type, "p");
-    const startButton = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    const startButton = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
     assert.equal(startButton()?.props.disabled, true, "nothing starts before the consent");
     const consent = find(drawn, node => node.type === "input" && node.props.type === "checkbox");
     assert.ok(consent);
@@ -498,7 +524,7 @@ test("with another model selected, the setup downloads the default model and the
     const boxes = nodesIn(drawn).filter(node => node.type === "input" && node.props.type === "checkbox");
     assert.equal(boxes.length, 1, "one consent, as the recognition's");
     boxes[0].props.onChange({ target: { checked: true } });
-    nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start")?.props.onClick();
+    nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start")?.props.onClick();
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "m2m100-418m-onnx-int8", consent: true, catalog_version: "2026-11-16.3" }]);
     // The steps: the download, then the choice, waiting for it.
@@ -527,7 +553,7 @@ test("the default model on the PC already: nothing is downloaded and no consent 
     const drawn = section();
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what_switch_only")?.type, "p");
     assert.equal(nodesIn(drawn).filter(node => node.type === "input").length, 0);
-    const start = nodesIn(drawn).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    const start = nodesIn(drawn).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
     assert.equal(start?.props.disabled, false);
     start?.props.onClick();
     s.render(); s.render();
@@ -571,7 +597,7 @@ test("text to speech starts at none; a model chosen is downloaded and written in
         ["first_run_setup.speech.group_japanese", "first_run_setup.speech.group_multilingual"]);
     choice.props.onChange("irodori-v41-f16");
     drawn = section();
-    const start = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    const start = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
     assert.equal(start()?.props.disabled, true, "nothing starts before the consent");
     nodesIn(drawn).find(node => node.type === "input" && node.props.type === "checkbox")?.props.onChange({ target: { checked: true } });
     start()?.props.onClick();
@@ -594,7 +620,7 @@ test("a translation model with a restricted license is acknowledged on its own, 
     const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     choiceIn(section())[0].props.onChange("nllb-200-distilled-600m-onnx-int8");
     const boxes = () => nodesIn(section()).filter(node => node.type === "input" && node.props.type === "checkbox");
-    const start = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    const start = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
     assert.equal(boxes().length, 2, "the consent, and one for the restriction");
     boxes()[0].props.onChange({ target: { checked: true } });
     assert.equal(start()?.props.disabled, true, "the consent alone does not start it");
@@ -707,4 +733,75 @@ test("a model choice is the kit's Select with the kit's options and groups, and 
     assert.deepEqual(nodesIn(marked).filter(node => node.type === kitStandIns.SelectOption).map(option => [option.props.value, option.props.children]),
         [["irodori-v41-f16", "first_run_setup.choice.option_recommended"], ["qwen3-06b-q8", "first_run_setup.choice.option · model_catalog.hardware_warning.option"],
             ["skip", "first_run_setup.choice.skip"]]);
+});
+
+// The setup's buttons are the kit's (D-23, D-10): each section offers Start (primary) before its run,
+// Stop (danger) while it runs, Try again (primary) once it failed, and the way to its settings
+// except while it runs.
+test("a section's buttons follow its run: Start, then Stop, then Try again, with its settings around them", async context => {
+    const offered = (tree: unknown) => nodesIn(tree).flatMap(node => isButton(node) ? [[node.props.children, node.props.tone]]
+        : componentName(node) === "OpenSettings" ? [["settings", node.props.tab]] : []);
+    // The recognition's section, drawn by the setup itself.
+    const w = world();
+    const s = await setup(context, w);
+    const recognition = () => findIn(s.render(), node => node.type === "section" && node.props["aria-labelledby"] === "first-run-recognition");
+    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.start", "primary"], ["settings", "transcription"]]);
+    s.part(s.render(), "RecognitionSetup").props.setConsent(true);
+    assert.equal(s.button(recognition(), "first_run_setup.recognition.start").props.disabled, false, "the consent given, it starts");
+    s.button(recognition(), "first_run_setup.recognition.start").props.onClick();
+    s.render();
+    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.stop", "danger"]]);
+    w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "failed", error_code: "insufficient_space" } };
+    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.retry", "primary"], ["settings", "transcription"]]);
+
+    // The translation's section, drawn by ModelSetup.
+    const t = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const r = await setup(context, t), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const section = () => drawWith(local, r.modelPart(r.render(), "translation"));
+    assert.deepEqual(offered(section()), [["first_run_setup.recognition.start", "primary"], ["settings", "translation"]]);
+    find(section(), node => node.type === "input" && node.props.type === "checkbox")?.props.onChange({ target: { checked: true } });
+    nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start")?.props.onClick();
+    r.render();
+    t.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
+    assert.deepEqual(offered(section()), [["first_run_setup.recognition.stop", "danger"]]);
+    t.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "failed", error_code: "insufficient_space" } };
+    r.render();
+    assert.deepEqual(offered(section()), [["first_run_setup.recognition.retry", "primary"], ["settings", "translation"]]);
+});
+
+test("nothing to download: the recognition's Start needs no consent", async context => {
+    // The models are on the PC; only the server and the engine are left to set.
+    const s = await setup(context, world({ paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } }));
+    const start = s.button(s.render(), "first_run_setup.recognition.start");
+    assert.equal(start.props.disabled, false);
+});
+
+test("the rows' buttons and the way to the settings leave the setup for the place they name", async context => {
+    const w = world({ cables: [], catalog: NO_TRANSLATION, weight: "m2m100_1.2B-ct2-int8", needs: [{ id: "translation", action: "choose" }] });
+    const s = await setup(context, w);
+    const rows = nodesIn(draw(s.part(s.render(), "Findings"))).filter(isFinding).map(node => node.props);
+    const action = (id: string) => rows.find(row => row.id === id)?.action;
+    action("virtual_mic").props.onClick();
+    assert.deepEqual(w.calls.filter(call => call === "close" || call === "guide"), ["close", "guide"]);
+    const v = world({ cables: [], catalog: NO_TRANSLATION, weight: "m2m100_1.2B-ct2-int8", needs: [{ id: "translation", action: "choose" }] });
+    const r = await setup(context, v), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    // The recognition's way to its settings: the kit's plain Button.
+    const open = findIn(r.render(), node => componentName(node) === "OpenSettings" && node.props.tab === "transcription");
+    const button = drawWith(local, open);
+    assert.deepEqual([button.type, button.props.tone, button.props.children], [kitStandIns.Button, undefined, open.props.label]);
+    button.props.onClick();
+    assert.deepEqual(v.calls.filter(call => call === "close" || Array.isArray(call)).slice(-3), ["close", ["tab", "transcription"], ["opened", true]]);
+});
+
+test("the setup sits in the forms' section and the shared host, and ending the suggestion shows only while it is suggested and unfinished", async context => {
+    const tree = (await setup(context, world())).render();
+    assert.deepEqual(String(treeNode(tree)?.props.className).split(" ").sort(), ["container", "host"]);
+    const link = (values: Partial<World>) => setup(context, world(values)).then(s => find(s.render(),
+        node => node.type === kitStandIns.Button && node.props.children === "first_run_setup.dont_show"));
+    assert.ok(await link({}));
+    assert.equal(await link({ notice: false }), null, "no longer suggested: nothing to stop highlighting");
+    const ready = { engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } };
+    assert.equal(await link(ready), null, "finished: Done ends the suggestion");
 });

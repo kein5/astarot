@@ -4,10 +4,13 @@ import { useConsentDialog } from "../../../../logics/common/useConsentDialog";
 import * as styles from "./ModalController.css.ts";
 import { useStore_OpenedQuickSetting } from "@store";
 import { Updater } from "@setting_box";
+import { Button } from "../../../kit/index.ts";
 
 // A modal dialog for the update page, opened from the update button of the top bar (the subtitle
 // overlay switches in place since #939, its settings on the captions and VR page). It closes with its button, Escape
-// or a click outside. Focus moves to the close button and back to the opener.
+// or a click outside. Focus moves to the close button and back to the opener. Its frame and its pale
+// backdrop stay its own (decision 2 of #764); its close button is the kit's plain Button at the
+// panel's top right (decided on 2026-11-25).
 export const ModalController = ({ fallback }: { fallback?: RefObject<HTMLElement | null> | null }) => {
     const { t } = useI18n();
     const { currentOpenedQuickSetting, updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
@@ -25,9 +28,9 @@ export const ModalController = ({ fallback }: { fallback?: RefObject<HTMLElement
             onCancel={event => { event.preventDefault(); close(); }}>
             <div className={styles.bg_onclick_close_area} onClick={close}></div>
             <div className={styles.wrapper}>
-                <button type="button" autoFocus className={styles.close_button} onClick={close}>
-                    {t("common.close_button_label")}
-                </button>
+                <div className={styles.close_row}>
+                    <Button autoFocus onClick={close}>{t("common.close_button_label")}</Button>
+                </div>
                 <QuickSettingsController />
             </div>
         </dialog>

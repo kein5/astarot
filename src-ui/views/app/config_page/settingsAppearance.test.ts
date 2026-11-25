@@ -403,9 +403,10 @@ test("download dialogs write byte counts in the display language", () => {
     }
 });
 test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
-    // The forms' dialogs still written by hand. The kit's Dialog dims with the same (Dialog.test.ts),
-    // and the translation's license dialog is the kit's.
-    const form = read(box + "advanced_settings/VoiceSettings.css.ts");
-    assert.deepEqual([...form.matchAll(/::backdrop`\), \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
-    assert.doesNotMatch(read(box + "translation/Translation.css.ts"), /backdrop/);
+    // The forms' and the app's dialogs are the kit's Dialog, which dims the window so (Dialog.test.ts):
+    // none of their styles draws a frame or a backdrop of its own any more.
+    for (const file of ["advanced_settings/VoiceSettings.css.ts", "translation/Translation.css.ts",
+        "_components/download_models/LegacyModelDownloadDialog.css.ts"]) {
+        assert.doesNotMatch(read(box + file), /backdrop|borderRadius: "1\.2rem"/, file);
+    }
 });
