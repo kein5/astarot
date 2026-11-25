@@ -34,7 +34,9 @@ The bundled server uses one recognition model for both microphone captions and g
 - If you talk with people who don't speak Japanese, choose Qwen3-ASR.
 - "Detect automatically (auto)" needs a model that can detect the language, such as Qwen3-ASR.
 
-## First steps
+## Steps
+
+### First steps
 
 1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and download a recognition model and Silero VAD under "ASR + VAD".
 
@@ -52,7 +54,7 @@ After a restart, captions start off.
 
 The [first setup](../guide/first-setup) screen can also choose and download the recognition model and Silero VAD.
 
-### Pauses and sensitivity
+#### Pauses and sensitivity
 
 "Silence that ends an utterance" under "Realtime captions" sets how long a silence must last before an utterance is settled. The default is 0.4 s (0.5 s in versions up to 0.5). A shorter silence gives results sooner, but a pause in the middle of a sentence may split it into more than one message. To keep the earlier behavior, choose "0.5 s".
 
@@ -62,7 +64,7 @@ The [first setup](../guide/first-setup) screen can also choose and download the 
 What ASTAROT transcribes from game audio is never sent to your chatbox or played into your microphone.
 :::
 
-## Tell speakers apart
+### Tell speakers apart
 
 Game audio captions can show who is speaking. ASTAROT tells the voices apart and marks them "Speaker A", "Speaker B" and so on.
 
@@ -77,13 +79,13 @@ To use it, download and apply the diarization model under "Models and servers" �
 - A GPU is needed. A CPU alone cannot keep up, so while the server runs on the CPU, speakers are not told apart even with the model.
 - Microphone captions do not tell speakers apart.
 
-### Name the speakers
+#### Name the speakers
 
 Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR subtitle overlay (single line and multiple lines). A single-line caption already showing is not drawn again; the next one has the name.
 
 Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
 
-## Add words to recognize
+### Add words to recognize
 
 Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in. From 0.6.0 you can edit their readings, remove individual terms and restore the defaults. Saved changes survive app updates.
 
@@ -97,7 +99,7 @@ A reading that is also an everyday word changes that word too, so choose reading
 
 The term dictionary is under "Realtime captions" in "More settings". Enter the "Written form" and the readings, then press "Add term". To add many terms, use "Import from a file" to read a text file; importing replaces the current dictionary with the file's content. "Export to a file" keeps the dictionary in a file, to move it to another PC or keep a copy. Changes are saved at once. Your own terms and built-in terms with a changed reading can number 100 in all.
 
-## Paste what you say into an input field
+### Paste what you say into an input field
 
 With "Voice typing mode" on under Settings → "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
 
@@ -106,7 +108,7 @@ With "Voice typing mode" on under Settings → "Captions and VR", what you say i
 
 On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat under Proton. On KDE, the desktop asks once whether ASTAROT may control input devices when it first pastes. It cannot paste into a native Wayland window; the text is copied to the clipboard only.
 
-## Choose the speech recognition engine (Windows) {#engines}
+### Choose the speech recognition engine (Windows) {#engines}
 
 On Windows, the speech recognition used by the main screen's "Mic input" and "Listening" switches is chosen under Settings → "Speech recognition (ASR)" → "Transcription engine used for speech recognition". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
 
@@ -123,7 +125,13 @@ Local (speech.cpp) transcribes the languages its recognition model supports (30 
 
 On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
 
-## If you used Whisper in an earlier version {#whisper}
+## Check that it works
+
+Speak into the microphone or play game audio, depending on the input you enabled. Check that the recognized words appear in the conversation log.
+
+## Troubleshooting
+
+### If you used Whisper in an earlier version {#whisper}
 
 The Whisper that ran inside the app went away in 0.3.0. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
 
@@ -135,3 +143,5 @@ Whisper models downloaded by 0.2 or earlier are no longer used. From 0.6.0 the a
 ::: details What was checked
 Telling speakers apart was checked on Windows 11 with conversations of two to six synthetic voices, not with human voices. The results are in the developers' [record](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md) (in Japanese).
 :::
+
+See [Troubleshooting](../guide/troubleshooting) for fixes by symptom.
