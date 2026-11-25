@@ -227,7 +227,7 @@ python tools/native_acceptance.py --appimage <absolute path of the AppImage> --v
 | Group | What it checks | What it needs |
 |---|---|---|
 | `appimage` | Starting through FUSE and by extraction, drawing, shutdown, using the settings screen | AppImage |
-| `ui` | The main screen and the settings screen (display scale 100% and 150%) | `xwininfo` (for the test of the desktop subtitle window; the `xorg-xwininfo` package on CachyOS and Arch Linux, `x11-utils` on Ubuntu and Debian) |
+| `ui` | The main screen and the settings screen (display scale 100% and 150%). Unmuting the managed route turns the screen to "Voice enabled (confirmed)", and after a restart the route is muted again (#838) | `xwininfo` (for the test of the desktop subtitle window; the `xorg-xwininfo` package on CachyOS and Arch Linux, `x11-utils` on Ubuntu and Debian), the gate helper built with `python tools/build_voice_gate.py` (for the managed route test) |
 | `vrchat` | A sentence typed in the app appears in a real VRChat chatbox bubble and can be read back with chat reading | `--vrchat`, the OCR models |
 | `vrchat-voice` | One typed sentence appears in a real VRChat bubble and is heard exactly once through the managed virtual microphone. Mute stops only the voice, and after the app exits the microphone is silent (#746) | `--vrchat`, the OCR models, a prepared managed route, `pw-record` |
 | `quick_chat` | The Quick Chat hotkey brings up the input window above a fullscreen window and gives it focus without bringing back the main window. The text being written is kept and goes once each to translation, OSC and text to speech. Actions from other windows are refused. On Wayland, it shows that the shortcut is registered through the desktop portal, and the button opens the window | KDE (X11 or XWayland), `xdotool` and `xprop`, `python3` with GTK. The one Wayland case runs only with a development build on a Wayland desktop |
@@ -645,7 +645,7 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 | グループ | 確かめること | 要るもの |
 |---|---|---|
 | `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作 | AppImage |
-| `ui` | 基本画面と設定画面（表示倍率100%と150%） | `xwininfo`（デスクトップの字幕の窓の試験。CachyOSとArch Linuxでは `xorg-xwininfo`、UbuntuとDebianでは `x11-utils` のパッケージ） |
+| `ui` | 基本画面と設定画面（表示倍率100%と150%）。管理対象の経路のミュートを解除すると画面が「Voice enabled (confirmed)」になり、再起動のあとはミュートに戻ること（#838） | `xwininfo`（デスクトップの字幕の窓の試験。CachyOSとArch Linuxでは `xorg-xwininfo`、UbuntuとDebianでは `x11-utils` のパッケージ）、`python tools/build_voice_gate.py`で組んだゲートの補助（管理対象の経路の試験） |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
 | `vrchat-voice` | 入力した1つの文が、実際のVRChatの吹き出しに出て、管理対象の仮想マイクで1回だけ聞こえること。ミュートで声だけが止まり、アプリを終了したあとはマイクが無音になること（#746） | `--vrchat`、OCRのモデル、準備済みの管理対象の経路、`pw-record` |
 | `quick_chat` | Quick Chatのショートカットで、入力の窓が全画面の窓の上に出てフォーカスを取り、メインの窓を戻さないこと。下書きを保ち、翻訳、OSC、読み上げへ1回ずつ流れること。ほかの窓からの操作を断ること。Waylandではショートカットをデスクトップのポータルで登録すると示し、ボタンで開けること | KDE（X11かXWayland）、`xdotool`と`xprop`、GTKの入った`python3`。Waylandの1件は、Waylandのデスクトップで開発用のビルドを使うときだけ流れる |
