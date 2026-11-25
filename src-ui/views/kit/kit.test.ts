@@ -34,6 +34,9 @@ test("a button with an icon has shadcn/ui's narrower sides, and an icon button i
     assert.match(css, /compact: \{[^}]*selectors: \{ "&:has\(> svg\)": \{ paddingInline: "1rem" \} \}/);
     // size="icon": as wide as it is high, the regular height until D-03 is decided.
     assert.match(css, /icon: \{ width: "4rem", height: "4rem", padding: 0 \}/);
+    // size="icon-xs": the smallest square, for an icon button in a dense row (#1219). Its min-height
+    // overrides the base 4rem, or the square would stretch to the regular height.
+    assert.match(css, /"icon-xs": \{ width: "2\.8rem", height: "2\.8rem", minHeight: "2\.8rem", padding: 0 \}/);
 });
 
 test("the switch is Radix's, the select is the system's", () => {

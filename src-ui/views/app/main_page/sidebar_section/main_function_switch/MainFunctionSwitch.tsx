@@ -33,7 +33,7 @@ import {
     useMainFunction,
 } from "@logics_main";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
-import { Switch } from "../../../../kit/index.ts";
+import { Button, Switch } from "../../../../kit/index.ts";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -199,9 +199,10 @@ export const MainFunctionSwitch = () => {
     );
 };
 
-// Shows or hides the switches the uses picked in settings leave out. In the icon rail it is an
-// icon whose tooltip and name say the same. What it does is its tooltip and its accessible
-// description (the words stay in the page while the tooltip is closed).
+// Shows or hides the switches the uses picked in settings leave out: the kit's compact Button at
+// the list's end. In the icon rail it is an icon whose tooltip and name say the same. What it does
+// is its tooltip and its accessible description (the words stay in the page while the tooltip is
+// closed).
 export const MoreFeaturesButton = ({ count, expanded, onToggle }: { count: number; expanded: boolean; onToggle: () => void }) => {
     const { t } = useI18n();
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
@@ -211,13 +212,12 @@ export const MoreFeaturesButton = ({ count, expanded, onToggle }: { count: numbe
     const hintId = useId();
     return (
         <Tooltip bare placement="right" title={`${label}: ${hint}`}>
-            <button type="button" className={clsx(styles.more_features, { [styles.is_compact_mode]: compact })}
-                aria-expanded={expanded} aria-label={label} aria-describedby={hintId}
+            <Button size="compact" aria-expanded={expanded} aria-label={label} aria-describedby={hintId}
                 data-more-features onClick={onToggle}>
                 <ArrowDownSvg aria-hidden="true" className={clsx(styles.more_features_svg, { [styles.is_open]: expanded })} />
                 {!compact && <span className={styles.more_features_label}>{label}</span>}
                 <span id={hintId} hidden>{hint}</span>
-            </button>
+            </Button>
         </Tooltip>
     );
 };
@@ -265,11 +265,11 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
         })} data-lead={props.lead || undefined}>
             {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
             <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
-                <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
+                <Button size="icon-xs" className={styles.settings_button} data-feature-settings={props.switch_id}
                     aria-label={label} onClick={openSettings}>
                     <SvgComponent aria-hidden="true" className={clsx(styles.switch_svg, {
                         [styles.is_active]: active, [styles.is_pending]: pending })} />
-                </button>
+                </Button>
             </Tooltip>
             <SwitchContainer {...props} inRow />
         </div>

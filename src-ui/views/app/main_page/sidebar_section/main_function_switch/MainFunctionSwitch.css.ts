@@ -101,30 +101,10 @@ export const switch_row = style({
     },
 });
 
-// Opens the feature's settings. The same size whatever the state, so nothing moves when the
-// engine's state arrives. 2.8rem square: a pointer target of at least 24 CSS pixels.
-// Drawn as a button at rest (the raised surface and hairline of the other plain buttons), not
-// only on hover or focus, so it reads as something to press beside the switch.
-export const settings_button = style({
-    flex: "none",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    width: "2.8rem",
-    height: "2.8rem",
-    marginLeft: ".4rem",
-    padding: 0,
-    border: `.1rem solid ${vars.vox_border}`,
-    borderRadius: vars.vox_radius,
-    backgroundColor: vars.vox_surface,
-    color: "inherit",
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_875_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.2rem" },
-    },
-});
+// Opens the feature's settings: the kit's plain Button in its smallest square (icon-xs, 2.8rem,
+// decided on 2026-11-25), so the row keeps room for the switch's name. The same size whatever the
+// state, so nothing moves when the engine's state arrives. The row only places it.
+export const settings_button = style({ flex: "none", marginLeft: ".4rem" });
 
 // Read by screen readers as the description of a disabled switch; shown as its tooltip. The icon
 // rail's switch too: focused and read, its row drawn in its place.
@@ -231,27 +211,8 @@ export const switch_slot = style({
     },
 });
 
-// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). Quieter
-// than a switch: no surface at rest, the secondary text, the same height as a row's icon button.
-export const more_features = style({
-    display: "flex",
-    alignItems: "center",
-    gap: ".8rem",
-    minHeight: "3.2rem",
-    padding: ".4rem 1.2rem",
-    borderRadius: vars.vox_radius,
-    color: vars.vox_secondary_text,
-    fontSize: "1.3rem",
-    textAlign: "left",
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_875_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.2rem" },
-        [`&.${is_compact_mode}`]: { justifyContent: "center", padding: ".4rem" },
-    },
-});
-
+// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). The button
+// is the kit's compact Button; its chevron turns when the list is open.
 export const more_features_svg = style({
     width: "1rem",
     flex: "none",

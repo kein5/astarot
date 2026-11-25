@@ -5,11 +5,11 @@ import { Button, type ButtonProps } from "../kit/index.ts";
 import { Example, T } from "./CatalogParts.tsx";
 import * as styles from "./Catalog.css.ts";
 
-// The four looks and three sizes of Button.css.ts (DESIGN.md, #474), with the words the app's
+// The four looks and four sizes of Button.css.ts (DESIGN.md, #474), with the words the app's
 // buttons carry. Hover, press and keyboard focus show when you use them.
 
 const TONES = ["primary", "plain", "quiet", "danger"] as const;
-const SIZES = ["regular", "compact", "icon"] as const;
+const SIZES = ["regular", "compact", "icon", "icon-xs"] as const;
 type Tone = (typeof TONES)[number];
 
 // What each look is for in the app, as its words.
@@ -22,10 +22,11 @@ const WORDS: Record<Tone, string> = {
 
 const Refresh = () => <RefreshSvg className={styles.icon} aria-hidden="true" />;
 
-// An icon-only button is named by its aria-label.
-const IconButton = (props: ButtonProps) => {
+// An icon-only button is named by its aria-label. icon-xs is the smallest square, for an icon
+// button inside a dense row (the main rail's feature rows, #1219).
+const IconButton = ({ size = "icon", ...props }: ButtonProps) => {
     const { t } = useI18n();
-    return <Button {...props} size="icon" aria-label={t("realtime.refresh_devices")}><Refresh /></Button>;
+    return <Button {...props} size={size} aria-label={t("realtime.refresh_devices")}><Refresh /></Button>;
 };
 
 const meta = {
@@ -44,8 +45,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {
-    render: ({ children, size, ...args }) => size === "icon"
-        ? <IconButton {...args} />
+    render: ({ children, size, ...args }) => size === "icon" || size === "icon-xs"
+        ? <IconButton {...args} size={size} />
         : <Button {...args} size={size}>{children || <T k={WORDS.primary} />}</Button>,
 };
 
@@ -69,6 +70,7 @@ export const Sizes: Story = {
                     <Example name={`${tone} regular`}><Button tone={tone}><T k={WORDS[tone]} /></Button></Example>
                     <Example name={`${tone} compact`}><Button tone={tone} size="compact"><T k={WORDS[tone]} /></Button></Example>
                     <Example name={`${tone} icon`}><IconButton tone={tone} /></Example>
+                    <Example name={`${tone} icon-xs`}><IconButton tone={tone} size="icon-xs" /></Example>
                 </div>
             ))}
         </div>
@@ -82,6 +84,7 @@ export const WithIcon: Story = {
             <Example name="regular"><Button><Refresh /><T k="realtime.refresh_devices" /></Button></Example>
             <Example name="compact"><Button size="compact"><Refresh /><T k="realtime.refresh_devices" /></Button></Example>
             <Example name="icon"><IconButton /></Example>
+            <Example name="icon-xs"><IconButton size="icon-xs" /></Example>
         </div>
     ),
 };
