@@ -140,4 +140,24 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.deepEqual(badge.props, { "data-slot": "badge", "data-tone": "neutral", "data-variant": "outline", "data-mark": undefined, children: "Built in" });
     assert.deepEqual(kitStandIns.Badge({ tone: "active", variant: "solid", mark: "check" }).props,
         { "data-slot": "badge", "data-tone": "active", "data-variant": "solid", "data-mark": "check" });
+    // The confirmation inside a row: the root draws what it holds; the trigger is a Button in the
+    // look it is given; the content a group; the way back plain and focused; the removal danger.
+    const confirm = kit("InlineConfirm.tsx");
+    assert.match(confirm, /return <InlineConfirmContext\.Provider value=\{value\}>\{children\}<\/InlineConfirmContext\.Provider>;/);
+    assert.equal(kitStandIns.InlineConfirm({ children: "actions" }), "actions");
+    assert.match(confirm, /return <Button ref=\{attach\} \{\.\.\.rest\} \/>;/);
+    assert.deepEqual(kitStandIns.InlineConfirmTrigger({ tone: "danger", children: "Remove" }).props,
+        { type: "button", "data-slot": "button", "data-tone": "danger", "data-size": "regular", children: "Remove" });
+    assert.match(confirm, /<div role="group" data-slot="inline-confirm-content"/);
+    const confirmGroup = kitStandIns.InlineConfirmContent({ "aria-label": "Remove a" });
+    assert.deepEqual([confirmGroup.type, confirmGroup.props], ["div", { role: "group", "data-slot": "inline-confirm-content", "aria-label": "Remove a" }]);
+    assert.match(confirm, /<p data-slot="inline-confirm-description"/);
+    const sentence = kitStandIns.InlineConfirmDescription({ children: "words" });
+    assert.deepEqual([sentence.type, sentence.props], ["p", { "data-slot": "inline-confirm-description", children: "words" }]);
+    assert.match(confirm, /return <Button autoFocus onClick=/);
+    assert.deepEqual(kitStandIns.InlineConfirmCancel({ children: "Back" }).props,
+        { type: "button", autoFocus: true, "data-slot": "button", "data-tone": "plain", "data-size": "regular", children: "Back" });
+    assert.match(confirm, /<Button tone="danger" \{\.\.\.props\} \/>/);
+    assert.deepEqual(kitStandIns.InlineConfirmAction({ disabled: true, children: "Remove" }).props,
+        { type: "button", "data-slot": "button", "data-tone": "danger", "data-size": "regular", disabled: true, children: "Remove" });
 });

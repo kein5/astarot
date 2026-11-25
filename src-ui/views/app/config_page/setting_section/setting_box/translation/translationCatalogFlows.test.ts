@@ -46,7 +46,9 @@ const reset = (catalog: TranslationCatalog) => {
 };
 const sentTo = (endpoint: string) => sent.filter(([to]) => to === endpoint).map(([, data]) => data);
 
-const loadSection = async (runtime: HookRuntime) => {
+// t: the words of the test's own, where a test reads what a key is given; the harness's otherwise.
+type Translate = (key: string, options?: object) => string;
+const loadSection = async (runtime: HookRuntime, t?: Translate) => {
     const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
         new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
     return loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
@@ -62,14 +64,15 @@ const loadSection = async (runtime: HookRuntime) => {
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
+        ...(t ? { "@useI18n": { useI18n: () => ({ t }) } } : {}),
     });
 };
 
 // The section, and one of its groups drawn from it.
-async function section(context: TestContext) {
+async function section(context: TestContext, t?: Translate) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
-    const module = await loadSection(runtime);
+    const module = await loadSection(runtime, t);
     const tree = runtime.render(module.TranslationCatalogSection);
     const group = (id: "engine" | "api") => {
         const node = findIn(tree, node => componentName(node) === "CatalogGroup" && node.props.group === id, `the ${id} group`);
@@ -81,8 +84,8 @@ async function section(context: TestContext) {
 
 // A component of a group, drawn in a runtime of its own so it keeps its state from one draw to
 // the next, as a mounted component does. The hook's values are read again at every draw.
-async function mounted(context: TestContext, group: "engine" | "api", pick: (node: TreeNode) => boolean, what: string) {
-    const { runtime, group: draw } = await section(context);
+async function mounted(context: TestContext, group: "engine" | "api", pick: (node: TreeNode) => boolean, what: string, t?: Translate) {
+    const { runtime, group: draw } = await section(context, t);
     const node = findIn(draw(group), pick, what);
     runtime.remount();
     const component = componentOf(node), props = node.props;
@@ -90,8 +93,8 @@ async function mounted(context: TestContext, group: "engine" | "api", pick: (nod
 }
 const form = (context: TestContext, group: "engine" | "api") =>
     mounted(context, group, node => componentName(node) === (group === "engine" ? "EngineForm" : "ApiForm"), `the ${group} form`);
-const card = (context: TestContext, group: "engine" | "api", id: string) =>
-    mounted(context, group, node => componentName(node) === "EntryCard" && node.props.item.id === id, `the card of ${id}`);
+const card = (context: TestContext, group: "engine" | "api", id: string, t?: Translate) =>
+    mounted(context, group, node => componentName(node) === "EntryCard" && node.props.item.id === id, `the card of ${id}`, t);
 
 // The words a tree shows (translation keys here), in order.
 function textOf(value: unknown): string {
@@ -107,7 +110,9 @@ const labelled = (tree: TreeNode, key: string) => {
 };
 const type = (tree: TreeNode, key: string, value: string) => labelled(tree, key).props.onChange({ target: { value } });
 // The catalog's buttons are the kit's Button.
-const button = (tree: TreeNode, key: string) => findIn(tree, node => node.type === kitStandIns.Button && textOf(node) === key, `the button ${key}`);
+// A button by its words: the kit's, or one of the kit's confirmation inside a card.
+const BUTTONS: unknown[] = [kitStandIns.Button, kitStandIns.InlineConfirmTrigger, kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction];
+const button = (tree: TreeNode, key: string) => findIn(tree, node => BUTTONS.includes(node.type) && textOf(node) === key, `the button ${key}`);
 const alerts = (tree: TreeNode) => nodesIn(tree).filter(node => node.props?.role === "alert").map(textOf);
 // #912: a form's problem is said under its button, so the button stays under the pointer when the
 // problem appears.
@@ -275,6 +280,23 @@ test("removing an entry asks first; going back sends nothing", async context => 
     button(draw(), "translation_catalog.remove").props.onClick();
     button(draw(), "translation_catalog.remove_do").props.onClick();
     assert.deepEqual(sentTo("/run/remove_translation_catalog_entry"), [{ id: "tr-1" }]);
+    assert.equal(find(draw(), node => node.props?.["aria-label"] === "translation_catalog.remove_confirm_label"), null, "the removal closes it");
+});
+
+test("removing asks with the kit's confirmation in the card: the danger trigger, the way back, the removal", async context => {
+    reset(catalogWith([], [{ id: "tr-1", origin: "user", name: "Home server", protocol: "openai_compatible",
+        url: "http://192.168.1.5:8000/v1", model: "", has_key: true, key_in_memory: false, in_use: false }]));
+    const draw = await card(context, "api", "tr-1", (key, options) => options ? `${key} ${JSON.stringify(options)}` : key);
+    // The trigger is inside the confirmation's root, which returns the focus to it after the way back (H-07).
+    const root = findIn(draw(), node => node.type === kitStandIns.InlineConfirm, "the root");
+    const trigger = button(root, "translation_catalog.remove");
+    assert.deepEqual([trigger.type, trigger.props.tone], [kitStandIns.InlineConfirmTrigger, "danger"]);
+    trigger.props.onClick();
+    const confirm = findIn(draw(), node => node.type === kitStandIns.InlineConfirmContent, "the confirmation");
+    assert.deepEqual([confirm.props["aria-label"], findIn(confirm, node => node.type === kitStandIns.InlineConfirmDescription).props.children],
+        ["translation_catalog.remove_confirm_label {\"name\":\"Home server\"}", "translation_catalog.remove_confirm.api"]);
+    assert.deepEqual([button(confirm, "translation_catalog.back").type, button(confirm, "translation_catalog.remove_do").type],
+        [kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction]);
 });
 
 test("an API entry whose key the store did not take says how long the key lasts, and one whose key was lost says what to do", async context => {
@@ -366,4 +388,23 @@ test("the forms' fields and the cards' actions are the kit's parts", async conte
     reset(catalogWith([mine]));
     const ready = (await card(context, "engine", "tr-1"))();
     assert.deepEqual([button(ready, "translation_catalog.use.engine").props.tone, button(ready, "translation_catalog.remove").props.tone], ["primary", "danger"]);
+});
+
+test("an entry in use can be removed unless it is the translation engine in use, which says why", async context => {
+    const engine: EngineItem = { id: "user-1", weight: "user-1", origin: "user", name: "My model", runtime: "onnx", folder: "C:/models/mine",
+        non_commercial: false, available: true, in_use: true };
+    reset(catalogWith([engine], [{ id: "tr-1", origin: "user", name: "Home server", protocol: "openai_compatible",
+        url: "http://192.168.1.5:8000/v1", model: "", has_key: true, key_in_memory: false, in_use: true }]));
+    const api = (await card(context, "api", "tr-1"))();
+    assert.equal(button(api, "translation_catalog.remove").props.disabled, false, "an API in use can be removed");
+    assert.ok(!textOf(api).includes("translation_catalog.remove_in_use"));
+    assert.ok(!textOf(api).includes("translation_catalog.key_memory_help"), "its key is kept, so nothing says how long it lasts");
+    const used = (await card(context, "engine", "user-1"))();
+    assert.equal(button(used, "translation_catalog.remove").props.disabled, true, "the engine in use cannot be removed");
+    assert.ok(textOf(used).includes("translation_catalog.remove_in_use"));
+    reset(catalogWith([{ ...engine, in_use: false }]));
+    const idle = (await card(context, "engine", "user-1"))();
+    assert.equal(button(idle, "translation_catalog.remove").props.disabled, false);
+    assert.ok(!textOf(idle).includes("translation_catalog.remove_in_use"));
+    assert.ok(!textOf(idle).includes("translation_catalog.key_memory_help"), "an engine has no key");
 });

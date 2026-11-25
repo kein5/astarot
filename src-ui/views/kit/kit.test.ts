@@ -103,11 +103,29 @@ test("compact rows put the words under the name in a narrow list, and a row take
     assert.match(css, /\[`\$\{removed\} &`\]: \{ fontWeight: 400, color: vars\.dark_500_color, textDecoration: "line-through" \}/);
     // The group is the container the rows measure.
     assert.match(css, /containerType: "inline-size"/);
+    // The confirmation inside a row, named after AlertDialog's parts; its buttons are the kit's
+    // Button, which keeps data-slot="button" so the forms' rules leave them alone.
+    const confirm = read("InlineConfirm.tsx");
+    for (const slot of ["inline-confirm-content", "inline-confirm-description"]) assert.match(confirm, new RegExp(`data-slot="${slot}"`), slot);
+    assert.doesNotMatch(confirm, /<Button[^>]*data-slot=/);
+});
+
+test("the confirmation inside a row stays in the row: no dialog, no popover, the way back first", () => {
+    // H-07 of the hand-built inventory: it belongs to the row it removes.
+    const confirm = read("InlineConfirm.tsx");
+    assert.doesNotMatch(confirm.replace(/\/\/.*$/gm, ""), /<dialog|@radix-ui|showModal|popover/i);
+    assert.match(confirm, /<Button autoFocus onClick=\{event => \{ context\?\.back\(\); onClick\?\.\(event\); \}\} \{\.\.\.rest\} \/>/);
+    assert.match(confirm, /<Button tone="danger" \{\.\.\.props\} \/>/);
+    // Its sentence in the description's size and colour, as a form's notes.
+    const css = read("InlineConfirm.css.ts");
+    assert.match(css, /fontSize: "1\.2rem",\s*lineHeight: 1\.6,\s*color: vars\.vox_description_text/);
+    assert.match(css, /display: "flex",\s*flexWrap: "wrap",\s*alignItems: "center",\s*gap: "\.8rem"/);
 });
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "Dialog.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
+    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
+        "Switch.tsx", "TextField.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }
 });

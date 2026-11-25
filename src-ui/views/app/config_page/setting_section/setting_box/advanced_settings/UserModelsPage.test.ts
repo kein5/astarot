@@ -49,7 +49,10 @@ const textOf = (value: unknown): string => {
 const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 const cardsIn = (drawn: unknown) => [drawn].flat().map(item => treeNode(item)).filter((item): item is TreeNode => item !== null);
-const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === "button" && textOf(node) === words, `the button ${words}`);
+// A button by its words: the row's own, or one of the kit's confirmation inside the row.
+const BUTTONS: unknown[] = ["button", kitStandIns.InlineConfirmTrigger, kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction];
+const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => BUTTONS.includes(node.type) && textOf(node) === words, `the button ${words}`);
+const isConfirm = (node: TreeNode) => node.type === kitStandIns.InlineConfirmContent;
 const facts = (tree: unknown) => ofType(tree, "dl").map(list => ofType(list, "div").map(row => [textOf(findIn(row, node => node.type === "dt")), textOf(findIn(row, node => node.type === "dd"))]));
 
 test("a registered model's card says it is the user's, its state, its files and its size, in the list or in the grid", async context => {
@@ -120,16 +123,18 @@ test("removing asks first in the card, and forgets only the registration", async
     assert.equal(ofType(first, "audition-note").length, 1);
     buttonNamed(first, "user_models.remove").props.onClick();
     [first, second] = cardsIn(u.cards({}));
-    const confirm = findIn(first, node => node.props?.role === "group" && node.type === "div");
+    // The kit's confirmation inside the card (H-07): a group named by what it removes.
+    const confirm = findIn(first, isConfirm);
     assert.equal(confirm.props["aria-label"], `user_models.remove_confirm_label {"name":"Voice a"}`);
-    assert.deepEqual(ofType(confirm, "p").map(textOf), ["user_models.remove_confirm"]);
+    assert.deepEqual(ofType(confirm, kitStandIns.InlineConfirmDescription).map(textOf), ["user_models.remove_confirm"]);
     assert.equal(ofType(first, "audition-note").length, 0, "no audition note while it asks");
-    assert.equal(find(second, node => node.props?.role === "group" && node.type === "div"), null, "only this card asks");
+    assert.equal(find(second, isConfirm), null, "only this card asks");
+    // The way back is the kit's, which takes the focus when the confirmation opens.
     const back = buttonNamed(confirm, "model_downloads.back");
-    assert.equal(back.props.autoFocus, true);
+    assert.equal(back.type, kitStandIns.InlineConfirmCancel);
     back.props.onClick();
     [first] = cardsIn(u.cards({}));
-    assert.equal(find(first, node => textOf(node) === "user_models.remove_confirm" && node.type === "p"), null);
+    assert.equal(find(first, isConfirm), null);
     assert.deepEqual(u.sent, []);
     buttonNamed(first, "user_models.remove").props.onClick();
     [first] = cardsIn(u.cards({ busy: true }));
@@ -138,8 +143,24 @@ test("removing asks first in the card, and forgets only the registration", async
     buttonNamed(first, "user_models.remove_do").props.onClick();
     assert.deepEqual(u.sent, [["/run/remove_user_model", { id: "a" }]]);
     [first] = cardsIn(u.cards({}));
-    assert.equal(find(first, node => node.type === "p" && textOf(node) === "user_models.remove_confirm"), null);
+    assert.equal(find(first, isConfirm), null);
     assert.equal(buttonNamed(cardsIn(u.cards({ busy: true }))[0], "user_models.remove").props.disabled, true);
+});
+
+test("the confirmation is the kit's: opened by the row's danger trigger, the way back plain, the removal danger", async context => {
+    const u = await userModels(context, [own("a")]);
+    let [card] = cardsIn(u.cards({}));
+    // The trigger is inside the confirmation's root, so the focus returns to it after the way back.
+    const root = findIn(card, node => node.type === kitStandIns.InlineConfirm, "the root");
+    const trigger = buttonNamed(root, "user_models.remove");
+    assert.deepEqual([trigger.type, trigger.props.tone, trigger.props.size], [kitStandIns.InlineConfirmTrigger, "danger", undefined]);
+    trigger.props.onClick();
+    [card] = cardsIn(u.cards({ busy: true }));
+    const confirm = findIn(findIn(card, node => node.type === kitStandIns.InlineConfirm), isConfirm);
+    assert.deepEqual(nodesIn(confirm).filter(node => BUTTONS.includes(node.type)).map(node => [node.type, textOf(node), node.props.disabled]), [
+        [kitStandIns.InlineConfirmCancel, "model_downloads.back", undefined],
+        [kitStandIns.InlineConfirmAction, "user_models.remove_do", true],
+    ]);
 });
 
 test("a model of one's own can be heard as a downloaded one: registered as downloaded, in use as in use, missing or changed not at all", async context => {

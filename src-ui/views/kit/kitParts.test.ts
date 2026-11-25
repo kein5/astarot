@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { draw, hooks, loadModule, findIn, nodesIn } from "../../logics/test/hookHarness.ts";
+import type { Ref } from "react";
+import { draw, hooks, loadModule, findIn, nodesIn, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 
 // The kit's parts drawn with the code they run (kit.test.ts reads their sources and styles): what
@@ -230,4 +231,78 @@ test("a badge is a <span> with its words, asks for its look, and draws the warni
     const [mark, ...rest] = words(warning);
     assert.deepEqual([mark.type, mark.props.className, mark.props["aria-hidden"], mark.props.children, rest],
         ["span", "alertMark", "true", undefined, ["May be too heavy"]]);
+});
+
+// The confirmation inside a row (H-07). The parts that use the root's context are drawn with a
+// context of the test's own; the kit's Button stands in by name.
+type ConfirmModule = typeof import("./InlineConfirm.tsx");
+async function confirmParts(context: unknown = null) {
+    const runtime = hooks();
+    const module = await loadModule<ConfirmModule>(new URL("./InlineConfirm.tsx", import.meta.url), runtime, {
+        react: { ...runtime.api, useContext: () => context }, "./Button.tsx": { Button: "kit-button" },
+    });
+    return { runtime, module };
+}
+
+test("the confirmation inside a row is a named group: its sentence, the way back plain and focused, the removal danger", async () => {
+    const calls: unknown[] = [];
+    const { runtime, module } = await confirmParts({ trigger: (node: unknown) => calls.push(["trigger", node]), back: () => calls.push("back") });
+    const group = runtime.render(module.InlineConfirmContent, { "aria-label": "Remove Home server", children: "parts", className: "own" });
+    assert.deepEqual([group.type, group.props.role, group.props["data-slot"], group.props["aria-label"], group.props.className, group.props.children],
+        ["div", "group", "inline-confirm-content", "Remove Home server", "content own", "parts"]);
+    const sentence = runtime.render(module.InlineConfirmDescription, { children: "Only the registration is removed." });
+    assert.deepEqual([sentence.type, sentence.props["data-slot"], sentence.props.className], ["p", "inline-confirm-description", "description"]);
+    // The way back: the kit's plain Button, which takes the focus when the confirmation opens. It
+    // tells the root before the row closes the confirmation.
+    const back = runtime.render(module.InlineConfirmCancel, { children: "Back", onClick: () => calls.push("closed") });
+    assert.deepEqual([back.type, back.props.autoFocus, back.props.tone, back.props.children], ["kit-button", true, undefined, "Back"]);
+    back.props.onClick({});
+    assert.deepEqual(calls, ["back", "closed"]);
+    // The removal: the kit's danger Button, with the row's condition and request.
+    const action = runtime.render(module.InlineConfirmAction, { children: "Remove", disabled: true, onClick: () => calls.push("removed") });
+    assert.deepEqual([action.type, action.props.tone, action.props.disabled, action.props.autoFocus], ["kit-button", "danger", true, undefined]);
+    action.props.onClick();
+    assert.deepEqual(calls.at(-1), "removed");
+    // The trigger: the kit's Button in the row's look; the root and the row's own ref both get it.
+    const own: { current: unknown } = { current: null };
+    // A ref object as a row keeps one; the test reads what it is given.
+    const trigger = runtime.render(module.InlineConfirmTrigger, { tone: "danger", children: "Remove", ref: unchecked<Ref<HTMLButtonElement>>(own) });
+    assert.deepEqual([trigger.type, trigger.props.tone, trigger.props.children], ["kit-button", "danger", "Remove"]);
+    trigger.props.ref("the button");
+    assert.deepEqual([calls.at(-1), own.current], [["trigger", "the button"], "the button"]);
+    const seen: unknown[] = [];
+    runtime.render(module.InlineConfirmTrigger, { ref: (node: unknown) => { seen.push(node); } }).props.ref("another");
+    assert.deepEqual(seen, ["another"]);
+});
+
+test("after the way back the focus returns to the trigger once it is drawn again, and only then", async () => {
+    const { runtime, module } = await confirmParts();
+    const focused: string[] = [];
+    const button = (name: string, isConnected = true) => ({ isConnected, focus: () => focused.push(name) });
+    const draw = () => runtime.render(module.InlineConfirm, { children: "the row's actions" });
+    const root = draw();
+    assert.equal(root.props.children, "the row's actions", "it draws only what it holds");
+    const { trigger, back } = root.props.value;
+    trigger(button("Remove"));
+    draw();
+    assert.deepEqual(focused, [], "nothing moves while the row is only drawn");
+    // The confirmation opens: the trigger leaves the page. The way back is taken, and the row's
+    // actions are drawn again with a new trigger: it gets the focus, once.
+    trigger(null);
+    back();
+    draw();
+    assert.deepEqual(focused, [], "no trigger on the page yet");
+    trigger(button("Remove again", false));
+    draw();
+    assert.deepEqual(focused, [], "a trigger not on the page yet waits");
+    trigger(button("Remove again"));
+    draw();
+    draw();
+    assert.deepEqual(focused, ["Remove again"]);
+    // After the removal the focus is left where it is: the row goes away.
+    trigger(null);
+    trigger(button("Remove a third time"));
+    draw();
+    assert.deepEqual(focused, ["Remove again"]);
+    runtime.unmount();
 });

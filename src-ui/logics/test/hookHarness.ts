@@ -218,6 +218,18 @@ export const kitStandIns = {
     // The kit's badge: a <span> with its words, a neutral outline unless it asks for another look.
     Badge: ({ tone = "neutral", variant = "outline", mark, ...rest }: Record<string, unknown>) =>
         jsx.jsx("span", { "data-slot": "badge", "data-tone": tone, "data-variant": variant, "data-mark": mark, ...rest }),
+    // The kit's confirmation inside a row: the root draws only what it holds; the trigger is a
+    // Button in the row's look; the content a named group; the way back a plain Button that takes
+    // the focus; the removal a danger Button.
+    InlineConfirm: ({ children }: Record<string, unknown>) => children,
+    InlineConfirmTrigger: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+    InlineConfirmContent: (props: Record<string, unknown>) => jsx.jsx("div", { role: "group", "data-slot": "inline-confirm-content", ...props }),
+    InlineConfirmDescription: (props: Record<string, unknown>) => jsx.jsx("p", { "data-slot": "inline-confirm-description", ...props }),
+    InlineConfirmCancel: ({ size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, autoFocus: true, "data-slot": "button", "data-tone": "plain", "data-size": size, ...rest }),
+    InlineConfirmAction: ({ size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": "danger", "data-size": size, ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

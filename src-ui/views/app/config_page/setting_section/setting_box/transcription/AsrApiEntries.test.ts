@@ -40,7 +40,8 @@ async function entries(context: TestContext, catalog: TranscriptionCatalog | nul
     const form = nodesIn(tree).filter(node => componentName(node) === "AddForm").map(drawn)[0];
     return { tree, cards, form, sent };
 }
-const buttons = (node: TreeNode) => nodesIn(node).filter(child => child.type === kitStandIns.Button);
+// The card's buttons: the kit's, Remove being the trigger of the kit's confirmation inside the card.
+const buttons = (node: TreeNode) => nodesIn(node).filter(child => child.type === kitStandIns.Button || child.type === kitStandIns.InlineConfirmTrigger);
 
 test("asks for the entries when the page opens, and draws a card each with where it points", async context => {
     const { cards, sent } = await entries(context);

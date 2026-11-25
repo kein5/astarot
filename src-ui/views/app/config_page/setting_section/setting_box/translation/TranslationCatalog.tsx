@@ -16,7 +16,8 @@ import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
-import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, TextField } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent,
+    InlineConfirmDescription, InlineConfirmTrigger, TextField } from "../../../../../kit/index.ts";
 
 // The two groups of the catalog, and an entry with the group it is in.
 type CatalogGroupId = "engine" | "api";
@@ -161,21 +162,24 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
         <CardFooter>
             {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
-            {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
-                    <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
-                    <Button autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</Button>
-                    {/* The kit's danger Button: it removes something. */}
-                    <Button tone="danger" disabled={busy} onClick={() => {
-                        setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
-                    }}>{t("translation_catalog.remove_do")}</Button>
-                </div>
-                : <div className={styles.actions}>
-                    {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"}
-                        onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</Button>}
-                    <Button tone="danger" disabled={busy || (group === "engine" && state === "in_use")}
-                        onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
-                    {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
-                </div>}
+            {/* Removing asks first, in the card (the kit's InlineConfirm, H-07). */}
+            <InlineConfirm>
+                {removing ? <InlineConfirmContent aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
+                        <InlineConfirmDescription>{t(`translation_catalog.remove_confirm.${group}`)}</InlineConfirmDescription>
+                        <InlineConfirmCancel onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</InlineConfirmCancel>
+                        <InlineConfirmAction disabled={busy} onClick={() => {
+                            setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
+                        }}>{t("translation_catalog.remove_do")}</InlineConfirmAction>
+                    </InlineConfirmContent>
+                    : <div className={styles.actions}>
+                        {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"}
+                            onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</Button>}
+                        {/* The kit's danger Button: it removes something. */}
+                        <InlineConfirmTrigger tone="danger" disabled={busy || (group === "engine" && state === "in_use")}
+                            onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</InlineConfirmTrigger>
+                        {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
+                    </div>}
+            </InlineConfirm>
         </CardFooter>
     </Card>;
 };
