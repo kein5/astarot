@@ -11,6 +11,7 @@ test("a form's rules for native controls leave out the kit's parts", () => {
     assert.equal(leavesKit("input"), 'input:not([data-slot="input"])');
     assert.equal(leavesKit('input[type="range"]::-webkit-slider-thumb'), 'input:not([data-slot="input"])[type="range"]::-webkit-slider-thumb');
     assert.equal(leavesKit("input::placeholder"), 'input:not([data-slot="input"])::placeholder');
+    assert.equal(leavesKit("textarea"), 'textarea:not([data-slot="textarea"])');
     assert.equal(leavesKit("select"), 'select:not([data-slot="native-select"])');
     assert.equal(leavesKit("select::picker(select)"), 'select:not([data-slot="native-select"])::picker(select)');
     assert.equal(leavesKit("select option"), 'select:not([data-slot="native-select"]) option');
@@ -19,13 +20,13 @@ test("a form's rules for native controls leave out the kit's parts", () => {
     assert.equal(leavesKit("option:checked"), 'option:not([data-slot="native-select-option"]):checked');
     assert.equal(leavesKit("option:focus-visible"), 'option:not([data-slot="native-select-option"]):focus-visible');
     assert.equal(leavesKit("option::checkmark"), 'option:not([data-slot="native-select-option"])::checkmark');
-    const kit = '[data-slot="button"], [data-slot="input"], [data-slot="native-select"], [data-slot="native-select-option"], [data-slot="native-select-optgroup"]';
+    const kit = '[data-slot="button"], [data-slot="input"], [data-slot="textarea"], [data-slot="native-select"], [data-slot="native-select-option"], [data-slot="native-select-optgroup"]';
     assert.equal(leavesKit(":focus-visible"), `:focus-visible:not(${kit})`);
     assert.equal(leavesKit(":disabled"), `:disabled:not(${kit})`);
 });
 
 test("other selectors, and words that only start like a control, are kept as they are", () => {
-    for (const selector of ["textarea", "label", "dialog button", "optgroup", "options", "option-list", "summary", "selected", "input-group",
+    for (const selector of ["textareas", "label", "dialog button", "optgroup", "options", "option-list", "summary", "selected", "input-group",
         "buttons", '[role="alert"]', ":focus-visible:hover"]) {
         assert.equal(leavesKit(selector), selector);
     }

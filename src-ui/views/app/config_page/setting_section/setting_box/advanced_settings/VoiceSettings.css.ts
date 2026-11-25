@@ -90,7 +90,7 @@ globalStyle(inForm("label"), {
     "@container": { [STACKED]: { gridTemplateColumns: "minmax(0, 1fr)", gap: ".8rem" } },
     "@media": { [NARROW_WINDOW]: { gridTemplateColumns: "minmax(0, 1fr)", gap: ".8rem" } },
 });
-globalStyle(inForm("input", "select", "textarea", "button"), {
+globalStyle(inForm("input", "select", "button"), {
     boxSizing: "border-box",
     font: "inherit",
     fontWeight: 400,
@@ -99,7 +99,7 @@ globalStyle(inForm("input", "select", "textarea", "button"), {
     color: "inherit",
     borderRadius: "var(--vox_radius, .8rem)",
 });
-globalStyle(inForm("input", "select", "textarea"), {
+globalStyle(inForm("input", "select"), {
     width: "100%",
     minWidth: 0,
     background: "var(--vox_surface, #18253b)",
@@ -160,8 +160,7 @@ globalStyle(inForm("option"), { "@supports": { [BASE_SELECT]: { minHeight: 0, pa
 globalStyle(inForm("option:hover", "option:focus-visible"), { "@supports": { [BASE_SELECT]: { background: vars.dark_800_color, outline: "none" } } });
 globalStyle(inForm("option:checked"), { "@supports": { [BASE_SELECT]: { color: vars.primary_200_color, fontWeight: 600 } } });
 globalStyle(inForm("option::checkmark"), { "@supports": { [BASE_SELECT]: { display: "none" } } });
-globalStyle(inForm("input::placeholder", "textarea::placeholder"), { color: vars.vox_description_text, opacity: 1 });
-globalStyle(inForm("textarea"), { resize: "vertical", minHeight: "8rem" });
+globalStyle(inForm("input::placeholder"), { color: vars.vox_description_text, opacity: 1 });
 globalStyle(inForm("button"), {
     width: "fit-content",
     maxWidth: "100%",

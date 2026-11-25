@@ -6,7 +6,7 @@ import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voi
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
-import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
+import { Button, Select, SelectOption, TextField, Textarea } from "../../../../../kit/index.ts";
 
 // Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
@@ -71,7 +71,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
             under it, as they are typed, and is part of what the field says. */}
         <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_desc")} fold={false}
             actions={<p id={countId} className={styles.count}>{t("voice_ui.instruction_count", { count: Array.from(instructions).length })}</p>}>
-            <textarea aria-invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
+            <Textarea invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
                 placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
                 onChange={e => field(instructionKey, e.target.value)} />
         </FormRow>

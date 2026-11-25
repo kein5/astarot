@@ -64,6 +64,17 @@ test("a progress bar is the system's <progress>, with the amount it is given or 
     assert.deepEqual([unknown.props.className, "value" in unknown.props, "max" in unknown.props], ["progress", false, false]);
 });
 
+test("a textarea is the text field's look in several lines, a form's field unless it fills its screen", async () => {
+    const { runtime, module } = await kit<typeof import("./Textarea.tsx")>("./Textarea.tsx", { "./Field.css.ts": styleModule(["field"]) });
+    const plain = runtime.render(module.Textarea, { value: "Speak slowly", rows: 3 });
+    assert.equal(plain.type, "textarea");
+    assert.deepEqual([plain.props["data-slot"], plain.props["aria-invalid"], plain.props.className, plain.props.value, plain.props.rows],
+        ["textarea", undefined, "field kind=textarea mono=false fill=false", "Speak slowly", 3]);
+    const marked = runtime.render(module.Textarea, { invalid: true, mono: true, fill: true, className: "own" });
+    assert.deepEqual([marked.props["aria-invalid"], marked.props.className], [true, "field kind=textarea mono=true fill=true own"]);
+    assert.equal("fill" in marked.props || "invalid" in marked.props || "mono" in marked.props, false, "the element gets no prop of the kit's own");
+});
+
 test("a select is the system's, in the field's look, with its own options and groups", async () => {
     const { runtime, module } = await kit<typeof import("./Select.tsx")>("./Select.tsx", { "./Field.css.ts": styleModule(["field"]) });
     const drawn = runtime.render(module.Select, { value: "a", children: "the options", className: "own" });

@@ -5,6 +5,7 @@ import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
 import { applyThemeTokens, themeSetting, themeTokens } from '../../logics/theme/themes.ts';
 import * as styles from './QuickChat.css.ts';
+import { Textarea } from '../kit/index.ts';
 
 // The bridge to the main window. A host without a resizable window leaves out growBy.
 export type QuickChatBridge = Omit<typeof quickChatBridge, 'growBy'> & Partial<Pick<typeof quickChatBridge, 'growBy'>>;
@@ -92,7 +93,7 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
             bridge.hide().catch(() => setError('quick_chat_not_ready'));
         }
     }}>
-        <textarea ref={field} aria-label={t('quick_chat.message')} placeholder={t('studio.message_placeholder')} value={value} readOnly={pending}
+        <Textarea ref={field} fill className={styles.field} aria-label={t('quick_chat.message')} placeholder={t('studio.message_placeholder')} value={value} readOnly={pending}
             aria-describedby={overflowLength !== null ? lengthWarningId : undefined}
             onChange={event => { setValue(event.target.value); setError(null); }}
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}

@@ -5,18 +5,17 @@ export const container = style({
     display: "flex", flexDirection: "column", gap: "1.2rem", padding: "1.6rem", height: "100%", boxSizing: "border-box", overflow: "auto",
     background: vars.vox_canvas, color: vars.dark_basic_text_color, fontSize: "1.4rem",
 });
-globalStyle(`${container} textarea`, {
-    flex: 1, minHeight: "3rem", width: "100%", boxSizing: "border-box", resize: "none", padding: "1.2rem", font: "inherit", userSelect: "text",
-    color: "inherit", background: vars.dark_925_color, border: `.1rem solid ${vars.vox_field_border}`, borderRadius: vars.vox_radius,
-});
-// The same hint as the main window's composer, in the settings' placeholder colour.
-globalStyle(`${container} textarea::placeholder`, { color: vars.vox_description_text, opacity: 1 });
+// The message field is the kit's Textarea, filling the window above the actions (fill): the
+// window's height sets its height, and the window grows for the length warning so that the field
+// never gets smaller.
+export const field = style({ flex: 1 });
 globalStyle(`${container} button`, {
     font: "inherit", fontWeight: 500, padding: ".6rem 1.4rem", minHeight: "3.6rem", borderRadius: vars.vox_radius,
     color: vars.vox_on_primary, background: vars.primary_600_color, cursor: "pointer",
 });
 globalStyle(`${container} button:disabled`, { opacity: .5, cursor: "default" });
-globalStyle(`${container} :focus-visible`, { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" });
+// The kit's parts (data-slot) draw their own focus ring.
+globalStyle(`${container} :focus-visible:not([data-slot])`, { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" });
 
 export const actions = style({
     display: "flex", flexWrap: "wrap", flexShrink: 0, alignItems: "center", justifyContent: "space-between", gap: "1rem",

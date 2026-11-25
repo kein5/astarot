@@ -76,3 +76,8 @@ export const icon = style({ width: "1.6rem", height: "1.6rem", flexShrink: 0, fi
 export const cardBox = style({ width: "min(48rem, 100%)" });
 export const nameLine = style({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".6rem 1rem", minWidth: 0 });
 export const lineEnd = style({ marginInlineStart: "auto" });
+
+// A box of a fixed height, as Quick Chat's window is: a Textarea with fill takes the room left in
+// it (flex: 1 is the screen's layout, not the kit's).
+export const fillBox = style({ display: "flex", flexDirection: "column", width: "min(48rem, 100%)", height: "12rem" });
+export const fillField = style({ flex: 1 });
