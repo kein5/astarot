@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import * as styles from "./RightSideComponents.css.ts";
@@ -25,10 +25,9 @@ import { useIoFlow } from "../../../../../../logics/flow/useIoFlow";
 import { OpenQuickSettingButton } from "./_buttons/OpenQuickSettingButton";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "../../../../../kit/index.ts";
 
 import { generateLocalizedDocumentUrl } from "@ui_configs";
-import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
 
 export const RightSideComponents = () => {
     const { t } = useI18n();
@@ -59,9 +58,13 @@ export const RightSideComponents = () => {
 // and says how many are on, so the bar keeps its room for stop and mute.
 // Each is switched in place (#939): the subtitle overlay too, whose position and
 // look are set on the captions and VR page, which a line under it opens.
-// It closes with Escape (focus returns to the button), a press outside, or
-// when focus moves elsewhere. Its tooltip is its name: drawn where a narrow bar
-// hides the words, and left out where they are in sight (Tooltip).
+// The panel is the kit's Popover (D-25, decided on 2026-11-25), never modal: it closes with
+// Escape (focus returns to the button), a press outside, or when focus moves elsewhere. Opening it
+// leaves the focus on the button, as before; it is a group of toggles, not a dialog, so the button
+// says it controls the panel and nothing more. The panel stays in the bar (portal={false}), so it is
+// sized by the conversation column it opens in. Its tooltip is its name: drawn where a narrow bar
+// hides the words, and left out where they are in sight (Tooltip). The button is the kit's plain
+// Button at the compact size, as the bar's other buttons are.
 const QuickSettingsMenu = () => {
     const { t } = useI18n();
     const { currentForegroundStatus, toggleForeground } = useMainFunction();
@@ -71,30 +74,14 @@ const QuickSettingsMenu = () => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const [open, setOpen] = useState(false);
-    const root = useRef<HTMLDivElement>(null), opener = useRef<HTMLButtonElement>(null);
+    // Closed to open the settings: the focus does not come back to this button, which they cover.
+    const leaving = useRef(false);
     const panel = useId();
-
-    useEffect(() => {
-        if (!open) return;
-        const leave = (event: Event) => { const menu: TargetHolder | null = root.current; if (!menu?.contains(event.target)) setOpen(false); };
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") return;
-            setOpen(false);
-            opener.current?.focus();
-        };
-        document.addEventListener("pointerdown", leave);
-        document.addEventListener("focusin", leave);
-        document.addEventListener("keydown", closeOnEscape);
-        return () => {
-            document.removeEventListener("pointerdown", leave);
-            document.removeEventListener("focusin", leave);
-            document.removeEventListener("keydown", closeOnEscape);
-        };
-    }, [open]);
 
     const on = [currentForegroundStatus.data, currentEnableVrcMicMuteSync.data, overlay.on].filter(value => value === true).length;
     // The overlays' position, look and timing: the captions and VR page, opened on them.
     const openOverlaySettings = () => {
+        leaving.current = true;
         setOpen(false);
         updateSelectedConfigTabId("vr");
         updateIsOpenedConfigPage(true);
@@ -103,50 +90,54 @@ const QuickSettingsMenu = () => {
     const sync_available = currentIsOscAvailable.data !== false;
 
     return (
-        <div ref={root} className={styles.menu}>
+        <Popover open={open} onOpenChange={setOpen}>
             <Tooltip bare placement="bottom" title={t("main_page.quick_settings")}>
-                <button ref={opener} type="button" className={clsx(styles.menu_button, { [styles.has_on]: on > 0 })}
-                    aria-expanded={open} aria-controls={panel}
-                    onClick={() => setOpen(value => !value)}>
-                    <TuneSvg className={styles.menu_svg} aria-hidden="true" />
-                    <span className={styles.menu_text}>
-                        <span className={styles.menu_label}>{t("main_page.quick_settings")}</span>
-                        <span className={styles.menu_state}>
-                            {on > 0 ? t("main_page.quick_settings_on", { count: on }) : t("main_page.quick_settings_all_off")}
+                {/* The group it opens is named by aria-controls; it is not announced as a dialog
+                    (Radix's trigger says aria-haspopup="dialog"). */}
+                <PopoverTrigger asChild aria-haspopup="false" aria-expanded={open} aria-controls={panel}>
+                    <Button size="compact" className={clsx({ [styles.has_on]: on > 0 })}>
+                        <TuneSvg className={styles.menu_svg} aria-hidden="true" />
+                        <span className={styles.menu_text}>
+                            <span className={styles.menu_label}>{t("main_page.quick_settings")}</span>
+                            <span className={styles.menu_state}>
+                                {on > 0 ? t("main_page.quick_settings_on", { count: on }) : t("main_page.quick_settings_all_off")}
+                            </span>
                         </span>
-                    </span>
-                </button>
+                    </Button>
+                </PopoverTrigger>
             </Tooltip>
-            {open && <div id={panel} className={styles.menu_panel} role="group" aria-label={t("main_page.quick_settings")}>
-                <OpenQuickSettingButton
-                    row
-                    label={t("main_page.foreground")}
-                    variable={currentForegroundStatus.data}
-                    state={currentForegroundStatus.state}
-                    onClickFunction={toggleForeground}
-                />
-                <OpenQuickSettingButton
-                    row
-                    label={t("config_page.others.vrc_mic_mute_sync.label")}
-                    variable={currentEnableVrcMicMuteSync.data}
-                    state={currentEnableVrcMicMuteSync.state}
-                    is_available={currentIsOscAvailable.data}
-                    note={sync_available ? null : t(oscUnavailableLabelKey)}
-                    onClickFunction={() => { if (sync_available) toggleEnableVrcMicMuteSync(); }}
-                />
-                <OpenQuickSettingButton
-                    row
-                    label={t("config_page.vr.section_label_overlay")}
-                    variable={overlay.on}
-                    is_pending={overlay.pending}
-                    onClickFunction={overlay.toggle}
-                />
-                <button type="button" className={styles.menu_link} onClick={openOverlaySettings}>
-                    {pageLinkLabel(t, "vr", t("main_page.overlay_settings_action"))}</button>
-                {/* Within reach of the conversation: can a message sent now arrive in VRChat? */}
-                <VrchatPresence className={styles.menu_readout} />
-            </div>}
-        </div>
+            {/* Not focusable itself (Radix's focus scope would give it tabindex="-1"): only its controls take the focus, as before. */}
+            <PopoverContent portal={false} inset="tight" align="end" id={panel} role="group" aria-label={t("main_page.quick_settings")}
+                tabIndex={undefined} onOpenAutoFocus={event => event.preventDefault()}
+                onCloseAutoFocus={event => { if (leaving.current) event.preventDefault(); leaving.current = false; }}>
+                <div className={styles.menu_panel}>
+                    <OpenQuickSettingButton
+                        label={t("main_page.foreground")}
+                        variable={currentForegroundStatus.data}
+                        state={currentForegroundStatus.state}
+                        onClickFunction={toggleForeground}
+                    />
+                    <OpenQuickSettingButton
+                        label={t("config_page.others.vrc_mic_mute_sync.label")}
+                        variable={currentEnableVrcMicMuteSync.data}
+                        state={currentEnableVrcMicMuteSync.state}
+                        is_available={currentIsOscAvailable.data}
+                        note={sync_available ? null : t(oscUnavailableLabelKey)}
+                        onClickFunction={() => { if (sync_available) toggleEnableVrcMicMuteSync(); }}
+                    />
+                    <OpenQuickSettingButton
+                        label={t("config_page.vr.section_label_overlay")}
+                        variable={overlay.on}
+                        is_pending={overlay.pending}
+                        onClickFunction={overlay.toggle}
+                    />
+                    <button type="button" className={styles.menu_link} onClick={openOverlaySettings}>
+                        {pageLinkLabel(t, "vr", t("main_page.overlay_settings_action"))}</button>
+                    {/* Within reach of the conversation: can a message sent now arrive in VRChat? */}
+                    <VrchatPresence className={styles.menu_readout} />
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 };
 

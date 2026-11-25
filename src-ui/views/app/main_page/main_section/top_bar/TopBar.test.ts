@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, eventTarget, stubGlobals, findIn, nodesIn, componentName, componentOf, setRef, kitStandIns } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, componentOf, kitStandIns } from "../../../../../logics/test/hookHarness.ts";
 import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
@@ -69,10 +69,8 @@ const kitControls = (tree: unknown) => {
 const partNamed = (tree: TreeNode, name: string): DrawnComponent => componentOf(findIn(tree, item => componentName(item) === name));
 
 async function menu(context: TestContext, values: Partial<MenuState> = {}) {
-    const runtime = hooks(), calls: unknown[][] = [], document = eventTarget();
-    // Unmount first: the menu's cleanup still needs the document this test provides.
+    const runtime = hooks(), calls: unknown[][] = [];
     context.onTestFinished(() => runtime.unmount());
-    stubGlobals(context, { document });
     const state: MenuState = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
     const button = await loadModule<typeof import("./right_side_components/_buttons/OpenQuickSettingButton.tsx")>(new URL("./right_side_components/_buttons/OpenQuickSettingButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
@@ -106,46 +104,68 @@ async function menu(context: TestContext, values: Partial<MenuState> = {}) {
     const right = runtime.render(RightSideComponents);
     const Menu = partNamed(right, "QuickSettingsMenu");
     const FlowButton = partNamed(right, "IoFlowButton");
-    const focused: string[] = [];
+    // The menu as the kit's stand-ins draw it (hookHarness): the Popover, which holds whether it is
+    // open, its trigger round the kit's Button, and its content, drawn open or not (Radix shows it).
     const draw = () => {
-        const tree = runtime.render(Menu, {}, node => {
-            setRef(node, { contains: (target: unknown) => target === "inside" });
-            const opener = find(node, child => child.type === "button");
-            assert.ok(opener);
-            setRef(opener, { focus: () => focused.push("opener") });
-        });
-        const rows = all(tree, node => node.type === button.OpenQuickSettingButton).map(node => {
+        const tree = runtime.render(Menu);
+        const popover = find(tree, node => node.type === kitStandIns.Popover);
+        const trigger = find(tree, node => node.type === kitStandIns.PopoverTrigger);
+        const content = find(tree, node => node.type === kitStandIns.PopoverContent);
+        assert.ok(popover && trigger && content);
+        const opener = find(trigger, node => node.type === kitStandIns.Button);
+        assert.ok(opener);
+        const rows = all(content, node => node.type === button.OpenQuickSettingButton).map(node => {
             // The node's type is OpenQuickSettingButton (the predicate above): draw it with its props.
             const drawn = button.OpenQuickSettingButton(node.props);
-            const rowButton = find(drawn, child => child.type === "button");
+            const rowButton = find(drawn, child => child.type === kitStandIns.Toggle);
             assert.ok(rowButton);
-            return { props: node.props, button: rowButton, note: find(drawn, child => child.type === "p" && child.props.className === "note") };
+            return { props: node.props, button: rowButton, note: find(drawn, child => child.type === "p" && child.props.className === "note"),
+                // The name, then the state in words (the state's span also holds the warning mark).
+                words: all(rowButton, child => child.type === "span" && child.props.className !== "words")
+                    .map(child => [child.props.children].flat().find(item => typeof item === "string")) };
         });
-        const opener = find(tree, node => node.type === "button");
-        assert.ok(opener);
-        return { tree, opener, panel: find(tree, node => node.props?.role === "group"), rows,
-            state: find(tree, node => node.props?.className === "menu_state")?.props.children };
+        return { tree, popover, trigger, opener, content, panel: popover.props.open ? content : null, rows,
+            state: find(opener, node => node.props?.className === "menu_state")?.props.children };
     };
     const UpdateButton = partNamed(right, "SoftwareUpdateAvailableButton");
-    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
+    return { draw, calls, state, button, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
 }
 
 test("the quick settings button says how many of its toggles are on, and opens them in place", async context => {
     const s = await menu(context, { foreground: true, large: true });
     let view = s.draw();
-    assert.equal(view.opener.props["aria-expanded"], false);
+    // The kit's plain Button at the compact size, as the bar's other buttons are; Radix's trigger
+    // opens the kit's Popover, which this menu holds open or closed.
+    assert.deepEqual([view.opener.props.tone, view.opener.props.size], [undefined, "compact"]);
+    assert.equal(view.trigger.props.asChild, true);
+    // Its tooltip and its words are its name; the words go out of sight in a narrow bar.
+    assert.equal(tipped(find(view.tree, node => node.type === "tooltip") as TreeNode).words, "main_page.quick_settings");
+    assert.equal(find(view.opener, node => node.props?.className === "menu_label")?.props.children, "main_page.quick_settings");
+    assert.equal(view.trigger.props["aria-expanded"], false);
     assert.equal(view.panel, null);
     assert.equal(view.state, 'main_page.quick_settings_on:{"count":2}');
     assert.match(view.opener.props.className, /has_on/);
-    view.opener.props.onClick();
+    view.popover.props.onOpenChange(true);
     view = s.draw();
-    assert.equal(view.opener.props["aria-expanded"], true);
+    assert.equal(view.trigger.props["aria-expanded"], true);
     assert.ok(view.panel);
-    assert.equal(view.opener.props["aria-controls"], view.panel.props.id);
+    assert.equal(view.trigger.props["aria-controls"], view.panel.props.id);
+    // A group of toggles named as its button, not a dialog: the button does not say it opens one.
+    assert.equal(view.panel.props.role, "group");
+    assert.equal(view.panel.props["aria-label"], "main_page.quick_settings");
+    // Only its controls take the focus: Radix's tabindex="-1" on the panel is replaced.
+    assert.ok("tabIndex" in view.panel.props && view.panel.props.tabIndex === undefined);
+    assert.equal(view.trigger.props["aria-haspopup"], "false", "Radix's aria-haspopup=\"dialog\" is replaced");
+    // In the bar, at its button's end, with the tight inset for rows: sized by the column (portal={false}).
+    assert.deepEqual([view.panel.props.portal, view.panel.props.inset, view.panel.props.align], [false, "tight", "end"]);
     assert.deepEqual(view.rows.map(row => [row.props.label, row.props.variable]), [
         ["main_page.foreground", true], ["config_page.others.vrc_mic_mute_sync.label", false], ["config_page.vr.section_label_overlay", true]]);
     // #939: the subtitle overlay is a toggle too, switched in place: it reports pressed and opens no dialog.
-    assert.deepEqual(view.rows.map(row => row.button.props["aria-pressed"]), [true, false, true]);
+    // Each row is the kit's Toggle at the compact size, pressed by the reported state.
+    assert.deepEqual(view.rows.map(row => [row.button.props.pressed, row.button.props["aria-pressed"], row.button.props.size]),
+        [[true, true, "compact"], [false, false, "compact"], [true, true, "compact"]]);
+    assert.deepEqual(view.rows.map(row => row.words), [["main_page.foreground", "main_page.state_text_enabled"],
+        ["config_page.others.vrc_mic_mute_sync.label", "main_page.state_text_disabled"], ["config_page.vr.section_label_overlay", "main_page.state_text_enabled"]]);
     assert.equal(view.rows[2].button.props["aria-haspopup"], undefined);
     assert.ok(find(view.panel, node => node.type === "vrchat-presence"), "the open menu says whether VRChat can be reached");
 });
@@ -159,7 +179,7 @@ test("nothing on reads as all off", async context => {
 
 test("a toggle is pressed in the open menu, the subtitle overlay too; its settings are a link to the captions and VR page", async context => {
     const s = await menu(context);
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const view = s.draw();
     view.rows[0].button.props.onClick();
     view.rows[1].button.props.onClick();
@@ -172,18 +192,23 @@ test("a toggle is pressed in the open menu, the subtitle overlay too; its settin
     assert.equal(link.props.children, "link:vr:main_page.overlay_settings_action");
     link.props.onClick();
     assert.deepEqual(s.calls.slice(-3), [["tab", "vr"], ["settings", true], ["reveal", { setting_id: "vr_overlay" }]]);
-    assert.equal(s.draw().panel, null, "the menu closes as the settings open");
+    const closed = s.draw();
+    assert.equal(closed.panel, null, "the menu closes as the settings open");
+    // The settings cover the bar: the focus is not sent back to the button they hide. Only that
+    // once: the next close gives it back as usual.
+    assert.equal(closing(closed.content), true);
+    assert.equal(closing(closed.content), false);
 });
 
 test("while a subtitle overlay is switching, its row waits as the other toggles do", async context => {
     const s = await menu(context, { overlayPending: true });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     assert.equal(s.draw().rows[2].button.props["aria-disabled"], true);
 });
 
 test("mute sync that cannot be used is disabled and says why", async context => {
     const s = await menu(context, { osc: false });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const row = s.draw().rows[1];
     assert.equal(row.button.props.disabled, true);
     assert.ok(row.note);
@@ -193,34 +218,78 @@ test("mute sync that cannot be used is disabled and says why", async context => 
     assert.equal(s.draw().rows[0].note, null);
 });
 
+test("mute sync that can be used has no note under it", async context => {
+    const s = await menu(context, { osc: true });
+    s.draw().popover.props.onOpenChange(true);
+    const row = s.draw().rows[1];
+    assert.deepEqual([row.button.props.disabled, row.note], [false, null]);
+});
+
+// One row, drawn by itself: the kit's Toggle with the row's name and state, the state's look by its classes.
+test("a row says its state in words, marks a toggle on that cannot be used, and dims its words while it waits", async context => {
+    const { button } = await menu(context);
+    const press = () => {};
+    const row = (props: Partial<Parameters<typeof button.OpenQuickSettingButton>[0]>) => {
+        const drawn = button.OpenQuickSettingButton({ label: "name", onClickFunction: press, ...props });
+        const toggle = find(drawn, node => node.type === kitStandIns.Toggle);
+        assert.ok(toggle);
+        const label = find(toggle, node => node.props?.children === "name");
+        assert.ok(label);
+        const state = find(toggle, node => String(node.props?.className).includes("button_indicator_label"));
+        return { toggle, label: String(label.props.className), state: state ? String(state.props.className) : null,
+            warning: find(toggle, node => node.props?.className === "warning_svg") !== null };
+    };
+    const on = row({ variable: true });
+    assert.deepEqual([on.toggle.props.className, on.toggle.props["aria-disabled"], on.toggle.props.onClick, on.toggle.props.disabled],
+        ["", undefined, press, false]);
+    assert.equal(on.label, "button_label");
+    assert.equal(on.state, "button_indicator_label is_enabled is_available");
+    assert.equal(on.warning, false);
+    assert.equal(row({ variable: false }).state, "button_indicator_label is_disabled is_available");
+    // On, but it cannot be used: the warning's color and mark beside "On"; off, no mark.
+    const blocked = row({ variable: true, is_available: false });
+    assert.deepEqual([blocked.toggle.props.disabled, blocked.state, blocked.warning], [true, "button_indicator_label is_enabled", true]);
+    assert.equal(row({ variable: false, is_available: false }).warning, false);
+    // Waiting: its words are dimmed, it takes no pointer, and it stays focusable.
+    for (const waiting of [row({ variable: true, state: "pending" }), row({ variable: true, is_pending: true })]) {
+        assert.deepEqual([waiting.toggle.props.className, waiting.toggle.props["aria-disabled"], waiting.toggle.props.onClick],
+            ["is_pending", true, undefined]);
+        assert.equal(waiting.label, "button_label is_pending");
+        assert.equal(waiting.state, "button_indicator_label is_enabled is_available is_pending");
+    }
+    // No state yet: no words for it, and not a toggle that says it is pressed or not.
+    const unknown = row({});
+    assert.deepEqual([unknown.state, unknown.toggle.props.pressed, unknown.toggle.props["aria-pressed"]], [null, false, undefined]);
+});
+
 test("a pending toggle keeps the keyboard's place: not disabled, and a second press does nothing", async context => {
     const s = await menu(context, { pending: true });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const row = s.draw().rows[0];
     assert.equal(row.button.props.disabled, false);
     assert.equal(row.button.props["aria-disabled"], true);
     assert.equal(row.button.props.onClick, undefined);
 });
 
-test("Escape closes the menu and returns focus; a press or focus outside closes it; inside does not", async context => {
+// What Radix's focus handling is told, as the content's onOpenAutoFocus and onCloseAutoFocus get
+// it: true when the menu prevents Radix's own move of the focus.
+const opening = (content: TreeNode) => { let prevented = false; content.props.onOpenAutoFocus({ preventDefault: () => { prevented = true; } }); return prevented; };
+const closing = (content: TreeNode) => { let prevented = false; content.props.onCloseAutoFocus({ preventDefault: () => { prevented = true; } }); return prevented; };
+
+test("the menu is the kit's popover, never modal: Escape, a press or focus outside close it; opening leaves the focus on its button", async context => {
     const s = await menu(context);
-    s.draw().opener.props.onClick();
-    assert.ok(s.draw().panel);
-    s.document.dispatch("keydown", { key: "a" });
-    s.document.dispatch("pointerdown", { target: "inside" });
-    s.document.dispatch("focusin", { target: "inside" });
-    assert.ok(s.draw().panel);
-    s.document.dispatch("keydown", { key: "Escape" });
-    assert.equal(s.draw().panel, null);
-    assert.deepEqual(s.focused, ["opener"]);
-    for (const type of ["pointerdown", "focusin"]) {
-        s.draw().opener.props.onClick();
-        assert.ok(s.draw().panel);
-        s.document.dispatch(type, { target: "outside" });
-        assert.equal(s.draw().panel, null);
-    }
-    assert.deepEqual(s.focused, ["opener"], "leaving does not pull focus back");
-    assert.equal(s.document.added.length, s.document.removed.length, "listeners are removed with the menu");
+    let view = s.draw();
+    // Radix's non-modal popover closes on Escape (focus goes back to the button), a press outside or
+    // focus moving outside (docs: Popover.tsx); each reaches the menu as onOpenChange(false).
+    assert.equal(view.popover.props.modal, undefined, "not modal (Radix's default)");
+    view.popover.props.onOpenChange(true);
+    view = s.draw();
+    assert.ok(view.panel);
+    assert.equal(opening(view.content), true, "opening leaves the focus on the button");
+    view.popover.props.onOpenChange(false);
+    view = s.draw();
+    assert.equal(view.panel, null);
+    assert.equal(closing(view.content), false, "Radix returns the focus to the button after Escape, unless it left the menu");
 });
 
 test("the main bar leads with stop and mute, drawn with its own short and shortest words", async () => {

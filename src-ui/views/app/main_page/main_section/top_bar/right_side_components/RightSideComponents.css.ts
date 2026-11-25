@@ -1,11 +1,10 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
-import { MAIN_SECTION_CONTAINER, NARROW_COLUMN, shorterThan } from "../../../layout.ts";
+import { MAIN_SECTION_CONTAINER, NARROW_COLUMN } from "../../../layout.ts";
 
 // A narrow column keeps the icon; the words stay the button's accessible name.
 // The same width as the stop actions' short words (TopBar.css.ts).
 const NARROW = `${MAIN_SECTION_CONTAINER} (max-width: ${NARROW_COLUMN})`;
-const SHORT = shorterThan(MAIN_SECTION_CONTAINER);
 // Out of sight in a narrow column, still read: the words of the quick settings and the update buttons.
 const readOnly = {
     position: "absolute",
@@ -18,8 +17,6 @@ const readOnly = {
 } as const;
 
 export const container = style({
-    // The quick settings panel hangs from this group's right edge.
-    position: "relative",
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
@@ -33,28 +30,9 @@ export const container = style({
     "@container": { [NARROW]: { gap: ".4rem" } },
 });
 
-// Quick settings: one button for the window and VRChat toggles, saying how many are on.
-export const menu = style({ height: "100%", display: "flex", alignItems: "center" });
-export const menu_button = style({
-    display: "flex",
-    alignItems: "center",
-    gap: ".8rem",
-    minHeight: "3.6rem",
-    padding: ".4rem 1rem",
-    borderRadius: vars.vox_radius,
-    color: vars.dark_200_color,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_900_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        '&[aria-expanded="true"]': { backgroundColor: vars.dark_850_color },
-    },
-    "@container": {
-        [NARROW]: { padding: ".4rem .8rem" },
-        [SHORT]: { minHeight: "3.2rem", paddingBlock: ".2rem" },
-    },
-});
+// Quick settings: one button for the window and VRChat toggles, saying how many are on. It is the
+// kit's Button and its panel the kit's Popover (RightSideComponents.tsx); these classes are its
+// icon and its words, and the room of the panel's rows.
 export const has_on = style({});
 export const menu_svg = style({
     width: "2rem",
@@ -79,25 +57,22 @@ export const menu_state = style({
     color: vars.vox_secondary_text,
     selectors: { [`${has_on} &`]: { color: vars.primary_300_color } },
 });
-// Sized by the conversation column it opens in (cqw, cqh: MainSection), not by the
-// window, so it never runs past the column's left edge, and a short window
-// scrolls the panel instead of pushing its end out of sight.
+// The panel's rows, inside the kit's Popover (its surface, border, shadow and .4rem inset). Sized
+// by the conversation column it opens in (cqw, cqh: MainSection), not by the window, so it never
+// runs past the column's left edge, and a short window scrolls the rows instead of pushing their
+// end out of sight. The rows scroll in the Popover's inset (the negative margin), which keeps room
+// for the kit's focus ring round a row; the sizes are the panel's less its border.
 export const menu_panel = style({
-    position: "absolute",
-    top: "calc(100% - .4rem)",
-    right: 0,
-    zIndex: 30,
+    display: "grid",
+    gap: ".4rem",
+    margin: "-.4rem",
+    padding: ".4rem",
     width: "max-content",
-    minWidth: "min(26rem, calc(100cqw - 2.4rem))",
-    maxWidth: "min(34rem, calc(100cqw - 2.4rem))",
-    maxHeight: `calc(100cqh - ${vars.main_page_topbar_height})`,
+    minWidth: "min(25.8rem, calc(100cqw - 2.6rem))",
+    maxWidth: "min(33.8rem, calc(100cqw - 2.6rem))",
+    maxHeight: `calc(100cqh - ${vars.main_page_topbar_height} - .2rem)`,
     overflowY: "auto",
     overscrollBehavior: "contain",
-    padding: ".4rem",
-    border: `.1rem solid ${vars.vox_border}`,
-    borderRadius: vars.vox_radius,
-    background: vars.vox_surface,
-    boxShadow: vars.vox_shadow_overlay,
 });
 export const menu_readout = style({ margin: ".4rem", fontSize: "1.2rem" });
 // Under the subtitle overlay's row: where its position and look are set (#939). A link, as the
