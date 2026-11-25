@@ -14,6 +14,12 @@ heroActions:
   - theme: alt
     text: やりたいことから探す
     link: /ja/guide/tasks
+  - theme: alt
+    text: 最初の設定
+    link: /ja/guide/first-setup
+  - theme: alt
+    text: 困ったとき
+    link: /ja/guide/troubleshooting
 shot:
   src: /screenshots/ja/main.webp
   alt: ASTAROTのメイン画面。日本語の発言に英語の訳が、相手の英語の発言に日本語の訳が付いている
