@@ -15,7 +15,8 @@ const measurePage = (page: Page) => page.evaluate(() => {
     const railScroll = document.querySelector("[data-sidebar-scroll]");
     const switches = [...document.querySelectorAll("[data-main-page] [role=switch]")].map(el => box(el));
     const heading = document.querySelector("[data-main-page] h1");
-    const translatorBtn = document.querySelector("[data-sidebar-rail] [role=button][aria-expanded]");
+    // The translator button opens the kit's Popover (a dialog).
+    const translatorBtn = document.querySelector('[data-sidebar-rail] button[aria-haspopup="dialog"][aria-expanded]');
     return {
         railScrollTop: railScroll ? Math.round(railScroll.scrollTop) : null,
         rail: box(document.querySelector("[data-sidebar-rail]")),

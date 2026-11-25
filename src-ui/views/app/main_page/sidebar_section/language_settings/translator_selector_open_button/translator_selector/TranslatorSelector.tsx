@@ -1,142 +1,144 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, RefObject } from "react";
-import { createPortal } from "react-dom";
-import clsx from "clsx";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import * as styles from "./TranslatorSelector.css.ts";
 import { useI18n } from "@useI18n";
 
-import { chunkArray } from "@utils";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
 import type { TranslatorStatus } from "@ui_configs";
 import { LOCAL_TRANSLATION_ENGINE_NAME_KEY, translatorLabel } from "../../../../../../../logics/main/translatorLabel.ts";
-import { isAnchorInScrollport, placeTranslatorPopover } from "./translatorPlacement.ts";
+import { isAnchorInScrollport, translatorPanelMaxHeight, translatorPopoverSide } from "./translatorPlacement.ts";
+import type { PopoverSide } from "./translatorPlacement.ts";
+import { PopoverContent, ToggleGroup, ToggleGroupItem } from "../../../../../../kit/index.ts";
 
 // Space between the rail/button and the popover, and to the window's edges, in rem.
 const GAP = 0.8;
 const MARGIN = 0.8;
-
-const isNode = (target: EventTarget | null): target is Node => target !== null && "nodeType" in target;
+// The panel's width, in rem: three engines a row, narrower in a window that cannot hold it. Radix
+// mounts the panel after the button, so the side it opens on is chosen from this, not measured.
+const PANEL = 38;
+const PANEL_WIDTH = `min(${PANEL}rem, calc(100vw - ${2 * MARGIN}rem))`;
 
 type TranslatorSelectorProps = {
-    id?: string;
     anchorRef?: RefObject<HTMLElement | null>;
     selected_id: string | undefined;
     translation_engines: TranslatorStatus[];
     is_selected_same_language: boolean;
 };
 
-export const TranslatorSelector = ({ id, anchorRef, selected_id, translation_engines, is_selected_same_language }: TranslatorSelectorProps) => {
+// Where the panel opens, the room it keeps from the window's edges and how tall it may be, in px;
+// until measured, beside the button.
+type Place = PopoverSide & { top: number; edge: number; maxHeight?: number };
+const UNMEASURED: Place = { side: "right", align: "end", sideOffset: 0, top: 0, edge: 0 };
+
+const isNode = (target: EventTarget | null): target is Node => target !== null && "nodeType" in target;
+
+// The translator list, the content of the kit's Popover that the translator button opens
+// (TranslatorSelectorOpenButton.tsx; D-25, decided on 2026-11-25). It floats beside the rail, out of
+// the rail's flow, so neither the rail nor the conversation moves (#1095), and holds the engines as
+// the kit's ToggleGroup (D-27): radios named by the engines, the one in use checked, each a stop of
+// the Tab key (rovingFocus off), as the engine buttons were. Opening it moves the focus to the panel
+// without scrolling anything. Escape closes it and gives the focus back to the button; a press
+// outside or the focus leaving it closes it and leaves the focus where it went; so does the button
+// scrolling out of sight in the rail. Choosing an engine, or the one in use, closes it and gives the
+// focus back to the button.
+export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines, is_selected_same_language }: TranslatorSelectorProps) => {
     const { t } = useI18n();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
-    const columns = chunkArray(translation_engines, 2);
+    const { canChangeLanguageSettings, setSelectedTranslationEngines } = useLanguageSettings();
     // Unavailable engines leave the tab order, so their reason cannot wait for
     // focus: it is on screen, and it describes the group the keyboard enters.
     const reason_id = useId();
     const has_unavailable = translation_engines.some(engine => !engine.is_available);
     const panel = useRef<HTMLDivElement>(null);
-    const [place, setPlace] = useState<CSSProperties | null>(null);
+    const [place, setPlace] = useState<Place>(UNMEASURED);
     const closeRef = useRef(updateIsOpenedTranslatorSelector);
     closeRef.current = updateIsOpenedTranslatorSelector;
+    // Whether the panel closes because of something outside it, which keeps the focus where it went.
+    const outside = useRef(false);
 
-    // Places the popover beside the rail from its trigger's box so it never pushes the rail
-    // or the conversation (#1095). Tracks rail scroll and window resize, and closes if the
-    // trigger scrolls out of sight.
+    // The side it opens on, from the button's, the rail's and the window's boxes, again when the
+    // window's size changes. It closes when the button scrolls out of sight in the rail; Radix moves
+    // the panel with the button while it is in sight.
     useLayoutEffect(() => {
         const anchor = anchorRef?.current;
-        const box = panel.current;
-        if (!anchor || !box || typeof window === "undefined") return;
+        if (!anchor || typeof window === "undefined") return;
         const update = () => {
-            const anchorRect = anchor.getBoundingClientRect();
-            const scrollport = anchor.closest("[data-sidebar-scroll]")?.getBoundingClientRect();
-            if (scrollport && !isAnchorInScrollport(anchorRect, scrollport)) {
-                closeRef.current(false);
-                return;
-            }
             const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
+            const anchorRect = anchor.getBoundingClientRect();
             const railRect = anchor.closest("[data-sidebar-rail]")?.getBoundingClientRect();
             const mainRect = anchor.closest("[data-main-page]")?.getBoundingClientRect();
-            const rect = box.getBoundingClientRect();
-            const next = placeTranslatorPopover({
+            const side = translatorPopoverSide({
                 anchor: anchorRect,
                 railRight: railRect ? railRect.right : anchorRect.right,
-                panel: { width: rect.width, height: box.scrollHeight || rect.height },
-                viewport: { width: window.innerWidth, height: window.innerHeight },
+                panelWidth: PANEL * rem,
+                viewportWidth: window.innerWidth,
                 gap: GAP * rem,
                 margin: MARGIN * rem,
-                topEdge: mainRect ? mainRect.top : 0,
             });
-            setPlace({ left: next.left, top: next.top, maxHeight: next.maxHeight });
+            const topEdge = mainRect ? mainRect.top : 0;
+            const maxHeight = translatorPanelMaxHeight({ viewportHeight: window.innerHeight, topEdge, margin: MARGIN * rem });
+            setPlace({ ...side, top: topEdge + MARGIN * rem, edge: MARGIN * rem, maxHeight });
+        };
+        const onScroll = (event: Event) => {
+            const scrollport = anchor.closest("[data-sidebar-scroll]");
+            const target = event.target;
+            // The panel's own scrolling, or another part's, is not the rail's.
+            if (!scrollport || !isNode(target) || !target.contains(anchor)) return;
+            if (isAnchorInScrollport(anchor.getBoundingClientRect(), scrollport.getBoundingClientRect())) return;
+            outside.current = true;
+            closeRef.current(false);
         };
         update();
-        const onScroll = (event: Event) => {
-            if (isNode(event.target) && box.contains(event.target)) return;
-            update();
-        };
         window.addEventListener("resize", update);
         window.addEventListener("scroll", onScroll, true);
         return () => {
             window.removeEventListener("resize", update);
             window.removeEventListener("scroll", onScroll, true);
         };
-    }, [anchorRef, translation_engines.length, is_selected_same_language, has_unavailable]);
-
-    // Moves keyboard focus into the portaled popover without scrolling anything, and closes
-    // on Escape (focus back to the trigger), a press outside, or focus leaving the trigger
-    // and popover.
-    useEffect(() => {
-        if (typeof document === "undefined") return;
-        panel.current?.focus?.({ preventScroll: true });
-        const outside = (event: Event) => {
-            if (!isNode(event.target)) return;
-            if (panel.current?.contains(event.target) || anchorRef?.current?.contains(event.target)) return;
-            closeRef.current(false);
-        };
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            closeRef.current(false);
-            anchorRef?.current?.focus?.({ preventScroll: true });
-        };
-        document.addEventListener("pointerdown", outside);
-        document.addEventListener("focusin", outside);
-        // Capture phase so Escape closes only the popover before a parent overlay (SidebarSection).
-        document.addEventListener("keydown", closeOnEscape, true);
-        return () => {
-            document.removeEventListener("pointerdown", outside);
-            document.removeEventListener("focusin", outside);
-            document.removeEventListener("keydown", closeOnEscape, true);
-        };
     }, [anchorRef]);
 
-    const returnFocus = () => { anchorRef?.current?.focus?.({ preventScroll: true }); };
+    // Choosing an engine (the one in use too) closes the list; while the language settings are
+    // busy, the choice waits and the list stays open.
+    const pick = (id: string) => {
+        if (!canChangeLanguageSettings()) return;
+        if (id !== selected_id) setSelectedTranslationEngines(id);
+        updateIsOpenedTranslatorSelector(false);
+    };
 
-    const content = (
-        <div ref={panel} id={id} data-translator-selector="" tabIndex={-1} className={styles.container}
-            style={place ?? (anchorRef ? { left: 0, top: 0, visibility: "hidden" } : undefined)}>
-            <div className={styles.relative_container} role="group" aria-label={t("main_page.translator")}
-                aria-describedby={has_unavailable || is_selected_same_language ? reason_id : undefined}>
+    return (
+        <PopoverContent ref={panel} data-translator-selector="" className={styles.container} style={{ width: PANEL_WIDTH, maxHeight: place.maxHeight }}
+            aria-label={t("main_page.translator")}
+            side={place.side} align={place.align} sideOffset={place.sideOffset}
+            collisionPadding={{ top: place.top, right: place.edge, bottom: place.edge, left: place.edge }}
+            onOpenAutoFocus={event => { event.preventDefault(); panel.current?.focus({ preventScroll: true }); }}
+            onInteractOutside={() => { outside.current = true; }}
+            onCloseAutoFocus={event => {
+                event.preventDefault();
+                if (!outside.current) anchorRef?.current?.focus({ preventScroll: true });
+                outside.current = false;
+            }}>
+            <div className={styles.relative_container}>
                 {has_unavailable && !is_selected_same_language &&
                     <p id={reason_id} className={styles.unavailable_hint}>{t("main_page.translator_selector.unavailable_hint")}</p>
                 }
-                <div className={styles.wrapper}>
-                    {columns.map((column, column_index) => (
-                        <div className={styles.column_wrapper} key={`column_${column_index}`}>
-                            {column.map(({ id: engineId, label, is_available, is_default }) => (
-                                <TranslatorBox
-                                    key={engineId}
-                                    id={engineId}
-                                    label={translatorLabel({ id: engineId, label }, t)}
-                                    is_available={is_available}
-                                    is_default={is_default}
-                                    is_selected={(engineId === selected_id)}
-                                    reason_id={reason_id}
-                                    onPicked={returnFocus}
-                                />
-                            ))}
-                        </div>
-                    ))}
-                </div>
+                <ToggleGroup type="single" rovingFocus={false} className={styles.engines} value={selected_id ?? ""}
+                    aria-label={t("main_page.translator")} aria-describedby={has_unavailable || is_selected_same_language ? reason_id : undefined}
+                    onValueChange={value => { const id = value || selected_id; if (id) pick(id); }}>
+                    <div className={styles.wrapper}>
+                        {translation_engines.map(({ id: engineId, label, is_available, is_default }) => (
+                            <TranslatorBox
+                                key={engineId}
+                                id={engineId}
+                                label={translatorLabel({ id: engineId, label }, t)}
+                                is_available={is_available}
+                                is_default={is_default}
+                                reason_id={reason_id}
+                                onPick={pick}
+                            />
+                        ))}
+                    </div>
+                </ToggleGroup>
                 {is_selected_same_language ?
                     <div className={styles.is_selected_same_language_wrapper}>
                         <p id={reason_id} className={styles.is_selected_same_language_text}>
@@ -150,10 +152,8 @@ export const TranslatorSelector = ({ id, anchorRef, selected_id, translation_eng
                 : null
                 }
             </div>
-        </div>
+        </PopoverContent>
     );
-    const page = globalThis.document?.body;
-    return page ? createPortal(content, page) : content;
 };
 
 type TranslatorBoxProps = {
@@ -161,45 +161,32 @@ type TranslatorBoxProps = {
     label: string;
     is_available: boolean;
     is_default: boolean | undefined;
-    is_selected: boolean;
     reason_id: string;
-    onPicked: () => void;
+    onPick: (id: string) => void;
 };
 
+// One engine, an item of the kit's ToggleGroup. An unavailable one is disabled, so it leaves the tab
+// order and the pointer cannot choose it, and the reason describes it; the keyboard cannot choose it
+// either. While the language settings are busy, an engine stays focusable but dimmed
+// (aria-disabled). Enter and Space act on the key going down, once while it is held.
 const TranslatorBox = (props: TranslatorBoxProps) => {
     const { t } = useI18n();
-    const { canChangeLanguageSettings, isLanguageSettingsBusy, setSelectedTranslationEngines } = useLanguageSettings();
-    const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
-
-    const box_class_name = clsx(
-        styles.box,
-        { [styles.is_selected]: props.is_selected },
-        { [styles.is_available]: props.is_available }
-    );
-    const label_default_class_name = clsx(
-        styles.label_default,
-        { [styles.is_selected]: props.is_selected },
-    );
+    const { isLanguageSettingsBusy } = useLanguageSettings();
 
     const selectTranslator = () => {
-        // The stylesheet blocks the pointer on an unavailable engine; the keyboard
-        // must not select it either.
         if (!props.is_available) return;
-        if (!canChangeLanguageSettings()) return;
-        if (props.is_selected === false) {
-            setSelectedTranslationEngines(props.id);
-        }
-        updateIsOpenedTranslatorSelector(false);
-        props.onPicked();
+        props.onPick(props.id);
     };
 
-    // Like a disabled button, an unavailable engine leaves the tab order.
     return (
-        <div className={box_class_name} aria-disabled={isLanguageSettingsBusy || !props.is_available} onClick={selectTranslator}
+        <ToggleGroupItem value={props.id} className={styles.box} disabled={!props.is_available}
+            aria-disabled={props.is_available ? isLanguageSettingsBusy : undefined}
             aria-describedby={props.is_available ? undefined : props.reason_id}
-            role="button" tabIndex={props.is_available ? 0 : -1} aria-pressed={!!props.is_selected} onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; selectTranslator(); } }}>
-            <p className={styles.translator_name}>{props.label}</p>
-            {props.is_default && <p className={label_default_class_name}>{t("common.default_label")}</p>}
-        </div>
+            onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; selectTranslator(); } }}>
+            <span className={styles.engine}>
+                <span className={styles.translator_name}>{props.label}</span>
+                {props.is_default && <span className={styles.label_default}>{t("common.default_label")}</span>}
+            </span>
+        </ToggleGroupItem>
     );
 };
