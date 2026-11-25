@@ -175,6 +175,11 @@ export const kitStandIns = {
     Switch: ({ checked = false, ...rest }: Record<string, unknown>) =>
         jsx.jsx("button", { type: "button", role: "switch", "aria-checked": checked, "data-state": checked ? "checked" : "unchecked",
             "data-slot": "switch", ...rest }),
+    // The kit's select is a native <select> named data-slot="native-select"; aria-invalid only while the value is wrong.
+    Select: ({ invalid = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("select", { "data-slot": "native-select", "aria-invalid": invalid || undefined, ...rest }),
+    SelectOption: (props: Record<string, unknown>) => jsx.jsx("option", { "data-slot": "native-select-option", ...props }),
+    SelectOptGroup: (props: Record<string, unknown>) => jsx.jsx("optgroup", { "data-slot": "native-select-optgroup", ...props }),
     // The kit's toggle is Radix's: a <button> whose aria-pressed and data-state follow pressed; the
     // accent tone and the regular size unless asked.
     Toggle: ({ pressed = false, tone = "accent", size = "regular", ...rest }: Record<string, unknown>) =>

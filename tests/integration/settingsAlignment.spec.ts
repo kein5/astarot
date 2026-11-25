@@ -2,9 +2,10 @@ import { expect, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // #1096: setting controls of every kind (checkboxes, standalone icon buttons, inputs,
-// compact dropdowns/selects, color inputs, sliders, radios, hotkeys, and FormRow/form action
+// compact selects, color inputs, sliders, radios, hotkeys, and FormRow/form action
 // buttons) align their right edge on one vertical column at the row's right end across every
-// settings page, and dropdowns/selects stay compact rather than stretching across the whole column.
+// settings page, and selects stay compact rather than stretching across the whole column. The
+// settings rows' select fields are the kit's Select, a native <select>, as the forms' are (D-14).
 test.use({
     viewport: { width: 1280, height: 800 },
     settings: {
@@ -59,7 +60,6 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             // Pick the rightmost primary visual edge in the field column.
             const checkboxVisual = controlCell.querySelector<HTMLElement>('input[type="checkbox"] + span');
             const entryBox = controlCell.querySelector<HTMLElement>('[data-slot="input"]')?.parentElement;
-            const dropdown = controlCell.querySelector<HTMLElement>('[role="combobox"]');
             const select = controlCell.querySelector<HTMLElement>("select");
             const sliderTrack = controlCell.querySelector<HTMLElement>('[role="slider"]')?.parentElement
                 ?? controlCell.querySelector<HTMLElement>('input[type="range"]');
@@ -80,9 +80,6 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             } else if (entryBox && isVisible(entryBox)) {
                 target = entryBox;
                 kind = "entry";
-            } else if (dropdown && isVisible(dropdown)) {
-                target = dropdown;
-                kind = "dropdown";
             } else if (select && isVisible(select)) {
                 target = select;
                 kind = "select";
@@ -136,7 +133,7 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
         return results;
     });
 
-test("settings controls of every kind share one right edge and keep dropdowns compact across every settings page", async ({ app }) => {
+test("settings controls of every kind share one right edge and keep selects compact across every settings page", async ({ app }) => {
     const assertPageRightAligned = (pageName: string, items: RowControlMeasurement[], minCount: number) => {
         expect(items.length, `${pageName}: measured rows`).toBeGreaterThanOrEqual(minCount);
         const topLevel = items.filter(item => !item.inFold);
@@ -146,7 +143,7 @@ test("settings controls of every kind share one right edge and keep dropdowns co
             if (!item.inFold) {
                 expect.soft(Math.abs(item.right - pageRight), `${pageName} "${item.label}" (${item.kind}): right=${item.right}, page right=${pageRight}`).toBeLessThanOrEqual(2);
             }
-            if (item.kind === "dropdown" || item.kind === "select") {
+            if (item.kind === "select") {
                 expect.soft(item.width, `${pageName} "${item.label}" (${item.kind}): width=${item.width} should stay compact (<= 325px)`).toBeLessThanOrEqual(325);
             }
         }
@@ -178,7 +175,7 @@ test("settings controls of every kind share one right edge and keep dropdowns co
         }
     }
 
-    for (const requiredKind of ["checkbox", "icon-button", "entry", "color", "dropdown", "select", "radio", "slider", "hotkey", "button"]) {
+    for (const requiredKind of ["checkbox", "icon-button", "entry", "color", "select", "radio", "slider", "hotkey", "button"]) {
         expect(seenKinds.has(requiredKind), `Measured at least one right-aligned ${requiredKind} across settings pages`).toBe(true);
     }
 
@@ -187,7 +184,7 @@ test("settings controls of every kind share one right edge and keep dropdowns co
     await app.page.waitForTimeout(250);
     const advancedItems = await measureRowControls(app.page);
     assertPageRightAligned("Advanced", advancedItems, 20);
-    for (const requiredKind of ["checkbox", "icon-button", "entry", "color", "dropdown"]) {
+    for (const requiredKind of ["checkbox", "icon-button", "entry", "color", "select"]) {
         expect(advancedItems.some(item => item.kind === requiredKind), `Advanced includes right-aligned ${requiredKind}`).toBe(true);
     }
 
@@ -203,13 +200,13 @@ test("settings controls of every kind share one right edge and keep dropdowns co
     const monitorButtonRight = await app.page.locator('[data-setting-id="rvc_settings"] [data-page-pointer="tts"]').evaluate(el => Math.round(el.getBoundingClientRect().right));
     expect(Math.abs(monitorButtonRight - rvcRight), `RVC Monitor link button right=${monitorButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);
 
-    // Device: Auto select checkboxes and compact dropdowns align flush at the row's right end.
+    // Device: Auto select checkboxes and compact selects align flush at the row's right end.
     await app.page.getByRole("button", { name: "Device", exact: true }).click();
     await app.page.waitForTimeout(250);
     const deviceRows = await app.page.locator('[data-setting-id="mic_host_device"], [data-setting-id="speaker_device"]').evaluateAll(rows =>
         rows.map(row => {
             const label = row.querySelector<HTMLElement>('input[type="checkbox"]')?.closest<HTMLElement>("label");
-            const dropdown = row.querySelector<HTMLElement>('[role="combobox"]');
+            const dropdown = row.querySelector<HTMLElement>("select");
             const rect = row.getBoundingClientRect();
             const dropdownRect = dropdown?.getBoundingClientRect();
             return {

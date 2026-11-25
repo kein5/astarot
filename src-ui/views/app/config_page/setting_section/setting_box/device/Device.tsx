@@ -25,7 +25,7 @@ import {
 import { Checkbox } from "@common_components";
 import type { CheckboxValue } from "../../../../../common_components/checkbox/Checkbox";
 import type { AtomState } from "@store";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 // Which part of a device container a place draws: the device rows, or the sensitivity in 「詳細設定」.
 type ContainerPart = "device" | "sensitivity";

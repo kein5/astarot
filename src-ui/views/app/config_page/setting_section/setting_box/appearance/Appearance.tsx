@@ -25,7 +25,7 @@ import {
 } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 import {
     AutoClearMessageInputBoxContainer,

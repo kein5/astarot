@@ -5,7 +5,7 @@ import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, refOf, se
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
-    let opened = "update_software", dropdown = "";
+    let opened = "update_software";
     const control = (name: string) => ({ isConnected: true, disabled: false, tabIndex: 0,
         getAttribute: () => null, closest: () => null, matches: () => false,
         focus: () => focus.push(name) });
@@ -18,7 +18,6 @@ async function fixture(context: TestContext) {
         "@store": {
             useStore_OpenedQuickSetting: () => ({ currentOpenedQuickSetting: { data: opened },
                 updateOpenedQuickSetting: (value: string) => { changes.push([value, modal.open]); opened = value; } }),
-            useStore_IsOpenedDropdownMenu: () => ({ currentIsOpenedDropdownMenu: { data: dropdown } }),
         },
         "@setting_box": { Updater: "update-settings" },
     });
@@ -33,7 +32,7 @@ async function fixture(context: TestContext) {
     });
     context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,
-        setDropdown: (value: string) => { dropdown = value; }, setOpened: (value: string) => { opened = value; } };
+        setOpened: (value: string) => { opened = value; } };
 }
 
 test("quick settings uses a named native modal with initial close focus", async context => {
@@ -78,28 +77,6 @@ for (const action of ["close button", "backdrop", "Escape"]) {
         });
     }
 }
-
-test("dropdown Escape prevents native cancellation but still reaches the dropdown listener", async context => {
-    const s = await fixture(context);
-    s.setDropdown("overlay-position");
-    let tree = s.render(), prevented = false;
-    assert.ok(tree);
-    const event = { key: "Escape", preventDefault: () => { prevented = true; },
-        stopPropagation: () => assert.fail("the dropdown must receive Escape") };
-    tree.props.onKeyDownCapture(event);
-    assert.equal(prevented, true, "suppress the browser cancel before the dropdown clears its state");
-    tree.props.onCancel(event);
-    assert.deepEqual(s.changes, []);
-    assert.equal(s.modal.open, true);
-    s.setDropdown(""); // The existing document listener closes the dropdown.
-    tree = s.render();
-    assert.ok(tree);
-    prevented = false;
-    tree.props.onKeyDownCapture(event);
-    assert.equal(prevented, false);
-    tree.props.onCancel(event);
-    assert.deepEqual(s.changes, [["", false]]);
-});
 
 test("external dismissal returns focus to the main page when every fallback control is unavailable", async context => {
     const s = await fixture(context);

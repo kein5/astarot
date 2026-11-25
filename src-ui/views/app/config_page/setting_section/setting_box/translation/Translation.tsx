@@ -18,7 +18,7 @@ import { FormRow } from "../_components/form_row/FormRow";
 import { localModelList } from "../../../../../../logics/translation/localModelList";
 import { TranslationCatalogSection } from "./TranslationCatalog";
 import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 import type { WeightTypeStatus } from "../../../../../../logics/configs/config_page_setter/settingTypes";
 
 import {

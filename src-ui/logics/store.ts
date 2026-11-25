@@ -379,7 +379,6 @@ export const { atomInstance: Atom_SoftwareVersion, useHook: useStore_SoftwareVer
 // Settings open on the first page of their menu (logics/configs/settingsMenu.ts, FIRST_SETTINGS_TAB).
 export const { atomInstance: Atom_SelectedConfigTabId, useHook: useStore_SelectedConfigTabId } = createAtomWithHook("translation", "SelectedConfigTabId");
 export const { atomInstance: Atom_SettingBoxScrollPosition, useHook: useStore_SettingBoxScrollPosition } = createAtomWithHook(0, "SettingBoxScrollPosition");
-export const { atomInstance: Atom_IsOpenedDropdownMenu, useHook: useStore_IsOpenedDropdownMenu } = createAtomWithHook("", "IsOpenedDropdownMenu");
 
 // Device
 // The meters: the backend's level, or "0" when a check stops (useVolume).

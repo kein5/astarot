@@ -23,7 +23,7 @@ import { OcrSharedWindow } from "./OcrSharedWindow";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import { HintDescriptions } from "../_components/hint/Hint";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 // The field's draft as the entry shows it: what was typed, or the value the backend answered.
 const entryValue = (value: unknown) => typeof value === "string" || typeof value === "number" ? value : null;

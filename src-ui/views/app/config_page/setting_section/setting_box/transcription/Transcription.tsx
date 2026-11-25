@@ -9,7 +9,7 @@ import { AsrApiEntries } from "./AsrApiEntries";
 import { genNumObjArray } from "@utils";
 import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 import {
     useTranscription,
