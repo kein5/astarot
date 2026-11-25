@@ -9,7 +9,7 @@ import * as styles from "./Ocr.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
-import { Button } from "../../../../../kit/index.ts";
+import { Button, Progress } from "../../../../../kit/index.ts";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
@@ -130,7 +130,7 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                                 progress={active && job.phase !== "cancelling" ? "working" : undefined}>
                                 <p>{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${megabytes(bytesOf(job.received_bytes) ?? 0)} / ${megabytes(bytesOf(job.total_bytes) ?? 0)}`}</p>
                             </EnvReadout>}
-                            {active && job && <progress className={voiceStyles.progress} aria-label={t("model_downloads.progress")}
+                            {active && job && <Progress aria-label={t("model_downloads.progress")}
                                 value={bytesOf(job.received_bytes)} max={bytesOf(job.total_bytes)} />}
                             {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
                             {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}

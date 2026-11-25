@@ -47,7 +47,6 @@ export const facts = style({});
 export const variant = style({});
 export const variant_choice = style({});
 export const link_button = style({});
-export const progress = style({});
 export const hardware = style({});
 
 // A rule inside a form section: each selector of the list under .container, leaving the kit's
@@ -539,19 +538,6 @@ globalStyle(variants.map(selector => `${selector} > :last-child`).join(", "), { 
 globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" });
 // An official site, opened like the buttons beside it.
 globalStyle(link_button, { display: "inline-flex", alignItems: "center", minHeight: "4rem" });
-globalStyle(progress, {
-    width: "100%",
-    height: ".6rem",
-    appearance: "none",
-    WebkitAppearance: "none",
-    border: 0,
-    borderRadius: ".3rem",
-    overflow: "hidden",
-    background: vars.dark_825_color,
-});
-globalStyle(`${progress}::-webkit-progress-bar`, { background: vars.dark_825_color, borderRadius: ".3rem" });
-globalStyle(`${progress}::-webkit-progress-value`, { background: vars.primary_500_color, borderRadius: ".3rem" });
-globalStyle(`${progress}::-moz-progress-bar`, { background: vars.primary_500_color, borderRadius: ".3rem" });
 // The shared GPU and memory group: space and a subheading, no frame.
 globalStyle(hardware, { display: "grid", gap: ".8rem", minWidth: 0, containerType: "inline-size" });
 // The select list's first frame (see the base-select rules for the form's select).

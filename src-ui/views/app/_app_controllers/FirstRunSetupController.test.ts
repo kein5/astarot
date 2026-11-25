@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, drawWith } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, drawWith, kitStandIns } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
@@ -190,6 +190,18 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
     s.render();
     assert.equal(w.sent.length, 1);
+    // The step that downloads a known size has a bar, named after the step; no bar while the size
+    // is not known or once it is checked; before its first bytes it stands at 0.
+    const local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const bar = () => find(drawWith(local, s.part(s.render(), "RecognitionSetup")), node => node.type === kitStandIns.Progress)?.props;
+    assert.deepEqual([bar()?.["aria-label"], bar()?.value, bar()?.max], ["first_run_setup.recognition.step_model", 1, 2]);
+    for (const job of [{ received_bytes: 1, total_bytes: 0 }, { phase: "verifying", received_bytes: 2, total_bytes: 2 }]) {
+        w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", ...job } };
+        assert.equal(bar(), undefined, JSON.stringify(job));
+    }
+    w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", total_bytes: 2 } };
+    assert.equal(bar()?.value, 0);
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "ready" } };
     s.render();
     s.render();
@@ -253,9 +265,16 @@ test("a refused request stops the run with its reason, and a stale error does no
     s.button(tree, "first_run_setup.recognition.start").props.onClick();
     tree = s.render();
     assert.equal(s.part(tree, "RecognitionSetup").props.run.phase, "running", "an error from before the run is not its own");
+    const local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const bar = () => find(drawWith(local, s.part(s.render(), "RecognitionSetup")), node => node.type === kitStandIns.Progress);
+    stale.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
+    assert.ok(bar(), "the step downloads");
     stale.downloadError = "catalog_changed";
     tree = s.render();
     assert.deepEqual(s.part(tree, "RecognitionSetup").props.run.failure, { step: 0, code: "catalog_changed" });
+    // The step failed: it says why, and its bar is gone even while the job still reports bytes.
+    assert.equal(bar(), null);
 });
 
 test("Later puts it away for this run without dismissing it; Don't show again does", async context => {
@@ -411,7 +430,15 @@ test("the translation's model is reviewed, downloaded and applied in the setup, 
     // Its download, in the setup; the row above says it is being prepared there.
     w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 100, total_bytes: 500000000 } };
     drawn = section();
-    assert.ok(nodesIn(drawn).some(node => node.type === "progress"));
+    const bar = () => find(section(), node => node.type === kitStandIns.Progress)?.props;
+    assert.deepEqual([bar()?.["aria-label"], bar()?.value, bar()?.max], ["first_run_setup.translation.step_model", 100, 500000000]);
+    // No bar while the size is not known or once it is checked; before its first bytes it stands at 0.
+    for (const job of [{ received_bytes: 100, total_bytes: 0 }, { phase: "verifying", received_bytes: 500000000, total_bytes: 500000000 }]) {
+        w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", ...job } };
+        assert.equal(bar(), undefined, JSON.stringify(job));
+    }
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", total_bytes: 500000000 } };
+    assert.equal(bar()?.value, 0);
     const rows = () => nodesIn(draw(s.part(s.render(), "Findings"))).filter(node => node.props?.id === "translation" || node.props?.name === "first_run_setup.found.translation");
     assert.equal(rows()[0]?.props.children, "first_run_setup.found.translation_preparing");
     // Verified: applied once, with nothing expected in the settings (a translation holds no path).

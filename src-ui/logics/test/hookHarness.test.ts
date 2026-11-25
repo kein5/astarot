@@ -72,4 +72,10 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     // The popover: the root draws its parts; the content keeps what it is given, without the kit's own props.
     assert.equal(kitStandIns.Popover({ children: "parts" }), "parts");
     assert.deepEqual(kitStandIns.PopoverContent({ portal: false, inset: "tight", id: "panel" }).props, { "data-slot": "popover-content", id: "panel" });
+    // The progress bar: the system's <progress> named data-slot="progress", with what it is given and nothing more.
+    assert.match(kit("Progress.tsx"), /<progress data-slot="progress" className=\{clsx\(progress, className\)\} \{\.\.\.rest\} \/>/);
+    const bar = kitStandIns.Progress({ value: 3, max: 9, "aria-label": "words" });
+    assert.equal(bar.type, "progress");
+    assert.deepEqual(bar.props, { "data-slot": "progress", value: 3, max: 9, "aria-label": "words" });
+    assert.deepEqual(kitStandIns.Progress({}).props, { "data-slot": "progress" });
 });

@@ -81,7 +81,8 @@ test("a download in progress says so on its card, with its progress and a way to
     const s = await ocrModels("grid", { ppocr: { job_id: "job", phase: "downloading", received_bytes: 10_485_760, total_bytes: 31_457_280 } });
     const running = card(s.draw({ missing: ["ppocr"] }));
     assert.equal(state(running)["data-tone"], "working");
-    assert.deepEqual(findIn(running, node => node.type === "progress").props.value, 10_485_760);
+    const bar = findIn(running, node => node.type === kitStandIns.Progress).props;
+    assert.deepEqual([bar["aria-label"], bar.value, bar.max], ["model_downloads.progress", 10_485_760, 31_457_280]);
     assert.ok(find(running, node => node.type === "readout"), "what runs, on the card");
     findIn(running, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.cancel").props.onClick();
     assert.deepEqual(s.sent.at(-1), ["/run/cancel_model_download", { id: "ppocr", job_id: "job" }]);
@@ -97,5 +98,6 @@ test("the cancel waits while a request is out or the download is being cancelled
     // A failed job is not running: nothing to cancel, and the review is offered again.
     const failed = (await ocrModels("list", { ppocr: { job_id: "job", phase: "failed", error_code: "download_failed" } })).draw({ missing: ["ppocr"] });
     assert.equal(cancel(failed), null);
+    assert.equal(find(card(failed), node => node.type === kitStandIns.Progress), null, "a job that does not run has no bar");
     assert.ok(find(card(failed), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review"));
 });
