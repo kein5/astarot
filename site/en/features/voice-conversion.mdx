@@ -21,7 +21,13 @@ A new installation starts with "Basic" under "Used for", which hides the switch 
 
 Models you trained or bought work too ([Use your own models](../guide/custom-models#rvc)).
 
-## Set up RVC
+### Before you use it
+
+Using someone else's voice as a model needs their permission. For a model you bought, also check the provider's terms ([Models you bought or found published](../guide/custom-models#bought-models)).
+
+## Steps
+
+### Set up RVC
 
 The settings page can fetch the runtime, HuBERT and RMVPE.
 
@@ -40,7 +46,7 @@ From 0.6.0 on Windows, you can download "ONNX Runtime · DirectML" under "Models
 
 An RVC runtime fetched by an earlier version (the kind that uses PyTorch) can no longer be used. If the page says "The runtime in this folder is of an earlier kind and can no longer be used", fetch it again the same way. It goes into the same folder, so your saved settings keep working. When it finishes, the files of the earlier kind (`venv`, `python`, `engine`, `rmvpe.pt` and so on) are deleted automatically. Only what the earlier setup put there is deleted; models (`.pth`, `.index` and the like) and audio files you put in `engine` are kept.
 
-### How far behind the voice is
+#### How far behind the voice is
 
 The converted voice comes a little after your own. On the PC this was measured on:
 
@@ -53,7 +59,7 @@ Once conversion starts, the settings page shows where it converts and the delay.
 
 As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.31 GiB) with "Download a default model". Credit the author when you use it in published work or streams.
 
-## Change your voice with RVC
+### Change your voice with RVC
 
 1. Enter "RVC runtime folder" and "Permitted RVC model (.pth)", and save.
 
@@ -79,11 +85,11 @@ As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.
 3. Under "Input to forward", choose the microphone you speak into. It starts as the "Mic" chosen under "Device".
 4. Turn on "Voice changer (RVC)" on the main screen.
 
-## About Seed-VC {#seed-vc}
+### About Seed-VC {#seed-vc}
 
 Seed-VC was removed in 0.5.0, and RVC is now the only voice changer. Changing your voice toward a reference WAV is no longer possible. A Seed-VC runtime fetched by an earlier version is not used from 0.5.0.
 
-## Speak in your changed voice
+### Speak in your changed voice
 
 Set "Speak through voice conversion" under Settings → "Text to speech (TTS)" → "More settings" to On. While the voice changer runs, the speech voice is changed by the voice changer too, before it reaches the virtual microphone.
 
@@ -94,26 +100,30 @@ Together with speaking the translation of what you say ("Speak final translation
 - When the voice changer is not running, speech plays in its own voice, unchanged.
 - Others hear the speech a little later, because changing the voice takes time.
 
-## Hear the changed voice yourself
-
-Under "Text to speech (TTS)" → "More settings" → "Monitor", turn on "Hear it on my speakers" and choose a "Monitor output".
-
-## Play a sample of a model
-
-Press "Play sample" on a model's card. It records 5 seconds from the "Input to forward" microphone, converts it with that model and plays it only on the monitor output. The recording is not kept and is never sent to VRChat. "Pitch shift" and "Retrieval blend" are used as they are in the fields, without saving them.
-
-## Conversion block length
+### Conversion block length
 
 Your microphone is converted in pieces of a set length. With "Conversion block length" under Settings → "Advanced" left at the default, "Automatic", the app times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Choose "Automatic" again to have the GPU timed again the next time conversion starts.
 
-## Stop
+### Stop
 
 Turn off "Voice changer (RVC)" on the main screen. "Mute" stops both speech and the voice changer ([how to stop text to speech](./tts#stop)).
 
-## Before you use it
+## Check that it works
 
-Using someone else's voice as a model needs their permission. For a model you bought, also check the provider's terms ([Models you bought or found published](../guide/custom-models#bought-models)).
+Speak into the microphone with RVC on. Use the monitoring steps below to check the converted voice.
 
-## When it does not work
+### Hear the changed voice yourself
+
+Under "Text to speech (TTS)" → "More settings" → "Monitor", turn on "Hear it on my speakers" and choose a "Monitor output".
+
+### Play a sample of a model
+
+Press "Play sample" on a model's card. It records 5 seconds from the "Input to forward" microphone, converts it with that model and plays it only on the monitor output. The recording is not kept and is never sent to VRChat. "Pitch shift" and "Retrieval blend" are used as they are in the fields, without saving them.
+
+## Troubleshooting
+
+### When it does not work
 
 If it cannot start, the main screen says why. For a problem with a model's format or location, see the table in [Use your own models](../guide/custom-models#rvc).
+
+See [Troubleshooting](../guide/troubleshooting) for fixes by symptom.

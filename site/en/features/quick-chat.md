@@ -4,7 +4,13 @@ Quick Chat is a small window for sending text while you stay in your game, and h
 
 ![Settings → Hotkeys](/screenshots/en/hotkeys.webp)
 
-## Send text from a small window (Quick Chat)
+## What you need
+
+To open the small window with a key, set a hotkey under Settings → "Hotkeys". You can also open the window with the button on the main screen.
+
+## Steps
+
+### Send text from a small window (Quick Chat)
 
 You can send text from the Quick Chat window without bringing ASTAROT's main window forward. It works even while the main window is minimized. While Quick Chat is open, it stays in front of other windows.
 
@@ -14,7 +20,7 @@ You can send text from the Quick Chat window without bringing ASTAROT's main win
 
 Translation, sending to the chatbox and speech work the same as when you send from the main window.
 
-### Linux (Wayland) notes
+#### Linux (Wayland) notes
 
 On native Wayland, keys are registered through the desktop's shortcut service (GlobalShortcuts portal). The first time, the desktop asks you to confirm when you close the settings.
 
@@ -22,7 +28,7 @@ On native Wayland, keys are registered through the desktop's shortcut service (G
 - Bringing the small window in front of the game with a shortcut works on KDE (KWin) only.
 - Under XWayland, while you use another Wayland app, hotkeys may not reach ASTAROT and Quick Chat may not come to the front.
 
-## Hotkeys
+### Hotkeys
 
 Under Settings → "Hotkeys" you can assign keys to the actions below. "Stop speech" and "Mute or unmute" are at the top of the page; the others are in "More settings". None has a key assigned at first.
 
@@ -38,3 +44,11 @@ Under Settings → "Hotkeys" you can assign keys to the actions below. "Stop spe
 Hotkeys are paused while the settings are open, so they don't fire by accident.
 
 On Wayland, a window minimized with the visibility hotkey comes back with the same key. Only KDE (KWin) can bring it in front of other windows.
+
+## Check that it works
+
+Open Quick Chat and send a test message. Check that it appears in the conversation log.
+
+## Troubleshooting
+
+If a key does not work, close the settings and check its assignment. On Linux, see the Wayland notes above.
