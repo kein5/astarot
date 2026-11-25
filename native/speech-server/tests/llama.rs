@@ -39,12 +39,17 @@ impl Drop for Folder {
     }
 }
 
-/// Puts the stand-in at `to` as a hard link, never as a copy (#1073). A copy is open for writing
-/// while it is written, and a server another test of this process starts at that moment holds
-/// that handle until it runs its own program: running the copy then fails with "Text file busy"
-/// (ETXTBSY) on Linux.
+/// Puts the stand-in at `to`. On Unix as a hard link, never as a copy (#1073): a copy is open for
+/// writing while it is written, a server another test of this process starts at that moment holds
+/// that descriptor until it runs its own program, and running the copy then fails with "Text file
+/// busy" (ETXTBSY). Windows has no such failure (a child inherits no handle of the copy), and a
+/// file a running stand-in was started from cannot be removed there under any of its names, so it
+/// is a copy there, as before.
 fn place(to: &Path) {
+    #[cfg(unix)]
     std::fs::hard_link(FAKE, to).unwrap();
+    #[cfg(not(unix))]
+    std::fs::copy(FAKE, to).unwrap();
 }
 
 fn options(model: PathBuf, device: Device) -> Options {

@@ -34,6 +34,22 @@ impl Drop for Folder {
     }
 }
 
+/// Puts the stand-in at `to`. On Unix as a hard link, never as a copy (#1073): a copy is open for
+/// writing while it is written, a process another test of this process starts at that moment
+/// holds that descriptor until it runs its own program, and running the copy then fails with
+/// "Text file busy" (ETXTBSY). A layout made again in the same folder links it again. Windows has
+/// no such failure (a child inherits no handle of the copy), and a file a running stand-in was
+/// started from cannot be removed there under any of its names, so it is a copy there, as before.
+fn place(to: &Path) {
+    #[cfg(unix)]
+    {
+        let _ = std::fs::remove_file(to);
+        std::fs::hard_link(FAKE, to).unwrap();
+    }
+    #[cfg(not(unix))]
+    std::fs::copy(FAKE, to).unwrap();
+}
+
 /// How a stand-in Vulkan build behaves on the PC of the test.
 #[derive(Clone, Copy)]
 enum Pc {
@@ -51,12 +67,7 @@ fn bundle(root: &Path, name: &str, variant: &str, pc: Pc) -> (String, String) {
     let folder = root.join(name);
     std::fs::create_dir_all(&folder).unwrap();
     let binary = folder.join(EXECUTABLE);
-    // A hard link, never a copy (#1073): a copy is open for writing while it is written, a process
-    // another test starts at that moment holds that handle until it runs its own program, and
-    // running the copy then fails with "Text file busy" (ETXTBSY) on Linux. A layout made again in
-    // the same folder links it again.
-    let _ = std::fs::remove_file(&binary);
-    std::fs::hard_link(FAKE, &binary).unwrap();
+    place(&binary);
     let meta = json!({"schema": 1, "version": astarot_speech_server::bundle::VERSION, "variant": variant});
     std::fs::write(folder.join("bundle.json"), meta.to_string()).unwrap();
     let cpu = json!({"name": "CPU", "description": "Fake CPU", "kind": "cpu", "memory_total": 1u64 << 34});
