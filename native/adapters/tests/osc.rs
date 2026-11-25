@@ -359,9 +359,13 @@ fn ambiguous_local_services_cannot_authorize_an_unmute() {
 
 #[test]
 fn an_unreachable_service_fails_the_query() {
-    let closed = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let port = closed.local_addr().unwrap().port();
-    drop(closed);
+    // A port this test holds without listening on it: a connection there is refused, and no other
+    // test is given the port meanwhile (#1073). A listener on port 0 that was dropped left the port
+    // free, and on Windows the stand-in VRChat of a test running beside this one got it and
+    // answered.
+    let closed = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+    closed.bind(&std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)).into()).unwrap();
+    let port = closed.local_addr().unwrap().as_socket().unwrap().port();
     let discovery = fixed(vec![local_service("VRChat-Client-test", vec![Ipv4Addr::LOCALHOST], port)]);
     assert_eq!(query_parameter_value(MUTE, &discovery, &Cancel::new(), 9000), Err(QueryFailed));
 }
