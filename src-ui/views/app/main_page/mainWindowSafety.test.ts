@@ -481,6 +481,8 @@ test("#554: the uses picked in settings choose the switches in sight; one that i
     assert.equal(more.props.expanded, true);
     const tip = b.runtime.render(s.MoreFeaturesButton, more.props);
     const button = inTooltip(tip);
+    // The kit's compact Button, in the plain tone (the kit's default).
+    assert.deepEqual([button.type, button.props.size, button.props.tone, button.props["data-more-features"]], [kitStandIns.Button, "compact", undefined, true]);
     assert.equal(button.props["aria-expanded"], true);
     assert.equal(button.props["aria-label"], "main_page.more_features_hide");
     // What the button does is its tooltip and, kept in the page, its accessible description.

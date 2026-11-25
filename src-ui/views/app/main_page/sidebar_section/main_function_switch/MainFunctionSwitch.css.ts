@@ -231,27 +231,8 @@ export const switch_slot = style({
     },
 });
 
-// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). Quieter
-// than a switch: no surface at rest, the secondary text, the same height as a row's icon button.
-export const more_features = style({
-    display: "flex",
-    alignItems: "center",
-    gap: ".8rem",
-    minHeight: "3.2rem",
-    padding: ".4rem 1.2rem",
-    borderRadius: vars.vox_radius,
-    color: vars.vox_secondary_text,
-    fontSize: "1.3rem",
-    textAlign: "left",
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_875_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: "-.2rem" },
-        [`&.${is_compact_mode}`]: { justifyContent: "center", padding: ".4rem" },
-    },
-});
-
+// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). The button
+// is the kit's compact Button; its chevron turns when the list is open.
 export const more_features_svg = style({
     width: "1rem",
     flex: "none",
