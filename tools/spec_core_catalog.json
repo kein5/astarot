@@ -997,6 +997,21 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/websocket_speaker_names",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/websocket_speaker_names",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/websocket_speaker_names",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/obs_browser_source",
       "wait_for_init": false,
       "immediate": false
@@ -4585,6 +4600,11 @@
     },
     {
       "key": "WEBSOCKET_SERVER",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "WEBSOCKET_SPEAKER_NAMES",
       "kind": "saved",
       "default": false
     },

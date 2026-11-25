@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（152件）
+## config.jsonに保存するキー（153件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -78,6 +78,7 @@
 | `REALTIME_ASR_SETTINGS` | 検証 `voice_settings::normalize_realtime` | `{"version": 1, "server": "external", "start_server": true, "base_url": "http://127.0.0.1:8080", "model": "", "vocabulary": {"builtin": true, "terms": []}, "mic": {"language": "ja", "endpoint": null, "follow_default": true}, "speaker": {"language": "auto", "endpoint": null, "follow_default": true}}` | 2秒後にまとめて |
 | `SPEECH_SERVER_SETTINGS` | 検証 `astarot_speech_server::settings::normalize_settings` | `{"version": 1, "profiles": {"japanese": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "multilingual": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "asr": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}}}` | 2秒後にまとめて |
 | `WEBSOCKET_SERVER` | bool | `false` | 2秒後にまとめて |
+| `WEBSOCKET_SPEAKER_NAMES` | bool | `false` | 2秒後にまとめて |
 | `OSC_IP_ADDRESS` | str | `"127.0.0.1"` | 2秒後にまとめて |
 | `OSC_PORT` | int、検証 `is_valid_port` | `9000` | 2秒後にまとめて |
 | `OSC_QUERY` | bool | `true` | 2秒後にまとめて |

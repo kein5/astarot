@@ -1338,6 +1338,16 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "websocket_server",
     },
     {
+        // The names the user gave the voices, in the WebSocket and OBS captions (#1035). The
+        // labels are always sent; the names only when this is on (off by default).
+        Category: "AdvancedSettings",
+        Base_Name: "EnableWebsocketSpeakerNames",
+        default_value: false,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        base_endpoint_name: "websocket_speaker_names",
+    },
+    {
         Category: "AdvancedSettings",
         Base_Name: "WebsocketHost",
         default_value: "127.0.0.1",

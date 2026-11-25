@@ -3,13 +3,16 @@
 //! The speech server labels the voices of one realtime session "A", "B", ...; a label means
 //! nothing outside that session, and the labels start again with the next one. The user may give
 //! a label a name for its session: the UI keeps the names for the log and the desktop captions,
-//! and the core hands them to the VR large log ([`Core::name_overlay_speakers`]). The names are
-//! not saved, and `process.log` masks them (`speaker_names` in `log::SENSITIVE_ENDPOINT_MARKERS`).
+//! and the core hands them to the VR large log ([`Core::name_overlay_speakers`]) and keeps them
+//! for the WebSocket messages, which carry them only when the user chose so (#1035). The names
+//! are not saved, and `process.log` masks them (`speaker_names` in
+//! `log::SENSITIVE_ENDPOINT_MARKERS`).
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
 use crate::protocol::Reply;
 use serde_json::{Map, Value, json};
+use std::sync::Mutex;
 
 /// The most voices one request names (the server tells up to eight apart).
 const MAX_LABELS: usize = 8;
@@ -17,6 +20,37 @@ const MAX_LABELS: usize = 8;
 pub const MAX_NAME: usize = 32;
 const MAX_NAMESPACE: usize = 128;
 const INVALID: &str = "speaker_names_invalid";
+/// The sessions whose names are kept for the WebSocket messages, as many as the VR logs keep.
+const MAX_NAMED_SESSIONS: usize = 4;
+
+/// The names the user gave the voices of the latest sessions (#1035): each session's labels with
+/// their names, in memory only.
+#[derive(Default)]
+pub(crate) struct SpeakerNames(Mutex<Vec<(String, Vec<(String, String)>)>>);
+
+impl SpeakerNames {
+    /// The whole set of names of a session; it becomes the latest.
+    fn keep(&self, namespace: &str, names: &[(String, String)]) {
+        let mut kept = self.0.lock().unwrap();
+        kept.retain(|(named, _)| named != namespace);
+        kept.push((namespace.to_string(), names.to_vec()));
+        let excess = kept.len().saturating_sub(MAX_NAMED_SESSIONS);
+        kept.drain(..excess);
+    }
+
+    /// The names of `labels` in the session `namespace`, for the labels that have one.
+    pub(crate) fn of(&self, namespace: &str, labels: &[String]) -> Map<String, Value> {
+        let kept = self.0.lock().unwrap();
+        let Some((_, names)) = kept.iter().find(|(named, _)| named == namespace) else {
+            return Map::new();
+        };
+        labels
+            .iter()
+            .filter_map(|label| names.iter().find(|(named, _)| named == label))
+            .map(|(label, name)| (label.clone(), json!(name)))
+            .collect()
+    }
+}
 
 /// One to three capital letters, as the speech server labels a voice.
 fn is_label(label: &str) -> bool {
@@ -56,6 +90,7 @@ fn set_names(core: &Core, data: &Value) -> Reply {
         Err(code) => return Reply::status(400, json!({ "error_code": code })),
     };
     let answer: Map<String, Value> = names.iter().map(|(label, name)| (label.clone(), json!(name))).collect();
+    core.speaker_names.keep(&namespace, &names);
     core.name_overlay_speakers(&namespace, names);
     ok(json!({ "namespace": namespace, "names": answer }))
 }
@@ -89,5 +124,31 @@ mod tests {
         }
         let nine: Map<String, Value> = (0..9).map(|i| (char::from(b'A' + i).to_string(), json!("x"))).collect();
         assert_eq!(request(&json!({ "namespace": "n", "names": nine })), Err(INVALID));
+    }
+
+    fn labels(labels: &[&str]) -> Vec<String> {
+        labels.iter().map(|l| l.to_string()).collect()
+    }
+
+    #[test]
+    fn the_names_of_a_message_s_voices_come_from_its_session() {
+        let names = SpeakerNames::default();
+        assert!(names.of("s1", &labels(&["A"])).is_empty(), "nothing named yet");
+        names.keep("s1", &[("A".into(), "ミカ".into()), ("C".into(), "ソラ".into())]);
+        // Only the message's own labels, and only those with a name.
+        assert_eq!(Value::Object(names.of("s1", &labels(&["A", "B"]))), json!({ "A": "ミカ" }));
+        // Another session's "A" is another voice.
+        assert!(names.of("s2", &labels(&["A"])).is_empty());
+        // A new set replaces the session's names; an empty one unnames them all.
+        names.keep("s1", &[("B".into(), "リン".into())]);
+        assert_eq!(Value::Object(names.of("s1", &labels(&["A", "B"]))), json!({ "B": "リン" }));
+        names.keep("s1", &[]);
+        assert!(names.of("s1", &labels(&["A", "B"])).is_empty());
+        // The latest four sessions are kept.
+        for session in ["s2", "s3", "s4", "s5"] {
+            names.keep(session, &[("A".into(), session.into())]);
+        }
+        assert!(names.of("s1", &labels(&["B"])).is_empty(), "the oldest session is let go");
+        assert_eq!(Value::Object(names.of("s2", &labels(&["A"]))), json!({ "A": "s2" }));
     }
 }

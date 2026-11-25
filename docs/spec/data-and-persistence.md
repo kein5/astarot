@@ -264,6 +264,11 @@ If the connection to the sidecar ends before the result arrives, the UI marks un
 
 `src_languages` and `dst_languages` are the language pairs of the tab, fixed when the message was accepted, and `translation` is the array of translations. `type` is one of `SENT` (microphone), `RECEIVED` (speaker and OCR), `CHAT` (input field), `REALTIME_MIC` and `REALTIME_SPEAKER`. When the display settings change, `{"type": "SETTINGS_UPDATED", "settings": {…}}` is sent ([External interfaces](external-interfaces.md#websocketサーバー)).
 
+Who spoke is added after these fields, so a receiver that reads only the fields above keeps working (#1035).
+
+- `speakers`: the labels of the voices that spoke, in the order they spoke (`["A", "B"]`), on every message. It is empty unless the speech server told the game audio's voices apart, which only `REALTIME_SPEAKER` messages can have. The speech server labels the voices anew in each session.
+- `speaker_names`: the names the user gave the voices of this message, as `{"A": "Mika"}`, only for the labels that have a name. It is on every message while `WEBSOCKET_SPEAKER_NAMES` is on (off by default), and empty when no voice of the message has a name. While the setting is off, the field is not sent. The names are kept in memory only, for the latest four sessions, and a name given after a message was sent does not change that message.
+
 ### Chat reading regions
 
 `OCR_CAPTURE_REGION` is for desktop windows, and `OCR_VR_CAPTURE_REGION` for the left-eye side of the SteamVR headset view on Windows; both are saved in `config.json`. Each region is given as fractions of its screen's width and height.
@@ -807,6 +812,11 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 ```
 
 `src_languages`と`dst_languages`は受付時に固定したタブの言語の組、`translation`は訳の配列である。`type`は`SENT`（マイク）、`RECEIVED`（スピーカーとOCR）、`CHAT`（入力欄）、`REALTIME_MIC`、`REALTIME_SPEAKER`のどれか。表示設定が変わったときは`{"type": "SETTINGS_UPDATED", "settings": {…}}`を送る（[外部インターフェース](external-interfaces.md#websocketサーバー)）。
+
+話した人は、これらの項目の後に足す。上の項目だけを読む受け手は、これまでどおり動く（#1035）。
+
+- `speakers`: 話した声のラベルを、話した順に並べる（`["A", "B"]`）。すべてのメッセージに付ける。音声のサーバーがゲーム音声の声を聞き分けたときだけ中身があり、それができるのは`REALTIME_SPEAKER`のメッセージだけである。音声のサーバーはセッションごとに声のラベルを振り直す。
+- `speaker_names`: 利用者がこのメッセージの声に付けた名前を`{"A": "Mika"}`の形で、名前のあるラベルの分だけ入れる。`WEBSOCKET_SPEAKER_NAMES`がオンの間（既定はオフ）はすべてのメッセージに付け、どの声にも名前がなければ空にする。オフの間はこの項目を送らない。名前はメモリの中だけに、最新の4つのセッションの分を保つ。メッセージを送った後で付けた名前は、そのメッセージを変えない。
 
 ### チャット読み取りの範囲
 

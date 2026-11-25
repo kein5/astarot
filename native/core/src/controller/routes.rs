@@ -421,6 +421,8 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(json!({ "cert_file": core.config().get("WEBSOCKET_TLS_CERT_FILE"), "key_file": core.config().get("WEBSOCKET_TLS_KEY_FILE") }))
     });
     b.get("/get/data/websocket_server", OPEN, "WEBSOCKET_SERVER");
+    // The names the user gave the voices, in the WebSocket messages (#1035; off by default).
+    b.switch("websocket_speaker_names", "WEBSOCKET_SPEAKER_NAMES", true);
     b.get("/get/data/obs_browser_source", OPEN, "OBS_BROWSER_SOURCE");
     for (name, key) in [
         ("port", "OBS_BROWSER_SOURCE_PORT"),

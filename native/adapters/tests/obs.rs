@@ -23,8 +23,9 @@ fn fixture(name: &str) -> String {
 }
 
 #[test]
-fn the_page_is_the_python_page_byte_for_byte() {
-    // Made by `_build_overlay_html` of the Python implementation with the same values.
+fn the_page_is_the_python_page_with_the_speakers() {
+    // Made by `_build_overlay_html` of the Python implementation with the same values, and the
+    // line of who spoke added since (#1035).
     assert_eq!(build_overlay_html(&ObsPageSettings::default(), "tok_EN-123"), fixture("obs_page_default.html"));
     let custom = ObsPageSettings {
         websocket_port: 9876,
@@ -55,7 +56,18 @@ fn an_open_page_refreshes_the_port_without_a_notification() {
     // The page's script runs under Node ([`test_obs_reconnect.py`] of the Python backend did the same).
     //
     // [`test_obs_reconnect.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_obs_reconnect.py
-    let script = format!("{}/tests/fixtures/obs_reconnect.mjs", env!("CARGO_MANIFEST_DIR"));
+    run_page_script("obs_reconnect.mjs");
+}
+
+#[test]
+fn the_page_says_who_spoke() {
+    // #1035: the labels of the voices, and the names when the message carries them.
+    run_page_script("obs_speakers.mjs");
+}
+
+/// Runs a fixture script under Node with the page on its input.
+fn run_page_script(name: &str) {
+    let script = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
     if !std::path::Path::new(&script).exists() {
         return;
     }

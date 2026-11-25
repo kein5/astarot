@@ -715,6 +715,7 @@ pub fn keys() -> Vec<Key> {
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
         key("SPEECH_SERVER_SETTINGS", validated(|v, _| astarot_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
+        key("WEBSOCKET_SPEAKER_NAMES", b()),
         key("OSC_IP_ADDRESS", plain(Ty::Str)),
         key("OSC_PORT", managed(Ty::Int, false, |v, _| is_valid_port(v))),
         // Core only (#559): OSCQuery (receiving VRChat's parameters, the mDNS advertisement and
@@ -987,6 +988,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("REALTIME_ASR_SETTINGS", realtime),
         ("SPEECH_SERVER_SETTINGS", speech),
         ("WEBSOCKET_SERVER", json!(false)),
+        ("WEBSOCKET_SPEAKER_NAMES", json!(false)),
         ("OSC_IP_ADDRESS", json!("127.0.0.1")),
         ("OSC_PORT", json!(9000)),
         ("OSC_QUERY", json!(true)),

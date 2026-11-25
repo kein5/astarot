@@ -71,6 +71,14 @@
         opacity: 0.9;
       }
 
+      .msg .speaker {
+        margin-bottom: 4px;
+        font-size: calc(var(--font-size) * 0.75);
+        font-weight: 700;
+        opacity: 0.9;
+        -webkit-text-stroke-width: calc(var(--outline-size) * 0.5);
+      }
+
       @keyframes fadeout {
         to {
           opacity: 0;
@@ -101,6 +109,18 @@
           Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.length > 0) : [];
 
         const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+        // Who spoke, as the VR logs write it: each voice's name if the message carries one, else
+        // its label, joined by "·" ("Mika·B"), and at most 48 characters.
+        const MAX_WHO = 48;
+        const whoSpoke = (payload) => {
+          const labels = asStringArray(payload?.speakers);
+          if (labels.length === 0) return "";
+          const names = payload?.speaker_names && typeof payload.speaker_names === "object" ? payload.speaker_names : {};
+          const named = (label) => (Object.prototype.hasOwnProperty.call(names, label) ? asString(names[label]) : "");
+          const who = Array.from(labels.map((label) => named(label) || label).join("·"));
+          return who.length > MAX_WHO ? `${who.slice(0, MAX_WHO - 1).join("")}…` : who.join("");
+        };
 
         const numericRanges = @@NUMERIC_RANGES@@;
         const validNumber = (name, value) => Number.isInteger(value) &&
@@ -146,6 +166,14 @@
 
           const msgEl = document.createElement("div");
           msgEl.className = `msg msg-${type.toLowerCase()}`;
+
+          const who = whoSpoke(payload);
+          if (who) {
+            const speakerEl = document.createElement("div");
+            speakerEl.className = "speaker";
+            speakerEl.textContent = who;
+            msgEl.appendChild(speakerEl);
+          }
 
           const translationEl = document.createElement("div");
           translationEl.className = "translation";

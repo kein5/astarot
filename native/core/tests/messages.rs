@@ -168,6 +168,9 @@ fn a_typed_message_reaches_the_chatbox_websocket_and_log_untranslated() {
     assert_eq!(frame["message"], "こんにちは");
     assert_eq!(frame["translation"], json!([]));
     assert_eq!(frame["src_languages"]["1"]["language"], "Japanese");
+    // No voices told apart (#1035): an empty list, and no names unless the user chose them.
+    assert_eq!(frame["speakers"], json!([]));
+    assert!(frame.get("speaker_names").is_none(), "{frame}");
     assert!(run.conversation_log().contains(" - log - INFO - [CHAT] こんにちは\n"), "{}", run.conversation_log());
     // The diagnostic log has neither the text nor anything of it.
     assert!(!run.process_log().contains("こんにちは"));
@@ -707,4 +710,97 @@ fn the_conversation_log_moves_and_falls_back_when_the_destination_disappears() {
     assert!(run.conversation_log().contains("message in the default directory"));
     assert_eq!(run.ui.ok("/get/data/path_logs", None), json!({ "path": default, "error_code": "log_directory_missing" }));
     run.ui.stop();
+}
+
+#[test]
+fn a_diarized_caption_tells_the_websocket_who_spoke_and_the_names_only_when_chosen() {
+    // #1035: the labels always, the names the user gave only when the setting is on (off by
+    // default), added to the message's fields.
+    use astarot_transcription::capture::Source as Capture;
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use std::sync::atomic::Ordering;
+    use std::time::Instant;
+    let wait = |what: &str, ok: &dyn Fn() -> bool| {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !ok() {
+            assert!(Instant::now() < deadline, "{what}");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+
+    let asr = FakeAsr::start();
+    asr.behaviour.realtime_after.store(0, Ordering::SeqCst);
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Capture::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Capture::Speaker, Some("alsa.out"));
+    let services = Services { transcription_capture: capture.factory(), ..Services::default() };
+    let port = free_port();
+    let saved = json!({
+        "WEBSOCKET_SERVER": true,
+        "WEBSOCKET_PORT": port,
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), ..Setup::default() });
+    // The setting is off by default, and the UI gets it with the others at startup.
+    assert_eq!(ui.ready()["/get/data/websocket_speaker_names"], false);
+    let (status, stream) = websocket("127.0.0.1", port, Some("test-token"));
+    assert_eq!(status, 101);
+    let mut stream = stream.unwrap();
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the session is configured", &|| !asr.diarization.lock().unwrap().is_empty());
+    let mut caption = || {
+        asr.behaviour.realtime_announce.store(1, Ordering::SeqCst);
+        capture.hear(Capture::Speaker, &[speech(2000)]);
+        loop {
+            let text = read_text(&mut stream, Duration::from_secs(10)).expect("a caption on the WebSocket");
+            let frame: Value = serde_json::from_str(&text).unwrap();
+            if frame["type"] == "REALTIME_SPEAKER" {
+                return (text, frame);
+            }
+        }
+    };
+    let (_, first) = caption();
+    assert_eq!(first["speakers"], json!(["A", "B"]));
+    assert!(first.get("speaker_names").is_none(), "{first}");
+    for field in ["src_languages", "dst_languages", "message", "translation", "transliteration"] {
+        assert!(first.get(field).is_some(), "{field} is kept");
+    }
+    let namespace = ui.wait_from(mark, "the final", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "final")
+        ["result"]["namespace"].as_str().unwrap().to_string();
+    ui.ok("/set/data/speaker_names", Some(json!({ "namespace": namespace, "names": { "A": "ミカ" } })));
+
+    // A name given, the setting off: the labels only.
+    let (text, second) = caption();
+    assert_eq!(second["speakers"], json!(["A", "B"]));
+    assert!(!text.contains("ミカ"), "a name was sent with the setting off");
+    // The setting on: the names of the message's voices that have one.
+    assert_eq!(ui.ok("/set/enable/websocket_speaker_names", None), true);
+    let (_, third) = caption();
+    assert_eq!(third["speakers"], json!(["A", "B"]));
+    assert_eq!(third["speaker_names"], json!({ "A": "ミカ" }));
+    // Off again: no names.
+    assert_eq!(ui.ok("/set/disable/websocket_speaker_names", None), false);
+    let (text, _) = caption();
+    assert!(!text.contains("ミカ"), "a name was sent after the setting was turned off");
+    ui.ok("/set/disable/transcription_receive", None);
+
+    let log = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default();
+    assert!(!log.contains("ミカ"), "a name reached process.log");
+    ui.stop();
 }

@@ -1320,6 +1320,9 @@ config_page:
             desc: "The path to the PEM private key that goes with the certificate. A key with a passphrase cannot be used. If the key is in the certificate file, enter the same path."
         websocket_tls_errors:
             one_side: "Enter both the certificate and the private key, or leave both empty to use the server on your PC only."
+        websocket_speaker_names:
+            label: "Send the names given to voices"
+            desc: "Captions sent over WebSocket and to the OBS browser source always say which voice spoke (A, B and so on). When this is on, they also carry the names you gave the voices, so the names can appear on your stream."
         websocket_token:
             label: "Make a new connection key"
             desc: "Use this if someone else may have seen a copied URL. The old URLs stop working at once."
