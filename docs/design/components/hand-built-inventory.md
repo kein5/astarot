@@ -109,7 +109,7 @@ Before the per-screen tables, these are the hand-built elements that every scree
 | Top bar (`config_page/topbar/Topbar.tsx`) | The back `<button>`. The save bar, its buttons and its leave `<dialog>` went with #1111 | The kit's `Button` (replaced, #1173) | Low | Only the back button was left. Stop and mute in the same bar have their own row |
 | Settings rail (`config_page/sidebar_section/SidebarSection.tsx`) | The page-switching `<button>` elements (`aria-current="page"`). The native `title` shown with short names | The buttons stay as they are (they are navigation, so not Tabs, D-35). The descriptions of short names: `Tooltip` (replaced, #1132) | Low | The rail widens on hover and focus, and the short names appear only when it is narrow |
 | Usage presets (`sidebar_section/usage_presets/UsagePresetSelector.tsx`) | An open and close button with `aria-expanded`, the native `title` in the compact rail, native checkboxes | Open and close: `Fold` or Collapsible (D-26); descriptions: `Tooltip`; checkboxes: `Checkbox` | Medium | Keep the rule that the last one cannot be cleared (`last`) and the way waiting is shown |
-| Settings search (`config_page/search_bar/SearchBar.tsx`) | A custom `role="combobox"` and its result list (`role="option"`), a clear button | U-02 | High | D-36, D-40 |
+| Settings search (`config_page/search_bar/SearchBar.tsx`) | A custom `role="combobox"` and its result list (`role="option"`), a clear button | U-02 (stays hand-built, D-36; the field's frame, the list's border and corners and the result's fill aligned with the kit, #1179; the details inside the field, the clear button among them, stay, D-40) | High | D-36, D-40 |
 
 ### Settings pages
 
@@ -192,7 +192,7 @@ Under decision H-02, a shared component is made for every one of U-01 to U-12 an
 | ID | Element | Where it is used | shadcn/ui counterpart | Related decision | Add to the kit |
 |---|---|---|---|---|---|
 | U-01 | Language selection (a filter field paired with a grid of language buttons) | The main language selection, the VR UI's language window | Command (cmdk). There is none written with Radix | D-36 | Add (H-02). The VR UI's language window does not use it and is brought in line with the VR UI's components instead (H-03) (D-36 decided on 2026-11-25 that it stays hand-built and only its look follows the kit, #1178) |
-| U-02 | A search that shows a result list (combobox) | Settings search | Combobox (Base UI), Command (cmdk), InputGroup | D-36, D-40 | Add (H-02) |
+| U-02 | A search that shows a result list (combobox) | Settings search | Combobox (Base UI), Command (cmdk), InputGroup | D-36, D-40 | Add (H-02) (D-36 decided on 2026-11-25 that it stays hand-built and only its look follows the kit, #1179) |
 | U-03 | Buttons that stay pressed, and groups of buttons where only one can be chosen | Preset switching, translation engine selection, mute, the quick settings items, the catalog's grid and list, the "Captions and VR" switches for which settings are shown, the volume check (`VolumeCheckButton`), the companion handle's edges (not replaced, H-03) | Toggle, ToggleGroup (Radix). The "Captions and VR" switches change panels within the same page, so they also correspond to Tabs (Radix) | D-27 | Added as the kit's `Toggle`, `ToggleGroup` (#1175, H-02). The companion handle does not use it (H-03) |
 | U-04 | A small panel that opens from a button | Quick settings, log display settings, the translation engine list, the color popover, the companion handle's menu (not replaced, H-03) | Popover, DropdownMenu (Radix) | D-25 | Added as the kit's `Popover` (#1175, H-02). The companion handle does not use it (H-03) |
 | U-05 | A horizontal progress bar | Setup, model downloads, the runtime download, the OCR model download | Progress (Radix) | D-32. For circular progress there is `CircularProgress` | Add (H-02) |
@@ -331,7 +331,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 上のバー（`config_page/topbar/Topbar.tsx`） | 戻るの `<button>`。保存バーとそのボタン、離れるときの `<dialog>` は #1111 でなくなりました | kit の `Button`（置き換えた、#1173） | 低 | 残っていたのは戻るのボタンだけです。同じバーの停止とミュートは別の行にあります |
 | 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip`（置き換えた、#1132） | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
 | 使い方のプリセット（`sidebar_section/usage_presets/UsagePresetSelector.tsx`） | `aria-expanded` の開閉のボタン、小さいレールでのネイティブの `title`、ネイティブのチェックボックス | 開閉は `Fold` か Collapsible（D-26）、説明は `Tooltip`、チェックボックスは `Checkbox` | 中 | 最後の 1 つは外せない規則（`last`）と待ちの表し方を保ちます |
-| 設定の検索（`config_page/search_bar/SearchBar.tsx`） | 自作の `role="combobox"` と結果の一覧（`role="option"`）、消すボタン | U-02 | 高 | D-36、D-40 |
+| 設定の検索（`config_page/search_bar/SearchBar.tsx`） | 自作の `role="combobox"` と結果の一覧（`role="option"`）、消すボタン | U-02（手作りのまま、D-36。欄の枠、一覧の枠と角丸、結果の塗りを kit にそろえた、#1179。消すボタンを含む欄の中の細部は今のまま、D-40） | 高 | D-36、D-40 |
 
 ### 設定のページ
 
@@ -414,7 +414,7 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 | ID | 要素 | 使っている場所 | shadcn/ui で当たるもの | 関係する判断 | kit に足すか |
 |---|---|---|---|---|---|
 | U-01 | 言語の選択（絞り込みの欄と、言語のボタンの格子の組） | メインの言語の選択、VR パネルの言語の窓 | Command（cmdk）。Radix で書いたものはありません | D-36 | 足す（H-02）。VR パネルの言語の窓は使わず、VR パネルの部品にそろえる（H-03）（2026-11-25 の D-36 の決定で手作りのまま残し、見た目だけを kit にそろえた、#1178） |
-| U-02 | 結果の一覧を出す検索（combobox） | 設定の検索 | Combobox（Base UI）、Command（cmdk）、InputGroup | D-36、D-40 | 足す（H-02） |
+| U-02 | 結果の一覧を出す検索（combobox） | 設定の検索 | Combobox（Base UI）、Command（cmdk）、InputGroup | D-36、D-40 | 足す（H-02）（2026-11-25 の D-36 の決定で手作りのまま残し、見た目だけを kit にそろえた、#1179） |
 | U-03 | 押したままのボタンと、一つだけを選ぶボタンの集まり | プリセットの切り替え、翻訳エンジンの選択、ミュート、クイック設定の項目、カタログのグリッドとリスト、「字幕とVR」の表示する設定の切り替え、音量の確認（`VolumeCheckButton`）、コンパニオンの取っ手の辺（置き換えの対象外、H-03） | Toggle、ToggleGroup（Radix）。「字幕とVR」の切り替えは、同じページの中のパネルを切り替えるので Tabs（Radix）にも当たります | D-27 | kit の `Toggle`、`ToggleGroup` として足した（#1175、H-02）。コンパニオンの取っ手は使わない（H-03） |
 | U-04 | ボタンから開く小さな面 | クイック設定、ログの表示の設定、翻訳エンジンの一覧、色のポップオーバー、コンパニオンの取っ手のメニュー（置き換えの対象外、H-03） | Popover、DropdownMenu（Radix） | D-25 | kit の `Popover` として足した（#1175、H-02）。コンパニオンの取っ手は使わない（H-03） |
 | U-05 | 横に伸びる進み具合 | 初期設定、モデルの取得、実行環境の取得、OCR のモデルの取得 | Progress（Radix） | D-32。丸い進み具合は `CircularProgress` があります | 足す（H-02） |

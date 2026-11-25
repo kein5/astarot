@@ -1,5 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../theme/vars.css.ts";
+import { colourTransition, focusRing } from "../../../kit/shared.css.ts";
 
 export const is_small = style({});
 export const is_active = style({});
@@ -22,7 +23,10 @@ export const search_wrapper = style({
 });
 
 // shadcn/ui's InputGroup: the field around the input, its icon and its clear button, in the
-// same fill and border as the other fields (the kit's TextField, _Entry, the forms' inputs).
+// same fill and border as the other fields (the kit's TextField, _Entry, the forms' inputs). The
+// search stays hand-built (U-02, D-36) and the details inside it stay as they are (D-40: the
+// magnifier, the .8rem side and the 1.3rem words); its frame is the kit's field: the border under
+// the pointer, and with the focus in the input the Lilac border and the kit's focus ring.
 export const search_input_container = style({
     width: "100%",
     height: "100%",
@@ -34,11 +38,11 @@ export const search_input_container = style({
     padding: "0 0.8rem",
     gap: "0.7rem",
     boxSizing: "border-box",
-    transition: "border-color 0.2s ease",
+    transition: colourTransition,
     selectors: {
         // Lighter on hover, as the kit's field is; the border it starts from is already 3.5:1.
         "&:hover": { borderColor: vars.dark_550_color },
-        "&:focus-within": { borderColor: vars.primary_400_color },
+        "&:has(> input:focus-visible)": { ...focusRing, borderColor: vars.primary_600_color },
     },
 });
 
@@ -100,7 +104,7 @@ export const clear_icon = style({
 
 // ドロップダウン結果リスト
 // The list opens on the surface, as shadcn/ui's popover lists do and as the field's own
-// dropdowns (_DropdownMenu, the forms' selects) already do.
+// dropdowns (_DropdownMenu, the forms' selects) already do, with the kit's border and corners.
 export const dropdown_results = style({
     position: "absolute",
     top: "calc(100% + 0.6rem)",
@@ -110,13 +114,15 @@ export const dropdown_results = style({
     maxHeight: "38rem",
     overflowY: "auto",
     backgroundColor: vars.vox_surface,
-    border: `0.1rem solid ${vars.dark_750_color}`,
-    borderRadius: "0.8rem",
+    border: `0.1rem solid ${vars.vox_border}`,
+    borderRadius: vars.vox_radius,
     boxShadow: vars.vox_shadow_overlay,
     padding: "0.4rem",
     boxSizing: "border-box",
 });
 
+// A result: the row under the pointer, or the one the arrow keys chose, takes the kit's fill for
+// it (shadcn/ui's accent).
 export const result_item = style({
     padding: "0.7rem 0.9rem",
     borderRadius: ".4rem",
@@ -124,9 +130,9 @@ export const result_item = style({
     display: "flex",
     flexDirection: "column",
     gap: "0.35rem",
-    transition: "background-color 0.15s ease",
+    transition: colourTransition,
     selectors: {
-        [`&:hover, &.${is_active}`]: { backgroundColor: vars.dark_800_color },
+        [`&:hover, &.${is_active}`]: { backgroundColor: vars.vox_secondary_hover },
     },
 });
 
