@@ -60,9 +60,10 @@ test("an API entry is added, used against its server and removed, and its key is
 test("switching catalog layout persists without showing the saved toast, and so do settings that save by themselves", async ({ app }) => {
     const page = app.page;
     await app.openSettings("Translation");
-    const switcher = page.getByRole("group", { name: "Catalog layout" });
-    const listButton = switcher.getByRole("button", { name: "List", exact: true });
-    const gridButton = switcher.getByRole("button", { name: "Grid", exact: true });
+    // The kit's ToggleGroup: a radio group whose layout in use is checked.
+    const switcher = page.getByRole("radiogroup", { name: "Catalog layout" });
+    const listButton = switcher.getByRole("radio", { name: "List", exact: true });
+    const gridButton = switcher.getByRole("radio", { name: "Grid", exact: true });
 
     // Record every toast that opens so even a short 1 s save toast cannot slip past the check.
     await page.evaluate(() => {
@@ -82,11 +83,11 @@ test("switching catalog layout persists without showing the saved toast, and so 
     });
 
     await listButton.click();
-    await expect(listButton).toHaveAttribute("aria-pressed", "true");
+    await expect(listButton).toBeChecked();
     await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("list");
 
     await gridButton.click();
-    await expect(gridButton).toHaveAttribute("aria-pressed", "true");
+    await expect(gridButton).toBeChecked();
     await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("grid");
     // SnackbarController waits 100 ms before opening a toast; give it time to fire if it were going to.
     await page.waitForTimeout(250);

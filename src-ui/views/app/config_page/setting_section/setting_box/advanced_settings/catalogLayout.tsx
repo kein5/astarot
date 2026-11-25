@@ -6,7 +6,7 @@ import { Fold } from "../_components/fold/Fold";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import * as styles from "./VoiceSettings.css.ts";
 import * as css from "./catalogLayout.css.ts";
-import { Badge, CardContent } from "../../../../../kit/index.ts";
+import { Badge, CardContent, ToggleGroup, ToggleGroupItem } from "../../../../../kit/index.ts";
 import type { BadgeProps } from "../../../../../kit/index.ts";
 
 // The two layouts of the model catalogs (the speech recognition, text to speech and voice changer
@@ -73,23 +73,29 @@ export const stateLook = (state: string): StateLook => STATE_LOOKS.get(state) ??
 export const CatalogState = ({ state, children }: { state: string; children: ReactNode }) =>
     <Badge className={styles.status} {...stateLook(state)}>{children}</Badge>;
 
-// The two layouts, as a pair of buttons on the catalog's heading line: the one in use is pressed.
-// Its words say the layout; the icon only repeats them.
+// The two layouts, as the kit's ToggleGroup on the catalog's heading line (D-27, decided on
+// 2026-11-25): a group of two radios named "Catalog layout", the one in use checked. Each is a
+// stop of the Tab key, as the two buttons were (rovingFocus off), and pressing the one in use
+// keeps it: Radix offers an empty value then, which changes nothing. Its words say the layout;
+// the icon only repeats them.
 export const CatalogLayoutSwitch = () => {
     const { t } = useI18n();
     const { setCatalogLayout } = useAppearance();
     const chosen = useCatalogLayout();
-    return <div className={css.layoutSwitch} role="group" aria-label={t("model_catalog.layout.label")}>
-        {LAYOUTS.map(layout => <button key={layout} type="button" className={css.option} aria-pressed={chosen === layout}
-            onClick={() => { if (chosen !== layout) setCatalogLayout(layout); }}>
+    const choose = (value: string) => {
+        const layout = LAYOUTS.find(each => each === value);
+        if (layout && layout !== chosen) setCatalogLayout(layout);
+    };
+    return <ToggleGroup type="single" rovingFocus={false} value={chosen} onValueChange={choose} aria-label={t("model_catalog.layout.label")}>
+        {LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout}>
             {layout === "grid"
                 ? <svg className={css.icon} viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1" />
                     <rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>
                 : <svg className={css.icon} viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="3" rx="1" />
                     <rect x="2" y="6.5" width="12" height="3" rx="1" /><rect x="2" y="10.5" width="12" height="3" rx="1" /></svg>}
             <span>{t(`model_catalog.layout.${layout}`)}</span>
-        </button>)}
-    </div>;
+        </ToggleGroupItem>)}
+    </ToggleGroup>;
 };
 
 // One part of a catalog under its heading (a use of the models, the speech engines, a group of
