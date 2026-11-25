@@ -12,7 +12,7 @@ export const TopBar = () => {
         <div className={styles.container}>
             <div className={styles.leading}>
                 <SidebarCompactModeButton />
-                <StopActions classes={styles} />
+                <StopActions classes={styles} size="compact" />
             </div>
             <RightSideComponents />
         </div>

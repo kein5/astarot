@@ -47,7 +47,9 @@ test("the words are 4rem high, as the other parts of the header row", async () =
     assert.match(kit, /base: \{[^}]*minHeight: "4rem",/);
     assert.match(kit, /defaultVariants: \{ tone: "plain", size: "regular" \}/);
     assert.doesNotMatch(styleOf(css, "back"), /minHeight|padding|fontSize/, "the bar gives back only its place");
-    assert.equal(rem(styleOf(css, "stop"), "minHeight"), 4);
+    // Stop and mute are the kit's too, at the regular size the bar leaves them (StopActions).
+    assert.match(tsx, /<StopActions classes=\{styles\} \/>/);
+    assert.doesNotMatch(styleOf(css, "stop"), /minHeight|padding|fontSize/, "the bar gives stop and mute only their place");
 });
 
 // Go back is the kit's plain Button: named by its words, which hide with the narrow bar, and it

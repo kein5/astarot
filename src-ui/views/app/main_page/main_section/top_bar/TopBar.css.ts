@@ -1,6 +1,6 @@
-import { keyframes, style } from "@vanilla-extract/css";
+import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../theme/vars.css.ts";
-import { MAIN_SECTION_CONTAINER, NARROW_COLUMN, shorterThan } from "../../layout.ts";
+import { MAIN_SECTION_CONTAINER, NARROW_COLUMN } from "../../layout.ts";
 
 // This bar has no room for the long words. A narrow conversation column draws the
 // shortest ones; the accessible name and the tooltip stay the full words. The
@@ -8,8 +8,6 @@ import { MAIN_SECTION_CONTAINER, NARROW_COLUMN, shorterThan } from "../../layout
 // leaves less room than an 800px one beside the icon rail. 64rem holds the English
 // short words with the quick settings and the inputs and outputs buttons.
 const NARROW = `${MAIN_SECTION_CONTAINER} (max-width: ${NARROW_COLUMN})`;
-// A short window: the bar is lower (--main_page_topbar_height, MainPage) and so are its buttons.
-const SHORT = shorterThan(MAIN_SECTION_CONTAINER);
 
 export const container = style({
     minHeight: vars.main_page_topbar_height,
@@ -51,62 +49,10 @@ export const stop_actions = style({
     "@container": { [NARROW]: { columnGap: ".6rem" } },
 });
 
-export const is_attention = style({});
-export const is_pressed = style({});
-export const is_stopping = style({});
-export const is_stopped = style({});
-export const is_idle = style({});
-
-const stopAnswered = keyframes({ from: { background: vars.vox_highlight_tint } });
-
-export const stop = style({
-    // Never narrower than its words: the bar switches to shorter words instead.
-    flexShrink: 0,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: ".6rem",
-    minHeight: "3.6rem",
-    padding: ".4rem 1.2rem",
-    border: `.1rem solid ${vars.vox_border}`,
-    borderRadius: vars.vox_radius,
-    fontSize: "1.3rem",
-    fontWeight: 500,
-    fontVariantNumeric: "tabular-nums",
-    whiteSpace: "nowrap",
-    color: vars.dark_200_color,
-    background: vars.vox_surface,
-    cursor: "pointer",
-    transition: "background-color .12s ease, border-color .12s ease, color .12s ease",
-    selectors: {
-        "&:hover:not(:disabled)": { background: vars.dark_850_color },
-        "&:active:not(:disabled)": { background: vars.dark_925_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        // Amber while something is spoken or queued, and while muted; the words say which.
-        [`&.${is_attention}, &.${is_pressed}`]: { color: vars.vox_state_warning, borderColor: vars.vox_state_warning },
-        "&:disabled": { opacity: .5, cursor: "not-allowed" },
-        // The stop answers its press (#937), as the hexagram's switches do (#911): sunk while the core is
-        // asked, then a short lilac flash with "stopped". Not offered, it reads as disabled and keeps its
-        // tooltip (aria-disabled, not disabled).
-        [`&.${is_stopping}, &.${is_stopping}:hover:not(:disabled)`]: { background: vars.dark_925_color, cursor: "progress" },
-        [`&.${is_stopped}, &.${is_stopped}:hover:not(:disabled)`]: {
-            color: vars.primary_200_color,
-            borderColor: vars.primary_600_color,
-            animation: `${stopAnswered} .8s ease-out`,
-        },
-        [`&.${is_idle}, &.${is_idle}:hover:not(:disabled), &.${is_idle}:active:not(:disabled)`]: {
-            opacity: .5,
-            cursor: "not-allowed",
-            background: vars.vox_surface,
-        },
-    },
-    "@media": {
-        "(prefers-reduced-motion: reduce)": { selectors: { [`&.${is_stopped}`]: { animation: "none" } } },
-    },
-    "@container": {
-        [NARROW]: { padding: ".4rem .9rem" },
-        [SHORT]: { minHeight: "3.2rem", paddingBlock: ".2rem" },
-    },
-});
+// Stop and mute are the kit's Button (danger) and Toggle (warning) at the compact size, as the
+// bar's other buttons are (StopActions); the bar gives them only their place. Never narrower than
+// their words: the bar switches to shorter words instead.
+export const stop = style({ flexShrink: 0 });
 // Read, not seen: what the stop's press did.
 export const stop_status = style({
     position: "absolute",
@@ -128,11 +74,14 @@ export const muted_badge = style({
 });
 // The words of three lengths: this bar draws the short ones, and the tiny ones in a narrow column.
 // The long ones are for bars with more room.
+// Their digits are as wide as each other, so a queue count keeps the room its words keep (#912).
 export const long = style({ display: "none" });
 export const tiny = style({
+    fontVariantNumeric: "tabular-nums",
     display: "none",
     "@container": { [NARROW]: { display: "inline" } },
 });
 export const short = style({
+    fontVariantNumeric: "tabular-nums",
     "@container": { [NARROW]: { display: "none" } },
 });

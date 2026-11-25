@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import * as stopVoice from "../../../../../../logics/voice/stopVoice.ts";
 
-// The TTS page's stop behaves as the top bar's (#937): offered while there is something to stop,
-// disabled-looking with its tooltip saying when it can be pressed otherwise, and answering a press.
+// The TTS page's stop behaves as the top bar's (#937): the kit's danger Button (D-10), offered while
+// there is something to stop, aria-disabled (which the kit draws at half strength) with its tooltip
+// saying when it can be pressed otherwise, and answering a press.
 interface World { active: boolean; queued: number; phase: string; pressed: number }
 
 async function load(world: World) {
@@ -23,7 +24,7 @@ async function load(world: World) {
 }
 const parts = (tree: unknown) => {
     const tooltip = find(tree, node => node.type === "tooltip");
-    const button = find(tree, node => node.type === "button");
+    const button = find(tree, node => node.type === kitStandIns.Button);
     const words = find(tree, node => node.type === "stable-words");
     assert.ok(tooltip && button && words);
     return { tooltip, button, words };
@@ -35,7 +36,8 @@ test("with nothing to stop it reads as disabled, says when it can be pressed, an
     const { tooltip, button } = parts(draw());
     assert.equal(tooltip.props.title, "voice_ui.topbar_stop_idle");
     assert.equal(button.props["aria-disabled"], true);
-    assert.match(String(button.props.className), /is_idle/);
+    assert.equal(button.props.disabled, undefined, "it keeps its place in the tab order and its tooltip");
+    assert.deepEqual([button.props.tone, button.props.size, button.props.className], ["danger", undefined, undefined]);
     button.props.onClick();
     assert.equal(world.pressed, 0);
     runtime.unmount();
@@ -46,6 +48,8 @@ test("while speaking it is offered and a press stops; the press is answered in i
     const { runtime, draw } = await load(world);
     let { tooltip, button, words } = parts(draw());
     assert.equal(tooltip.props.title, "voice.stop");
+    // Named by its words at rest, whatever it says while a press is answered.
+    assert.equal(button.props["aria-label"], "voice_ui.topbar_stop");
     assert.equal(button.props["aria-disabled"], undefined);
     assert.equal(words.props.current, "voice_ui.topbar_stop");
     button.props.onClick();
@@ -60,8 +64,7 @@ test("while speaking it is offered and a press stops; the press is answered in i
     world.phase = "stopped"; world.active = false; world.queued = 0;
     ({ button, words } = parts(draw()));
     assert.equal(words.props.current, "voice_ui.topbar_stopped");
-    assert.match(String(button.props.className), /is_stopped/);
-    assert.doesNotMatch(String(button.props.className), /is_idle/);
+    assert.deepEqual([button.props["aria-busy"], button.props["aria-disabled"]], [undefined, true], "no press until something runs again");
     // The words keep the room of the longest, so nothing beside it moves (#912).
     assert.deepEqual(words.props.words, ["voice_ui.topbar_stop", "voice_ui.topbar_stopping", "voice_ui.topbar_stopped"]);
     runtime.unmount();
