@@ -14,3 +14,5 @@ export { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
     type ItemGroupProps, type ItemMediaProps, type ItemProps, type ItemState } from "./Item.tsx";
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, type CardProps } from "./Card.tsx";
 export { Badge, type BadgeProps } from "./Badge.tsx";
+export { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent, InlineConfirmDescription, InlineConfirmTrigger,
+    type InlineConfirmContentProps, type InlineConfirmProps } from "./InlineConfirm.tsx";

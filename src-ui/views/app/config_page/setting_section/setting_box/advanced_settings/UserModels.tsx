@@ -14,6 +14,8 @@ import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
+import { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent, InlineConfirmDescription, InlineConfirmTrigger }
+    from "../../../../../kit/index.ts";
 
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
 // A registered model's files are there, as a downloaded one's; a missing or changed one cannot play.
@@ -69,20 +71,24 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
             <CardFooter>
                 {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
                 {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}
-                {removing === model.id ? <div className={styles.actions} role="group" aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
-                    <p>{t("user_models.remove_confirm")}</p>
-                    <button type="button" autoFocus onClick={() => setRemoving(null)}>{t("model_downloads.back")}</button>
-                    <button type="button" disabled={busy} onClick={() => {
-                        setRemoving(null); send("/run/remove_user_model", { id: model.id });
-                    }}>{t("user_models.remove_do")}</button>
-                </div> : <div className={styles.actions}>
-                    {status !== "in_use" && <button type="button" className="primary"
-                        disabled={busy || !!blocked || status !== "registered" || !savedPaths}
-                        onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
-                    {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}
-                    <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />
-                    <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
-                </div>}
+                {/* Removing the registration asks first, in the card (the kit's InlineConfirm, H-07). */}
+                <InlineConfirm>
+                    {removing === model.id ? <InlineConfirmContent aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
+                        <InlineConfirmDescription>{t("user_models.remove_confirm")}</InlineConfirmDescription>
+                        <InlineConfirmCancel onClick={() => setRemoving(null)}>{t("model_downloads.back")}</InlineConfirmCancel>
+                        <InlineConfirmAction disabled={busy} onClick={() => {
+                            setRemoving(null); send("/run/remove_user_model", { id: model.id });
+                        }}>{t("user_models.remove_do")}</InlineConfirmAction>
+                    </InlineConfirmContent> : <div className={styles.actions}>
+                        {status !== "in_use" && <button type="button" className="primary"
+                            disabled={busy || !!blocked || status !== "registered" || !savedPaths}
+                            onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
+                        {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}
+                        <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />
+                        {/* The kit's danger Button, as the catalogs' Remove: it removes something. */}
+                        <InlineConfirmTrigger tone="danger" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</InlineConfirmTrigger>
+                    </div>}
+                </InlineConfirm>
                 {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />}
             </CardFooter>
         </Card>;

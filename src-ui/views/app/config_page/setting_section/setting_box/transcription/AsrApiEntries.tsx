@@ -13,7 +13,8 @@ import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
-import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, TextField } from "../../../../../kit/index.ts";
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent,
+    InlineConfirmDescription, InlineConfirmTrigger, TextField } from "../../../../../kit/index.ts";
 
 const REGISTER = "/run/register_transcription_catalog_entry";
 
@@ -71,20 +72,23 @@ const EntryCard = ({ item, layout }: { item: AsrApiItem; layout: CatalogLayout }
         <CardFooter>
             {(state === "unsupported" || state === "no_key") && <p role="alert">{t(`translation_catalog.state_help.${state}`)}</p>}
             {item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
-            {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
-                    <p>{t("config_page.transcription.api_entries.remove_confirm")}</p>
-                    <Button autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</Button>
-                    <Button tone="danger" disabled={busy} onClick={() => {
-                        setRemoving(false); send("/run/remove_transcription_catalog_entry", { id: item.id });
-                    }}>{t("translation_catalog.remove_do")}</Button>
-                </div>
-                : <div className={styles.actions}>
-                    {/* What Use changes is the button's description: the custom Whisper server, not the engine. */}
-                    {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"} aria-describedby={`${id}-use`}
-                        onClick={() => send("/run/use_transcription_catalog_entry", { id: item.id })}>{t("config_page.transcription.api_entries.use")}</Button>}
-                    <Button tone="danger" disabled={busy} onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
-                    <span id={`${id}-use`} hidden>{t("config_page.transcription.api_entries.use_help")}</span>
-                </div>}
+            {/* Removing asks first, in the card (the kit's InlineConfirm, H-07). */}
+            <InlineConfirm>
+                {removing ? <InlineConfirmContent aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
+                        <InlineConfirmDescription>{t("config_page.transcription.api_entries.remove_confirm")}</InlineConfirmDescription>
+                        <InlineConfirmCancel onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</InlineConfirmCancel>
+                        <InlineConfirmAction disabled={busy} onClick={() => {
+                            setRemoving(false); send("/run/remove_transcription_catalog_entry", { id: item.id });
+                        }}>{t("translation_catalog.remove_do")}</InlineConfirmAction>
+                    </InlineConfirmContent>
+                    : <div className={styles.actions}>
+                        {/* What Use changes is the button's description: the custom Whisper server, not the engine. */}
+                        {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"} aria-describedby={`${id}-use`}
+                            onClick={() => send("/run/use_transcription_catalog_entry", { id: item.id })}>{t("config_page.transcription.api_entries.use")}</Button>}
+                        <InlineConfirmTrigger tone="danger" disabled={busy} onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</InlineConfirmTrigger>
+                        <span id={`${id}-use`} hidden>{t("config_page.transcription.api_entries.use_help")}</span>
+                    </div>}
+            </InlineConfirm>
         </CardFooter>
     </Card>;
 };

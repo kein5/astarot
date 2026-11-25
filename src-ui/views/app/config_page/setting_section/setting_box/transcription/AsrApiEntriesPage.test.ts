@@ -70,7 +70,10 @@ const textOf = (value: unknown): string => {
     return node ? textOf(node.props.children) : "";
 };
 const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
-const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === kitStandIns.Button && textOf(node) === words, `the button ${words}`);
+// A button by its words: the kit's, or one of the kit's confirmation inside a card.
+const BUTTONS: unknown[] = [kitStandIns.Button, kitStandIns.InlineConfirmTrigger, kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction];
+const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => BUTTONS.includes(node.type) && textOf(node) === words, `the button ${words}`);
+const isConfirm = (node: TreeNode) => node.type === kitStandIns.InlineConfirmContent;
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 
 test("the part asks for the entries when it opens and again on a new connection, and says a failure in its own words or the general ones", async context => {
@@ -147,8 +150,11 @@ test("Use points the custom Whisper server at a ready entry, and Remove asks fir
     let shown = card();
     const use = buttonNamed(shown, "config_page.transcription.api_entries.use");
     assert.deepEqual([use.props.tone, use.props.disabled], ["primary", false]);
-    // Remove takes something away: the kit's danger, here and when it asks first.
-    assert.equal(buttonNamed(shown, "translation_catalog.remove").props.tone, "danger");
+    // Remove takes something away: the kit's danger, here and when it asks first. It opens the
+    // kit's confirmation inside the card (H-07), which returns the focus to it after the way back.
+    assert.deepEqual([buttonNamed(shown, "translation_catalog.remove").type, buttonNamed(shown, "translation_catalog.remove").props.tone],
+        [kitStandIns.InlineConfirmTrigger, "danger"]);
+    assert.ok(find(findIn(shown, node => node.type === kitStandIns.InlineConfirm, "the root"), node => textOf(node) === "translation_catalog.remove"));
     const help = findIn(shown, node => node.type === "span" && node.props.id === use.props["aria-describedby"]);
     assert.deepEqual([help.props.hidden, textOf(help)], [true, "config_page.transcription.api_entries.use_help"]);
     use.props.onClick();
@@ -161,20 +167,21 @@ test("Use points the custom Whisper server at a ready entry, and Remove asks fir
     a.state.pending = null;
     buttonNamed(card(), "translation_catalog.remove").props.onClick();
     shown = card();
-    const confirm = findIn(shown, node => node.type === "div" && node.props.role === "group");
-    assert.deepEqual([confirm.props["aria-label"], ofType(confirm, "p").map(textOf)], [`translation_catalog.remove_confirm_label {"name":"API a"}`,
-        ["config_page.transcription.api_entries.remove_confirm"]]);
-    assert.equal(buttonNamed(confirm, "translation_catalog.back").props.autoFocus, true);
-    assert.deepEqual([buttonNamed(confirm, "translation_catalog.back").props.tone, buttonNamed(confirm, "translation_catalog.remove_do").props.tone], [undefined, "danger"]);
+    const confirm = findIn(shown, isConfirm);
+    assert.deepEqual([confirm.props["aria-label"], ofType(confirm, kitStandIns.InlineConfirmDescription).map(textOf)],
+        [`translation_catalog.remove_confirm_label {"name":"API a"}`, ["config_page.transcription.api_entries.remove_confirm"]]);
+    // The way back: the kit's, plain and focused when it opens; the removal: the kit's danger one.
+    assert.deepEqual([buttonNamed(confirm, "translation_catalog.back").type, buttonNamed(confirm, "translation_catalog.remove_do").type],
+        [kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction]);
     buttonNamed(confirm, "translation_catalog.back").props.onClick();
-    assert.equal(find(card(), node => node.props?.role === "group" && node.type === "div"), null);
+    assert.equal(find(card(), isConfirm), null);
     buttonNamed(card(), "translation_catalog.remove").props.onClick();
     a.state.pending = { endpoint: "/run/use_transcription_catalog_entry" };
     assert.equal(buttonNamed(card(), "translation_catalog.remove_do").props.disabled, true);
     a.state.pending = null;
     buttonNamed(card(), "translation_catalog.remove_do").props.onClick();
     assert.deepEqual(a.sent.at(-1), ["/run/remove_transcription_catalog_entry", { id: "a" }]);
-    assert.equal(find(card(), node => node.props?.role === "group" && node.type === "div"), null);
+    assert.equal(find(card(), isConfirm), null);
 });
 
 test("the add form names its fields, offers the protocols the backend has, and says what is sent once the entry is used", async context => {
