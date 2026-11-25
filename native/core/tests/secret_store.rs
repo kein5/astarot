@@ -419,6 +419,12 @@ fn deleting_a_key_removes_it_from_the_os_store_and_from_secrets_json() {
     ui.stop();
 }
 
+/// The tests on the PC's real OS store take turns, as the app's own writes do (`Config`'s store
+/// lock). The Credential Manager loses a delete when two threads of one process write and delete
+/// at the same time: the deleted credential is there again after the other thread's write, and a
+/// test that deleted its keys found one left (#1073).
+static REAL_OS_STORE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// The app's own store, with the PC's real OS store (the Credential Manager, or the Secret Service
 /// on the session bus): a 0.5 `secrets.json` moves there, the keys answer after a restart, and
 /// deleting them leaves nothing behind. The keys are made-up values under a settings folder of
@@ -426,6 +432,7 @@ fn deleting_a_key_removes_it_from_the_os_store_and_from_secrets_json() {
 #[test]
 #[ignore = "uses the signed-in user's OS credential store"]
 fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
+    let _turn = REAL_OS_STORE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     const FIRST: &str = "test-only-value-1-not-a-real-key";
     const SECOND: &str = "test-only-value-2-not-a-real-key";
     let dir = tempfile::tempdir().unwrap();
@@ -551,6 +558,7 @@ fn a_key_under_the_names_of_0_6_0_that_cannot_be_copied_works_and_is_tried_again
 #[test]
 #[ignore = "uses the signed-in user's OS credential store"]
 fn the_real_os_store_moves_a_key_from_the_names_of_0_6_0() {
+    let _turn = REAL_OS_STORE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     const KEY: &str = "test-only-value-3-not-a-real-key";
     let dir = tempfile::tempdir().unwrap();
     let older: Arc<dyn Vault> = astarot_core::config::secrets::older_os_vault().expect("an OS store on this platform");
