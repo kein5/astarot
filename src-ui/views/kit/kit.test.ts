@@ -117,6 +117,46 @@ test("the select is drawn like shadcn/ui's NativeSelect", () => {
     assert.match(css, /select: \{[\s\S]*?"&:disabled": \{ opacity: 1 \}/);
 });
 
+test("where the engine draws the list itself, the select opens it in the forms' look", () => {
+    // Decided on 2026-11-25: on WebView2 (base-select) every kit Select opens the list as the
+    // settings forms' selects did, and wraps a long value; the rules only apply where supported.
+    const css = read("Field.css.ts");
+    const forms = readFileSync(new URL("../app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts", import.meta.url), "utf8");
+    const supported = /\[BASE_SELECT\]: \{/g;
+    assert.match(css, /const BASE_SELECT = "\(appearance: base-select\)";/);
+    assert.match(css, /const select = `\$\{selectWrap\} > select`;/);
+    // Every rule for the list waits for base-select: as many as there are rules for the select's parts.
+    assert.equal(css.match(supported)?.length, css.match(/globalStyle\((`\$\{select\}|select,)/g)?.length);
+    assert.equal(css.match(supported)?.length, 9);
+    assert.match(css, /globalStyle\(`\$\{select\}, \$\{select\}::picker\(select\)`, \{ "@supports": \{ \[BASE_SELECT\]: \{ appearance: BASE_SELECT_APPEARANCE \} \} \}\);/);
+    assert.match(css, /globalStyle\(`\$\{select\}::picker-icon`, \{ "@supports": \{ \[BASE_SELECT\]: \{ display: "none" \} \} \}\);/, "the kit's chevron stays the only one");
+    // The list, its motion, its rows and the chosen row carry the forms' values.
+    // The block a rule gives under base-select, its braces matched (a template's ${} included).
+    const body = (text: string, rule: string) => {
+        const at = text.indexOf(rule);
+        assert.notEqual(at, -1, rule);
+        const open = text.indexOf("{", text.indexOf("[BASE_SELECT]:", at));
+        let depth = 0, end = open;
+        do { depth += text[end] === "{" ? 1 : text[end] === "}" ? -1 : 0; end += 1; } while (depth > 0);
+        return text.slice(open, end).replace(/\s+/g, " ");
+    };
+    // A rule of the kit's file as written there, where ${select} is the select's selector.
+    const sel = ["$", "{select}"].join("");
+    const kitRule = (rest: string) => `globalStyle(\`${sel}${rest}`;
+    for (const [kit, form] of [[kitRule("::picker(select)`, {"), 'globalStyle(inForm("select::picker(select)"), {'],
+        [kitRule(" option`,"), 'globalStyle(inForm("option"),'],
+        [kitRule(` option:hover, ${sel} option:focus-visible\``), 'globalStyle(inForm("option:hover", "option:focus-visible")'],
+        [kitRule(" option:checked`"), 'globalStyle(inForm("option:checked")'],
+        [kitRule(" option::checkmark`"), 'globalStyle(inForm("option::checkmark")']]) {
+        assert.equal(body(css, kit), body(forms, form), kit);
+    }
+    assert.match(body(css, kitRule("::picker(select)`, {")), /positionTryOrder: "normal",/);
+    assert.match(css, /transition: `opacity \$\{vars\.vox_motion_fast\} \$\{vars\.vox_ease\}, transform \$\{vars\.vox_motion\} \$\{vars\.vox_ease_settle\}`,\s*"@starting-style": \{ opacity: 0, transform: "translateY\(-\.6rem\) scaleY\(\.94\)" \},/);
+    // The forms' own rules, for the selects that are still theirs, leave the kit's select alone.
+    assert.match(forms, /globalStyle\(inForm\("select:open::picker\(select\)"\), \{\s*"@supports": \{ \[BASE_SELECT\]: \{ "@starting-style"/);
+    assert.doesNotMatch(forms, /`\$\{container\} select/);
+});
+
 test("a progress bar keeps the forms' look: one palette at two lightnesses, .6rem with round ends", () => {
     // D-32 (2026-11-25): not shadcn/ui's primary/20 track, which is the value's colour made transparent.
     const css = read("Progress.css.ts");

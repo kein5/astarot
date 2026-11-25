@@ -1,4 +1,5 @@
 import { globalStyle, style } from "@vanilla-extract/css";
+import type { CSSProperties } from "@vanilla-extract/css";
 import { recipe } from "@vanilla-extract/recipes";
 import { vars } from "../theme/vars.css.ts";
 import { colourTransition, disabledLook, focusRing } from "./shared.css.ts";
@@ -74,3 +75,49 @@ export const chevron = style({
 // The open list of a native select is drawn by the system; give its rows and group labels the
 // field's colours where the engine lets us (WebView2 does, WebKitGTK partly).
 globalStyle(`${selectWrap} option, ${selectWrap} optgroup`, { background: vars.vox_surface, color: vars.dark_basic_text_color });
+
+// Where the engine can style a select's list (`appearance: base-select`, which WebView2 has), the
+// kit's select opens it in the app's look, as the settings forms' own selects did (decided on
+// 2026-11-25): the list drops from the field and settles, its rows are the shared dropdown's, the
+// chosen row is lilac and bold with no check mark, and a value longer than the field wraps onto
+// another line instead of being cut. The field and its chevron stay as above. Elsewhere
+// (WebKitGTK) the system's list and its one-line value stay. The values are the forms' rules for
+// their selects (advanced_settings/VoiceSettings.css.ts), which leave the kit's select alone.
+const BASE_SELECT = "(appearance: base-select)";
+// csstype does not list the value yet, so the word is read as a string and given the property's type.
+const baseSelect: string = "base-select";
+const BASE_SELECT_APPEARANCE = baseSelect as CSSProperties["appearance"];
+const select = `${selectWrap} > select`;
+globalStyle(`${select}, ${select}::picker(select)`, { "@supports": { [BASE_SELECT]: { appearance: BASE_SELECT_APPEARANCE } } });
+globalStyle(select, { "@supports": { [BASE_SELECT]: { display: "flex", alignItems: "center" } } });
+// The field keeps the kit's chevron.
+globalStyle(`${select}::picker-icon`, { "@supports": { [BASE_SELECT]: { display: "none" } } });
+globalStyle(`${select}::picker(select)`, {
+    "@supports": {
+        [BASE_SELECT]: {
+            marginBlock: ".4rem",
+            padding: ".4rem",
+            border: `.1rem solid ${vars.dark_600_color}`,
+            borderRadius: vars.vox_radius,
+            background: vars.vox_surface,
+            color: vars.dark_200_color,
+            boxShadow: vars.vox_shadow_overlay,
+            transformOrigin: "top",
+            // Below the field when it fits, as the system list opens (Chromium's default picks the roomier side).
+            positionTryOrder: "normal",
+        },
+    },
+});
+// The list drops from the field and settles: its first frame, then the motion to its place.
+globalStyle(`${select}:open::picker(select)`, {
+    "@supports": {
+        [BASE_SELECT]: {
+            transition: `opacity ${vars.vox_motion_fast} ${vars.vox_ease}, transform ${vars.vox_motion} ${vars.vox_ease_settle}`,
+            "@starting-style": { opacity: 0, transform: "translateY(-.6rem) scaleY(.94)" },
+        },
+    },
+});
+globalStyle(`${select} option`, { "@supports": { [BASE_SELECT]: { minHeight: 0, padding: ".8rem 1.2rem", borderRadius: ".4rem" } } });
+globalStyle(`${select} option:hover, ${select} option:focus-visible`, { "@supports": { [BASE_SELECT]: { background: vars.dark_800_color, outline: "none" } } });
+globalStyle(`${select} option:checked`, { "@supports": { [BASE_SELECT]: { color: vars.primary_200_color, fontWeight: 600 } } });
+globalStyle(`${select} option::checkmark`, { "@supports": { [BASE_SELECT]: { display: "none" } } });
