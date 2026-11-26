@@ -4,6 +4,8 @@ import type { TestContext } from "vitest";
 import { draw, drawWith, find, findIn, hooks, loadModule, stubGlobals } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as switchBlocks from "../../logics/main/switchBlocks.ts";
+import { readFileSync } from "node:fs";
+import { LAUNCHER_BUTTON, LAUNCHER_PADDING, launcherContentWidth } from "./launcherSizes.ts";
 
 // The VR launcher: four function switches, then the buttons that open the log and the temporary
 // windows. Every button carries its tooltip (VrTooltipButton, a stand-in that keeps its props).
@@ -104,6 +106,24 @@ test("the intro shows ASTAROT's mark and logo while it plays, and the launcher w
         assert.equal(find(view.tree, node => classesOf(node).includes("intro_logo")), null, intro);
         assert.deepEqual(classesOf(container(view.tree)).slice(1), intro === "pending" ? ["is_intro_pending"] : []);
     }
+});
+
+// #1248: the launcher's buttons fit its band. Wider content is pushed together, so neighbours
+// overlap and the last button is cut at the band's edge (the eighth button, the inputs and
+// outputs window's, had been added to a band sized for seven).
+test("the launcher's buttons fit inside its band, which is the launcher region's width", async context => {
+    const view = await launcher(context);
+    const groups = [view.functions.length, view.windowNodes.length];
+    assert.deepEqual(groups, [4, 4]);
+    const layout = JSON.parse(readFileSync(new URL("./vr_layout.json", import.meta.url), "utf8"));
+    const band: number = layout.regions.launcher[2];
+    const rust = readFileSync(new URL("../../../native/vr-overlay/src/layout.rs", import.meta.url), "utf8");
+    assert.match(rust, new RegExp(`pub const LAUNCHER_WIDTH_PX: u32 = ${band};`));
+    assert.ok(launcherContentWidth(groups) <= band, `${launcherContentWidth(groups)} px of buttons in a ${band} px band`);
+    // One more button would not fit: the band has no room to hide a mistake in.
+    assert.ok(launcherContentWidth([4, 5]) > band);
+    // The buttons fit the band's height with its padding.
+    assert.ok(LAUNCHER_BUTTON.height + 2 * LAUNCHER_PADDING <= layout.regions.launcher[3]);
 });
 
 test("each switch is named for its function, with a tooltip that says what pressing does", async context => {
