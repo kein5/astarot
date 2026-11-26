@@ -17,6 +17,8 @@ import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
 import * as stopVoiceShapes from "../voice/stopVoice.ts";
 import * as gpuCheckShapes from "../support/gpuCheck.ts";
+import * as talkAiShapes from "../talk_ai/talkAi.ts";
+import * as talkViewShapes from "../talk_ai/talkView.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
 import * as fieldErrors from "../configs/fieldErrors.ts";
@@ -185,13 +187,18 @@ export const loadBridgeRoutes = async (
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./gpuCheck.ts": gpuCheckShapes,
     });
+    // Talk AI (#388): the real hook, which keeps the conversation the routes answer.
+    const talkAi = await loadModule<typeof import("../talk_ai/useTalkAiSession.ts")>(new URL("../talk_ai/useTalkAiSession.ts", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./talkAi.ts": talkAiShapes, "./talkView.ts": talkViewShapes,
+    });
     const routes = await loadModule<typeof import("../useReceiveRoutes.ts")>(new URL("../useReceiveRoutes.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition, "./support/useGpuCheck": gpuCheck,
-        "./voice/useStopVoice": stopVoice,
+        "./voice/useStopVoice": stopVoice, "./talk_ai/useTalkAiSession": talkAi,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./transcription/useTranscriptionCatalog": { useTranscriptionCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
@@ -211,6 +218,7 @@ export const loadBridgeRoutes = async (
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
         stopVoice: () => localRuntime.render(stopVoice.useStopVoice),
         gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
+        talkAi: () => localRuntime.render(talkAi.useTalkAiSession),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         recognitionFix: () => runtime.render(recognitionFix.useRecognitionFix),
         ...runtime.render(routes.useReceiveRoutes) };

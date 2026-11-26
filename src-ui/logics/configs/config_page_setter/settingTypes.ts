@@ -16,7 +16,7 @@ import type { OcrReadiness, OcrRegion, OcrRuntime } from "../ocrReadiness.ts";
 import type { SETTINGS_ARRAY } from "./ui_config_setter";
 
 export type SettingCategory = "Device" | "Appearance" | "Translation" | "Transcription" | "Ocr" | "Vr" | "Others"
-    | "AdvancedSettings" | "ExperimentalFeatures" | "UsagePresets";
+    | "AdvancedSettings" | "ExperimentalFeatures" | "UsagePresets" | "TalkAi";
 
 // The control the settings page shows for the setting.
 export type SettingUiTemplateId = "list" | "select" | "toggle" | "slider" | "input" | "custom" | "object";
@@ -279,6 +279,13 @@ export interface SettingValues {
     TrayCompanionMonitor: string;
     ReleaseChannel: string;
     TrayCompanionWheelHintShown: boolean;
+
+    // TalkAi (#388): the service to talk with, the local server's address, and how the screen is sent.
+    TalkAiProvider: string;
+    TalkAiLocalUrl: string;
+    TalkAiScreenIntervalMs: number;
+    TalkAiScreenLongEdge: number;
+    TalkAiScreenDetail: string;
 
     // UsagePresets: the ids the user picked; null until the backend answers.
     UsagePresets: string[] | null;

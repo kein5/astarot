@@ -47,7 +47,7 @@ test("the table follows the design: what each preset shows", () => {
             tabs.filter(tab => !ALWAYS_SHOWN_TABS.includes(tab)), id);
     }
     // Design, hotkeys and the app's own pages are in every preset.
-    assert.deepEqual([...ALWAYS_SHOWN_TABS], ["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct"]);
+    assert.deepEqual([...ALWAYS_SHOWN_TABS], ["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct", "talk_ai"]);
 });
 
 test("several presets show what any of them shows (Q-09)", () => {

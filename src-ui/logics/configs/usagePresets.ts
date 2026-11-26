@@ -48,8 +48,9 @@ export const USAGE_PRESET_IDS: readonly string[] = Object.freeze(USAGE_PRESETS.m
 // The preset that shows every switch and page; mutually exclusive with specific presets (#1107).
 export const ALL_PRESET_ID = "all";
 
-// Shown whatever the presets: the design, the hotkeys and the app's own pages.
-export const ALWAYS_SHOWN_TABS: readonly string[] = Object.freeze(["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct"]);
+// Shown whatever the presets: the design, the hotkeys and the app's own pages, and a page the user
+// added by turning its experimental feature on (settingsMenu.ts, FEATURE_TABS; off, it is not shown).
+export const ALWAYS_SHOWN_TABS: readonly string[] = Object.freeze(["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct", "talk_ai"]);
 
 // The presets as saved, in the table's order, or null while they are not known (before the
 // engine's first answer, or a value this version cannot read). Until then nothing is hidden.

@@ -8,6 +8,8 @@ import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupControl
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
 import { SettingsWindowController } from "./_app_controllers/SettingsWindowController";
 import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
+import { TalkAiController } from "./_app_controllers/TalkAiController";
+import { TalkAiIndicator } from "./others/talk_ai_indicator/TalkAiIndicator";
 import { useRef } from "react";
 
 import {
@@ -99,6 +101,9 @@ const Contents = ({ locked }: { locked: boolean }) => {
             <WindowGeometryController saveGeometry={!locked} />
 
             <WindowTitleBar />
+            {/* While Talk AI sends, a band over both pages says so and ends it (ADR-018). */}
+            {!locked && <TalkAiController />}
+            {!locked && currentIsSoftwareUpdating.data === false && <TalkAiIndicator />}
             {currentIsSoftwareUpdating.data === false
             ?
             <div className={styles.pages_wrapper}>

@@ -343,28 +343,28 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/deepgram_auth_key` | 取得 | 可 | useTranscription.updateFromBackendDeepgramAuthKey | ログで伏せる |
 | `/delete/data/deepgram_auth_key` | 削除 | 可 | useTranscription.deleteSuccessDeepgramAuthKey | ログで伏せる |
 | `/set/data/custom_whisper_url` | 設定 | 可 | useTranscription.setSuccessCustomWhisperURL |  |
-| `/get/data/talk_ai_catalog` | 取得 | 可 | — |  |
-| `/get/data/talk_ai_provider` | 取得 | 可 | — |  |
-| `/get/data/talk_ai_local_url` | 取得 | 可 | — |  |
-| `/set/data/talk_ai_provider` | 設定 | 可 | — |  |
-| `/set/data/talk_ai_local_url` | 設定 | 可 | — |  |
-| `/get/data/talk_ai_auth_key` | 取得 | 可 | — | ログで伏せる |
-| `/set/data/talk_ai_auth_key` | 設定 | 可 | — | ログで伏せる |
-| `/get/data/talk_ai_status` | 取得 | 可 | — |  |
-| `/get/data/talk_ai_screen_interval_ms` | 取得 | 可 | — |  |
-| `/set/data/talk_ai_screen_interval_ms` | 設定 | 可 | — |  |
-| `/get/data/talk_ai_screen_long_edge` | 取得 | 可 | — |  |
-| `/set/data/talk_ai_screen_long_edge` | 設定 | 可 | — |  |
-| `/get/data/talk_ai_screen_detail` | 取得 | 可 | — |  |
-| `/set/data/talk_ai_screen_detail` | 設定 | 可 | — |  |
-| `/get/data/talk_ai_screen_sources` | 取得 | 可 | — |  |
-| `/set/enable/talk_ai_screen` | 有効化 | 可 | — |  |
-| `/set/disable/talk_ai_screen` | 無効化 | 可 | — |  |
-| `/set/enable/talk_ai_audio` | 有効化 | 可 | — |  |
-| `/set/data/talk_ai_interrupt` | 設定 | 可 | — |  |
-| `/set/data/talk_ai_end_turn` | 設定 | 可 | — |  |
-| `/set/enable/talk_ai` | 有効化 | 可 | — |  |
-| `/set/disable/talk_ai` | 無効化 | 可 | — |  |
+| `/get/data/talk_ai_catalog` | 取得 | 可 | useTalkAiSession.updateCatalog |  |
+| `/get/data/talk_ai_provider` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiProvider |  |
+| `/get/data/talk_ai_local_url` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiLocalUrl |  |
+| `/set/data/talk_ai_provider` | 設定 | 可 | useTalkAi.setSuccessTalkAiProvider |  |
+| `/set/data/talk_ai_local_url` | 設定 | 可 | useTalkAi.setSuccessTalkAiLocalUrl |  |
+| `/get/data/talk_ai_auth_key` | 取得 | 可 | useTalkAiSession.updateKey | ログで伏せる |
+| `/set/data/talk_ai_auth_key` | 設定 | 可 | useTalkAiSession.answerKey | ログで伏せる |
+| `/get/data/talk_ai_status` | 取得 | 可 | useTalkAiSession.updateStatus |  |
+| `/get/data/talk_ai_screen_interval_ms` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenIntervalMs |  |
+| `/set/data/talk_ai_screen_interval_ms` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenIntervalMs |  |
+| `/get/data/talk_ai_screen_long_edge` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenLongEdge |  |
+| `/set/data/talk_ai_screen_long_edge` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenLongEdge |  |
+| `/get/data/talk_ai_screen_detail` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenDetail |  |
+| `/set/data/talk_ai_screen_detail` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenDetail |  |
+| `/get/data/talk_ai_screen_sources` | 取得 | 可 | useTalkAiSession.updateSources |  |
+| `/set/enable/talk_ai_screen` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/disable/talk_ai_screen` | 無効化 | 可 | useTalkAiSession.answer |  |
+| `/set/enable/talk_ai_audio` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/data/talk_ai_interrupt` | 設定 | 可 | （受け取るだけ） |  |
+| `/set/data/talk_ai_end_turn` | 設定 | 可 | （受け取るだけ） |  |
+| `/set/enable/talk_ai` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/disable/talk_ai` | 無効化 | 可 | useTalkAiSession.answer |  |
 | `/set/data/ocr_window_title` | 設定 | 可 | useOcr.setSuccessOcrWindowTitle |  |
 | `/set/data/ocr_poll_interval_ms` | 設定 | 可 | useOcr.setSuccessOcrPollIntervalMs |  |
 | `/set/data/ocr_min_confidence` | 設定 | 可 | useOcr.setSuccessOcrMinConfidence |  |
@@ -622,23 +622,14 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `config_save_failed` | `/run/config_save_failed` | （受け取るだけ） |
 | `config_save_recovered` | `/run/config_save_recovered` | （受け取るだけ） |
 | `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
-| `talk_ai_status` | `/run/talk_ai_status` | — |
+| `talk_ai_status` | `/run/talk_ai_status` | useTalkAiSession.updateStatus |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（39件）
+## UIに受信先がないエンドポイント（16件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
-- `/get/data/talk_ai_auth_key`
-- `/get/data/talk_ai_catalog`
-- `/get/data/talk_ai_local_url`
-- `/get/data/talk_ai_provider`
-- `/get/data/talk_ai_screen_detail`
-- `/get/data/talk_ai_screen_interval_ms`
-- `/get/data/talk_ai_screen_long_edge`
-- `/get/data/talk_ai_screen_sources`
-- `/get/data/talk_ai_status`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -652,23 +643,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/error_translation_speaker_vram_overflow`
 - `/run/initialization_complete`
 - `/run/message_output_error`
-- `/run/talk_ai_status`
 - `/run/translation_language_unsupported`
 - `/run/translation_model_retired`
 - `/run/vad_unavailable`
-- `/set/data/talk_ai_auth_key`
-- `/set/data/talk_ai_end_turn`
-- `/set/data/talk_ai_interrupt`
-- `/set/data/talk_ai_local_url`
-- `/set/data/talk_ai_provider`
-- `/set/data/talk_ai_screen_detail`
-- `/set/data/talk_ai_screen_interval_ms`
-- `/set/data/talk_ai_screen_long_edge`
-- `/set/disable/talk_ai`
-- `/set/disable/talk_ai_screen`
-- `/set/enable/talk_ai`
-- `/set/enable/talk_ai_audio`
-- `/set/enable/talk_ai_screen`
 
 
 ## UIだけにあるルート（61件）

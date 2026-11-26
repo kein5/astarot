@@ -107,6 +107,7 @@ export const loadRecordedRoutes = async (options: RecorderOptions = {}) => {
         "./transcription/useRealtimeASR": namespace(), "./voice/useVirtualMic": namespace(),
         "./voice/useVoiceAudition": namespace(), "./voice/useStopVoice": namespace(),
         "./support/useGpuCheck": namespace(), "./setup/useFirstRunSetup": namespace(),
+        "./talk_ai/useTalkAiSession": namespace(),
         "./voice/useVoice": namespace(), "./voice/useSpeechServers": namespace(),
         "./voice/useModelDownloads": namespace(), "./translation/useTranslationCatalog": namespace(),
         "./transcription/useTranscriptionCatalog": namespace(),

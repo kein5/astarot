@@ -216,10 +216,34 @@ Only for writes to `selected_your_languages`, `selected_target_languages`, `sele
 
 - Lines on stderr that are judged to be warnings (`src-ui/logics/common/sidecarDiagnostics.ts`) are ignored. Other lines are shown as persistent error notices.
 - Lines with status 348 are logs, and the UI does not show them. The same content is also written to `process.log`.
-- For the states that the UI polls every 0.5 to 1 second (`POLLED_ENDPOINTS`: the voice state, the route, the voice conversion state, the speech server, real-time speech recognition, model downloads and TTS voice previews), successful responses (200) are written neither to `process.log` nor as status 348 lines. The responses themselves are sent to the UI. Failed responses are written. Successful volume values that the volume check in Settings sends (`/run/check_mic_volume`, `/run/check_speaker_volume`) are not written to `process.log` either.
+- For the states that the UI polls every 0.5 to 1 second (`POLLED_ENDPOINTS`: the voice state, the route, the voice conversion state, the speech server, real-time speech recognition, model downloads, TTS voice previews and the Talk AI status), successful responses (200) are written neither to `process.log` nor as status 348 lines. The responses themselves are sent to the UI. Failed responses are written. Successful volume values that the volume check in Settings sends (`/run/check_mic_volume`, `/run/check_speaker_volume`) are not written to `process.log` either.
 - The UI's two volume meters reuse the atom object when both the value and `state` are the same. The receiving side does not subscribe to the meter values; it only writes them. This does not change what a repeated notification means for other atoms (`src-ui/logics/common/meterValue.test.ts`).
 - When a response cannot be turned into JSON, 500 is sent to the UI, and only the response's shape without values (the sequence of types) is written to `process.log`.
 - Logs mask values such as API keys (`SENSITIVE_ENDPOINT_MARKERS`). Conversation text is not written to `process.log`. The IPC on stdout itself is not masked.
+
+## Talk AI
+
+`/get/data/talk_ai_catalog` returns `id`, `name`, `vision`, `cloud` and `destination` for each destination. The initial choice is `openai`. The destination of OpenAI Realtime is fixed; the destination of `vllm_omni` can be changed with `/set/data/talk_ai_local_url`. Destinations are limited to the loopback and the LAN. A LAN connection over TLS takes a local IP address.
+
+The OpenAI key is registered by passing a string to `/set/data/talk_ai_auth_key`, and deleted with `null`. The get and set responses return whether a key exists as `configured`, and whether the credential store keeps it as `stored`. The key is not written to the settings file.
+
+The experimental feature `talk_ai` starts off. To start a conversation, the user's consent to the destination and to sending the voice is obtained, and `provider`, `destination` and `consent: { audio: true }` are passed to `/set/enable/talk_ai`. The user consents at every connection. A change of the destination, turning the experimental feature off, and quitting the app stop the conversation. `/set/disable/talk_ai` stops it too.
+
+`/get/data/talk_ai_status` returns `phase` (`idle`, `connecting`, `ready`, `failed`), `error` (a fixed code or `null`), `sending_audio` and `sending_screen`. At the stage that handles the connection and the consent, neither audio nor screen is captured, and both sending states are `false`.
+
+`/run/talk_ai_status` notifies when the session has connected and when it ended. It carries the same `session_id` as the responses.
+
+From stage 4, after the `phase: "ready"` response, the screen shows the indicator that the voice is being sent. Then the current `session_id` and `indicator_visible: true` are passed to `/set/enable/talk_ai_audio`. The answer's voice goes to the system's output by default. Another output is named in `output`; to send it to a virtual microphone, `share_output: true` is passed as well. Microphone transcription stops during the conversation. After the conversation ends, the user can turn transcription back on.
+
+`/set/data/talk_ai_interrupt` stops the playback of the answer. To end the user's turn on vLLM-Omni, `/set/data/talk_ai_end_turn` is called. Both take the current `session_id`.
+
+Screen sharing starts separately from the voice's consent. The user confirms the destination and the capture source and consents, the indicator for the screen is shown, and then `session_id`, `destination`, `source`, `consent: { screen: true }` and `indicator_visible: true` are passed to `/set/enable/talk_ai_screen`. `source` is one of `window`, `vr` and `monitor` that `/get/data/talk_ai_screen_sources` returns. On Windows and X11, `monitor` uses the primary monitor. On Wayland, the desktop's screen picker opens.
+
+The settings are `talk_ai_screen_interval_ms` (250 to 10000 ms, default 1000), `talk_ai_screen_long_edge` (256 to 2048 pixels, default 1024) and `talk_ai_screen_detail` (`auto`, `low`, `high`, default `auto`). Each has `/get/data/` and `/set/data/` endpoints. Pictures are scaled down and sent as JPEG. After the next picture is sent, the previous one is deleted from the conversation's history.
+
+`/get/data/talk_ai_status` returns the capture source as `screen_source` and the JPEG sending state as `sending_screen`. `/set/disable/talk_ai_screen` stops the sharing whose `session_id` matches; it also discards the pictures waiting to be sent, so it ends the conversation. When capture fails, the conversation ends and a fixed error code is returned.
+
+In the UI (stage 6), the settings have a "Talk AI" page only while the experimental feature `talk_ai` is on (#969, decision 2). Every start asks for consent on a confirmation screen that shows the destination, what is sent and where the answer plays; playing the answer into the virtual microphone takes a consent of its own that others hear it. After `phase: "ready"`, a band at the top of the window, over both the main page and the settings, says that the voice is being sent, and `/set/enable/talk_ai_audio` is sent after the band is drawn. Screen sharing likewise asks for consent on its own confirmation screen, and `/set/enable/talk_ai_screen` is sent after the band also shows the screen. While a conversation is open, the destination and the screen settings cannot be changed, because the core stops the conversation when they change. While a conversation is open, the UI asks for `/get/data/talk_ai_status` every second.
 
 ---
 
@@ -439,7 +463,7 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 
 - stderrの行のうち、警告と判定したもの（`src-ui/logics/common/sidecarDiagnostics.ts`）は無視する。それ以外の行は、消えないエラー通知として表示する。
 - status 348の行はログで、UIは表示しない。同じ内容が`process.log`にも書かれる。
-- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得、読み上げの試聴）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
+- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得、読み上げの試聴、おしゃべりAIの状態）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
 - UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.ts`）。
 - 応答をJSONにできなかったときは、500をUIへ送り、`process.log`には値を除いた形（型の並び）だけを書く。
 - ログではAPIキーなどの値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。会話の本文は`process.log`に書かない。stdoutのIPCそのものは伏せない。
@@ -465,6 +489,8 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 設定は `talk_ai_screen_interval_ms`（250〜10000ミリ秒、既定1000）、`talk_ai_screen_long_edge`（256〜2048ピクセル、既定1024）、`talk_ai_screen_detail`（`auto`、`low`、`high`、既定 `auto`）。いずれも `/get/data/` と `/set/data/` の受け口を持つ。画像は縮小してJPEGで送る。次の画像を送ったあとで、前の画像を対話履歴から削除する。
 
 `/get/data/talk_ai_status` は取り込み元を `screen_source`、JPEGの送信状態を `sending_screen` で返す。`/set/disable/talk_ai_screen` は `session_id` が一致する共有を止め、送信待ちの画像も破棄するため対話を終了する。取り込みが失敗したときは対話を終了し、固定のエラーコードを返す。
+
+画面（段階6）では、実験的機能 `talk_ai` がオンの間だけ、設定に「おしゃべりAI」のページを出す（#969 の決まったこと 2）。対話を始めるたびに、接続先、送るもの、応答の声の出し先を示す確認の画面で同意を取る。応答の声を仮想マイクへ流すときは、周りにも聞こえることへの同意を別に取る。`phase: "ready"` を受けたら、ウィンドウの上（メインの画面と設定の両方の上）に、声を送っていることを示す帯を出し、帯を描いたあとで `/set/enable/talk_ai_audio` を送る。画面共有も別の確認の画面で同意を取り、帯に画面を足して描いたあとで `/set/enable/talk_ai_screen` を送る。対話の間は、接続先と画面の送り方の設定を変えられないようにする。変えると中核が対話を止めるためである。対話が開いている間は、`/get/data/talk_ai_status` を1秒ごとに問い合わせる。
 
 ### 設定ファイルと会話ログの保存先
 
