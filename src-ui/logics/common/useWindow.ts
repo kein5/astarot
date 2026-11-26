@@ -6,6 +6,7 @@ import type { AsyncStdoutToPython } from "@useStdoutToPython";
 import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
+import { isSettingsWindow } from "./settingsWindow.ts";
 
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.
@@ -15,14 +16,18 @@ let closing: Promise<void> | null = null;
 let measuredWidth: number | undefined;
 let releaseCloseRequest: (() => void) | null = null;
 
-// The main window, which its entry point (views/app/index.tsx) sets before anything here runs.
+// This page's window, which its entry point sets before anything here runs: the main window
+// (views/app/index.tsx), or the settings window (views/settings_window/index.tsx, #1236).
 // Without it each use fails where it did before, at the window's first call.
 const mainWindow = (appWindow: AppWindow | undefined): AppWindow => {
     if (!appWindow) throw new TypeError("The main window is not set (store.appWindow).");
     return appWindow;
 };
 
-// The main window's position and size, as /set/data/main_window_geometry takes them.
+// Where a window's position and size are saved: the main window's, or the settings window's own (#1236).
+const geometryEndpoint = () => isSettingsWindow() ? "/set/data/settings_window_geometry" : "/set/data/main_window_geometry";
+
+// A window's position and size, as /set/data/main_window_geometry takes them.
 export interface WindowGeometry {
     x_pos: number;
     y_pos: number;
@@ -84,7 +89,7 @@ export const useWindow = () => {
         const minimized = await mainWindow(appWindow).isMinimized();
         if (minimized === true) return; // don't save while the window is minimized.
         const data = await asyncGetWindowGeometry();
-        asyncStdoutToPython("/set/data/main_window_geometry", data);
+        asyncStdoutToPython(geometryEndpoint(), data);
     };
 
     // The saved geometry is applied before the window is first shown
@@ -136,7 +141,10 @@ export const useWindow = () => {
     // The app lives in the tray: closing the window only puts it away there, and the tray menu's Quit
     // ends the app (asyncQuitApp). CompanionController sets store.companion_hide; it quits instead
     // when there is no tray icon to bring the window back from.
-    const asyncCloseApp = () => store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
+    // The settings window's close button closes only it (#1236): nothing asks, as the settings save by
+    // themselves (#1111).
+    const asyncCloseApp = () => isSettingsWindow() ? mainWindow(appWindow).destroy()
+        : store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
     const asyncQuitApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
 
     return {

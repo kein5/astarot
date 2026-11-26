@@ -1,6 +1,6 @@
 //! Native folder selection dialog for settings paths (#1096, #1115).
 //!
-//! Only the main window may open the dialog (SEC-05). On Linux, `gtk::FileChooserNative`
+//! Only the main window and the settings window may open the dialog (SEC-05, #1236). On Linux, `gtk::FileChooserNative`
 //! delegates to the desktop's FileChooser portal when available and falls back to GTK3.
 //! On Windows, `IFileOpenDialog` with `FOS_PICKFOLDERS` opens the native folder dialog.
 
@@ -23,7 +23,7 @@ pub async fn pick_folder(
     initial_path: Option<String>,
     title: Option<String>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     use gtk::prelude::*;
@@ -77,7 +77,7 @@ pub async fn pick_folder(
     initial_path: Option<String>,
     title: Option<String>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     let hwnd_raw = window.hwnd().map(|hwnd| hwnd.0 as isize).unwrap_or(0);
@@ -145,7 +145,7 @@ fn pick_folder_windows(hwnd_raw: isize, start_dir: Option<&Path>, title: Option<
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[tauri::command]
 pub async fn pick_folder(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     Err("folder_picker_unavailable".into())

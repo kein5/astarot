@@ -2600,6 +2600,9 @@ studio:
     close: "アプリを閉じる"
     close_to_tray: "閉じる（トレイで動き続けます）"
     close_window: "ウィンドウを閉じる"
+    # The settings window's title bar and its close button (#1236).
+    settings_window_title: "ASTAROTの設定"
+    close_settings: "設定を閉じる"
 
 legacy_model_downloads:
     progress_name: "{{model}} のダウンロード"
@@ -2973,6 +2976,8 @@ companion:
     # Said for a moment the first time the hexagram ever comes out (#536).
     wheel_hint: "ホイールで回すと、ほかの3つが出ます"
     open_main: "ASTAROTを開く"
+    # The settings window (#1236).
+    open_settings: "設定を開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"
     # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
@@ -2981,6 +2986,7 @@ companion:
     # ASTAROT's own panel, not the system's Control Panel.
     menu_panel: "ASTAROTのコントロールパネルを開く"
     menu_main: "ASTAROTを開く"
+    menu_settings: "ASTAROTの設定を開く"
     menu_quit: "終了"
     # The same words as the setting on the experimental features page.
     menu_monitor: "六芒星を出すモニター"

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
-import { useOcrSetup, focusOcrModels } from "../../../logics/ocr/useOcrSetup";
+import { useOcrSetup, OCR_MODELS_SETTING_ID } from "../../../logics/ocr/useOcrSetup";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
@@ -14,8 +14,7 @@ import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../k
 export const OcrSetupController = () => {
     const { t } = useI18n();
     const { open, setOpen } = useOcrSetup();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const { dialog, close } = useConsentDialog(open);
 
     useEffect(() => () => setOpen(false), [setOpen]);
@@ -23,9 +22,7 @@ export const OcrSetupController = () => {
     const cancel = () => { close(); setOpen(false); };
     const review = () => {
         cancel();
-        updateSelectedConfigTabId("ocr");
-        updateIsOpenedConfigPage(true);
-        focusOcrModels();
+        openSettings({ page: "ocr", target: OCR_MODELS_SETTING_ID });
     };
     // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>

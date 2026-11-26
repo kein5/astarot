@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useRecognitionFix } from "../../../logics/transcription/useRecognitionFix";
 import { detectingAsr, firstLanguage, languageSettingId, withLanguage } from "../../../logics/transcription/recognitionFix";
 import type { RecognitionFix } from "../../../logics/transcription/recognitionFix";
@@ -13,7 +12,7 @@ import { familyLabel } from "../../../logics/voice/modelCatalog";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../logics/common/languageNames.ts";
-import { revealSetting } from "../../../logics/configs/revealSetting.ts";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { ModelDownloads } from "../config_page/setting_section/setting_box/advanced_settings/ModelDownloads";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
@@ -42,8 +41,7 @@ export const RecognitionFixController = () => {
     const { setTranscriptionSend, setTranscriptionReceive } = useMainFunction();
     const { showNotification_Success, showNotification_Error } = useNotificationStatus();
     const { openSetup } = useFirstRunSetup();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const { dialog, close } = useConsentDialog(!!request);
     const [language, setLanguage] = useState("");
     // The language chosen here, until the saved settings come back with it.
@@ -102,9 +100,7 @@ export const RecognitionFixController = () => {
     const cancel = () => { chosen.current = null; close(); setRequest(null); };
     const openSetting = (settingId: string) => {
         cancel();
-        updateSelectedConfigTabId("transcription");
-        updateIsOpenedConfigPage(true);
-        revealSetting({ setting_id: settingId });
+        openSettings({ page: "transcription", target: settingId });
     };
     const name = t(fix.source === "mic" ? "main_page.transcription_send" : "main_page.transcription_receive");
     const names = createLanguageNames(i18n.language);

@@ -320,6 +320,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                         </span>
                     </div>
                     <button type="button" className={styles.menuItem} onClick={() => ask("open_main")}>{t("companion.open_main")}</button>
+                    <button type="button" className={styles.menuItem} onClick={() => ask("open_settings")}>{t("companion.open_settings")}</button>
                     <button type="button" className={styles.menuItem} onClick={togglePanel}>{t("companion.menu_panel")}</button>
                 </div>
             )}

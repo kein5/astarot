@@ -2,8 +2,12 @@
 //!
 //! The UI talks to it the way it talked to the Python sidecar before 0.5.0: it writes request
 //! lines and reads answer and notification lines (`docs/spec/ipc-protocol.md`). Only the main
-//! window may start, write to or stop it, as only the main window could spawn the sidecar. The
-//! lines reach the UI through a channel, in order; the end of a run is sent as its exit code.
+//! window may start or stop it, as only the main window could spawn the sidecar. The lines reach
+//! the UI through a channel, in order; the end of a run is sent as its exit code.
+//!
+//! The settings window (#1236) joins the main window's run: it may attach its own channels,
+//! which then get every line too, in the same order, and it may write requests. So both windows
+//! read every answer, and a setting changed in one is changed in the other.
 //!
 //! The core is the only backend: the packages carry no Python
 //! (`docs/voice-stack/core-integration.md`).
@@ -14,11 +18,19 @@ use std::time::Duration;
 use tauri::ipc::Channel;
 use tauri::Manager;
 use astarot_core::config::{Environment, Platform};
+use astarot_core::dispatch::SETTINGS_WINDOW_ORIGIN;
 use astarot_core::{Backend, Options, Sink};
 
 #[derive(Default)]
 pub struct BackendHost {
     session: Mutex<Option<(String, Backend)>>,
+    // The settings window's channels while it is open (#1236).
+    attached: Mutex<Option<Attached>>,
+}
+
+struct Attached {
+    lines: Channel<String>,
+    exit: Channel<i32>,
 }
 
 /// How long the stop before an update may take. The graceful stop saves the settings first and
@@ -52,6 +64,24 @@ impl BackendHost {
 
 fn main_only(window: &tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == "main" { Ok(()) } else { Err("backend_forbidden".into()) }
+}
+
+/// The windows that may write requests: the main window, and the settings window (#1236).
+fn writer(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() == "main" || window.label() == crate::settings_window::LABEL { Ok(()) } else { Err("backend_forbidden".into()) }
+}
+
+impl BackendHost {
+    /// The settings window went away: its channels get no more lines.
+    pub fn detach(&self) {
+        *self.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    }
+
+    fn to_attached(&self, send: impl FnOnce(&Attached)) {
+        if let Some(attached) = self.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref() {
+            send(attached);
+        }
+    }
 }
 
 /// Where the settings live (config.json), as the backend finds it. Only the folders: the start-up
@@ -203,11 +233,23 @@ fn start_run(
     continue_logs: bool,
 ) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    // Every line to the main window, and to the settings window while it is attached (#1236).
+    let line_app = app.clone();
+    let exit_app = app.clone();
     let sink = Sink {
         line: std::sync::Arc::new(move |line| {
+            line_app.state::<BackendHost>().to_attached(|attached| {
+                let _ = attached.lines.send(line.clone());
+            });
             let _ = lines.send(line);
         }),
         exit: std::sync::Arc::new(move |code| {
+            // The run is over for the settings window too: it hears the end and reads no more of
+            // a run started after it (a retry names another session).
+            let host = exit_app.state::<BackendHost>();
+            if let Some(attached) = host.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
+                let _ = attached.exit.send(code);
+            }
             let _ = exit.send(code);
         }),
     };
@@ -241,11 +283,48 @@ fn with_session<T>(host: &BackendHost, session: &str, action: impl FnOnce(&Backe
     }
 }
 
-/// One request line of the session.
+/// One request line of the session, from the main window or the settings window. The settings
+/// window's lines are named its own here, whatever the page wrote, so the core answers them so and
+/// each window tells its answers from the other's (#1236).
 #[tauri::command]
 pub fn backend_write(window: tauri::WebviewWindow, host: tauri::State<'_, BackendHost>, session: String, line: String) -> Result<(), String> {
-    main_only(&window)?;
+    writer(&window)?;
+    let line = if window.label() == crate::settings_window::LABEL { with_origin(&line, SETTINGS_WINDOW_ORIGIN) } else { line };
     with_session(&host, &session, |backend| backend.write_line(&line))
+}
+
+/// The request line with its origin set to `origin`. A line that is not a JSON object is left as
+/// it is: the core answers it as one it cannot read.
+fn with_origin(line: &str, origin: &str) -> String {
+    match serde_json::from_str::<serde_json::Value>(line) {
+        Ok(serde_json::Value::Object(mut object)) => {
+            object.insert("origin".into(), serde_json::Value::String(origin.into()));
+            serde_json::Value::Object(object).to_string()
+        }
+        _ => line.to_string(),
+    }
+}
+
+/// The settings window joins the run the main window started (#1236): from now on its channels
+/// get every line and the run's end. Answers the session, which its requests name. A run that
+/// is not there yet (the main window is still starting it) answers `backend_not_running`, and
+/// the settings window asks again.
+#[tauri::command]
+pub fn backend_attach(
+    window: tauri::WebviewWindow,
+    host: tauri::State<'_, BackendHost>,
+    lines: Channel<String>,
+    exit: Channel<i32>,
+) -> Result<String, String> {
+    if window.label() != crate::settings_window::LABEL {
+        return Err("backend_forbidden".into());
+    }
+    let session = host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let Some((id, _)) = session.as_ref() else {
+        return Err("backend_not_running".into());
+    };
+    *host.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Attached { lines, exit });
+    Ok(id.clone())
 }
 
 /// Ends the session's run, as killing the sidecar did.
@@ -262,5 +341,23 @@ pub fn backend_kill(window: tauri::WebviewWindow, host: tauri::State<'_, Backend
             *current = other;
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_origin;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn the_settings_windows_lines_are_named_its_own() {
+        let named: Value = serde_json::from_str(&with_origin(r#"{"endpoint": "/get/data/ui_language"}"#, "settings")).unwrap();
+        assert_eq!(named, json!({ "endpoint": "/get/data/ui_language", "origin": "settings" }));
+        // Whatever the page wrote: it cannot pass as the VR panel's relay.
+        let replaced: Value = serde_json::from_str(&with_origin(r#"{"endpoint": "/x", "origin": "vr_panel"}"#, "settings")).unwrap();
+        assert_eq!(replaced["origin"], "settings");
+        // A line the core cannot read stays as it is.
+        assert_eq!(with_origin("not json", "settings"), "not json");
+        assert_eq!(with_origin("[1]", "settings"), "[1]");
     }
 }

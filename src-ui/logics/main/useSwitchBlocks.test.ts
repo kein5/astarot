@@ -39,7 +39,7 @@ const load = async () => {
         "../voice/useVoice": { useVoice: () => ({ settings: state.voiceSettings, directState: state.directState }) },
         "../voice/useModelDownloads": { useModelDownloads: () => ({ state: { jobs: state.jobs } }) },
         "../translation/useTranslationSetup": { useTranslationSetup: () => ({ open: (resume: unknown) => calls.push(["review", resume]) }) },
-        "../ocr/useOcrSetup": { focusOcrModels: () => calls.push("focus") },
+        "../ocr/useOcrSetup": { OCR_MODELS_SETTING_ID: "ocr_models", focusOcrModels: () => calls.push("focus") },
         "../setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => calls.push("setup") }) },
     });
     // Only the requests to the engine, not the writes to the shared atom.

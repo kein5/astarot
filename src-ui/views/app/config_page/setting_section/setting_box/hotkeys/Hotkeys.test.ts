@@ -5,7 +5,7 @@ import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // The Quick Chat part of the hotkeys page: its key's row, a note for the platforms whose key needs
 // one, and the button that opens Quick Chat, the kit's plain Button, which leaves settings first.
-async function quickChat(platform: string) {
+async function quickChat(platform: string, inSettingsWindow = false) {
     const runtime = hooks(), calls: unknown[] = [];
     const { Hotkeys } = await loadModule<typeof import("./Hotkeys.tsx")>(new URL("./Hotkeys.tsx", import.meta.url), runtime, {
         "@logics_configs": { useHotkeys: () => ({ currentHotkeys: { data: {}, state: "ok" }, setHotkeys: async () => true,
@@ -17,6 +17,8 @@ async function quickChat(platform: string) {
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
         "../_templates/Templates": { HotkeysEntryContainer: "hotkey" },
+        "../../../../../../logics/common/settingsWindow.ts": { isSettingsWindow: () => inSettingsWindow,
+            handOverQuickChat: async () => { calls.push("hand over"); } },
     });
     const part = componentOf(findIn(runtime.render(Hotkeys), (node: TreeNode) => componentName(node) === "QuickChatHotkeyContainer"));
     runtime.render(part);
@@ -33,6 +35,14 @@ test("Quick Chat opens from the kit's plain Button, which leaves settings first"
     assert.equal(find(tree, node => node.type === "readout"), null, "a native key needs no note");
     open.props.onClick();
     assert.deepEqual(calls, ["quick_chat_shortcut_platform", ["settings open", false], "open quick chat"]);
+});
+
+// #1236: the settings window closes, and the main window, which runs Quick Chat, opens it.
+test("in the settings window the button closes it and leaves the opening to the main window", async () => {
+    const { tree, calls } = await quickChat("native", true);
+    findIn(tree, node => node.type === kitStandIns.Button).props.onClick();
+    await Promise.resolve();
+    assert.deepEqual(calls, ["quick_chat_shortcut_platform", "hand over"]);
 });
 
 test("a platform whose Quick Chat key needs a note shows it above the button", async () => {

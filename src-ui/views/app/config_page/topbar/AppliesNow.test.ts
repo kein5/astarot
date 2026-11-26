@@ -29,6 +29,28 @@ test("every settings page says that its changes apply at once; About says nothin
     assert.equal(await render("about_vrct"), null);
 });
 
+// Going back (#1236): in-page it shows the main page; in the settings window it brings the main
+// window forward and closes the settings window.
+test("going back shows the main page, or the main window from the settings window", async () => {
+    for (const inSettingsWindow of [false, true]) {
+        const runtime = hooks(), calls: unknown[] = [];
+        const { Topbar } = await loadModule<typeof import("./Topbar.tsx")>(new URL("./Topbar.tsx", import.meta.url), runtime, {
+            "@useI18n": { useI18n: () => ({ t }) },
+            "@logics_common": { useIsOpenedConfigPage: () => ({ setIsOpenedConfigPage: (open: boolean) => calls.push(["page", open]) }) },
+            "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "tts" } }) },
+            "../../others/stop_actions/StopActions": { StopActions: "stop" },
+            "../../../../logics/common/settingsWindow.ts": { isSettingsWindow: () => inSettingsWindow,
+                backToMainWindow: async () => { calls.push("main window"); } },
+        });
+        const back = find(runtime.render(Topbar), node => node.props?.["data-settings-back"] === "");
+        assert.ok(back);
+        back.props.onClick();
+        await Promise.resolve();
+        assert.deepEqual(calls, inSettingsWindow ? ["main window"] : [["page", false]]);
+        runtime.unmount();
+    }
+});
+
 test("the wording exists in English and Japanese", () => {
     for (const language of ["en", "ja"]) assert.equal(typeof localeAt(readLocale(language), "voice_ui.applies_now"), "string");
 });

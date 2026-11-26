@@ -193,3 +193,29 @@ test("a failed destroy removes the listener and closes the window the usual way"
     await closed;
     assert.deepEqual(calls, ["unlisten", "close"]);
 });
+
+// #1236: the settings window saves its own place, and its close button closes only it: no
+// shutdown, no tray.
+test("the settings window saves its own place and closes alone", async context => {
+    Reflect.set(globalThis, "location", { pathname: "/settings.html" });
+    context.onTestFinished(() => { Reflect.deleteProperty(globalThis, "location"); });
+    const runtime = hooks(), sent: unknown[] = [], calls: string[] = [];
+    const appWindow = {
+        isMinimized: async () => false,
+        outerPosition: async () => ({ x: 40, y: 50 }),
+        outerSize: async () => ({ width: 800, height: 600 }),
+        destroy: async () => { calls.push("destroy"); },
+        close: async () => { calls.push("close"); },
+    };
+    const { useWindow } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), runtime, {
+        "@tauri-apps/api/window": {},
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args: unknown[]) => sent.push(args) }) },
+        "@store": { store: { appWindow, companion_hide: async () => { calls.push("tray"); } }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
+    });
+    const window = runtime.render(useWindow);
+    await window.asyncSaveWindowGeometry();
+    await window.asyncCloseApp();
+    assert.deepEqual(sent, [["/set/data/settings_window_geometry", { x_pos: 40, y_pos: 50, width: 800, height: 600 }]]);
+    assert.deepEqual(calls, ["destroy"]);
+});

@@ -71,6 +71,7 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
             </div>
             <footer className={styles.footer}>
                 <Button size="compact" onClick={() => ask("open_main")}>{t("companion.open_main")}</Button>
+                <Button size="compact" onClick={() => ask("open_settings")}>{t("companion.open_settings")}</Button>
                 <Button size="compact" onClick={() => bridge.hide().catch(() => {})}>{t("companion.close")}</Button>
             </footer>
         </main>

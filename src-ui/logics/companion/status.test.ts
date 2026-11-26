@@ -26,7 +26,7 @@ test("the reported state holds only the six switches, the UI language, the theme
         hinted: true,
         theme,
         menu: { start: "t:companion.menu_start", stop: "t:companion.menu_stop", panel: "t:companion.menu_panel",
-            main: "t:companion.menu_main", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
+            main: "t:companion.menu_main", settings: "t:companion.menu_settings", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
             primary: "t:companion.menu_monitor_primary", display: "t:companion.menu_monitor_display",
             missing: "t:companion.menu_monitor_missing" },
     });

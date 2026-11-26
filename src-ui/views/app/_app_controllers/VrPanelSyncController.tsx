@@ -17,6 +17,8 @@ import { failureRun, windowFailureKey } from "../../../logics/common/windowFailu
 import type { FailureRun } from "../../../logics/common/windowFailures.ts";
 import { vrCustomTranslationModelNamesAtom } from "../../../logics/translation/translationCatalogState.ts";
 import type { LanguageMutationRequest } from "../../../logics/main/languageMutationCoordinator.ts";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings.ts";
+import { closeSettingsWindow, settingsHaveAWindow } from "../../../logics/common/settingsWindow.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
 // - VRパネルが読むatomの値だけを一方向に同期する (vrPanelWire.vrPanelStateNames。SEC-03)。
@@ -98,6 +100,11 @@ const emitState = (entries: readonly NamedAtom[], full = false) => {
 export const VrPanelSyncController = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const { currentIsOpenedConfigPage, setIsOpenedConfigPage } = useIsOpenedConfigPage();
+    // In the app the desktop's settings are a window (#1236): VR opens it without taking the focus,
+    // and closes it again when VR opened it.
+    const openSettings = useOpenSettings();
+    const openSettingsRef = useRef(openSettings);
+    openSettingsRef.current = openSettings;
     const { currentIsEnabledOverlayVrPanel } = useVr();
     const { t } = useI18n();
     const { showNotification_Error } = useNotificationStatus();
@@ -172,14 +179,15 @@ export const VrPanelSyncController = () => {
                 isVrSettingsOpenRef.current = true;
                 // デスクトップが先に開いていたら、VR側を閉じてもデスクトップの設定画面は閉じない
                 if (isOpenedConfigPageRef.current !== true) isOpenedByVrRef.current = true;
-                setIsOpenedConfigPage(true);
+                openSettingsRef.current({}, { focus: false });
                 return;
             }
             isVrSettingsOpenRef.current = false;
             // VRが開いたときだけ閉じる (VRの起動時などに届く false でデスクトップの設定画面を閉じない)
             if (isOpenedByVrRef.current === true) {
                 isOpenedByVrRef.current = false;
-                setIsOpenedConfigPage(false);
+                if (settingsHaveAWindow()) closeSettingsWindow().catch(console.error);
+                else setIsOpenedConfigPage(false);
             }
         });
         // VRパネルが先に起動していた場合に備えて、こちらからも一度送る

@@ -13,6 +13,7 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
+import * as settingsWindowModule from "./settingsWindow.ts";
 import { find, findIn, held, isInitializer, isUpdater, kitStandIns, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
 import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
@@ -87,6 +88,8 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
         if (name in dependencies) return dependencies[name];
         // The common tooltip around a control: an element that keeps its words and its control (as hookHarness draws it).
         if (/^(\.\.?\/)+common_components\/tooltip\/Tooltip$/.test(name)) return { Tooltip: "tooltip" };
+        // The settings window's helpers (#1236), as they are outside the app: the settings open in-page.
+        if (/(^|\/)settingsWindow(\.ts)?$/.test(name)) return settingsWindowModule;
         // A TypeScript view names its relative imports with their extension.
         const base = name.replace(/\.[jt]sx?$/, "");
         if (/^\.\.?\//.test(name) && base in dependencies) return dependencies[base];
@@ -477,6 +480,23 @@ test("while the engine starts, resizing updates the layout but does not save the
     await settle();
     assert.deepEqual(sent, [["/set/data/main_window_geometry", { x_pos: 1, y_pos: 2, width: 700, height: 500 }]]);
     runtime.unmount();
+});
+
+// In the app the settings open in their own window (#1236): the main page stays in sight and usable.
+test("beside the settings window the main page stays shown", async () => {
+    const runtime = hooks();
+    const { MainPage } = await load<typeof import("../../views/app/main_page/MainPage.tsx")>("app/main_page/MainPage.tsx", runtime, {
+        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
+        "../../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => true },
+        "./sidebar_section/SidebarSection": { SidebarSection: icon },
+        "./main_section/MainSection": { MainSection: icon },
+        "./startupContext": { StartupContext: { Provider: "startup-provider" } },
+        "./main_section/message_container/log_box/StartupProgress": { StartupProgress: icon },
+        "./vrchatHintContext": { VrchatHintContext: { Provider: "vrchat-hint-provider" } },
+        "../others/vrchat_presence/VrchatOscHint": { VrchatOscHint: icon },
+    });
+    const page = runtime.render(MainPage, { focusFallback: { current: null } });
+    assert.deepEqual([page.props["data-showing"], page.props["aria-hidden"], page.props.inert], ["main", false, false]);
 });
 
 test("opening and closing settings keeps the same MainSection type and key mounted", async () => {

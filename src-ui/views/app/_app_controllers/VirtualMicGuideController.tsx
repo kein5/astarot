@@ -3,7 +3,7 @@ import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
@@ -37,8 +37,7 @@ type CableLabels = { playback?: string; recording?: string };
 export const VirtualMicGuideController = () => {
     const { t } = useI18n();
     const { status, check, opened, refreshStatus, startCheck, resetCheck, closeGuide } = useVirtualMic();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const [chosen, setChosen] = useState<string | null>(null);
     const [linkFailed, setLinkFailed] = useState(false);
 
@@ -68,8 +67,7 @@ export const VirtualMicGuideController = () => {
     const putAway = () => { if (!running) finish(); };
     const openTtsSettings = () => {
         finish();
-        updateSelectedConfigTabId("tts");
-        updateIsOpenedConfigPage(true);
+        openSettings({ page: "tts" });
     };
     // Opens the cable's own page in the browser; nothing is downloaded by the app.
     const openDownloadPage = async (event: MouseEvent<HTMLElement>) => {

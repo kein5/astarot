@@ -18,13 +18,17 @@ test("only the main window can start, feed or retire the backend", async () => {
     const shell = capabilities.flatMap(capability => capability.permissions).filter(permission =>
         (typeof permission === "string" ? permission : permission.identifier).startsWith("shell:"));
     assert.deepEqual(shell, []);
-    // The app's own commands refuse every window but main.
+    // The app's own commands refuse every window but main: only it starts and stops a run. The
+    // settings window (#1236) may join the run and write to it, and only it may join.
     const host = await readFile(new URL("../../../src-tauri/src/backend_host.rs", import.meta.url), "utf8");
-    for (const command of ["backend_start", "backend_write", "backend_kill"]) {
+    const body = (command: string) => host.split(new RegExp(`pub (?:async )?fn ${command}\\(`))[1].split("\n}\n")[0];
+    for (const command of ["backend_start", "backend_kill"]) {
         // backend_start is async: it waits for a failed run off the main thread.
-        const body = host.split(new RegExp(`pub (?:async )?fn ${command}\\(`))[1].split("\n}\n")[0];
-        assert.match(body, /main_only\(&window\)\?/, command);
+        assert.match(body(command), /main_only\(&window\)\?/, command);
     }
+    assert.match(body("backend_write"), /writer\(&window\)\?/);
+    assert.match(host, /fn writer\(window: &tauri::WebviewWindow\) -> Result<\(\), String> \{\n {4}if window\.label\(\) == "main" \|\| window\.label\(\) == crate::settings_window::LABEL/);
+    assert.match(body("backend_attach"), /if window\.label\(\) != crate::settings_window::LABEL \{\n {8}return Err\("backend_forbidden"\.into\(\)\);/);
 });
 
 type Listener = (value: unknown) => void;
@@ -412,6 +416,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/VirtualMicGuideController": {},
         "./_app_controllers/FirstRunSetupController": {},
         "./_app_controllers/SwitchBlocksController": {},
+        "./_app_controllers/SettingsWindowController": {},
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
         "./others": {}, "@logics_common": common,

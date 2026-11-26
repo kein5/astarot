@@ -122,9 +122,12 @@ test("each row is the label of the kit's switch, named by the row's words; the f
     assert.deepEqual([stateWords(mic), stateWords(translation)], ["companion.off", "companion.on"]);
     assert.deepEqual([translationSwitch.checked, translationSwitch["aria-busy"], translationSwitch.disabled], [true, true, true]);
     assert.deepEqual([translation.props["data-checked"], translation.props["data-busy"], translation.props["data-disabled"]], [true, true, true]);
-    const [open, close] = findIn(s.render(), node => node.type === "footer").props.children;
-    assert.deepEqual([open.type, open.props.size, open.props.tone, open.props.children, close.type, close.props.size, close.props.tone, close.props.children],
-        [kitStandIns.Button, "compact", undefined, "companion.open_main", kitStandIns.Button, "compact", undefined, "companion.close"]);
+    // The main window, the settings window (#1236), and closing the panel.
+    const buttons: TreeNode[] = findIn(s.render(), node => node.type === "footer").props.children;
+    assert.deepEqual(buttons.map(button => [button.type, button.props.size, button.props.tone, button.props.children]), [
+        [kitStandIns.Button, "compact", undefined, "companion.open_main"],
+        [kitStandIns.Button, "compact", undefined, "companion.open_settings"],
+        [kitStandIns.Button, "compact", undefined, "companion.close"]]);
 });
 
 test("a switch asks the main window and changes only when the new state comes back", async context => {
@@ -148,16 +151,18 @@ test("until the backend is ready the switches cannot be used", async context => 
     assert.equal(s.row(TRANSLATION).disabled, true);
 });
 
-test("Escape and the close button hide the panel; the main window can be opened from it", async context => {
+test("Escape and the close button hide the panel; the main window and the settings can be opened from it", async context => {
     const s = await setup(context);
     s.window.dispatch("keydown", { key: "Escape" });
     const footer = findIn(s.render(), node => node.type === "footer");
-    const [open, close] = footer.props.children;
+    const [open, settings, close] = footer.props.children;
     open.props.onClick();
+    settings.props.onClick();
     close.props.onClick();
     await flush();
     assert.equal(s.hides, 2);
-    assert.deepEqual(s.requests, ["open_main"]);
+    // The shell hides the panel itself as it opens a window (companion_request).
+    assert.deepEqual(s.requests, ["open_main", "open_settings"]);
 });
 
 test("the panel follows preset and custom themes and clears overrides on the default theme", async context => {

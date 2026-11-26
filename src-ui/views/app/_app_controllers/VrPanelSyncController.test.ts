@@ -14,6 +14,8 @@ interface SyncSetup {
     settings?: unknown[];
     openFailure?: unknown;
     catalogStore?: ReturnType<typeof createStore>;
+    // The app's main window, where the settings have a window of their own (#1236).
+    windowed?: boolean;
 }
 type Listener = (event?: unknown) => void;
 interface InvokeArgs {
@@ -22,11 +24,11 @@ interface InvokeArgs {
 }
 type MainFunctionsMemory = { translation: boolean; transcription_send: boolean; transcription_receive: boolean };
 
-async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null, catalogStore = createStore() }: SyncSetup = {}) {
+async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null, catalogStore = createStore(), windowed = false }: SyncSetup = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
     const state = { enabled: true, configOpen: false, mic: true };
     const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
-        emitted: unknown[][] = [], notices: unknown[][] = [];
+        emitted: unknown[][] = [], notices: unknown[][] = [], settingsWindow: unknown[][] = [];
     let memory: MainFunctionsMemory = { translation: false, transcription_send: false, transcription_receive: false };
     const common = {
         useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: state.configOpen },
@@ -63,6 +65,11 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
         "../../../logics/common/windowFailures.ts": windowFailures,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
+        ...(windowed ? {
+            "../../../logics/common/useOpenSettings.ts": { useOpenSettings: () => (place: unknown, options: unknown) => settingsWindow.push(["open", place, options]) },
+            "../../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => true,
+                closeSettingsWindow: async () => { settingsWindow.push(["close"]); } },
+        } : {}),
     });
     const { ConfigPageCloseTriggerController } = await loadModule<typeof import("./ConfigPageCloseTriggerController.tsx")>(new URL("./ConfigPageCloseTriggerController.tsx", import.meta.url), lifecycle, {
         "@logics_common": common,
@@ -85,7 +92,7 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
     };
     const config = (value: boolean) => { listener("vr-panel-config-page")({ payload: value }); render(); };
     render();
-    return { state, actions, requests, windows, pushes, emitted, notices, listeners, listener, runtime, render, config };
+    return { state, actions, requests, windows, pushes, emitted, notices, settingsWindow, listeners, listener, runtime, render, config };
 }
 
 // SEC-03: only the listed state goes to the VR panel, through its channel.
@@ -209,6 +216,22 @@ test("a live panel cannot close settings first opened on the desktop", async con
     view.config(false);
     assert.equal(view.state.configOpen, true);
     assert.equal(view.state.mic, false);
+});
+
+// In the app the desktop's settings are a window (#1236): the VR panel's settings open it without
+// taking the focus from VR, and close it again when they were what opened it.
+test("in the app the VR panel's settings open the settings window, leaving the focus, and close only their own", async context => {
+    const view = await setup(context, { windowed: true });
+    view.config(true);
+    view.config(false);
+    assert.deepEqual(view.settingsWindow, [["open", {}, { focus: false }], ["close"]]);
+    // The settings window the desktop opened stays when the VR panel's settings close.
+    const desktop = await setup(context, { windowed: true });
+    desktop.state.configOpen = true;
+    desktop.render();
+    desktop.config(true);
+    desktop.config(false);
+    assert.deepEqual(desktop.settingsWindow, [["open", {}, { focus: false }]]);
 });
 
 test("a VR panel window that cannot be opened is said once, and turning it off says nothing", async context => {
