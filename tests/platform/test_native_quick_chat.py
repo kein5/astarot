@@ -252,9 +252,11 @@ def test_wayland_says_the_portal_registers_the_shortcut_and_opens_from_button(tm
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
         # Native Wayland registers the shortcut with the desktop's GlobalShortcuts portal; the page says so.
         ui.wait("return document.body.innerText.includes(\"desktop's GlobalShortcuts portal\")")
-        ui.click_text('button', 'Open input window')
+        # The settings window closes and the main window opens Quick Chat (#1236).
+        ui.closing_window(lambda: ui.click_text('button', 'Open input window'))
         ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
-        chat, = [handle for handle in ui.command('GET', '/window/handles') if handle != main]
+        chat = ui.window_showing('quick-chat.html')
+        assert chat is not None
         ui.command('POST', '/window', {'handle': chat})
         ui.wait("return document.activeElement?.getAttribute('aria-label') === 'Message'")
         ui.fill('Message', 'Wayland draft')
