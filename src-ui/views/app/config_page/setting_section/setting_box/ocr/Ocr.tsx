@@ -81,7 +81,7 @@ export const Main_Container = () => {
                 rows under it do not move when the answer comes (#912). */}
             {(!models || required.length > 0) &&
                 <OcrModels ids={required} missing={models?.missing_models ?? []} onChanged={refresh}
-                    settingId={OCR_MODELS_SETTING_ID} checking={!models}
+                    settingId={OCR_MODELS_SETTING_ID} checking={!models} required
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
         </div>

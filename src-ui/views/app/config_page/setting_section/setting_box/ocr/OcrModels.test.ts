@@ -24,7 +24,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
             CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section", CatalogState: "catalog-state" },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
     });
-    const draw = (props: { missing: string[]; checking?: boolean; ids?: string[] }) => runtime.render(OcrModels,
+    const draw = (props: { missing: string[]; checking?: boolean; ids?: string[]; required?: boolean }) => runtime.render(OcrModels,
         { ids: ["ppocr"], onChanged: () => {}, title: "Recognition models", desc: "What they are", note: "Needed", ...props });
     return { draw, sent };
 }
@@ -49,6 +49,16 @@ test("the models are a part of a catalog, folded as every catalog's part, with t
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons at the head of the part");
     tree = s.draw({ missing: [] });
     assert.equal(part(tree).readout, 'model_catalog.group_readout:{"count":1,"obtained":1}');
+});
+
+// #1230: the language's models, which chat reading cannot start without, start open while one is
+// missing. The optional detector's models do not, nor does the part while the page is checking.
+test("the language's models start open while one is missing; optional models and the check do not", async () => {
+    const s = await ocrModels("list");
+    assert.equal(part(s.draw({ missing: ["ppocr"], required: true })).needed, true);
+    assert.equal(part(s.draw({ missing: [], required: true })).needed, false, "all on the PC");
+    assert.equal(part(s.draw({ missing: [], checking: true, ids: [], required: true })).needed, false, "not known yet");
+    assert.equal(part(s.draw({ missing: ["ppocr"] })).needed, false, "optional models stay folded");
 });
 
 test("until the page hears which models it needs, the part's bar keeps its place and says it is checking (#912)", async () => {

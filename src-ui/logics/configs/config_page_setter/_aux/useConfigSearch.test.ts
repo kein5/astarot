@@ -545,7 +545,7 @@ const BUILT_IN_CODE: Readonly<Record<string, Built>> = {
         [`\`config_page.translation.retired_models_folder.\${name}\``, "<FormRow group label={t(key(\"label\"))}"]]],
     ...Object.fromEntries(["url", "auth_key"].map(field => [`openai_compatible_${field}`,
         [["translation/Translation.tsx", ['provider="openai_compatible" section="translation"']], CREDENTIALS]])),
-    rvc_settings: [["rvc/Rvc.tsx", ['<DirectVoiceSettings variant="rvc" />']],
+    rvc_settings: [["rvc/Rvc.tsx", ['<DirectVoiceSettings variant="rvc" monitor={false} />']],
         ["advanced_settings/DirectVoiceSettings.tsx", ['data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}']]],
     ...Object.fromEntries(["stop_voice", "toggle_voice_mute"].map(id => [id,
         [["hotkeys/Hotkeys.tsx", [`["${id}", t("config_page.hotkeys.${id}.label")]`, "hotkey_id={hotkey_id}"]]]])),

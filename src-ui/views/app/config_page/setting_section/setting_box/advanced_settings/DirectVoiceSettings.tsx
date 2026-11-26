@@ -74,9 +74,12 @@ const exampleNumbers = { rvc_pitch: 12, rvc_index_rate: 0.75 };
 export interface DirectVoiceSettingsProps {
     variant?: DirectVoiceVariant;
     subheading?: boolean;
+    // Whether the row on the TTS page's monitor ends the form. The RVC page draws it in its
+    // 「詳細設定」 instead, as it is changed on another page (#1230).
+    monitor?: boolean;
 }
 
-export const DirectVoiceSettings = ({ variant = "all", subheading = false }: DirectVoiceSettingsProps) => {
+export const DirectVoiceSettings = ({ variant = "all", subheading = false, monitor = true }: DirectVoiceSettingsProps) => {
     const { t, i18n } = useI18n();
     // A code's sentence with the code kept for reports, as on the main screen (#460).
     // Both forms are on the RVC page: the conversion, and input forwarding in its 「詳細設定」 (#554, Q-07).
@@ -148,6 +151,11 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         needsSelection(draft) ? "start_needs_rvc" : dirty || saving ? "start_needs_save" : !route.ready || route.pending || !directState.observation_id ? "start_waiting_route" :
         directSources.error ? "start_input_unavailable" : busy ? "start_running" : null;
     const savedPaths: SavedDirectVoice = directState.settings || {};
+    // What the form cannot run without and is not set yet (#1230): the runtime and the model (RVC)
+    // or the reference (Seed-VC) as saved, and the route its voice goes out on. Its setup starts open then.
+    // Input forwarding is optional, in the RVC page's 「詳細設定」: its setup opens only for an error.
+    const setupNeeded = variant !== "legacy" && ((converted && (rvc ? !savedPaths.rvc_runtime || !/\.pth$/i.test(savedPaths.rvc_model || "")
+        : !savedPaths.runtime || !savedPaths.reference)) || (!!directState.observation_id && !(deviceRoute ? routeReady : managed)));
     const setupStatus = [
         ...(converted ? [t(rvc ? (savedPaths.rvc_runtime ? "voice_ui.runtime_set" : "voice_ui.runtime_unset") : (savedPaths.runtime ? "voice_ui.runtime_set" : "voice_ui.runtime_unset")),
             t((rvc ? /\.pth$/i.test(savedPaths.rvc_model || "") : !!savedPaths.reference) ? "speech_servers.model_set" : "speech_servers.model_unset")] : []),
@@ -166,7 +174,6 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         <StatusLine tone={tone}>{t(status)}</StatusLine>
         {/* Where RVC converts and how far behind the voice it is, once it runs. */}
         {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
-        <VoiceRouteSummary />
         {/* Selecting RVC is its own action: opening the page or saving other fields never switches the mode. */}
         {/* A row like the others (#478): the label on the left, its button in the control column.
             What the button switches is the label's hint (#614, #1013). */}
@@ -176,71 +183,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}
         {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
-        <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
-        {variant === "all" && <label>{t("voice.direct_mode")}
-            <Select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
-                <SelectOption value="passthrough">{t("voice.direct_passthrough")}</SelectOption>
-                <SelectOption value="converted">{t("voice.direct_converted")}</SelectOption>
-            </Select>
-        </label>}
-        {converted && rvc && ([["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]] as const).map(([name, min, max, step]) =>
-            <label key={name}>{t(`voice.vc_${name}`)}
-                <TextField type="number" min={min} max={max} step={step} disabled={busy}
-                    placeholder={t("voice_ui.example", { value: exampleNumbers[name] })}
-                    aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
-                    invalid={name === "rvc_pitch" ? !Number.isInteger(draft[name]) || Math.abs(draft[name]) > 24 :
-                        !Number.isFinite(draft[name]) || draft[name] < 0 || draft[name] > 1}
-                    value={Number.isFinite(draft[name]) ? draft[name] : ""}
-                    onChange={e => setDraft({ ...draft, [name]: e.target.valueAsNumber })} />
-            </label>)}
-        {converted && rvc && !validNumbers(draft) && <p id={numbersErrorId} role="alert">{t("voice_ui.invalid_rvc_numbers")}</p>}
-        {converted && rvc && draft.rvc_index_rate > 0 && !draft.rvc_index && <p role="alert">{t("voice_ui.rvc_index_required")}</p>}
-        {/* Where and how the worker converts; read at Start. */}
-        {converted && rvc && <SetupSection title={t("voice_ui.rvc_worker_title")} desc={t("voice_ui.rvc_worker_hint")}
-            status={t("voice_ui.rvc_worker_status", { device: t(`voice.vc_rvc_device_${draft.rvc_device}`, { defaultValue: draft.rvc_device }),
-                threads: draft.rvc_threads ? draft.rvc_threads : t("voice_ui.rvc_threads_auto"),
-                highpass: t(draft.rvc_highpass ? "voice_ui.rvc_highpass_on" : "voice_ui.rvc_highpass_off") })}>
-            <label>{t("voice.vc_rvc_device")}
-                <Select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
-                    onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
-                    {rvcDevices(directmlOffered, draft.rvc_device).map(device => <SelectOption key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</SelectOption>)}
-                </Select>
-            </label>
-            <label>{t("voice.vc_rvc_threads")}
-                <TextField type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy}
-                    placeholder={t("voice_ui.example", { value: 4 })}
-                    invalid={!validThreads(draft)} aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
-                    value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
-                    onChange={e => setDraft({ ...draft, rvc_threads: e.target.valueAsNumber })} />
-            </label>
-            {/* On or off: the kit's switch with its name beside it (K-02, decided on 2026-11-25); it saves at once. */}
-            <label className={styles.checkLabel} htmlFor={highpassId}>
-                <Switch id={highpassId} checked={!!draft.rvc_highpass} disabled={busy}
-                    onCheckedChange={on => form.change({ ...draft, rvc_highpass: on })} />
-                {t("voice.vc_rvc_highpass")}
-            </label>
-        </SetupSection>}
-        </fieldset>
-        <FormRow label={t("voice.input_source")} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
-            actions={<Button onClick={() => send("/get/data/direct_voice_sources")}>{t("voice.refresh_inputs")}</Button>}>
-            <Select aria-label={t("voice.input_source")} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
-                <SelectOption value="">{t("voice.select_input")}</SelectOption>
-                {selected && !source && <SelectOption value={selected}>{t("voice.disconnected")}</SelectOption>}
-                {sources.map(item => <SelectOption key={key(item.id)} value={key(item.id)}>{item.label}</SelectOption>)}
-            </Select>
-        </FormRow>
-        {(managed || deviceRoute) && <VoiceRouteControls />}
-        {/* In the control column, under the input it starts (#473, #478). */}
-        <div className={`${styles.actions} ${styles.control_column}`}>
-            <Button tone="primary" disabled={!!startBlocked} aria-describedby={startBlocked ? reasonId : undefined}
-                onClick={() => source && send("/run/start_direct_voice", converted ? {
-                    source: source.id, mode: "converted", options,
-                } : { source: source.id })}>{t("voice.input_start")}</Button>
-            <Button tone="quiet" disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t("voice.input_stop")}</Button>
-        </div>
-        {/* A disabled start says what it waits for, under the button in the control column (#1096). */}
-        {startBlocked && !busy && <p id={reasonId} className={styles.control_column}>{t(`voice_ui.${startBlocked}`)}</p>}
-        <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}>
+        {/* What the conversion cannot run without comes first, open while it is missing (#1230). */}
+        <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}
+            needed={setupNeeded}>
             {converted && <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
                 {/* The RVC page already opens with the RVC hint. */}
                 {variant !== "rvc" && <Description text={t(rvc ? "voice.vc_rvc_hint" : "voice.vc_hint")} />}
@@ -268,7 +213,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
             </>}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. A
-                card's audition records the user's voice from the input chosen above and converts it
+                card's audition records the user's voice from the input chosen on the page and converts it
                 with the pitch and index rate on the form, saved or not (#415). */}
             {rvc && <ModelDownloads targets={["rvc"]} blocked={busy || saving ? "busy" :
                 draft.rvc_model !== savedForm(saved).rvc_model || draft.rvc_index !== savedForm(saved).rvc_index ? "edited" : false}
@@ -284,16 +229,93 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 {error && <p role="alert">{errorText(error, ["voice_setup_errors"])}</p>}
             </>}
         </SetupSection>
-        {/* The TTS monitor setting also covers converted voice; it is fixed at Start. The setting
-            has one place, the TTS page: here a row says what it does for this voice under its
-            label (as VoiceRouteSummary does), and its button starts in the control column (#614, #1096). */}
+        <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
+        {variant === "all" && <label>{t("voice.direct_mode")}
+            <Select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
+                <SelectOption value="passthrough">{t("voice.direct_passthrough")}</SelectOption>
+                <SelectOption value="converted">{t("voice.direct_converted")}</SelectOption>
+            </Select>
+        </label>}
+        {converted && rvc && ([["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]] as const).map(([name, min, max, step]) =>
+            <label key={name}>{t(`voice.vc_${name}`)}
+                <TextField type="number" min={min} max={max} step={step} disabled={busy}
+                    placeholder={t("voice_ui.example", { value: exampleNumbers[name] })}
+                    aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
+                    invalid={name === "rvc_pitch" ? !Number.isInteger(draft[name]) || Math.abs(draft[name]) > 24 :
+                        !Number.isFinite(draft[name]) || draft[name] < 0 || draft[name] > 1}
+                    value={Number.isFinite(draft[name]) ? draft[name] : ""}
+                    onChange={e => setDraft({ ...draft, [name]: e.target.valueAsNumber })} />
+            </label>)}
+        {converted && rvc && !validNumbers(draft) && <p id={numbersErrorId} role="alert">{t("voice_ui.invalid_rvc_numbers")}</p>}
+        {converted && rvc && draft.rvc_index_rate > 0 && !draft.rvc_index && <p role="alert">{t("voice_ui.rvc_index_required")}</p>}
+        </fieldset>
+        <FormRow label={t("voice.input_source")} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
+            actions={<Button onClick={() => send("/get/data/direct_voice_sources")}>{t("voice.refresh_inputs")}</Button>}>
+            <Select aria-label={t("voice.input_source")} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
+                <SelectOption value="">{t("voice.select_input")}</SelectOption>
+                {selected && !source && <SelectOption value={selected}>{t("voice.disconnected")}</SelectOption>}
+                {sources.map(item => <SelectOption key={key(item.id)} value={key(item.id)}>{item.label}</SelectOption>)}
+            </Select>
+        </FormRow>
+        {(managed || deviceRoute) && <VoiceRouteControls />}
+        {/* In the control column, under the input it starts (#473, #478). */}
+        <div className={`${styles.actions} ${styles.control_column}`}>
+            <Button tone="primary" disabled={!!startBlocked} aria-describedby={startBlocked ? reasonId : undefined}
+                onClick={() => source && send("/run/start_direct_voice", converted ? {
+                    source: source.id, mode: "converted", options,
+                } : { source: source.id })}>{t("voice.input_start")}</Button>
+            <Button tone="quiet" disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t("voice.input_stop")}</Button>
+        </div>
+        {/* A disabled start says what it waits for, under the button in the control column (#1096). */}
+        {startBlocked && !busy && <p id={reasonId} className={styles.control_column}>{t(`voice_ui.${startBlocked}`)}</p>}
+        {/* How the worker converts, tuned rarely: after the controls that start it (#1230). */}
+        {converted && rvc && <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
+        {/* Where and how the worker converts; read at Start. */}
+        {converted && rvc && <SetupSection title={t("voice_ui.rvc_worker_title")} desc={t("voice_ui.rvc_worker_hint")}
+            status={t("voice_ui.rvc_worker_status", { device: t(`voice.vc_rvc_device_${draft.rvc_device}`, { defaultValue: draft.rvc_device }),
+                threads: draft.rvc_threads ? draft.rvc_threads : t("voice_ui.rvc_threads_auto"),
+                highpass: t(draft.rvc_highpass ? "voice_ui.rvc_highpass_on" : "voice_ui.rvc_highpass_off") })}>
+            <label>{t("voice.vc_rvc_device")}
+                <Select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
+                    onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
+                    {rvcDevices(directmlOffered, draft.rvc_device).map(device => <SelectOption key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</SelectOption>)}
+                </Select>
+            </label>
+            <label>{t("voice.vc_rvc_threads")}
+                <TextField type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy}
+                    placeholder={t("voice_ui.example", { value: 4 })}
+                    invalid={!validThreads(draft)} aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
+                    value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
+                    onChange={e => setDraft({ ...draft, rvc_threads: e.target.valueAsNumber })} />
+            </label>
+            {/* On or off: the kit's switch with its name beside it (K-02, decided on 2026-11-25); it saves at once. */}
+            <label className={styles.checkLabel} htmlFor={highpassId}>
+                <Switch id={highpassId} checked={!!draft.rvc_highpass} disabled={busy}
+                    onCheckedChange={on => form.change({ ...draft, rvc_highpass: on })} />
+                {t("voice.vc_rvc_highpass")}
+            </label>
+        </SetupSection>}
+        </fieldset>}
+        {/* The route and the monitor are changed on other pages: after this page's own controls (#1230). */}
+        <VoiceRouteSummary />
+        {monitor && <VcMonitorRow converted={converted} />}
+        {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
+        {!!unavailable && <p role="alert">{String(unavailable).startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(String(unavailable))}</p>}
+    </section>;
+};
+
+// What the TTS page's monitor does for this voice. The setting has one place, the TTS page: a row
+// says what it does here under its label (as VoiceRouteSummary does), and its button starts in the
+// control column (#614, #1096). The monitor covers converted voice and is fixed at Start.
+export const VcMonitorRow = ({ converted }: { converted: boolean }) => {
+    const { t } = useI18n();
+    const { settings, directState } = useVoice();
+    return <>
         <FormRow group label={t("voice_ui.monitor_heading")}
             status={<span data-vc-monitor>{t(!converted ? "voice.vc_monitor_not_converted" : settings?.monitor === "on" ? "voice.monitor_on" : "voice.monitor_off")}</span>}
             description={t("voice.vc_monitor_help")} fold={false}>
             <PageLinkButton tab="tts" action={t("voice.vc_monitor_action")} target="tts_monitor" />
         </FormRow>
         {!!directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
-        {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
-        {!!unavailable && <p role="alert">{String(unavailable).startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(String(unavailable))}</p>}
-    </section>;
+    </>;
 };

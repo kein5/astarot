@@ -140,7 +140,8 @@ test("speech recognition opens on the engine choice and its two systems; the res
     // screen went in 0.6.0 (#288). The page keeps its descriptions out of sight, as hints (#614).
     assert.deepEqual(order, ["HintDescriptions", "TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
         "AdvancedSection", "Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
-    assert.match(page, /<EngineGroup group="speechcpp">\s*<SpeechServers profiles=\{\["asr"\]\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
+    // The models and servers start open while speech recognition on the bundled server has no model (#1230).
+    assert.match(page, /<EngineGroup group="speechcpp">\s*<SpeechServers profiles=\{\["asr"\]\} needed=\{asrModelsNeeded\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
     assert.match(page, /<AdvancedSection [^>]*>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);
     const section = (name: string) => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
@@ -154,7 +155,8 @@ test("speech recognition opens on the engine choice and its two systems; the res
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const t = (key: string, options?: Record<string, unknown>) => options ? `${key}:${Object.values(options).join(",")}` : key;
     const transcription = await loadModule<typeof import("./setting_section/setting_box/transcription/Transcription.tsx")>(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
-        ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t }) },
+        ...dependencies, react: runtime.api,
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready", server: "bundled" }) }, "@useI18n": { useI18n: () => ({ t }) },
         "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 },
             currentSpeakerPhraseTimeout: { data: 4 }, currentSelectableTranscriptionEngines: { data: [] } }) },
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
@@ -189,7 +191,8 @@ test("each API speech recognition provider is one fold; the selected one stays o
         getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
     const transcription = await loadModule<typeof import("./setting_section/setting_box/transcription/Transcription.tsx")>(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
-        ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
+        ...dependencies, react: runtime.api,
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready", server: "bundled" }) }, "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@logics_configs": { useTranscription: () => state },
         "../../../../../kit/index.ts": kitStandIns,
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },

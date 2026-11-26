@@ -13,7 +13,8 @@ interface Options {
     devices?: { kind: string; name: string; label: string }[];
 }
 
-async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ kind: "gpu", name: "gpu0", label: "GPU" }] }: Options = {}) {
+async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ kind: "gpu", name: "gpu0", label: "GPU" }] }: Options = {},
+    props: { needed?: boolean; embedded?: boolean } = {}) {
     const runtime = hooks();
     const profile = { model: "", voice_file: "", vad_model: "", diarization_model: "", device: "auto", low_latency: false };
     const settings = { profiles: { japanese: { ...profile }, asr: { ...profile } } };
@@ -29,7 +30,7 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
     });
-    return runtime.render(SpeechServers, { profiles: ["japanese", "asr"] });
+    return runtime.render(SpeechServers, { profiles: ["japanese", "asr"], ...props });
 }
 
 test("the servers' descriptions are the fold's, the rows' and the checkbox's; no paragraph is left", async () => {
@@ -45,6 +46,17 @@ test("the servers' descriptions are the fold's, the rows' and the checkbox's; no
     const check = findIn(tree, node => node.type === "hint-check").props;
     assert.deepEqual([check.label, check.description, check.checked], ["speech_servers.low_latency", "speech_servers.low_latency_help", false]);
     assert.ok(!find(tree, node => node.type === "description"));
+});
+
+// #1230: the page says when its feature needs a model set here, and the fold starts open then. On
+// the TTS page the servers sit inside the voice settings' section, which frames them.
+test("the fold is needed as the page says, and an embedded part has no frame of its own", async () => {
+    const plain = await render();
+    assert.equal(findIn(plain, node => node.type === "setup").props.needed, false);
+    assert.equal(plain.props.className, "container");
+    const embedded = await render({}, { needed: true, embedded: true });
+    assert.equal(findIn(embedded, node => node.type === "setup").props.needed, true);
+    assert.deepEqual([embedded.type, embedded.props.className, embedded.props["aria-label"]], ["section", undefined, "speech_servers.title"]);
 });
 
 test("a device row has no description to show when nothing applies; the missing GPU build stays a warning", async () => {

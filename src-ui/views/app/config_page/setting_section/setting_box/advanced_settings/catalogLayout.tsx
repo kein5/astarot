@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
@@ -114,13 +114,18 @@ export interface CatalogSectionProps {
     // The heading's id, when the page points at it.
     id?: string;
     fold?: boolean;
+    // needed: what the page's feature needs is missing from this part (the chat reading models of
+    // the chosen language, #1230). It starts open then, and opens when it becomes needed, so the
+    // missing step is seen first; it can still be closed.
+    needed?: boolean;
     "data-catalog-group"?: string;
     children: ReactNode;
 }
 
-export const CatalogSection = ({ title, help, readout, level, id, fold = true, children, ...data }: CatalogSectionProps) => {
+export const CatalogSection = ({ title, help, readout, level, id, fold = true, needed = false, children, ...data }: CatalogSectionProps) => {
     const hints = useHintDescriptions();
-    const [opened, setOpened] = useState(false);
+    const [opened, setOpened] = useState(needed);
+    useEffect(() => { if (needed) setOpened(true); }, [needed]);
     const own = useId();
     const headingId = id ?? `${own}-heading`;
     if (!fold) {

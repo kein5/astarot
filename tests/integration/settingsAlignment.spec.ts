@@ -189,7 +189,7 @@ test("settings controls of every kind share one right edge and keep selects comp
         expect(advancedItems.some(item => item.kind === requiredKind), `Advanced includes right-aligned ${requiredKind}`).toBe(true);
     }
 
-    // Voice changer (RVC): FormRow buttons (audio route, RVC switch, monitor), numeric inputs,
+    // Voice changer (RVC): FormRow buttons (audio route, RVC switch), numeric inputs,
     // compact input select + refresh button, Start/Stop buttons, and the disabled-start reason share one right edge.
     await app.page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).click();
     await app.page.waitForTimeout(250);
@@ -198,8 +198,16 @@ test("settings controls of every kind share one right edge and keep selects comp
     expect(Math.abs(stopButtonRight - rvcRight), `RVC Stop button right=${stopButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);
     const refreshButtonRight = await app.page.getByRole("button", { name: "Refresh inputs" }).evaluate(el => Math.round(el.getBoundingClientRect().right));
     expect(Math.abs(refreshButtonRight - rvcRight), `RVC Refresh inputs button right=${refreshButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);
-    const monitorButtonRight = await app.page.locator('[data-setting-id="rvc_settings"] [data-page-pointer="tts"]').evaluate(el => Math.round(el.getBoundingClientRect().right));
-    expect(Math.abs(monitorButtonRight - rvcRight), `RVC Monitor link button right=${monitorButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);
+    // The monitor is changed on the TTS page: the conversion's row is the first of the page's
+    // 「詳細設定」, before input forwarding's own, and both end at the fold's right edge (#1230).
+    await app.page.evaluate(() => {
+        for (const fold of document.querySelectorAll<HTMLDetailsElement>("details[data-advanced]")) fold.open = true;
+    });
+    const monitorRights = await app.page.locator('details[data-advanced] [data-page-pointer="tts"]')
+        .evaluateAll(buttons => buttons.map(button => Math.round(button.getBoundingClientRect().right)));
+    expect(monitorRights.length, "the conversion's and the forwarding's monitor rows").toBe(2);
+    expect(Math.abs(monitorRights[0] - monitorRights[1]), `RVC Monitor link buttons right=${monitorRights.join(", ")}`).toBeLessThanOrEqual(2);
+    expect(monitorRights[0], "inside the fold, not past the page's right edge").toBeLessThanOrEqual(rvcRight);
 
     // Device: Auto select switches and compact selects align flush at the row's right end.
     await app.page.getByRole("button", { name: "Device", exact: true }).click();

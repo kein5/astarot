@@ -22,6 +22,8 @@ async function transcriptionPage(context: TestContext, given: Record<string, unk
     context.onTestFinished(() => { for (const runtime of runtimes) runtime.unmount(); });
     // The module's React is the hooks of the runtime drawing at the time.
     const react = new Proxy(loading.api, { get: (_, key) => Reflect.get(active.api, key) });
+    // What the speech recognition needs (useRecognitionState), as the test sets it.
+    const recognition: { state: string; server: string | undefined } = { state: "unknown", server: undefined };
     const values: Record<string, unknown> = { currentSelectedTranscriptionEngine: ok("SpeechCpp"), currentSelectableTranscriptionEngines: ok([]), currentCustomWhisperURL: ok(""), ...given };
     const settings = new Proxy({}, { get: (_, key) => {
         const name = String(key);
@@ -38,6 +40,7 @@ async function transcriptionPage(context: TestContext, given: Record<string, unk
         "../_components/credential_pair/CredentialPair": { CredentialPair: "credential-pair" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../advanced_settings/SpeechServers": { SpeechServers: "speech-servers" },
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => recognition },
         "./RealtimeASRSettings": { RealtimeASRSettings: "realtime-asr" },
         "./AsrApiEntries": { AsrApiEntries: "asr-api-entries" },
         "../_templates/Templates": { WordFilterContainer: "word-filter", RadioButtonContainer: "radio", DropdownMenuContainer: "dropdown", AuthKeyContainer: "auth-key",
@@ -70,7 +73,7 @@ async function transcriptionPage(context: TestContext, given: Record<string, unk
         }
         assert.fail(`the page has no ${name}`);
     };
-    return { module, calls, saves, values, draw, element, page, reach };
+    return { module, calls, saves, values, recognition, draw, element, page, reach };
 }
 
 // The words a part of the tree shows.
@@ -105,6 +108,20 @@ test("the page puts the engine first, then speech.cpp and the APIs under their n
     assert.equal(findIn(p.page(), node => node.type === "advanced").props.status, `config_page.advanced_status.transcription {"phrase":5,"speaker":"-"}`);
     const engine = p.draw(p.reach("TranscriptionEngine_Container"));
     assert.deepEqual(ofType(engine, "section-label").map(node => [node.props.label, node.props.sub]), [["config_page.transcription.section_label_transcription_engines", undefined]]);
+});
+
+// #1230: speech.cpp's 「モデルとサーバー」 starts open while the bundled server is chosen and its
+// models are not set, so the missing models are the first thing seen. An API, a server of the
+// user's own, or set models need nothing there.
+test("speech.cpp's models and servers are needed while the bundled server has no model", async context => {
+    const p = await transcriptionPage(context);
+    const needed = () => findIn(p.page(), node => node.type === "speech-servers").props.needed;
+    assert.equal(needed(), false, "not known yet");
+    for (const [state, server, expected] of [["needs_setup", "bundled", true], ["ready", "bundled", false], ["own_server", "external", false],
+        ["cloud", "bundled", false], ["needs_setup", undefined, false]] as const) {
+        Object.assign(p.recognition, { state, server });
+        assert.equal(needed(), expected, `${state} ${server}`);
+    }
 });
 
 test("each source's timing is one fold whose line shows the values in use, and each value is chosen from a list", async context => {

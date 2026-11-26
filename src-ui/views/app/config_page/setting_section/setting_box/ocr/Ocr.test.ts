@@ -46,7 +46,9 @@ test("the chatbox detector's part keeps one size before and after the readiness 
         const pick = (type: string) => findIn(tree, (node: TreeNode) => node.type === type, type).props;
         const { variable, is_available, toggleFunction } = pick("switch");
         const { current, words, align } = pick("stable-words");
-        const { ids, missing, checking } = pick("models");
+        const { ids, missing, checking, required } = pick("models");
+        // The detector is optional: its part stays folded while its model is missing (#1230).
+        assert.equal(required, undefined);
         return { checked: variable.data, is_available, toggles: !!toggleFunction, current, words, align, ids, missing, checking };
     };
     const line = { words: STATES, align: "start" };
@@ -69,7 +71,9 @@ test("the chatbox detector's part keeps one size before and after the readiness 
     // The models' part takes the models from the start-up answer until the page's own one comes,
     // so its cards are there from the start; with neither, it says it is checking.
     const models = () => {
-        const { ids, missing, checking } = findIn(runtime.render(Main_Container, {}), (node: TreeNode) => node.type === "models", "models").props;
+        const { ids, missing, checking, required } = findIn(runtime.render(Main_Container, {}), (node: TreeNode) => node.type === "models", "models").props;
+        // The language's models are what chat reading needs: their part opens while one is missing (#1230).
+        assert.equal(required, true);
         return { ids, missing, checking };
     };
     assert.deepEqual(models(), { ids: [], missing: [], checking: true });

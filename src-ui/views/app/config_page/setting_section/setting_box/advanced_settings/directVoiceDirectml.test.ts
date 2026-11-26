@@ -73,8 +73,9 @@ test("elsewhere the page offers neither, but a saved DirectML choice stays visib
 // D-14 (decided on 2026-11-25): the page's lists are the kit's Select with the kit's options. The
 // form that edits everything also chooses between forwarding and conversion.
 test("the page's lists are the kit's Select, named as before, and no list of its own is drawn", async () => {
-    for (const [variant, names] of [["rvc", ["voice.vc_rvc_device", "voice.input_source"]],
-        ["all", ["voice.direct_mode", "voice.vc_rvc_device", "voice.input_source"]]] as const) {
+    // The input comes before the device the conversion runs on, which is set once (#1230).
+    for (const [variant, names] of [["rvc", ["voice.input_source", "voice.vc_rvc_device"]],
+        ["all", ["voice.direct_mode", "voice.input_source", "voice.vc_rvc_device"]]] as const) {
         const { nodes } = await render({ runtimes: [{ id: "rvc" }] }, "auto", variant);
         assert.deepEqual(nodes.filter(node => node.type === kitStandIns.Select).map(node => node.props["aria-label"]), names, variant);
         assert.deepEqual(nodes.filter(node => node.type === "select" || node.type === "option"), [], variant);

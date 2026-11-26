@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { eventTarget, find, findIn, hooks, loadModule, nodesIn, stubGlobals, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, eventTarget, find, findIn, hooks, loadModule, nodesIn, stubGlobals, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
@@ -581,7 +581,10 @@ test("the input needs the managed microphone or its output device, and the fold 
 test("the monitor row says whether the converted voice is heard, and a monitor error is said in its words", async context => {
     const row = async (given: Partial<Voice>, variant: Variant) => {
         const v = await directVoice(context, given);
-        const tree = v.open({ variant });
+        // The row is a component of its own, which the RVC page moves into its 「詳細設定」 (#1230).
+        // It holds no state, so it is drawn here as React would draw it.
+        const element = findIn(v.open({ variant }), node => componentName(node) === "VcMonitorRow");
+        const tree = componentOf(element)(element.props);
         const monitor = findIn(tree, node => node.type === "row" && node.props.label === "voice_ui.monitor_heading").props;
         const link = findIn(tree, node => node.type === "page-link").props;
         return { status: textOf(monitor.status), marked: monitor.status.props["data-vc-monitor"], group: monitor.group, fold: monitor.fold, description: monitor.description,
@@ -748,4 +751,25 @@ test("while the input runs, the RVC selection and the DirectML runtime wait, and
     assert.equal(await edit("rvc_model", "other.pth"), "edited");
     assert.equal(await edit("rvc_index", "other.index"), "edited");
     assert.equal(await edit("rvc_runtime", "/other"), false, "a runtime edit does not conflict with an Apply");
+});
+
+// #1230: 「モデルとランタイム」 starts open while the form cannot run without it: no runtime or no
+// model saved for the conversion, or no route for its voice. Once all is set it starts closed.
+test("the input's setup is needed while the conversion's runtime, model or route is missing", async context => {
+    const needed = async (given: Partial<Voice>, variant: Variant) => {
+        const v = await directVoice(context, given);
+        return findIn(v.open({ variant }), node => node.type === "setup" && String(node.props.title).startsWith("voice_ui.setup_")).props.needed;
+    };
+    assert.equal(await needed({}, "rvc"), false, "runtime, model and the managed microphone: nothing missing");
+    assert.equal(await needed({ directState: { observation_id: "1", settings: { ...rvcSaved, rvc_runtime: "" } } }, "rvc"), true, "no runtime");
+    assert.equal(await needed({ directState: { observation_id: "1", settings: { ...rvcSaved, rvc_model: "" } } }, "rvc"), true, "no model");
+    assert.equal(await needed({ directState: { observation_id: "1", settings: { ...rvcSaved, rvc_model: "voice.onnx" } } }, "rvc"), true, "not an RVC model");
+    assert.equal(await needed({ settings: { routing: "direct", monitor: "off" } }, "rvc"), true, "no route for the voice");
+    // Before the first state, the route is not known: only what is saved counts.
+    assert.equal(await needed({ settings: { routing: "direct" }, directState: { settings: rvcSaved } }, "rvc"), false);
+    // Input forwarding is optional, in the RVC page's 「詳細設定」, and the saved mode is forwarding
+    // until RVC is chosen: its setup is never needed, even without a route.
+    const forwarding = { ...rvcSaved, mode: "passthrough", rvc_runtime: "", rvc_model: "" };
+    assert.equal(await needed({ settings: { routing: "direct" } }, "legacy"), false);
+    assert.equal(await needed({ settings: { routing: "direct" }, directState: { observation_id: "1", settings: forwarding } }, "legacy"), false);
 });
