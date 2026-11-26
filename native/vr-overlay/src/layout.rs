@@ -18,6 +18,13 @@ pub const TOOLBAR_M_PER_PX: f64 = 0.4 / 900.0;
 pub const TOOLBAR_GAP_M: f64 = 0.012;
 /// Rounded corners of each region in logical px.
 pub const PANEL_CORNER_RADIUS_PX: u32 = 24;
+/// The VR windows' title bar in logical px (`title_bar` in `src-ui/views/vr/VrWindow.css.ts`).
+/// The log's background turns see-through only below it (#1247).
+pub const PANEL_TITLE_BAR_PX: u32 = 56;
+/// The page draws the log's background colours as two squares of this size, one under the
+/// other, in the gap right of the log (it is at least 8 px wide at every log size; see
+/// [`VrLayout::for_panel`]): the window's fill, then the log's (`VrApp.tsx`, #1247).
+pub const PANEL_BACKGROUND_SWATCH_PX: u32 = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Region {

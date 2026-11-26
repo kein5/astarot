@@ -7,11 +7,15 @@ import { MAIN_SECTION_CONTAINER, NARROW_COLUMN, SHORT_REGION, shorterThan } from
 const NARROW_OR_SHORT = `${MAIN_SECTION_CONTAINER} (max-width: ${NARROW_COLUMN}) or (max-height: ${SHORT_REGION})`;
 const SHORT = shorterThan(MAIN_SECTION_CONTAINER);
 
+// The log's own background. The VR panel turns it see-through by its opacity, reading it from
+// the swatch the VR page draws beside the log (src-ui/views/vr/VrApp.tsx, #1247).
+export const LOG_BACKGROUND = vars.vox_canvas;
+
 export const container = style({
     height: "100%",
     width: "100%",
     flex: 1,
-    backgroundColor: vars.vox_canvas,
+    backgroundColor: LOG_BACKGROUND,
     overflow: "auto",
     overflowAnchor: "none", // virtua keeps the position itself; the browser's anchoring would fight it
     borderRadius: "0.8rem",
