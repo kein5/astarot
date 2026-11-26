@@ -31,7 +31,12 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
         });
         if (!scroller) return [];
 
-        const rowRightOf = (row: Element) => Math.round(row.getBoundingClientRect().right);
+        // The row's content edge: where its control ends, inside the padding and frame a row that
+        // is a group of its own has (#1233).
+        const rowRightOf = (row: Element) => {
+            const style = getComputedStyle(row);
+            return Math.round(row.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth));
+        };
 
         const results: RowControlMeasurement[] = [];
         const isVisible = (element: Element) =>

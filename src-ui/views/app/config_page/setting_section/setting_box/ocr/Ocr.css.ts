@@ -29,7 +29,7 @@ export const detector = style({
     display: "flex",
     flexDirection: "column",
     paddingBottom: "1.6rem",
-    borderBottom: ".1rem solid var(--dark_800_color, #34363b)",
+    borderBottom: ".1rem solid var(--settings_rule, var(--vox_border, #34363b))",
     selectors: {
         // The download section below the status draws its own divider; one is enough.
         "&:has(> section)": { paddingBottom: 0, borderBottom: 0 },
@@ -52,7 +52,7 @@ export const region = style({
     flexDirection: "column",
     gap: ".4rem",
     padding: "1.6rem 0",
-    borderBottom: ".1rem solid var(--dark_800_color, #34363b)",
+    borderBottom: ".1rem solid var(--settings_rule, var(--vox_border, #34363b))",
 });
 
 export const regionHeader = style({

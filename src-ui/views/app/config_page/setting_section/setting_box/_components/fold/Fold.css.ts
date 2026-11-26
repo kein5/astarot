@@ -12,7 +12,8 @@ import { vars } from "../../../../../../theme/vars.css.ts";
 // The chevron turns as the fold opens, and keeps still with reduced motion.
 
 const line = ".1rem";
-const hairline = `${line} solid ${fallbackVar(vars.dark_800_color, "#344662")}`;
+// The app's border colour, which the settings pages make quieter (#1233).
+const hairline = `${line} solid ${fallbackVar(vars.vox_border, "#344662")}`;
 const radius = fallbackVar(vars.vox_radius, ".8rem");
 // The inset of what an open bar holds, from the frame's outer edge (its hairline included), at the
 // start; the end's is 1.6 times it. A setting row splits its width 1 : 1.6 between the label and

@@ -58,14 +58,16 @@ globalStyle(container, {
     minWidth: 0,
     containerType: "inline-size",
     overflowWrap: "anywhere",
+    // The gap above, for the settings group's ground to start under the heading (SettingSection.css.ts).
+    vars: { "--settings_section_gap": "1.6rem" },
 });
 globalStyle(`${container}:has(> [data-section-label]:first-child)`, { paddingTop: 0 });
 globalStyle(container, {
     color: "var(--dark_200_color, #e5e7eb)",
-    borderBottom: ".1rem solid var(--dark_800_color, #34363b)",
+    borderBottom: ".1rem solid var(--settings_rule, var(--vox_border, #34363b))",
 });
 globalStyle(inForm("form", "fieldset"), { display: "grid", gap: "1.2rem", minWidth: 0, containerType: "inline-size" });
-globalStyle(inForm("fieldset"), { border: ".1rem solid var(--dark_800_color, #344662)", borderRadius: "var(--vox_radius, .8rem)", padding: "1.6rem" });
+globalStyle(inForm("fieldset"), { border: ".1rem solid var(--vox_border, #344662)", borderRadius: "var(--vox_radius, .8rem)", padding: "1.6rem" });
 globalStyle(inForm(`fieldset.${fields}`), { border: 0, padding: 0, margin: 0 });
 // A group inside a section: space and a subheading, no frame. Frames stay for real units (one server).
 globalStyle(inForm(`fieldset.${group}`), { border: 0, padding: 0, margin: "1.2rem 0 0" });

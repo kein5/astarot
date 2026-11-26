@@ -153,7 +153,7 @@ globalStyle(default_badge, {
     padding: "0.2rem 0.5rem",
     borderRadius: "0.2rem",
     backgroundColor: vars.dark_875_color,
-    outline: `0.1rem solid ${vars.dark_800_color}`,
+    outline: `0.1rem solid ${vars.vox_border}`,
     pointerEvents: "none",
     userSelect: "none",
     whiteSpace: "nowrap",

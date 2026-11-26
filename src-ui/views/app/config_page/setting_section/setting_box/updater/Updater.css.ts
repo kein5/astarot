@@ -129,7 +129,7 @@ export const diff_group = style({
     display: "flex",
     flexDirection: "column",
     padding: "0 1.6rem",
-    borderBottom: `0.1rem solid ${vars.dark_800_color}`,
+    borderBottom: `0.1rem solid var(--settings_rule, ${vars.vox_border})`,
     selectors: {
         "&:last-child": { borderBottom: "none" },
         [`&.${diff_group_changed}`]: { backgroundColor: "rgba(255, 255, 255, 0.015)" },
@@ -231,7 +231,7 @@ export const refresh_button = style({
     gap: "0.6rem",
     padding: "0.8rem 1.2rem",
     backgroundColor: "transparent",
-    border: `0.1rem solid ${vars.dark_800_color}`,
+    border: `0.1rem solid ${vars.vox_border}`,
     borderRadius: "0.4rem",
     color: vars.dark_500_color,
     fontSize: "1.2rem",
@@ -262,7 +262,7 @@ export const row = style({
     alignItems: "center",
     padding: "2rem",
     gap: "2rem",
-    borderBottom: `0.1rem solid ${vars.dark_800_color}`,
+    borderBottom: `0.1rem solid var(--settings_rule, ${vars.vox_border})`,
     selectors: {
         "&:last-child": { borderBottom: "none" },
     },

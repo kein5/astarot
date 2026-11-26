@@ -18,6 +18,9 @@ export const container = style({
     flexShrink: 0,
     padding: 0,
     position: "relative",
+    // Over the settings' content, which is a layer of its own (SettingSection.css.ts): the
+    // expanded rail lies over the page.
+    zIndex: 1,
     transition: "width 0.12s ease-out",
     height: "100%",
     // The rail expands for hover or focus (DESIGN.md). One state drives the

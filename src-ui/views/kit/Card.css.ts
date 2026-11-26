@@ -15,7 +15,8 @@ export const card = recipe({
         gap: "1.2rem",
         minWidth: 0,
         padding: "1.6rem",
-        border: `.1rem solid ${vars.dark_800_color}`,
+        // The app's border colour, which the settings pages make quieter (#1233).
+        border: `.1rem solid ${vars.vox_border}`,
         borderRadius: vars.vox_radius,
         // A card takes the focus when the page points at it (tabIndex -1): the forms' ring.
         selectors: { "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".3rem" } },

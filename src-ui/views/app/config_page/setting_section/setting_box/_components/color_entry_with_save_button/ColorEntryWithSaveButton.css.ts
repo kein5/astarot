@@ -19,7 +19,7 @@ export const swatch_button = style({
     height: "3.6rem",
     padding: "0.4rem",
     backgroundColor: vars.dark_925_color,
-    border: `0.1rem solid ${vars.dark_800_color}`,
+    border: `0.1rem solid ${vars.vox_border}`,
     borderRadius: "0.4rem",
     flexShrink: 0,
     selectors: {
