@@ -30,8 +30,10 @@ pub const PANEL: &str = "companion_panel";
 pub const HANDLE: &str = "companion_handle";
 const PANEL_TITLE: &str = "ASTAROT Control Panel";
 const HANDLE_TITLE: &str = "ASTAROT Hexagram";
-/// The panel, in logical px.
-const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
+/// The panel, in logical px: the main screen's six switches one under another (#1235). At 340 each
+/// name stays on one line beside its longest state words, in English and Japanese; the panel's
+/// content then measured 403 px high in Chromium, and the list scrolls should a font need more.
+const PANEL_SIZE: (f64, f64) = (340.0, 420.0);
 /// The hexagram's plate (its outer circle) as the handle page draws it, radius in logical px
 /// (views/companion_handle: OPEN_RADIUS × 1.22).
 const STAR_PLATE: f64 = 71.0;

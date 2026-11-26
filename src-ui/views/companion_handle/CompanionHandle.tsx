@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type SVGProps, type WheelEvent } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge, type HandleLayout } from "../../logics/companion/bridge.ts";
-import { actionFor, edgeAction, FEATURES, WHEEL_HINT_SEEN, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
+import { actionFor, edgeAction, FEATURES, switchLabelKey, WHEEL_HINT_SEEN, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
 import {
     angleOf, baseRotation, centroid, dockAt, EDGES, facesInward, innerHexagon, inwardAngle, inwardSide, isEdge, pointTriangle, polygon, TURN,
     type Edge,
@@ -71,14 +71,6 @@ export const FEATURE_ICONS: Record<Feature, ComponentType<SVGProps<SVGSVGElement
 export const ICON_SIZE = 13;
 
 // The same words as the main window's switches.
-const LABEL_KEYS: Record<Feature, string> = {
-    mic: "main_page.transcription_send",
-    translation: "main_page.translation",
-    tts: "main_page.tts",
-    rvc: "main_page.rvc",
-    listening: "main_page.transcription_receive",
-    ocr: "main_page.ocr",
-};
 
 export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: CompanionBridge }) => {
     const { t, i18n } = useI18n();
@@ -251,7 +243,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                         <polygon className={styles.point} points={polygon(triangle)}
                                             data-on={value?.on === true} data-pending={waiting(feature)} data-blocked={value?.blocked === true}
                                             data-docked={docked === feature} data-shown={shown} data-flash={flash[feature]?.to}
-                                            aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
+                                            aria-label={t(switchLabelKey(feature))} aria-hidden={!shown}
                                             onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim}
                                             onClick={() => {
                                                 // A press switches it, as its label does, and docks the label to say so.
@@ -301,7 +293,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                     aria-disabled={dockState?.blocked === true || undefined} data-blocked={dockState?.blocked === true}
                     style={{ left: `${layout.x + dock.at.x}px`, top: `${layout.y + dock.at.y}px`, ...slide(dockAngle) } as CSSProperties}
                     onClick={() => press(feature, dockState?.blocked === true)}>
-                    <span className={styles.dockLabel}>{t(LABEL_KEYS[feature])}</span>
+                    <span className={styles.dockLabel}>{t(switchLabelKey(feature))}</span>
                     <span className={styles.dockState} data-failed={failed?.feature === feature}>{t(dockWord)}</span>
                 </button>
             )}

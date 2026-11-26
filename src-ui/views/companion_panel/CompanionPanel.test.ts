@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, kitStandIns, loadModule, find, eventTarget, stubGlobals, unchecked, findIn } from "../../logics/test/hookHarness.ts";
+import { readFileSync } from "node:fs";
+import { hooks, kitStandIns, loadModule, find, eventTarget, stubGlobals, unchecked, findIn, nodesIn } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as status from "../../logics/companion/status.ts";
@@ -9,6 +10,9 @@ import type { CompanionStatus } from "../../logics/companion/status.ts";
 import type { CompanionBridge } from "../../logics/companion/bridge.ts";
 import * as themes from "../../logics/theme/themes.ts";
 import type { ThemeSetting } from "../../logics/theme/themes.ts";
+
+// The rows are named as the main screen's switches are (#1235).
+const MIC = "main_page.transcription_send", TRANSLATION = "main_page.translation";
 
 const ready: {
     ready: boolean;
@@ -61,14 +65,14 @@ test("the panel shows the switches as the main window reports them, in its langu
     const s = await setup(context);
     assert.deepEqual(s.languages, ["ja"]);
     assert.equal(s.stateText(), "companion.state_idle");
-    assert.equal(s.row("companion.mic").value.on, false);
-    assert.equal(s.row("companion.translation").value.on, true);
-    assert.equal(s.row("companion.mic").disabled, false);
+    assert.equal(s.row(MIC).value.on, false);
+    assert.equal(s.row(TRANSLATION).value.on, true);
+    assert.equal(s.row(MIC).disabled, false);
 });
 
 test("a switch whose main switch is greyed out says it needs setup and still asks, so the main window says why (#562)", async context => {
     const s = await setup(context, { ...ready, mic: { on: false, pending: false, blocked: true } } as Status);
-    const row = find(s.render(), node => node.props?.label === "companion.mic");
+    const row = find(s.render(), node => node.props?.label === MIC);
     assert.ok(row && typeof row.type === "function");
     // The row draws no hooks: its label and switch as the panel shows them.
     const drawn = unchecked<(props: object) => TreeNode>(row.type)(row.props);
@@ -79,7 +83,7 @@ test("a switch whose main switch is greyed out says it needs setup and still ask
     await flush();
     assert.deepEqual(s.requests, ["toggle_mic"]);
     // Not greyed out: no mark.
-    const translation = find(s.render(), node => node.props?.label === "companion.translation");
+    const translation = find(s.render(), node => node.props?.label === TRANSLATION);
     assert.ok(translation && typeof translation.type === "function");
     const shown = unchecked<(props: object) => TreeNode>(translation.type)(translation.props);
     assert.equal(findIn(shown, node => node.type === kitStandIns.Switch).props["aria-disabled"], undefined);
@@ -93,11 +97,13 @@ test("each row is the label of the kit's switch, named by the row's words; the f
         assert.ok(row && typeof row.type === "function");
         return unchecked<(props: object) => TreeNode>(row.type)(row.props);
     };
-    const mic = draw("companion.mic"), micSwitch = findIn(mic, node => node.type === kitStandIns.Switch).props;
-    // The panel focuses its first switch when it opens: its ref is on the kit's switch.
-    const micRow = find(s.render(), node => node.props?.label === "companion.mic");
-    assert.ok(micRow?.props.buttonRef);
-    assert.equal(micSwitch.ref, micRow.props.buttonRef);
+    const mic = draw(MIC), micSwitch = findIn(mic, node => node.type === kitStandIns.Switch).props;
+    // The panel focuses its first switch when it opens, the main screen's first (translation): its
+    // ref is on the kit's switch, and on no other.
+    const firstRow = find(s.render(), node => node.props?.label === TRANSLATION);
+    assert.ok(firstRow?.props.buttonRef);
+    assert.equal(findIn(draw(TRANSLATION), node => node.type === kitStandIns.Switch).props.ref, firstRow.props.buttonRef);
+    assert.equal(micSwitch.ref, undefined);
     // Pressing anywhere on the row presses the switch: the row is its label.
     assert.equal(mic.type, "label");
     assert.equal(mic.props.htmlFor, micSwitch.id);
@@ -108,7 +114,7 @@ test("each row is the label of the kit's switch, named by the row's words; the f
     assert.deepEqual([micSwitch.checked, micSwitch["aria-busy"], micSwitch.disabled], [false, false, false]);
     assert.deepEqual([mic.props["data-checked"], mic.props["data-busy"], mic.props["data-disabled"]], [false, false, false]);
     // A switch that waits for the main window: busy and not pressable, its row dimmed.
-    const translation = draw("companion.translation"), translationSwitch = findIn(translation, node => node.type === kitStandIns.Switch).props;
+    const translation = draw(TRANSLATION), translationSwitch = findIn(translation, node => node.type === kitStandIns.Switch).props;
     assert.ok(micSwitch.id && translationSwitch.id);
     assert.notEqual(translationSwitch.id, micSwitch.id);
     // The state words beside each switch.
@@ -123,23 +129,23 @@ test("each row is the label of the kit's switch, named by the row's words; the f
 
 test("a switch asks the main window and changes only when the new state comes back", async context => {
     const s = await setup(context);
-    s.row("companion.mic").onClick();
+    s.row(MIC).onClick();
     await flush();
     assert.deepEqual(s.requests, ["toggle_mic"]);
-    assert.equal(s.row("companion.mic").value.on, false);
+    assert.equal(s.row(MIC).value.on, false);
     s.set({ ...ready, mic: { on: true, pending: false } });
     const changed = s.callbacks.changed;
     assert.ok(changed);
     await changed();
-    assert.equal(s.row("companion.mic").value.on, true);
+    assert.equal(s.row(MIC).value.on, true);
     assert.equal(s.stateText(), "companion.state_listening");
 });
 
 test("until the backend is ready the switches cannot be used", async context => {
     const s = await setup(context, { ...ready, ready: false });
     assert.equal(s.stateText(), "companion.state_starting");
-    assert.equal(s.row("companion.mic").disabled, true);
-    assert.equal(s.row("companion.translation").disabled, true);
+    assert.equal(s.row(MIC).disabled, true);
+    assert.equal(s.row(TRANSLATION).disabled, true);
 });
 
 test("Escape and the close button hide the panel; the main window can be opened from it", async context => {
@@ -170,4 +176,22 @@ test("the panel follows preset and custom themes and clears overrides on the def
     await s.callbacks.changed();
     s.render();
     assert.equal(s.properties.size, 0);
+});
+
+// #1235: the panel mirrors the main screen's feature switches: the same six, in the order the main
+// screen lists them, under its names, each asking for its own switch. The main screen's list is
+// read from its source, so a switch added there shows up here as missing.
+test("the panel lists the main screen's switches in its order and names, and each asks for its own", async context => {
+    const source = readFileSync(new URL("../app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
+    const listed = [...source.slice(source.indexOf("const switch_items")).matchAll(/switch_id: "([a-z_]+)"/g)].map(match => match[1]);
+    assert.deepEqual(status.MAIN_SCREEN_ORDER.map(feature => status.SWITCH_IDS[feature]), listed);
+    assert.deepEqual([...status.MAIN_SCREEN_ORDER].sort(), [...status.FEATURES].sort());
+    const s = await setup(context, { ...ready, listening: { on: true, pending: false }, tts: { on: false, pending: false, blocked: true } } as Status);
+    const rows = nodesIn(s.render()).filter(node => typeof node.props?.label === "string" && typeof node.props?.onClick === "function");
+    assert.deepEqual(rows.map(row => row.props.label), listed.map(id => `main_page.${id}`));
+    assert.deepEqual(rows.map(row => [row.props.value?.on === true, row.props.value?.blocked === true]),
+        [[true, false], [false, false], [true, false], [false, false], [false, true], [false, false]]);
+    for (const row of rows) row.props.onClick();
+    await flush();
+    assert.deepEqual(s.requests, ["toggle_translation", "toggle_mic", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc"]);
 });
