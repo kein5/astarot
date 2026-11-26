@@ -58,6 +58,7 @@ test("the end of initialization starts each feature afresh, asks for its state a
         call("useStopVoice.reset"),
         call("useGpuCheck.reset"),
         call("useFirstRunSetup.reset"),
+        call("useTalkAiSession.reset"),
         call("useRealtimeASR.send", "/get/data/realtime_asr_settings"),
         call("useRealtimeASR.send", "/get/data/realtime_asr_state"),
         call("useRealtimeASR.send", "/get/data/realtime_asr_models"),
@@ -283,6 +284,38 @@ test("a refused GPU check or audition says why on its card; a failed stop or pol
     }
 });
 
+test("a refused Talk AI request says why on its page; a refused setting of it does not go there", async () => {
+    const r = await loadRecordedRoutes();
+    for (const endpoint of ["/set/enable/talk_ai", "/set/enable/talk_ai_audio", "/set/enable/talk_ai_screen", "/set/data/talk_ai_auth_key"]) {
+        r.receive(endpoint, 409, { error_code: "talk_not_ready" });
+        assert.deepEqual(callsOf(r), [call("useTalkAiSession.fail", "talk_not_ready", endpoint)], endpoint);
+        r.clear();
+    }
+    // A refusal without a code gets the UI's own.
+    r.receive("/set/disable/talk_ai_screen", 500, null);
+    assert.deepEqual(callsOf(r), [call("useTalkAiSession.fail", "talk_request_failed", "/set/disable/talk_ai_screen")]);
+    r.clear();
+    // The settings go the way of every setting: under their field, or as a notice.
+    r.receive("/set/data/talk_ai_local_url", 400, { error_code: "talk_settings_invalid" });
+    assert.equal(callsOf(r).some(({ name }) => name === "useTalkAiSession.fail"), false);
+});
+
+test("a new address of the local Talk AI server reads the catalog that shows it", async () => {
+    for (const endpoint of ["/set/data/talk_ai_local_url", "/set/data/talk_ai_provider"]) {
+        const r = await loadRecordedRoutes();
+        r.receive(endpoint, 200, "ws://127.0.0.1:8001/v1/realtime");
+        assert.ok(sent(r).includes("/get/data/talk_ai_catalog"), endpoint);
+    }
+});
+
+test("microphone recognition refused while Talk AI has the microphone says why where it was pressed", async () => {
+    const r = await loadRecordedRoutes();
+    r.receive("/set/enable/transcription_send", 409, { error_code: "talk_microphone_in_use" });
+    assert.deepEqual(r.argsOf("useNotificationStatus.showNotification_Warning"),
+        [["talk_ai.errors.talk_microphone_in_use", { category_id: "talk_microphone_in_use" }]]);
+    for (const language of ["en", "ja"]) assert.equal(typeof localeAt(readLocale(language), "talk_ai.errors.talk_microphone_in_use"), "string");
+});
+
 test("a failed realtime recognition request goes to its page", async () => {
     const r = await loadRecordedRoutes();
     r.receive("/run/start_realtime_asr", 409, { error_code: "realtime_model_missing" });
@@ -479,7 +512,8 @@ test("a stopped backend settles every request still waiting", async () => {
     assert.deepEqual(r.calls, [call("useMessage.failSentMessageLog", undefined), call("languageMutations.resetLanguageMutations"),
         call("useVoice.backendStopped"), call("useSpeechServers.backendStopped"), call("useModelDownloads.backendStopped"),
         call("useVcRuntimes.backendStopped"), call("useRealtimeASR.backendStopped"), call("useVirtualMic.backendStopped"),
-        call("useVoiceAudition.backendStopped"), call("useStopVoice.reset"), call("useGpuCheck.backendStopped")]);
+        call("useVoiceAudition.backendStopped"), call("useStopVoice.reset"), call("useGpuCheck.backendStopped"),
+        call("useTalkAiSession.backendStopped")]);
 });
 
 // The polls the routes keep while a feature is busy: what each asks for, how often, and the states

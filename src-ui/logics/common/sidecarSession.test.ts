@@ -412,6 +412,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/VirtualMicGuideController": {},
         "./_app_controllers/FirstRunSetupController": {},
         "./_app_controllers/SwitchBlocksController": {},
+        "./_app_controllers/TalkAiController": {}, "./others/talk_ai_indicator/TalkAiIndicator": {},
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
         "./others": {}, "@logics_common": common,

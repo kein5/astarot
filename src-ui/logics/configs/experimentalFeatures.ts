@@ -20,6 +20,10 @@ export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = Object.free
     // The app lives in the system tray, with a small control panel and a handle beside the
     // desktop captions (src-tauri/src/companion.rs, views/companion_panel, Issue #355).
     { id: "tray_companion" },
+    // Talk AI (#388, ADR-018): a spoken conversation with an external service that can be shown
+    // the screen. On, settings gain its page (settingsMenu.ts, FEATURE_TABS); nothing is sent until
+    // the user starts a conversation there and consents to it.
+    { id: "talk_ai" },
 ]);
 
 const KNOWN_IDS = new Set(EXPERIMENTAL_FEATURES.map(feature => feature.id));
@@ -35,8 +39,8 @@ export const isExperimentalFeatureEnabled = (values: unknown, id: string): boole
 export const experimentalFeatureLabelKey = (id: string): string => `config_page.experimental_features.items.${id}.label`;
 export const experimentalFeatureDescKey = (id: string): string => `config_page.experimental_features.items.${id}.desc`;
 // What turning a feature on changes beyond the feature, in a sentence that stays on screen
-// (#614): the tray companion makes the app start in the tray. The others have none.
-const FEATURES_WITH_LEAD: readonly string[] = ["tray_companion"];
+// (#614): the tray companion makes the app start in the tray, and Talk AI adds a settings page.
+const FEATURES_WITH_LEAD: readonly string[] = ["tray_companion", "talk_ai"];
 export const experimentalFeatureLeadKey = (id: string): string | null =>
     FEATURES_WITH_LEAD.includes(id) ? `config_page.experimental_features.items.${id}.lead` : null;
 

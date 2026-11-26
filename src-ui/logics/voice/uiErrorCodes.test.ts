@@ -18,6 +18,8 @@ const PAGES = [
     { page: "VoiceSettings.tsx (voiceErrorText)", sections: ["voice_ui.errors", "voice.input_errors"],
         codes: ["save_unconfirmed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"] },
     { page: "ModelDownloads.tsx", sections: ["model_downloads.errors"], codes: ["request_unconfirmed", "backend_unavailable"] },
+    // Talk AI's page and its band (#388): a refusal without a code, and a request that did not go.
+    { page: "TalkAi.tsx", sections: ["talk_ai.errors"], codes: ["talk_request_failed", "backend_unavailable"] },
 ];
 
 for (const language of ["en", "ja"]) test(`${language}: every code the UI makes has a text where its page looks`, () => {
