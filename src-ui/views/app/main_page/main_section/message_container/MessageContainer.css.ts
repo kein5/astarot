@@ -6,13 +6,11 @@ import { MAIN_SECTION_CONTAINER, shorterThan } from "../../layout.ts";
 // log readable: thinner margins, a one-line composer.
 const SHORT = shorterThan(MAIN_SECTION_CONTAINER);
 
-// The log and the composer. In a very wide window they keep a readable measure,
-// centred in the column, instead of running the lines across the whole screen.
+// The log and the composer. They take the column's whole width, so they grow with the window
+// (#1223; the 120rem measure of the layout audit's L-11 left wide empty sides in a wide window).
 export const container = style({
     height: "0%",
     width: "100%",
-    maxWidth: "120rem",
-    marginInline: "auto",
     display: "flex",
     flexDirection: "column",
     flex: 1,
