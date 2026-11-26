@@ -1,14 +1,16 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge } from "../../logics/companion/bridge.ts";
-import { panelState, type CompanionStatus, type Switch as SwitchState } from "../../logics/companion/status.ts";
+import { actionFor, MAIN_SCREEN_ORDER, panelState, switchLabelKey, type CompanionStatus, type Switch as SwitchState } from "../../logics/companion/status.ts";
 import { applyThemeTokens, themeSetting, themeTokens } from "../../logics/theme/themes.ts";
 import * as styles from "./CompanionPanel.css.ts";
 import { Button, Switch } from "../kit/index.ts";
 
-// The tray companion's control panel (experimental feature "tray_companion", Issue #355): the
-// everyday switches, opened from the tray or from the handle beside the captions. The hidden
-// main window owns the state; this page only shows it and asks.
+// The tray companion's control panel (experimental feature "tray_companion", Issue #355): the main
+// screen's feature switches, in its order and under its names (#1235), opened from the tray or from
+// the handle beside the captions. The hidden main window owns the state; this page only shows it
+// and asks. A switch the main window cannot turn on brings it forward to say why or to set it up
+// (CompanionController), as the hexagram's labels do.
 export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: CompanionBridge }) => {
     const { t, i18n } = useI18n();
     const [status, setStatus] = useState<CompanionStatus | null>(null);
@@ -63,10 +65,9 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
                 </p>
             </header>
             <div className={styles.switches}>
-                <SwitchRow id={`${switchId}-mic`} buttonRef={first} label={t("companion.mic")} value={status?.mic} disabled={!ready}
-                    onClick={() => ask("toggle_mic")} t={t} />
-                <SwitchRow id={`${switchId}-translation`} label={t("companion.translation")} value={status?.translation} disabled={!ready}
-                    onClick={() => ask("toggle_translation")} t={t} />
+                {MAIN_SCREEN_ORDER.map((feature, index) => <SwitchRow key={feature} id={`${switchId}-${feature}`}
+                    buttonRef={index === 0 ? first : undefined} label={t(switchLabelKey(feature))} value={status?.[feature]}
+                    disabled={!ready} onClick={() => ask(actionFor(feature))} t={t} />)}
             </div>
             <footer className={styles.footer}>
                 <Button size="compact" onClick={() => ask("open_main")}>{t("companion.open_main")}</Button>

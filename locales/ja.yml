@@ -2944,8 +2944,6 @@ companion:
     state_starting: "起動中"
     state_listening: "認識中"
     state_idle: "停止中"
-    mic: "マイク"
-    translation: "翻訳"
     "on": "オン"
     "off": "オフ"
     # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
