@@ -2466,6 +2466,9 @@ translation_catalog:
     use:
         engine: "お使いのPCの翻訳に使う"
         api: "OpenAI互換の接続先にする"
+    # A built-in model's card names its model in its button's accessible name (#1228).
+    use_named: "{{name}}をお使いのPCの翻訳に使う"
+    review_named: "{{name}}の取得内容を確認"
     remove: "削除"
     remove_confirm:
         engine: "項目だけを削除します。フォルダーとファイルはそのまま残ります。"

@@ -2466,6 +2466,9 @@ translation_catalog:
     use:
         engine: "Use for translation on your PC"
         api: "Use as the OpenAI-compatible connection"
+    # A built-in model's card names its model in its button's accessible name (#1228).
+    use_named: "Use {{name}} for translation on your PC"
+    review_named: "Review the download of {{name}}"
     remove: "Remove"
     remove_confirm:
         engine: "Only the entry is removed. The folder and its files stay."
