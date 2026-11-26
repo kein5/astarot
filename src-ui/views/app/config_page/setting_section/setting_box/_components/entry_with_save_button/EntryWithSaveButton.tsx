@@ -27,6 +27,8 @@ export interface EntryWithSaveButtonProps {
     leaveFunction?: (event?: FocusEvent<HTMLInputElement>) => unknown;
     // What is wrong with the value and what kind of value would do, said under the field (#1111).
     error?: string | null;
+    // The field's own button beside it, at the row's right edge: a path's picker (#1231).
+    trailing?: ReactNode;
 }
 
 // Saved from the config page top bar; Enter saves this one field. With it saves by itself.
@@ -54,6 +56,7 @@ export const EntryWithSaveButton = (props: EntryWithSaveButtonProps) => {
                 aria-invalid={error ? true : undefined}
                 onBlur={(event: FocusEvent<HTMLInputElement>) => { if (is_disabled) return; if (props.leaveFunction) props.leaveFunction(event); else props.saveFunction(); }}
                 onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape") props.onRevert?.(); }} />
+            {props.trailing}
         </div>
     );
     // The problem stays under the field, in words, until the value is changed or put back.

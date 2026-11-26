@@ -4,6 +4,8 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
+import { FormRow } from "../_components/form_row/FormRow";
+import { PathField } from "../_components/path_field/PathField";
 import * as styles from "./VoiceSettings.css.ts";
 import { Badge, Card, CardFooter, CardHeader, CardTitle } from "../../../../../kit/index.ts";
 import { Fold } from "../_components/fold/Fold";
@@ -160,11 +162,13 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
                         return path ? [[role, path]] : [];
                     })),
                 }))} />
-            {kinds.map(([role, suffix]) => <label key={role}>{t(`user_models.file_field.${role}`, { kind: suffix })}
-                <input type="text" value={paths[role] ?? ""} maxLength={4096} disabled={busy} spellCheck={false}
+            {/* Each file is typed, pasted or picked; the picker shows only its kind (#1231). */}
+            {kinds.map(([role, suffix]) => <FormRow key={role} label={t(`user_models.file_field.${role}`, { kind: suffix })}>
+                <PathField value={paths[role] ?? ""} maxLength={4096} disabled={busy}
+                    pick={{ kind: "file", extensions: [suffix.replace(/^\./, "")] }} label={t(`user_models.file_field.${role}`, { kind: suffix })}
                     aria-describedby={problem ? `${id}-problem` : undefined}
-                    onChange={event => setPaths(current => ({ ...current, [role]: event.target.value }))} />
-            </label>)}
+                    onChange={value => setPaths(current => ({ ...current, [role]: value }))} />
+            </FormRow>)}
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>

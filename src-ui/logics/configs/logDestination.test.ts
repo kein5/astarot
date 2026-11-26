@@ -129,6 +129,7 @@ async function mountDestinationRows(options: {
             },
             "../_components": { ActionButton: "action-button", LabelComponent: "label-component", SectionLabelComponent: "section-label" },
             "../_components/_atoms/_entry/_Entry": { _Entry: "entry-input" },
+            "../_components/path_field/PathField": { PathPickButton: "path-pick" },
             "../_components/hint/Hint": { HintDescriptions: "hints" },
         },
     );

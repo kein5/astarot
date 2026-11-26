@@ -33,6 +33,7 @@ async function render(catalog: unknown, device = "auto", variant: "rvc" | "all" 
         "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },

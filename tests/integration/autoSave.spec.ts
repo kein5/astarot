@@ -103,20 +103,28 @@ test("the advanced settings save by themselves, and the certificate and key save
     await host.press("Escape");
     await expect(host).toHaveValue(savedHost);
 
-    // The pair: moving from the certificate to the key saves nothing; leaving the pair with one path
-    // is refused under it; a pair the core cannot load is refused by the core.
+    // The pair: moving from the certificate to its picker and on to the key saves nothing; leaving
+    // the pair with one path is refused under it; a pair the core cannot load is refused by the core.
     const cert = page.getByLabel("Certificate file", { exact: true });
     const key = page.getByLabel("Private key file", { exact: true });
+    const oneSide = page.getByRole("alert").filter({ hasText: "Enter both the certificate and the private key" });
     await app.unfold(cert);
     await cert.fill("/nonexistent/vox-cert.pem");
     await cert.press("Tab");
+    // Each path's picker is beside its field, inside the pair (#1231).
+    await expect(page.getByRole("button", { name: 'Choose file for "Certificate file"' })).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(key).toBeFocused();
-    await expect(page.getByRole("alert").filter({ hasText: "Enter both the certificate and the private key" })).toHaveCount(0);
+    await expect(oneSide).toHaveCount(0);
     await key.press("Tab");
-    await expect(page.getByRole("alert").filter({ hasText: "Enter both the certificate and the private key" })).toBeVisible();
+    await expect(page.getByRole("button", { name: 'Choose file for "Private key file"' })).toBeFocused();
+    await expect(oneSide).toHaveCount(0);
+    await page.keyboard.press("Tab");
+    await expect(oneSide).toBeVisible();
     expect(app.settings().WEBSOCKET_TLS_CERT_FILE ?? "").toBe("");
     await key.fill("/nonexistent/vox-key.pem");
     await key.press("Tab");
+    await page.keyboard.press("Tab");
     await expect(page.getByRole("alert").filter({ hasText: "This certificate and key cannot be used." })).toBeVisible();
     expect(app.settings().WEBSOCKET_TLS_CERT_FILE ?? "").toBe("");
     // The page has nothing left for the save bar.

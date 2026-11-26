@@ -9,7 +9,7 @@ mod backend_host;
 mod app_update;
 mod caption_overlay;
 mod companion;
-mod folder_picker;
+mod path_picker;
 mod settings_window;
 mod quick_chat;
 mod single_instance;
@@ -278,7 +278,8 @@ pub fn run() {
         .manage(companion::CompanionState::default())
         .manage(settings_window::SettingsWindowState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
-            folder_picker::pick_folder,
+            path_picker::pick_folder,
+            path_picker::pick_file,
             backend_host::backend_start, backend_host::backend_write,
             backend_host::backend_kill, backend_host::backend_attach,
             settings_window::settings_window_open, settings_window::settings_window_take_navigation,

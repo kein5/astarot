@@ -39,6 +39,7 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "../_templates/Templates": { SwitchContainer },
         "../_components": { SectionLabelComponent: () => null },
         "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
+        "../_components/path_field/PathField": { PathPickButton: "path-pick" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const page = runtime.render(module.AdvancedSettings);
