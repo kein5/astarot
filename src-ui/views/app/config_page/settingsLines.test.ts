@@ -41,19 +41,22 @@ test("what a section heading heads sits on one rounded, framed ground drawn behi
     assert.match(styleOf(read("sidebar_section/SidebarSection.css.ts"), "container"), /position: "relative",[\s\S]*?zIndex: 1,/);
 });
 
-// Every .css.ts under a folder.
-const sheets = (folder: URL): string[] => readdirSync(folder).flatMap(name => {
+// Every .css.ts under a folder, as file URLs, read as they are. On Windows a URL's pathname ("/D:/a/…")
+// is not a path: read as one, it named the drive twice.
+const sheets = (folder: URL): URL[] => readdirSync(folder).flatMap(name => {
     const path = new URL(name, folder);
     if (statSync(path).isDirectory()) return sheets(new URL(`${name}/`, folder));
-    return name.endsWith(".css.ts") ? [path.pathname] : [];
+    return name.endsWith(".css.ts") ? [path] : [];
 });
 
 test("no line on the settings pages keeps the old, stronger colour; a row's rule falls back to the border colour elsewhere", () => {
     const files = [...sheets(new URL("setting_section/", import.meta.url)),
-        ...["Card.css.ts", "Toggle.css.ts"].map(name => new URL(`../../kit/${name}`, import.meta.url).pathname)];
+        ...["Card.css.ts", "Toggle.css.ts"].map(name => new URL(`../../kit/${name}`, import.meta.url))];
+    // The walk found the settings' sheets: an empty list would let any line through.
+    assert.ok(files.length > 10, `${files.length} sheets`);
     const strong = files.flatMap(file => readFileSync(file, "utf8").split("\n")
         .filter(line => /\b(border|borderTop|borderBottom|borderInline(Start|End)?|outline)\b[^:]*:.*dark_800_color/.test(line))
-        .map(line => `${file.split("/src-ui/")[1]}: ${line.trim()}`));
+        .map(line => `${file.pathname.split("/src-ui/")[1]}: ${line.trim()}`));
     assert.deepEqual(strong, []);
     // A part a dialog or the main screen also shows keeps its line there: the quiet rule has a fallback.
     for (const path of ["setting_section/setting_box/_templates/Templates.css.ts", "setting_section/setting_box/device/Device.css.ts",
