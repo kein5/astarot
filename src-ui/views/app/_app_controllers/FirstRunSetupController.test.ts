@@ -32,7 +32,7 @@ const CATALOG = {
         { id: "qwen3-asr-06b-q8", target: "asr", name: "Qwen3-ASR 0.6B · Q8_0", provider: "Qwen / sakasegawa",
             license: "Apache-2.0", licenses: ["https://example.invalid/qwen"], total_bytes: 800000000,
             speech: { name: "qwen3-asr-06b", default: true }, profile: { recommended_for: ["en"] } },
-        { id: "irodori-v41-f16", target: "japanese", name: "Irodori-TTS v4.1 Small MF · F16", provider: "Irodori / sakasegawa",
+        { id: "irodori-v41-f16", target: "japanese", name: "Irodori-TTS v4.1 Small MF · F16", provider: "Aratako / sakasegawa",
             license: "MIT", licenses: ["https://example.invalid/irodori"], total_bytes: 1900000000,
             profile: { summary: "mf", recommended_for: ["ja"], gpu: "recommended", cpu: "impractical" } },
         { id: "qwen3-06b-q8", target: "multilingual", name: "Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0", provider: "Qwen / sakasegawa",

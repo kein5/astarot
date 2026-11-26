@@ -45,7 +45,8 @@ test("every speech server code has its own text on the server page in English an
             const section = code in NOTICES ? "notices" : "errors";
             assert.equal(typeof text, "string", `${language}: speech_servers.${section}.${code}`);
             assert.ok(typeof text === "string");
-            assert.doesNotMatch(text, /TTS/, `${language}: ${code} names TTS`);
+            // The model name Irodori-TTS (#1227) does not send the user to the TTS switch.
+            assert.doesNotMatch(text.replaceAll("Irodori-TTS", ""), /TTS/, `${language}: ${code} names TTS`);
         }
     }
 });

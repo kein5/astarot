@@ -6,14 +6,14 @@
 //! Windows, to a device:
 //!
 //! cargo run --release --locked --manifest-path native/core/Cargo.toml --example live_speech --
-//!     --app-dir <extracted package> --state-dir <empty folder> --model <Irodori GGUF>
+//!     --app-dir <extracted package> --state-dir <empty folder> --model <Irodori-TTS GGUF>
 //!     --output "Steam Streaming Speakers" [--device auto] [--samples 3]
 //!
 //! Linux, on the managed route of a private PipeWire graph:
 //!
 //! cargo run --release --locked --features pipewire --manifest-path native/core/Cargo.toml
 //!     --example live_speech -- --app-dir <extracted package>/usr/lib/astarot
-//!     --state-dir <empty folder> --model <Irodori GGUF> --route managed --private-pipewire
+//!     --state-dir <empty folder> --model <Irodori-TTS GGUF> --route managed --private-pipewire
 //!
 //! The core runs in this process as the application runs it, with the bundled speech.cpp of
 //! `--app-dir`. On the device route it speaks to the first output whose label contains

@@ -4,7 +4,7 @@
 
 This page gives the steps for development and CLI tests in a source checkout. For the released Linux app, see the [AppImage guide](appimage.md) and the [Linux build steps](linux-build-pipeline.md).
 
-The verification notes describe the state at the time of each piece of work from 2026-10-27 on. For the CLI → virtual microphone → VRChat desktop route below, the user confirmed the voice by playing back VRChat's built-in microphone test. The meter stopping after a stop partway through was also confirmed. Not verified: the whole sequence of the real VRCT app sending to VRChat's audio and OSC at the same time, reception by other users and an HMD. A single PoC with the already downloaded Irodori MF / speech.cpp 0.8.11 and [30 measurements](benchmarks.md) on a dedicated PipeWire graph with 0.9.0 were confirmed. No new models were downloaded.
+The verification notes describe the state at the time of each piece of work from 2026-10-27 on. For the CLI → virtual microphone → VRChat desktop route below, the user confirmed the voice by playing back VRChat's built-in microphone test. The meter stopping after a stop partway through was also confirmed. Not verified: the whole sequence of the real VRCT app sending to VRChat's audio and OSC at the same time, reception by other users and an HMD. A single PoC with the already downloaded Irodori-TTS MF / speech.cpp 0.8.11 and [30 measurements](benchmarks.md) on a dedicated PipeWire graph with 0.9.0 were confirmed. No new models were downloaded.
 
 ## Native startup status
 
@@ -219,7 +219,7 @@ so VRChat's input fallback in that case still needs a check on real hardware.
 検証の記載は、2026-10-27以降の各作業時点のもの。以下のCLI→仮想マイク→VRChat desktopの経路は、
 ユーザーが内蔵マイクテストの再生で声を確認済み。途中停止後のメーター停止も確認。
 実VRCTアプリからVRChatの音声・OSCへ同時配信する一連の動作、他ユーザーでの受信、HMDは未検証。
-取得済みIrodori MF / speech.cpp 0.8.11の単発PoCと、0.9.0の専用PipeWireグラフでの
+取得済みIrodori-TTS MF / speech.cpp 0.8.11の単発PoCと、0.9.0の専用PipeWireグラフでの
 [30回測定](benchmarks.md)は確認済み。新規モデル取得は行っていない。
 
 ## ネイティブ起動の作業状況
