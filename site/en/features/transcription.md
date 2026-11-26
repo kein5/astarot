@@ -52,6 +52,8 @@ The bundled server uses one recognition model for both microphone captions and g
 
 After a restart, captions start off.
 
+If a switch cannot turn on because the models are missing, or because the model does not recognize the chosen language, a dialog says so where the switch is and offers the fix: getting the recommended models (their size is shown before anything is downloaded), choosing the spoken language from the ones the model recognizes, or, for a model that cannot detect the language, getting Qwen3-ASR. A download starts only after you agree. The dialog can also open the setting itself.
+
 The [first setup](../guide/first-setup) screen can also choose and download the recognition model and Silero VAD.
 
 #### Pauses and sensitivity
