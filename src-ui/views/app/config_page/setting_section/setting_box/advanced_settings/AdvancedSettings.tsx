@@ -46,6 +46,7 @@ import {
     SectionLabelComponent,
 } from "../_components";
 import { _Entry } from "../_components/_atoms/_entry/_Entry";
+import { PathPickButton } from "../_components/path_field/PathField";
 
 import OpenFolderSvg from "@images/open_folder.svg?react";
 import CopyThinSvg from "@images/copy_thin.svg?react";
@@ -519,8 +520,9 @@ const WebsocketTlsContainer = () => {
         }
         return response;
     };
-    // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter,
-    // once both paths are given or both are empty. The core takes the two only together.
+    // Saves by itself as a pair (#1111, decided 3): when focus leaves the pair (both fields and
+    // their pickers, #1231), or on Enter, once both paths are given or both are empty. The core
+    // takes the two only together.
     const form = useSettingsDraft(saved, error, updateError, { });
     // The pair's rows, to tell focus moving between the two from focus leaving the pair.
     const group = useRef<TargetHolder>(null);
@@ -532,25 +534,33 @@ const WebsocketTlsContainer = () => {
         setProblem(refused ? t(refused) : null);
         if (!refused) return form.submit(write);
     };
+    const pending = form.saving || currentWebsocketTls.state === "pending";
+    const change = (name: TlsField) => (value: string) => {
+        setProblem(null);
+        form.setDraft(previous => previous && ({ ...previous, [name]: value }));
+    };
     const field = (name: TlsField) => ({
         setting_id: `websocket_tls_${name}`,
         label: label(name),
         desc: t(`config_page.advanced_settings.websocket_tls_${name}.desc`),
         variable: draft[name],
-        state: form.saving || currentWebsocketTls.state === "pending" ? "pending" : "ok",
-        onChangeFunction: (value: string) => {
-            setProblem(null);
-            form.setDraft(previous => previous && ({ ...previous, [name]: value }));
-        },
+        state: pending ? "pending" : "ok",
+        onChangeFunction: change(name),
         saveFunction: commit,
-        // Leaving one field for the other saves nothing yet: the group saves when focus leaves it.
-        leaveFunction: (event?: FocusEvent<HTMLInputElement>) => {
-            if (event?.relatedTarget && group.current?.contains(event.relatedTarget)) return;
-            return commit();
-        },
+        // Leaving a field saves nothing by itself: the pair saves when focus leaves it (below).
+        leaveFunction: () => undefined,
         onRevert: () => { form.discard(); setProblem(null); },
+        // A PEM file of any name: the picker shows every file (#1231). A picked path is as if typed.
+        trailing: <PathPickButton pick={{ kind: "file" }} label={label(name)} current={draft[name]} disabled={pending}
+            onPicked={change(name)} onUnavailable={code => setProblem(t(`path_picker.${code}`))} />,
     });
-    return <div className={styles.field_group} ref={element => { group.current = element; }}>
+    // Leaving one field or picker for the other saves nothing yet: the pair saves when focus leaves it.
+    const leave = (event: FocusEvent<HTMLDivElement>) => {
+        if (event.relatedTarget && group.current?.contains(event.relatedTarget)) return;
+        if (pending) return;
+        return commit();
+    };
+    return <div className={styles.field_group} ref={element => { group.current = element; }} onBlur={leave}>
         <EntryWithSaveButtonContainer {...field("cert_file")} remove_border_bottom={true} />
         {/* The pair's problem is said once, under the pair. */}
         <EntryWithSaveButtonContainer {...field("key_file")} error={problem} />

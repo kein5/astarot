@@ -89,6 +89,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null, DropdownMenuContainer: "DropdownMenuContainer" },
         "../_components": { SectionLabelComponent: () => null },
         "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
+        "../_components/path_field/PathField": { PathPickButton: "path-pick" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const root = runtime.render(module.AdvancedSettings);
@@ -197,14 +198,18 @@ test("the certificate and key are saved together as one pair", async () => {
     cert.props.onChangeFunction("D:/new.pem");
     await key.props.saveFunction();
     assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "D:/new.pem", key_file: "C:/certs/vox-key.pem" }]);
-    // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields.
-    // The pair's rows tell focus moving from one field to the other from focus leaving the pair.
+    // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields and their
+    // pickers (#1231). The pair's rows tell focus moving inside the pair from focus leaving it; a
+    // field's own blur saves nothing by itself.
     const other = {}, outside = {};
-    s.runtime.render(s.tlsComponent).props.ref({ contains: (target: unknown) => target === other });
+    const pair = s.runtime.render(s.tlsComponent);
+    pair.props.ref({ contains: (target: unknown) => target === other });
     const sentBefore = s.sent.length;
-    await cert.props.leaveFunction({ relatedTarget: other });
+    assert.equal(await cert.props.leaveFunction({ relatedTarget: outside }), undefined);
+    assert.equal(s.sent.length, sentBefore, "a field's blur is the pair's to judge");
+    await pair.props.onBlur({ relatedTarget: other });
     assert.equal(s.sent.length, sentBefore, "focus moving inside the pair saves nothing");
-    await cert.props.leaveFunction({ relatedTarget: outside });
+    await pair.props.onBlur({ relatedTarget: outside });
     assert.equal(s.sent.length, sentBefore + 1, "focus leaving the pair saves it");
     // One path without the other is said under the pair and not sent.
     cert.props.onChangeFunction("");
@@ -213,6 +218,22 @@ test("the certificate and key are saved together as one pair", async () => {
     const refused = s.runtime.render(s.tlsComponent).props.children.filter(Boolean)
         .find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file");
     assert.equal(refused.props.error, "config_page.advanced_settings.websocket_tls_errors.one_side");
+    // Beside each field, the button that picks a file: a PEM file of any name, so every file shows.
+    // A picked path is an edit as a typed one is, and a picker that cannot open is said under the pair.
+    const drawn = s.runtime.render(s.tlsComponent).props.children.filter(Boolean);
+    const pickers = drawn.map((row: TreeNode) => row.props.trailing);
+    assert.deepEqual(pickers.map((picker: TreeNode) => [picker.type, picker.props.pick, picker.props.label, picker.props.disabled]), [
+        ["path-pick", { kind: "file" }, "config_page.advanced_settings.websocket_tls_cert_file.label", false],
+        ["path-pick", { kind: "file" }, "config_page.advanced_settings.websocket_tls_key_file.label", false]]);
+    // The picked path goes into the drawn pair's draft, which the key's Enter saves.
+    pickers[0].props.onPicked("E:/picked.pem");
+    await drawn.find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file").props.saveFunction();
+    assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "E:/picked.pem", key_file: "C:/certs/vox-key.pem" }]);
+    const keyRow = () => s.runtime.render(s.tlsComponent).props.children.filter(Boolean)
+        .find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file");
+    assert.equal(keyRow().props.error, null, "a picked path clears what was said");
+    pickers[1].props.onUnavailable("file_picker_unavailable");
+    assert.equal(keyRow().props.error, "path_picker.file_picker_unavailable");
 });
 
 test("a new connection key is made only after the question is answered", async () => {

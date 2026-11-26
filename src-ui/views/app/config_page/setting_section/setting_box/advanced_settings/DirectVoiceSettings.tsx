@@ -19,6 +19,8 @@ import { PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
+import { PathField } from "../_components/path_field/PathField";
+import type { PathPick } from "../../../../../../logics/common/pickPath";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
 import { pathExample } from "../../../../../../logics/common/pathExample";
@@ -63,6 +65,12 @@ const savedForm = (saved: DirectVoiceDraft | null): DirectVoiceDraft => {
 // RVC is the only conversion engine: Seed-VC ended with the Python backend (#391).
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "rvc",
     rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, ...RVC_WORKER_DEFAULTS } satisfies DirectVoiceDraft;
+// What each path is: the runtimes are folders; the models and the reference voice are files of
+// one kind, which the file picker shows alone (#1231).
+const PATH_PICKS: Readonly<Record<"runtime" | "reference" | "rvc_runtime" | "rvc_model" | "rvc_index", PathPick>> = {
+    runtime: { kind: "folder" }, reference: { kind: "file", extensions: ["wav"] },
+    rvc_runtime: { kind: "folder" }, rvc_model: { kind: "file", extensions: ["pth"] }, rvc_index: { kind: "file", extensions: ["index"] },
+};
 // The example in each path field (voice_ui.example), written the way this OS writes paths.
 const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
     rvc_runtime: "rvc-runtime", rvc_model: "voice.pth", rvc_index: "voice.index" };
@@ -251,11 +259,13 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                         const index = paths.find(path => extensionOf(path) === ".index");
                         form.change(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
                     }} />}
-                {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name => <label key={name}>{t(`voice.vc_${name}`)}
-                    <TextField mono value={draft[name]} disabled={busy} maxLength={4096}
-                        placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
-                        onChange={e => setDraft({ ...draft, [name]: e.target.value })} />
-                </label>)}
+                {/* Each path is typed, pasted or picked (#1231): a picked one fills the field as typing does. */}
+                {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name =>
+                    <FormRow key={name} label={t(`voice.vc_${name}`)}>
+                        <PathField value={draft[name]} disabled={busy} maxLength={4096} pick={PATH_PICKS[name]} label={t(`voice.vc_${name}`)}
+                            placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
+                            onChange={value => setDraft({ ...draft, [name]: value })} />
+                    </FormRow>)}
                 {/* How to use a model or reference voice of your own. */}
                 <CustomModelLink section={rvc ? "rvc" : "seed-vc"} />
             </fieldset>}

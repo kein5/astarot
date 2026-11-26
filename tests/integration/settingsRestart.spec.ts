@@ -22,9 +22,9 @@ test("speech and voice changer settings are saved by the core and come back afte
     await expect.poll(() => voice().japanese_instructions).toBe(INSTRUCTION);
 
     await page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).first().click();
-    await app.unfold(page.getByLabel("Permitted RVC model (.pth)"));
-    await page.getByLabel("Permitted RVC model (.pth)").fill(MODEL);
-    await page.getByLabel("Permitted RVC model (.pth)").blur();
+    await app.unfold(page.getByLabel("Permitted RVC model (.pth)", { exact: true }));
+    await page.getByLabel("Permitted RVC model (.pth)", { exact: true }).fill(MODEL);
+    await page.getByLabel("Permitted RVC model (.pth)", { exact: true }).blur();
 
     // The core wrote them to the settings file.
     await expect.poll(() => (app.settings().DIRECT_VOICE_SETTINGS as Record<string, unknown>)?.rvc_model).toBe(MODEL);
@@ -39,6 +39,6 @@ test("speech and voice changer settings are saved by the core and come back afte
     await expect(japanese.getByLabel("Seed mode")).toHaveValue("fixed");
     await expect(japanese.getByLabel("Seed value")).toHaveValue("0");
     await page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).first().click();
-    await app.unfold(page.getByLabel("Permitted RVC model (.pth)"));
-    await expect(page.getByLabel("Permitted RVC model (.pth)")).toHaveValue(MODEL);
+    await app.unfold(page.getByLabel("Permitted RVC model (.pth)", { exact: true }));
+    await expect(page.getByLabel("Permitted RVC model (.pth)", { exact: true })).toHaveValue(MODEL);
 });

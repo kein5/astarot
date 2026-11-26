@@ -1759,6 +1759,15 @@ file_drop:
     save_hint: "保存すると使えます。"
     done_skipped: "ほかのファイルは入れていません。保存すると使えます。"
 
+path_picker:
+    choose_file: "ファイルを選択"
+    choose_folder: "フォルダーを選択"
+    choose_file_for: "「{{field}}」のファイルを選択"
+    choose_folder_for: "「{{field}}」のフォルダーを選択"
+    filter: "ファイル（{{patterns}}）"
+    file_picker_unavailable: "ファイル選択を開けませんでした。ファイルの絶対パスを直接入力してください。"
+    folder_picker_unavailable: "フォルダー選択を開けませんでした。フォルダーの絶対パスを直接入力してください。"
+
 voice_ui:
     # 日本語を読み上げるエンジン（ADR-008）。利用者が自分で入れて起動するエンジンにつなぐ。
     engine:
