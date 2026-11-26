@@ -634,8 +634,9 @@ pub fn clean_up_after_updates<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+// The main window, and the settings window whose Updater page asks (#1236).
 fn main_only<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
-    if window.label() == "main" { Ok(()) } else { Err("update_forbidden".into()) }
+    if crate::settings_window::main_or_settings(window.label()) { Ok(()) } else { Err("update_forbidden".into()) }
 }
 
 #[derive(Serialize)]

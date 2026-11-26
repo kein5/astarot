@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { hooks, loadModule, stubGlobals, findIn, draw, componentName, componentOf, fieldOf } from "../../logics/test/hookHarness.ts";
 import * as wire from "../../logics/common/vrPanelWire.ts";
@@ -19,7 +20,8 @@ test("closed log region is inert and unpainted while the receiver keeps its data
         } },
         jotai: { getDefaultStore: () => ({ set: (atom: unknown, value: unknown) => atoms.set(atom,
             typeof value === "function" ? value(atoms.get(atom)) : value) }) },
-        "@store": { dynamicStoreRegistry: { Atom_MessageLogs: "logs" } },
+        "@store": { dynamicStoreRegistry: { Atom_MessageLogs: "logs" },
+            useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: false } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }) },
         "../app/_app_controllers": { UiLanguageController: () => null, FontFamilyController: () => null, ThemeController: () => null },
         "@logics_configs": { useVr: () => ({ currentVrPanelLayout: { data: layout } }) },
@@ -30,6 +32,13 @@ test("closed log region is inert and unpainted while the receiver keeps its data
         "../../logics/common/vrPanelSend.ts": { sendToMain: async (...args: unknown[]) => { emitted.push(args); } },
     });
     const closed = runtime.render(VrApp);
+    // #1247: the log's background colours, the window's fill above the log's, sit right of the log
+    // in squares of the size the overlay reads (layout.rs), whether or not the log is open.
+    const swatch = draw(findIn(closed, node => componentName(node) === "BackgroundSwatch"));
+    assert.deepEqual(swatch.props.style, { left: 900, top: 0, width: 8, height: 16 });
+    assert.deepEqual([swatch.props.children].flat().map(child => child.props.className), ["swatch_fill", "swatch_log"]);
+    const rust = readFileSync(new URL("../../../native/vr-overlay/src/layout.rs", import.meta.url), "utf8");
+    assert.match(rust, /pub const PANEL_BACKGROUND_SWATCH_PX: u32 = 8;/);
     const log = findIn(closed, node => node.type === VrLogWindow);
     assert.equal(log.props.open, false);
     const region = findIn(closed, node => node.props.name === "panel");

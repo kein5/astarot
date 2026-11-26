@@ -26,7 +26,8 @@ export const container = style({
     minWidth: 0,
     selectors: {
         [`&.${flex_column}`]: { gridTemplateColumns: "minmax(0, 1fr)" },
-        [`&:not(.${remove_border_bottom})`]: { borderBottom: `solid 0.1rem ${vars.dark_800_color}` },
+        // The line between two rows: the settings pages' quiet rule (#1233), the border colour elsewhere.
+        [`&:not(.${remove_border_bottom})`]: { borderBottom: `solid 0.1rem var(--settings_rule, ${vars.vox_border})` },
         [`&.${is_break_point}`]: { gridTemplateColumns: "minmax(0, 1fr)", alignItems: "start" },
     },
     "@container": { "(max-width: 41.6rem)": stacked },

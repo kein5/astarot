@@ -97,7 +97,7 @@ export const Translation = () => {
                 <LocalLLM_Container />
                 <LLMTranslationOptions_Container />
             </AdvancedSection>
-            <TranslationCatalogSection />
+            <TranslationCatalog_Container />
         </div>
         </HintDescriptions>
     );
@@ -314,20 +314,19 @@ const isNonCommercialRow = (weight: WeightTypeStatus | undefined) => !!weight &&
 // The license dialog's model: a built-in one, whose license and pages it links to.
 type LicenseWeight = { id: string; license?: string; license_url?: string; model_card_url?: string };
 
-const CTranslate2WeightType_Box = () => {
-    const { t } = useI18n();
+// Choosing a built-in translation model, from the model list or from its card in the catalog
+// (#1228): a model with a license that bars commercial use is confirmed first (once a session),
+// and one that is not downloaded opens its download review instead. The dialogs are drawn by the
+// part that chose; `fallback` takes focus when the control that opened them is gone.
+const useWeightChoice = (fallback: RefObject<HTMLElement | null>) => {
     const {
         currentCTranslate2WeightTypeStatus,
-
         currentSelectedCTranslate2WeightType,
         setSelectedCTranslate2WeightType,
         currentSelectedTranslationComputeDevice,
     } = useTranslation();
-    const { catalog } = useModelDownloads();
-    const { catalog: translationCatalog } = useTranslationCatalog();
     const [confirming, setConfirming] = useState<{ weight: WeightTypeStatus; action: "select" } | null>(null);
     const [downloadReview, setDownloadReview] = useState<string | null>(null);
-    const selection = useRef<HTMLDivElement>(null);
 
     const findWeight = (id: string) => currentCTranslate2WeightTypeStatus.data.find(item => item.id === id);
     const isConfirmed = (weight: WeightTypeStatus | undefined) => license_confirmed_weights.has(weight?.id);
@@ -337,13 +336,13 @@ const CTranslate2WeightType_Box = () => {
 
     const select = (id: string) => setSelectedCTranslate2WeightType(weightRequest(id, isConfirmed(findWeight(id))));
 
-    const selectFunction = (id: string) => {
+    const choose = (id: string) => {
         const weight = findWeight(id);
         if (askFirst(weight)) return setConfirming({ weight, action: "select" });
         select(id);
     };
 
-    const downloadStartFunction = (id: string) => setDownloadReview(id);
+    const review = (id: string) => setDownloadReview(id);
 
     const confirmLicense = () => {
         // Called from the dialog, which is drawn only while a confirmation waits.
@@ -354,6 +353,46 @@ const CTranslate2WeightType_Box = () => {
         select(weight.id);
     };
 
+    const dialogs = <>
+        {downloadReview && <LegacyModelDownloadDialog weightType={downloadReview}
+            computeDevice={currentSelectedTranslationComputeDevice?.data}
+            onCancel={() => setDownloadReview(null)} />}
+        {confirming && (
+            <CTranslate2LicenseDialog
+                fallback={fallback}
+                weight={confirming.weight}
+                action={confirming.action}
+                onCancel={() => setConfirming(null)}
+                onConfirm={confirmLicense}
+            />
+        )}
+    </>;
+    return { choose, review, dialogs };
+};
+
+// The catalog of translation models and APIs. Its cards of the built-in models choose a model, or
+// open its download review, as the model list above does (#1228).
+const TranslationCatalog_Container = () => {
+    const place = useRef<HTMLDivElement>(null);
+    const { choose, review, dialogs } = useWeightChoice(place);
+    return (
+        <div ref={place} tabIndex={-1}>
+            {dialogs}
+            <TranslationCatalogSection chooseWeight={choose} reviewWeight={review} />
+        </div>
+    );
+};
+
+const CTranslate2WeightType_Box = () => {
+    const { t } = useI18n();
+    const {
+        currentCTranslate2WeightTypeStatus,
+        currentSelectedCTranslate2WeightType,
+    } = useTranslation();
+    const { catalog } = useModelDownloads();
+    const { catalog: translationCatalog } = useTranslationCatalog();
+    const selection = useRef<HTMLDivElement>(null);
+    const { choose, review, dialogs } = useWeightChoice(selection);
 
     // Only the models the user can use or get (#565): the ones on their PC, the ones the catalog
     // offers, and the selected one, which the line above names. That one carries
@@ -390,26 +429,15 @@ const CTranslate2WeightType_Box = () => {
 
     return (
         <div ref={selection} tabIndex={-1} role="group" aria-label={t("config_page.translation.ctranslate2_weight_type.label")}>
-            {downloadReview && <LegacyModelDownloadDialog weightType={downloadReview}
-                computeDevice={currentSelectedTranslationComputeDevice?.data}
-                onCancel={() => setDownloadReview(null)} />}
-            {confirming && (
-                <CTranslate2LicenseDialog
-                    fallback={selection}
-                    weight={confirming.weight}
-                    action={confirming.action}
-                    onCancel={() => setConfirming(null)}
-                    onConfirm={confirmLicense}
-                />
-            )}
+            {dialogs}
             <DownloadModelsContainer
                 label={t("config_page.translation.ctranslate2_weight_type.label")}
                 desc={t("config_page.translation.ctranslate2_weight_type.desc")}
                 name="ctranslate2_weight_type"
                 options={c_translate2_weight_types_object}
                 checked_variable={currentSelectedCTranslate2WeightType}
-                selectFunction={selectFunction}
-                downloadStartFunction={downloadStartFunction}
+                selectFunction={choose}
+                downloadStartFunction={review}
             />
         </div>
     );

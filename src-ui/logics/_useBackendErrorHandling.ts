@@ -78,7 +78,7 @@ const CLOUD_TRANSCRIPTION_BASES = Object.fromEntries(CLOUD_TRANSCRIPTION_ENGINES
 const cloudTranscriptionBase = (key: string | undefined): CloudTranscriptionBase | undefined =>
     key === undefined ? undefined : CLOUD_TRANSCRIPTION_BASES[key];
 
-const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "message_box_ratio"]);
+const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "settings_window_geometry", "message_box_ratio"]);
 
 const ENDPOINT_URL_ERRORS = new Set([
     "CONNECTION_LMSTUDIO_URL_INVALID",

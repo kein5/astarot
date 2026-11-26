@@ -55,6 +55,12 @@ type OcrModelsProps = {
     // Chat reading cannot start without these (the language's models, not the optional detector):
     // the part starts open while one is missing, so the missing models are the first thing seen (#1230).
     required?: boolean;
+    // Drawn in the chat reading fix (#1241, OcrSetupController): the models in a list under their
+    // heading, without the part's fold or the layout buttons, as the speech recognition fix draws
+    // its model (ModelDownloads' only).
+    inFix?: boolean;
+    // A download was started from a card, after its review: the model's id.
+    onStart?: (id: string) => void;
 };
 
 // Chat reading downloads (PP-OCR for the current language, or the optional chatbox
@@ -66,7 +72,7 @@ type OcrModelsProps = {
 // of the part), each with its name and state, its size, its details and its download. The part
 // starts closed as the catalogs' parts do; its readout says how many are on the PC, and the chat
 // reading guide opens it on its way to a model's download (focusOcrModels).
-export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId, checking = false, required = false }: OcrModelsProps) => {
+export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId, checking = false, required = false, inFix = false, onStart }: OcrModelsProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, state, error, pending, send } = useModelDownloads();
     const catalog: OcrCatalog | null = downloadCatalog;
@@ -95,13 +101,14 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
         catch { setLinkError(url); }
     };
 
-    const layout = useCatalogLayout();
+    const chosenLayout = useCatalogLayout();
+    const layout = inFix ? "list" : chosenLayout;
     const installedOf = (entry: OcrCatalogModel) => !missing.includes(entry.id) || state.jobs[entry.id]?.phase === "ready";
     const obtained = entries.filter(installedOf).length;
     return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title} data-setting-id={settingId}>
-        <CatalogSection level={3} title={title} help={desc ? [desc] : []} needed={required && !checking && missing.length > 0}
+        <CatalogSection level={3} title={title} help={desc ? [desc] : []} fold={!inFix} needed={required && !checking && missing.length > 0}
             readout={checking ? t("config_page.ocr.readiness.checking") : t("model_catalog.group_readout", { count: entries.length, obtained })}>
-            <div className={styles.layout}><CatalogLayoutSwitch /></div>
+            {!inFix && <div className={styles.layout}><CatalogLayoutSwitch /></div>}
             {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
             <CatalogList layout={layout}>
                 {entries.map(entry => {
@@ -171,7 +178,9 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                 {/* Start is the dialog's main action: blue like the voice models' (#462). */}
                 <Button tone="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
-                    send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
+                    send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version });
+                    onStart?.(selected.id);
+                    close();
                 }}>{t("model_downloads.start")}</Button>
             </DialogFooter>
         </Dialog>}

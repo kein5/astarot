@@ -229,7 +229,7 @@ test("emitted production dependencies and HTML agree with the policy (run after 
     }
     const built = files("dist");
     assert.deepEqual(built.filter(file => file.endsWith(".html")).sort(), ["dist/caption-overlay.html",
-        "dist/companion-handle.html", "dist/companion-panel.html", "dist/index.html", "dist/quick-chat.html", "dist/vr.html"]);
+        "dist/companion-handle.html", "dist/companion-panel.html", "dist/index.html", "dist/quick-chat.html", "dist/settings.html", "dist/vr.html"]);
     const hashes: string[] = [];
     let styleInjectors = 0, precedenceStyles = 0, scrollLockStyles = 0;
     for (const file of built) {

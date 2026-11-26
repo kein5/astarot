@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
 import { useStore_SelectedConfigTabId } from "@store";
+import { useSettingValue } from "@logics_configs";
+import { isExperimentalFeatureEnabled } from "../../../../../logics/configs/experimentalFeatures.ts";
 
 import {
     Device, Tts, Rvc,
@@ -13,6 +16,7 @@ import {
     AboutVrct,
     Updater,
     ExperimentalFeatures,
+    TalkAi,
 } from "@setting_box";
 
 export const SettingBox = () => {
@@ -47,8 +51,18 @@ export const SettingBox = () => {
             return <Vrchat />;
         case "about_vrct":
             return <AboutVrct />;
+        case "talk_ai":
+            return <FeaturePage feature="talk_ai"><TalkAi /></FeaturePage>;
 
         default:
             return null;
     }
+};
+
+// A page that exists only while its experimental feature is on (settingsMenu.ts, FEATURE_TABS).
+// Turned off, nothing of it is drawn; the menu then opens the experimental features page, where
+// its switch is (SidebarSection.tsx).
+const FeaturePage = ({ feature, children }: { feature: string; children: ReactNode }) => {
+    const { data } = useSettingValue("ExperimentalFeatures");
+    return isExperimentalFeatureEnabled(data, feature) ? children : null;
 };

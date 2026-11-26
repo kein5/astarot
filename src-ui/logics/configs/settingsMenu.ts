@@ -12,8 +12,9 @@ export type SettingsMenuGroup = { readonly id: string; readonly tabs: readonly s
 export const SETTINGS_MENU_GROUPS: readonly SettingsMenuGroup[] = Object.freeze([
     // What a first conversation needs: translation, speech recognition, VRChat and the captions.
     { id: "conversation", tabs: Object.freeze(["translation", "transcription", "vrchat", "vr"]) },
-    // The features that speak, change the voice or read the chatbox.
-    { id: "voice_and_reading", tabs: Object.freeze(["tts", "rvc", "ocr"]) },
+    // The features that speak, change the voice or read the chatbox, and Talk AI, which listens,
+    // answers by voice and can be shown the screen (#388; it is in the menu only while it is on).
+    { id: "voice_and_reading", tabs: Object.freeze(["tts", "rvc", "ocr", "talk_ai"]) },
     // Set once and seldom changed. The devices are chosen at the first start (#557).
     { id: "comfort", tabs: Object.freeze(["device", "appearance", "hotkeys"]) },
     // The app itself: always in the menu, whatever the usage presets show.
@@ -32,3 +33,12 @@ export const visibleMenuGroups = (isShown: (tab: string) => boolean): SettingsMe
     SETTINGS_MENU_GROUPS
         .map(group => ({ id: group.id, tabs: group.tabs.filter(isShown) }))
         .filter(group => group.tabs.length > 0);
+
+// Pages that exist only while an experimental feature is on (#969, decision 2): the page, and the
+// feature (experimentalFeatures.ts). Off, the page is in neither the menu nor the settings.
+export const FEATURE_TABS: Readonly<Record<string, string>> = Object.freeze({ talk_ai: "talk_ai" });
+
+export const isTabAvailable = (tab: string, isFeatureOn: (id: string) => boolean): boolean => {
+    const feature = FEATURE_TABS[tab];
+    return feature === undefined || isFeatureOn(feature);
+};

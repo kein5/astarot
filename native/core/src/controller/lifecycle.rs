@@ -7,7 +7,7 @@
 //! `/run/initialization_progress` 1 to 4, `/run/enable_ai_models`, the engines.
 
 use super::Core;
-use crate::dispatch::Dispatcher;
+use crate::dispatch::{Dispatcher, Routes};
 use crate::errors::ErrorReply;
 use crate::languages::{RETIRED_TRANSLATION_WEIGHTS, RETIRED_TRANSLATION_WEIGHT_RESET, TRANSLATION_WEIGHTS};
 use serde_json::{Map, Value, json};
@@ -128,7 +128,7 @@ impl Core {
         }
 
         self.step("Update settings");
-        self.notify("initialization_complete", Value::Object(self.snapshot(dispatcher)));
+        self.notify("initialization_complete", Value::Object(self.snapshot_of(dispatcher.routes())));
         self.notify_adapters_started();
         self.notify_after_start();
     }
@@ -154,13 +154,15 @@ impl Core {
 
     /// The answers of the `/get/data/...` endpoints the UI needs at start (`updateConfigSettings`).
     /// A getter that fails gives `null`; the rest still go out.
-    fn snapshot(&self, dispatcher: &Dispatcher) -> Map<String, Value> {
+    /// The answers of every `/get/data/` endpoint of `routes` but [`INIT_EXCLUDED`]: what
+    /// `/run/initialization_complete` carries, and `/run/settings_snapshot` answers (#1236).
+    pub(crate) fn snapshot_of(&self, routes: &Routes) -> Map<String, Value> {
         let mut settings = Map::new();
-        for endpoint in dispatcher.routes().endpoints() {
+        for endpoint in routes.endpoints() {
             if !endpoint.starts_with("/get/data/") || INIT_EXCLUDED.contains(&endpoint) {
                 continue;
             }
-            let route = dispatcher.routes().get(endpoint).expect("listed above");
+            let route = routes.get(endpoint).expect("listed above");
             let handler = route.handler.clone();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(&Value::Null)));
             let value = match result {

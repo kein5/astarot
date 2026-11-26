@@ -6,9 +6,9 @@ import * as startupPhase from "../../logics/common/startupPhase.ts";
 const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController", "RecognitionFixController",
     "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
-    "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController"].map(name => [name, named(name)]));
+    "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController", "TalkAiController", "TalkAiIndicator"].map(name => [name, named(name)]));
 
-const load = async (phase: string) => {
+const load = async (phase: string, windowed = false) => {
     const runtime = hooks();
     const { App } = await loadModule<typeof import("./App.tsx")>(new URL("./App.tsx", import.meta.url), runtime, {
         "./_app_controllers/TranscriptionConsentController": { TranscriptionConsentController: parts.TranscriptionConsentController },
@@ -19,6 +19,10 @@ const load = async (phase: string) => {
         "./_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: parts.VirtualMicGuideController },
         "./_app_controllers/FirstRunSetupController": { FirstRunSetupController: parts.FirstRunSetupController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
+        "./_app_controllers/SettingsWindowController": {},
+        "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => windowed },
+        "./_app_controllers/TalkAiController": { TalkAiController: parts.TalkAiController },
+        "./others/talk_ai_indicator/TalkAiIndicator": { TalkAiIndicator: parts.TalkAiIndicator },
         "./_app_controllers": { UiLanguageController: parts.UiLanguageController },
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": { MainPage: parts.MainPage }, "./config_page/ConfigPage": { ConfigPage: parts.ConfigPage },
@@ -55,7 +59,9 @@ test("from the first frame the main page and title bar are drawn, locked until t
         // The settings page and the dialogs that act on the engine's settings wait for them.
         for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController, parts.RecognitionFixController,
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
-            parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
+            parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController,
+            // Talk AI's band over both pages, and what keeps its status current (#388).
+            parts.TalkAiController, parts.TalkAiIndicator]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         const geometry = find(inner, node => node.type === parts.WindowGeometryController);
         assert.ok(geometry);
         assert.equal(geometry.props.saveGeometry, !locked);
@@ -63,4 +69,12 @@ test("from the first frame the main page and title bar are drawn, locked until t
         assert.ok(language);
         assert.equal(language.props.waitForEngine, true);
     }
+});
+
+// In the app the settings have a window of their own (#1236): the main window draws no settings
+// page, and the rest of what it draws is the same.
+test("in the app the main window draws no settings page", async () => {
+    const { inner, has } = await load("ready", true);
+    assert.equal(has(inner, parts.ConfigPage), false);
+    for (const part of [parts.MainPage, parts.SwitchBlocksController, parts.ModalController, parts.FirstRunSetupController]) assert.ok(has(inner, part), part.name);
 });

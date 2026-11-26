@@ -253,6 +253,53 @@ fn the_vr_panel_may_use_only_its_endpoints() {
     dispatcher.stop(Duration::from_secs(1));
 }
 
+// #1236: the settings window asks for what the main window may, and its answers name it, so each
+// window tells its own answers from the other's. The main window's answers name no origin.
+#[derive(Default)]
+struct Origins(Mutex<Vec<(u16, Option<String>, Option<Value>)>>);
+
+impl Output for Origins {
+    fn answer(&self, status: u16, endpoint: Option<&str>, result: &Value) {
+        let _ = result;
+        self.0.lock().unwrap().push((status, endpoint.map(str::to_string), None));
+    }
+    fn answer_for(&self, status: u16, endpoint: Option<&str>, _: &Value, origin: Option<&Value>) {
+        self.0.lock().unwrap().push((status, endpoint.map(str::to_string), origin.cloned()));
+    }
+    fn received(&self, _: &str, _: &Value) {}
+    fn note(&self, _: &str) {}
+}
+
+#[test]
+fn the_settings_window_may_ask_for_anything_and_its_answers_name_it() {
+    let mut routes = Routes::new();
+    routes.add("/set/data/deepl_auth_key", false, |d| Reply::ok(d.clone()));
+    routes.add("/run/stop_voice", false, |_| Reply::ok(json!(true)));
+    let origins = Arc::new(Origins::default());
+    let dispatcher = Dispatcher::new(routes, origins.clone(), None);
+    dispatcher.start(3);
+    let line = |endpoint: &str, origin: Option<&str>| match origin {
+        Some(origin) => format!(r#"{{"endpoint": "{endpoint}", "data": "{}", "origin": "{origin}"}}"#, encode_data(&json!("2"))),
+        None => request_line(endpoint, Some(&json!("2"))),
+    };
+    dispatcher.receive_line(&line("/set/data/deepl_auth_key", Some("settings")));
+    // A request answered at once names it too.
+    dispatcher.receive_line(&line("/run/stop_voice", Some("settings")));
+    dispatcher.receive_line(&line("/set/data/deepl_auth_key", None));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while origins.0.lock().unwrap().len() < 3 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let mut answers = origins.0.lock().unwrap().clone();
+    answers.sort_by(|a, b| format!("{a:?}").cmp(&format!("{b:?}")));
+    assert_eq!(answers, vec![
+        (200, Some("/run/stop_voice".to_string()), Some(json!("settings"))),
+        (200, Some("/set/data/deepl_auth_key".to_string()), None),
+        (200, Some("/set/data/deepl_auth_key".to_string()), Some(json!("settings"))),
+    ]);
+    dispatcher.stop(Duration::from_secs(1));
+}
+
 #[test]
 fn a_failing_handler_answers_500_and_the_next_request_still_runs() {
     let mut routes = Routes::new();

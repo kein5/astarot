@@ -354,7 +354,10 @@ pub(crate) fn native_wayland() -> bool {
 
 #[tauri::command]
 pub fn quick_chat_shortcut_platform(window: WebviewWindow) -> Result<&'static str, String> {
-    sender(window.label(), "main")?;
+    // The Hotkeys page asks, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
+        return Err("quick_chat_forbidden".into());
+    }
     Ok(if native_wayland() {
         "wayland"
     } else if wayland_session() {

@@ -4,13 +4,16 @@ status: accepted
 era: rust-core
 validity: current
 implementation_status: partial
-implementation_checked: 2026-11-23
-implementation_note: 外部の対話サービスにつなぐ部品のクレート（native/talk-ai）だけが入っている。中核と画面へのつなぎ込み、送る前の同意と送っている間の表示は、まだない。
+implementation_checked: 2026-11-26
+implementation_note: 接続の部品（native/talk-ai）、中核の設定、同意、音声、画面の送信（native/core/src/controller/talk_ai.rs）、設定の「おしゃべりAI」のページと送っている間の帯（src-ui）が入っている。Gemini Liveの部品は中核のカタログにまだ載っていない。マニュアルとライセンス台帳の文書（段階7）は、まだない。
 evidence:
   - docs/adr/adr-018-talk-ai-through-external-services.md
   - docs/adr/adr-012-audio-ai-runtime-consolidation.md
   - docs/adr/adr-013-secret-store.md
   - native/talk-ai
+  - native/core/src/controller/talk_ai.rs
+  - src-ui/views/app/config_page/setting_section/setting_box/talk_ai/TalkAi.tsx
+  - src-ui/views/app/others/talk_ai_indicator/TalkAiIndicator.tsx
 ---
 # ADR-018: Talk AI connects to external conversation services, and the app does not run conversation models
 

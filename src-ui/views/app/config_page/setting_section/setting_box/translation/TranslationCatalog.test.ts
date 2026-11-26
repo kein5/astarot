@@ -28,7 +28,7 @@ let listed: ReadonlySet<string> = new Set(["shipped"]);
 
 // The catalog's groups and cards, each drawn on its own. hints: whether the page shows
 // descriptions as hints (HintDescriptions).
-async function catalog(context: TestContext, hints = false, layout = "list") {
+async function catalog(context: TestContext, hints = false, layout = "list", actions?: import("./TranslationCatalog.tsx").WeightActions) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
     const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
@@ -42,6 +42,7 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
             CatalogState: "catalog-state" },
@@ -49,10 +50,10 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
     const drawn = (node: TreeNode) => { runtime.remount(); return drawWith(runtime, node); };
-    const groups = nodesIn(runtime.render(module.TranslationCatalogSection)).filter(node => componentName(node) === "CatalogGroup").map(drawn);
+    const groups = nodesIn(runtime.render(module.TranslationCatalogSection, actions)).filter(node => componentName(node) === "CatalogGroup").map(drawn);
     const cards = groups.flatMap(group => nodesIn(group).filter(node => ["EntryCard", "ShippedCard"].includes(componentName(node) ?? "")).map(drawn));
     const forms = groups.flatMap(group => nodesIn(group).filter(node => ["EngineForm", "ApiForm"].includes(componentName(node) ?? "")).map(drawn));
-    return { groups, forms, section: runtime.render(module.TranslationCatalogSection), cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
+    return { groups, forms, section: runtime.render(module.TranslationCatalogSection, actions), cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
 }
 const classOf = (node: TreeNode | null | undefined): string => String(node?.props?.className ?? "");
 const head = (card: TreeNode) => findIn(card, node => classOf(node) === "card_head");
@@ -125,6 +126,38 @@ test("an added entry's card is what it is, its facts, then its notes and actions
     const shipped = cards.get("shipped");
     assert.ok(shipped);
     assert.deepEqual([shipped.props.children].flat().filter(Boolean).map(classOf), ["card_head"]);
+});
+
+// #1228: a built-in model's card switches the model in use when pressed, or reviews its download
+// when it is not on the PC. Its one control is its button, whose hit area covers the card.
+test("a built-in model's card is pressed to use it, or to review its download; the card in use has nothing to press", async context => {
+    const pressed: string[][] = [];
+    const builtin = (id: string, available: boolean, in_use: boolean) =>
+        ({ id, weight: id, origin: "builtin", name: id, runtime: "onnx", non_commercial: false, available, in_use });
+    shownCatalog = unchecked<TranslationCatalog>({ ...CATALOG, engine: [builtin("m2m", true, false), builtin("nllb-600", true, true), builtin("nllb-13", false, false)] });
+    listed = new Set(["m2m", "nllb-600", "nllb-13"]);
+    context.onTestFinished(() => { shownCatalog = CATALOG; listed = new Set(["shipped"]); });
+    const { cards } = await catalog(context, false, "list", {
+        chooseWeight: weight => pressed.push(["choose", weight]), reviewWeight: weight => pressed.push(["review", weight]) });
+    const press = (id: string) => find(cards.get(id) ?? null, node => node.type === kitStandIns.Button);
+
+    const use = press("m2m");
+    assert.ok(use);
+    assert.deepEqual([use.props.children, use.props.tone, use.props["aria-label"], use.props.className],
+        ["translation_catalog.use.engine", "primary", "translation_catalog.use_named", "press"]);
+    assert.equal(cards.get("m2m")?.props.className, "pressable", "the button's hit area covers the card");
+    use.props.onClick();
+    const review = press("nllb-13");
+    assert.ok(review);
+    assert.deepEqual([review.props.children, review.props.tone, review.props["aria-label"]],
+        ["model_downloads.review", undefined, "translation_catalog.review_named"]);
+    review.props.onClick();
+    assert.deepEqual(pressed, [["choose", "m2m"], ["review", "nllb-13"]]);
+    // The card in use, and the built-in APIs (the translators the main screen chooses), press nothing.
+    for (const id of ["nllb-600", "cloud"]) {
+        assert.equal(press(id), null, id);
+        assert.equal(cards.get(id)?.props.className, undefined, id);
+    }
 });
 
 test("an entry's state badge names its state, so whether it is on the PC is drawn by its shape and mark", async context => {
@@ -241,6 +274,7 @@ test("when a group has no user-added entries, its empty state names that group's
         "../_components/hint/Hint": { useHintDescriptions: () => true },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
             CatalogState: "catalog-state" },

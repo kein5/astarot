@@ -24,7 +24,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
             CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section", CatalogState: "catalog-state" },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
     });
-    const draw = (props: { missing: string[]; checking?: boolean; ids?: string[]; required?: boolean }) => runtime.render(OcrModels,
+    const draw = (props: { missing: string[]; checking?: boolean; ids?: string[]; required?: boolean; inFix?: boolean; onStart?: (id: string) => void }) => runtime.render(OcrModels,
         { ids: ["ppocr"], onChanged: () => {}, title: "Recognition models", desc: "What they are", note: "Needed", ...props });
     return { draw, sent };
 }
@@ -44,7 +44,7 @@ test("the models are a part of a catalog, folded as every catalog's part, with t
     let tree = s.draw({ missing: ["ppocr"] });
     assert.deepEqual([part(tree).title, part(tree).level, part(tree).help], ["Recognition models", 3, ["What they are"]]);
     // Folded like the catalogs' parts (CatalogSection starts them closed), even with a model missing.
-    assert.equal(part(tree).fold, undefined);
+    assert.equal(part(tree).fold, true);
     assert.equal(part(tree).readout, 'model_catalog.group_readout:{"count":1,"obtained":0}');
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons at the head of the part");
     tree = s.draw({ missing: [] });
@@ -152,4 +152,26 @@ test("the review is the kit's Dialog, with Back and the primary Start in its foo
     // Escape: the kit's Dialog asks its owner to close it.
     dialog.props.onOpenChange(false);
     assert.equal(find(s.draw({ missing: ["ppocr"] }), node => node.type === kitStandIns.Dialog), null);
+});
+
+// In the chat reading fix (#1241): the models in a list under their heading, without the part's fold
+// or the layout buttons, whatever layout the catalogs have; a download started after its review is
+// reported to the dialog, which waits for it.
+test("in the fix the models are a plain list, and a download started there is told to the dialog", async () => {
+    const s = await ocrModels("grid");
+    const started: string[] = [];
+    const draw = () => s.draw({ missing: ["ppocr"], inFix: true, onStart: id => started.push(id) });
+    let tree = draw();
+    assert.equal(part(tree).fold, false);
+    assert.equal(find(tree, node => node.type === "catalog-layout-switch"), null);
+    assert.equal(findIn(tree, node => node.type === "ul").props.layout, "list");
+    findIn(card(tree), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review").props.onClick();
+    tree = draw();
+    const dialog = findIn(tree, node => node.type === kitStandIns.Dialog);
+    // The start waits for the consent, as everywhere.
+    findIn(dialog, node => node.type === "input").props.onChange({ target: { checked: true } });
+    const start = findIn(draw(), node => node.type === kitStandIns.Button && node.props.children === "model_downloads.start");
+    start.props.onClick();
+    assert.deepEqual(s.sent.at(-1), ["/run/start_model_download", { id: "ppocr", consent: true, catalog_version: "1" }]);
+    assert.deepEqual(started, ["ppocr"]);
 });

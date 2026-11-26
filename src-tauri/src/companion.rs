@@ -30,8 +30,10 @@ pub const PANEL: &str = "companion_panel";
 pub const HANDLE: &str = "companion_handle";
 const PANEL_TITLE: &str = "ASTAROT Control Panel";
 const HANDLE_TITLE: &str = "ASTAROT Hexagram";
-/// The panel, in logical px.
-const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
+/// The panel, in logical px: the main screen's six switches one under another (#1235). At 340 each
+/// name stays on one line beside its longest state words, in English and Japanese; the panel's
+/// content then measured 403 px high in Chromium, and the list scrolls should a font need more.
+const PANEL_SIZE: (f64, f64) = (340.0, 420.0);
 /// The hexagram's plate (its outer circle) as the handle page draws it, radius in logical px
 /// (views/companion_handle: OPEN_RADIUS × 1.22).
 const STAR_PLATE: f64 = 71.0;
@@ -120,6 +122,9 @@ pub struct MenuLabels {
     stop: String,
     panel: String,
     main: String,
+    /// Opens the settings window (#1236). A main window of an earlier build sends none.
+    #[serde(default = "default_settings_label")]
+    settings: String,
     quit: String,
     /// The monitor submenu: its title, the primary monitor, the word before a monitor's number,
     /// and a chosen monitor that is not connected now.
@@ -204,6 +209,7 @@ impl Default for Status {
                 stop: "Stop recognition".into(),
                 panel: "Open control panel".into(),
                 main: "Open ASTAROT".into(),
+                settings: default_settings_label(),
                 quit: "Quit".into(),
                 monitor: default_monitor_label(),
                 primary: default_primary_label(),
@@ -212,6 +218,10 @@ impl Default for Status {
             },
         }
     }
+}
+
+fn default_settings_label() -> String {
+    "Open settings".into()
 }
 
 fn valid_label(value: &str) -> bool {
@@ -228,7 +238,7 @@ fn validate(status: &Status) -> Result<(), String> {
             .theme
             .as_ref()
             .is_none_or(crate::quick_chat::ThemeSetting::is_valid)
-        || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.quit, &menu.monitor, &menu.primary, &menu.display, &menu.missing]
+        || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.settings, &menu.quit, &menu.monitor, &menu.primary, &menu.display, &menu.missing]
             .iter()
             .all(|label| valid_label(label))
     {
@@ -314,6 +324,18 @@ fn request<R: Runtime>(app: &AppHandle<R>, action: &str) -> Result<(), String> {
     inner.actions.push_back(action.into());
     drop(inner);
     app.emit_to("main", "companion-requested", ()).map_err(|error| error.to_string())
+}
+
+/// Opens the settings window, or brings it to the front (#1236). Made after the event that asks
+/// returns: Windows can hang when a window is made from inside an event handler or a command
+/// that is not async.
+pub(crate) fn open_settings(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = crate::settings_window::open(&app, crate::settings_window::Navigation::default(), true) {
+            crate::startup_log(&format!("Settings window failed: {error}"));
+        }
+    });
 }
 
 pub(crate) fn show_main<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -851,7 +873,7 @@ pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
     show_main(app)
 }
 mod tray {
-    use super::{enabled, pick, request, show_main, toggle_panel, Anchor, CompanionState, Status};
+    use super::{enabled, open_settings, pick, request, show_main, toggle_panel, Anchor, CompanionState, Status};
     use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::{AppHandle, Emitter, Manager, Wry};
@@ -864,6 +886,7 @@ mod tray {
         toggle: MenuItem<Wry>,
         panel: MenuItem<Wry>,
         main: MenuItem<Wry>,
+        settings: MenuItem<Wry>,
         quit: MenuItem<Wry>,
         /// Where the hexagram shows: the primary monitor, then each connected one.
         monitors: Submenu<Wry>,
@@ -886,11 +909,13 @@ mod tray {
         // The overlay's items work only while the overlay feature is on.
         let panel = MenuItem::with_id(app, "panel", &labels.panel, enabled(), None::<&str>)?;
         let main = MenuItem::with_id(app, "main", &labels.main, true, None::<&str>)?;
+        // The settings open in a window of their own, beside the main window (#1236).
+        let settings = MenuItem::with_id(app, "settings", &labels.settings, true, None::<&str>)?;
         let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
         let monitors = Submenu::with_id(app, "monitors", &labels.monitor, enabled())?;
         let menu = Menu::with_items(
             app,
-            &[&main, &toggle, &PredefinedMenuItem::separator(app)?, &panel, &monitors,
+            &[&main, &settings, &toggle, &PredefinedMenuItem::separator(app)?, &panel, &monitors,
               &PredefinedMenuItem::separator(app)?, &quit],
         )?;
         let mut builder = TrayIconBuilder::with_id(TRAY)
@@ -904,6 +929,7 @@ mod tray {
                 "toggle" => log(request(app, "toggle_mic"), "toggle"),
                 "panel" if enabled() => open_panel_near_cursor(app),
                 "main" => log(show_main(app), "main window"),
+                "settings" => open_settings(app),
                 "quit" => quit_app(app),
                 id if enabled() => choose_monitor(app, id),
                 _ => {}
@@ -931,7 +957,7 @@ mod tray {
             builder = builder.icon(icon.clone());
         }
         builder.build(app)?;
-        Ok(Items { toggle, panel, main, quit, monitors, names: Vec::new() })
+        Ok(Items { toggle, panel, main, settings, quit, monitors, names: Vec::new() })
     }
 
     /// A monitor chosen in the submenu: the main window saves it as TRAY_COMPANION_MONITOR.
@@ -1038,6 +1064,7 @@ mod tray {
             let _ = items.toggle.set_enabled(status.ready && !status.mic.pending);
             let _ = items.panel.set_text(&menu.panel);
             let _ = items.main.set_text(&menu.main);
+            let _ = items.settings.set_text(&menu.settings);
             let _ = items.quit.set_text(&menu.quit);
             let _ = items.monitors.set_text(&menu.monitor);
             refresh_feature(app);
@@ -1226,11 +1253,15 @@ pub fn companion_status(window: WebviewWindow, state: State<CompanionState>) -> 
 #[tauri::command]
 pub fn companion_request(window: WebviewWindow, action: String) -> Result<(), String> {
     sender(window.label(), &[PANEL, HANDLE])?;
-    if action == "open_main" {
+    if action == "open_main" || action == "open_settings" {
         if window.label() == HANDLE {
             go_in(window.app_handle())?;
         } else {
             let _ = window.hide();
+        }
+        if action == "open_settings" {
+            open_settings(window.app_handle());
+            return Ok(());
         }
         return show_main(window.app_handle());
     }
@@ -1284,7 +1315,10 @@ fn monitor_infos(displays: &[Display]) -> Vec<MonitorInfo> {
 /// yet: just after it is turned on, its windows may still be in the making.
 #[tauri::command]
 pub fn companion_monitors(window: WebviewWindow) -> Result<Vec<MonitorInfo>, String> {
-    from_main(window.label())?;
+    // The settings page that asks is in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
+        return Err("companion_forbidden".into());
+    }
     Ok(monitor_infos(&read_displays(window.app_handle())?))
 }
 

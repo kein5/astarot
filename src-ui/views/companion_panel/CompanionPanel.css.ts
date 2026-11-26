@@ -31,7 +31,9 @@ export const dot = style({
 
 globalStyle(`${state}[data-state="listening"] ${dot}`, { background: fallbackVar(vars.primary_400_color, "#5b92ff") });
 
-export const switches = style({ display: "flex", flexDirection: "column", gap: ".6rem" });
+// The main screen's six switches (#1235). The window is sized to hold them; should a font need more
+// room, the list scrolls and the buttons below stay in sight.
+export const switches = style({ display: "flex", flexDirection: "column", gap: ".6rem", flexShrink: 1, minHeight: 0, overflowY: "auto" });
 
 // A row is the label of the kit's switch at its end: pressing anywhere on it presses the switch.
 // Its words dim as the switch does; the kit's switch dims itself while it cannot be used.

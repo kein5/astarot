@@ -249,6 +249,8 @@ common_error:
 # Messages for the sidecar's error codes (see docs/spec/reference/error-codes.md).
 backend_errors:
     TRANSCRIPTION_ENGINE_NOT_SELECTED: "文字起こしをオンにする前に音声認識エンジンを選んでください。"
+    # Talk AI (#388): a setting the core did not take (an address outside the user's PC and LAN, a value out of range).
+    talk_settings_invalid: "おしゃべりAIの設定の値を受け付けませんでした。接続先のアドレスは、お使いのPCかLANの中のws://かwss://のアドレスにしてください。"
     TRANSCRIPTION_ENGINE_UNAVAILABLE: "選択した音声認識エンジンを起動できませんでした。エンジンの設定を確認してから、文字起こしをもう一度オンにしてください。"
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
@@ -574,6 +576,7 @@ config_page:
         about_vrct: "ASTAROTについて"
         ocr: "チャット読み取り（OCR）"
         vr: "字幕とVR"
+        talk_ai: "おしゃべりAI"
 
     # A button that opens another settings page names the page and what is done there (#537).
     # page is the tab's name above; action says what is done there (「音声経路を変更」).
@@ -1169,7 +1172,7 @@ config_page:
     hotkeys:
         input_placeholder: "キーの組み合わせを入力"
         unassigned_placeholder: "未割り当て"
-        disabled_notice: "設定画面を開いている間は、誤作動を防ぐためにホットキーを止めています。"
+        disabled_notice: "このページを開いている間は、誤作動を防ぐためにホットキーを止めています。"
         section_label_quick_chat: "入力の小窓"
         section_label_toggles: "ウィンドウと機能の切り替え"
         section_label_stop: "停止とミュート"
@@ -1219,6 +1222,10 @@ config_page:
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
                     unknown: "前に選んだモニター（一覧を読み取れません）"
+            talk_ai:
+                label: "おしゃべりAI"
+                lead: "設定に「おしゃべりAI」のページが加わります。声や画面を送るのは、そのページで対話を始めて同意したときだけです。"
+                desc: "画面を見せながら、AIと声で話します。対話の相手は外部のサービスで、OpenAI RealtimeのAPIキーか、自分で動かすvLLM-Omniのサーバーが要ります。試験中の機能です。"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"
@@ -1425,7 +1432,7 @@ vr_panel:
         font_limit: "変更できる範囲は14〜28です"
         font_current: "現在: {{size}}（原文）"
         font_help: "訳文の大きさも合わせて変わります"
-        opacity_help: "押すごとに100 → 80 → 60 → 40% → 100%"
+        opacity_help: "ログの背景の濃さです。文字はそのまま見えます。押すごとに100 → 80 → 60 → 40% → 100%"
     settings:
         processing: "処理設定"
         changing: "変更を反映中…"
@@ -1758,6 +1765,15 @@ file_drop:
     done: "{{names}} を入れました"
     save_hint: "保存すると使えます。"
     done_skipped: "ほかのファイルは入れていません。保存すると使えます。"
+
+path_picker:
+    choose_file: "ファイルを選択"
+    choose_folder: "フォルダーを選択"
+    choose_file_for: "「{{field}}」のファイルを選択"
+    choose_folder_for: "「{{field}}」のフォルダーを選択"
+    filter: "ファイル（{{patterns}}）"
+    file_picker_unavailable: "ファイル選択を開けませんでした。ファイルの絶対パスを直接入力してください。"
+    folder_picker_unavailable: "フォルダー選択を開けませんでした。フォルダーの絶対パスを直接入力してください。"
 
 voice_ui:
     # 日本語を読み上げるエンジン（ADR-008）。利用者が自分で入れて起動するエンジンにつなぐ。
@@ -2484,6 +2500,9 @@ translation_catalog:
     use:
         engine: "お使いのPCの翻訳に使う"
         api: "OpenAI互換の接続先にする"
+    # A built-in model's card names its model in its button's accessible name (#1228).
+    use_named: "{{name}}をお使いのPCの翻訳に使う"
+    review_named: "{{name}}の取得内容を確認"
     remove: "削除"
     remove_confirm:
         engine: "項目だけを削除します。フォルダーとファイルはそのまま残ります。"
@@ -2600,6 +2619,11 @@ studio:
     close: "アプリを閉じる"
     close_to_tray: "閉じる（トレイで動き続けます）"
     close_window: "ウィンドウを閉じる"
+    # The settings window's title bar and its close button (#1236).
+    settings_window_title: "ASTAROTの設定"
+    close_settings: "設定を閉じる"
+    # The settings window while the main window's run of the engine has ended (#1236).
+    settings_disconnected: "エンジンとの接続が切れました。メインのウィンドウでエンジンが起動すると、設定はまたつながります。それまでは変えられません。"
 
 legacy_model_downloads:
     progress_name: "{{model}} のダウンロード"
@@ -2679,9 +2703,11 @@ transcription_consent:
 ocr_setup:
     title: "チャット読み取りには認識モデルが必要です"
     body: "選んでいる言語の認識モデルをまだダウンロードしていないため、「チャット読み取り（OCR）」はオフのままです。"
-    next: "モデルの欄で、提供元・ライセンス・容量を確かめてからダウンロードしてください。終わったら、もう一度「チャット読み取り（OCR）」をオンにしてください。"
+    next: "下のモデルは、確かめると提供元・ライセンス・容量を示し、同意したときだけダウンロードします。お使いのPCにそろったら、「チャット読み取り（OCR）」をオンにします。"
     close: "閉じる"
-    review: "モデルの欄を開く"
+    review: "チャット読み取りの設定を開く"
+    # Said once every model started from the dialog is on the PC (#1241).
+    models_ready: "チャット読み取りのモデルがそろいました。「チャット読み取り（OCR）」をオンにします。"
 network_privacy:
     http_warning: "この接続は暗号化されません。文章・音声・APIキーをネットワーク上の第三者に読み取られる可能性があります。"
     save_notice: "URLは保存時に確認します。APIキーを入力して保存するとこのURLに送信して認証します。"
@@ -2962,8 +2988,6 @@ companion:
     state_starting: "起動中"
     state_listening: "認識中"
     state_idle: "停止中"
-    mic: "マイク"
-    translation: "翻訳"
     "on": "オン"
     "off": "オフ"
     # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
@@ -2975,6 +2999,8 @@ companion:
     # Said for a moment the first time the hexagram ever comes out (#536).
     wheel_hint: "ホイールで回すと、ほかの3つが出ます"
     open_main: "ASTAROTを開く"
+    # The settings window (#1236).
+    open_settings: "設定を開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"
     # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
@@ -2983,6 +3009,7 @@ companion:
     # ASTAROT's own panel, not the system's Control Panel.
     menu_panel: "ASTAROTのコントロールパネルを開く"
     menu_main: "ASTAROTを開く"
+    menu_settings: "ASTAROTの設定を開く"
     menu_quit: "終了"
     # The same words as the setting on the experimental features page.
     menu_monitor: "六芒星を出すモニター"
@@ -2992,3 +3019,186 @@ companion:
     common:
         title: "共通の設定"
         edge: "隠す端"
+
+# Talk AI (#388, ADR-018): its settings page, there only while the experimental feature is on, and
+# the band above the pages while it sends. Kept outside config_page, so the settings search does not
+# find the page while it is off.
+talk_ai:
+    section_label: "おしゃべりAI"
+    intro: "画面を見せながら、AIと声で話します。見ているものについて聞いたり、画面の様子を声で説明してもらったりできます。対話の相手は外部のサービスで、ASTAROTは対話のモデルを動かしません。"
+    lead: "対話を始めると、マイクの声を対話の相手へ送ります。画面は、画面の共有を始めたときだけ送ります。"
+    lead_details: "どちらも、送る前に確認の画面で同意を求めます。送っている間は、ウィンドウの上の帯にそれを表示します。会話の文字や音声はASTAROTのログに書きません。OpenAI Realtimeの利用料金は、入れたAPIキーのアカウントにかかります。"
+    locked: "対話の間は、対話の相手と画面の送り方の設定を変えられません。変えるときは対話を終えてください。"
+    providers:
+        title: "対話の相手"
+        intro: "話す相手を選びます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。"
+        loading: "対話の相手の一覧を読み込んでいます…"
+        group:
+            api: "API（クラウド）"
+            local: "ローカル（自分のサーバー）"
+        group_help:
+            api: "インターネットのサービスにつなぎます。APIキーが要り、利用料金がかかります。"
+            local: "お使いのPCかLANの中で動かしているvLLM-Omniのサーバーにつなぎます。サーバーとモデルは自分で用意します。ASTAROTはどちらも取得しません。"
+    badge:
+        cloud: "クラウド"
+        local: "ローカル"
+        vision: "画面も見られる"
+        voice_only: "声だけ"
+    state:
+        in_use: "使用中"
+        ready: "使える"
+        not_set: "APIキーが未設定"
+    state_help:
+        not_set: "下の「OpenAIのAPIキー」に入れると使えます。"
+    fact:
+        destination: "接続先"
+        input: "受け取るもの"
+        input_vision: "声と画面"
+        input_voice: "声だけ（画面は見せられません）"
+        model: "推奨のモデル"
+        gpu: "GPUのメモリの目安"
+        gpu_value: "{{minimum}} GB以上（快適に動くのは{{recommended}} GB以上）"
+        key: "APIキー"
+        cost: "料金"
+        cost_value: "お使いのAPIキーのアカウントにかかります"
+    use: "この相手を使う"
+    key:
+        label: "OpenAIのAPIキー"
+        desc: "OpenAI Realtimeにつなぐキーです。翻訳のOpenAIのキーとは別に保存します。保存したキーは画面に表示しません。"
+        none: "まだ入れていません"
+        stored: "システムの資格情報ストアに保存してあります"
+        memory: "アプリを閉じるまで覚えています（システムの資格情報ストアに保存できませんでした）"
+        save: "保存"
+        remove: "キーを削除"
+        placeholder: "APIキーを貼り付け"
+        placeholder_replace: "新しいキーで置き換える"
+    local_url:
+        label: "サーバーのアドレス"
+        desc: "vLLM-Omniの受け口（/v1/realtime）のアドレスです。「ws://」か「wss://」で始め、お使いのPCかLANの中のアドレスにします。「wss://」のときはIPアドレスで書きます。"
+    conversation:
+        title: "対話"
+    status:
+        idle: "対話していません。"
+        starting: "{{name}}との対話を始めています…"
+        connecting: "{{name}}に接続しています…"
+        ready: "{{name}}と対話しています。マイクの声を送っています。"
+        ready_screen: "{{name}}と対話しています。マイクの声と画面を送っています。"
+        stopping: "対話を終えています…"
+        failed: "対話が止まりました。{{reason}}"
+    output:
+        label: "応答の声の出し先"
+        desc: "AIの応答の声を流す先です。既定はお使いのイヤホンやスピーカー（システムの再生先）で、自分にだけ聞こえます。仮想マイクを選ぶと、テキスト読み上げと同じ経路でVRChatに流れ、周りの人にも聞こえます。対話を始めるたびに既定に戻ります。"
+        headphones: "自分のイヤホン（既定）"
+        virtual_mic: "仮想マイク（周りの人にも聞こえる）"
+        virtual_mic_missing: "仮想マイクに流すには、テキスト読み上げの出力先を設定してください。"
+    start: "対話を始める"
+    stop: "対話を終える"
+    interrupt: "応答を止める"
+    end_turn: "話し終えた"
+    start_needs_key: "OpenAI Realtimeと話すには、APIキーが要ります。"
+    end_turn_help: "vLLM-Omniは、話し終えたところで「話し終えた」を押すと応答します。"
+    screen:
+        title: "画面の共有"
+        intro: "対話の相手に画面を見せます。対話を始めたあとで、画面の共有に別に同意してから始めます。"
+        no_vision: "{{name}}には画面を見せられません。"
+        needs_conversation: "画面の共有は、対話を始めてからできます。"
+        start: "画面の共有を始める"
+        stop: "画面の共有をやめる（対話も終わります）"
+        source:
+            label: "見せる画面"
+            desc: "VRChatのウィンドウとVRの視界は、チャット読み取りと同じ方法で取り込みます。モニター全体は、WindowsとX11ではメインのモニターを使います。Waylandでは、VRChatのウィンドウもモニター全体も、デスクトップの画面選択の画面で選びます。"
+            window: "VRChatのウィンドウ"
+            vr: "VRの視界"
+            monitor: "モニター全体"
+        interval:
+            label: "送る間隔"
+            desc: "画面の絵を送る間隔です。短くすると画面の変化に早く気づきますが、料金と通信量が増えます。"
+            value: "{{seconds}}秒に1枚"
+            default: "{{seconds}}秒に1枚（既定）"
+        long_edge:
+            label: "絵の大きさ"
+            desc: "送る絵の長い辺の大きさです。大きいほど細かい文字を読めますが、料金と通信量が増えます。絵はJPEGにして送ります。"
+            value: "長辺 {{px}} px"
+            default: "長辺 {{px}} px（既定）"
+        detail:
+            label: "絵の細かさ"
+            desc: "OpenAI Realtimeが絵を読む細かさです。「低い」は料金が下がりますが、小さな文字は読みにくくなります。"
+            auto: "サービスに任せる（既定）"
+            low: "低い"
+            high: "高い"
+    consent:
+        title: "おしゃべりAIの対話を始めますか？"
+        what: "{{name}}にマイクの声を送り、AIの応答を声で流します。"
+        destination: "送り先"
+        sent: "送るもの"
+        sent_voice: "マイクの声。対話を終えるまで送り続けます。画面は、画面の共有を始めたときだけ送ります。"
+        answer: "応答の声"
+        answer_headphones: "自分のイヤホン（システムの再生先）"
+        answer_virtual_mic: "仮想マイク。VRChatの周りの人にも聞こえます。"
+        stop: "やめ方"
+        stop_value: "ウィンドウの上の帯か、このページの「対話を終える」を押します。"
+        transcription: "対話の間は、マイクの文字起こしを止めます。対話を終えたあと、自分でオンに戻せます。"
+        cloud: "料金はお使いのAPIキーのアカウントにかかります。送った声の扱いは、サービスの提供元の規約に従います。"
+        share_check: "応答の声が周りの人にも聞こえることを確かめました"
+        cancel: "キャンセル"
+        agree: "同意して始める"
+    screen_consent:
+        title: "画面を共有しますか？"
+        what: "{{name}}に画面の絵を送ります。"
+        source: "見せる画面"
+        sent: "送るもの"
+        sent_value: "{{seconds}}秒に1枚、長辺 {{px}} pxのJPEG。新しい絵を送ると、前の絵は対話の履歴から消します。"
+        stop_value: "画面の共有をやめると、対話も終わります。"
+        monitor: "モニター全体を送ります。ほかのアプリの画面や通知も写ります。"
+        agree: "同意して共有する"
+    indicator:
+        title: "おしゃべりAI"
+        connecting: "{{name}}に接続しています…"
+        voice: "{{name}}にマイクの声を送っています"
+        screen: "画面（{{source}}）も送っています"
+    ended_with_error: "おしゃべりAIの対話が止まりました。{{reason}}"
+    errors:
+        other: "うまくいきませんでした（{{code}}）。"
+        talk_request_failed: "うまくいきませんでした。もう一度試してください。"
+        backend_unavailable: "ASTAROTの処理部分に届きませんでした。アプリを起動し直してください。"
+        talk_disabled: "実験的機能の「おしゃべりAI」がオフです。"
+        talk_already_running: "すでに対話しています。"
+        talk_consent_required: "同意を確かめられませんでした。もう一度始めてください。"
+        talk_key_required: "OpenAIのAPIキーがありません。「OpenAIのAPIキー」に入れてください。"
+        talk_credential_unavailable: "システムの資格情報ストアを読めませんでした。アプリを起動し直してください。"
+        talk_key_invalid: "APIキーの形が正しくありません。空白や改行を入れずに貼り付けてください。"
+        talk_settings_invalid: "設定の値を受け付けませんでした。"
+        talk_not_ready: "対話の準備ができていません。対話を始め直してください。"
+        talk_audio_already_running: "マイクの声はすでに送っています。"
+        talk_indicator_required: "送っていることの表示を出せませんでした。もう一度始めてください。"
+        talk_output_consent_required: "仮想マイクに流す同意がありません。もう一度始めてください。"
+        talk_output_invalid: "応答の声の出し先が正しくありません。"
+        talk_output_failed: "応答の声を流せませんでした。再生先の装置を確かめてください。"
+        talk_microphone_in_use: "おしゃべりAIと話している間は、マイクの文字起こしを使えません。対話を終えてからオンにしてください。"
+        talk_microphone_missing: "マイクが見つかりません。設定の「デバイス」でマイクを選んでください。"
+        talk_microphone_failed: "マイクから声を取り込めませんでした。設定の「デバイス」でマイクを確かめてください。"
+        talk_playback_overrun: "応答の声の再生が追いつかず、対話を止めました。"
+        talk_audio_worker: "マイクの処理を始められませんでした。"
+        talk_automatic_turns: "この相手は話の区切りを自分で判断します。"
+        talk_vision_unavailable: "この相手には画面を見せられません。"
+        talk_screen_already_running: "すでに画面を共有しています。"
+        talk_screen_source_invalid: "見せる画面の選び方が正しくありません。"
+        talk_screen_worker: "画面の取り込みを始められませんでした。"
+        talk_monitor_unavailable: "モニターを取り込めませんでした。Waylandでは、画面選択の画面でモニターを選んでください。"
+        talk_window_unavailable: "VRChatのウィンドウを取り込めませんでした。VRChatが起動しているか確かめてください。Waylandでは、画面選択の画面でVRChatのウィンドウを選んでください。"
+        talk_vr_unavailable: "VRの視界を取り込めませんでした。SteamVRが起動しているか確かめてください。"
+        talk_screen_encode_failed: "画面の絵を作れませんでした。"
+        talk_url_invalid: "接続先のアドレスが正しくありません。"
+        talk_unreachable: "接続先につながりませんでした。ネットワークと、サーバーが動いているかを確かめてください。"
+        talk_key_refused: "APIキーを受け付けませんでした。キーが正しいか、使える状態かを確かめてください。"
+        talk_endpoint_not_found: "接続先にRealtimeの受け口がありません。アドレスを確かめてください。"
+        talk_handshake_refused: "接続先が接続を断りました。"
+        talk_connection_broken: "つなぐ途中で通信が切れました。"
+        talk_cancelled: "接続を取りやめました。"
+        talk_session_timeout: "接続先が時間内に応えませんでした。"
+        talk_session_refused: "接続先が対話の設定を受け付けませんでした。"
+        talk_server_closed: "相手のサービスが対話を終えました。1回の対話の長さに上限があるサービスもあります。"
+        talk_connection_lost: "接続が切れました。"
+        talk_event_not_json: "相手のサービスから読めない応答が届きました。"
+        talk_event_without_type: "相手のサービスから読めない応答が届きました。"
+        talk_event_bad_audio: "相手のサービスから読めない音声が届きました。"

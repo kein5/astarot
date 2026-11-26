@@ -2,12 +2,15 @@ import type { ReactNode } from "react";
 import { useStore_NotificationStatus } from "@store";
 import type { NotificationOptions } from "@store";
 import { toast } from "react-toastify";
+import { noticesQuiet } from "./noticeScope.ts";
 
 export type NotificationKind = "warning" | "error" | "success";
 
 export const useNotificationStatus = () => {
     const { currentNotificationStatus, updateNotificationStatus } = useStore_NotificationStatus();
     const showNotification = (status: NotificationKind, message: ReactNode, options: NotificationOptions = {}) => {
+        // A line that answers the other window's request: that window says it (#1236).
+        if (noticesQuiet()) return;
         updateNotificationStatus({
             status,
             is_open: true,

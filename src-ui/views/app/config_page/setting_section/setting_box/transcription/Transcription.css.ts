@@ -14,6 +14,6 @@ export const engine_group = style({
     flexDirection: "column",
     minWidth: 0,
     paddingBottom: "1.2rem",
-    borderBottom: `.1rem solid ${vars.dark_800_color}`,
+    borderBottom: `.1rem solid var(--settings_rule, ${vars.vox_border})`,
 });
 globalStyle(`${engine_group} > section:last-child`, { paddingBottom: ".8rem", borderBottom: 0 });

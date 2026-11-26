@@ -10,6 +10,7 @@ import { SectionLabelComponent } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { Button } from "../../../../../kit/index.ts";
+import { handOverQuickChat, isSettingsWindow, showingHotkeysPage } from "../../../../../../logics/common/settingsWindow.ts";
 // The hotkeys a conversation cannot wait for, stop and mute, are in sight; the others are set
 // once, in 「詳細設定」, whose line says how many of them have a key (#554).
 // The platforms whose quick chat key gets a note under it: quick_chat_shortcut_platform answers
@@ -25,6 +26,14 @@ export const Hotkeys = () => {
     const { t } = useI18n();
     const { currentHotkeys } = useHotkeys();
     const assigned = ADVANCED_HOTKEYS.filter(id => !!currentHotkeys.data?.[id]?.length).length;
+    // The hotkeys wait while this page is shown, so a key pressed to record it does not act. In a
+    // page of the main window they wait while the settings are open; in the settings window
+    // (#1236) the main window, which runs them, pauses them until this page goes.
+    useEffect(() => {
+        if (!isSettingsWindow()) return undefined;
+        showingHotkeysPage(true).catch(error => console.error("The hotkeys could not be paused", error));
+        return () => { showingHotkeysPage(false).catch(error => console.error("The hotkeys could not be resumed", error)); };
+    }, []);
     // Reviewed against #614: what the hotkeys do while this page is open is a state, said by a
     // readout; the quick chat row's notes are its label's hint.
     return (
@@ -81,7 +90,17 @@ const QuickChatHotkeyContainer = () => {
             {isPlatformNote(platform) && <EnvReadout className={styles.platform_readout}>
                 <p>{t({ wayland: "quick_chat.wayland_portal", xwayland: "quick_chat.xwayland_hint", unknown: "quick_chat.platform_unknown" }[platform])}</p>
             </EnvReadout>}
-            <Button className={styles.open_quick_chat} onClick={() => { setIsOpenedConfigPage(false); openQuickChat(); }}>
+            {/* In a page of the main window, Quick Chat opens once the settings have closed. The
+                settings window stays open and leaves the opening to the main window, which runs
+                Quick Chat (#1236). */}
+            <Button className={styles.open_quick_chat} onClick={() => {
+                if (isSettingsWindow()) {
+                    handOverQuickChat().catch(error => console.error("Quick Chat could not be handed over", error));
+                    return;
+                }
+                setIsOpenedConfigPage(false);
+                openQuickChat();
+            }}>
                 {t("quick_chat.open")}
             </Button>
         </div>

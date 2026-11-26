@@ -51,7 +51,7 @@ const axisRow = `.${axis_row}.${axis_row}`;
 globalStyle(`${axisRow}, .${sample_row}.${sample_row}`, { width: "100%" });
 globalStyle(axisRow, {
     paddingBlock: "2rem",
-    borderBottom: `solid .1rem ${vars.dark_800_color}`,
+    borderBottom: `solid .1rem var(--settings_rule, ${vars.vox_border})`,
     "@container": { "(max-width: 72rem)": { gridTemplateColumns: "minmax(0, 1fr)", gap: ".8rem" } },
 });
 globalStyle(`${axisRow} > :last-child`, { justifyItems: "stretch" });

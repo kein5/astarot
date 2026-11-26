@@ -81,7 +81,7 @@ export const group = style({
     gap: ".2rem",
     maxWidth: "100%",
     padding: ".2rem",
-    border: `.1rem solid ${vars.dark_800_color}`,
+    border: `.1rem solid ${vars.vox_border}`,
     borderRadius: vars.vox_radius,
 });
 

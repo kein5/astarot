@@ -26,6 +26,7 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
         "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
@@ -38,8 +39,10 @@ test("the servers' descriptions are the fold's, the rows' and the checkbox's; no
     assert.equal(findIn(tree, node => node.type === "setup").props.desc, "speech_servers.help");
     const rows = all(tree, node => node.type === "form-row").map(node => [node.props.label, node.props.description]);
     assert.deepEqual(rows, [
-        // Which GPUs the choices use, then what "CPU" runs on this platform.
+        // Each path is a row of its own (#1231); which GPUs the choices use, then what "CPU" runs on this platform.
+        ["speech_servers.model", undefined], ["speech_servers.voice_file", undefined],
         ["speech_servers.device", "speech_servers.device_help\nspeech_servers.cpu_build_separate"],
+        ["speech_servers.model", undefined], ["speech_servers.vad_model", undefined],
         ["speech_servers.diarization_model", "speech_servers.diarization_help"],
         ["speech_servers.device", "speech_servers.device_help\nspeech_servers.cpu_build_separate"],
     ]);
@@ -86,6 +89,7 @@ async function server({ state = {}, pending = {}, dirty = false, saving = false,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
         "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
@@ -93,15 +97,19 @@ async function server({ state = {}, pending = {}, dirty = false, saving = false,
     const tree = runtime.render(SpeechServers, { profiles: ["japanese", "asr"] });
     const buttons = all(tree, node => node.type === kitStandIns.Button);
     const named = (words: string) => buttons.filter(node => node.props.children === words);
-    return { tree, sent, edits, named, fields: all(tree, node => node.type === kitStandIns.TextField) };
+    return { tree, sent, edits, named, fields: all(tree, node => node.type === "path-field") };
 }
 
-test("a server's paths are the kit's monospaced fields, and they wait while the server is busy", async () => {
+// #1231: each path is a path field, the kit's monospaced field with the button that picks a GGUF
+// file beside it; a picked path is an edit, as a typed one is.
+test("a server's paths are path fields that pick GGUF files, and they wait while the server is busy", async () => {
     const idle = await server({ state: { japanese: { state: "stopped", generation: 1 }, asr: { state: "stopped", generation: 2 } } });
-    assert.ok(idle.fields.length > 0);
-    assert.ok(idle.fields.every(field => field.props.mono === true && field.props.disabled === false && field.props.spellCheck === false));
+    assert.deepEqual(idle.fields.map(field => field.props.label), ["speech_servers.model", "speech_servers.voice_file",
+        "speech_servers.model", "speech_servers.vad_model", "speech_servers.diarization_model"]);
+    assert.ok(idle.fields.every(field => field.props.disabled === false && field.props.maxLength === 4096));
+    assert.ok(idle.fields.every(field => JSON.stringify(field.props.pick) === JSON.stringify({ kind: "file", extensions: ["gguf"] })));
     assert.ok(idle.fields.some(field => field.props.value === "m.gguf"));
-    idle.fields[0].props.onChange({ target: { value: "other.gguf" } });
+    idle.fields[0].props.onChange("other.gguf");
     assert.equal(idle.edits.length, 1);
     for (const busy of [{ state: { japanese: { state: "ready" }, asr: { state: "ready" } } }, { state: {} },
         { pending: { japanese: true, asr: true }, state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } }]) {

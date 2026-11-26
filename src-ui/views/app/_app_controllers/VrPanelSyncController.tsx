@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
 import type { Atom } from "jotai";
 
-import { dynamicStoreRegistry } from "@store";
+import { dynamicStoreRegistry, useStore_IsOpenedSettingsWindow } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useIsOpenedConfigPage, useNotificationStatus } from "@logics_common";
 import { useI18n } from "@useI18n";
@@ -17,6 +17,8 @@ import { failureRun, windowFailureKey } from "../../../logics/common/windowFailu
 import type { FailureRun } from "../../../logics/common/windowFailures.ts";
 import { vrCustomTranslationModelNamesAtom } from "../../../logics/translation/translationCatalogState.ts";
 import type { LanguageMutationRequest } from "../../../logics/main/languageMutationCoordinator.ts";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings.ts";
+import { closeSettingsWindow, settingsHaveAWindow } from "../../../logics/common/settingsWindow.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
 // - VRパネルが読むatomの値だけを一方向に同期する (vrPanelWire.vrPanelStateNames。SEC-03)。
@@ -98,6 +100,14 @@ const emitState = (entries: readonly NamedAtom[], full = false) => {
 export const VrPanelSyncController = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const { currentIsOpenedConfigPage, setIsOpenedConfigPage } = useIsOpenedConfigPage();
+    // The settings window (#1236): nothing pauses while it is open, but the VR panel's settings
+    // follow it, as they followed the settings page.
+    const { currentIsOpenedSettingsWindow } = useStore_IsOpenedSettingsWindow();
+    // In the app the desktop's settings are a window (#1236): VR opens it without taking the focus,
+    // and closes it again when VR opened it.
+    const openSettings = useOpenSettings();
+    const openSettingsRef = useRef(openSettings);
+    openSettingsRef.current = openSettings;
     const { currentIsEnabledOverlayVrPanel } = useVr();
     const { t } = useI18n();
     const { showNotification_Error } = useNotificationStatus();
@@ -117,8 +127,13 @@ export const VrPanelSyncController = () => {
                 t(windowFailureKey("vr_panel", "open", error)), { category_id: "vr_panel_open_failed" }));
         });
     }, [is_vr_panel_enabled]);
+    // The settings page is open: the main features pause, and the VR panel's requests wait.
     const isOpenedConfigPageRef = useRef(currentIsOpenedConfigPage.data);
     isOpenedConfigPageRef.current = currentIsOpenedConfigPage.data;
+    // The desktop shows the settings, as a page or as a window.
+    const settingsShown = currentIsOpenedConfigPage.data === true || currentIsOpenedSettingsWindow.data === true;
+    const settingsShownRef = useRef(settingsShown);
+    settingsShownRef.current = settingsShown;
     // VRのVR設定ウィンドウを開いているか (開いている間はVRからの送信を通す)
     const isVrSettingsOpenRef = useRef(false);
     // 設定画面を開いたのがVRか (VR設定ウィンドウを閉じたとき、設定画面も閉じてよいか)
@@ -126,11 +141,11 @@ export const VrPanelSyncController = () => {
 
     // デスクトップ側で設定画面が閉じられたら、VRの扱いも終わる (VR側は設定ウィンドウを閉じる)
     useEffect(() => {
-        if (currentIsOpenedConfigPage.data !== true) {
+        if (!settingsShown) {
             isVrSettingsOpenRef.current = false;
             isOpenedByVrRef.current = false;
         }
-    }, [currentIsOpenedConfigPage.data]);
+    }, [settingsShown]);
 
     // VR UI がOFFの間は、全atomの同期も VR画面からの要求の受付もしない (VR画面のウィンドウが無いのに、
     // 状態が変わるたびに直列化して送ることになるため)。ONになったら全状態を送る
@@ -171,15 +186,16 @@ export const VrPanelSyncController = () => {
             if (is_opened === true) {
                 isVrSettingsOpenRef.current = true;
                 // デスクトップが先に開いていたら、VR側を閉じてもデスクトップの設定画面は閉じない
-                if (isOpenedConfigPageRef.current !== true) isOpenedByVrRef.current = true;
-                setIsOpenedConfigPage(true);
+                if (!settingsShownRef.current) isOpenedByVrRef.current = true;
+                openSettingsRef.current({}, { focus: false });
                 return;
             }
             isVrSettingsOpenRef.current = false;
             // VRが開いたときだけ閉じる (VRの起動時などに届く false でデスクトップの設定画面を閉じない)
             if (isOpenedByVrRef.current === true) {
                 isOpenedByVrRef.current = false;
-                setIsOpenedConfigPage(false);
+                if (settingsHaveAWindow()) closeSettingsWindow().catch(console.error);
+                else setIsOpenedConfigPage(false);
             }
         });
         // VRパネルが先に起動していた場合に備えて、こちらからも一度送る

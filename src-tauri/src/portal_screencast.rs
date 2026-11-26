@@ -575,6 +575,8 @@ fn run(app: AppHandle, program: PathBuf, frame: PathBuf, restore_token: Option<S
     if let Some(reason) = reason {
         crate::startup_log(&format!("Window sharing is over: {reason}"));
         let _ = app.emit_to("main", "screencast-ended", Ended { reason });
+        // The settings window's chat reading section shows the sharing too (#1236).
+        let _ = app.emit_to(crate::settings_window::LABEL, "screencast-ended", Ended { reason });
     }
 }
 
@@ -632,7 +634,7 @@ async fn finish(state: &Screencast) {
 /// Whether the button for sharing a window belongs on this desktop, and whether a window is shared now.
 #[tauri::command]
 pub fn screencast_support(window: WebviewWindow, state: State<'_, Screencast>) -> Result<Support, String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("screencast_forbidden".into());
     }
     Ok(Support { supported: crate::quick_chat::wayland_session(), active: state.active() })
@@ -644,7 +646,7 @@ pub fn screencast_support(window: WebviewWindow, state: State<'_, Screencast>) -
 #[tauri::command]
 pub async fn screencast_start(window: WebviewWindow, app: AppHandle, state: State<'_, Screencast>, restore_token: Option<String>)
     -> Result<Started, String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("screencast_forbidden".into());
     }
     if !crate::quick_chat::wayland_session() {
@@ -687,7 +689,7 @@ pub async fn screencast_start(window: WebviewWindow, app: AppHandle, state: Stat
 /// Ends the sharing: the helper stops and the desktop is told the session is over.
 #[tauri::command]
 pub async fn screencast_stop(window: WebviewWindow, state: State<'_, Screencast>) -> Result<(), String> {
-    if window.label() != "main" {
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("screencast_forbidden".into());
     }
     state.cancel();

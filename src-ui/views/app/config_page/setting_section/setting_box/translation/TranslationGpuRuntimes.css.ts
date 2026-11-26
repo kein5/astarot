@@ -13,7 +13,7 @@ export const choice = style({
     gap: "1.2rem",
     minWidth: 0,
     padding: "1.6rem",
-    border: ".1rem solid var(--dark_800_color, #344662)",
+    border: ".1rem solid var(--vox_border, #344662)",
     borderRadius: "var(--vox_radius, .8rem)",
     "@container": { [WIDE]: { gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", columnGap: "2.4rem", alignItems: "start" } },
 });
@@ -31,14 +31,14 @@ export const or = style({
     fontSize: "1.2rem",
     color: "var(--vox_description_text, #a3adc0)",
     selectors: {
-        "&::before, &::after": { content: '""', flex: 1, borderTop: ".1rem solid var(--dark_800_color, #344662)" },
+        "&::before, &::after": { content: '""', flex: 1, borderTop: ".1rem solid var(--vox_border, #344662)" },
     },
     "@container": {
         [WIDE]: {
             flexDirection: "column",
             alignSelf: "stretch",
             selectors: {
-                "&::before, &::after": { borderTop: 0, borderInlineStart: ".1rem solid var(--dark_800_color, #344662)" },
+                "&::before, &::after": { borderTop: 0, borderInlineStart: ".1rem solid var(--vox_border, #344662)" },
             },
         },
     },

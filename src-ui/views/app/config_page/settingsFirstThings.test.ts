@@ -9,10 +9,13 @@ import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/
 import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 import * as settingsMenu from "../../../logics/configs/settingsMenu.ts";
 import * as usagePresets from "../../../logics/configs/usagePresets.ts";
+import * as experimentalFeatures from "../../../logics/configs/experimentalFeatures.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
 const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(tree).filter(predicate);
 const icon = (name: string) => Object.assign(() => null, { icon: name });
+// The experimental features the menu reads: Talk AI's page is in it only while its feature is on.
+let menuFeatures: Record<string, boolean> = {};
 // The menu's tabs, group by group: SidebarSection draws the groups, each group its tabs.
 const menuTabs = (runtime: HookRuntime, tree: unknown) => all(tree, node => node.props?.group?.tabs)
     .flatMap(group => all(drawWith(runtime, group), node => typeof node.props?.tab_id === "string"));
@@ -21,9 +24,14 @@ test("chat reading has a page of its own, and search lists it there", async () =
     const runtime = hooks();
     let tab = "ocr";
     const pages = Object.fromEntries(["Device", "Tts", "Rvc", "Appearance", "Translation", "Transcription", "Vrchat", "Ocr",
-        "AdvancedSettings", "Vr", "Hotkeys", "AboutVrct", "Updater"].map(name => [name, name]));
+        "AdvancedSettings", "Vr", "Hotkeys", "AboutVrct", "Updater", "TalkAi"].map(name => [name, name]));
+    let features: Record<string, boolean> = {};
+    const opened: string[] = [];
     const { SettingBox } = await loadModule<typeof import("./setting_section/setting_box/SettingBox.tsx")>(new URL("./setting_section/setting_box/SettingBox.tsx", import.meta.url), runtime, {
-        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) }, "@setting_box": pages,
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab }, updateSelectedConfigTabId: (id: string) => opened.push(id) }) },
+        "@setting_box": pages,
+        "@logics_configs": { useSettingValue: () => ({ state: "ok", data: features }) },
+        "../../../../../logics/configs/experimentalFeatures.ts": experimentalFeatures,
     });
     const ocr = runtime.render(SettingBox);
     assert.ok(ocr);
@@ -34,6 +42,16 @@ test("chat reading has a page of its own, and search lists it there", async () =
         assert.ok(page);
         assert.equal(page.type, "Vrchat");
     }
+    // Talk AI's page is there only while its experimental feature is on (#969, decision 2).
+    tab = "talk_ai";
+    features = { talk_ai: true };
+    const on = runtime.render(SettingBox);
+    assert.ok(on);
+    assert.equal(drawWith(runtime, on)?.type, "TalkAi");
+    features = {};
+    const off = runtime.render(SettingBox);
+    assert.ok(off);
+    assert.equal(drawWith(runtime, off), null);
 
     const search = await loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
@@ -59,7 +77,8 @@ test("the side menu groups its pages in the order a conversation uses them, each
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
-        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }), useSettingValue: () => ({ state: "ok", data: menuFeatures }) },
+        "../../../../logics/configs/experimentalFeatures.ts": experimentalFeatures, "@images/talk_ai.svg?react": icon("talk_ai.svg?react"),
     });
     const tree = runtime.render(sidebar.SidebarSection);
     const groups = all(tree, node => node.props?.group?.tabs).map(node => node.props.group);
@@ -72,11 +91,18 @@ test("the side menu groups its pages in the order a conversation uses them, each
     ]);
     const tabs = menuTabs(runtime, tree).map(node => node.props.tab_id);
     assert.deepEqual(tabs, groups.flatMap(group => group.tabs));
+    // Talk AI (#388) joins the voice and reading group while its feature is on.
+    menuFeatures = { talk_ai: true };
+    const withTalkAi = all(runtime.render(sidebar.SidebarSection), node => node.props?.group?.tabs).map(node => node.props.group);
+    menuFeatures = {};
+    assert.deepEqual(withTalkAi.find(group => group.id === "voice_and_reading")?.tabs, ["tts", "rvc", "ocr", "talk_ai"]);
+    tabs.push("talk_ai");
     assert.equal(settingsMenu.FIRST_SETTINGS_TAB, "translation");
     assert.match(readFileSync(new URL("../../../logics/store.ts", import.meta.url), "utf8"),
         /createAtomWithHook\("translation", "SelectedConfigTabId"\)/, "settings open on the first page of the menu");
     const shown = (id: string) => sidebar.TabIcon({ tab_id: id, className: "" });
     assert.ok(shown("ocr"));
+    assert.ok(shown("talk_ai"));
     const ocrIcon = shown("ocr"), vrchatIcon = shown("vrchat");
     assert.ok(ocrIcon && vrchatIcon);
     assert.notEqual(ocrIcon.type, vrchatIcon.type);
@@ -104,7 +130,8 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
-        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }), useSettingValue: () => ({ state: "ok", data: menuFeatures }) },
+        "../../../../logics/configs/experimentalFeatures.ts": experimentalFeatures, "@images/talk_ai.svg?react": icon("talk_ai.svg?react"),
     });
     const [tab] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "transcription");
     const tree = drawWith(runtime, tab);

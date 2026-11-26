@@ -103,6 +103,7 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
         "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../../../../../../logics/common/fileDrop": fileDrop,
         "../../../../../../logics/voice/conversionLatency": conversionLatency,
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => `/path/${file}` },
@@ -144,6 +145,10 @@ const inputNamed = (tree: unknown, words: string) => {
     const label = findIn(tree, node => node.type === "label" && [node.props.children].flat()[0] === words, `the field ${words}`);
     return findIn(label, node => node.type === "input" || node.type === "select");
 };
+// A path field (#1231): the row of that label, and the field and its picker in it.
+const pathNamed = (tree: unknown, words: string) =>
+    findIn(findIn(tree, node => node.type === "row" && node.props.label === words, `the row ${words}`), node => node.type === "path-field");
+const pathRows = (tree: unknown) => ofType(tree, "row").filter(row => find(row, node => node.type === "path-field") !== null).map(row => row.props.label);
 const selectNamed = (tree: unknown, name: string) => findIn(tree, node => node.type === "select" && node.props["aria-label"] === name, `the list ${name}`);
 const choose = (tree: unknown, name: string, value: string) => selectNamed(tree, name).props.onChange({ target: { value } });
 const alerts = (tree: unknown) => ofType(tree, "p").filter(node => node.props.role === "alert").map(textOf);
@@ -317,7 +322,7 @@ test("RVC's pitch and index rate are checked as they are typed, and an index rat
     tree = v.draw();
     assert.deepEqual(alerts(tree), ["voice_ui.rvc_index_required"]);
     assert.equal(startReason(tree).reason, "voice_ui.start_needs_setup");
-    inputNamed(tree, "voice.vc_rvc_index").props.onChange({ target: { value: "voice.index" } });
+    pathNamed(tree, "voice.vc_rvc_index").props.onChange("voice.index");
     tree = v.draw();
     assert.deepEqual(alerts(tree), []);
     assert.equal(startReason(tree).reason, "voice_ui.start_needs_save", "complete, with edits to save first");
@@ -480,11 +485,19 @@ test("RVC's paths are typed or dropped, its runtime is set up in place, and the 
     let tree = v.open({ variant: "all" });
     const setup = () => findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.setup_input");
     assert.deepEqual(ofType(setup(), "description").map(node => node.props.text), ["voice.vc_rvc_hint"]);
-    const fields = ofType(setup(), "input").map(node => [node.props.type, node.props.value, node.props.maxLength, node.props.placeholder]);
-    // Text fields of the kit, which are text unless they say otherwise.
-    assert.deepEqual(fields, [[undefined, "/rvc", 4096, `voice_ui.example {"value":"/path/rvc-runtime"}`], [undefined, "voice.pth", 4096, `voice_ui.example {"value":"/path/voice.pth"}`],
-        [undefined, "old.index", 4096, `voice_ui.example {"value":"/path/voice.index"}`]]);
-    assert.deepEqual(texts(setup(), "label").map(text => text.split(/\s/)[0]), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
+    const fields = ofType(setup(), "path-field").map(node => [node.props.value, node.props.maxLength, node.props.placeholder, node.props.pick, node.props.label]);
+    // Path fields, each beside the button that picks it (#1231): the runtime's folder, then the
+    // model's and the index's file, of their own kind.
+    assert.deepEqual(fields, [
+        ["/rvc", 4096, `voice_ui.example {"value":"/path/rvc-runtime"}`, { kind: "folder" }, "voice.vc_rvc_runtime"],
+        ["voice.pth", 4096, `voice_ui.example {"value":"/path/voice.pth"}`, { kind: "file", extensions: ["pth"] }, "voice.vc_rvc_model"],
+        ["old.index", 4096, `voice_ui.example {"value":"/path/voice.index"}`, { kind: "file", extensions: ["index"] }, "voice.vc_rvc_index"]]);
+    assert.deepEqual(pathRows(setup()), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
+    // A picked path fills the field as typing does; nothing is saved until focus leaves the form.
+    pathNamed(setup(), "voice.vc_rvc_runtime").props.onChange("/picked/runtime");
+    assert.equal(pathNamed(setup(), "voice.vc_rvc_runtime").props.value, "/picked/runtime");
+    assert.deepEqual(v.sent.filter(entry => entry[0] === "/set/data/direct_voice_settings"), []);
+    pathNamed(setup(), "voice.vc_rvc_runtime").props.onChange("/rvc");
     assert.equal(findIn(setup(), node => node.type === "custom-model-link").props.section, "rvc");
     const catalog = () => findIn(setup(), node => node.type === "downloads").props;
     assert.deepEqual([catalog().targets, catalog().blocked, catalog().expected, catalog().audition], [["rvc"], false, { rvc: { model: "voice.pth", index: "old.index" } },
@@ -492,17 +505,17 @@ test("RVC's paths are typed or dropped, its runtime is set up in place, and the 
     const drop = findIn(setup(), node => node.type === "file-drop").props;
     assert.deepEqual([drop.accept, drop.disabled, drop.hint], [[".pth", ".index"], false, "voice_ui.rvc_drop_hint"]);
     drop.onFiles(["/new/voice.PTH", "/notes.txt", "/new/voice.index"]);
-    assert.deepEqual(ofType(setup(), "input").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/new/voice.index"]);
+    assert.deepEqual(ofType(setup(), "path-field").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/new/voice.index"]);
     // A drop saves at once (#1111); until the saved paths come back, an Apply waits.
     assert.ok(catalog().blocked, "an Apply would replace what the user has dropped");
     findIn(setup(), node => node.type === "file-drop").props.onFiles(["/other.index"]);
-    assert.deepEqual(ofType(setup(), "input").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/other.index"], "only what was dropped");
-    ofType(setup(), "input")[0].props.onChange({ target: { value: "/typed" } });
+    assert.deepEqual(ofType(setup(), "path-field").map(node => node.props.value), ["/rvc", "/new/voice.PTH", "/other.index"], "only what was dropped");
+    ofType(setup(), "path-field")[0].props.onChange("/typed");
     const runtime = findIn(setup(), node => node.type === "runtime").props;
     // The drop's save waits for its answer here, and the runtime's setup waits with it.
     assert.deepEqual([runtime.engine, runtime.current, runtime.disabled], ["rvc", "/typed", true]);
     runtime.onUse("/fetched");
-    assert.equal(ofType(setup(), "input")[0].props.value, "/fetched");
+    assert.equal(ofType(setup(), "path-field")[0].props.value, "/fetched");
     // Invalid numbers: the audition has none to use.
     inputNamed(v.draw(), "voice.vc_rvc_pitch").props.onChange({ target: { valueAsNumber: 99 } });
     assert.deepEqual(catalog().audition, { values: null, input: "mic-1" });
@@ -514,7 +527,7 @@ test("RVC's paths are typed or dropped, its runtime is set up in place, and the 
     tree = busy.open({ variant: "rvc" });
     const busySetup = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
     assert.deepEqual([findIn(busySetup, node => node.type === "downloads").props.blocked, findIn(busySetup, node => node.type === "file-drop").props.disabled,
-        findIn(busySetup, node => node.type === "runtime").props.disabled, ofType(busySetup, "input").every(node => node.props.disabled)], ["busy", true, true, true]);
+        findIn(busySetup, node => node.type === "runtime").props.disabled, ofType(busySetup, "path-field").length === 3 && ofType(busySetup, "path-field").every(node => node.props.disabled)], ["busy", true, true, true]);
     assert.equal(find(busySetup, node => node.type === "description"), null, "the RVC page opens with the RVC hint already");
 });
 
@@ -523,13 +536,14 @@ test("a Seed-VC conversion saved by an earlier version keeps its runtime and ref
     const tree = v.open({ variant: "all" });
     const setup = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_input");
     assert.deepEqual(ofType(setup, "description").map(node => node.props.text), ["voice.vc_hint"]);
-    assert.deepEqual(ofType(setup, "input").map(node => node.props.value), ["/seed", "ref.wav"]);
+    assert.deepEqual(ofType(setup, "path-field").map(node => [node.props.value, node.props.pick]),
+        [["/seed", { kind: "folder" }], ["ref.wav", { kind: "file", extensions: ["wav"] }]]);
     assert.equal(findIn(setup, node => node.type === "custom-model-link").props.section, "seed-vc");
     assert.deepEqual([find(setup, node => node.type === "file-drop"), find(setup, node => node.type === "downloads")], [null, null]);
     const runtime = findIn(setup, node => node.type === "runtime").props;
     assert.deepEqual([runtime.engine, runtime.current], ["seed-vc", "/seed"]);
     runtime.onUse("/seed2");
-    assert.equal(ofType(findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.setup_input"), "input")[0].props.value, "/seed2");
+    assert.equal(ofType(findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.setup_input"), "path-field")[0].props.value, "/seed2");
     assert.deepEqual(startReason(v.draw()), { disabled: true, reason: "voice_ui.start_needs_save" }, "an edit to save first");
     const saved = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, engine: "seed-vc", runtime: "/seed", reference: "ref.wav" } } });
     buttonNamed(saved.open({ variant: "all" }), "voice.input_start").props.onClick();
@@ -675,16 +689,16 @@ test("fields that settings saved by an earlier version lack take the form's defa
     assert.ok(find(tree, node => node.type === "downloads"), "the conversion's engine is RVC, whose models the catalog offers");
     tree = v.open({ variant: "rvc" });
     const setup = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
-    assert.deepEqual(ofType(setup, "input").map(node => node.props.value), ["", "", ""]);
+    assert.deepEqual(ofType(setup, "path-field").map(node => node.props.value), ["", "", ""]);
     assert.deepEqual(findIn(setup, node => node.type === "downloads").props.expected, { rvc: { model: "", index: "" } }, "nothing saved to replace");
     assert.equal(findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc").props.status,
         "voice_ui.runtime_unset · speech_servers.model_unset · voice_ui.mic_ready");
     // A Seed-VC conversion with nothing set: empty fields with their examples.
     const seed = await directVoice(context, { directState: { observation_id: "1", settings: { mode: "converted", engine: "seed-vc" } } });
     const seedSetup = findIn(seed.open({ variant: "all" }), node => node.type === "setup" && node.props.title === "voice_ui.setup_input");
-    assert.deepEqual(ofType(seedSetup, "input").map(node => [node.props.value, node.props.placeholder]), [["", `voice_ui.example {"value":"/path/seed-vc-runtime"}`],
+    assert.deepEqual(ofType(seedSetup, "path-field").map(node => [node.props.value, node.props.placeholder]), [["", `voice_ui.example {"value":"/path/seed-vc-runtime"}`],
         ["", `voice_ui.example {"value":"/path/reference.wav"}`]]);
-    assert.deepEqual(ofType(seedSetup, "label").map(node => [node.props.children].flat()[0]), ["voice.vc_runtime", "voice.vc_reference"]);
+    assert.deepEqual(pathRows(seedSetup), ["voice.vc_runtime", "voice.vc_reference"]);
 });
 
 test("the form follows a change of the saved settings, and asks again when the voice connection changes", async context => {
@@ -702,7 +716,7 @@ test("the form follows a change of the saved settings, and asks again when the v
 test("the RVC page shows RVC also while another conversion is saved, and checks the file types at the end of the names", async context => {
     const v = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, engine: "seed-vc", mode: "passthrough" } } });
     const setup = findIn(v.open({ variant: "rvc" }), node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
-    assert.deepEqual(ofType(setup, "label").map(node => [node.props.children].flat()[0]), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
+    assert.deepEqual(pathRows(setup), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
     assert.ok(find(setup, node => node.type === "downloads"));
     const check = async (saved: Record<string, unknown>) => {
         const page = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, ...saved } } });
@@ -745,7 +759,7 @@ test("while the input runs, the RVC selection and the DirectML runtime wait, and
         v.open({ variant: "rvc" });
         const setup = () => findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
         const index = ["rvc_runtime", "rvc_model", "rvc_index"].indexOf(field);
-        ofType(setup(), "input")[index].props.onChange({ target: { value } });
+        ofType(setup(), "path-field")[index].props.onChange(value);
         return findIn(setup(), node => node.type === "downloads").props.blocked;
     };
     assert.equal(await edit("rvc_model", "other.pth"), "edited");

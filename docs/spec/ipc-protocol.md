@@ -12,17 +12,22 @@ The LSP specification describes the "Base Protocol" apart from each message. Fol
 flowchart LR
   subgraph Tauri["Tauri (Rust)"]
     main["main window (React)"]
+    settings["settings window (React)"]
     vr["vr_panel window"]
     qc["quick_chat window"]
   end
   side["Sidecar (the Rust core, native/core, inside the app process)"]
   main -- "backend_write: request (one line of JSON)" --> side
   side -- "Channel: responses and notifications (one line of JSON)" --> main
+  settings -- "backend_write: request, origin settings" --> side
+  side -- "Channel (backend_attach): every response and notification" --> settings
   vr -- "Tauri command vr_panel_send (vr-panel-stdout)" --> main
   qc -- "Tauri command quick_chat_submit" --> main
 ```
 
-- Only the `main` window talks to the sidecar. The VR UI and Quick Chat go through `main` ([External interfaces](external-interfaces.md#ウィンドウ間の連携)).
+- The `main` window starts, feeds and stops the sidecar. The VR UI and Quick Chat go through `main` ([External interfaces](external-interfaces.md#ウィンドウ間の連携)).
+- The `settings` window (#1236) joins the run that `main` started with `backend_attach`: from then on its channel gets every response and notification too, in the same order, and the end of the run. It writes requests with `backend_write`, which sets their `origin` to `settings` whatever the page wrote. It does not start, feed or stop a run. When the run ends, the shell sends the end to its channel and detaches it, and a run that has ended cannot be joined (`backend_not_running`). The settings window stays: its page is out of reach under a readout that says the engine is disconnected (decided on 2026-11-26). `main` says why the run ended and starts it again; when a new run starts, the shell tells the settings window (`settings-backend-run`), which joins it and asks for `/run/settings_snapshot` again.
+- When it opens, the settings window asks for `/run/settings_snapshot` (waits for the work in progress, like a setting). Its `result` is the same map of the `/get/data/…` reads as `/run/initialization_complete`, read now, and the settings window takes it as the main window takes the start-up's. The main window passes over it.
 - The backend is started with `backend_start` (`src-tauri/src/backend_host.rs`), and the UI handles it through `backendCommand.ts` in the same shape as the `Command.sidecar` of 0.4 and earlier (`src-ui/views/app/_app_controllers/StartPythonController.tsx`). Requests go through `backend_write` and shutdown through `backend_kill`, and responses and notifications arrive on a channel that keeps their order. The line format and rules are the same as up to 0.4 ([Core integration](../voice-stack/core-integration.md)). Below, "stdin" and "stdout" mean these two directions, requests and responses.
 
 ## Message format
@@ -37,6 +42,7 @@ flowchart LR
 |---|---|---|
 | `endpoint` | String | The endpoint requested |
 | `data` | String (optional) | The value passed through `JSON.stringify`, then encoded as Base64. Omitted in requests that have no value |
+| `origin` | String (optional) | Who the request is for: `vr_panel` for a request the main window relays for the VR panel (the core allows only its list), `settings` for the settings window's (set by the shell). Omitted for the main window's own |
 
 - Each line holds one JSON object and ends with a newline (`src-ui/logics/common/useStdoutToPython.ts`).
 - The sidecar decodes `data` from Base64 and reads it as JSON (`native/core/src/protocol.rs`, the same as Python's `encodeBase64`). If it cannot be read, it becomes an empty dictionary.
@@ -53,6 +59,9 @@ flowchart LR
 | `status` | Number | Status code (see the next table) |
 | `endpoint` | String | For a response, the same endpoint as the request; for a notification, `/run/…` |
 | `result` | Any | The result. For an error, the error body |
+| `origin` | String (optional) | The request's `origin`, when it had one (#1236). Notifications have none |
+
+Each window shows the notices of the answers to its own requests: the settings window those with `origin` `settings`, the main window every other line, the notifications among them (`noticesHere` in `src-ui/logics/common/settingsWindow.ts`). Both windows still read every line, so a setting changed in one is changed in the other.
 
 Responses and notifications have the same shape. A notification is not a response to a request: the sidecar sends it on its own, like a "Notification" in LSP or JSON-RPC (the UI does not reply).
 
@@ -207,10 +216,34 @@ Only for writes to `selected_your_languages`, `selected_target_languages`, `sele
 
 - Lines on stderr that are judged to be warnings (`src-ui/logics/common/sidecarDiagnostics.ts`) are ignored. Other lines are shown as persistent error notices.
 - Lines with status 348 are logs, and the UI does not show them. The same content is also written to `process.log`.
-- For the states that the UI polls every 0.5 to 1 second (`POLLED_ENDPOINTS`: the voice state, the route, the voice conversion state, the speech server, real-time speech recognition, model downloads and TTS voice previews), successful responses (200) are written neither to `process.log` nor as status 348 lines. The responses themselves are sent to the UI. Failed responses are written. Successful volume values that the volume check in Settings sends (`/run/check_mic_volume`, `/run/check_speaker_volume`) are not written to `process.log` either.
+- For the states that the UI polls every 0.5 to 1 second (`POLLED_ENDPOINTS`: the voice state, the route, the voice conversion state, the speech server, real-time speech recognition, model downloads, TTS voice previews and the Talk AI status), successful responses (200) are written neither to `process.log` nor as status 348 lines. The responses themselves are sent to the UI. Failed responses are written. Successful volume values that the volume check in Settings sends (`/run/check_mic_volume`, `/run/check_speaker_volume`) are not written to `process.log` either.
 - The UI's two volume meters reuse the atom object when both the value and `state` are the same. The receiving side does not subscribe to the meter values; it only writes them. This does not change what a repeated notification means for other atoms (`src-ui/logics/common/meterValue.test.ts`).
 - When a response cannot be turned into JSON, 500 is sent to the UI, and only the response's shape without values (the sequence of types) is written to `process.log`.
 - Logs mask values such as API keys (`SENSITIVE_ENDPOINT_MARKERS`). Conversation text is not written to `process.log`. The IPC on stdout itself is not masked.
+
+## Talk AI
+
+`/get/data/talk_ai_catalog` returns `id`, `name`, `vision`, `cloud` and `destination` for each destination. The initial choice is `openai`. The destination of OpenAI Realtime is fixed; the destination of `vllm_omni` can be changed with `/set/data/talk_ai_local_url`. Destinations are limited to the loopback and the LAN. A LAN connection over TLS takes a local IP address.
+
+The OpenAI key is registered by passing a string to `/set/data/talk_ai_auth_key`, and deleted with `null`. The get and set responses return whether a key exists as `configured`, and whether the credential store keeps it as `stored`. The key is not written to the settings file.
+
+The experimental feature `talk_ai` starts off. To start a conversation, the user's consent to the destination and to sending the voice is obtained, and `provider`, `destination` and `consent: { audio: true }` are passed to `/set/enable/talk_ai`. The user consents at every connection. A change of the destination, turning the experimental feature off, and quitting the app stop the conversation. `/set/disable/talk_ai` stops it too.
+
+`/get/data/talk_ai_status` returns `phase` (`idle`, `connecting`, `ready`, `failed`), `error` (a fixed code or `null`), `sending_audio` and `sending_screen`. At the stage that handles the connection and the consent, neither audio nor screen is captured, and both sending states are `false`.
+
+`/run/talk_ai_status` notifies when the session has connected and when it ended. It carries the same `session_id` as the responses.
+
+From stage 4, after the `phase: "ready"` response, the screen shows the indicator that the voice is being sent. Then the current `session_id` and `indicator_visible: true` are passed to `/set/enable/talk_ai_audio`. The answer's voice goes to the system's output by default. Another output is named in `output`; to send it to a virtual microphone, `share_output: true` is passed as well. Microphone transcription stops during the conversation. After the conversation ends, the user can turn transcription back on.
+
+`/set/data/talk_ai_interrupt` stops the playback of the answer. To end the user's turn on vLLM-Omni, `/set/data/talk_ai_end_turn` is called. Both take the current `session_id`.
+
+Screen sharing starts separately from the voice's consent. The user confirms the destination and the capture source and consents, the indicator for the screen is shown, and then `session_id`, `destination`, `source`, `consent: { screen: true }` and `indicator_visible: true` are passed to `/set/enable/talk_ai_screen`. `source` is one of `window`, `vr` and `monitor` that `/get/data/talk_ai_screen_sources` returns. On Windows and X11, `monitor` uses the primary monitor. On Wayland, the desktop's screen picker opens.
+
+The settings are `talk_ai_screen_interval_ms` (250 to 10000 ms, default 1000), `talk_ai_screen_long_edge` (256 to 2048 pixels, default 1024) and `talk_ai_screen_detail` (`auto`, `low`, `high`, default `auto`). Each has `/get/data/` and `/set/data/` endpoints. Pictures are scaled down and sent as JPEG. After the next picture is sent, the previous one is deleted from the conversation's history.
+
+`/get/data/talk_ai_status` returns the capture source as `screen_source` and the JPEG sending state as `sending_screen`. `/set/disable/talk_ai_screen` stops the sharing whose `session_id` matches; it also discards the pictures waiting to be sent, so it ends the conversation. When capture fails, the conversation ends and a fixed error code is returned.
+
+In the UI (stage 6), the settings have a "Talk AI" page only while the experimental feature `talk_ai` is on (#969, decision 2). Every start asks for consent on a confirmation screen that shows the destination, what is sent and where the answer plays; playing the answer into the virtual microphone takes a consent of its own that others hear it. After `phase: "ready"`, a band at the top of the window, over both the main page and the settings, says that the voice is being sent, and `/set/enable/talk_ai_audio` is sent after the band is drawn. Screen sharing likewise asks for consent on its own confirmation screen, and `/set/enable/talk_ai_screen` is sent after the band also shows the screen. While a conversation is open, the destination and the screen settings cannot be changed, because the core stops the conversation when they change. While a conversation is open, the UI asks for `/get/data/talk_ai_status` every second.
 
 ---
 
@@ -226,17 +259,22 @@ LSPの仕様書が「Base Protocol」と各メッセージの説明を分けて�
 flowchart LR
   subgraph Tauri["Tauri（Rust）"]
     main["main ウィンドウ（React）"]
+    settings["settings ウィンドウ（React）"]
     vr["vr_panel ウィンドウ"]
     qc["quick_chat ウィンドウ"]
   end
   side["サイドカー（Rustの中核, native/core。アプリのプロセスの中）"]
   main -- "backend_write: 要求（1行のJSON）" --> side
   side -- "Channel: 応答と通知（1行のJSON）" --> main
+  settings -- "backend_write: 要求（origin は settings）" --> side
+  side -- "Channel（backend_attach）: すべての応答と通知" --> settings
   vr -- "Tauriコマンド vr_panel_send（vr-panel-stdout）" --> main
   qc -- "Tauriコマンド quick_chat_submit" --> main
 ```
 
-- サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
+- サイドカーを起動し、ウォッチドッグに餌をやり、止めるのは`main`ウィンドウである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
+- `settings`ウィンドウ（#1236）は、`main`が起動した実行に`backend_attach`で加わる。それ以降、そのチャネルにもすべての応答と通知が同じ順序で届き、実行の終わりも届く。要求は`backend_write`で書き、シェルはページが何を書いても`origin`を`settings`にする。実行の起動、餌やり、停止はしない。実行が終わると、シェルは終わりをそのチャネルに送って外す。終わった実行には加われない（`backend_not_running`）。設定ウィンドウは残り、ページは操作できなくなり、その上にエンジンとの接続が切れたことを示す表示が出る（2026-11-26 の決定）。理由を伝えて実行をやり直すのは`main`である。新しい実行が始まると、シェルは設定ウィンドウに知らせ（`settings-backend-run`）、設定ウィンドウはそれに加わって`/run/settings_snapshot`をもう一度求める。
+- 設定ウィンドウは開くと`/run/settings_snapshot`を求める（設定と同じく、処理中の作業を待つ）。`result`は`/run/initialization_complete`と同じ`/get/data/…`の読み取りの表で、その時点の値である。設定ウィンドウはこれを、メインウィンドウが起動時のものを受け取るのと同じように受け取る。メインウィンドウは読み飛ばす。
 - 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.tsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
@@ -251,6 +289,7 @@ flowchart LR
 |---|---|---|
 | `endpoint` | 文字列 | 要求するエンドポイント |
 | `data` | 文字列（省略可） | 値を`JSON.stringify`したものをBase64にした文字列。値がない要求では省略する |
+| `origin` | 文字列（省略可） | 要求の出どころ。メインウィンドウがVR UIの代わりに送る要求は`vr_panel`（中核はその一覧のものだけを受け付ける）、設定ウィンドウの要求は`settings`（シェルが付ける）。メインウィンドウ自身の要求では省略する |
 
 - 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.ts`）。
 - サイドカーは`data`をBase64から戻してJSONとして読む（`native/core/src/protocol.rs`。Pythonの`encodeBase64`と同じ）。読めないときは空の辞書になる。
@@ -267,6 +306,9 @@ flowchart LR
 | `status` | 数値 | 状態コード（次の表） |
 | `endpoint` | 文字列 | 応答なら要求と同じエンドポイント、通知なら`/run/…` |
 | `result` | 任意 | 結果。エラーのときはエラーの本体 |
+| `origin` | 文字列（省略可） | 要求に`origin`があったときの、その値（#1236）。通知にはない |
+
+各ウィンドウは、自分の要求への応答の知らせだけを出す。設定ウィンドウは`origin`が`settings`のもの、メインウィンドウはそれ以外のすべての行で、通知もこちらに入る（`src-ui/logics/common/settingsWindow.ts`の`noticesHere`）。両方のウィンドウがすべての行を読むので、一方で変えた設定はもう一方にも反映される。
 
 応答と通知は同じ形である。通知は要求に対する応答ではなく、サイドカーが自分から送るもので、LSPやJSON-RPCの「Notification」にあたる（UIは返事をしない）。
 
@@ -421,7 +463,7 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 
 - stderrの行のうち、警告と判定したもの（`src-ui/logics/common/sidecarDiagnostics.ts`）は無視する。それ以外の行は、消えないエラー通知として表示する。
 - status 348の行はログで、UIは表示しない。同じ内容が`process.log`にも書かれる。
-- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得、読み上げの試聴）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
+- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得、読み上げの試聴、おしゃべりAIの状態）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
 - UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.ts`）。
 - 応答をJSONにできなかったときは、500をUIへ送り、`process.log`には値を除いた形（型の並び）だけを書く。
 - ログではAPIキーなどの値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。会話の本文は`process.log`に書かない。stdoutのIPCそのものは伏せない。
@@ -447,6 +489,8 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 設定は `talk_ai_screen_interval_ms`（250〜10000ミリ秒、既定1000）、`talk_ai_screen_long_edge`（256〜2048ピクセル、既定1024）、`talk_ai_screen_detail`（`auto`、`low`、`high`、既定 `auto`）。いずれも `/get/data/` と `/set/data/` の受け口を持つ。画像は縮小してJPEGで送る。次の画像を送ったあとで、前の画像を対話履歴から削除する。
 
 `/get/data/talk_ai_status` は取り込み元を `screen_source`、JPEGの送信状態を `sending_screen` で返す。`/set/disable/talk_ai_screen` は `session_id` が一致する共有を止め、送信待ちの画像も破棄するため対話を終了する。取り込みが失敗したときは対話を終了し、固定のエラーコードを返す。
+
+画面（段階6）では、実験的機能 `talk_ai` がオンの間だけ、設定に「おしゃべりAI」のページを出す（#969 の決まったこと 2）。対話を始めるたびに、接続先、送るもの、応答の声の出し先を示す確認の画面で同意を取る。応答の声を仮想マイクへ流すときは、周りにも聞こえることへの同意を別に取る。`phase: "ready"` を受けたら、ウィンドウの上（メインの画面と設定の両方の上）に、声を送っていることを示す帯を出し、帯を描いたあとで `/set/enable/talk_ai_audio` を送る。画面共有も別の確認の画面で同意を取り、帯に画面を足して描いたあとで `/set/enable/talk_ai_screen` を送る。対話の間は、接続先と画面の送り方の設定を変えられないようにする。変えると中核が対話を止めるためである。対話が開いている間は、`/get/data/talk_ai_status` を1秒ごとに問い合わせる。
 
 ### 設定ファイルと会話ログの保存先
 

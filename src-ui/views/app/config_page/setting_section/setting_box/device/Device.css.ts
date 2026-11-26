@@ -30,7 +30,7 @@ export const device_container = style({
     alignItems: "center",
     padding: "2rem 0",
     marginBottom: "0rem",
-    borderBottom: `solid 0.1rem ${vars.dark_800_color}`,
+    borderBottom: `solid 0.1rem var(--settings_rule, ${vars.vox_border})`,
     selectors: {
         [`&.${is_break_point}`]: { gridTemplateColumns: "minmax(0, 1fr)", alignItems: "start" },
     },

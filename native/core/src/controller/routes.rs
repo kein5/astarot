@@ -211,6 +211,10 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/main_window_geometry", OPEN, "MAIN_WINDOW_GEOMETRY");
     let geometry = store(core, "MAIN_WINDOW_GEOMETRY", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/main_window_geometry", OPEN, geometry);
+    // The settings window's own (#1236), applied by the app before the window shows.
+    b.get("/get/data/settings_window_geometry", OPEN, "SETTINGS_WINDOW_GEOMETRY");
+    let geometry = store(core, "SETTINGS_WINDOW_GEOMETRY", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/settings_window_geometry", OPEN, geometry);
 
     // Compute device and the local translation
     b.get("/get/data/compute_mode", OPEN, "COMPUTE_MODE");
@@ -468,6 +472,11 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     for add in AREAS {
         add(&mut b);
     }
+    // The settings window, opened after the start-up, asks for what the start-up told the main
+    // window: the same answers as `/run/initialization_complete`, read now (#1236). It reads the
+    // routes added above; a `/run/` endpoint is never part of the snapshot itself.
+    let readable = b.routes.clone();
+    b.with("/run/settings_snapshot", WAIT, move |core, _| ok(Value::Object(core.snapshot_of(&readable))));
     b.routes
 }
 

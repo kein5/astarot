@@ -1518,6 +1518,50 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "tray_companion_wheel_hint_shown",
     },
 
+    // Talk AI (#388, experimental feature talk_ai). Changing one of these ends a conversation in
+    // progress (the core stops it), so the page offers them only while none runs.
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiProvider",
+        default_value: "openai",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_provider",
+    },
+    {
+        // The user's vLLM-Omni server: ws:// or wss:// on this PC or in the LAN.
+        Category: "TalkAi",
+        Base_Name: "TalkAiLocalUrl",
+        default_value: "ws://127.0.0.1:8000/v1/realtime",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_local_url",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenIntervalMs",
+        default_value: 1000,
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_interval_ms",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenLongEdge",
+        default_value: 1024,
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_long_edge",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenDetail",
+        default_value: "auto",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_detail",
+    },
+
     // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:
     // nothing is hidden while it is not known.
     {

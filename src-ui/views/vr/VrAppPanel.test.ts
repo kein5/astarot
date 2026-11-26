@@ -39,7 +39,7 @@ async function panel(context: TestContext, { layout = LAYOUT, configOpen = false
     // The window's store: the atoms the main window mirrors here, with what they hold.
     const atoms = new Map<unknown, unknown>([["layout-atom", { state: "ok", data: { tooltip_epoch: 5, atlas: [1, 1] } }]]);
     let subscribed: () => void = () => {};
-    const current = { layout, configOpen };
+    const current = { layout, configOpen, settingsWindowOpen: false };
     const dependencies = {
         "@tauri-apps/api/core": { Channel, invoke: (name: string, args: { channel: Channel }) => {
             subscriptions.push([name, args.channel]);
@@ -51,7 +51,8 @@ async function panel(context: TestContext, { layout = LAYOUT, configOpen = false
         } },
         jotai: { getDefaultStore: () => ({ set: (atom: unknown, update: (previous: unknown) => unknown) => { atoms.set(atom, update(atoms.get(atom))); } }) },
         "@store": { dynamicStoreRegistry: { Atom_MessageLogs: "logs-atom", Atom_VrPanelLayout: "layout-atom", Atom_SelectableFontFamilyList: "fonts-atom",
-            Atom_Something: useSomething } },
+            Atom_Something: useSomething },
+            useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: current.settingsWindowOpen } }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args: unknown[]) => { sent.push(args); } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: current.configOpen } }) },
         "../app/_app_controllers": { UiLanguageController, FontFamilyController, ThemeController },
@@ -230,6 +231,21 @@ test("the main window closing its settings page closes the VR settings window, a
     view.render();
     view.render();
     assert.equal(view.launcher().windows.popup, "language");
+});
+
+// In the app the desktop's settings are a window (#1236): closing it closes the VR settings window too.
+test("the main window's settings window closing closes the VR settings window", async context => {
+    const view = await panel(context);
+    view.launcher().togglePopup("settings");
+    view.render();
+    view.current.settingsWindowOpen = true;
+    view.render();
+    view.render();
+    assert.equal(view.launcher().windows.popup, "settings", "the window opening keeps it open");
+    view.current.settingsWindowOpen = false;
+    view.render();
+    view.render();
+    assert.equal(view.launcher().windows.popup, null);
 });
 
 test("a settings page that was never open closes nothing", async context => {

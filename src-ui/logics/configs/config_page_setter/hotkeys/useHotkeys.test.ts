@@ -11,6 +11,8 @@ type Handler = (event: { payload: unknown }) => void;
 interface StubState {
     ready: boolean;
     settings: boolean;
+    // The settings window shows the Hotkeys page (#1236).
+    hotkeysPage?: boolean;
     updating: boolean;
     actions: string[];
     notices: unknown[][];
@@ -150,7 +152,7 @@ async function setup() {
     const imports = {
         react,
         jotai: { getDefaultStore: () => ({ get: (atom: string) => ({ data: Reflect.get(state, atom) }) }) },
-        "@store": { store, Atom_IsOpenedConfigPage: "settings", Atom_IsBackendReady: "ready", Atom_IsSoftwareUpdating: "updating", Atom_Hotkeys: "hotkeys",
+        "@store": { store, Atom_IsOpenedConfigPage: "settings", Atom_IsHotkeysPageOpen: "hotkeysPage", Atom_IsBackendReady: "ready", Atom_IsSoftwareUpdating: "updating", Atom_Hotkeys: "hotkeys",
             useStore_Hotkeys: () => ({ currentHotkeys: { data: state.hotkeys },
                 updateHotkeys: (value: Record<string, string[] | null>) => { state.hotkeys = value; },
                 pendingHotkeys: () => { state.events.push("pending"); } }) },
@@ -435,11 +437,32 @@ async function owner(platform = "native") {
             useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: subject.state.updating } }),
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: subject.state.settings } }),
         },
+        "@store": { useStore_IsHotkeysPageOpen: () => ({ currentIsHotkeysPageOpen: { data: subject.state.hotkeysPage === true } }) },
     });
     return { ...subject, runtime, render: async () => { runtime.render(GlobalHotKeyController); await flush(); },
         // The hook's answer from the last draw; there is one once the controller has drawn.
         hook: () => { assert.ok(latest); return latest; } };
 }
+
+// Nothing pauses while the settings window is open (#1236, decided on 2026-11-26), but the keys
+// wait while it shows the Hotkeys page: a key pressed there is being recorded, not run.
+test("the keys wait while the settings window shows the Hotkeys page, and come back after it", async () => {
+    const subject = await owner();
+    subject.state.hotkeys = { toggle_translation: ["Ctrl", "T"] };
+    await subject.render();
+    assert.deepEqual([...subject.state.registered.keys()], ["Control+T"]);
+    const callback = subject.state.registered.get("Control+T");
+    assert.ok(callback);
+    subject.state.hotkeysPage = true;
+    await subject.render();
+    assert.deepEqual([...subject.state.registered.keys()], []);
+    // A press that was on its way when the page came does nothing.
+    await callback({ state: "Pressed" });
+    assert.deepEqual(subject.state.actions, []);
+    subject.state.hotkeysPage = false;
+    await subject.render();
+    assert.deepEqual([...subject.state.registered.keys()], ["Control+T"]);
+});
 
 for (const [action, oldKeys, newKeys] of [
     ["open_quick_chat", ["Ctrl", "Q"], ["Ctrl", "W"]],

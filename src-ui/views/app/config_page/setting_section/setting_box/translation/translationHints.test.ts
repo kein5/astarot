@@ -15,7 +15,7 @@ const component = (name: string) => {
 
 test("the whole translation page is inside HintDescriptions", () => {
     const body = component("Translation");
-    assert.match(body, /<HintDescriptions>\s*<div className=\{styles\.container\}>[\s\S]*<TranslationCatalogSection \/>\s*<\/div>\s*<\/HintDescriptions>/);
+    assert.match(body, /<HintDescriptions>\s*<div className=\{styles\.container\}>[\s\S]*<TranslationCatalog_Container \/>\s*<\/div>\s*<\/HintDescriptions>/);
 });
 
 test("a model's license and the note on a model of one's own stay under their options", () => {

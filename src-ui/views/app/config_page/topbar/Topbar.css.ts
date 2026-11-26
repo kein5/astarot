@@ -100,6 +100,13 @@ export const save_slot = style({
     selectors: { [`${NARROW_PAGE} &`]: saveSlotNarrow },
     "@media": { [NARROW]: saveSlotNarrow },
 });
+// The settings window has no back button (#1236): the words end at the page's edge margin, as back did.
+const saveSlotLastNarrow = { marginRight: "1.6rem" } as const;
+export const save_slot_last = style({
+    marginRight: "1.6rem",
+    selectors: { [`${NARROW_PAGE} &`]: saveSlotLastNarrow },
+    "@media": { [NARROW]: saveSlotLastNarrow },
+});
 export const muted_badge = style({
     padding: ".1rem .6rem",
     borderRadius: ".4rem",

@@ -5,7 +5,8 @@ import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranscription, useTranslation, useSettingValue } from "@logics_configs";
-import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useStore_IsBackendReady } from "@store";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
@@ -611,8 +612,7 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     const vrchat = useVrchatPresence();
     const { status: virtualMic, openGuide } = useVirtualMic();
     const { needs } = useSetupNeeds();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
     // The section below prepares the model the setup recommends, without leaving the setup
@@ -620,7 +620,7 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     // Translation settings, where an API key is registered or another model prepared (decided in
     // #938). The model's list not read yet: the row waits for it. Nothing to prepare here: only
     // the Translation settings. A download started elsewhere shows how far it has come.
-    const openTranslationSettings = <Button onClick={() => { onLeave(); updateSelectedConfigTabId("translation"); updateIsOpenedConfigPage(true); }}>
+    const openTranslationSettings = <Button onClick={() => { onLeave(); openSettings({ page: "translation" }); }}>
         {t("first_run_setup.found.translation_open_settings")}</Button>;
     const translationProgress = translation ? downloadProgress(translation.weight) : null;
     const translationRow = (): Pick<FindingProps, "state" | "action" | "children"> => {
@@ -770,7 +770,6 @@ const failureText = (t: TFunction, code: string | undefined) => {
 };
 
 const OpenSettings = ({ tab, label, onLeave }: { tab: string; label: string; onLeave: () => void }) => {
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    return <Button onClick={() => { onLeave(); updateSelectedConfigTabId(tab); updateIsOpenedConfigPage(true); }}>{label}</Button>;
+    const openSettings = useOpenSettings();
+    return <Button onClick={() => { onLeave(); openSettings({ page: tab }); }}>{label}</Button>;
 };

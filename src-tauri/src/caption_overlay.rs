@@ -690,7 +690,10 @@ fn platform_supported() -> bool {
 
 #[tauri::command]
 pub fn caption_overlay_supported(window: WebviewWindow) -> Result<bool, String> {
-    sender(window.label(), "main")?;
+    // The captions page asks, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
+        return Err("caption_overlay_forbidden".into());
+    }
     Ok(platform_supported())
 }
 

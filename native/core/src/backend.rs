@@ -77,8 +77,12 @@ struct LineOutput {
 
 impl Output for LineOutput {
     fn answer(&self, status: u16, endpoint: Option<&str>, result: &Value) {
+        self.answer_for(status, endpoint, result, None);
+    }
+
+    fn answer_for(&self, status: u16, endpoint: Option<&str>, result: &Value, origin: Option<&Value>) {
         self.log.response(status, endpoint, result);
-        (self.sink.line)(crate::protocol::response_line(status, endpoint, result));
+        (self.sink.line)(crate::protocol::response_line_for(status, endpoint, result, origin));
     }
 
     fn received(&self, endpoint: &str, data: &Value) {

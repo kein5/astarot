@@ -6,6 +6,10 @@ import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeCon
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
+import { SettingsWindowController } from "./_app_controllers/SettingsWindowController";
+import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
+import { TalkAiController } from "./_app_controllers/TalkAiController";
+import { TalkAiIndicator } from "./others/talk_ai_indicator/TalkAiIndicator";
 import { useRef } from "react";
 
 import {
@@ -70,6 +74,7 @@ export const App = () => {
                 <CornerRadiusController />
                 <VrPanelSyncController />
                 <OcrSharedWindowController />
+                <SettingsWindowController />
                 <AppUpdateController />
 
                 {/* The main page is drawn from the first frame. Until the engine is
@@ -96,12 +101,17 @@ const Contents = ({ locked }: { locked: boolean }) => {
             <WindowGeometryController saveGeometry={!locked} />
 
             <WindowTitleBar />
+            {/* While Talk AI sends, a band over both pages says so and ends it (ADR-018). */}
+            {!locked && <TalkAiController />}
+            {!locked && currentIsSoftwareUpdating.data === false && <TalkAiIndicator />}
             {currentIsSoftwareUpdating.data === false
             ?
             <div className={styles.pages_wrapper}>
+                {/* In the app the settings have a window of their own (#1236); in a browser they are a
+                    page in this one, as before. */}
                 {!locked && <>
                     <SwitchBlocksController />
-                    <ConfigPage />
+                    {!settingsHaveAWindow() && <ConfigPage />}
                 </>}
                 <MainPage focusFallback={mainPage} locked={locked} />
                 {!locked && <>

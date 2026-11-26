@@ -338,6 +338,44 @@ test("a download is reviewed first in its own dialog, with the device the model 
     assert.deepEqual(p.calls, []);
 });
 
+// #1228: the catalog's cards of the built-in models choose a model as the model list does, with
+// the same license confirmation and download review, so a card switches the model in use.
+test("the catalog's built-in cards choose a model as the model list does, through the same license and review", async () => {
+    const p = await translationPage({ values: { currentCTranslate2WeightTypeStatus: ok([builtin(M2M, { is_downloaded: true }), builtin(NLLB, { is_downloaded: true }),
+        builtin("nllb-200-distilled-1.3B-ct2-int8", { is_downloaded: false })]), currentSelectedCTranslate2WeightType: ok(NLLB) } });
+    const element = p.reach("TranslationCatalog_Container"), runtime = hooks();
+    const container = () => p.draw(element, runtime);
+    const section = () => findIn(container(), node => node.type === "catalog-section").props;
+    const chosen = () => p.calls.filter(call => call[0] === "setSelectedCTranslate2WeightType").map(call => call[1]);
+
+    // A commercial model on the PC: chosen at once, as the list chooses it.
+    section().chooseWeight(M2M);
+    assert.deepEqual(chosen(), [M2M]);
+    // A model not downloaded: its review, which starts nothing.
+    section().reviewWeight("nllb-200-distilled-1.3B-ct2-int8");
+    assert.equal(nodesIn(container()).find(node => node.type === "download-dialog")?.props.weightType, "nllb-200-distilled-1.3B-ct2-int8");
+    assert.deepEqual(chosen(), [M2M]);
+    // The catalog's section is drawn once, inside the place that takes focus back from its dialogs.
+    assert.equal(container().props.tabIndex, -1);
+});
+
+test("a non-commercial model chosen from its card asks first, as from the list", async () => {
+    const p = await translationPage({ values: { currentCTranslate2WeightTypeStatus: ok([builtin(M2M, { is_downloaded: true }), builtin(NLLB, { is_downloaded: true })]),
+        currentSelectedCTranslate2WeightType: ok(M2M) } });
+    const element = p.reach("TranslationCatalog_Container"), runtime = hooks();
+    const container = () => p.draw(element, runtime);
+    const section = () => findIn(container(), node => node.type === "catalog-section").props;
+    const dialog = () => nodesIn(container()).find(node => componentName(node) === "CTranslate2LicenseDialog");
+    const chosen = () => p.calls.filter(call => call[0] === "setSelectedCTranslate2WeightType").map(call => call[1]);
+    section().chooseWeight(NLLB);
+    assert.deepEqual(chosen(), [], "nothing is chosen while the license waits");
+    const asking = dialog();
+    assert.ok(asking);
+    assert.equal(asking.props.fallback, container().props.ref);
+    asking.props.onConfirm();
+    assert.deepEqual(chosen(), [{ weight_type: NLLB, accept_non_commercial_license: true }]);
+});
+
 test("the license dialog confirms only once its box is ticked, and names the model, its license and its pages", async () => {
     const p = await translationPage();
     const events: string[] = [];

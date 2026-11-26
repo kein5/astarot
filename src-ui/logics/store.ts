@@ -301,6 +301,11 @@ export const { atomInstance: Atom_IsOscAvailable, useHook: useStore_IsOscAvailab
 export const { atomInstance: Atom_OscUnavailableReason, useHook: useStore_OscUnavailableReason } = createAtomWithHook(initial<string | null>(null), "OscUnavailableReason");
 export const { atomInstance: Atom_ComputeMode, useHook: useStore_ComputeMode } = createAtomWithHook("cpu", "ComputeMode");
 export const { atomInstance: Atom_IsOpenedConfigPage, useHook: useStore_IsOpenedConfigPage } = createAtomWithHook(false, "IsOpenedConfigPage");
+// The main window's view of the settings window (#1236). Nothing pauses while it is open (decided on
+// 2026-11-26): the VR panel's settings follow it, and the hotkeys wait only while it shows the
+// Hotkeys page, where the keys pressed are being recorded.
+export const { atomInstance: Atom_IsOpenedSettingsWindow, useHook: useStore_IsOpenedSettingsWindow } = createAtomWithHook(false, "IsOpenedSettingsWindow");
+export const { atomInstance: Atom_IsHotkeysPageOpen, useHook: useStore_IsHotkeysPageOpen } = createAtomWithHook(false, "IsHotkeysPageOpen");
 // Why each main switch cannot be turned on yet (main/switchBlocks.ts): {switch_id: {reason, action}}.
 export const { useHook: useStore_VrCustomTranslationModelNames } = createAtomWithHook(
     initial<Partial<Record<string, string>>>({}), "VrCustomTranslationModelNames", { is_state_ok: true });

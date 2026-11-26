@@ -9,14 +9,17 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import { FormRow } from "../_components/form_row/FormRow";
 import { HintCheck } from "../_components/hint/HintCheck";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
+import { PathField as PathEntry } from "../_components/path_field/PathField";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import type { SpeechProfile, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
-import { Button, TextField } from "../../../../../kit/index.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 // The path fields of a profile.
 type PathField = "model" | "voice_file" | "vad_model" | "diarization_model";
 
 // The file name in each path field's example.
+// Every path here is a GGUF file that speech.cpp reads.
+const GGUF_FILE = { kind: "file", extensions: ["gguf"] } as const;
 const exampleFiles: Readonly<Record<PathField, string>> = { model: "model.gguf", voice_file: "voice.gguf", vad_model: "vad.gguf", diarization_model: "diarization.gguf" };
 
 // Readout tone for a server state; the state text itself always says it.
@@ -103,11 +106,13 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                 // the fields off, so focus stays where it was; a download waits for it (busy).
                 const locked = !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
                 const busy = saving || locked;
-                // The kit's TextField; a path is in the monospaced font (#476).
-                const pathField = (key: PathField) => <TextField mono value={row[key] ?? ""} disabled={locked} maxLength={4096} spellCheck={false}
+                // The kit's TextField, a path in the monospaced font (#476), beside the button that
+                // picks a GGUF file (#1231).
+                const pathField = (key: PathField) => <PathEntry value={row[key] ?? ""} disabled={locked} maxLength={4096}
+                    pick={GGUF_FILE} label={t(`speech_servers.${key}`)}
                     placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
-                    onChange={event => field(name, key, event.target.value)} />;
-                const input = (key: PathField) => <label key={key}>{t(`speech_servers.${key}`)}{pathField(key)}</label>;
+                    onChange={value => field(name, key, value)} />;
+                const input = (key: PathField) => <FormRow key={key} label={t(`speech_servers.${key}`)}>{pathField(key)}</FormRow>;
                 // What the device choices run on: which GPUs, then what "CPU" is on this platform
                 // (a CPU build of its own on Linux, the one Vulkan build on Windows).
                 const deviceHelp = [devices.length > 0 && t("speech_servers.device_help"),
