@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（152件）
+## config.jsonに保存するキー（153件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -26,7 +26,8 @@
 | `SHOW_RESEND_BUTTON` | bool | `false` | 2秒後にまとめて |
 | `FONT_FAMILY` | str | `"Yu Gothic UI"` | 2秒後にまとめて |
 | `UI_LANGUAGE` | str（`SELECTABLE_UI_LANGUAGE_LIST`のどれか） | `"en"` | 2秒後にまとめて |
-| `MAIN_WINDOW_GEOMETRY` | 検証 `main_window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
+| `MAIN_WINDOW_GEOMETRY` | 検証 `window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
+| `SETTINGS_WINDOW_GEOMETRY` | 検証 `window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
 | `MIC_THRESHOLD` | int、独自の検証 | `300` | 2秒後にまとめて |
 | `MIC_AUTOMATIC_THRESHOLD` | bool | `false` | 2秒後にまとめて |
 | `MIC_RECORD_TIMEOUT` | 検証 `asr_timeout` | `3` | 2秒後にまとめて |

@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（506件: 削除 13、取得 225、実行 52、有効化 44、無効化 46、設定 126）
+## 要求（509件: 削除 13、取得 226、実行 53、有効化 44、無効化 46、設定 127）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -88,6 +88,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/ui_language` | 設定 | 可 | useAppearance.setSuccessUiLanguage |  |
 | `/get/data/main_window_geometry` | 取得 | 可 | （受け取るだけ） |  |
 | `/set/data/main_window_geometry` | 設定 | 可 | （受け取るだけ） |  |
+| `/get/data/settings_window_geometry` | 取得 | 可 | （受け取るだけ） |  |
+| `/set/data/settings_window_geometry` | 設定 | 可 | （受け取るだけ） |  |
 | `/get/data/compute_mode` | 取得 | 可 | useComputeMode.updateComputeMode |  |
 | `/get/data/selectable_translation_compute_device_list` | 取得 | 可 | useTranslation.updateFromBackendSelectableTranslationComputeDeviceList |  |
 | `/get/data/selected_translation_compute_device` | 取得 | 可 | useTranslation.updateFromBackendSelectedTranslationComputeDevice |  |
@@ -522,6 +524,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/start_vc_runtime_setup` | 実行 | 可 | useVcRuntimes.acknowledge |  |
 | `/run/cancel_vc_runtime_setup` | 実行 | 可 | useVcRuntimes.acknowledge |  |
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
+| `/run/settings_snapshot` | 実行 | 待つ | （受け取るだけ） |  |
 
 
 ## 通知（中核からUIへ、91件）

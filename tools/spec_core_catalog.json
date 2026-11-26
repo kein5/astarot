@@ -362,6 +362,16 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/settings_window_geometry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/settings_window_geometry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/compute_mode",
       "wait_for_init": false,
       "immediate": false
@@ -2530,6 +2540,11 @@
       "endpoint": "/get/data/gpu_memory",
       "wait_for_init": false,
       "immediate": false
+    },
+    {
+      "endpoint": "/run/settings_snapshot",
+      "wait_for_init": true,
+      "immediate": false
     }
   ],
   "notifications": [
@@ -4095,6 +4110,16 @@
     },
     {
       "key": "MAIN_WINDOW_GEOMETRY",
+      "kind": "immediate",
+      "default": {
+        "x_pos": 0,
+        "y_pos": 0,
+        "width": 870,
+        "height": 654
+      }
+    },
+    {
+      "key": "SETTINGS_WINDOW_GEOMETRY",
       "kind": "immediate",
       "default": {
         "x_pos": 0,
