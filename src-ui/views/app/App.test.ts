@@ -4,7 +4,7 @@ import { hooks, loadModule, find, componentName, draw } from "../../logics/test/
 import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
-const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController",
+const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController", "RecognitionFixController",
     "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController"].map(name => [name, named(name)]));
 
@@ -12,6 +12,7 @@ const load = async (phase: string) => {
     const runtime = hooks();
     const { App } = await loadModule<typeof import("./App.tsx")>(new URL("./App.tsx", import.meta.url), runtime, {
         "./_app_controllers/TranscriptionConsentController": { TranscriptionConsentController: parts.TranscriptionConsentController },
+        "./_app_controllers/RecognitionFixController": { RecognitionFixController: parts.RecognitionFixController },
         "./_app_controllers/TranslationSetupController": { TranslationSetupController: parts.TranslationSetupController },
         "./_app_controllers/TelemetryNoticeController": { TelemetryNoticeController: parts.TelemetryNoticeController },
         "./_app_controllers/OcrSetupController": { OcrSetupController: parts.OcrSetupController },
@@ -52,7 +53,7 @@ test("from the first frame the main page and title bar are drawn, locked until t
         assert.ok(page);
         assert.equal(page.props.locked, locked);
         // The settings page and the dialogs that act on the engine's settings wait for them.
-        for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController,
+        for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController, parts.RecognitionFixController,
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
             parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         const geometry = find(inner, node => node.type === parts.WindowGeometryController);

@@ -407,7 +407,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     const startup = await loadModule(new URL("./useBackendStartup.ts", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const StartupFailedDialog = () => null, StartupAnnouncer = () => null;
     const app = await loadModule<typeof import("../../views/app/App.tsx")>(new URL("../../views/app/App.tsx", import.meta.url), b.runtime, {
-        "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
+        "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/RecognitionFixController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
         "./_app_controllers/TelemetryNoticeController": {},
         "./_app_controllers/VirtualMicGuideController": {},
         "./_app_controllers/FirstRunSetupController": {},

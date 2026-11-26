@@ -1,4 +1,5 @@
 import { TranscriptionConsentController } from "./_app_controllers/TranscriptionConsentController";
+import { RecognitionFixController } from "./_app_controllers/RecognitionFixController";
 import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
@@ -106,6 +107,7 @@ const Contents = ({ locked }: { locked: boolean }) => {
                 {!locked && <>
                     <ModalController fallback={mainPage} />
                     <TranscriptionConsentController />
+                    <RecognitionFixController />
                     <TranslationSetupController />
                     <OcrSetupController />
                     <TelemetryNoticeController />

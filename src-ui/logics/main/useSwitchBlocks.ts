@@ -8,6 +8,7 @@ import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
 import { focusOcrModels } from "../ocr/useOcrSetup";
+import { useFirstRunSetup } from "../setup/useFirstRunSetup";
 
 // Main window only, once (SwitchBlocksController). Why each main switch cannot be turned on
 // yet (switchBlocks.ts), kept in the SwitchBlocks atom. The main window's switches and the VR
@@ -42,18 +43,20 @@ export const useSwitchBlocksSource = (): SwitchBlocks => {
 };
 
 // The main window's switches: the blocks, and how to start providing what is missing. The
-// translation model opens its review (provider, license, size, consent), the chat reading
-// models their section of the settings (as the dialog shown when chat reading is turned on
-// without them does), everything else its settings page. Nothing here downloads or turns a
-// switch on.
+// translation model opens its review (provider, license, size, consent), the speech recognition
+// models the first-run setup (the models, their size, consent; #1225), the chat reading models
+// their section of the settings (as the dialog shown when chat reading is turned on without them
+// does), everything else its settings page. Nothing here downloads or turns a switch on.
 export const useSwitchBlocks = () => {
     const { currentSwitchBlocks } = useStore_SwitchBlocks();
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const translationSetup = useTranslationSetup();
+    const { openSetup } = useFirstRunSetup();
     const prepare = (action: SwitchBlockAction | null | undefined) => {
         if (!action) return;
         if (action === "translation") return translationSetup.open(false);
+        if (action === "recognition_setup") return openSetup();
         if (action === "translator") return translationSetup.chooseTranslator();
         updateSelectedConfigTabId(action === "ocr_models" ? "ocr" : action);
         updateIsOpenedConfigPage(true);

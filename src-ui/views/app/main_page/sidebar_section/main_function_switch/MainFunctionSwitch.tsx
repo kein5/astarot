@@ -238,6 +238,7 @@ export const SETTINGS_DESTINATION: Record<SwitchBlockId, SwitchBlockAction> = {
 export const settingsLabel = (destination: SwitchBlockAction, t: TFunction) => {
     if (destination === "translator") return t("main_page.feature_settings.translator");
     if (destination === "translation") return t("main_page.feature_settings.translation_model");
+    if (destination === "recognition_setup") return t("main_page.feature_settings.recognition_models");
     const page = destination === "ocr_models" ? "ocr" : destination;
     return t("main_page.feature_settings.open_page", { page: t(`config_page.side_menu_labels.${page}`) });
 };

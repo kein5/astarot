@@ -6,6 +6,7 @@ import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { RealtimeAsrSettings } from "../../../../../../logics/transcription/useRealtimeASR.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
+import * as recognitionFix from "../../../../../../logics/transcription/recognitionFix.ts";
 
 // The settings the page writes, read back as far as the tests read them: a source for each input,
 // and the vocabulary's terms when it is there.
@@ -63,6 +64,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
+        "../../../../../../logics/transcription/recognitionFix": recognitionFix,
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },

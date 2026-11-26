@@ -373,6 +373,7 @@ main_page:
         open_page: "「{{page}}」の設定を開く"
         translator: "翻訳エンジンを選ぶ"
         translation_model: "翻訳モデルの取得内容を確認"
+        recognition_models: "おすすめの音声認識モデルを取得"
 
     # A main switch that cannot be turned on yet: why, and where to provide it.
     # Shown as the switch's tooltip and read as its description.
@@ -380,7 +381,7 @@ main_page:
         translation_model: "翻訳モデルをまだ取得していません。設定の「翻訳」で取得するか、「翻訳エンジン」でほかのエンジンを選んでください。"
         translation_unavailable: "選んでいる翻訳モデルは、まだダウンロードできません。「翻訳エンジン」でほかのエンジンを選んでください。"
         translation_downloading: "翻訳モデルを取得しています。取得が終わるとオンにできます。"
-        asr_models: "ローカルの音声認識に使うモデルがありません。設定の「音声認識（ASR）」→「モデルとサーバー」で、認識モデルとVADモデルを取得してください。"
+        asr_models: "ローカルの音声認識に使うモデルがまだありません。このスイッチの横のボタンで、おすすめの認識モデルとVADモデルとその大きさを確かめ、同意すると取得します。"
         ocr_models: "チャット読み取りの認識モデルをまだ取得していません。設定の「チャット読み取り（OCR）」→「認識モデル」で取得してください。"
         ocr_language: "チャット読み取りは、選んでいる言語に対応していません。設定の「チャット読み取り（OCR）」で言語を変えてください。"
         tts_source: "読み上げる内容が選ばれていません。設定の「テキスト読み上げ（TTS）」で「読み上げ」か「マイクのリアルタイム字幕の読み上げ」をオフ以外にして保存してください。"
@@ -1617,6 +1618,23 @@ realtime_toggle:
   realtime_language_auto_unsupported: "このASRモデルは言語を自動判定できません。設定 → 音声認識（ASR） → リアルタイム字幕で話されている言語を選ぶか、自動判定できるQwen3-ASRを取得してください。"
   realtime_capture_failed: "音声の取り込みが止まりました。デバイスが外れたか変わった可能性があります。確認してからもう一度オンにしてください。"
   realtime_asr_timeout: "音声認識サーバーから結果が時間内に返りませんでした。もう一度オンにしてください。続くときは、ほかのGPUアプリを止めるか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選んでください。"
+
+# A Mic input or Listening switch that cannot turn on because speech recognition misses something:
+# the dialog that fixes it where the switch is (#1225).
+recognition_fix:
+  title: "{{name}}をまだオンにできません"
+  models_body: "お使いのPCで音声認識をするには、認識モデルとVADモデルが必要です。セットアップは、取得するモデルとその大きさを示し、同意したときだけ取得します。"
+  get_models: "おすすめのモデルを取得"
+  language_auto_body: "今の音声認識モデルは、話されている言語を判定できません。話されている言語を選ぶか、言語を判定できるモデルを取得してください。"
+  language_body: "今の音声認識モデルは、選んだ言語を認識できません。認識できる言語を選んでください。"
+  language_label: "話されている言語"
+  use_language: "この言語にしてオンにする"
+  detect_heading: "言語を判定できるモデル"
+  detect_body: "{{model}}は30の言語を認識し、どの言語が話されているかを判定します。確認の画面で大きさとライセンスを示してから取得します。用意ができると音声認識のモデルになり、{{name}}がオンになります。"
+  open_setting: "設定を開く"
+  close: "閉じる"
+  model_ready: "新しい音声認識モデルを設定しました。"
+  server_running: "新しいモデルは取得しましたが、同梱ASRサーバーが動いている間は設定できません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでASRサーバーを停止し、そこでモデルを適用してください。"
 
 speech_servers:
     setup_title: "モデルとサーバー"

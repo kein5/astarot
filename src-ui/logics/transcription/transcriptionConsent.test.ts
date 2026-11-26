@@ -68,6 +68,8 @@ async function fixture(context: TestContext) {
         "./main/translatorLabel": translatorLabel,
         "./translation/useTranslationSetup": { useTranslationSetup: () => ({ open: noop }) },
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
+        "./transcription/useRecognitionFix": { useRecognitionFix: () => ({ open: noop }) },
+        "./transcription/recognitionFix": { recognitionFixOf: () => null },
     });
     const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
     // A 400 answer as the tests report it: no message and no result, as before.
