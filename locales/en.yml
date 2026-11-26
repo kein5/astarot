@@ -2977,12 +2977,15 @@ companion:
     open_main: "Open ASTAROT"
     close: "Close"
     handle: "Open the control panel"
-    menu_start: "Start recognition"
-    menu_stop: "Stop recognition"
-    menu_panel: "Open the control panel"
+    # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
+    menu_start: "Turn on Mic input"
+    menu_stop: "Turn off Mic input"
+    # ASTAROT's own panel, not the system's Control Panel.
+    menu_panel: "Open the ASTAROT control panel"
     menu_main: "Open ASTAROT"
     menu_quit: "Quit"
-    menu_monitor: "Monitor"
+    # The same words as the setting on the experimental features page.
+    menu_monitor: "Monitor for the hexagram"
     menu_monitor_primary: "Primary monitor"
     menu_monitor_display: "Display"
     menu_monitor_missing: "Monitor not connected"
