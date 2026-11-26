@@ -7,7 +7,8 @@
 //!
 //! The settings window (#1236) joins the main window's run: it may attach its own channels,
 //! which then get every line too, in the same order, and it may write requests. So both windows
-//! read every answer, and a setting changed in one is changed in the other.
+//! read every answer, and a setting changed in one is changed in the other. When the run ends, the
+//! settings window hears it and joins the next run the main window starts.
 //!
 //! The core is the only backend: the packages carry no Python
 //! (`docs/voice-stack/core-integration.md`).
@@ -24,13 +25,77 @@ use astarot_core::{Backend, Options, Sink};
 #[derive(Default)]
 pub struct BackendHost {
     session: Mutex<Option<(String, Backend)>>,
-    // The settings window's channels while it is open (#1236).
-    attached: Mutex<Option<Attached>>,
+    // The run the settings window may join, and its channels while it has joined (#1236).
+    joining: Mutex<Joining<Attached>>,
 }
 
 struct Attached {
     lines: Channel<String>,
     exit: Channel<i32>,
+}
+
+/// The settings window's part in the runs (#1236). A run that has ended stays the session until the
+/// main window starts the next one; the settings window may not join it then, as it would read
+/// nothing more and write to nothing. Every run's lines and end go to the channels that joined that
+/// run, never to those of the next one: a run stopped late, after the next one started, says
+/// nothing to it.
+struct Joining<C> {
+    // The session whose run is going.
+    live: Option<String>,
+    attached: Option<(String, C)>,
+}
+
+impl<C> Default for Joining<C> {
+    fn default() -> Self {
+        Self { live: None, attached: None }
+    }
+}
+
+impl<C> Joining<C> {
+    /// The run of `session` has started. Answers the channels of a run before it that are still
+    /// attached: that run is over, and they hear its end.
+    fn begin(&mut self, session: &str) -> Option<C> {
+        self.live = Some(session.to_string());
+        match self.attached.take() {
+            Some((id, channels)) if id != session => Some(channels),
+            other => {
+                self.attached = other;
+                None
+            }
+        }
+    }
+
+    /// The settings window joins the run that is going: answers its session.
+    fn join(&mut self, channels: C) -> Result<String, String> {
+        let Some(session) = self.live.clone() else {
+            return Err("backend_not_running".into());
+        };
+        self.attached = Some((session.clone(), channels));
+        Ok(session)
+    }
+
+    /// The channels that joined the run of `session`.
+    fn of(&self, session: &str) -> Option<&C> {
+        self.attached.as_ref().filter(|(id, _)| id == session).map(|(_, channels)| channels)
+    }
+
+    /// The run of `session` has ended: answers the channels that joined it, which hear its end.
+    fn end(&mut self, session: &str) -> Option<C> {
+        if self.live.as_deref() == Some(session) {
+            self.live = None;
+        }
+        match self.attached.take() {
+            Some((id, channels)) if id == session => Some(channels),
+            other => {
+                self.attached = other;
+                None
+            }
+        }
+    }
+
+    fn detach(&mut self) {
+        self.attached = None;
+    }
 }
 
 /// How long the stop before an update may take. The graceful stop saves the settings first and
@@ -72,15 +137,13 @@ fn writer(window: &tauri::WebviewWindow) -> Result<(), String> {
 }
 
 impl BackendHost {
-    /// The settings window went away: its channels get no more lines.
-    pub fn detach(&self) {
-        *self.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    fn joining(&self) -> std::sync::MutexGuard<'_, Joining<Attached>> {
+        self.joining.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    fn to_attached(&self, send: impl FnOnce(&Attached)) {
-        if let Some(attached) = self.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref() {
-            send(attached);
-        }
+    /// The settings window went away: its channels get no more lines.
+    pub fn detach(&self) {
+        self.joining().detach();
     }
 }
 
@@ -233,21 +296,23 @@ fn start_run(
     continue_logs: bool,
 ) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
-    // Every line to the main window, and to the settings window while it is attached (#1236).
+    // Every line to the main window, and to the settings window while it has joined this run (#1236).
     let line_app = app.clone();
     let exit_app = app.clone();
+    let line_session = session.clone();
+    let exit_session = session.clone();
     let sink = Sink {
         line: std::sync::Arc::new(move |line| {
-            line_app.state::<BackendHost>().to_attached(|attached| {
+            if let Some(attached) = line_app.state::<BackendHost>().joining().of(&line_session) {
                 let _ = attached.lines.send(line.clone());
-            });
+            }
             let _ = lines.send(line);
         }),
         exit: std::sync::Arc::new(move |code| {
-            // The run is over for the settings window too: it hears the end and reads no more of
-            // a run started after it (a retry names another session).
-            let host = exit_app.state::<BackendHost>();
-            if let Some(attached) = host.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
+            // The run is over for the settings window too: it hears the end, and joins the next
+            // run when the main window starts one.
+            let ended = exit_app.state::<BackendHost>().joining().end(&exit_session);
+            if let Some(attached) = ended {
                 let _ = attached.exit.send(code);
             }
             let _ = exit.send(code);
@@ -271,7 +336,16 @@ fn start_run(
     }
     let backend = Backend::start(options, sink);
     let host = app.state::<BackendHost>();
+    let id = session.clone();
     *host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some((session, backend));
+    // After the session, so that a settings window that joins it can write at once.
+    let stale = host.joining().begin(&id);
+    // A settings window still on the run this one replaced (its stop took too long to be heard)
+    // hears that run's end. Then it may join this one.
+    if let Some(attached) = stale {
+        let _ = attached.exit.send(-1);
+    }
+    crate::settings_window::run_started(app);
     Ok(())
 }
 
@@ -307,8 +381,8 @@ fn with_origin(line: &str, origin: &str) -> String {
 
 /// The settings window joins the run the main window started (#1236): from now on its channels
 /// get every line and the run's end. Answers the session, which its requests name. A run that
-/// is not there yet (the main window is still starting it) answers `backend_not_running`, and
-/// the settings window asks again.
+/// is not there yet (the main window is still starting it), or that has ended, answers
+/// `backend_not_running`: the settings window asks again, and joins the next run when it starts.
 #[tauri::command]
 pub fn backend_attach(
     window: tauri::WebviewWindow,
@@ -319,12 +393,7 @@ pub fn backend_attach(
     if window.label() != crate::settings_window::LABEL {
         return Err("backend_forbidden".into());
     }
-    let session = host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let Some((id, _)) = session.as_ref() else {
-        return Err("backend_not_running".into());
-    };
-    *host.attached.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Attached { lines, exit });
-    Ok(id.clone())
+    host.joining().join(Attached { lines, exit })
 }
 
 /// Ends the session's run, as killing the sidecar did.
@@ -346,8 +415,44 @@ pub fn backend_kill(window: tauri::WebviewWindow, host: tauri::State<'_, Backend
 
 #[cfg(test)]
 mod tests {
-    use super::with_origin;
+    use super::{Joining, with_origin};
     use serde_json::{Value, json};
+
+    #[test]
+    fn the_settings_window_joins_only_a_run_that_is_going() {
+        let mut joining = Joining::<&str>::default();
+        // No run yet: the main window is still starting it.
+        assert_eq!(joining.join("early"), Err("backend_not_running".into()));
+        assert_eq!(joining.begin("a"), None);
+        assert_eq!(joining.join("window"), Ok("a".into()));
+        assert_eq!(joining.of("a"), Some(&"window"));
+        // The run ends: the window hears it, and may not join the run that has ended.
+        assert_eq!(joining.end("a"), Some("window"));
+        assert_eq!(joining.of("a"), None);
+        assert_eq!(joining.join("again"), Err("backend_not_running".into()));
+        // The next run: the window joins it, and the first run's end, heard late, is not its.
+        assert_eq!(joining.begin("b"), None);
+        assert_eq!(joining.join("window"), Ok("b".into()));
+        assert_eq!(joining.end("a"), None);
+        assert_eq!(joining.of("a"), None);
+        assert_eq!(joining.of("b"), Some(&"window"));
+        // Closed, the window gets no more lines.
+        joining.detach();
+        assert_eq!(joining.of("b"), None);
+    }
+
+    #[test]
+    fn a_run_started_over_a_window_still_on_the_last_one_ends_that_one_for_it() {
+        let mut joining = Joining::<&str>::default();
+        joining.begin("a");
+        assert_eq!(joining.join("window"), Ok("a".into()));
+        // The main window started again before the end of "a" was heard.
+        assert_eq!(joining.begin("b"), Some("window"));
+        assert_eq!(joining.of("a"), None);
+        // The end of "a", heard after, ends nothing of "b".
+        assert_eq!(joining.end("a"), None);
+        assert_eq!(joining.join("window"), Ok("b".into()));
+    }
 
     #[test]
     fn the_settings_windows_lines_are_named_its_own() {

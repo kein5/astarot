@@ -42,7 +42,7 @@ export const WindowTitleBar = () => {
                         </button>
                     </Tooltip>
                     <Tooltip bare placement="bottom" title={closeLabel}>
-                        <button type="button" aria-label={closeLabel} className={styles.close_button} onClick={asyncCloseApp}>
+                        <button type="button" aria-label={closeLabel} className={styles.close_button} data-window-close="" onClick={asyncCloseApp}>
                             <XMarkSvg aria-hidden="true" className={styles.x_mark_svg}/>
                         </button>
                     </Tooltip>

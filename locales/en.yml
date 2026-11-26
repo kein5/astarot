@@ -1172,7 +1172,7 @@ config_page:
     hotkeys:
         input_placeholder: "Press a key combination"
         unassigned_placeholder: "Not set"
-        disabled_notice: "Hotkeys are paused while the settings page is open, so they cannot act by mistake."
+        disabled_notice: "Hotkeys are paused while this page is open, so they cannot act by mistake."
         section_label_quick_chat: "Quick Chat"
         section_label_toggles: "Window and feature toggles"
         section_label_stop: "Stop and mute"
@@ -2619,6 +2619,8 @@ studio:
     # The settings window's title bar and its close button (#1236).
     settings_window_title: "ASTAROT Settings"
     close_settings: "Close settings"
+    # The settings window while the main window's run of the engine has ended (#1236).
+    settings_disconnected: "Engine disconnected. The settings connect again when the main window starts the engine, and cannot be changed until then."
 
 legacy_model_downloads:
     progress_name: "{{model}} download"

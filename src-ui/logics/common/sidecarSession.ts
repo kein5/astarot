@@ -51,6 +51,9 @@ export interface SidecarSessionOwnerOptions {
     createCommand: () => BackendCommand;
     setInterval: (callback: () => void, ms: number) => SidecarTimer;
     clearInterval: (timer: SidecarTimer) => void;
+    // The session joins a run another window starts (the settings window, #1236): it may join the
+    // next run after any end of the last one, as the run's end is that window's to explain.
+    rejoins?: boolean;
 }
 
 export interface SidecarSessionOwner {
@@ -60,7 +63,7 @@ export interface SidecarSessionOwner {
 
 // Kept on the shared UI store, not a component ref. Mounts attach to this owner;
 // only a deliberate retry of a failed start can replace its session.
-export const createSidecarSessionOwner = ({ store, createCommand, setInterval, clearInterval }: SidecarSessionOwnerOptions): SidecarSessionOwner => {
+export const createSidecarSessionOwner = ({ store, createCommand, setInterval, clearInterval, rejoins = false }: SidecarSessionOwnerOptions): SidecarSessionOwner => {
     const clients = new Set<SidecarHandlersGetter>();
     let lastClient: SidecarHandlersGetter | undefined;
     const handlers = () => (Array.from(clients).at(-1) ?? lastClient)?.();
@@ -191,7 +194,8 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
     };
     const retry = async () => {
         const session = store.backend_session;
-        if (session?.phase !== "failed" || session.retrying || !clients.size) return false;
+        const ended = session?.phase === "failed" || (rejoins && session?.phase === "stopped");
+        if (!session || !ended || session.retrying || !clients.size) return false;
         session.retrying = true;
         handlers()?.setStartupState("starting");
         // Do not spawn a replacement while an old spawn or kill is unresolved.

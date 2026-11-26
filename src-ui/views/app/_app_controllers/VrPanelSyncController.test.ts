@@ -26,7 +26,7 @@ type MainFunctionsMemory = { translation: boolean; transcription_send: boolean; 
 
 async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null, catalogStore = createStore(), windowed = false }: SyncSetup = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
-    const state = { enabled: true, configOpen: false, mic: true };
+    const state = { enabled: true, configOpen: false, settingsWindowOpen: false, mic: true };
     const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
         emitted: unknown[][] = [], notices: unknown[][] = [], settingsWindow: unknown[][] = [];
     let memory: MainFunctionsMemory = { translation: false, transcription_send: false, transcription_receive: false };
@@ -55,7 +55,8 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
             sub: (atom: string | typeof translationCatalog.vrCustomTranslationModelNamesAtom, listener: () => void) =>
                 typeof atom === "string" ? () => {} : catalogStore.sub(atom, listener),
         }) },
-        "@store": { dynamicStoreRegistry: registry },
+        "@store": { dynamicStoreRegistry: registry,
+            useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: state.settingsWindowOpen } }) },
         "../../../logics/translation/translationCatalogState.ts": translationCatalog,
         "../../../logics/configs/config_page_setter/ui_config_setter": { SETTINGS_ARRAY: settings },
         "@logics_common": common,
@@ -227,11 +228,32 @@ test("in the app the VR panel's settings open the settings window, leaving the f
     assert.deepEqual(view.settingsWindow, [["open", {}, { focus: false }], ["close"]]);
     // The settings window the desktop opened stays when the VR panel's settings close.
     const desktop = await setup(context, { windowed: true });
-    desktop.state.configOpen = true;
+    desktop.state.settingsWindowOpen = true;
     desktop.render();
     desktop.config(true);
     desktop.config(false);
     assert.deepEqual(desktop.settingsWindow, [["open", {}, { focus: false }]]);
+});
+
+// Nothing pauses while the settings window is open (decided on 2026-11-26): the features keep
+// running, and the VR panel's requests go through as on any other day.
+test("while the settings window is open nothing pauses, and the VR panel's requests go through", async context => {
+    const view = await setup(context, { windowed: true });
+    view.config(true);
+    view.state.settingsWindowOpen = true;
+    view.render();
+    view.listener("vr-panel-stdout")({ payload: { path: "/set/enable/translation" } });
+    assert.deepEqual(view.requests, [["/set/enable/translation", undefined, undefined, "vr_panel"]]);
+    assert.equal(view.state.configOpen, false);
+    assert.equal(view.state.mic, true);
+    assert.deepEqual(view.actions, []);
+    // Closed on the desktop, the window ends the VR panel's part: VR opening its settings again
+    // opens the window again, and their closing closes it.
+    view.state.settingsWindowOpen = false;
+    view.render();
+    view.config(true);
+    view.config(false);
+    assert.deepEqual(view.settingsWindow, [["open", {}, { focus: false }], ["open", {}, { focus: false }], ["close"]]);
 });
 
 test("a VR panel window that cannot be opened is said once, and turning it off says nothing", async context => {

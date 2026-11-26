@@ -6,7 +6,7 @@ import { isSettingsWindow, layoutSettled, noticesHere, placeOf } from "./setting
 import { isNarrowWidth } from "./breakPoint.ts";
 import { noticesQuiet, withNotices } from "./noticeScope.ts";
 import { createAttachedBackendCommand } from "./backendCommand.ts";
-import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
+import { componentName, componentOf, find, findIn, hooks, loadModule, unchecked } from "../test/hookHarness.ts";
 import { flush } from "../test/bridgeHarness.ts";
 import { loadRecordedRoutes } from "../test/routeRecorder.ts";
 
@@ -158,52 +158,68 @@ test("an opening the shell refuses is logged, and nothing else happens", async (
     assert.deepEqual(errors.mock.calls, [["The settings window could not open", "settings_window_invalid"]]);
 });
 
-test("the main window follows the settings window, and opens Quick Chat it hands over", async context => {
+// Nothing pauses while the settings window is open (decided on 2026-11-26): the main window only
+// notes that it is open, for the VR panel's settings, and pauses the hotkeys while it shows the
+// Hotkeys page. What the settings started ends with them: the volume checks, the shared window.
+test("the main window follows the settings window without pausing, and opens Quick Chat it hands over", async context => {
     const listeners = new Map<string, (event: { payload: unknown }) => void>(), stopped: string[] = [], calls: unknown[] = [];
     let open = true;
+    const controller = (runtime: ReturnType<typeof hooks>, record: unknown[], listen: (name: string, callback: (event: { payload: unknown }) => void) => Promise<() => void>) =>
+        loadModule<typeof import("../../views/app/_app_controllers/SettingsWindowController.tsx")>(
+            new URL("../../views/app/_app_controllers/SettingsWindowController.tsx", import.meta.url), runtime, {
+                "@tauri-apps/api/event": { listen },
+                "../../../logics/common/settingsWindow.ts": { ...settingsWindow, settingsHaveAWindow: () => true, isSettingsWindowOpen: async () => open },
+                "@store": {
+                    useStore_IsOpenedSettingsWindow: () => ({ updateIsOpenedSettingsWindow: (value: unknown) => record.push(["window", value]) }),
+                    useStore_IsHotkeysPageOpen: () => ({ updateIsHotkeysPageOpen: (value: unknown) => record.push(["hotkeys page", value]) }),
+                },
+                "@logics_common": { useVolume: () => ({
+                    currentMicThresholdCheckStatus: { data: true }, volumeCheckStop_Mic: () => record.push("stop mic check"),
+                    currentSpeakerThresholdCheckStatus: { data: false }, volumeCheckStop_Speaker: () => record.push("stop speaker check"),
+                }) },
+                "@logics_configs": {
+                    useHotkeys: () => ({ openQuickChat: async () => { record.push("quick_chat"); } }),
+                    useOcrSharedWindow: () => ({ refresh: async () => { record.push("refresh"); } }),
+                },
+            });
     const runtime = hooks();
-    const { SettingsWindowController } = await loadModule<typeof import("../../views/app/_app_controllers/SettingsWindowController.tsx")>(
-        new URL("../../views/app/_app_controllers/SettingsWindowController.tsx", import.meta.url), runtime, {
-            "@tauri-apps/api/event": { listen: async (name: string, callback: (event: { payload: unknown }) => void) => {
-                listeners.set(name, callback);
-                return () => stopped.push(name);
-            } },
-            "../../../logics/common/settingsWindow.ts": { ...settingsWindow, settingsHaveAWindow: () => true, isSettingsWindowOpen: async () => open },
-            "@logics_common": { useIsOpenedConfigPage: () => ({ setIsOpenedConfigPage: (value: unknown) => calls.push(["open", value]) }) },
-            "@logics_configs": {
-                useHotkeys: () => ({ openQuickChat: async () => { calls.push("quick_chat"); } }),
-                useOcrSharedWindow: () => ({ refresh: async () => { calls.push("refresh"); } }),
-            },
-        });
+    const { SettingsWindowController } = await controller(runtime, calls, async (name, callback) => {
+        listeners.set(name, callback);
+        return () => stopped.push(name);
+    });
     runtime.render(SettingsWindowController);
     await flush();
     // A main window loaded again while the settings window is open knows it at once.
-    assert.deepEqual(calls, [["open", true]]);
+    assert.deepEqual(calls, [["window", true]]);
     const changed = listeners.get(settingsWindow.SETTINGS_WINDOW_CHANGED), handed = listeners.get(settingsWindow.SETTINGS_HAND_OVER);
     assert.ok(changed && handed);
     calls.length = 0;
+    // The Hotkeys page is shown, then the settings window closes: the hotkeys resume, the volume
+    // check it started stops, and the shared window is read again.
+    handed({ payload: "pause_hotkeys" });
     changed({ payload: false });
     changed({ payload: true });
-    // The Hotkeys page's button: the settings close, then Quick Chat opens; nothing else is taken.
+    handed({ payload: "pause_hotkeys" });
+    handed({ payload: "resume_hotkeys" });
+    // The Hotkeys page's button: Quick Chat opens, and the settings window stays; nothing else is taken.
     handed({ payload: "open_quick_chat" });
     handed({ payload: "quit" });
     await flush();
-    assert.deepEqual(calls, [["open", false], "refresh", ["open", true], ["open", false], "quick_chat"]);
+    assert.deepEqual(calls, [["hotkeys page", true], ["window", false], ["hotkeys page", false], "stop mic check", "refresh",
+        ["window", true], ["hotkeys page", true], ["hotkeys page", false], "quick_chat"]);
     runtime.unmount();
     assert.deepEqual(stopped.sort(), [settingsWindow.SETTINGS_HAND_OVER, settingsWindow.SETTINGS_WINDOW_CHANGED]);
+    // The controller never marks the settings page open: the main window's features do not pause.
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("../../views/app/_app_controllers/SettingsWindowController.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(source, /IsOpenedConfigPage/);
 
     // A main window that starts with the settings closed changes nothing.
     open = false;
     // A new list: the checks above narrowed the type of the first.
     const later: unknown[] = [];
     const again = hooks();
-    const reloaded = await loadModule<typeof import("../../views/app/_app_controllers/SettingsWindowController.tsx")>(
-        new URL("../../views/app/_app_controllers/SettingsWindowController.tsx", import.meta.url), again, {
-            "@tauri-apps/api/event": { listen: async () => () => {} },
-            "../../../logics/common/settingsWindow.ts": { ...settingsWindow, settingsHaveAWindow: () => true, isSettingsWindowOpen: async () => open },
-            "@logics_common": { useIsOpenedConfigPage: () => ({ setIsOpenedConfigPage: (value: unknown) => later.push(["open", value]) }) },
-            "@logics_configs": { useHotkeys: () => ({ openQuickChat: async () => {} }), useOcrSharedWindow: () => ({ refresh: async () => {} }) },
-        });
+    const reloaded = await controller(again, later, async () => () => {});
     again.render(reloaded.SettingsWindowController);
     await flush();
     assert.deepEqual(later, []);
@@ -263,4 +279,109 @@ test("the settings window's page waits for the narrow layout its width and UI si
     assert.equal(layoutSettled(true, 150, 870), true);
     // At 100% nothing changes: at once.
     assert.equal(layoutSettled(false, 100, 870), true);
+});
+
+// When the run it read ends, the settings window stays (decided on 2026-11-26) and joins the next
+// run the main window starts. A start heard while it is still joining, or still on the run the new
+// one replaces, waits until that ends.
+test("the settings window joins the next run once the one it read has ended", () => {
+    const later: Array<() => void> = [];
+    let retries = 0;
+    const store: settingsWindow.RunJoinerStore = { backend_session: { phase: "running", retrying: false },
+        backend_session_owner: { retry: async () => {
+            retries++;
+            store.backend_session = { phase: "starting", retrying: false };
+            return true;
+        } } };
+    const runs = settingsWindow.createRunJoiner(store, task => { later.push(task); });
+    const settle = () => { for (const task of later.splice(0)) task(); };
+    // The run ends: there is nothing to join until the main window starts the next one.
+    store.backend_session = { phase: "failed", retrying: false };
+    runs.ended();
+    settle();
+    assert.equal(retries, 0);
+    runs.runStarted();
+    assert.equal(retries, 1);
+    // Heard again while joining: the attempts find the run by themselves.
+    runs.runStarted();
+    assert.equal(retries, 1);
+    runs.joined();
+    // That run ends after it was ready ("stopped"): still nothing until the next start.
+    store.backend_session = { phase: "stopped", retrying: false };
+    runs.ended();
+    settle();
+    assert.equal(retries, 1);
+    // A start heard while still on the run it replaces waits for that run's end.
+    store.backend_session = { phase: "running", retrying: false };
+    runs.runStarted();
+    assert.equal(retries, 1);
+    store.backend_session = { phase: "stopped", retrying: false };
+    runs.ended();
+    assert.equal(retries, 1, "after the end has been taken in");
+    settle();
+    assert.equal(retries, 2);
+    // A retry under way is not doubled.
+    store.backend_session = { phase: "failed", retrying: true };
+    runs.runStarted();
+    assert.equal(retries, 2);
+});
+
+// The settings window's contents through the end of a run (decided on 2026-11-26): the page drawn
+// once stays, out of reach (inert), under a readout that says the engine is not connected, and the
+// window's place is not saved while it is.
+test("when the run ends the settings window keeps its page, out of reach, and says the engine is not connected", async context => {
+    const state = { ready: false };
+    const app = hooks();
+    context.onTestFinished(() => app.unmount());
+    const { SettingsWindowApp } = await loadModule<typeof import("../../views/settings_window/SettingsWindowApp.tsx")>(
+        new URL("../../views/settings_window/SettingsWindowApp.tsx", import.meta.url), app, {
+            "@tauri-apps/api/core": { invoke: async () => null, Channel: class {} },
+            "@tauri-apps/api/event": { listen: async () => () => {} },
+            "@store": { store: {}, useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: true } }),
+                useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: () => {} }) },
+            "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
+            "@useStdoutToPython": { useStdoutToPython: () => ({}) },
+            "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
+            "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready }, updateIsBackendReady: () => {} }),
+                useIsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: () => {} }), WindowGeometryController: "geometry" },
+            "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }), useOcrSharedWindow: () => ({}) },
+            "../../logics/common/sidecarSession.ts": {},
+            "../../logics/common/backendCommand.ts": {},
+            "../../logics/common/settingsWindow.ts": { ...settingsWindow, layoutSettled: () => true },
+            "../../logics/common/showSetting.ts": { showSetting: () => {} },
+            "../app/_app_controllers": { KeyEventController: "keys", UiLanguageController: "language", UiSizeController: "size",
+                FontFamilyController: "font", ThemeController: "theme", TransparencyController: "transparency", CornerRadiusController: "corners" },
+            "../app/_app_controllers/StartPythonController": { useAsyncFetchFonts: () => ({}) },
+            "../app/_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: "guide" },
+            "../app/config_page/ConfigPage": { ConfigPage: "config-page" },
+            "../app/others": { WindowTitleBar: "title-bar", SnackbarController: "snackbar", AppErrorBoundary: "boundary" },
+            "../app/config_page/setting_section/setting_box/_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+        });
+    // The app draws no hook of its own: its contents are drawn on their own, with the module's hooks.
+    const Contents = componentOf(findIn(app.render(SettingsWindowApp), node => componentName(node) === "Contents"));
+    const draw = () => {
+        const tree = app.render(Contents);
+        const wrapper = findIn(tree, node => node.props?.className === "pages_wrapper");
+        return { page: find(wrapper, node => node.type === "config-page"), inert: wrapper.props.inert,
+            readout: find(tree, node => node.type === "readout"), saved: findIn(tree, node => node.type === "geometry").props.saveGeometry };
+    };
+    // Before the first snapshot: only the title bar.
+    let drawn = draw();
+    assert.deepEqual([drawn.page, drawn.readout, drawn.saved], [null, null, false]);
+    state.ready = true;
+    drawn = draw();
+    assert.ok(drawn.page);
+    assert.deepEqual([drawn.inert, drawn.readout, drawn.saved], [false, null, true]);
+    // The run ends.
+    state.ready = false;
+    drawn = draw();
+    assert.ok(drawn.page, "the page stays");
+    assert.equal(drawn.inert, true);
+    assert.equal(drawn.saved, false);
+    assert.ok(drawn.readout);
+    assert.deepEqual([drawn.readout.props.tone, findIn(drawn.readout, node => node.type === "p").props.children], ["warning", "studio.settings_disconnected"]);
+    // The next run is joined.
+    state.ready = true;
+    drawn = draw();
+    assert.deepEqual([drawn.inert, drawn.readout, drawn.saved], [false, null, true]);
 });

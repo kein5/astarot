@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getDefaultStore } from "jotai";
-import { store, useStore_Hotkeys, Atom_IsOpenedConfigPage, Atom_IsBackendReady, Atom_IsSoftwareUpdating, Atom_Hotkeys } from "@store";
+import { store, useStore_Hotkeys, Atom_IsOpenedConfigPage, Atom_IsHotkeysPageOpen, Atom_IsBackendReady, Atom_IsSoftwareUpdating, Atom_Hotkeys } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useNotificationStatus } from "@logics_common";
 import { useMainFunction } from "@logics_main";
@@ -89,6 +89,7 @@ const shortcutsEnabled = () => {
     const atoms = getDefaultStore();
     return atoms.get(Atom_IsBackendReady).data === true &&
         atoms.get(Atom_IsOpenedConfigPage).data === false &&
+        atoms.get(Atom_IsHotkeysPageOpen).data !== true &&
         atoms.get(Atom_IsSoftwareUpdating).data === false;
 };
 const pauseShortcuts = () => {

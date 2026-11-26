@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getDefaultStore } from "jotai";
 
 import { store, useStore_IsBreakPoint, useStore_SelectedConfigTabId } from "@store";
 import { useReceiveRoutes } from "@useReceiveRoutes";
@@ -12,10 +11,9 @@ import { useAppearance, useOcrSharedWindow } from "@logics_configs";
 import { createSidecarSessionOwner } from "../../logics/common/sidecarSession.ts";
 import type { SidecarPhase, SidecarSessionHandlers } from "../../logics/common/sidecarSession.ts";
 import { createAttachedBackendCommand } from "../../logics/common/backendCommand.ts";
-import { backToMainWindow, layoutSettled, placeOf, SETTINGS_NAVIGATE, takeSettingsNavigation } from "../../logics/common/settingsWindow.ts";
+import { createRunJoiner, layoutSettled, placeOf, SETTINGS_BACKEND_RUN, SETTINGS_NAVIGATE, takeSettingsNavigation } from "../../logics/common/settingsWindow.ts";
 import type { SettingsPlace } from "../../logics/common/settingsWindow.ts";
 import { showSetting } from "../../logics/common/showSetting.ts";
-import { Atom_AppUpdate } from "../../logics/common/useAppUpdate.ts";
 
 import {
     KeyEventController,
@@ -30,7 +28,9 @@ import { useAsyncFetchFonts } from "../app/_app_controllers/StartPythonControlle
 import { VirtualMicGuideController } from "../app/_app_controllers/VirtualMicGuideController";
 import { ConfigPage } from "../app/config_page/ConfigPage";
 import { WindowTitleBar, SnackbarController, AppErrorBoundary } from "../app/others";
+import { EnvReadout } from "../app/config_page/setting_section/setting_box/_components/env_readout/EnvReadout";
 import * as styles from "../app/App.css.ts";
+import * as windowStyles from "./SettingsWindowApp.css.ts";
 
 // The settings window (#1236). It shows the settings pages as the main window showed them before:
 // the same pages, read from the same backend run. The main window keeps what runs the app (the
@@ -61,21 +61,30 @@ export const SettingsWindowApp = () => (
 // that the snapshot's UI size decides (layoutSettled): drawn wide and turned narrow a moment later,
 // the menu changed under a press made at once, which then opened nothing (the AppImage at 150%),
 // and WebKitGTK can stop laying out a page whose style changes at its first layout (#1221).
+// When the run ends, the pages stay as they were, out of reach, under a readout that says the
+// engine is not connected, until this window joins the next run (decided on 2026-11-26).
 const Contents = () => {
+    const { t } = useI18n();
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
     const { currentUiScaling } = useAppearance();
+    const connected = currentIsBackendReady.data === true;
     // Once drawn, the page stays: a resize decides the narrow layout again a moment later, and the
-    // page is not taken down and drawn anew in between.
+    // page is not taken down and drawn anew in between, nor when the run ends.
     const drawn = useRef(false);
-    if (currentIsBackendReady.data === true && layoutSettled(currentIsBreakPoint.data === true, currentUiScaling.data)) drawn.current = true;
-    const ready = currentIsBackendReady.data === true && drawn.current;
+    if (connected && layoutSettled(currentIsBreakPoint.data === true, currentUiScaling.data)) drawn.current = true;
+    const disconnected = drawn.current && !connected;
     return (
         <>
-            <WindowGeometryController saveGeometry={ready} />
+            <WindowGeometryController saveGeometry={drawn.current && connected} />
             <WindowTitleBar />
-            <div className={styles.pages_wrapper}>
-                {ready && <>
+            {disconnected && (
+                <EnvReadout tone="warning" className={windowStyles.disconnected}>
+                    <p data-settings-disconnected="">{t("studio.settings_disconnected")}</p>
+                </EnvReadout>
+            )}
+            <div className={styles.pages_wrapper} inert={disconnected}>
+                {drawn.current && <>
                     <ConfigPage />
                     <VirtualMicGuideController />
                 </>}
@@ -84,22 +93,22 @@ const Contents = () => {
     );
 };
 
-// An update that downloads or installs ends the run itself, and the app starts again after it.
-const updating = () => ["downloading", "installing"].includes(getDefaultStore().get(Atom_AppUpdate).status);
-
 // Joins the main window's run (backend_attach) and asks for the settings as they are now. The main
 // window started the run and keeps it: it feeds its watchdog, says why it stopped and starts it
-// again. When the run ends, or cannot be joined, this window goes back to the main window, which
-// says why.
+// again. When the run ends, or cannot be joined, this window stays and says the engine is not
+// connected (Contents); it joins the next run the main window starts (settings-backend-run).
 const SettingsBackendController = () => {
     const { receiveRoutes, backendStopped } = useReceiveRoutes();
     const { updateIsBackendReady } = useIsBackendReady();
     const { asyncStdoutToPython } = useStdoutToPython();
     const { asyncFetchFonts } = useAsyncFetchFonts();
+    const joiner = useRef<ReturnType<typeof createRunJoiner> | null>(null);
+    joiner.current ??= createRunJoiner(store);
+    const runs = joiner.current;
     const ended = (phase: SidecarPhase) => {
         if (phase !== "failed" && phase !== "stopped") return;
         updateIsBackendReady(false);
-        if (!updating()) backToMainWindow().catch(error => console.error("Could not go back to the main window", error));
+        runs.ended();
     };
     const handlers: SidecarSessionHandlers = {
         receiveRoutes,
@@ -108,6 +117,7 @@ const SettingsBackendController = () => {
         beginStartup: () => updateIsBackendReady(false),
         setStartupState: ended,
         started: isCurrent => {
+            runs.joined();
             asyncStdoutToPython("/run/settings_snapshot");
             void asyncFetchFonts(isCurrent);
         },
@@ -127,8 +137,20 @@ const SettingsBackendController = () => {
             }),
             setInterval,
             clearInterval,
+            rejoins: true,
         });
-        return store.backend_session_owner.attach(() => handlersRef.current);
+        const detach = store.backend_session_owner.attach(() => handlersRef.current);
+        let disposed = false;
+        let unlisten: (() => void) | null = null;
+        listen(SETTINGS_BACKEND_RUN, () => joiner.current?.runStarted()).then(stop => {
+            if (disposed) stop();
+            else unlisten = stop;
+        }, error => console.error("The next run of the engine cannot be heard", error));
+        return () => {
+            disposed = true;
+            unlisten?.();
+            detach();
+        };
     }, []);
     return null;
 };

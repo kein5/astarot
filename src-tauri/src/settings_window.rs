@@ -6,9 +6,11 @@
 //!   tray menu and the tray's control panel.
 //! - It joins the main window's run of the backend (`backend_host::backend_attach`), so the two
 //!   windows read the same answers.
-//! - Closing it destroys it; the settings save by themselves (#1111), so nothing asks first. The
-//!   main window hears whether it is open (`settings-window-changed`), as it heard the settings
-//!   page open and close.
+//! - Closing it destroys it; the settings save by themselves (#1111), so nothing asks first. It
+//!   has no "Go back": the main window is beside it. The main window hears whether it is open
+//!   (`settings-window-changed`); nothing pauses while it is (decided on 2026-11-26).
+//! - When the run it joined ends, it stays and joins the next one the main window starts
+//!   (`settings-backend-run`).
 //! - It remembers its own place and size, as the main window does (`SETTINGS_WINDOW_GEOMETRY`,
 //!   saved by the page; `window_placement`). The first time, it is centred on the main window's
 //!   monitor, at the main window's first size.
@@ -22,6 +24,8 @@ pub const LABEL: &str = "settings";
 pub const CHANGED_EVENT: &str = "settings-window-changed";
 /// What an open settings window hears when it is asked to show a page or a setting.
 pub const NAVIGATE_EVENT: &str = "settings-navigate";
+/// What the settings window hears when the main window has started a run of the backend.
+pub const RUN_EVENT: &str = "settings-backend-run";
 
 // Its size before it goes to its place: the main window's own default (tauri.conf.json).
 const DEFAULT_SIZE: (f64, f64) = (870.0, 654.0);
@@ -156,21 +160,6 @@ pub fn settings_window_is_open(window: WebviewWindow, app: AppHandle) -> Result<
     Ok(app.get_webview_window(LABEL).is_some())
 }
 
-/// The settings window's "Go back" button: the main window comes to the front, and the settings
-/// window closes, as going back from the settings page showed the main page.
-#[tauri::command]
-pub async fn settings_window_back(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
-    if window.label() != LABEL {
-        return Err("settings_window_forbidden".into());
-    }
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.unminimize();
-        let _ = main.show();
-        let _ = main.set_focus();
-    }
-    window.destroy().map_err(|error| error.to_string())
-}
-
 /// The main window closes the settings window: the VR panel's settings, which opened it, closed.
 #[tauri::command]
 pub async fn settings_window_close(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
@@ -183,10 +172,19 @@ pub async fn settings_window_close(window: WebviewWindow, app: AppHandle) -> Res
     Ok(())
 }
 
-/// What the settings window may hand to the main window as it closes: Quick Chat to open (the
-/// Hotkeys page's button), which the main window opens once the settings have closed.
+/// The main window has started a run: an open settings window joins it, when the run it read has
+/// ended.
+pub fn run_started(app: &AppHandle) {
+    if app.get_webview_window(LABEL).is_some() {
+        let _ = app.emit_to(LABEL, RUN_EVENT, ());
+    }
+}
+
+/// What the settings window may hand to the main window, which runs Quick Chat and the hotkeys:
+/// Quick Chat to open (the Hotkeys page's button), and the hotkeys to pause while the Hotkeys page
+/// is shown and to resume after it, so a key pressed to record it does not act.
 pub const HAND_OVER_EVENT: &str = "settings-hand-over";
-const HAND_OVER: [&str; 1] = ["open_quick_chat"];
+const HAND_OVER: [&str; 3] = ["open_quick_chat", "pause_hotkeys", "resume_hotkeys"];
 
 #[tauri::command]
 pub async fn settings_window_hand_over(window: WebviewWindow, app: AppHandle, action: String) -> Result<(), String> {
@@ -196,8 +194,7 @@ pub async fn settings_window_hand_over(window: WebviewWindow, app: AppHandle, ac
     if !HAND_OVER.contains(&action.as_str()) {
         return Err("settings_window_invalid".into());
     }
-    app.emit_to("main", HAND_OVER_EVENT, action).map_err(|error| error.to_string())?;
-    window.destroy().map_err(|error| error.to_string())
+    app.emit_to("main", HAND_OVER_EVENT, action).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

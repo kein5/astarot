@@ -5,7 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
 import type { Atom, WritableAtom } from "jotai";
 
-import { dynamicStoreRegistry } from "@store";
+import { dynamicStoreRegistry, useStore_IsOpenedSettingsWindow } from "@store";
 import type { AtomState, RegisteredStoreHook } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useIsOpenedConfigPage } from "@logics_common";
@@ -102,22 +102,23 @@ export const VrApp = () => {
         asyncStdoutToPython("/run/vr_panel_windows", { log: windows.log, popup: windows.popup !== null });
     }, [windows.log, windows.popup]);
 
-    // VR設定ウィンドウを開いている間は、デスクトップで設定画面を開いたのと同じ扱いにする
-    // (メインがメイン機能を止め、閉じたら戻す。VrPanelSyncController)
+    // VR設定ウィンドウを開いている間は、デスクトップで設定を開いたのと同じ扱いにする
+    // (設定画面ならメインがメイン機能を止め、閉じたら戻す。アプリでは設定のウィンドウを開き、何も止めない。VrPanelSyncController)
     const is_settings_open = windows.popup === "settings";
     useEffect(() => {
         sendToMain("vr-panel-config-page", is_settings_open).catch(console.error);
     }, [is_settings_open]);
-    // デスクトップ側で設定画面が閉じられたら、VR設定ウィンドウも閉じる
+    // デスクトップ側で設定画面 (アプリでは設定のウィンドウ、#1236) が閉じられたら、VR設定ウィンドウも閉じる
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
+    const { currentIsOpenedSettingsWindow } = useStore_IsOpenedSettingsWindow();
+    const is_desktop_settings_open = currentIsOpenedConfigPage.data === true || currentIsOpenedSettingsWindow.data === true;
     const was_config_page_open = useRef(false);
     useEffect(() => {
-        const is_open = currentIsOpenedConfigPage.data === true;
-        if (was_config_page_open.current && !is_open) {
+        if (was_config_page_open.current && !is_desktop_settings_open) {
             setWindows(w => (w.popup === "settings" ? { ...w, popup: null } : w));
         }
-        was_config_page_open.current = is_open;
-    }, [currentIsOpenedConfigPage.data]);
+        was_config_page_open.current = is_desktop_settings_open;
+    }, [is_desktop_settings_open]);
 
     const toggleLog = () => setWindows(w => ({ ...w, log: !w.log }));
     const openLog = () => setWindows(w => ({ ...w, log: true }));

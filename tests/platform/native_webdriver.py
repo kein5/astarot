@@ -320,8 +320,9 @@ class NativeWebDriver:
         self.command("POST", "/window", {"handle": self.main_handle})
 
     def close_settings(self):
-        """Go back as a user does: the settings window closes and the main window comes forward."""
-        self.closing_window(lambda: self.click('button[data-settings-back]'))
+        """Close the settings as a user does, with the settings window's close button: it has no
+        "Go back" (#1236). The driver then works in the main window again."""
+        self.closing_window(lambda: self.click('button[data-window-close]'))
         self.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
         deadline = time.monotonic() + 10
         while "settings.html" in self.window_pages():
@@ -359,8 +360,7 @@ class NativeWebDriver:
         # The size the test gave the main window: the settings window opens at its own place.
         self.command("POST", "/window/rect", {"width": size["width"], "height": size["height"]})
         # Usable once its settings came from the backend and the page is drawn.
-        self.wait("return document.querySelector('button[data-settings-back]') !== null"
-                  " && document.querySelector('[aria-current=page]') !== null", timeout=30)
+        self.wait("return document.querySelector('[aria-current=page]') !== null", timeout=30)
 
     def assert_rendered(self):
         """Observe real frame delivery and a nonblank native WebDriver image."""

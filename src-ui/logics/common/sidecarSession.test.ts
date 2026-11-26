@@ -40,7 +40,7 @@ const sessionOf = (store: { backend_session: SidecarSession | null }) => {
 };
 const completionOf = (store: { backend_session: SidecarSession | null }) => sessionOf(store).completion;
 
-const setup = () => {
+const setup = ({ rejoins = false }: { rejoins?: boolean } = {}) => {
     // Test data: the store starts with no session, as the app's does before its first start.
     const store = unchecked<SidecarSessionStore>({}), timers = new Map<unknown, () => void>(), states: string[] = [], messages: unknown[] = [], crashes: unknown[] = [];
     const attempts: { command: BackendCommand; spawn: ReturnType<typeof deferred<FakeChild>>; child: FakeChild;
@@ -61,7 +61,7 @@ const setup = () => {
         setInterval: (fn: () => void, delay?: number) => { assert.equal(delay, 20000); timers.set(++timerId, fn); return timerHandle<SidecarTimer>(timerId); },
         clearInterval: (id: unknown) => timers.delete(id),
     };
-    const owner = createSidecarSessionOwner({ store, createCommand, ...timerTools });
+    const owner = createSidecarSessionOwner({ store, createCommand, ...timerTools, rejoins });
     const handlers = { setStartupState: (phase: string) => states.push(phase), beginStartup: () => {}, started: () => {},
         receiveRoutes: (value: unknown) => messages.push(value), backendStopped: () => { stops++; },
         unexpectedExit: (event: unknown) => crashes.push(event), stderr: (line: string) => messages.push(line), feedWatchdog: () => { feeds++; } };
@@ -260,6 +260,31 @@ for (const beforeSpawn of [false, true]) test(`acknowledged initialization (${be
     detach();
 });
 
+// The settings window joins a run the main window starts (#1236): after any end of it, even one
+// after the run was ready, it may join the next run. The main window's own session may not start
+// again by itself after a run that was ready.
+test("a session that joins another window's run may join again after any end", async () => {
+    for (const rejoins of [true, false]) {
+        const s = setup({ rejoins }), detach = s.mount();
+        await flush();
+        const first = s.attempts[0];
+        first.spawn.resolve(first.child);
+        await completionOf(s.store);
+        first.stdout.data(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
+        first.events.close({ code: 1 });
+        assert.equal(s.states.at(-1), "stopped");
+        const retry = s.owner.retry();
+        await flush();
+        assert.equal(s.attempts.length, rejoins ? 2 : 1, rejoins ? "it joins again" : "the main window's does not");
+        if (rejoins) {
+            const second = s.attempts[1];
+            second.spawn.resolve(second.child);
+        }
+        assert.equal(await retry, rejoins);
+        detach();
+    }
+});
+
 test("lines that overtake spawn() wait for the child, so their replies can send requests", async () => {
     // The core's start-up runs while backend_start is answering: on the AppImage its
     // initialization_complete reached the UI first, and the requests made for it could not
@@ -380,6 +405,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     const hot = await loadModule<typeof import("../../views/app/_app_controllers/GlobalHotKeyController.tsx")>(new URL("../../views/app/_app_controllers/GlobalHotKeyController.tsx", import.meta.url), hotRuntime, {
         "@logics_common": common, "@logics_configs": { useHotkeys: () => ({ currentHotkeys: { data: {} },
             registerShortcuts: () => shortcuts.push("register"), unregisterAll: () => shortcuts.push("unregister") }) },
+        "@store": { useStore_IsHotkeysPageOpen: () => ({ currentIsHotkeysPageOpen: { data: false } }) },
     });
     const quick = await loadModule<typeof import("../../views/app/_app_controllers/QuickChatController.tsx")>(new URL("../../views/app/_app_controllers/QuickChatController.tsx", import.meta.url), quickRuntime, {
         "@logics_common": common,
