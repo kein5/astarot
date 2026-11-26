@@ -2679,9 +2679,11 @@ transcription_consent:
 ocr_setup:
     title: "Chat reading needs its recognition models"
     body: "The recognition models for the selected language have not been downloaded yet, so Chat reading (OCR) stays off."
-    next: "In the models section, check the provider, license and size, and download them. Then turn Chat reading (OCR) on again."
+    next: "Each model below shows its provider, license and size when you review it, and downloads only when you agree. Once they are on your PC, Chat reading (OCR) turns on."
     close: "Close"
-    review: "Go to the models"
+    review: "Open the chat reading settings"
+    # Said once every model started from the dialog is on the PC (#1241).
+    models_ready: "The chat reading models are ready. Turning Chat reading (OCR) on."
 network_privacy:
     http_warning: "This connection is not encrypted. Text, audio and API keys may be visible to others on the network."
     save_notice: "The URL is checked when you save. If you enter an API key, it is sent to this address for verification."
