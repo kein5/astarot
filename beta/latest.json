@@ -1,15 +1,15 @@
 {
-  "version": "0.7.0-beta.2",
-  "notes": "https://github.com/kein5/astarot/releases/tag/v0.7.0-beta.2",
-  "pub_date": "2026-11-25T16:53:24Z",
+  "version": "0.7.0-beta.3",
+  "notes": "https://github.com/kein5/astarot/releases/tag/v0.7.0-beta.3",
+  "pub_date": "2026-11-26T23:04:45Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVYxZ3pjNklsS3RRNkhtMzBDS3Mwd1VrT2NSVklWbmlyS0pXejVwdzYydXpNRUpqUlhKeGR0R2tWWVlUS09aRlJ4YmIwUnI4MExoeFoySWdwMGtiUHdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjI1NjAzCWZpbGU6QVNUQVJPVF9zZXR1cC5leGUJdmVyc2lvbjowLjcuMC1iZXRhLjIKRHRrbE5NSnFteVFYUjdvdlVmTldVQXNSNE1FUjAxa05vTnZ2dnhFS1BFVGdvc0dqV1EvenN6bUlQR3VIWmM2NzlBU2xabUd6eHVQVUhhaFlYMVFVQ0E9PQo=",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.2/ASTAROT_setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVdHMzVEMGFEMDdGM0ZwdENRSzIraU41SGVVUEdoVUJCTHJzdVhBY2FYOE1nYVo2RVJOSDdoU0ZvYWo3QWRUazlaVzBjNGlTRkMxOG5oa09jSzBaeFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NzM0MjgzCWZpbGU6QVNUQVJPVF9zZXR1cC5leGUJdmVyc2lvbjowLjcuMC1iZXRhLjMKclJ1dklTcGZmcFpuSEh5TEVrbFIxdnIyM050YmYxenZzdGhHcktJbUdHKzhPLzZNRC9aUXB6NjFORHJZeWlTb0d4a2pBckZiNk9zQVBCNVJHdytqQnc9PQo=",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.3/ASTAROT_setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RWJTeEd0Q2dlL1dtdVIvQzlaS2pBb0MzdG8zc3dUQTQ2UjFnSU4rbW1QRUZPYi9nYUVKWTJiRVZxemoxMldJUytHMlZqd3VOVzlyVzVOaTFobm8xTHdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjI1NjAzCWZpbGU6QVNUQVJPVC0wLjcuMC1iZXRhLjItbGludXgteDY0LXJlbGVhc2UuQXBwSW1hZ2UJdmVyc2lvbjowLjcuMC1iZXRhLjIKQVZyekMwdjFnbWpkSmtRb0hMVXJMajlnTlM1ZGNGc01UTFgrbVd2clpZZ25PQ3VCeCtyRDJZUHdqb0NKUlpUazBuakNZNm5YWitQUTB2eGVlN2QvQnc9PQo=",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.2/ASTAROT-0.7.0-beta.2-linux-x64-release.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVhMaE0zbm5PTnVFMEdGL2wwWkdZLzk4L2VtNzR6WG5GRFo2bkZDYWxXLytZWWRzcG9FeTVOZ1BvaS9LMndkSHNhZTN3RVhETTJzTjQ4b1crUGJCdFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NzM0Mjg0CWZpbGU6QVNUQVJPVC0wLjcuMC1iZXRhLjMtbGludXgteDY0LXJlbGVhc2UuQXBwSW1hZ2UJdmVyc2lvbjowLjcuMC1iZXRhLjMKZDBBNUl4andnYnhsK2tYWGNJSXBLS1pFd3NEcVJLbTloV3F4V1RwV0k0RmdiQXc1R081M3ZUVDR1TlM4a21vbitDbmZzSmlKYWRuWTFnZlIwa242Q1E9PQo=",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.3/ASTAROT-0.7.0-beta.3-linux-x64-release.AppImage"
     }
   }
 }
