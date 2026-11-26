@@ -18,7 +18,7 @@ const translate = async (language: string) => {
 };
 
 for (const language of ["en", "ja"]) {
-    test(`${language}: every About image link names its destination/person and credit images have text equivalents`, async () => {
+    test(`${language}: every About image link names its destination and every picture has a text equivalent`, async () => {
         const translation = await translate(language), runtime = hooks();
         const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
         const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
@@ -37,7 +37,8 @@ for (const language of ["en", "ja"]) {
         assert.equal(discordLink.props.children, translation.t("config_page.about_vrct.links.discord"));
         assert.ok(String(discordLink.props.children).length > 0 && !String(discordLink.props.children).startsWith("config_page."));
         const links = all(tree, node => node.props?.href_id);
-        assert.equal(links.length, 9);
+        // The original VRCT's documents and repository (#1222 removed the contributors' links).
+        assert.deepEqual(links.map(node => node.props.href_id), ["project_link_documents", "project_link_vrct_github"]);
         const names = [];
         for (const component of links) {
             // A link of the page's own: what it draws is the anchor.
@@ -48,12 +49,12 @@ for (const language of ["en", "ja"]) {
             assert.equal(name, translation.t(`config_page.about_vrct.image_links.${component.props.href_id}`));
             names.push(name);
         }
-        assert.equal(new Set(names).size, 9);
-        // Upstream VRCT developer cards are removed (#1097); VRCT logo, links, and Contributors remain.
-        assert.ok(!links.some(node => String(node.props.href_id).startsWith("dev_")));
-        const creditImages = all(tree, node => node.type === "img");
-        assert.equal(creditImages.length, 12);
-        for (const image of creditImages) {
+        assert.equal(new Set(names).size, 2);
+        // Upstream VRCT's developer cards are removed (#1097), and so are its Contributors and Special
+        // Thanks (#1222): the page's pictures are the ASTAROT and VRCT logos.
+        const pictures = all(tree, node => node.type === "img");
+        assert.deepEqual(pictures.map(image => image.props.alt), ["ASTAROT", "VRCT"]);
+        for (const image of pictures) {
             assert.ok(image.props.alt && !image.props.alt.startsWith("config_page."), image.props.src);
             assert.ok(!String(image.props.src).includes("dev_"), image.props.src);
         }
@@ -132,9 +133,9 @@ test("all new locale keys exist in both files without relying on fallback", () =
         ? flatten(child, `${prefix}${key}.`) : [`${prefix}${key}`]);
     for (const language of ["en", "ja"]) {
         const page = branchAt(resources[language].translation, "config_page");
-        const keys = [...flatten(branchAt(page, "about_vrct.image_links")), ...flatten(branchAt(page, "about_vrct.credits"))];
+        const keys = flatten(branchAt(page, "about_vrct.image_links"));
         const other = branchAt(resources[language === "en" ? "ja" : "en"].translation, "config_page");
-        assert.deepEqual(keys, [...flatten(branchAt(other, "about_vrct.image_links")), ...flatten(branchAt(other, "about_vrct.credits"))]);
+        assert.deepEqual(keys, flatten(branchAt(other, "about_vrct.image_links")));
         for (const name of ["open_color_picker", "duration_seconds_one", "duration_seconds_other"]) assert.ok(localeAt(page, `common.${name}`));
         assert.ok(textAt(page, "transcription.mic_word_filter.remove_word").includes("{{word}}"));
     }
@@ -153,7 +154,7 @@ test("every picture of the About page carries the natural size of its file", asy
         return [Number(/\swidth="(\d+)"/.exec(svg)?.[1]), Number(/\sheight="(\d+)"/.exec(svg)?.[1])];
     };
     const pictures = [...source.matchAll(/<img src=\{(\w+)\}([^>]*)\/>/g)];
-    assert.ok(pictures.length >= 13, String(pictures.length));
+    assert.equal(pictures.length, 2, "the ASTAROT and VRCT logos");
     for (const [, name, rest] of pictures.filter(([, name]) => name in files)) {
         const size = /width=\{(\d+)\} height=\{(\d+)\}/.exec(rest);
         assert.ok(size, `${name} has no width and height`);
@@ -161,12 +162,12 @@ test("every picture of the About page carries the natural size of its file", asy
     }
     // The link pictures: their size beside each link, and on their img.
     const links = [...source.matchAll(/\{ img: (\w+), size: \[(\d+), (\d+)\], href:/g)];
-    assert.ok(links.length >= 9, String(links.length));
+    assert.equal(links.length, 2, "the original VRCT's documents and repository");
     for (const [, name, width, height] of links) assert.deepEqual([Number(width), Number(height)], sizeOf(files[name]), name);
     assert.match(source, /src=\{img\} width=\{link\.size\[0\]\} height=\{link\.size\[1\]\}/);
     // Width-constrained credit images keep height: "auto" so HTML width/height attributes do not distort aspect ratio.
     const css = readFileSync(new URL("./AboutVrct.css.ts", import.meta.url), "utf8");
-    for (const name of ["vrct_vox_logo", "about_vrct_logo", "contributors_img", "special_thanks_members_img", "special_thanks_message_img"]) {
+    for (const name of ["vrct_vox_logo", "about_vrct_logo"]) {
         assert.match(css, new RegExp(`export const ${name} = style\\(\\{[^}]*height: "auto"`), name);
     }
 });

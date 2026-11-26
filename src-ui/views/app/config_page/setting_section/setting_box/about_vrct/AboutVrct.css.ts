@@ -1,5 +1,4 @@
 import { style } from "@vanilla-extract/css";
-import type { StyleRule } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
 export const container = style({
@@ -70,20 +69,6 @@ export const original_heading = style({
     paddingTop: "2.4rem",
 });
 
-export const contributors = style({});
-export const special_thanks = style({});
-export const section_title = style({
-    width: "auto",
-    height: "1.2rem",
-    alignSelf: "flex-start",
-    objectFit: "contain",
-    objectPosition: "left",
-    selectors: {
-        [`&.${contributors}`]: { marginBottom: "0.8rem" },
-        [`&.${special_thanks}`]: { marginBottom: "0.6rem" },
-    },
-});
-
 export const project_links_and_logo_section = style({
     display: "flex",
     flexDirection: "column",
@@ -122,61 +107,11 @@ export const project_link = style({
     },
 });
 
-export const contributors_img_wrapper = style({
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "1rem",
-    justifyContent: "center",
-    alignItems: "center",
-});
-export const contributor_card_wrapper = style({
-    position: "relative",
-});
-export const contributors_img = style({
-    width: "22rem",
-    height: "auto",
-});
-
-// A contributor's link on their card: 16% from the bottom, .8rem from the left (or either side of it).
-const contributorSns = (left: string): StyleRule => ({
-    position: "absolute",
-    left,
-    bottom: "16%",
-    width: "2.4rem",
-    padding: "0.4rem",
-    borderRadius: "0.4rem",
-    transform: "translate(50%, 50%)",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_825_color },
-        "&:active": { backgroundColor: vars.dark_888_color },
-    },
-});
-export const contributors_done_san_x = style(contributorSns("0.8rem"));
-export const contributors_iya_x = style(contributorSns("0.8rem"));
-export const contributors_rera_x = style(contributorSns("-0.6rem"));
-export const contributors_rera_github = style(contributorSns("2.2rem"));
-export const contributors_poposuke_x = style(contributorSns("0.8rem"));
-export const contributors_kumaguma_x = style(contributorSns("0.8rem"));
-export const contributors_riku_x = style(contributorSns("0.8rem"));
-
-export const special_thanks_section = style({
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
-});
-export const special_thanks_members_img = style({
-    width: "100%",
-    height: "auto",
-    marginBottom: "0.4rem",
-});
-export const special_thanks_message_img = style({
-    width: "100%",
-    height: "auto",
-});
-
+// The notice follows the original VRCT's links with the same space as above the original VRCT's
+// heading: the page ends there since #1222 removed the contributors and special thanks.
 export const vrchat_disclaimer = style({
     fontSize: "1.2rem",
-    marginTop: "8rem",
+    marginTop: "2rem",
     color: vars.dark_600_color,
 });
 

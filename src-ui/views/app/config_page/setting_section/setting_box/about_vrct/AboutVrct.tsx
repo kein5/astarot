@@ -3,20 +3,6 @@ import astarot_logo from "@images/brand/logo.svg";
 
 import vrct_logo_for_about_vrct from "@images/about_vrct/vrct_logo_for_about_vrct.png";
 
-import contributors_section_title from "@images/about_vrct/contributors_section_title.png";
-import contributor_done from "@images/about_vrct/contributor_done.png";
-import contributor_iya from "@images/about_vrct/contributor_iya.png";
-import contributor_rera from "@images/about_vrct/contributor_rera.png";
-import contributor_poposuke from "@images/about_vrct/contributor_poposuke.png";
-import contributor_kumaguma from "@images/about_vrct/contributor_kumaguma.png";
-import contributor_riku from "@images/about_vrct/contributor_riku.png";
-
-import special_thanks_section_title from "@images/about_vrct/special_thanks_section_title.png";
-import special_thanks_members from "@images/about_vrct/special_thanks_members.png";
-import special_thanks_message_en from "@images/about_vrct/special_thanks_message_en.png";
-import special_thanks_message_ja from "@images/about_vrct/special_thanks_message_ja.png";
-
-import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
 import { useSoftwareVersion } from "@logics_common";
@@ -75,48 +61,6 @@ export const AboutVrct = () => {
             </div>
 
             <div>
-                <img src={contributors_section_title} width={180} height={26} alt={t("config_page.about_vrct.credits.contributors_section_title")} className={clsx(styles.section_title, styles.contributors)} />
-                <div className={styles.contributors_img_wrapper}>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_done} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_done")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_done_san_x} href_id="contributors_done_san_x" />
-                    </div>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_iya} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_iya")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_iya_x} href_id="contributors_iya_x" />
-                    </div>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_rera} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_rera")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_rera_x} href_id="contributors_rera_x" />
-                        <OpenLinkContainer className={styles.contributors_rera_github} href_id="contributors_rera_github" />
-                    </div>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_poposuke} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_poposuke")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_poposuke_x} href_id="contributors_poposuke_x" />
-                    </div>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_kumaguma} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_kumaguma")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_kumaguma_x} href_id="contributors_kumaguma_x" />
-                    </div>
-                    <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_riku} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_riku")} className={clsx(styles.contributors_img, styles.contributors)} />
-                        <OpenLinkContainer className={styles.contributors_riku_x} href_id="contributors_riku_x" />
-                    </div>
-                </div>
-            </div>
-
-            <div className={styles.special_thanks_section}>
-                <img src={special_thanks_section_title} width={202} height={28} alt={t("config_page.about_vrct.credits.special_thanks_section_title")} className={clsx(styles.section_title, styles.special_thanks)} />
-                <img src={special_thanks_members} width={1440} height={128} alt={t("config_page.about_vrct.credits.special_thanks_members")} className={styles.special_thanks_members_img} />
-                {
-                    currentUiLanguage.data === "ja"
-                    ? <img src={special_thanks_message_ja} width={1440} height={25} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
-                    : <img src={special_thanks_message_en} width={1440} height={27} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
-                }
-            </div>
-
-
-            <div>
                 {/* VRChat's trademark notice is always shown in its original English wording (from en.yml);
                     lang lets screen readers read it as English. Other UI languages add their translation below it. */}
                 <p className={styles.vrchat_disclaimer} lang="en">{t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" })}</p>
@@ -124,14 +68,9 @@ export const AboutVrct = () => {
                     <p className={styles.vrchat_disclaimer_translation}>{t("config_page.about_vrct.vrchat_disclaimer")}</p>
                 )}
             </div>
-
-
         </div>
     );
 };
-
-import contributors_x_icon from "@images/about_vrct/contributors_x_icon.png";
-import contributors_github_icon from "@images/about_vrct/contributors_github_icon.png";
 
 import project_link_documents from "@images/about_vrct/project_link_documents.png";
 import project_link_vrct_github from "@images/about_vrct/project_link_vrct_github.png";
@@ -139,14 +78,6 @@ import project_link_vrct_github from "@images/about_vrct/project_link_vrct_githu
 const about_vrct_links = {
     project_link_documents: { img: project_link_documents, size: [188, 35], href: upstream_vrct_document_url },
     project_link_vrct_github: { img: project_link_vrct_github, size: [428, 35], href: "https://github.com/misyaguziya/VRCT" },
-
-    contributors_done_san_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/done_vrc" },
-    contributors_iya_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/IYAA_HHHH" },
-    contributors_rera_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/rerassi" },
-    contributors_rera_github: { img: contributors_github_icon, size: [32, 32], href: "https://github.com/soumt-r" },
-    contributors_poposuke_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/sig_popo" },
-    contributors_kumaguma_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/K_kumaguma_A" },
-    contributors_riku_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/Riku7302" },
 };
 
 type OpenLinkContainerProps = {
