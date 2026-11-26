@@ -2959,12 +2959,15 @@ companion:
     open_main: "ASTAROTを開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"
-    menu_start: "認識を開始"
-    menu_stop: "認識を停止"
-    menu_panel: "コントロールパネルを開く"
+    # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
+    menu_start: "マイク入力をオンにする"
+    menu_stop: "マイク入力をオフにする"
+    # ASTAROT's own panel, not the system's Control Panel.
+    menu_panel: "ASTAROTのコントロールパネルを開く"
     menu_main: "ASTAROTを開く"
     menu_quit: "終了"
-    menu_monitor: "表示するモニター"
+    # The same words as the setting on the experimental features page.
+    menu_monitor: "六芒星を出すモニター"
     menu_monitor_primary: "メインのモニター"
     menu_monitor_display: "ディスプレイ"
     menu_monitor_missing: "接続されていないモニター"
