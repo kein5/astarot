@@ -8,6 +8,10 @@ export const top_left = style({});
 export const bottom_left = style({});
 export const bottom_right = style({});
 
+// The windows' fill. The VR panel's log turns it see-through by its opacity, reading it from the
+// swatch the page draws beside the log (VrApp.tsx, #1247).
+export const WINDOW_FILL = vars.dark_888_color;
+
 export const window = style({
     position: "relative",
     width: "100%",
@@ -16,7 +20,7 @@ export const window = style({
     flexDirection: "column",
     borderRadius: "24px",
     overflow: "hidden",
-    backgroundColor: vars.dark_888_color,
+    backgroundColor: WINDOW_FILL,
     boxShadow: `inset 0 0 0 4px ${vars.dark_750_color}`,
 });
 

@@ -1425,7 +1425,7 @@ vr_panel:
         font_limit: "Text size range: 14–28"
         font_current: "Current: {{size}} (original)"
         font_help: "Translation size changes with it"
-        opacity_help: "Each press: 100 → 80 → 60 → 40% → 100%"
+        opacity_help: "How much of the log's background shows. The text stays as it is. Each press: 100 → 80 → 60 → 40% → 100%"
     settings:
         processing: "Processing settings"
         changing: "Applying changes…"

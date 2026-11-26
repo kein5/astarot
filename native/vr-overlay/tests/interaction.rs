@@ -217,6 +217,23 @@ fn the_atlas_bounds_select_rows_from_the_top_of_the_texture() {
     rig.stop();
 }
 
+/// #1247: the log's opacity is its background's, drawn into the texture, so its overlay stays
+/// whole and its text with it; the subtitles keep fading as a whole by their opacity.
+#[test]
+fn the_log_s_opacity_leaves_its_overlay_whole_and_the_subtitles_take_theirs() {
+    let rig = Rig::start();
+    let alpha = |key: &str| rig.handle(key).and_then(|h| rig.vr.with(|s| s.alphas.get(&h).copied()));
+    rig.overlay.set_panel_opacity(0.6);
+    let mut small = window("HMD", [0.0, 10.0, 1.0, 0.0, 0.0, 0.0], 1.0);
+    small.opacity = 0.4;
+    rig.overlay.set_window(Surface::Small, small);
+    rig.wait("the subtitle takes its opacity", || alpha("ASTAROT0").is_some_and(|a| (a - 0.4).abs() < 1e-6));
+    // A few ticks later the log's overlay is still whole.
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(alpha("ASTAROT2"), Some(1.0));
+    rig.stop();
+}
+
 #[test]
 fn a_launcher_on_the_pointing_hand_does_not_block_the_log_behind_it() {
     let rig = Rig::start();
