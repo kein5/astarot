@@ -30,10 +30,11 @@ test("the settings page is laid out again from its frame each time it opens, not
     const calls: string[] = [], focused: string[] = [];
     stubGlobals(context, { window: eventTarget(), document: { querySelector: () => null } });
     const runtime = hooks();
-    const opened = { data: false };
+    const opened = { data: false }, narrow = { data: false };
     const { ConfigPage } = await loadModule<typeof import("./ConfigPage.tsx")>(new URL("./ConfigPage.tsx", import.meta.url), runtime, {
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: opened }) },
         "@logics_configs": { useOcr: () => ({ getOcrCaptureStatus() {} }) },
+        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: narrow }) },
         "./topbar/Topbar": { Topbar: () => null },
         "./sidebar_section/SidebarSection": { SidebarSection: () => null },
         "./setting_section/SettingSection": { SettingSection: () => null },
@@ -59,4 +60,15 @@ test("the settings page is laid out again from its frame each time it opens, not
     opened.data = true;
     render();
     assert.deepEqual(calls, [...RELAYOUT, ...RELAYOUT]);
+    // The menu turning to icons while the page is open (the settings window shows it from its first
+    // frame, #1236): laid out again, and the focus stays where it is. Closed, nothing.
+    narrow.data = true;
+    render();
+    assert.deepEqual(calls, [...RELAYOUT, ...RELAYOUT, ...RELAYOUT]);
+    assert.equal(focused.length, 2);
+    opened.data = false;
+    render();
+    narrow.data = false;
+    render();
+    assert.deepEqual(calls, [...RELAYOUT, ...RELAYOUT, ...RELAYOUT], "closed: nothing");
 });
