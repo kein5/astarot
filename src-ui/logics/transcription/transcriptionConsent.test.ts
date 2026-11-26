@@ -228,7 +228,7 @@ test("settings keep the selected engine in sight under the radio row's label and
     const { TranscriptionEngine_Box } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: unknown) => options ? `${key}:${JSON.stringify(options)}` : key }) },
-        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./AsrApiEntries": {},
+        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./AsrApiEntries": {}, "../../../../../../logics/setup/useRecognitionState": {},
         "../_components/credential_pair/CredentialPair": {},
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,

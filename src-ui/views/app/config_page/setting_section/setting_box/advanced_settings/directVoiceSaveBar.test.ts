@@ -6,7 +6,7 @@ import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.t
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, nodesIn, kitStandIns, componentName, componentOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
 
@@ -65,6 +65,13 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
     return { runtime, tree, entry, writes, render };
 }
 
+// The monitor's row is a component of its own, which the RVC page moves into its 「詳細設定」 (#1230).
+// It holds no state, so it is drawn here as React would draw it.
+const monitorRow = (tree: unknown) => {
+    const node = nodesIn(tree).find(node => componentName(node) === "VcMonitorRow");
+    return node ? componentOf(node)(node.props) : undefined;
+};
+
 // #1111: the form saves by itself, when focus leaves one of its groups. It is not in the save bar,
 // and leaving it with nothing changed writes nothing.
 const leave = (page: { render: () => unknown }) => {
@@ -85,7 +92,7 @@ test("#429: opening input forwarding with RVC saved writes nothing, and leaving 
 
 test("input forwarding with RVC saved still shows forwarding, not the conversion", async () => {
     const page = await open("legacy", rvcSettings);
-    const text = JSON.stringify(page.tree, (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
+    const text = JSON.stringify([page.tree, monitorRow(page.tree)], (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
     // Forwarded input is not played on the monitor: the row says so (#614).
     assert.match(text, /voice\.vc_monitor_not_converted/);
     assert.doesNotMatch(text, /voice\.vc_rvc_pitch/);
@@ -97,7 +104,7 @@ test("input forwarding with RVC saved still shows forwarding, not the conversion
 test("the monitor row says what it plays now and leads to the TTS page's setting", async () => {
     for (const [variant, settings, value] of [["legacy", rvcSettings, "voice.vc_monitor_not_converted"], ["rvc", rvcSettings, "voice.monitor_off"]] as const) {
         const page = await open(variant, settings);
-        const row = nodesIn(page.tree).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
+        const row = nodesIn(monitorRow(page.tree)).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
         assert.ok(row, variant);
         assert.deepEqual([row.props.description, row.props.group], ["voice.vc_monitor_help", true]);
         const state = nodesIn(row.props.status).find(node => node.props?.["data-vc-monitor"] !== undefined);

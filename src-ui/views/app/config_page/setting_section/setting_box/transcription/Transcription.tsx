@@ -1,6 +1,7 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SpeechServers } from "../advanced_settings/SpeechServers";
+import { useRecognitionState } from "../../../../../../logics/setup/useRecognitionState";
 import { useI18n } from "@useI18n";
 import * as styles from "./Transcription.css.ts";
 import { Badge } from "../../../../../kit/index.ts";
@@ -38,6 +39,10 @@ import { HintDescriptions } from "../_components/hint/Hint";
 export const Transcription = () => {
     const { t } = useI18n();
     const { currentMicPhraseTimeout, currentSpeakerPhraseTimeout } = useTranscription();
+    // The bundled server is chosen and its models are not set (#1230): its fold starts open, so the
+    // missing models are the first thing seen. A cloud engine, or a server of the user's own, needs none.
+    const { state: recognition, server } = useRecognitionState();
+    const asrModelsNeeded = recognition === "needs_setup" && server === "bundled";
     // Reviewed against #614: the rows' descriptions are their labels' hints, and what the two
     // systems and the folds are for are their headings' and titles'. The engine in use, the
     // readouts, the warnings and the model downloads stay in sight.
@@ -52,7 +57,7 @@ export const Transcription = () => {
                 「詳細設定」 (#554), whose line shows the pauses that end a message. */}
             <TranscriptionEngine_Container />
             <EngineGroup group="speechcpp">
-                <SpeechServers profiles={["asr"]} />
+                <SpeechServers profiles={["asr"]} needed={asrModelsNeeded} />
             </EngineGroup>
             <EngineGroup group="api">
                 <CloudTranscription_Container />

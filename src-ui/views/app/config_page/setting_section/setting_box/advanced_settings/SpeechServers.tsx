@@ -39,9 +39,15 @@ const savedSettings = (settings: SpeechServerSettings | null): SpeechServerSetti
 
 export interface SpeechServersProps {
     profiles?: readonly SpeechProfile[];
+    // The page's feature uses a bundled server here whose model is not set yet (#1230): the fold
+    // starts open, so the missing model is the first thing seen.
+    needed?: boolean;
+    // Drawn inside another page section (the TTS settings, before their 「詳細設定」, #1230): that
+    // section's frame and spacing hold it, so it has no frame of its own.
+    embedded?: boolean;
 }
 
-export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }: SpeechServersProps) => {
+export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], needed = false, embedded = false }: SpeechServersProps) => {
     const { t } = useI18n();
     const { settings, state, devices, builds, pending, error, send, updateError } = useSpeechServers();
     // Saves by itself (#1111, decided 3): a choice at once, a path when focus leaves the form or on Enter.
@@ -84,11 +90,12 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
         const saved = settings?.profiles?.[name];
         return !!saved?.model?.trim() && (name !== "asr" || !!saved?.vad_model?.trim());
     };
-    // Open by itself only when a server reports an error to fix in here.
+    // Held open while a server reports an error to fix in here; open at first while the page's
+    // feature still needs a model set here (needed).
     const attention = profiles.some(name => !!state[name]?.error_code || !!state[name]?.low_latency?.error_code);
     const summary = profiles.map(name => `${t(`speech_servers.${name}`)}: ${t(configured(name) ? "speech_servers.model_set" : "speech_servers.model_unset")} · ${stateText(name)}`).join(" / ");
-    return <section className={styles.container} aria-label={t("speech_servers.title")}>
-        <SetupSection title={t("speech_servers.setup_title")} desc={t("speech_servers.help")} status={summary} attention={attention}>
+    return <section className={embedded ? undefined : styles.container} aria-label={t("speech_servers.title")}>
+        <SetupSection title={t("speech_servers.setup_title")} desc={t("speech_servers.help")} status={summary} attention={attention} needed={needed}>
         {/* How to use a model file of your own instead of the default one. */}
         <CustomModelLink section={tts ? "tts" : "asr"} />
         {tts && <HardwareReadout reserve={reserve} setReserve={setReserve} />}

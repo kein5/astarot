@@ -66,11 +66,11 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.doesNotMatch(advanced, /DirectVoiceSettings/);
 
     const runtime = hooks();
-    const DirectVoiceSettings = () => null, AdvancedSection = () => null;
+    const DirectVoiceSettings = () => null, AdvancedSection = () => null, VcMonitorRow = () => null;
     let voice = { directState: { active: true, mode: "passthrough" }, directOwner: "passthrough" };
     const rvc = await loadModule<typeof import("./setting_section/setting_box/rvc/Rvc.tsx")>(box("rvc/Rvc.tsx"), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
+        "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings, VcMonitorRow },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
@@ -79,10 +79,14 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.equal(page.type, "hints");
     const [conversion, fold] = page.props.children;
     assert.equal(conversion.type, DirectVoiceSettings);
-    assert.equal(conversion.props.variant, "rvc");
+    // The conversion's own form leaves out the monitor's row, changed on the TTS page (#1230).
+    assert.deepEqual(conversion.props, { variant: "rvc", monitor: false });
     assert.equal(fold.type, AdvancedSection);
-    assert.equal(fold.props.children.type, DirectVoiceSettings);
-    assert.deepEqual(fold.props.children.props, { variant: "legacy", subheading: true });
+    // The fold holds that row first, then input forwarding.
+    const [monitor, forwarding] = fold.props.children;
+    assert.equal(find(monitor, node => node.type === VcMonitorRow)?.props.converted, true);
+    assert.equal(forwarding.type, DirectVoiceSettings);
+    assert.deepEqual(forwarding.props, { variant: "legacy", subheading: true });
     // The fold's line says whether the input is forwarded now.
     assert.equal(fold.props.status, "voice.input_active");
     voice = { directState: { active: true, mode: "converted" }, directOwner: "rvc" };
@@ -95,19 +99,33 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
 });
 
 // #614: the TTS page keeps its descriptions out of sight, as hints, its servers' part included.
-test("the TTS page wraps its form and its servers in the hints", async () => {
+// #1230: the servers are the form's setup, drawn before its 「詳細設定」, open while a voice the
+// bundled server makes has no model.
+test("the TTS page wraps its form and its servers in the hints; the servers are the form's setup", async () => {
     const runtime = hooks();
     const VoiceSettings = () => null, SpeechServers = () => null;
+    let voice: unknown = { japanese_engine: "speechcpp", japanese_server: "bundled", multilingual_server: "external" };
+    let profiles: unknown = { japanese: { model: "" }, multilingual: { model: "" } };
     const tts = await loadModule<typeof import("./setting_section/setting_box/tts/Tts.tsx")>(box("tts/Tts.tsx"), runtime, {
         "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
+        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: voice }) },
+        "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles } }) },
+        "../../../../../../logics/voice/ttsSetupNeeds": await import("../../../logics/voice/ttsSetupNeeds.ts"),
     });
-    const page = runtime.render(tts.Tts);
-    assert.equal(page.type, "hints");
-    const [form, servers] = page.props.children;
-    assert.equal(form.type, VoiceSettings);
-    assert.equal(servers.type, SpeechServers);
-    assert.deepEqual(servers.props.profiles, ["japanese", "multilingual"]);
+    const servers = () => {
+        const page = runtime.render(tts.Tts);
+        assert.equal(page.type, "hints");
+        const form = page.props.children;
+        assert.equal(form.type, VoiceSettings);
+        assert.equal(form.props.setup.type, SpeechServers);
+        return form.props.setup.props;
+    };
+    assert.deepEqual(servers(), { profiles: ["japanese", "multilingual"], needed: true, embedded: true });
+    profiles = { japanese: { model: "/models/ja.gguf" }, multilingual: { model: "" } };
+    assert.equal(servers().needed, false, "the other languages come from a server of the user's own");
+    voice = null;
+    assert.equal(servers().needed, false, "nothing is needed before the settings are known");
 });
 
 // The settings search over the real texts, in Japanese, with the page names as keys.
@@ -225,7 +243,7 @@ test("chat reading keeps what it needs to start in sight; where and how often it
 
 test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
     const source = read("advanced_settings/VoiceSettings.tsx");
-    const page = source.split("export const VoiceSettings = () => {")[1].split("\n};")[0];
+    const page = source.split("export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const fold = rest.split("</AdvancedSection>")[0];
     for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /input\(`\$\{role\}_voice`\)/])
@@ -234,8 +252,11 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
         assert.match(fold, part);
         assert.doesNotMatch(before, part);
     }
-    // The form saves all of it, also what is folded: the fold is inside the form.
-    assert.ok(page.indexOf("<form") < page.indexOf("<AdvancedSection") && page.indexOf("</AdvancedSection>") < page.indexOf("</form>"));
+    // The form saves all of it, also what is folded: the fold is inside a form of its own, after
+    // the page's setup (its 「モデルとサーバー」) and the route, which is changed on the Device page (#1230).
+    const setup = page.indexOf("{setup}"), route = page.indexOf("<VoiceRouteSummary />"), folded = page.indexOf("<AdvancedSection");
+    assert.ok(page.indexOf("</form>") < setup && setup < route && route < folded, "the setup, then the route, then the fold");
+    assert.ok(page.lastIndexOf("<form", folded) > route && page.indexOf("</AdvancedSection>") < page.lastIndexOf("</form>"));
 });
 
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {

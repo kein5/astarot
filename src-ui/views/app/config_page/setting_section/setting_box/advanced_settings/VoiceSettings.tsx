@@ -1,4 +1,5 @@
 import { useEffect, useId } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
@@ -27,7 +28,9 @@ const SPEECH_MODES = ["off", "original", "translated"] as const;
 // engines' reading numbers.
 const validVoiceSettings = (draft: VoiceSettingsValue) => validGenerationOptions(draft) && validCoeiroinkOptions(draft) && validAudioQueryOptions(draft);
 
-export const VoiceSettings = () => {
+// setup: the page's 「モデルとサーバー」, drawn after the voices it serves and before 「詳細設定」, as
+// DESIGN.md orders a page (#1230).
+export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const optionsErrorId = useId();
@@ -77,7 +80,6 @@ export const VoiceSettings = () => {
         <StatusLine tone={status.active ? "active" : "idle"} actions={<StopVoiceButton />}>
             {t(status.active ? "voice.playing" : "voice.idle")} · {t("voice.queued")}: {status.queued ?? 0}
         </StatusLine>
-        <VoiceRouteSummary />
         <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
             <fieldset className={styles.fields}>
                 <label>{t("voice.mode")}<Select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
@@ -104,6 +106,14 @@ export const VoiceSettings = () => {
                     {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />}
                     {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
                 </fieldset>)}
+            </fieldset>
+        </form>
+        {/* The models the voices above need, then the route, which is changed on the Device page,
+            after this page's own controls (#1230). */}
+        {setup}
+        <VoiceRouteSummary />
+        <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
+            <fieldset className={styles.fields}>
                 {/* Set once to taste (#554): the monitor, how speech.cpp generates, reading the
                     microphone's captions aloud and the conversion. The line shows the first two. */}
                 <AdvancedSection status={t("config_page.advanced_status.tts", {

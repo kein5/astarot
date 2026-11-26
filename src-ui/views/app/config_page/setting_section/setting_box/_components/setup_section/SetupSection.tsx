@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
@@ -18,11 +18,16 @@ export interface SetupSectionProps {
     status?: ReactNode;
     desc?: string;
     attention?: boolean;
+    // needed: the page's feature cannot work until this setup is done (#1230). The fold starts
+    // open then, and opens when it becomes needed, so the missing step is the first thing seen;
+    // it can still be closed.
+    needed?: boolean;
     children?: ReactNode;
 }
 
-export const SetupSection = ({ title, status, desc, attention = false, children }: SetupSectionProps) => {
-    const [opened, setOpened] = useState(false);
+export const SetupSection = ({ title, status, desc, attention = false, needed = false, children }: SetupSectionProps) => {
+    const [opened, setOpened] = useState(needed);
+    useEffect(() => { if (needed) setOpened(true); }, [needed]);
     const id = useId();
     // The words of the title's hint, when the page shows descriptions as hints.
     const hint = useHintDescriptions() && desc ? desc : undefined;

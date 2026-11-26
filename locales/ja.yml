@@ -1840,7 +1840,7 @@ voice_ui:
     output_unready: "出力デバイス未設定"
     start_needs_output: "開始するには「テキスト読み上げ（TTS）」の設定で出力デバイスを選んでください"
     mic_unready: "仮想マイク未準備"
-    start_needs_mic: "開始するには下の準備の欄で仮想マイクを準備してください"
+    start_needs_mic: "開始するには上の準備の欄で仮想マイクを準備してください"
     start_needs_input: "開始するには、転送する入力を選んでください"
     start_needs_setup: "開始するには変換のモデルと実行環境を設定してください"
     start_needs_save: "開始するには、変更の保存が終わるまで待ってください"

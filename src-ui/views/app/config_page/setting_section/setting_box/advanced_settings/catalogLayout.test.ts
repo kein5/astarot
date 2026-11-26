@@ -99,6 +99,27 @@ test("a part of a catalog is a bar of the app's fold, closed at first, with its 
     }
 });
 
+// #1230: a part that holds what the page's feature still needs (the chat reading models of the
+// chosen language) starts open, opens when it becomes needed, and can still be closed.
+test("a part of a catalog that is needed starts open, opens when it becomes needed, and can still be closed", async () => {
+    const { runtime, module } = await layouts("grid");
+    const open = (needed: boolean) => findIn(runtime.render(module.CatalogSection, { title: "Recognition models", help: [], level: 4, needed, children: "cards" }),
+        node => node.type === "fold");
+    assert.equal(open(true).props.open, true, "open from the start");
+    open(true).props.onToggle({ currentTarget: { open: false } });
+    assert.equal(open(true).props.open, false, "closed by the user while still needed");
+    // Done: it stays as the user left it; needed again, it opens.
+    assert.equal(open(false).props.open, false);
+    open(true);
+    assert.equal(open(true).props.open, true, "opened when it became needed again");
+    const later = await layouts("grid");
+    const draw = (needed: boolean) => findIn(later.runtime.render(later.module.CatalogSection, { title: "Recognition models", help: [], level: 4, needed, children: "cards" }),
+        node => node.type === "fold").props.open;
+    assert.equal(draw(false), false, "not needed: closed at first");
+    draw(true);
+    assert.equal(draw(true), true, "opened when it became needed");
+});
+
 test("a part of the translation review's catalog is not folded: its heading and lines are as before", async () => {
     const { runtime, module } = await layouts("grid");
     const tree = runtime.render(module.CatalogSection, { title: "Translation", help: ["What it is for"], level: 4, id: "model-catalog-translation", fold: false, children: "card" });

@@ -1840,7 +1840,7 @@ voice_ui:
     output_unready: "Output device not set"
     start_needs_output: "To start, choose an output device on the Text to speech (TTS) page"
     mic_unready: "Virtual mic not prepared"
-    start_needs_mic: "To start, prepare the virtual mic in the setup section below"
+    start_needs_mic: "To start, prepare the virtual mic in the setup section above"
     start_needs_input: "To start, choose the input to forward"
     start_needs_setup: "To start, set the conversion model and runtime"
     start_needs_save: "To start, wait until your changes are saved"
