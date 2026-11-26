@@ -11,6 +11,7 @@ export const useAdvancedSettings = createCategoryHook("AdvancedSettings");
 export const useOcr = createCategoryHook("Ocr");
 export const useExperimentalFeatures = createCategoryHook("ExperimentalFeatures");
 export const useUsagePresets = createCategoryHook("UsagePresets");
+export const useTalkAi = createCategoryHook("TalkAi");
 
 // Exceptional exports that are not part of SETTINGS_ARRAY or have custom logic.
 export { useHotkeys } from "./config_page_setter/hotkeys/useHotkeys";

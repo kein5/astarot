@@ -1,12 +1,12 @@
 import * as styles from "./SidebarSection.css.ts";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import {
     useStore_SelectedConfigTabId,
     useStore_IsBreakPoint,
 } from "@store";
-import { useUsagePresets } from "@logics_configs";
+import { useUsagePresets, useSettingValue } from "@logics_configs";
 
 import MicSvg from "@images/mic.svg?react";
 import TtsSpeakerSvg from "@images/tts_speaker.svg?react";
@@ -21,12 +21,14 @@ import ScienceSvg from "@images/mui_science.svg?react";
 import RefreshSvg from "@images/refresh.svg?react";
 import ChatTranscribeSvg from "@images/chat_transcribe.svg?react";
 import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
+import TalkAiSvg from "@images/talk_ai.svg?react";
 
 import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel";
 import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
-import { visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
+import { isTabAvailable, visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
+import { isExperimentalFeatureEnabled } from "../../../../logics/configs/experimentalFeatures.ts";
 import { isTabShown, pickedPresets } from "../../../../logics/configs/usagePresets.ts";
 import { UsagePresetSelector } from "./usage_presets/UsagePresetSelector.tsx";
 import type { SettingsMenuGroup } from "../../../../logics/configs/settingsMenu.ts";
@@ -61,9 +63,15 @@ export const SidebarSection = () => {
     // The uses picked at the top choose the pages in the menu (usagePresets.ts). The page open
     // now stays in it, also when the search or a main page button opened it.
     const { currentUsagePresets } = useUsagePresets();
-    const { currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const { currentSelectedConfigTabId, updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const picked = pickedPresets(currentUsagePresets.data);
-    const groups = visibleMenuGroups(tab => isTabShown(picked, tab, tab === currentSelectedConfigTabId.data));
+    // A page of an experimental feature is in the menu only while the feature is on (#969, decision 2).
+    const { data: features, state: featuresState } = useSettingValue("ExperimentalFeatures");
+    const available = (tab: string) => isTabAvailable(tab, id => isExperimentalFeatureEnabled(features, id));
+    const groups = visibleMenuGroups(tab => available(tab) && isTabShown(picked, tab, tab === currentSelectedConfigTabId.data));
+    // The page open now went away with its feature: the menu opens the page with the feature's switch.
+    const gone = featuresState === "ok" && typeof currentSelectedConfigTabId.data === "string" && !available(currentSelectedConfigTabId.data);
+    useEffect(() => { if (gone) updateSelectedConfigTabId("experimental_features"); }, [gone]);
 
     return (
         <div
@@ -104,6 +112,7 @@ export const TabIcon = ({ tab_id, className }: TabIconProps) => {
         case "transcription": return <GraphicEqSvg className={clsx(className, styles.mui_icon)} />;
         case "vrchat": return <ChatTranscribeSvg className={clsx(className, styles.mui_icon, styles.ocr_icon)} />;
         case "ocr": return <DocumentScannerSvg className={clsx(className, styles.mui_icon)} />;
+        case "talk_ai": return <TalkAiSvg className={clsx(className, styles.mui_icon)} />;
         case "vr": return <HMDSvg className={clsx(className, styles.mui_icon)} />;
         case "hotkeys": return <KeyboardAltSvg className={clsx(className, styles.mui_icon)} />;
         case "advanced_settings": return <CodeBlocksSvg className={clsx(className, styles.mui_icon)} />;

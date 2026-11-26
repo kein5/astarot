@@ -125,16 +125,19 @@ test("every listed feature has a name and a description in English and Japanese"
     }
 });
 
-test("the tray companion is listed and stays off until the user turns it on", async context => {
+test("the tray companion and Talk AI are listed and stay off until the user turns them on", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
     const list = inside(draw(tree));
     const switches = children(list).filter(item => item.type === "switch");
-    assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
+    assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion", "experimental_features.talk_ai"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
-    assert.equal(switches[0].props.variable.data, false);
+    assert.equal(switches[1].props.label, "config_page.experimental_features.items.talk_ai.label");
+    assert.deepEqual(switches.map(item => item.props.variable.data), [false, false]);
     switches[0].props.toggleFunction();
-    assert.deepEqual(s.writes, [{ tray_companion: true }]);
+    switches[1].props.toggleFunction();
+    // Each switch asks for its own feature only; the core keeps the others as they are.
+    assert.deepEqual(s.writes, [{ tray_companion: true }, { talk_ai: true }]);
 });
 
 test("while the tray companion is on, the edge its hexagram hides at can be chosen under its switch", async context => {
@@ -311,8 +314,11 @@ test("the features' descriptions are left to become hints; the tray companion ke
     const s = await load(context);
     const tray = children(inside(draw(s.runtime.render(s.module.ExperimentalFeatures, {})))).filter(item => item.type === "switch");
     const item = "config_page.experimental_features.items.tray_companion";
+    const talk = "config_page.experimental_features.items.talk_ai";
+    // Talk AI keeps its sentence on screen too: turning it on adds a settings page (#388).
     assert.deepEqual(tray.map(row => [row.props.setting_id, row.props.lead, row.props.desc, row.props.keep_desc]),
-        [["experimental_features.tray_companion", `${item}.lead`, `${item}.desc`, undefined]]);
+        [["experimental_features.tray_companion", `${item}.lead`, `${item}.desc`, undefined],
+            ["experimental_features.talk_ai", `${talk}.lead`, `${talk}.desc`, undefined]]);
     // A feature that changes nothing about the start keeps nothing on screen.
     const fake = await load(context, fakeRegistry);
     const others = children(fake.render({ features: FAKE_IDS.map(id => ({ id })), current: fake.current, setValues: () => {} }))

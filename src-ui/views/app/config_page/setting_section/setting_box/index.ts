@@ -11,6 +11,7 @@ export { AboutVrct } from "./about_vrct/AboutVrct";
 export { Updater } from "./updater/Updater";
 export { Ocr } from "./ocr/Ocr";
 export { ExperimentalFeatures } from "./experimental_features/ExperimentalFeatures";
+export { TalkAi } from "./talk_ai/TalkAi";
 
 export { Tts } from "./tts/Tts";
 export { Rvc } from "./rvc/Rvc";

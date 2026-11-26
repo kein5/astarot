@@ -27,6 +27,8 @@ test("K-02: settings turn a setting on or off with the kit's switch; a checkbox 
         "advanced_settings/VcRuntimeSetup.tsx",
         "ocr/OcrModels.tsx",
         "translation/Translation.tsx",
+        // Talk AI's consent that the people around hear the answer in the virtual microphone (#388).
+        "talk_ai/TalkAiDialogs.tsx",
         // The speech server forms' on/off checkboxes (HintCheck in SpeechServers.tsx, and
         // RealtimeASRSettings.tsx): an open pull request (#1154) changes those forms, so they follow it.
         "_components/hint/HintCheck.tsx",

@@ -18,6 +18,7 @@ import * as transcriptionCatalog from "./transcription/useTranscriptionCatalog";
 import * as vcRuntimes from "./voice/useVcRuntimes";
 import * as flow from "./flow/useIoFlow";
 import * as gpuMemory from "./flow/useGpuMemory";
+import * as talkAi from "./talk_ai/useTalkAiSession";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
 import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -193,6 +194,23 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/get/data/voice_audition_state", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/start_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/stop_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    // Talk AI (#388): the catalog, whether the key is kept, the screen sources and the conversation.
+    // Its settings (the provider, the local address, the screen's interval, size and detail) are
+    // routed from SETTINGS_ARRAY.
+    { endpoint: "/get/data/talk_ai_catalog", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateCatalog" },
+    { endpoint: "/get/data/talk_ai_auth_key", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateKey" },
+    { endpoint: "/set/data/talk_ai_auth_key", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answerKey" },
+    { endpoint: "/get/data/talk_ai_screen_sources", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateSources" },
+    { endpoint: "/get/data/talk_ai_status", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateStatus" },
+    { endpoint: "/run/talk_ai_status", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateStatus" },
+    { endpoint: "/set/enable/talk_ai", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/disable/talk_ai", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/enable/talk_ai_audio", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/enable/talk_ai_screen", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/disable/talk_ai_screen", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    // Stopping the answer and ending the user's turn answer true; the status says the rest.
+    { endpoint: "/set/data/talk_ai_interrupt", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/talk_ai_end_turn", ns: null, hook_name: null, method_name: null },
     { endpoint: "/get/data/gpu_check_state", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateState" },
     { endpoint: "/run/start_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
     { endpoint: "/run/stop_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
@@ -347,6 +365,14 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
 const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
+// Talk AI's own requests: a refusal of one is said on its page (useTalkAiSession.fail). Its
+// settings are not among them: a refused setting is said under its field or as a notice.
+const TALK_AI_REQUESTS = ["/get/data/talk_ai_catalog", "/get/data/talk_ai_auth_key", "/set/data/talk_ai_auth_key",
+    "/get/data/talk_ai_screen_sources", "/get/data/talk_ai_status", "/set/enable/talk_ai", "/set/disable/talk_ai",
+    "/set/enable/talk_ai_audio", "/set/enable/talk_ai_screen", "/set/disable/talk_ai_screen",
+    "/set/data/talk_ai_interrupt", "/set/data/talk_ai_end_turn"];
+// The settings whose change moves the local entry's address or ends a conversation.
+const TALK_AI_DESTINATIONS = ["/set/data/talk_ai_provider", "/set/data/talk_ai_local_url"];
 const TRANSLATION_CATALOG_CHANGES = ["/run/register_translation_catalog_entry", "/run/remove_translation_catalog_entry",
     "/run/use_translation_catalog_entry"];
 // Using a speech recognition API the user added points the custom Whisper server at it (#414).
@@ -430,6 +456,7 @@ export const useReceiveRoutes = () => {
         return () => clearInterval(timer);
     }, [gpuCheckRunning, pollGpuCheck]);
     const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
+    const { fail: failTalkAi, reset: resetTalkAi, backendStopped: stopTalkAi } = talkAi.useTalkAiSession();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
         if (!realtimeActive) return;
@@ -581,6 +608,19 @@ export const useReceiveRoutes = () => {
             failVirtualMicCheck(fieldOf(result, "error_code"));
             return;
         }
+        // A Talk AI request that was refused says why on its page; a voice that could not start
+        // also ends the conversation (useTalkAiSession.fail).
+        if (status !== 200 && TALK_AI_REQUESTS.includes(endpoint)) {
+            failTalkAi(errorCodeOf(result) || "talk_request_failed", endpoint);
+            return;
+        }
+        // The address of the local entry is in the catalog; a new one is read with it.
+        if (status === 200 && TALK_AI_DESTINATIONS.includes(endpoint)) asyncStdoutToPython("/get/data/talk_ai_catalog");
+        // The microphone is Talk AI's while it talks (#969, decision 9): turning recognition on
+        // then is refused, and the switch goes back. Say why where the user pressed it.
+        if (status === 409 && errorCodeOf(result) === "talk_microphone_in_use") {
+            showNotification_Warning(t("talk_ai.errors.talk_microphone_in_use"), { category_id: "talk_microphone_in_use" });
+        }
         // A refused audition says why on its card; a failed stop or poll leaves it as it is.
         if (status !== 200 && endpoint.includes("gpu_check")) {
             if (endpoint === "/run/start_gpu_check") failGpuCheck(fieldOf(result, "error_code"));
@@ -635,6 +675,7 @@ export const useReceiveRoutes = () => {
             resetStopVoice();
             resetGpuCheck();
             resetFirstRunSetup();
+            resetTalkAi();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
             sendRealtime("/get/data/realtime_asr_models");
@@ -758,6 +799,7 @@ export const useReceiveRoutes = () => {
         stopAudition();
         resetStopVoice();
         stopGpuCheck();
+        stopTalkAi();
     };
     return { receiveRoutes, backendStopped };
 };
