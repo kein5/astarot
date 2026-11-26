@@ -369,11 +369,26 @@ test("an entry added, used or removed makes the page read the translation settin
     }
 });
 
+// #1228: the cards say which built-in model is in use, so a model chosen in the list or on a card
+// is read back into them; a refused choice changes nothing.
+test("choosing the translation model makes the catalog read again which model is in use", async () => {
+    const routes = await loadBridgeRoutes();
+    const asked = () => routes.reads.filter(read => read === "/get/data/translation_catalog").length;
+    const before = asked();
+    routes.receiveRoutes({ endpoint: "/set/data/selected_ctranslate2_weight_type", status: 400,
+        result: { error_code: "TRANSLATION_WEIGHT_CONSENT_REQUIRED", data: "nllb" } });
+    assert.equal(asked(), before, "a refusal changed nothing");
+    routes.receiveRoutes({ endpoint: "/set/data/selected_ctranslate2_weight_type", status: 200, result: "m2m100_418M-ct2-int8" });
+    assert.equal(asked(), before + 1);
+});
+
 test("on the translation page the catalog is a section of its own after More settings, not inside it (#597)", () => {
     const page = readFileSync(new URL("./Translation.tsx", import.meta.url), "utf8");
-    const advanced = page.indexOf("</AdvancedSection>"), catalog = page.indexOf("<TranslationCatalogSection />");
+    // The catalog is drawn by its container, which gives its built-in cards the model list's choice (#1228).
+    const advanced = page.indexOf("</AdvancedSection>"), catalog = page.indexOf("<TranslationCatalog_Container />");
     assert.ok(advanced > 0 && catalog > advanced, "the catalog comes after the More settings fold");
-    assert.equal(page.indexOf("<TranslationCatalogSection />", catalog + 1), -1, "the catalog is drawn once");
+    assert.equal(page.indexOf("<TranslationCatalog_Container />", catalog + 1), -1, "the catalog is drawn once");
+    assert.equal((page.match(/<TranslationCatalogSection /g) ?? []).length, 1, "the container draws the section once");
 });
 
 // The forms' fields are the kit's TextField, never spell-checked; a path, an address and a key are

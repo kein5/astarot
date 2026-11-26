@@ -261,8 +261,9 @@ test("translation keeps its local model and its catalog in sight; the APIs and l
     const source = read("translation/Translation.tsx");
     const { outside, fold } = pageParts(source, "Translation");
     // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
-    assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
-    assert.ok(source.indexOf("<TranslationCatalogSection />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
+    // Its container gives its built-in cards the model list's choice (#1228).
+    assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalog_Container"]);
+    assert.ok(source.indexOf("<TranslationCatalog_Container />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
     // What an LLM engine is sent leads the fold, once for the APIs and the local servers (#614);
     // what they are all asked besides the text closes it, once for both (#392).
     assert.deepEqual(fold, ["Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "LLMTranslationOptions_Container"]);

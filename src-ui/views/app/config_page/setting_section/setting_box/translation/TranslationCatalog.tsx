@@ -11,6 +11,7 @@ import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, Catalog
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
+import * as catalogStyles from "./TranslationCatalog.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
@@ -36,7 +37,14 @@ const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogE
 // Its cards are laid out as the model catalog's (DESIGN.md "Components", #614): the name with the
 // state at the end of its line, the facts in one table, then the notes and the actions; the entry
 // in use carries the active frame.
-export const TranslationCatalogSection = () => {
+// How a built-in model is chosen or downloaded, from the page that holds the model list (#1228):
+// the same steps as there, a license confirmed first and a model not on the PC reviewed first.
+export interface WeightActions {
+    chooseWeight?: (weight: string) => void;
+    reviewWeight?: (weight: string) => void;
+}
+
+export const TranslationCatalogSection = ({ chooseWeight, reviewWeight }: WeightActions = {}) => {
     const { t } = useI18n();
     const { catalog, error, send } = useTranslationCatalog();
     const layout = useCatalogLayout();
@@ -54,7 +62,7 @@ export const TranslationCatalogSection = () => {
             {error && <p role="alert">{errorText(t, error)}</p>}
             {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
             {catalog ? <>
-                <CatalogGroup group="engine" catalog={catalog} layout={layout} />
+                <CatalogGroup group="engine" catalog={catalog} layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />
                 <CatalogGroup group="api" catalog={catalog} layout={layout} />
             </> : <p>{t("translation_catalog.loading")}</p>}
         </section>
@@ -64,7 +72,7 @@ export const TranslationCatalogSection = () => {
 // i18next takes the first key it has: a code without its own text gets the general one.
 const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
 
-const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout }) => {
+const CatalogGroup = ({ group, catalog, layout, chooseWeight, reviewWeight }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout } & WeightActions) => {
     const { t } = useI18n();
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
@@ -85,7 +93,8 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
                 ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
                 : <p>{t("translation_catalog.none_added", { add: t(`translation_catalog.add.${group}`) })}</p>}
             <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
-                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
+                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout}
+                    chooseWeight={chooseWeight} reviewWeight={reviewWeight} />)}</CatalogList>
             </Fold>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
@@ -93,26 +102,40 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
     );
 };
 
-// An entry the app ships: its name and whether it can be used now. Its settings stay in the
-// sections above. The state ends the name's line, where every card of the catalog has it; in the
-// grid the entry's kind is the line under it, so every card's state is in the same place.
-const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
+// An entry the app ships: its name and whether it can be used now. The state ends the name's line,
+// where every card of the catalog has it; in the grid the entry's kind is the line under it, so
+// every card's state is in the same place.
+// A built-in model's card is pressed anywhere to use it, or, when it is not downloaded, to review
+// its download (#1228); the card in use has nothing to press. The built-in APIs are the
+// translators the main screen chooses, so their cards only say whether they can be used.
+const ShippedCard = ({ group, item, layout, chooseWeight, reviewWeight }: CatalogEntry & { layout: CatalogLayout } & WeightActions) => {
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
+    const weight = group === "engine" && "weight" in item ? item.weight : null;
+    const name = group === "engine" ? weightLabel(item.weight, null) : item.name;
+    const press = weight === null ? null
+        : state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
+            named: t("translation_catalog.use_named", { name }), tone: "primary" as const }
+        : state === "not_downloaded" && reviewWeight ? { run: () => reviewWeight(weight), label: t("model_downloads.review"),
+            named: t("translation_catalog.review_named", { name }), tone: undefined }
+        : null;
     // A license that bars commercial use is a caution: amber.
     const kind = <>
         <Badge>{t("translation_catalog.badge.builtin")}</Badge>
         {group === "api" && item.kind && <Badge>{t(`translation_catalog.kind.${item.kind}`)}</Badge>}
         {"non_commercial" in item && item.non_commercial && <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge>}
     </>;
-    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? catalogStyles.pressable : undefined}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
-            <CardTitle>{group === "engine" ? weightLabel(item.weight, null) : item.name}</CardTitle>
+            <CardTitle>{name}</CardTitle>
             {layout === "list" && kind}
             <CatalogState state={state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
         {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
+        {press && <div className={styles.actions}>
+            <Button tone={press.tone} className={catalogStyles.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
+        </div>}
     </Card>;
 };
 

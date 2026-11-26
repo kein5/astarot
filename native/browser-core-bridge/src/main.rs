@@ -95,7 +95,7 @@ fn start(state: &PathBuf, current: &Current, to_page: Sender<Value>) {
         }),
     };
     let mut options = Options::new(environment(state));
-    options.services = services::stand_ins();
+    options.services = services::stand_ins(state);
     *current.lock().unwrap() = Some(Backend::start(options, sink));
 }
 

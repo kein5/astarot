@@ -584,6 +584,9 @@ export const useReceiveRoutes = () => {
         if (status === 200 && TRANSLATION_CATALOG_CHANGES.includes(endpoint)) {
             for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
         }
+        // The translation model in use changed, from the model list or a catalog card: the
+        // catalog's cards say which one is in use, so they are read again (#1228).
+        if (status === 200 && endpoint === "/set/data/selected_ctranslate2_weight_type") sendTranslationCatalog("/get/data/translation_catalog");
         if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(errorCodeOf(result) || "download_failed", endpoint);
             return;
