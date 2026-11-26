@@ -138,6 +138,8 @@ export const loadBridgeRoutes = async (
     const transcriptionConsent = await loadModule<typeof import("../transcription/useTranscriptionConsent.ts")>(new URL("../transcription/useTranscriptionConsent.ts", import.meta.url), runtime);
     const translationSetup = await loadModule<typeof import("../translation/useTranslationSetup.ts")>(new URL("../translation/useTranslationSetup.ts", import.meta.url), runtime);
     const ocrSetup = await loadModule<typeof import("../ocr/useOcrSetup.ts")>(new URL("../ocr/useOcrSetup.ts", import.meta.url), runtime);
+    const recognitionFix = await loadModule<typeof import("../transcription/useRecognitionFix.ts")>(new URL("../transcription/useRecognitionFix.ts", import.meta.url), runtime);
+    const recognitionFixes = await loadModule<typeof import("../transcription/recognitionFix.ts")>(new URL("../transcription/recognitionFix.ts", import.meta.url), runtime);
     const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n },
@@ -147,6 +149,8 @@ export const loadBridgeRoutes = async (
         "./transcription/useTranscriptionConsent": transcriptionConsent,
         "./translation/useTranslationSetup": translationSetup,
         "./ocr/useOcrSetup": ocrSetup,
+        "./transcription/useRecognitionFix": recognitionFix,
+        "./transcription/recognitionFix": recognitionFixes,
     });
     const feature = (values: Record<string, unknown>) => stubApi({ send, reset: noop, backendStopped: noop, ...values });
     const voice = { useVoice: () => feature({ settings: null, status: {} }) };
@@ -208,5 +212,6 @@ export const loadBridgeRoutes = async (
         stopVoice: () => localRuntime.render(stopVoice.useStopVoice),
         gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
+        recognitionFix: () => runtime.render(recognitionFix.useRecognitionFix),
         ...runtime.render(routes.useReceiveRoutes) };
 };

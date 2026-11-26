@@ -2,6 +2,7 @@ import { createLanguageNames } from "../../../../../../logics/common/languageNam
 import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
+import { languageSettingId } from "../../../../../../logics/transcription/recognitionFix";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
@@ -157,7 +158,8 @@ export const RealtimeASRSettings = () => {
                             {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
                         </select>
                     </FormRow>
-                    <label>{t(`realtime.${source}_language`)}<select aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
+                    {/* The switch's fix leads here when the model does not take the language (#1225). */}
+                    <label data-setting-id={languageSettingId(source)}>{t(`realtime.${source}_language`)}<select aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
                         onChange={event => updateSource(source, { language: event.target.value })}>
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}

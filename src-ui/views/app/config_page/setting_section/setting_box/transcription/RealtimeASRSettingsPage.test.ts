@@ -6,6 +6,7 @@ import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHa
 import * as languageNames from "../../../../../../logics/common/languageNames.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
+import * as recognitionFix from "../../../../../../logics/transcription/recognitionFix.ts";
 
 // The realtime captions' form (RealtimeASRSettings.tsx) drawn with the real settings draft, which
 // saves the form by itself, and the real language names. The realtime ASR and speech server hooks
@@ -69,6 +70,7 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
     const module = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { "../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" }, ...ui,
         "../../../../../../logics/common/languageNames.ts": languageNames,
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ ...asr, send: hook.send, updateError: hook.updateError }) },
+        "../../../../../../logics/transcription/recognitionFix": recognitionFix,
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: speech.state, send: hook.sendSpeech }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },

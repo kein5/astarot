@@ -1,5 +1,7 @@
 import { takeInlineRefusal } from "./configs/fieldErrors.ts";
 import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent";
+import { useRecognitionFix } from "./transcription/useRecognitionFix";
+import { recognitionFixOf } from "./transcription/recognitionFix";
 import { useTranslationSetup } from "./translation/useTranslationSetup";
 import { useOcrSetup } from "./ocr/useOcrSetup";
 import { createElement } from "react";
@@ -110,6 +112,7 @@ export const _useBackendErrorHandling = () => {
     const { updateMicThresholdCheckStatus, updateSpeakerThresholdCheckStatus } = useVolume();
     const transcription = useTranscription();
     const transcriptionConsent = useTranscriptionConsent();
+    const recognitionFix = useRecognitionFix();
     const translationSetup = useTranslationSetup();
     const ocrSetup = useOcrSetup();
     const {
@@ -302,6 +305,13 @@ export const _useBackendErrorHandling = () => {
             case "TRANSCRIPTION_SEND_NOT_READY":
             case "TRANSCRIPTION_RECEIVE_NOT_READY": {
                 (error_code === "TRANSCRIPTION_SEND_NOT_READY" ? updateTranscriptionSendStatus : updateTranscriptionReceiveStatus)(false);
+                // Missing models or a language the model does not take: the main screen offers the
+                // fix where the switch is, instead of a notice that names a settings page (#1225).
+                const fix = recognitionFixOf(endpoint, fieldOf(result, "details"));
+                if (fix) {
+                    recognitionFix.open(fix);
+                    return;
+                }
                 const named = fieldOf(fieldOf(result, "details"), "reason");
                 const reason = typeof named === "string" ? named : "";
                 showNotification_Error(t(`realtime_toggle.${reason || "generic"}`, {

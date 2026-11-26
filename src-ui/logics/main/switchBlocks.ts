@@ -7,8 +7,10 @@ export type SwitchBlockId = "translation" | "transcription_send" | "transcriptio
 export type SwitchBlockReason = "translation_model" | "translation_unavailable" | "translation_downloading" | "asr_models"
     | "ocr_language" | "ocr_models" | "tts_source" | "rvc_model" | "rvc_output_device" | "rvc_route";
 
-// "translator" opens the translator list in the sidebar.
-export type SwitchBlockAction = "translation" | "translator" | "transcription" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
+// "translator" opens the translator list in the sidebar. "recognition_setup" opens the first-run
+// setup, which shows the recommended speech recognition models and their size and downloads them
+// after consent (#1225).
+export type SwitchBlockAction = "translation" | "translator" | "transcription" | "recognition_setup" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
 
 export interface SwitchBlock {
     reason: SwitchBlockReason;
@@ -63,8 +65,9 @@ export interface SwitchStatus {
 // the setup needs (translation model, local speech recognition models), the chat reading
 // models of the selected language, the saved speech settings and the saved direct voice
 // settings. Each block names its reason and the settings page that provides it
-// (`action`: a config tab id; "translation" opens the model review, "ocr_models" the chat
-// reading models section; null when there is nothing to do but wait).
+// (`action`: a config tab id; "translation" opens the model review, "recognition_setup" the
+// recognition models' setup, "ocr_models" the chat reading models section; null when there is
+// nothing to do but wait).
 //
 // Only what is known blocks a switch. State that has not arrived yet blocks nothing, so a
 // switch that could start is never greyed out; the switch's own error and the setup
@@ -83,7 +86,8 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     }
 
     if (needs.some(need => need.id === "transcription")) {
-        const block: SwitchBlock = { reason: "asr_models", action: "transcription" };
+        // The models are fixed where the switch is (#1225): the setup reviews and downloads them.
+        const block: SwitchBlock = { reason: "asr_models", action: "recognition_setup" };
         blocks.transcription_send = block;
         blocks.transcription_receive = block;
     }

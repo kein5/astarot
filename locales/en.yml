@@ -373,6 +373,7 @@ main_page:
         open_page: "Open {{page}} settings"
         translator: "Choose a translator"
         translation_model: "Review the translation model download"
+        recognition_models: "Get the recommended speech recognition models"
 
     # A main switch that cannot be turned on yet: why, and where to provide it.
     # Shown as the switch's tooltip and read as its description.
@@ -380,7 +381,7 @@ main_page:
         translation_model: "The translation model is not downloaded yet. Download it in Settings → Translation, or pick another engine under Translator."
         translation_unavailable: "The selected translation model cannot be downloaded yet. Pick another engine under Translator."
         translation_downloading: "The translation model is downloading. You can turn translation on when it finishes."
-        asr_models: "Local speech recognition has no models. In Settings → Speech recognition (ASR) → Models and servers, download the recognition model and the VAD model."
+        asr_models: "Local speech recognition has no models yet. The button beside this switch shows the recommended recognition and VAD models and their size, and downloads them when you agree."
         ocr_models: "The chat reading models are not downloaded yet. Download them in Settings → Chat reading (OCR) → Recognition models."
         ocr_language: "Chat reading does not support the selected language. Choose another language in Settings → Chat reading (OCR)."
         tts_source: "Nothing is chosen to read aloud. In Settings → Text to speech (TTS), set Chat voice or Realtime microphone speech to something other than Off, then save."
@@ -1635,6 +1636,23 @@ realtime_toggle:
   realtime_language_auto_unsupported: "This ASR model cannot detect the language. In Settings → Speech recognition (ASR) → Realtime captions, choose the language that is spoken, or download Qwen3-ASR for automatic detection."
   realtime_capture_failed: "Audio capture stopped. The device may have been unplugged or changed; check it and turn this on again."
   realtime_asr_timeout: "The speech recognition server did not return a result in time. Turn this on again. If it keeps happening, close other GPU apps or choose another inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD."
+
+# A Mic input or Listening switch that cannot turn on because speech recognition misses something:
+# the dialog that fixes it where the switch is (#1225).
+recognition_fix:
+  title: "{{name}} cannot turn on yet"
+  models_body: "Speech recognition on your PC needs a recognition model and a VAD model. The setup shows which models it downloads and how large they are, and downloads them only when you agree."
+  get_models: "Get the recommended models"
+  language_auto_body: "The current speech recognition model cannot tell which language is spoken. Choose the language that is spoken, or get a model that can tell."
+  language_body: "The current speech recognition model does not recognize the chosen language. Choose a language it recognizes."
+  language_label: "Spoken language"
+  use_language: "Use this language and turn on"
+  detect_heading: "A model that tells the language"
+  detect_body: "{{model}} recognizes 30 languages and tells which one is spoken. Its review shows the size and the license before anything is downloaded. Once it is ready, it becomes the speech recognition model and {{name}} turns on."
+  open_setting: "Open the setting"
+  close: "Close"
+  model_ready: "The new speech recognition model is set."
+  server_running: "The new model is downloaded, but it cannot be set while the bundled ASR server is running. Stop the ASR server in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then apply the model there."
 
 speech_servers:
     setup_title: "Models and servers"

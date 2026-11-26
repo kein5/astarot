@@ -598,12 +598,18 @@ fn leaving_the_local_engine_stops_its_realtime_session() {
 #[test]
 fn a_switch_says_what_is_missing() {
     let run = start(Platform::Linux, json!({}), true);
-    let not_ready = |run: &Run| {
+    let details = |run: &Run| {
         let mark = run.ui.send("/set/enable/transcription_send", None);
         let answer = run.ui.wait_from(mark, "the answer", |l| l["endpoint"] == "/set/enable/transcription_send");
         assert_eq!(error_code(&answer), "TRANSCRIPTION_SEND_NOT_READY", "{answer}");
         assert_eq!(answer["result"]["data"], false);
-        answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string()
+        answer["result"]["details"].clone()
+    };
+    let not_ready = |run: &Run| {
+        let details = details(run);
+        // Only a language the model does not take comes with the model's languages (#1225).
+        assert!(details.get("languages").is_none(), "{details}");
+        details["reason"].as_str().unwrap_or_default().to_string()
     };
     let set = |run: &Run, change: &dyn Fn(&mut Value)| {
         let mut value = settings(&run.asr);
@@ -614,10 +620,12 @@ fn a_switch_says_what_is_missing() {
     assert_eq!(not_ready(&run), "realtime_model_required");
     set(&run, &|s| s["model"] = json!("other-model"));
     assert_eq!(not_ready(&run), "realtime_model_unavailable");
+    // A language the model does not take: the answer lists the ones it does, so the switch can
+    // offer them (#1225).
     set(&run, &|s| s["mic"]["language"] = json!("en"));
-    assert_eq!(not_ready(&run), "realtime_language_unsupported");
+    assert_eq!(details(&run), json!({ "reason": "realtime_language_unsupported", "languages": ["ja"] }));
     set(&run, &|s| s["mic"]["language"] = json!("auto"));
-    assert_eq!(not_ready(&run), "realtime_language_auto_unsupported");
+    assert_eq!(details(&run), json!({ "reason": "realtime_language_auto_unsupported", "languages": ["ja"] }));
     set(&run, &|s| s["mic"]["follow_default"] = json!(false));
     assert_eq!(not_ready(&run), "realtime_endpoint_required");
     set(&run, &|s| s["server"] = json!("bundled"));

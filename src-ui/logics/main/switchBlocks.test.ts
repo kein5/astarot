@@ -21,7 +21,9 @@ test("the setup needs block translation and both speech recognition switches", (
     assert.deepEqual(reasons(blocks), { translation: "translation_model", transcription_send: "asr_models",
         transcription_receive: "asr_models" });
     assert.equal(blocks.translation?.action, "translation");
-    assert.equal(blocks.transcription_send?.action, "transcription");
+    // The speech recognition models are fixed where the switch is: the setup reviews them (#1225).
+    assert.equal(blocks.transcription_send?.action, "recognition_setup");
+    assert.equal(blocks.transcription_receive?.action, "recognition_setup");
 });
 
 test("a translation model on its way says so, with nothing to press", () => {

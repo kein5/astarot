@@ -40,6 +40,7 @@ const load = async () => {
         "../voice/useModelDownloads": { useModelDownloads: () => ({ state: { jobs: state.jobs } }) },
         "../translation/useTranslationSetup": { useTranslationSetup: () => ({ open: (resume: unknown) => calls.push(["review", resume]) }) },
         "../ocr/useOcrSetup": { focusOcrModels: () => calls.push("focus") },
+        "../setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => calls.push("setup") }) },
     });
     // Only the requests to the engine, not the writes to the shared atom.
     const asked = () => calls.filter(call => call === "get");
@@ -93,9 +94,11 @@ test("each action opens its place and never downloads or turns a switch on", asy
     prepare("translation");
     prepare("ocr_models");
     prepare("transcription");
+    // The speech recognition models: the setup, which reviews them before anything is downloaded (#1225).
+    prepare("recognition_setup");
     prepare(null);
     assert.deepEqual(s.calls, [["review", false], ["tab", "ocr"], ["opened", true], "focus",
-        ["tab", "transcription"], ["opened", true]]);
+        ["tab", "transcription"], ["opened", true], "setup"]);
 });
 
 test("the shared atom is written only when a block changes", async () => {

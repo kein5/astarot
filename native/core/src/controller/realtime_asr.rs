@@ -751,7 +751,7 @@ impl Core {
     /// start against the settings and the server, and lists the server's models for the
     /// session. The list is asked for here, where a stop of the source ends it, before the
     /// session is placed; the session does not ask again (decision 81).
-    fn prepare_realtime(&self, source: Source, expected: u64, starter: Starter) -> Result<Options, String> {
+    fn prepare_realtime(&self, source: Source, expected: u64, starter: Starter) -> Result<Options, Refusal> {
         let i = index(source);
         let settings = {
             let state = self.realtime().state();
@@ -786,7 +786,7 @@ impl Core {
             if starter == Starter::Switch
                 && let Some(code) = self.await_asr_server(source, expected, settings["start_server"] != false)
             {
-                return Err(code);
+                return Err(code.into());
             }
             self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
         } else {
@@ -820,7 +820,9 @@ impl Core {
         };
         let language = settings[source.as_str()]["language"].as_str().unwrap_or("auto").to_string();
         if !speechcpp::language_supported(&chosen, &language) {
-            return Err(if language == "auto" { "realtime_language_auto_unsupported" } else { "realtime_language_unsupported" }.into());
+            // The model's languages go with the answer, so the switch can offer them (#1225).
+            let code = if language == "auto" { "realtime_language_auto_unsupported" } else { "realtime_language_unsupported" };
+            return Err(Refusal { code: code.into(), languages: Some(chosen.languages.clone()) });
         }
         Ok(Options {
             base_url,
@@ -866,15 +868,15 @@ impl Core {
         };
         if !active {
             self.realtime().toggle().starting += 1;
-            let code = match self.prepare_realtime(source, expected, Starter::Switch) {
-                Ok(options) => self.start_realtime_session(source, expected, options).err(),
-                Err(code) => Some(code),
+            let refused = match self.prepare_realtime(source, expected, Starter::Switch) {
+                Ok(options) => self.start_realtime_session(source, expected, options).err().map(Refusal::from),
+                Err(refusal) => Some(refusal),
             };
             self.realtime().toggle().starting -= 1;
             self.release_asr_server();
-            if let Some(code) = code {
+            if let Some(refusal) = refused {
                 self.publish_realtime_toggle(source, None);
-                return Reply::error(not_ready(source, &code));
+                return Reply::error(refusal.not_ready(source));
             }
         }
         let (active, code) = {
@@ -911,6 +913,7 @@ impl Core {
         };
         let started = self
             .prepare_realtime(source, expected, Starter::Page)
+            .map_err(|refusal| refusal.code)
             .and_then(|options| self.start_realtime_session(source, expected, options));
         let result = match started {
             Ok(()) => ok(self.realtime_state()),
@@ -1225,6 +1228,37 @@ impl Core {
 fn not_ready(source: Source, reason: &str) -> ErrorReply {
     let code = if source == Source::Mic { "TRANSCRIPTION_SEND_NOT_READY" } else { "TRANSCRIPTION_RECEIVE_NOT_READY" };
     ErrorReply::new(code, json!(false)).details(json!({ "reason": reason }))
+}
+
+/// Why a start was refused: the code, and, when the model does not take the chosen language,
+/// the languages it does take (#1225), so that the switch's answer can offer them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Refusal {
+    code: String,
+    languages: Option<Vec<String>>,
+}
+
+impl From<String> for Refusal {
+    fn from(code: String) -> Self {
+        Self { code, languages: None }
+    }
+}
+
+impl From<&str> for Refusal {
+    fn from(code: &str) -> Self {
+        code.to_string().into()
+    }
+}
+
+impl Refusal {
+    /// The switch's answer: `details.reason`, and `details.languages` when known.
+    fn not_ready(&self, source: Source) -> ErrorReply {
+        let reply = not_ready(source, &self.code);
+        match &self.languages {
+            Some(languages) => reply.details(json!({ "reason": self.code, "languages": languages })),
+            None => reply,
+        }
+    }
 }
 
 /// The codes `_startRealtime` answered with 400 (a `ValueError` of the settings).
