@@ -318,12 +318,13 @@ Japanese text to speech can also use an engine that the user installed and start
 
 | Label | Entry point | Content |
 |---|---|---|
-| `main` | `src-ui/index.html` | The main screen and the settings screen. Closing it quits the app |
+| `main` | `src-ui/index.html` | The main screen. Closing it puts the app away in the tray where a tray icon is shown, and quits it elsewhere |
+| `settings` | `src-ui/settings.html` | The settings screen (#1236). At most one: opening it again brings it to the front, at the page asked for. It remembers its own place and size (`SETTINGS_WINDOW_GEOMETRY`). Closing it closes only it |
 | `quick_chat` | `src-ui/quick-chat.html` | The small chat input window. A hotkey or a button opens it; closing it only hides it, and the draft remains |
 | `vr_panel` | `src-ui/vr.html` | The VR UI. Drawn off screen at (-10000, -10000), and the overlay captures it. Created only while the VR UI is on |
 | `caption_overlay` | `src-ui/caption-overlay.html` | The desktop captions. Placed topmost, passes clicks through and takes no focus. Receives the mouse only while Ctrl is held ([desktop captions](use-cases.md)). Created only while the captions or the inputs and outputs display is on |
 
-The settings screen is not a separate window but a page inside `main`.
+The settings screen has its own window since #1236. The settings button, the links to a settings page and the tray (its menu, its control panel and the hexagram's menu) open it or bring it to the front; a link to a page or a setting opens it there. Nothing pauses while it is open (decided on 2026-11-26): `main` works as usual beside it, its features keep running, and Quick Chat opens. The hotkeys wait only while the settings window shows the Hotkeys page, where the keys pressed are being recorded: the page asks `main` to pause them and to resume them when it goes (`settings_window_hand_over`), and `main` resumes them when the window closes. The Hotkeys page's "Open input window" asks `main` to open Quick Chat, and the settings window stays open. The VR panel's settings open and close with the settings window (IsOpenedSettingsWindow), and its requests are not held back. The settings window has no "Go back"; its close button closes it. What the settings started ends when it closes: `main` stops the volume checks and reads the window shared with chat reading again. In a browser (development and the integration tests) there is no second window, and the settings stay a page of `main`.
 
 On Windows, WebView2 creates every window with the same launch arguments (`main` in `src-tauri/tauri.conf.json` and `BROWSER_ARGS` in `src-tauri/src/lib.rs`; a test confirms they are the same). All windows share one WebView2 environment that the app creates ([WebView2 network traffic](#webview2-network-traffic)). `msSmartScreenProtection` is removed from Tauri's default `--disable-features`, so SmartScreen works as it does by default (second security audit SEC-03). The features that stop rendering hidden windows (`CalculateNativeWinOcclusion` and stopping rendering in the background) are disabled, because the VR panel is placed off screen and captured. Traffic to Microsoft that has nothing to do with the screens is reduced with `--disable-background-networking` ([WebView2 network traffic](#webview2-network-traffic)).
 
@@ -435,7 +436,7 @@ Sharing ends on `RunEvent::Exit`. The helper also stops when its parent disappea
 - The hotkeys for stopping speech, muting, TTS and RVC go through the same code as pressing the same buttons and switches on the main screen. They act on the state at the moment of the press, and show the same confirmations and notices. While audio is muted, if the route is not ready, it does not resume.
 - On X11 and XWayland they are registered with Tauri's global shortcuts, and on native Wayland with the XDG GlobalShortcuts portal. On KDE, the configured keys are also applied on the desktop side, and a notice is shown if that fails.
 - When registering with the portal fails (declined on the confirmation dialog, timed out or a portal failure), the keys registered before are registered again in a new session. The previous session was closed before the new registration, so otherwise all the keys would be gone (#423). The desktop shows the confirmation dialog only for a registration that includes actions it has not seen yet. Registering again uses the actions of the previous successful registration, so the confirmation dialog does not appear again (checked on KDE Plasma 6.8 and GNOME 51, #561). Registering in a new session before closing the old one is not used, because on KDE, closing either of two sessions that have the same actions makes the keys for those actions stop working. If registering again also fails, the app says so (`portal-shortcuts-not-restored`).
-- Hotkeys are disabled while the settings screen is open and until the sidecar is ready.
+- Hotkeys are disabled while the settings window shows the Hotkeys page (in a browser, while the settings page is open) and until the sidecar is ready (#1236).
 - The keys that change the text size of the desktop captions (Ctrl and `=`, Ctrl+Shift and `=`, Ctrl and numpad `+`, Ctrl and `-`, Ctrl and numpad `-`) are registered by Rust as global shortcuts only while Ctrl is held with the mouse over the caption window, or during a drag. At other times these keys reach other apps. Keys the user has already assigned to hotkeys are not registered.
 
 ### Permissions
@@ -764,12 +765,13 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 | ラベル | 入口 | 内容 |
 |---|---|---|
-| `main` | `src-ui/index.html` | メイン画面と設定画面。閉じるとアプリが終わる |
+| `main` | `src-ui/index.html` | メイン画面。閉じると、トレイのアイコンが出ているときはトレイにしまい、そうでなければアプリが終わる |
+| `settings` | `src-ui/settings.html` | 設定画面（#1236）。最大で1つで、もう一度開くと求められたページで手前に出る。自分の位置と大きさを覚える（`SETTINGS_WINDOW_GEOMETRY`）。閉じても閉じるのはこのウィンドウだけである |
 | `quick_chat` | `src-ui/quick-chat.html` | チャット入力の小窓。ホットキーかボタンで開き、閉じても隠すだけで下書きは残る |
 | `vr_panel` | `src-ui/vr.html` | VR UI。画面の外（-10000, -10000）に置いて描画し、オーバーレイが取り込む。VR UIがオンの間だけ作る |
 | `caption_overlay` | `src-ui/caption-overlay.html` | デスクトップの字幕。最前面に置き、クリックを通し、フォーカスを取らない。Ctrlキーを押している間だけマウスを受け取る（[デスクトップの字幕](use-cases.md)）。字幕か入力と出力の表示がオンの間だけ作る |
 
-設定画面は別ウィンドウではなく、`main`の中のページである。
+設定画面は#1236から専用のウィンドウである。設定ボタン、設定ページへのリンク、トレイ（メニュー、コントロールパネル、六芒星のメニュー）が開くか手前に出し、ページや設定へのリンクはその場所で開く。開いている間も何も止めない（2026-11-26 の決定）。`main`はその横でいつもどおり動き、機能は動いたままで、Quick Chatも開く。ホットキーが待つのは、設定ウィンドウがホットキーのページを出している間だけである。そこで押すキーは記録するためのものだからである。ページは`main`に、止めることと、ページが離れたら戻すことを求め（`settings_window_hand_over`）、ウィンドウが閉じたときも`main`が戻す。ホットキーのページの「入力の小窓を開く」は`main`にQuick Chatを開くよう求め、設定ウィンドウは開いたままである。VR UIの設定は設定ウィンドウと一緒に開いて閉じ（IsOpenedSettingsWindow）、VR UIからの要求は止めない。設定ウィンドウに「戻る」はなく、閉じるボタンで閉じる。設定が始めたものは、閉じたときに終わる。`main`が音量の確認を止め、チャット読み取りと共有したウィンドウを読み直す。ブラウザー（開発と結合テスト）では2つ目のウィンドウはなく、設定は`main`のページのままである。
 
 WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。全ウィンドウはアプリが作った1つのWebView2の環境を共有する（[WebView2の通信](#webview2の通信)）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
@@ -881,7 +883,7 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 - 読み上げの停止、ミュート、TTS、RVCのホットキーは、メイン画面の同じボタンとスイッチを押したのと同じ処理を通る。押した時点の状態で判断し、同じ確認とお知らせが出る。ミュート中に経路の準備ができていなければ、再開はしない。
 - X11とXWaylandではTauriのグローバルショートカット、ネイティブのWaylandではXDG GlobalShortcuts portalで登録する。KDEでは設定したキーをデスクトップ側にも反映し、反映できなかったときはお知らせを出す。
 - ポータルでの登録が失敗したとき（確認画面で断った、時間切れ、ポータルの失敗）は、前に登録していたキーを新しいセッションで登録し直す。前のセッションは新しい登録の前に閉じているので、そのままではすべてのキーが消えるためである（#423）。デスクトップが確認画面を出すのは、まだ見ていない動作を含む登録のときだけである。登録し直すのは前に成功した登録の動作なので、確認画面はもう一度出ない（KDE Plasma 6.8 と GNOME 51 で確かめた。#561）。新しいセッションで登録してから古いセッションを閉じる方法は使わない。KDEでは、同じ動作を持つ2つのセッションのどちらかを閉じると、その動作のキーが効かなくなる。登録し直しも失敗したときは、そのことを知らせる（`portal-shortcuts-not-restored`）。
-- 設定画面を開いている間と、サイドカーの準備ができるまでは無効にする。
+- 設定のウィンドウがホットキーのページを出している間（ブラウザーでは設定のページを開いている間）と、サイドカーの準備ができるまでは無効にする（#1236）。
 - デスクトップの字幕の文字の大きさを変えるキー（Ctrlと`=`、Ctrl+Shiftと`=`、Ctrlとテンキーの`+`、Ctrlと`-`、Ctrlとテンキーの`-`）は、Ctrlキーを押したまま字幕のウィンドウの上にマウスがあるか、ドラッグしている間だけ、Rustがグローバルショートカットとして登録する。それ以外のときはほかのアプリに届く。利用者がホットキーに割り当て済みのキーは登録しない。
 
 ### 権限

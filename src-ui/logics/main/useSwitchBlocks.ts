@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { useOcr } from "@logics_configs";
-import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId, useStore_SwitchBlocks } from "@store";
+import { useStore_IsBackendReady, useStore_SwitchBlocks } from "@store";
 import { useSetupNeeds } from "./useSetupNeeds";
 import { switchBlocks } from "./switchBlocks";
 import type { SwitchBlockAction, SwitchBlocks } from "./switchBlocks";
 import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
-import { focusOcrModels } from "../ocr/useOcrSetup";
+import { OCR_MODELS_SETTING_ID } from "../ocr/useOcrSetup";
+import { useOpenSettings } from "../common/useOpenSettings";
 import { useFirstRunSetup } from "../setup/useFirstRunSetup";
 
 // Main window only, once (SwitchBlocksController). Why each main switch cannot be turned on
@@ -49,8 +50,7 @@ export const useSwitchBlocksSource = (): SwitchBlocks => {
 // does), everything else its settings page. Nothing here downloads or turns a switch on.
 export const useSwitchBlocks = () => {
     const { currentSwitchBlocks } = useStore_SwitchBlocks();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const translationSetup = useTranslationSetup();
     const { openSetup } = useFirstRunSetup();
     const prepare = (action: SwitchBlockAction | null | undefined) => {
@@ -58,9 +58,7 @@ export const useSwitchBlocks = () => {
         if (action === "translation") return translationSetup.open(false);
         if (action === "recognition_setup") return openSetup();
         if (action === "translator") return translationSetup.chooseTranslator();
-        updateSelectedConfigTabId(action === "ocr_models" ? "ocr" : action);
-        updateIsOpenedConfigPage(true);
-        if (action === "ocr_models") focusOcrModels();
+        openSettings(action === "ocr_models" ? { page: "ocr", target: OCR_MODELS_SETTING_ID } : { page: action });
     };
     return { blocks: currentSwitchBlocks.data ?? {}, prepare };
 };

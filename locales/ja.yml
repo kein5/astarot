@@ -1172,7 +1172,7 @@ config_page:
     hotkeys:
         input_placeholder: "キーの組み合わせを入力"
         unassigned_placeholder: "未割り当て"
-        disabled_notice: "設定画面を開いている間は、誤作動を防ぐためにホットキーを止めています。"
+        disabled_notice: "このページを開いている間は、誤作動を防ぐためにホットキーを止めています。"
         section_label_quick_chat: "入力の小窓"
         section_label_toggles: "ウィンドウと機能の切り替え"
         section_label_stop: "停止とミュート"
@@ -2616,6 +2616,11 @@ studio:
     close: "アプリを閉じる"
     close_to_tray: "閉じる（トレイで動き続けます）"
     close_window: "ウィンドウを閉じる"
+    # The settings window's title bar and its close button (#1236).
+    settings_window_title: "ASTAROTの設定"
+    close_settings: "設定を閉じる"
+    # The settings window while the main window's run of the engine has ended (#1236).
+    settings_disconnected: "エンジンとの接続が切れました。メインのウィンドウでエンジンが起動すると、設定はまたつながります。それまでは変えられません。"
 
 legacy_model_downloads:
     progress_name: "{{model}} のダウンロード"
@@ -2991,6 +2996,8 @@ companion:
     # Said for a moment the first time the hexagram ever comes out (#536).
     wheel_hint: "ホイールで回すと、ほかの3つが出ます"
     open_main: "ASTAROTを開く"
+    # The settings window (#1236).
+    open_settings: "設定を開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"
     # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
@@ -2999,6 +3006,7 @@ companion:
     # ASTAROT's own panel, not the system's Control Panel.
     menu_panel: "ASTAROTのコントロールパネルを開く"
     menu_main: "ASTAROTを開く"
+    menu_settings: "ASTAROTの設定を開く"
     menu_quit: "終了"
     # The same words as the setting on the experimental features page.
     menu_monitor: "六芒星を出すモニター"

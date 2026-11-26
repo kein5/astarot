@@ -23,7 +23,7 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-10 | A model is downloaded only after showing its license and size and getting consent. Nothing is downloaded automatically at startup (`AUTO_DOWNLOAD_MODELS` was retired in 0.5.0; the key stays for compatibility) | `AGENTS.md`, "User actions and consent" | `native/core/tests/downloads.rs`, `downloads/manager_tests.rs` in `native/ops` |
 | CT-11 | Models that can be downloaded are listed in the catalog with their version, size, SHA-256 and license pinned. A model under a restricted license, such as non-commercial use, is not made the default | `AGENTS.md`, "Packages and licenses" | `native/core/tests/downloads.rs` (including the comparison with the chat reading table), `native/ocr-runtime/tests/models.rs`, `src-ui/logics/configs/ctranslate2License.test.ts` |
 | CT-12 | A change to the screens does not turn on the microphone, download a model, send a message or change the audio route on its own | `AGENTS.md`, "User actions and consent" | Manual |
-| CT-13 | Hotkeys are not assigned by default. They are turned off while the settings screen is open | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs` (carrying over existing assignments), manual |
+| CT-13 | Hotkeys are not assigned by default. They are turned off while keys are being recorded: while the settings page is open in a browser, and while the settings window shows the Hotkeys page (#1236) | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs` (carrying over existing assignments), manual |
 | CT-14 | Data goes to a cloud service only when the user has registered a key and chosen that engine | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.ts`, manual |
 
 ## Stop and independent controls
@@ -79,7 +79,7 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-10 | モデルの取得は、ライセンスとサイズを示して同意を得てから行う。起動時には自動で取得しない（`AUTO_DOWNLOAD_MODELS` は 0.5.0 で引退。キーは互換のために残す） | `AGENTS.md`「ユーザーの操作と同意」 | `native/core/tests/downloads.rs`、`native/ops`の`downloads/manager_tests.rs` |
 | CT-11 | 取得できるモデルは版、サイズ、SHA-256、ライセンスを固定してカタログに載せる。非商用など制限のあるライセンスのモデルは既定にしない | `AGENTS.md`「配布物とライセンス」 | `native/core/tests/downloads.rs`（チャット読み取りの表との照合を含む）、`native/ocr-runtime/tests/models.rs`、`src-ui/logics/configs/ctranslate2License.test.ts` |
 | CT-12 | 画面の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きない | `AGENTS.md`「ユーザーの操作と同意」 | 手動 |
-| CT-13 | ホットキーは既定で割り当てない。設定画面を開いている間は無効にする | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs`（既存の割り当ての引き継ぎ）、手動 |
+| CT-13 | ホットキーは既定で割り当てない。キーを記録している間は無効にする。ブラウザーで設定のページを開いている間と、設定のウィンドウがホットキーのページを出している間である（#1236） | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs`（既存の割り当ての引き継ぎ）、手動 |
 | CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.ts`、手動 |
 
 ## 停止と独立した制御

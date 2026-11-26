@@ -7,7 +7,7 @@ import HelpSvg from "@images/help.svg?react";
 import TuneSvg from "@images/mui_discover_tune.svg?react";
 import FlowSvg from "@images/io_flow.svg?react";
 
-import { useStore_OpenedQuickSetting, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useStore_OpenedQuickSetting } from "@store";
 import {
     useIsOscAvailable,
 } from "@logics_common";
@@ -18,7 +18,7 @@ import {
     useOthers,
 } from "@logics_configs";
 import { useOverlayQuickToggle } from "../../../../../../logics/configs/useOverlayQuickToggle";
-import { revealSetting } from "../../../../../../logics/configs/revealSetting.ts";
+import { useOpenSettings } from "../../../../../../logics/common/useOpenSettings.ts";
 import { pageLinkLabel } from "../../../../config_page/setting_section/setting_box/_components/page_pointer/PagePointer";
 import { useMainFunction } from "@logics_main";
 import { useIoFlow } from "../../../../../../logics/flow/useIoFlow";
@@ -71,8 +71,7 @@ const QuickSettingsMenu = () => {
     const { currentIsOscAvailable, oscUnavailableLabelKey } = useIsOscAvailable();
     const { currentEnableVrcMicMuteSync, toggleEnableVrcMicMuteSync } = useOthers();
     const overlay = useOverlayQuickToggle();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const [open, setOpen] = useState(false);
     // Closed to open the settings: the focus does not come back to this button, which they cover.
     const leaving = useRef(false);
@@ -83,9 +82,7 @@ const QuickSettingsMenu = () => {
     const openOverlaySettings = () => {
         leaving.current = true;
         setOpen(false);
-        updateSelectedConfigTabId("vr");
-        updateIsOpenedConfigPage(true);
-        revealSetting({ setting_id: "vr_overlay" });
+        openSettings({ page: "vr", target: "vr_overlay" });
     };
     const sync_available = currentIsOscAvailable.data !== false;
 

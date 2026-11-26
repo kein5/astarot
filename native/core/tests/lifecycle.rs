@@ -34,6 +34,25 @@ fn start_up_sends_its_notifications_in_order_and_then_opens_every_endpoint() {
     ui.stop();
 }
 
+// #1236: the settings window, opened after the start-up, asks for the same answers, read now.
+#[test]
+fn the_settings_window_reads_what_the_start_up_sent_as_it_is_now() {
+    let ui = Ui::start();
+    let snapshot = ui.ready();
+    assert_eq!(ui.ok("/set/data/ui_language", Some(json!("ja"))), json!("ja"));
+    // The settings window's request names it, and so does the answer (the shell names what that
+    // window writes).
+    let from = ui.send_raw(r#"{"endpoint": "/run/settings_snapshot", "origin": "settings"}"#);
+    let answer = ui.wait_from(from, "the settings window's snapshot", |line| line["endpoint"] == "/run/settings_snapshot");
+    assert_eq!((answer["status"].clone(), answer["origin"].clone()), (json!(200), json!("settings")));
+    let now = answer["result"].clone();
+    let keys = |value: &Value| value.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
+    assert_eq!(keys(&now), keys(&snapshot), "the same endpoints as the start-up's");
+    assert_eq!(now["/get/data/ui_language"], "ja", "read when asked, not at the start-up");
+    assert!(now.get("/get/data/available_releases").is_none());
+    ui.stop();
+}
+
 #[test]
 fn without_the_local_translation_model_ai_models_are_reported_off() {
     let ui = Ui::start();
@@ -97,6 +116,11 @@ fn a_change_is_saved_two_seconds_after_the_last_one() {
     // Some settings are saved at once.
     ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 5, "y_pos": 6, "width": 900, "height": 700 })));
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 5);
+    // The settings window keeps a place of its own, saved the same way (#1236).
+    ui.ok("/set/data/settings_window_geometry", Some(json!({ "x_pos": 40, "y_pos": 50, "width": 800, "height": 600 })));
+    let saved = ui.saved();
+    assert_eq!(saved["SETTINGS_WINDOW_GEOMETRY"], json!({ "x_pos": 40, "y_pos": 50, "width": 800, "height": 600 }));
+    assert_eq!(saved["MAIN_WINDOW_GEOMETRY"]["x_pos"], 5, "each window's own");
     ui.stop();
 }
 

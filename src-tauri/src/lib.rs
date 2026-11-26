@@ -10,6 +10,7 @@ mod app_update;
 mod caption_overlay;
 mod companion;
 mod path_picker;
+mod settings_window;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
@@ -253,6 +254,10 @@ pub fn run() {
             if window.label() == "main" && matches!(event, WindowEvent::Destroyed) {
                 window.app_handle().exit(0);
             }
+            // The settings window closes as any window does; nothing is left to save (#1111, #1236).
+            if window.label() == settings_window::LABEL && matches!(event, WindowEvent::Destroyed) {
+                settings_window::closed(window.app_handle());
+            }
         })
         // Only the plugins the windows use. The UI reads and writes no files and makes no HTTP
         // requests of its own, so the fs and http plugins are gone (security audit SEC-05). It starts
@@ -271,11 +276,15 @@ pub fn run() {
         .manage(vr_panel_state::VrPanelState::default())
         .manage(backend_host::BackendHost::default())
         .manage(companion::CompanionState::default())
+        .manage(settings_window::SettingsWindowState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
             path_picker::pick_folder,
             path_picker::pick_file,
             backend_host::backend_start, backend_host::backend_write,
-            backend_host::backend_kill,
+            backend_host::backend_kill, backend_host::backend_attach,
+            settings_window::settings_window_open, settings_window::settings_window_take_navigation,
+            settings_window::settings_window_is_open, settings_window::settings_window_close,
+            settings_window::settings_window_hand_over,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,
             quick_chat::quick_chat_show, quick_chat::quick_chat_shortcut_platform,

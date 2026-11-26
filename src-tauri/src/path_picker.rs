@@ -1,6 +1,6 @@
 //! Native file and folder selection dialogs for settings paths (#1096, #1115, #1231).
 //!
-//! Only the main window may open them (SEC-05). On Linux, `gtk::FileChooserNative`
+//! Only the main window and the settings window may open them (SEC-05, #1236). On Linux, `gtk::FileChooserNative`
 //! delegates to the desktop's FileChooser portal when available and falls back to GTK3.
 //! On Windows, `IFileOpenDialog` opens the native dialog, with `FOS_PICKFOLDERS` for a folder.
 //! A file dialog shows only the kinds of file its field takes, when the field names them.
@@ -110,7 +110,8 @@ pub async fn pick_folder(
     initial_path: Option<String>,
     title: Option<String>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     let start_dir = initial_directory(initial_path.as_deref());
@@ -126,7 +127,8 @@ pub async fn pick_file(
     title: Option<String>,
     filters: Option<Vec<FileFilter>>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     let filters = checked_filters(filters)?;
@@ -203,7 +205,8 @@ pub async fn pick_folder(
     initial_path: Option<String>,
     title: Option<String>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     let start_dir = initial_directory(initial_path.as_deref());
@@ -218,7 +221,8 @@ pub async fn pick_file(
     title: Option<String>,
     filters: Option<Vec<FileFilter>>,
 ) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     let filters = checked_filters(filters)?;
@@ -324,7 +328,8 @@ fn open_dialog_windows(
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[tauri::command]
 pub async fn pick_folder(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     Err("folder_picker_unavailable".into())
@@ -333,7 +338,8 @@ pub async fn pick_folder(window: tauri::WebviewWindow) -> Result<Option<String>,
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 #[tauri::command]
 pub async fn pick_file(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
-    if window.label() != "main" {
+    // The settings pages pick paths, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
         return Err("main_window_forbidden".into());
     }
     Err("file_picker_unavailable".into())

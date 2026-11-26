@@ -32,7 +32,7 @@ no character limit or truncation is added for the Quick Chat window alone. The O
 
 The `quick-chat` capability applies only to the Quick Chat window and allows only subscribing to and unsubscribing from events.
 Each new native command checks for `main` / `quick_chat`. No shell or file
-permissions are added to the window. Handover is refused while Settings is open or while the main window is getting ready.
+permissions are added to the window. Handover is refused while the settings page is open (in a browser) or while the main window is getting ready. The settings window does not refuse it (#1236).
 
 ## Shortcuts and Wayland
 
@@ -123,7 +123,7 @@ IME変換中のEnterとキーリピートは送信しない。
 
 `quick-chat` capabilityは小窓だけを対象にし、イベント購読・解除だけを許可する。
 新規native commandはそれぞれ `main` / `quick_chat` を検証する。シェルやファイル操作の
-権限を小窓へ追加しない。設定画面が開いている間や本体が準備中は受け渡しを拒否する。
+権限を小窓へ追加しない。設定のページが開いている間（ブラウザーのとき）や本体が準備中は受け渡しを拒否する。設定のウィンドウでは拒否しない（#1236）。
 
 ## ショートカットとWayland
 

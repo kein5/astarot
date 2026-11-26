@@ -6,6 +6,9 @@ import type { JSX, ReactElement } from "react";
 import * as jsx from "react/jsx-runtime";
 import clsx from "clsx";
 import { atom, createStore } from "jotai/vanilla";
+import * as settingsWindowModule from "../common/settingsWindow.ts";
+import * as noticeScopeModule from "../common/noticeScope.ts";
+import * as breakPointModule from "../common/breakPoint.ts";
 import type { Atom, PrimitiveAtom } from "jotai/vanilla";
 import type { TestContext } from "vitest";
 
@@ -250,10 +253,64 @@ export const kitStandIns = {
     DialogFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-footer", ...props }),
 };
 
-export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
-    // Vite builds the source into a function of require and exports (harnessModules.ts).
+// A module as the harness builds it: a function of require and exports (harnessModules.ts).
+const buildModule = async (url: URL): Promise<(...args: unknown[]) => unknown> => {
     const built: unknown = Reflect.get(await import(/* @vite-ignore */ `${url.href}?${HARNESS_QUERY}`), "default");
     if (typeof built !== "function") throw new TypeError(`${url.pathname} did not build into a function`);
+    return built as (...args: unknown[]) => unknown;
+};
+const run = (built: (...args: unknown[]) => unknown, require: (name: string) => unknown) => {
+    const exports: Record<string, unknown> = {};
+    Reflect.apply(built, undefined, [require, exports]);
+    return exports;
+};
+
+// The settings openers every window shares (#1236), unless the test hands in its own. Outside the
+// app the settings open in-page, so the real modules are used: settingsWindow.ts and noticeScope.ts
+// as they are, and useOpenSettings with its showSetting built here on the test's own stand-ins (its
+// @store, and a revealSetting or useOcrSetup it gave under any path), so a test of a module that
+// opens the settings sees the tab, the page and the setting as before.
+const settingsOpeners = (async () => ({
+    useOpenSettings: await buildModule(new URL("../common/useOpenSettings.ts", import.meta.url)),
+    useIsOpenedConfigPage: await buildModule(new URL("../common/useIsOpenedConfigPage.ts", import.meta.url)),
+    showSetting: await buildModule(new URL("../common/showSetting.ts", import.meta.url)),
+}))();
+const named = (name: string, module: string) => new RegExp(`(^|/)${module}(\\.[jt]sx?)?$`).test(name);
+const sharedModule = (name: string, dependencies: Record<string, unknown>,
+    openers: Awaited<typeof settingsOpeners>): unknown => {
+    if (named(name, "settingsWindow")) return settingsWindowModule;
+    if (named(name, "noticeScope")) return noticeScopeModule;
+    if (named(name, "breakPoint")) return breakPointModule;
+    if (!named(name, "useOpenSettings") && !named(name, "showSetting")) return undefined;
+    // A stand-in the test gave for a module of that name, wherever it imported it from.
+    const given = (module: string) => Object.entries(dependencies).find(([key]) => named(key, module))?.[1];
+    const record = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null ? { ...value } : {};
+    const require = (dependency: string): unknown => {
+        // The test's @store; a test that does not look at the settings' tab gives none.
+        if (dependency === "@store") return { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: () => {} }),
+            ...record(dependencies["@store"]) };
+        if (named(dependency, "settingsWindow")) return settingsWindowModule;
+        if (named(dependency, "useIsOpenedConfigPage")) {
+            // The test's own, when it gave one in @logics_common; else the real one over its @store.
+            const common = record(dependencies["@logics_common"]).useIsOpenedConfigPage;
+            if (typeof common !== "function") return run(openers.useIsOpenedConfigPage, require);
+            return { useIsOpenedConfigPage: () => {
+                const hook = record(common());
+                return { ...hook, setIsOpenedConfigPage: hook.setIsOpenedConfigPage ?? hook.updateIsOpenedConfigPage };
+            } };
+        }
+        if (named(dependency, "showSetting")) return given("showSetting") ?? run(openers.showSetting, require);
+        if (named(dependency, "revealSetting")) return { revealSetting: () => {}, ...record(given("revealSetting")) };
+        if (named(dependency, "useOcrSetup")) return { OCR_MODELS_SETTING_ID: "ocr_models", focusOcrModels: () => {}, ...record(given("useOcrSetup")) };
+        throw new Error(`Unexpected dependency: ${dependency}`);
+    };
+    return run(named(name, "useOpenSettings") ? openers.useOpenSettings : openers.showSetting, require);
+};
+
+export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
+    // Vite builds the source into a function of require and exports (harnessModules.ts).
+    const built = await buildModule(url);
+    const openers = await settingsOpeners;
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx, jotai: runtime.jotai,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, [HOT_DEPENDENCY]: undefined, ...imports };
@@ -273,11 +330,11 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         const base = name.replace(/\.[jt]sx?$/, "");
         const alias = [base, `${base}.js`, `${base}.jsx`, `${base}.ts`, `${base}.tsx`].find(key => key in dependencies);
         if (alias !== undefined && /^\.\.?\//.test(name)) return dependencies[alias];
+        const shared = /^\.\.?\//.test(name) ? sharedModule(name, dependencies, openers) : undefined;
+        if (shared !== undefined) return shared;
         throw new Error(`Unexpected dependency: ${name}`);
     };
-    const exports: Record<string, unknown> = {};
-    Reflect.apply(built, undefined, [require, exports]);
-    return loaded<M>(exports);
+    return loaded<M>(run(built, require));
 }
 
 // A value a test gives the code under test without the declared type: test data with only the

@@ -1,8 +1,8 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "vrct-capability",
-    "description": "VRCT main window capabilities",
-    "windows": ["main"],
+    "description": "VRCT main window capabilities, shared with the settings window (#1236): its own title bar, and the links its pages open",
+    "windows": ["main", "settings"],
     "permissions": [
         "core:window:default",
         "core:window:allow-start-dragging",
@@ -16,6 +16,7 @@
         "core:window:allow-minimize",
         "core:window:allow-unminimize",
         "core:window:allow-set-focus",
+        "core:window:allow-set-title",
 
         "global-shortcut:allow-is-registered",
         "global-shortcut:allow-register",

@@ -29,6 +29,34 @@ test("every settings page says that its changes apply at once; About says nothin
     assert.equal(await render("about_vrct"), null);
 });
 
+// Going back (#1236): in-page it shows the main page. The settings window has no "Go back" (decided on
+// 2026-11-26): its title bar's close button closes it, and its words end at the page's edge.
+test("going back shows the main page; the settings window has no Go back", async () => {
+    for (const inSettingsWindow of [false, true]) {
+        const runtime = hooks(), calls: unknown[] = [];
+        const { Topbar } = await loadModule<typeof import("./Topbar.tsx")>(new URL("./Topbar.tsx", import.meta.url), runtime, {
+            "@useI18n": { useI18n: () => ({ t }) },
+            "@logics_common": { useIsOpenedConfigPage: () => ({ setIsOpenedConfigPage: (open: boolean) => calls.push(["page", open]) }) },
+            "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "tts" } }) },
+            "../../others/stop_actions/StopActions": { StopActions: "stop" },
+            "../../../../logics/common/settingsWindow.ts": { isSettingsWindow: () => inSettingsWindow },
+        });
+        const tree = runtime.render(Topbar);
+        runtime.unmount();
+        const back = find(tree, node => node.props?.["data-settings-back"] === "");
+        const slot = find(tree, node => String(node.props?.className ?? "").includes("save_slot"));
+        if (inSettingsWindow) {
+            assert.equal(back, null);
+            assert.match(String(slot?.props.className), /\bsave_slot_last\b/);
+            continue;
+        }
+        assert.ok(back);
+        assert.doesNotMatch(String(slot?.props.className), /save_slot_last/);
+        back.props.onClick();
+        assert.deepEqual(calls, [["page", false]]);
+    }
+});
+
 test("the wording exists in English and Japanese", () => {
     for (const language of ["en", "ja"]) assert.equal(typeof localeAt(readLocale(language), "voice_ui.applies_now"), "string");
 });

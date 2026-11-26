@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useNotificationStatus } from "@logics_common";
 import { useOcr } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
-import { useOcrSetup, focusOcrModels } from "../../../logics/ocr/useOcrSetup";
+import { useOcrSetup, OCR_MODELS_SETTING_ID } from "../../../logics/ocr/useOcrSetup";
 import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { OcrModels } from "../config_page/setting_section/setting_box/ocr/OcrModels";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
@@ -32,8 +32,8 @@ export const OcrSetupController = () => {
     const { state: downloads } = useModelDownloads();
     const { setOcrCapture } = useMainFunction();
     const { showNotification_Success } = useNotificationStatus();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    // The settings: their window in the app (#1236), the page in a browser.
+    const openSettingsAt = useOpenSettings();
     const { dialog, close } = useConsentDialog(open);
     // The hooks hand out new functions on every render: the effects read the latest.
     const latest = useRef({ getOcrModelReadiness, setOcrCapture, showNotification_Success, t, close, setOpen, setWaiting });
@@ -84,9 +84,7 @@ export const OcrSetupController = () => {
     };
     const openSettings = () => {
         cancel();
-        updateSelectedConfigTabId("ocr");
-        updateIsOpenedConfigPage(true);
-        focusOcrModels();
+        openSettingsAt({ page: "ocr", target: OCR_MODELS_SETTING_ID });
     };
     // The models the language needs, all missing ones in the wait as soon as one is started.
     const started = () => setWaiting(missing.length > 0 ? [...missing] : null);

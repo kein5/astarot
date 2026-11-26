@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useTranscription } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import type { TranscriptionConsentRequest } from "../../../logics/transcription/useTranscriptionConsent";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
@@ -18,8 +18,7 @@ export const TranscriptionConsentController = () => {
     const { request, setRequest } = useTranscriptionConsent();
     const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine } = useTranscription();
     const { setTranscriptionSend, setTranscriptionReceive } = useMainFunction();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettingsAt = useOpenSettings();
     const { dialog, close } = useConsentDialog(!!request);
     const selection = useRef<Selection | null>(null);
     const [choice, setChoice] = useState<Selection | null>(null);
@@ -54,7 +53,7 @@ export const TranscriptionConsentController = () => {
         if (sent === false && selection.current === waiting) selection.current = null;
     };
     const pending = currentSelectedTranscriptionEngine.state === "pending";
-    const openSettings = () => { cancel(); updateSelectedConfigTabId("transcription"); updateIsOpenedConfigPage(true); };
+    const openSettings = () => { cancel(); openSettingsAt({ page: "transcription" }); };
     // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <Dialog ref={dialog} open={!!request} onOpenChange={cancel} aria-describedby={undefined}>

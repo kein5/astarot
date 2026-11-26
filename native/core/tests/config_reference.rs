@@ -108,8 +108,9 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // took the channel from the version. TRAY_COMPANION_WHEEL_HINT_SHOWN (#536) too: the Python
 // backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
 // the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
-// backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 19] = [
+// backend's UI had one look. SETTINGS_WINDOW_GEOMETRY (#1236) too: the Python backend's settings
+// were a page of the main window.
+const CORE_ONLY_KEYS: [&str; 20] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -129,6 +130,7 @@ const CORE_ONLY_KEYS: [&str; 19] = [
     "TALK_AI_SCREEN_INTERVAL_MS",
     "TALK_AI_SCREEN_LONG_EDGE",
     "TALK_AI_SCREEN_DETAIL",
+    "SETTINGS_WINDOW_GEOMETRY",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).

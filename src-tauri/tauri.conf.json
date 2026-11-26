@@ -54,6 +54,7 @@
                 "caption-overlay",
                 "companion",
                 "vr-panel",
+                "settings-window",
                 "vrct-capability"
             ],
             "devCsp": {

@@ -9,7 +9,8 @@ export type HandleLayout = { out: boolean; edge: string; x: number; y: number };
 // state back through a command that checks their window label.
 export type CompanionBridge = {
     status: () => Promise<CompanionStatus>;
-    request: (action: CompanionAction | "open_main") => Promise<unknown>;
+    // open_main and open_settings bring the main window or the settings window (#1236) forward.
+    request: (action: CompanionAction | "open_main" | "open_settings") => Promise<unknown>;
     hide: () => Promise<unknown>;
     togglePanel: () => Promise<unknown>;
     // The hexagram's window shows only while it is out; the app tells it when that changes.

@@ -1,6 +1,6 @@
 import { useTranslation, useTranscription } from "@logics_configs";
-import { useStore_IsBackendReady, useStore_SelectedPresetTabNumber, useStore_SelectedTranslationEngines,
-    useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useStore_IsBackendReady, useStore_SelectedPresetTabNumber, useStore_SelectedTranslationEngines } from "@store";
+import { useOpenSettings } from "../common/useOpenSettings";
 import { setupNeeds, translationDownloadable } from "./setupNeeds";
 import type { SetupNeed } from "./setupNeeds";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
@@ -20,8 +20,7 @@ export const useSetupNeeds = () => {
     const { currentSelectedTranscriptionEngine } = useTranscription();
     const { settings: realtimeSettings } = useRealtimeASR();
     const { settings: serverSettings } = useSpeechServers();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettings = useOpenSettings();
     const translationSetup = useTranslationSetup();
     const { catalog } = useModelDownloads();
     // Until the engine has sent its settings, "not downloaded" is only the list's default.
@@ -40,8 +39,7 @@ export const useSetupNeeds = () => {
             if (needs.find(need => need.id === id)?.action === "choose") return translationSetup.chooseTranslator();
             return translationSetup.open(false);
         }
-        updateSelectedConfigTabId("transcription");
-        updateIsOpenedConfigPage(true);
+        openSettings({ page: "transcription" });
     };
     return { needs, start };
 };

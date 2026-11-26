@@ -12,17 +12,22 @@ The LSP specification describes the "Base Protocol" apart from each message. Fol
 flowchart LR
   subgraph Tauri["Tauri (Rust)"]
     main["main window (React)"]
+    settings["settings window (React)"]
     vr["vr_panel window"]
     qc["quick_chat window"]
   end
   side["Sidecar (the Rust core, native/core, inside the app process)"]
   main -- "backend_write: request (one line of JSON)" --> side
   side -- "Channel: responses and notifications (one line of JSON)" --> main
+  settings -- "backend_write: request, origin settings" --> side
+  side -- "Channel (backend_attach): every response and notification" --> settings
   vr -- "Tauri command vr_panel_send (vr-panel-stdout)" --> main
   qc -- "Tauri command quick_chat_submit" --> main
 ```
 
-- Only the `main` window talks to the sidecar. The VR UI and Quick Chat go through `main` ([External interfaces](external-interfaces.md#ウィンドウ間の連携)).
+- The `main` window starts, feeds and stops the sidecar. The VR UI and Quick Chat go through `main` ([External interfaces](external-interfaces.md#ウィンドウ間の連携)).
+- The `settings` window (#1236) joins the run that `main` started with `backend_attach`: from then on its channel gets every response and notification too, in the same order, and the end of the run. It writes requests with `backend_write`, which sets their `origin` to `settings` whatever the page wrote. It does not start, feed or stop a run. When the run ends, the shell sends the end to its channel and detaches it, and a run that has ended cannot be joined (`backend_not_running`). The settings window stays: its page is out of reach under a readout that says the engine is disconnected (decided on 2026-11-26). `main` says why the run ended and starts it again; when a new run starts, the shell tells the settings window (`settings-backend-run`), which joins it and asks for `/run/settings_snapshot` again.
+- When it opens, the settings window asks for `/run/settings_snapshot` (waits for the work in progress, like a setting). Its `result` is the same map of the `/get/data/…` reads as `/run/initialization_complete`, read now, and the settings window takes it as the main window takes the start-up's. The main window passes over it.
 - The backend is started with `backend_start` (`src-tauri/src/backend_host.rs`), and the UI handles it through `backendCommand.ts` in the same shape as the `Command.sidecar` of 0.4 and earlier (`src-ui/views/app/_app_controllers/StartPythonController.tsx`). Requests go through `backend_write` and shutdown through `backend_kill`, and responses and notifications arrive on a channel that keeps their order. The line format and rules are the same as up to 0.4 ([Core integration](../voice-stack/core-integration.md)). Below, "stdin" and "stdout" mean these two directions, requests and responses.
 
 ## Message format
@@ -37,6 +42,7 @@ flowchart LR
 |---|---|---|
 | `endpoint` | String | The endpoint requested |
 | `data` | String (optional) | The value passed through `JSON.stringify`, then encoded as Base64. Omitted in requests that have no value |
+| `origin` | String (optional) | Who the request is for: `vr_panel` for a request the main window relays for the VR panel (the core allows only its list), `settings` for the settings window's (set by the shell). Omitted for the main window's own |
 
 - Each line holds one JSON object and ends with a newline (`src-ui/logics/common/useStdoutToPython.ts`).
 - The sidecar decodes `data` from Base64 and reads it as JSON (`native/core/src/protocol.rs`, the same as Python's `encodeBase64`). If it cannot be read, it becomes an empty dictionary.
@@ -53,6 +59,9 @@ flowchart LR
 | `status` | Number | Status code (see the next table) |
 | `endpoint` | String | For a response, the same endpoint as the request; for a notification, `/run/…` |
 | `result` | Any | The result. For an error, the error body |
+| `origin` | String (optional) | The request's `origin`, when it had one (#1236). Notifications have none |
+
+Each window shows the notices of the answers to its own requests: the settings window those with `origin` `settings`, the main window every other line, the notifications among them (`noticesHere` in `src-ui/logics/common/settingsWindow.ts`). Both windows still read every line, so a setting changed in one is changed in the other.
 
 Responses and notifications have the same shape. A notification is not a response to a request: the sidecar sends it on its own, like a "Notification" in LSP or JSON-RPC (the UI does not reply).
 
@@ -250,17 +259,22 @@ LSPの仕様書が「Base Protocol」と各メッセージの説明を分けて�
 flowchart LR
   subgraph Tauri["Tauri（Rust）"]
     main["main ウィンドウ（React）"]
+    settings["settings ウィンドウ（React）"]
     vr["vr_panel ウィンドウ"]
     qc["quick_chat ウィンドウ"]
   end
   side["サイドカー（Rustの中核, native/core。アプリのプロセスの中）"]
   main -- "backend_write: 要求（1行のJSON）" --> side
   side -- "Channel: 応答と通知（1行のJSON）" --> main
+  settings -- "backend_write: 要求（origin は settings）" --> side
+  side -- "Channel（backend_attach）: すべての応答と通知" --> settings
   vr -- "Tauriコマンド vr_panel_send（vr-panel-stdout）" --> main
   qc -- "Tauriコマンド quick_chat_submit" --> main
 ```
 
-- サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
+- サイドカーを起動し、ウォッチドッグに餌をやり、止めるのは`main`ウィンドウである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
+- `settings`ウィンドウ（#1236）は、`main`が起動した実行に`backend_attach`で加わる。それ以降、そのチャネルにもすべての応答と通知が同じ順序で届き、実行の終わりも届く。要求は`backend_write`で書き、シェルはページが何を書いても`origin`を`settings`にする。実行の起動、餌やり、停止はしない。実行が終わると、シェルは終わりをそのチャネルに送って外す。終わった実行には加われない（`backend_not_running`）。設定ウィンドウは残り、ページは操作できなくなり、その上にエンジンとの接続が切れたことを示す表示が出る（2026-11-26 の決定）。理由を伝えて実行をやり直すのは`main`である。新しい実行が始まると、シェルは設定ウィンドウに知らせ（`settings-backend-run`）、設定ウィンドウはそれに加わって`/run/settings_snapshot`をもう一度求める。
+- 設定ウィンドウは開くと`/run/settings_snapshot`を求める（設定と同じく、処理中の作業を待つ）。`result`は`/run/initialization_complete`と同じ`/get/data/…`の読み取りの表で、その時点の値である。設定ウィンドウはこれを、メインウィンドウが起動時のものを受け取るのと同じように受け取る。メインウィンドウは読み飛ばす。
 - 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.tsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
@@ -275,6 +289,7 @@ flowchart LR
 |---|---|---|
 | `endpoint` | 文字列 | 要求するエンドポイント |
 | `data` | 文字列（省略可） | 値を`JSON.stringify`したものをBase64にした文字列。値がない要求では省略する |
+| `origin` | 文字列（省略可） | 要求の出どころ。メインウィンドウがVR UIの代わりに送る要求は`vr_panel`（中核はその一覧のものだけを受け付ける）、設定ウィンドウの要求は`settings`（シェルが付ける）。メインウィンドウ自身の要求では省略する |
 
 - 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.ts`）。
 - サイドカーは`data`をBase64から戻してJSONとして読む（`native/core/src/protocol.rs`。Pythonの`encodeBase64`と同じ）。読めないときは空の辞書になる。
@@ -291,6 +306,9 @@ flowchart LR
 | `status` | 数値 | 状態コード（次の表） |
 | `endpoint` | 文字列 | 応答なら要求と同じエンドポイント、通知なら`/run/…` |
 | `result` | 任意 | 結果。エラーのときはエラーの本体 |
+| `origin` | 文字列（省略可） | 要求に`origin`があったときの、その値（#1236）。通知にはない |
+
+各ウィンドウは、自分の要求への応答の知らせだけを出す。設定ウィンドウは`origin`が`settings`のもの、メインウィンドウはそれ以外のすべての行で、通知もこちらに入る（`src-ui/logics/common/settingsWindow.ts`の`noticesHere`）。両方のウィンドウがすべての行を読むので、一方で変えた設定はもう一方にも反映される。
 
 応答と通知は同じ形である。通知は要求に対する応答ではなく、サイドカーが自分から送るもので、LSPやJSON-RPCの「Notification」にあたる（UIは返事をしない）。
 

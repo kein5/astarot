@@ -49,6 +49,8 @@ class NativeWebDriver:
         self.session = None
         self.failed = False
         self.extra_env = env or {}
+        # The main window's handle, known once the settings window has been opened (#1236).
+        self.main_handle = None
 
     def request(self, method, path, data=None):
         # urllib forces Connection: close. tauri-driver 2.1.0 forwards that
@@ -226,7 +228,7 @@ class NativeWebDriver:
     def open_voice_page(self, tab, selector):
         self.wait("return innerWidth >= 500 && innerHeight >= 300")
         self.assert_rendered()
-        if not self.evaluate("return document.querySelector('[data-main-page][data-showing=config]') !== null"):
+        if not self.in_settings():
             self.open_settings()
         if not self.evaluate(f"return document.querySelector({json.dumps(selector)}) !== null"):
             # The settings tab, not the main page's switch of the same name: since #1200 that switch
@@ -273,8 +275,11 @@ class NativeWebDriver:
         running (src-tauri/src/companion.rs). The tray menu's Quit sends
         companion-quit to the main window, which saves the settings and ends the
         app (CompanionController). A native tray menu cannot be pressed through
-        WebDriver, so this sends that same event from the page.
+        WebDriver, so this sends that same event from the main window's page: the
+        settings window may not send events (#1236).
         """
+        if self.main_handle is not None:
+            self.command("POST", "/window", {"handle": self.main_handle})
         self.evaluate("window.__TAURI_INTERNALS__.invoke('plugin:event|emit',"
                       " { event: 'companion-quit', payload: null }); return true;")
         self.app_process.wait(timeout=10)
@@ -282,12 +287,60 @@ class NativeWebDriver:
         # it a second time. The owned driver group is still reaped by __exit__.
         self.session = None
 
-    # Opening settings slides the main page up and away (0.12s); closing
-    # slides it back down over the settings page.
+    # The settings open in a window of their own (#1236), beside the main window. The driver
+    # follows them there and back: commands go to the window that is current.
+    def in_settings(self):
+        return self.evaluate("return location.pathname.endsWith('/settings.html')")
+
+    def window_showing(self, page):
+        """The handle of the window whose page is `page` ("settings.html"), or None.
+
+        The app has other windows too (Quick Chat, the VR panel, the tray's), so each is asked.
+        It leaves the current window as it found it when there is none.
+        """
+        current = self.command("GET", "/window")
+        for handle in self.command("GET", "/window/handles"):
+            self.command("POST", "/window", {"handle": handle})
+            try:
+                if self.evaluate("return location.pathname").endswith("/" + page):
+                    return handle
+            except AssertionError:
+                pass  # A window that went away between the listing and the switch.
+        self.command("POST", "/window", {"handle": current})
+        return None
+
+    def closing_window(self, press):
+        """Press something that closes the current window. The window may be gone before the
+        press is answered; the driver then says it has no such window, which is what was asked."""
+        try:
+            press()
+        except AssertionError as error:
+            if '"no such window"' not in str(error):
+                raise
+        self.command("POST", "/window", {"handle": self.main_handle})
+
     def close_settings(self):
-        self.click('button[data-settings-back]')
-        self.wait("const page = document.querySelector('[data-main-page]');"
-                  " return page.matches('[data-showing=main]') && Math.abs(new DOMMatrix(getComputedStyle(page).transform).m42) < 1;")
+        """Close the settings as a user does, with the settings window's close button: it has no
+        "Go back" (#1236). The driver then works in the main window again."""
+        self.closing_window(lambda: self.click('button[data-window-close]'))
+        self.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
+        deadline = time.monotonic() + 10
+        while "settings.html" in self.window_pages():
+            assert time.monotonic() < deadline, f"the settings window did not close; see {self.output}"
+            time.sleep(.1)
+
+    def window_pages(self):
+        """The pages of the app's windows, the current window kept."""
+        current = self.command("GET", "/window")
+        pages = []
+        for handle in self.command("GET", "/window/handles"):
+            try:
+                self.command("POST", "/window", {"handle": handle})
+                pages.append(self.evaluate("return location.pathname").rsplit("/", 1)[-1])
+            except AssertionError:
+                pass
+        self.command("POST", "/window", {"handle": current})
+        return pages
 
     def open_settings(self):
         # A startup notice (toast, bottom left) covers this button until it
@@ -297,10 +350,17 @@ class NativeWebDriver:
                   " const r = b.getBoundingClientRect();"
                   " return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));",
                   timeout=30)
+        self.main_handle = self.command("GET", "/window")
+        size = self.command("GET", "/window/rect")
         self.click('[data-open-settings]')
-        # Settings are usable once the main page has finished sliding away.
-        self.wait("const page = document.querySelector('[data-main-page]');"
-                  " return page.matches('[data-showing=config]') && new DOMMatrix(getComputedStyle(page).transform).m42 <= 1 - page.offsetHeight;")
+        deadline = time.monotonic() + 15
+        while self.window_showing("settings.html") is None:
+            assert time.monotonic() < deadline, f"the settings window did not open; see {self.output}"
+            time.sleep(.2)
+        # The size the test gave the main window: the settings window opens at its own place.
+        self.command("POST", "/window/rect", {"width": size["width"], "height": size["height"]})
+        # Usable once its settings came from the backend and the page is drawn.
+        self.wait("return document.querySelector('[aria-current=page]') !== null", timeout=30)
 
     def assert_rendered(self):
         """Observe real frame delivery and a nonblank native WebDriver image."""

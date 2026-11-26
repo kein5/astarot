@@ -1172,7 +1172,7 @@ config_page:
     hotkeys:
         input_placeholder: "Press a key combination"
         unassigned_placeholder: "Not set"
-        disabled_notice: "Hotkeys are paused while the settings page is open, so they cannot act by mistake."
+        disabled_notice: "Hotkeys are paused while this page is open, so they cannot act by mistake."
         section_label_quick_chat: "Quick Chat"
         section_label_toggles: "Window and feature toggles"
         section_label_stop: "Stop and mute"
@@ -2616,6 +2616,11 @@ studio:
     close: "Close application"
     close_to_tray: "Close (keeps running in the tray)"
     close_window: "Close window"
+    # The settings window's title bar and its close button (#1236).
+    settings_window_title: "ASTAROT Settings"
+    close_settings: "Close settings"
+    # The settings window while the main window's run of the engine has ended (#1236).
+    settings_disconnected: "Engine disconnected. The settings connect again when the main window starts the engine, and cannot be changed until then."
 
 legacy_model_downloads:
     progress_name: "{{model}} download"
@@ -2991,6 +2996,8 @@ companion:
     # Said for a moment the first time the hexagram ever comes out (#536).
     wheel_hint: "Turn the wheel to see the other three"
     open_main: "Open ASTAROT"
+    # The settings window (#1236).
+    open_settings: "Open settings"
     close: "Close"
     handle: "Open the control panel"
     # The tray menu reads on its own (#1234): the main switch it turns on and off, by its name there.
@@ -2999,6 +3006,7 @@ companion:
     # ASTAROT's own panel, not the system's Control Panel.
     menu_panel: "Open the ASTAROT control panel"
     menu_main: "Open ASTAROT"
+    menu_settings: "Open ASTAROT settings"
     menu_quit: "Quit"
     # The same words as the setting on the experimental features page.
     menu_monitor: "Monitor for the hexagram"

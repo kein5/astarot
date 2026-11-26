@@ -545,10 +545,12 @@ fn usage_presets() -> Check {
     })
 }
 
-fn main_window_geometry() -> Check {
-    validated(|value, ctx| {
+/// A window's place and size (`MAIN_WINDOW_GEOMETRY`, and the settings window's own since #1236):
+/// the same four whole numbers; one that is not keeps its current value.
+fn window_geometry(name: &'static str) -> Check {
+    validated(move |value, ctx| {
         let value = value.as_object()?;
-        let current = ctx.get("MAIN_WINDOW_GEOMETRY");
+        let current = ctx.get(name);
         if !same_keys(value, &current) {
             return None;
         }
@@ -645,7 +647,8 @@ pub fn keys() -> Vec<Key> {
         key("SHOW_RESEND_BUTTON", b()),
         key("FONT_FAMILY", plain(Ty::Str)),
         key("UI_LANGUAGE", one_of("SELECTABLE_UI_LANGUAGE_LIST")),
-        immediate("MAIN_WINDOW_GEOMETRY", main_window_geometry()),
+        immediate("MAIN_WINDOW_GEOMETRY", window_geometry("MAIN_WINDOW_GEOMETRY")),
+        immediate("SETTINGS_WINDOW_GEOMETRY", window_geometry("SETTINGS_WINDOW_GEOMETRY")),
         key("MIC_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_MIC_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -922,6 +925,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("FONT_FAMILY", json!("Yu Gothic UI")),
         ("UI_LANGUAGE", json!("en")),
         ("MAIN_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 })),
+        ("SETTINGS_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 })),
         ("MIC_THRESHOLD", json!(300)),
         ("MIC_AUTOMATIC_THRESHOLD", json!(false)),
         ("MIC_RECORD_TIMEOUT", json!(3)),

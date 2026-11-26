@@ -28,10 +28,14 @@ import { applyInitializationFields, createInitializationValidators } from "./com
 import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
 import { voiceErrorText } from "./voice/voiceErrorText.ts";
+import { isSettingsWindow, noticesHere } from "./common/settingsWindow.ts";
+import { withNotices } from "./common/noticeScope.ts";
 import type { BackendResponse } from "./common/pendingRequestRecovery.ts";
 import type { InitializationRoutes } from "./common/initializationFields.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
+// What the settings window asks for when it opens (#1236): the settings as the start-up sends them.
+const SETTINGS_SNAPSHOT = "/run/settings_snapshot";
 
 // A module whose hooks the routes call by name (@logics_common, a feature's hooks).
 type RouteNamespace = Readonly<Record<string, unknown>>;
@@ -251,6 +255,11 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     // again here, once the engine was ready, made it jump.
     { endpoint: "/get/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
     { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
+    // The settings window's own place, applied the same way when it is made (#1236).
+    { endpoint: "/get/data/settings_window_geometry", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/settings_window_geometry", ns: null, hook_name: null, method_name: null },
+    // The settings window's snapshot, read like the start-up's (receiveLine).
+    { endpoint: "/run/settings_snapshot", ns: null, hook_name: null, method_name: null },
 
     { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },
     { endpoint: "/run/open_filepath_vocabulary_exports", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_VocabularyExports" },
@@ -516,9 +525,17 @@ export const useReceiveRoutes = () => {
         store.expired_speech = expired;
     };
 
-    const receiveRoutes = (message: unknown) => {
+    // Both the main window and the settings window read every line (#1236): each shows the
+    // notices of the lines that answer it, and the settings window takes the settings it opens with
+    // from its own snapshot, which the main window passes over.
+    const settingsWindow = isSettingsWindow();
+    const receiveRoutes = (message: unknown) =>
+        withNotices(noticesHere(fieldOf(message, "origin"), settingsWindow), () => receiveLine(message));
+
+    const receiveLine = (message: unknown) => {
         const parsed_data = readBackendResponse(message);
         const { endpoint, status, result } = parsed_data;
+        if (endpoint === SETTINGS_SNAPSHOT && !settingsWindow) return;
         if (endpoint === "/get/data/voice_status" && status === 200) noticeExpiredSpeech(fieldOf(result, "expired"));
         if (status !== 200 && (isBackendUpdate(endpoint) || endpoint === "/run/shutdown")) {
             rejectExpectedExit(store.backend_session, endpoint);
@@ -653,7 +670,7 @@ export const useReceiveRoutes = () => {
             return;
         }
 
-        if (endpoint === "/run/initialization_complete") {
+        if (endpoint === "/run/initialization_complete" || (endpoint === SETTINGS_SNAPSHOT && status === 200)) {
             resetDownloads();
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");

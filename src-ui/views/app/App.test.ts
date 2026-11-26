@@ -8,7 +8,7 @@ const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "
     "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController", "TalkAiController", "TalkAiIndicator"].map(name => [name, named(name)]));
 
-const load = async (phase: string) => {
+const load = async (phase: string, windowed = false) => {
     const runtime = hooks();
     const { App } = await loadModule<typeof import("./App.tsx")>(new URL("./App.tsx", import.meta.url), runtime, {
         "./_app_controllers/TranscriptionConsentController": { TranscriptionConsentController: parts.TranscriptionConsentController },
@@ -19,6 +19,8 @@ const load = async (phase: string) => {
         "./_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: parts.VirtualMicGuideController },
         "./_app_controllers/FirstRunSetupController": { FirstRunSetupController: parts.FirstRunSetupController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
+        "./_app_controllers/SettingsWindowController": {},
+        "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => windowed },
         "./_app_controllers/TalkAiController": { TalkAiController: parts.TalkAiController },
         "./others/talk_ai_indicator/TalkAiIndicator": { TalkAiIndicator: parts.TalkAiIndicator },
         "./_app_controllers": { UiLanguageController: parts.UiLanguageController },
@@ -67,4 +69,12 @@ test("from the first frame the main page and title bar are drawn, locked until t
         assert.ok(language);
         assert.equal(language.props.waitForEngine, true);
     }
+});
+
+// In the app the settings have a window of their own (#1236): the main window draws no settings
+// page, and the rest of what it draws is the same.
+test("in the app the main window draws no settings page", async () => {
+    const { inner, has } = await load("ready", true);
+    assert.equal(has(inner, parts.ConfigPage), false);
+    for (const part of [parts.MainPage, parts.SwitchBlocksController, parts.ModalController, parts.FirstRunSetupController]) assert.ok(has(inner, part), part.name);
 });

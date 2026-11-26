@@ -13,7 +13,8 @@ export type Language = (typeof LANGUAGES)[number];
 export type Switch = { on: boolean; pending: boolean; blocked: boolean };
 
 export type MenuLabels = {
-    start: string; stop: string; panel: string; main: string; quit: string;
+    // settings: the item that opens the settings window (#1236).
+    start: string; stop: string; panel: string; main: string; settings: string; quit: string;
     // The monitor submenu: its title, the primary monitor, the word before a monitor's number,
     // and a chosen monitor that is not connected now.
     monitor: string; primary: string; display: string; missing: string;
@@ -106,6 +107,7 @@ export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, 
         stop: t("companion.menu_stop"),
         panel: t("companion.menu_panel"),
         main: t("companion.menu_main"),
+        settings: t("companion.menu_settings"),
         quit: t("companion.menu_quit"),
         monitor: t("companion.menu_monitor"),
         primary: t("companion.menu_monitor_primary"),

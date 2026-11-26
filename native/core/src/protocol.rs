@@ -90,6 +90,15 @@ pub fn response_line(status: u16, endpoint: Option<&str>, result: &Value) -> Str
     json!({ "status": status, "endpoint": endpoint, "result": result }).to_string()
 }
 
+/// The answer to a request that named its origin (the settings window, the VR panel): the line
+/// carries it back (#1236).
+pub fn response_line_for(status: u16, endpoint: Option<&str>, result: &Value, origin: Option<&Value>) -> String {
+    match origin {
+        Some(origin) => json!({ "status": status, "endpoint": endpoint, "result": result, "origin": origin }).to_string(),
+        None => response_line(status, endpoint, result),
+    }
+}
+
 /// Python's truth value of a JSON value.
 pub fn truthy(value: &Value) -> bool {
     match value {
