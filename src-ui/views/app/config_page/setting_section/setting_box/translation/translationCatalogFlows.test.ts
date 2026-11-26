@@ -61,6 +61,7 @@ const loadSection = async (runtime: HookRuntime, t?: Translate) => {
         "../_components/hint/Hint": { useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
@@ -103,12 +104,21 @@ function textOf(value: unknown): string {
     const node = treeNode(value);
     return node ? textOf(node.props?.children) : "";
 }
+// The engine form's path is a row of its own with a path field (#1231).
+const pathRow = (tree: TreeNode, key: string) =>
+    find(tree, node => node.type === "row" && typeof node.props.label === "string" && node.props.label.startsWith(key));
 const labelled = (tree: TreeNode, key: string) => {
+    const row = pathRow(tree, key);
+    if (row) return findIn(row, node => node.type === "path-field", `the path field ${key}`);
     const label = findIn(tree, node => node.type === "label" && textOf(node).startsWith(key), `the field ${key}`);
     // The fields are the kit's TextField; the selects are the kit's Select (D-14).
     return findIn(label, node => node.type === kitStandIns.TextField || node.type === kitStandIns.Select, `the control of ${key}`);
 };
-const type = (tree: TreeNode, key: string, value: string) => labelled(tree, key).props.onChange({ target: { value } });
+// A path field's change takes the value itself; a field's and a list's take an event.
+const type = (tree: TreeNode, key: string, value: string) => {
+    const control = labelled(tree, key);
+    control.props.onChange(control.type === "path-field" ? value : { target: { value } });
+};
 // The catalog's buttons are the kit's Button.
 // A button by its words: the kit's, or one of the kit's confirmation inside a card.
 const BUTTONS: unknown[] = [kitStandIns.Button, kitStandIns.InlineConfirmTrigger, kitStandIns.InlineConfirmCancel, kitStandIns.InlineConfirmAction];
@@ -212,7 +222,9 @@ test("a translation LLM asks for its .gguf file and device, and its card waits f
     type(draw(), "translation_catalog.field.runtime", "llamacpp");
     const llm = draw();
     assert.ok(textOf(llm).includes("translation_catalog.add_help.engine_llamacpp"));
-    assert.equal(find(llm, node => node.type === "label" && textOf(node).startsWith("translation_catalog.field.folder")), null);
+    assert.equal(pathRow(llm, "translation_catalog.field.folder"), null);
+    // The model's GGUF file is picked as a GGUF file (#1231); an ONNX model's folder as a folder.
+    assert.deepEqual(labelled(llm, "translation_catalog.field.file").props.pick, { kind: "file", extensions: ["gguf"] });
     assert.deepEqual(nodesIn(labelled(llm, "translation_catalog.field.device")).filter(node => node.type === kitStandIns.SelectOption)
         .map(node => [node.props.value, textOf(node)]), [["auto", "translation_catalog.device.auto"], ["cpu", "translation_catalog.device.cpu"]]);
     type(draw(), "translation_catalog.field.name", "TranslateGemma 4B");
@@ -370,10 +382,13 @@ test("on the translation page the catalog is a section of its own after More set
 test("the forms' fields and the cards' actions are the kit's parts", async context => {
     reset(catalogWith());
     const engine = (await form(context, "engine"))();
-    const fields = ["translation_catalog.field.name", "translation_catalog.field.folder", "translation_catalog.field.languages"]
-        .map(key => labelled(engine, key));
+    const fields = ["translation_catalog.field.name", "translation_catalog.field.languages"].map(key => labelled(engine, key));
     assert.deepEqual(fields.map(field => [field.type === kitStandIns.TextField, field.props.spellCheck, field.props.mono ?? false]),
-        [[true, false, false], [true, false, true], [true, false, false]]);
+        [[true, false, false], [true, false, false]]);
+    // The model's folder is a path field: the kit's monospaced field beside the folder's picker (#1231).
+    const folder = labelled(engine, "translation_catalog.field.folder");
+    assert.deepEqual([folder.type, folder.props.pick, folder.props.label, folder.props.maxLength],
+        ["path-field", { kind: "folder" }, "translation_catalog.field.folder", 4096]);
     // D-14 (decided on 2026-11-25): the lists are the kit's Select, with the kit's options.
     const native = (tree: unknown) => nodesIn(tree).filter(node => node.type === "select" || node.type === "option");
     assert.equal(labelled(engine, "translation_catalog.field.runtime").type, kitStandIns.Select);

@@ -28,6 +28,7 @@ async function userModels(context: TestContext, models: unknown[] | null, option
         "../../../../../../logics/voice/modelCatalog": modelCatalog,
         "../../../../../../logics/common/fileDrop": fileDrop,
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/hint/Hint": { useHintDescriptions: () => options.hints ?? false },
         "./catalogLayout": { CatalogFacts: "catalog-facts", CatalogState: "catalog-state" },
@@ -178,7 +179,11 @@ test("a model of one's own can be heard as a downloaded one: registered as downl
 });
 
 // The registration form's parts, as drawn.
-const fieldsOf = (tree: unknown) => ofType(tree, "input").map(input => input.props);
+// The name's input, then each file's path field (#1231), in order. A path field's change takes the
+// value itself; here it takes the event an input's does, so both are typed the same way.
+const fieldsOf = (tree: unknown) => nodesIn(tree).filter(node => node.type === "input" || node.type === "path-field")
+    .map(node => node.type === "input" ? node.props
+        : { ...node.props, onChange: (event: { target: { value: string } }) => node.props.onChange(event.target.value) });
 const groupOf = (tree: unknown) => findIn(tree, node => node.type === "div" && node.props.role === "group");
 
 test("the registration form names its use, says whose files they are, and takes a name and each file of the use", async context => {
@@ -187,11 +192,15 @@ test("the registration form names its use, says whose files they are, and takes 
     assert.deepEqual([tree.type, tree.props["data-user-model-register"], tree.props.summary, tree.props.hint], ["fold", true, "user_models.register_title", undefined]);
     assert.equal(groupOf(tree).props["aria-label"], `user_models.register_label {"group":"model_catalog.group.rvc"}`);
     assert.deepEqual(ofType(groupOf(tree), "p").map(textOf), ["user_models.register_help", "user_models.terms_help"]);
-    const labels = ofType(tree, "label").map(label => [label.props.children].flat()[0]);
+    const labels = [...ofType(tree, "label").map(label => [label.props.children].flat()[0]), ...ofType(tree, "row").map(row => row.props.label)];
     assert.deepEqual(labels, ["user_models.name", `user_models.file_field.model {"kind":".pth"}`, `user_models.file_field.index {"kind":".index"}`]);
-    assert.deepEqual(fieldsOf(tree).map(field => [field.type, field.value, field.maxLength, field.disabled, field.spellCheck, field.placeholder]), [
-        ["text", "", modelCatalog.USER_MODEL_NAME_LIMIT, false, false, "user_models.name_placeholder"],
-        ["text", "", 4096, false, false, undefined], ["text", "", 4096, false, false, undefined]]);
+    const [name, ...files] = fieldsOf(tree);
+    assert.deepEqual([name.type, name.value, name.maxLength, name.disabled, name.spellCheck, name.placeholder],
+        ["text", "", modelCatalog.USER_MODEL_NAME_LIMIT, false, false, "user_models.name_placeholder"]);
+    // Each file is typed, pasted or picked; the picker shows only the file's kind (#1231).
+    assert.deepEqual(files.map(field => [field.value, field.maxLength, field.disabled, field.pick, field.label]), [
+        ["", 4096, false, { kind: "file", extensions: ["pth"] }, `user_models.file_field.model {"kind":".pth"}`],
+        ["", 4096, false, { kind: "file", extensions: ["index"] }, `user_models.file_field.index {"kind":".index"}`]]);
     const drop = findIn(tree, node => node.type === "drop-zone").props;
     assert.deepEqual([drop.accept, drop.disabled, drop.hint], [[".pth", ".index"], false, "user_models.drop_hint"]);
     const register = buttonNamed(tree, "user_models.register");

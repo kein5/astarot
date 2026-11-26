@@ -42,6 +42,7 @@ async function rows(values: Record<string, unknown> = {}) {
         "../_templates/Templates": { SwitchContainer: "row", ActionButtonContainer: "row", DropdownMenuContainer: "row", EntryWithSaveButtonContainer: "row", ColorEntryWithSaveButtonContainer: "row" },
         "../_components": { ActionButton: "action-button", LabelComponent: "label-component", SectionLabelComponent: "section-label" },
         "../_components/_atoms/_entry/_Entry": { _Entry: "entry" },
+        "../_components/path_field/PathField": { PathPickButton: "path-pick" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     // The page's containers are its own components: each is drawn from scratch, then those inside it.

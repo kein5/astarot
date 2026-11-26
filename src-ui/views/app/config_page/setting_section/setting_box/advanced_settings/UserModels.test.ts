@@ -20,14 +20,20 @@ async function form(context: TestContext, models: UserModel[], hintsOn = true) {
         "../../../../../../logics/voice/modelCatalog": modelCatalog,
         "../../../../../../logics/common/fileDrop": { extensionOf: () => "" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/hint/Hint": { useHintDescriptions: () => hintsOn },
         "./catalogLayout": { CatalogFacts: "catalog-facts" },
     });
     const render = () => runtime.render(UserModelRegistration, { target: "japanese", busy: false });
-    const inputs = () => all(render(), node => node.type === "input");
-    const type = (index: number, value: string) => { inputs()[index].props.onChange({ target: { value } }); render(); };
+    // The name's input, then the file's path field (#1231), whose change takes the value itself.
+    const inputs = () => all(render(), node => node.type === "input" || node.type === "path-field");
+    const type = (index: number, value: string) => {
+        const field = inputs()[index];
+        field.props.onChange(field.type === "path-field" ? value : { target: { value } });
+        render();
+    };
     const submit = () => {
         const button = find(render(), node => node.type === "button");
         // The form's button: one that is not there fails here, as pressing it did.

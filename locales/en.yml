@@ -1766,6 +1766,15 @@ file_drop:
     save_hint: "Save to use it."
     done_skipped: "Other files were left out. Save to use it."
 
+path_picker:
+    choose_file: "Choose file"
+    choose_folder: "Choose folder"
+    choose_file_for: "Choose file for \"{{field}}\""
+    choose_folder_for: "Choose folder for \"{{field}}\""
+    filter: "Files ({{patterns}})"
+    file_picker_unavailable: "Could not open the file picker. Enter the file's full path instead."
+    folder_picker_unavailable: "Could not open the folder picker. Enter the folder's full path instead."
+
 voice_ui:
     # The engine that reads Japanese (ADR-008): one the user installs and starts.
     engine:

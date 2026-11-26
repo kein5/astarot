@@ -139,9 +139,15 @@ class NativeWebDriver:
         return self.element_command(element, "click")
 
     def control(self, label, within=None):
+        """The form control named `label`: by its aria-label, inside a <label> that starts with the
+        words, or named by a <label for> of its own, as a settings row (FormRow) names its field,
+        a path field with its picker button among them (#1231)."""
         return self.evaluate("const root = arguments[1] ? document.querySelector(arguments[1]) : document;"
                              " if (!root) return null;"
-                             " return [...root.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0]) || [...root.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea');",
+                             " return [...root.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0])"
+                             " || [...root.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea')"
+                             " || [...root.querySelectorAll('label[for]')].find(e => e.textContent.trim() === arguments[0] && e.control)?.control"
+                             " || null;",
                              label, within)
 
     def fill(self, label, value):

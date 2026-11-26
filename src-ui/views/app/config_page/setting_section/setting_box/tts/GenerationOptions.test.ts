@@ -176,6 +176,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
@@ -200,11 +201,13 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     // A cleared number field still shows what goes in it.
     assert.deepEqual(fields.map(field => field.props.placeholder),
         [12, 0.75, 4].map(value => `voice_ui.example:${JSON.stringify({ value })}`));
-    // Each path field shows an example path, written the way this OS writes paths (pathExample).
+    // Each path field shows an example path, written the way this OS writes paths (pathExample),
+    // beside the button that picks it: the runtime's folder, the model's and the index's file (#1231).
     const paths: TreeNode[] = [];
-    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.mono === true) paths.push(node); return false; });
+    find(tree, node => { if (node.type === "path-field") paths.push(node); return false; });
     assert.deepEqual(paths.map(field => field.props.placeholder), ["rvc-runtime", "voice.pth", "voice.index"]
         .map(file => `voice_ui.example:${JSON.stringify({ value: `/models/${file}` })}`));
+    assert.deepEqual(paths.map(field => field.props.pick), [{ kind: "folder" }, { kind: "file", extensions: ["pth"] }, { kind: "file", extensions: ["index"] }]);
     runtime.unmount();
 });
 
