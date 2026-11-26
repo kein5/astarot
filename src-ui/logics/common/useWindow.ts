@@ -7,6 +7,7 @@ import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
 import { isSettingsWindow } from "./settingsWindow.ts";
+import { isNarrowWidth } from "./breakPoint.ts";
 
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.
@@ -96,8 +97,7 @@ export const useWindow = () => {
     // (src-tauri/src/window_placement.rs), not here.
 
     const applyBreakPoint = (width: number) => {
-        const dynamicBreakPoint = 800 * (currentUiScaling.data / 100);
-        const narrow = width <= dynamicBreakPoint;
+        const narrow = isNarrowWidth(width, currentUiScaling.data);
         // Every update re-renders whatever reads IsBreakPoint, so only send changes.
         if (document.documentElement.hasAttribute("data-narrow") === narrow) return;
         // Drawn as a transition: a flushSync elsewhere (virtua's, in the ResizeObserver callback where

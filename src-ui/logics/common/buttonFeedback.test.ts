@@ -14,6 +14,7 @@ import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
 import * as settingsWindowModule from "./settingsWindow.ts";
+import * as breakPointModule from "./breakPoint.ts";
 import { find, findIn, held, isInitializer, isUpdater, kitStandIns, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
 import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
@@ -90,6 +91,7 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
         if (/^(\.\.?\/)+common_components\/tooltip\/Tooltip$/.test(name)) return { Tooltip: "tooltip" };
         // The settings window's helpers (#1236), as they are outside the app: the settings open in-page.
         if (/(^|\/)settingsWindow(\.ts)?$/.test(name)) return settingsWindowModule;
+        if (/(^|\/)breakPoint(\.ts)?$/.test(name)) return breakPointModule;
         // A TypeScript view names its relative imports with their extension.
         const base = name.replace(/\.[jt]sx?$/, "");
         if (/^\.\.?\//.test(name) && base in dependencies) return dependencies[base];

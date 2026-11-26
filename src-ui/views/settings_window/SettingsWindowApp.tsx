@@ -3,16 +3,16 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
 
-import { store, useStore_SelectedConfigTabId } from "@store";
+import { store, useStore_IsBreakPoint, useStore_SelectedConfigTabId } from "@store";
 import { useReceiveRoutes } from "@useReceiveRoutes";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady, useIsOpenedConfigPage, WindowGeometryController } from "@logics_common";
-import { useOcrSharedWindow } from "@logics_configs";
+import { useAppearance, useOcrSharedWindow } from "@logics_configs";
 import { createSidecarSessionOwner } from "../../logics/common/sidecarSession.ts";
 import type { SidecarPhase, SidecarSessionHandlers } from "../../logics/common/sidecarSession.ts";
 import { createAttachedBackendCommand } from "../../logics/common/backendCommand.ts";
-import { backToMainWindow, placeOf, SETTINGS_NAVIGATE, takeSettingsNavigation } from "../../logics/common/settingsWindow.ts";
+import { backToMainWindow, layoutSettled, placeOf, SETTINGS_NAVIGATE, takeSettingsNavigation } from "../../logics/common/settingsWindow.ts";
 import type { SettingsPlace } from "../../logics/common/settingsWindow.ts";
 import { showSetting } from "../../logics/common/showSetting.ts";
 import { Atom_AppUpdate } from "../../logics/common/useAppUpdate.ts";
@@ -57,10 +57,19 @@ export const SettingsWindowApp = () => (
 );
 
 // The pages wait for the settings: until the snapshot has come, only the title bar is drawn, and
-// the window's place is not saved over the one it opened at.
+// the window's place is not saved over the one it opened at. They also wait for the narrow layout
+// that the snapshot's UI size decides (layoutSettled): drawn wide and turned narrow a moment later,
+// the menu changed under a press made at once, which then opened nothing (the AppImage at 150%),
+// and WebKitGTK can stop laying out a page whose style changes at its first layout (#1221).
 const Contents = () => {
     const { currentIsBackendReady } = useIsBackendReady();
-    const ready = currentIsBackendReady.data === true;
+    const { currentIsBreakPoint } = useStore_IsBreakPoint();
+    const { currentUiScaling } = useAppearance();
+    // Once drawn, the page stays: a resize decides the narrow layout again a moment later, and the
+    // page is not taken down and drawn anew in between.
+    const drawn = useRef(false);
+    if (currentIsBackendReady.data === true && layoutSettled(currentIsBreakPoint.data === true, currentUiScaling.data)) drawn.current = true;
+    const ready = currentIsBackendReady.data === true && drawn.current;
     return (
         <>
             <WindowGeometryController saveGeometry={ready} />

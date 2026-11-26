@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isNarrowWidth } from "./breakPoint.ts";
 
 // The settings window (#1236). In the app the settings open in a window of their own, beside the
 // main window (src-tauri/src/settings_window.rs): at most one, brought to the front when it is
@@ -43,6 +44,13 @@ export const takeSettingsNavigation = (): Promise<unknown> => invoke("settings_w
 export const backToMainWindow = (): Promise<unknown> => invoke("settings_window_back");
 // The settings window closes and asks the main window to open Quick Chat (the Hotkeys page).
 export const handOverQuickChat = (): Promise<unknown> => invoke("settings_window_hand_over", { action: "open_quick_chat" });
+
+// Whether the narrow state (IsBreakPoint, which turns the settings menu to icons) is the one the
+// window's width and UI size call for. useWindow.ts decides it after the render that brings a new UI
+// size, and draws it in a transition a moment later. The settings window draws its page once the
+// state has come, so the page's first layout is the one it keeps (#1236).
+export const layoutSettled = (breakPoint: boolean, uiScaling: number, width: number = globalThis.innerWidth ?? 0): boolean =>
+    breakPoint === isNarrowWidth(width, uiScaling);
 
 // Whether a line's notices are shown in this window: the settings window shows those that answer
 // its own requests, the main window every other one, so nothing is said twice (#1236).

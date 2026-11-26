@@ -8,6 +8,7 @@ import clsx from "clsx";
 import { atom, createStore } from "jotai/vanilla";
 import * as settingsWindowModule from "../common/settingsWindow.ts";
 import * as noticeScopeModule from "../common/noticeScope.ts";
+import * as breakPointModule from "../common/breakPoint.ts";
 import type { Atom, PrimitiveAtom } from "jotai/vanilla";
 import type { TestContext } from "vitest";
 
@@ -279,6 +280,7 @@ const sharedModule = (name: string, dependencies: Record<string, unknown>,
     openers: Awaited<typeof settingsOpeners>): unknown => {
     if (named(name, "settingsWindow")) return settingsWindowModule;
     if (named(name, "noticeScope")) return noticeScopeModule;
+    if (named(name, "breakPoint")) return breakPointModule;
     if (!named(name, "useOpenSettings") && !named(name, "showSetting")) return undefined;
     // A stand-in the test gave for a module of that name, wherever it imported it from.
     const given = (module: string) => Object.entries(dependencies).find(([key]) => named(key, module))?.[1];

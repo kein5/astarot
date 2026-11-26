@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import * as settingsWindow from "./settingsWindow.ts";
-import { isSettingsWindow, noticesHere, placeOf } from "./settingsWindow.ts";
+import { isSettingsWindow, layoutSettled, noticesHere, placeOf } from "./settingsWindow.ts";
+import { isNarrowWidth } from "./breakPoint.ts";
 import { noticesQuiet, withNotices } from "./noticeScope.ts";
 import { createAttachedBackendCommand } from "./backendCommand.ts";
 import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
@@ -246,4 +247,20 @@ test("the settings window says what its own requests met, and takes its snapshot
     r.calls.length = 0;
     r.receiveRoutes({ endpoint: "/run/settings_snapshot", status: 200, result: {}, origin: "settings" });
     assert.deepEqual(r.calls, started.calls);
+});
+
+// The settings window draws its page once the narrow state is the one its width and UI size call
+// for: at 150% an 870px window is narrow, and the page waits until the state says so. A press made
+// on a page drawn wide and turned narrow a moment later opened nothing (the AppImage at 150%).
+test("the settings window's page waits for the narrow layout its width and UI size call for", () => {
+    // The limit grows with the UI size: 800px at 100%, 1200px at 150%.
+    assert.equal(isNarrowWidth(870, 100), false);
+    assert.equal(isNarrowWidth(800, 100), true);
+    assert.equal(isNarrowWidth(870, 150), true);
+    assert.equal(isNarrowWidth(1300, 150), false);
+    // At 150% the UI size arrives with the settings while the state is still wide: not yet.
+    assert.equal(layoutSettled(false, 150, 870), false);
+    assert.equal(layoutSettled(true, 150, 870), true);
+    // At 100% nothing changes: at once.
+    assert.equal(layoutSettled(false, 100, 870), true);
 });
