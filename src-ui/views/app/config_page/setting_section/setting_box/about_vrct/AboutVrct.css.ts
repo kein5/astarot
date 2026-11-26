@@ -65,7 +65,7 @@ export const original_heading = style({
     marginTop: "2rem",
     width: "100%",
     color: vars.dark_300_color,
-    borderTop: `0.1rem solid ${vars.dark_750_color}`,
+    borderTop: `0.1rem solid var(--settings_rule, ${vars.dark_750_color})`,
     paddingTop: "2.4rem",
 });
 

@@ -263,7 +263,8 @@ test("a row's label names its control and its description describes it", () => {
 test("a card keeps the catalogs' look: its room and frame, no fill and no shadow; the one in use the active frame and tint (D-28)", () => {
     const css = read("Card.css.ts");
     const base = css.slice(css.indexOf("base: {"), css.indexOf("variants: {"));
-    assert.match(base, /display: "grid",\s*gap: "1\.2rem",\s*minWidth: 0,\s*padding: "1\.6rem",\s*border: `\.1rem solid \$\{vars\.dark_800_color\}`,\s*borderRadius: vars\.vox_radius,/);
+    // The frame is the app's border colour, which the settings pages make quieter (#1233).
+    assert.match(base, /display: "grid",\s*gap: "1\.2rem",\s*minWidth: 0,\s*padding: "1\.6rem",[\s\S]*?border: `\.1rem solid \$\{vars\.vox_border\}`,\s*borderRadius: vars\.vox_radius,/);
     assert.doesNotMatch(base, /background|boxShadow/, "no fill and no shadow");
     assert.match(css, /true: \{ borderColor: vars\.vox_state_active, background: vars\.vox_highlight_tint \}/);
     // The parts: the name's block tight inside, the content and the footer a little apart inside.

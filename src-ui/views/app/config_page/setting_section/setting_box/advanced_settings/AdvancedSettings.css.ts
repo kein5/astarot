@@ -32,7 +32,7 @@ export const log_destination_row = style({
     padding: "2rem 0",
     columnGap: "1.6rem",
     rowGap: ".8rem",
-    borderBottom: `solid 0.1rem ${vars.dark_800_color}`,
+    borderBottom: `solid 0.1rem var(--settings_rule, ${vars.vox_border})`,
     "@container": { "(max-width: 41.6rem)": stacked },
     "@media": { "(max-width: 700px)": stacked },
 });
