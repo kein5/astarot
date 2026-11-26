@@ -88,9 +88,8 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://discord.gg/2kd3MSTnbE",
         "https://misyaguziya.github.io/VRCT-Docs/",
         "https://misyaguziya.github.io/VRCT-Docs/ja",
-        "https://github.com/misyaguziya",
+        // The original VRCT's repository; its developers' own pages are no longer linked (#1224).
         "https://github.com/misyaguziya/VRCT",
-        "https://twitter.com/misya_ai",
         "https://www.deepl.com/ja/your-account/keys",
         "https://console.deepgram.com/",
         // The key pages of the official translation APIs (#277).
@@ -142,6 +141,11 @@ fn other_urls_and_other_schemes_are_refused() {
         "https://vb-audio.com/Voicemeeter/",
         "https://huggingface.co@example.com/",
         "https://twitter.com/someone_else",
+        // The original VRCT's developers' pages, which About no longer links to (#1097, #1224).
+        "https://github.com/misyaguziya",
+        "https://github.com/misyaguziya/other",
+        "https://twitter.com/misya_ai",
+        "https://twitter.com/Shiina_12siy",
         "https://discord.gg/other-invite",
         "https://creativecommons.org/licenses/by/4.0/../../",
         "file:///C:/Windows/System32/calc.exe",
