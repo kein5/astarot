@@ -78,11 +78,13 @@ export const total = within({
     fontVariantNumeric: "tabular-nums",
 });
 
-// The run: one row per step, numbered in its own column, its state at the end.
+// The run: one row per step, numbered in its own column, its state at the end. The state's column
+// takes at most 40% of the row: a long state cannot squeeze the step's name to a column of single
+// characters (#1253).
 export const steps = within({ ...list, counterReset: "step" });
 export const step = within({
     display: "grid",
-    gridTemplateColumns: "2rem minmax(0, 1fr) auto",
+    gridTemplateColumns: "2rem minmax(0, 1fr) fit-content(40%)",
     columnGap: "1.2rem",
     rowGap: ".6rem",
     alignItems: "baseline",
@@ -103,7 +105,9 @@ export const stepState = within({
     fontVariantNumeric: "tabular-nums",
 }, {
     [`${step}[data-state="done"] &`]: { color: vars.vox_state_active },
-    [`${step}[data-state="failed"] &`]: { color: vars.dark_200_color, fontWeight: 500 },
+    // A failure is a sentence in a notice's frame (the forms' alert): it goes under the step's
+    // name, as wide as the name and the state together (#1253).
+    [`${step}[data-state="failed"] &`]: { color: vars.dark_200_color, fontWeight: 500, gridColumn: "2 / -1", textAlign: "start" },
 });
 globalStyle(`${dialog} ${step} progress`, { gridColumn: "2 / -1", display: "block", width: "100%" });
 
