@@ -6,7 +6,8 @@
 //! surface starts at the default atlas size; tests check both agree with this module.
 use super::math::{self, Mat34, Mat4, Vec3};
 
-/// Width of the launcher band in logical px (seven buttons and their separators).
+/// Width of the launcher band in logical px. Its eight buttons and the divider fit inside it
+/// (`src-ui/views/vr/launcherSizes.ts`, #1248).
 pub const LAUNCHER_WIDTH_PX: u32 = 880;
 /// The width the stored launcher `ui_scaling` refers to. Saved values predate a 72 px mark
 /// that was removed, so the stored metres-per-band stay meaningful by converting with this.

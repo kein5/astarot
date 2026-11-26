@@ -1,5 +1,8 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 import { vars } from "../theme/vars.css.ts";
+import { LAUNCHER_BUTTON, LAUNCHER_DIVIDER, LAUNCHER_GAP, LAUNCHER_PADDING } from "./launcherSizes.ts";
+
+const px = (value: number) => `${value}px`;
 
 // The launcher's rules rely on their order across classes (the intro's delays, the marks), so the
 // classes are declared first and the rules follow in the order the SCSS module had them (#957).
@@ -22,13 +25,14 @@ export const intro_icon = style({});
 export const intro_logo = style({});
 
 globalStyle(root, { position: "relative", width: "100%", height: "100%" });
-globalStyle(container, { position: "relative", isolation: "isolate", width: "100%", height: "100%", display: "flex", alignItems: "center", gap: "8px", padding: "12px" });
+// The buttons sit in the middle of the band, which is a few px wider than they need (launcherSizes.ts).
+globalStyle(container, { position: "relative", isolation: "isolate", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: px(LAUNCHER_GAP), padding: px(LAUNCHER_PADDING) });
 // 枠 (背景と枠線) は別の要素にして、起動演出で幅だけを動かせるようにする (箱を切り落とすと、左右の枠線も切れる)
 globalStyle(`${container}::before`, { content: '""', position: "absolute", zIndex: -1, top: 0, bottom: 0, left: 0, right: 0, borderRadius: "24px", background: vars.dark_888_color, boxShadow: `inset 0 0 0 4px ${vars.dark_750_color}` });
-globalStyle(group, { display: "flex", gap: "8px" });
-globalStyle(divider, { flexShrink: 0, width: "4px", height: "72px", margin: "0 4px", borderRadius: "2px", background: vars.dark_650_color });
-// 文字は出さない (名前は指したときの吹き出しで出す)。7つとも同じ大きさ
-globalStyle(button, { position: "relative", width: "112px", height: "104px", padding: "6px" });
+globalStyle(group, { display: "flex", gap: px(LAUNCHER_GAP) });
+globalStyle(divider, { flexShrink: 0, width: px(LAUNCHER_DIVIDER.width), height: px(LAUNCHER_DIVIDER.height), margin: `0 ${px(LAUNCHER_DIVIDER.margin)}`, borderRadius: "2px", background: vars.dark_650_color });
+// 文字は出さない (名前は指したときの吹き出しで出す)。8つとも同じ大きさで、帯の幅に収める (launcherSizes.ts、#1248)
+globalStyle(button, { position: "relative", flexShrink: 0, width: px(LAUNCHER_BUTTON.width), height: px(LAUNCHER_BUTTON.height), padding: "6px" });
 globalStyle(`${button}:not([aria-pressed="true"])`, { background: vars.dark_850_color, color: vars.dark_400_color });
 globalStyle(`${button}:focus-visible`, { outline: `3px solid ${vars.primary_100_color}`, outlineOffset: "-3px" });
 globalStyle(`${button}.${is_pending}`, { cursor: "wait", boxShadow: `inset 0 0 0 3px ${vars.primary_200_color}` });
@@ -75,11 +79,11 @@ globalStyle(is_intro_pending, { opacity: 0 });
 globalStyle(`${is_intro_playing}::before`, { animation: `${introFrame} 4.2s both` });
 globalStyle(`${is_intro_playing} ${button}, ${is_intro_playing} ${divider}`, { opacity: 0, animation: `${introRise} 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both` });
 globalStyle(`${is_intro_playing} ${divider}`, { animationDelay: "3.3s" });
-// 機能4つ → 画面3つの順に 50ms ずつずらす
+// 機能4つ → 画面4つの順に 65ms ずつずらす
 for (let i = 1; i <= 4; i++) {
     globalStyle(`${is_intro_playing} ${group}:first-of-type > :nth-child(${i})`, { animationDelay: seconds(3.05 + (i - 1) * 0.065) });
 }
-for (let i = 1; i <= 3; i++) {
+for (let i = 1; i <= 4; i++) {
     globalStyle(`${is_intro_playing} ${group}:last-of-type > :nth-child(${i})`, { animationDelay: seconds(3.05 + (i + 3) * 0.065) });
 }
 globalStyle(intro_icon, { position: "absolute", zIndex: 1, left: "50%", top: "50%", translate: "-50% -50%", pointerEvents: "none", opacity: 0, height: "112px", animation: `${introIcon} 2.2s 0.13s both` });
