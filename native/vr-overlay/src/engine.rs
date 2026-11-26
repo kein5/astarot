@@ -46,6 +46,9 @@ const INTRO_FRONT_SCALE: f64 = 5.0;
 const INTRO_FRONT_FOLLOW_PER_SEC: f64 = 8.0;
 const LAUNCHER_RETURN: f64 = 0.3;
 const INTRO_KEY_SOFT: (i32, i32) = (4, 20);
+/// How far a pixel may differ from the log's background colours and still count as background,
+/// fully and in part (the same soft key as the intro's).
+const PANEL_KEY_SOFT: (i32, i32) = INTRO_KEY_SOFT;
 const HAND_ANCHOR_MAX_DISTANCE_M: f64 = 0.5;
 const HMD_ANCHOR_DISTANCE_RANGE_M: (f64, f64) = (0.4, 1.5);
 const POPUP_ABOVE_LAUNCHER_M: f64 = 0.18;
@@ -657,7 +660,7 @@ impl Overlay {
             session.set_raw(handle, &[0, 0, 0, 0], 1, 1)?;
             session.set_color(handle, [1.0, 1.0, 1.0])?;
             input::remember_image(state, surface, &[0, 0, 0, 0], 1, 1);
-            let opacity = state.settings[surface.index()].opacity;
+            let opacity = Self::overlay_opacity(state, surface);
             self.set_alpha(state, surface, opacity)?;
             self.apply_width(state, surface)?;
             self.update_position(state, surface)?;
@@ -846,11 +849,19 @@ impl Overlay {
         Ok(())
     }
 
+    /// The alpha a window's stored opacity gives its whole overlay. The log's opacity is its
+    /// background's, made in the texture ([`panel_background_alpha`]), so that its text and
+    /// buttons stay whole: its overlay stays at 1 (#1247).
+    fn overlay_opacity(state: &State, surface: Surface) -> f64 {
+        if surface == Surface::Panel { 1.0 } else { state.settings[surface.index()].opacity }
+    }
+
     /// The fade-out after the display time, the launcher's own fade, or the stored opacity
     /// (`update`).
     fn update_alpha(&self, state: &mut State, surface: Surface, now: Instant) -> Result<(), VrError> {
+        let opacity = Self::overlay_opacity(state, surface);
         let settings = &state.settings[surface.index()];
-        let (opacity, fadeout, display) = (settings.opacity, settings.fadeout_duration, settings.display_duration);
+        let (fadeout, display) = (settings.fadeout_duration, settings.display_duration);
         let alpha = if fadeout != 0.0 {
             let elapsed = (now.duration_since(state.last_update[surface.index()]).as_secs_f64() - display).max(0.0);
             let ratio = (1.0 - elapsed / fadeout).max(0.0);
@@ -1724,10 +1735,13 @@ impl Overlay {
             }
             return Ok(());
         }
+        // The log's opacity is drawn into the texture, so a new opacity draws it again.
+        let opacity = state.settings[Surface::Panel.index()].opacity;
         let hash = {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             hasher.write(&frame.bgra);
             hasher.write_u32(frame.width);
+            hasher.write_u64(opacity.to_bits());
             hasher.finish()
         };
         if state.panel_last_raw == Some(hash) {
@@ -1752,6 +1766,7 @@ impl Overlay {
         for (pixel, alpha) in pixels.chunks_exact_mut(4).zip(&mask) {
             pixel[3] = *alpha;
         }
+        panel_background_alpha(&mut pixels, size, &state.layout, opacity);
         if state.intro != Intro::Idle {
             let rect = state.layout.region_rect(Region::Launcher, size.0);
             if state.intro == Intro::Pending {
@@ -1854,6 +1869,45 @@ fn clear_rect(pixels: &mut [u8], size: (u32, u32), rect: (i64, i64, i64, i64)) {
         for x in x0.max(0)..x1.min(i64::from(size.0)) {
             let i = (y as usize * size.0 as usize + x as usize) * 4;
             pixels[i..i + 4].fill(0);
+        }
+    }
+}
+
+/// The log's background in the texture takes the log's opacity, so that the space behind the log
+/// shows through while its text, buttons and title bar stay whole (#1247). The background is
+/// what the page paints in the log's two background colours, which it also draws as swatches
+/// right of the log ([`layout::PANEL_BACKGROUND_SWATCH_PX`]); a pixel close to either colour is
+/// background, and one that differs a little (the edge of a letter) is in between. The title bar
+/// above it keeps its alpha. Colours stay as they are: only the alpha changes.
+fn panel_background_alpha(pixels: &mut [u8], size: (u32, u32), layout: &VrLayout, opacity: f64) {
+    let background = (opacity.clamp(0.0, 1.0) * 255.0).round() as i32;
+    if background >= 255 {
+        return;
+    }
+    let scale = f64::from(size.0) / f64::from(layout.atlas.0);
+    let at = |x: i64, y: i64| (y as usize * size.0 as usize + x as usize) * 4;
+    let inside = |x: i64, y: i64| x >= 0 && y >= 0 && x < i64::from(size.0) && y < i64::from(size.1);
+    let (px, py, pw, _) = layout.panel;
+    let cell = layout::PANEL_BACKGROUND_SWATCH_PX;
+    let swatch = |row: u32| {
+        let x = layout::round_half_even(f64::from(px + pw) * scale + f64::from(cell) * scale / 2.0);
+        let y = layout::round_half_even(f64::from(py + row * cell) * scale + f64::from(cell) * scale / 2.0);
+        inside(x, y).then(|| {
+            let i = at(x, y);
+            [i32::from(pixels[i]), i32::from(pixels[i + 1]), i32::from(pixels[i + 2])]
+        })
+    };
+    let (Some(fill), Some(log)) = (swatch(0), swatch(1)) else { return };
+    let (x0, y0, x1, y1) = layout.region_rect(Region::Panel, size.0);
+    let top = y0 + layout::round_half_even(f64::from(layout::PANEL_TITLE_BAR_PX) * scale);
+    let (low, high) = PANEL_KEY_SOFT;
+    for y in top.max(0)..y1.min(i64::from(size.1)) {
+        for x in x0.max(0)..x1.min(i64::from(size.0)) {
+            let i = at(x, y);
+            let diff = [fill, log].iter().map(|key| (0..3).map(|c| (i32::from(pixels[i + c]) - key[c]).abs()).max().unwrap_or(0)).min().unwrap_or(255);
+            let ramp = (diff - low).clamp(0, high - low);
+            let alpha = (background + (255 - background) * ramp / (high - low)) as u8;
+            pixels[i + 3] = pixels[i + 3].min(alpha);
         }
     }
 }
@@ -2046,5 +2100,64 @@ mod tests {
         assert_eq!(pixels[3], 0);
         assert_eq!(pixels[11], 255);
         assert_eq!(pixels[15], 0, "within the soft edge");
+    }
+
+    /// The default atlas as the page paints it (BGRA): the log's window fill, a title bar, the log's
+    /// own area inside it, a letter and its edge, and the swatches of the two background colours
+    /// right of the log, all `scale` times the logical size.
+    fn painted_log(scale: u32) -> (Vec<u8>, (u32, u32), VrLayout) {
+        const FILL: [u8; 3] = [0x41, 0x23, 0x33];
+        const LOG: [u8; 3] = [0x33, 0x16, 0x26];
+        let layout = VrLayout::default_layout();
+        let size = (layout.atlas.0 * scale, layout.atlas.1 * scale);
+        let mut pixels = vec![0u8; (size.0 * size.1 * 4) as usize];
+        let mut paint = |x0: u32, y0: u32, x1: u32, y1: u32, colour: [u8; 3]| {
+            for y in y0 * scale..y1 * scale {
+                for x in x0 * scale..x1 * scale {
+                    let i = ((y * size.0 + x) * 4) as usize;
+                    pixels[i..i + 3].copy_from_slice(&colour);
+                    pixels[i + 3] = 255;
+                }
+            }
+        };
+        paint(0, 0, 900, 700, FILL);
+        paint(0, 0, 900, 56, [0x27, 0x0f, 0x1c]);
+        paint(16, 68, 884, 684, LOG);
+        paint(100, 100, 102, 120, [0xf0, 0xf0, 0xf0]);
+        paint(102, 100, 103, 120, [LOG[0] - 12, LOG[1] - 12, LOG[2] - 12]);
+        paint(900, 0, 908, 8, FILL);
+        paint(900, 8, 908, 16, LOG);
+        (pixels, size, layout)
+    }
+
+    fn alpha_at(pixels: &[u8], size: (u32, u32), scale: u32, x: u32, y: u32) -> u8 {
+        pixels[(((y * scale) * size.0 + x * scale) * 4 + 3) as usize]
+    }
+
+    #[test]
+    fn the_log_s_background_takes_its_opacity_and_its_text_stays_whole() {
+        for scale in [1, 2] {
+            let (mut pixels, size, layout) = painted_log(scale);
+            panel_background_alpha(&mut pixels, size, &layout, 0.6);
+            let at = |x, y| alpha_at(&pixels, size, scale, x, y);
+            assert_eq!([at(8, 300), at(400, 400)], [153, 153], "the window's fill and the log's own area (x{scale})");
+            assert_eq!(at(100, 110), 255, "a letter stays whole");
+            // 12 off the log's colour: 8 of the 16 steps from background (153) to whole (255).
+            assert_eq!(at(102, 110), 204, "a letter's edge is in between");
+            assert_eq!(at(400, 20), 255, "the title bar stays whole");
+            assert_eq!(at(1000, 100), 0, "outside the log the mask's alpha stays");
+        }
+    }
+
+    #[test]
+    fn at_full_opacity_the_log_s_texture_is_as_the_page_drew_it() {
+        let (mut pixels, size, layout) = painted_log(1);
+        let drawn = pixels.clone();
+        panel_background_alpha(&mut pixels, size, &layout, 1.0);
+        assert_eq!(pixels, drawn);
+        // Never more see-through than the setting allows, nor less than none.
+        panel_background_alpha(&mut pixels, size, &layout, -1.0);
+        assert_eq!(alpha_at(&pixels, size, 1, 400, 400), 0);
+        assert_eq!(alpha_at(&pixels, size, 1, 100, 110), 255);
     }
 }

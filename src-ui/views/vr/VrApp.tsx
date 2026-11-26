@@ -45,6 +45,24 @@ type RegionProps = {
     hidden?: boolean;
 };
 
+// The size of each swatch of the log's background colours, in logical px
+// (PANEL_BACKGROUND_SWATCH_PX in native/vr-overlay/src/layout.rs, #1247).
+export const BACKGROUND_SWATCH_PX = 8;
+
+// The log's background colours, the window's fill above the log's own, in the gap right of the
+// log (at least 8 px wide at every log size). No overlay shows them; the overlay reads them to make
+// the log's background, and only it, see-through by the log's opacity.
+const BackgroundSwatch = ({ layout }: { layout: VrPanelLayout }) => {
+    const [x, y, w] = layout.regions.panel;
+    return (
+        <div className={styles.background_swatch} data-vr-background-swatch aria-hidden="true"
+            style={{ left: x + w, top: y, width: BACKGROUND_SWATCH_PX, height: BACKGROUND_SWATCH_PX * 2 }}>
+            <div className={styles.swatch_fill} />
+            <div className={styles.swatch_log} />
+        </div>
+    );
+};
+
 const Region = ({ layout, name, children, hidden = false }: RegionProps) => {
     const [x, y, w, h] = layout.regions[name];
     return (
@@ -115,6 +133,7 @@ export const VrApp = () => {
             <ThemeController />
 
             <Region layout={layout} name="panel" hidden={!windows.log}><VrLogWindow open={windows.log} onClose={toggleLog} /></Region>
+            <BackgroundSwatch layout={layout} />
             <Region layout={layout} name="launcher"><VrLauncher windows={windows} toggleLog={toggleLog} openLog={openLog} togglePopup={togglePopup} /></Region>
             <Region layout={layout} name="popup"><VrPopupWindow popup={windows.popup} onClose={closePopup} /></Region>
             <Region layout={layout} name="toolbar"><VrToolbar /></Region>

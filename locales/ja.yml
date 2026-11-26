@@ -1425,7 +1425,7 @@ vr_panel:
         font_limit: "変更できる範囲は14〜28です"
         font_current: "現在: {{size}}（原文）"
         font_help: "訳文の大きさも合わせて変わります"
-        opacity_help: "押すごとに100 → 80 → 60 → 40% → 100%"
+        opacity_help: "ログの背景の濃さです。文字はそのまま見えます。押すごとに100 → 80 → 60 → 40% → 100%"
     settings:
         processing: "処理設定"
         changing: "変更を反映中…"
