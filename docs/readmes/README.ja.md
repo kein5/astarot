@@ -33,12 +33,12 @@ ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、�
 
 ## できること
 
-- **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
+- **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori-TTS、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
 - **モニター出力**: 同じ読み上げ音声を自分のスピーカーやヘッドホンでも聞けます（任意）。
 - **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。CUDAでの変換にはGeForce GTX 16・RTX 20シリーズ以降のGPUとドライバー580以降が必要です。Windowsでは0.6.0から、DirectX 12対応のGPUもDirectMLで使えます。CPUでも処理が間に合えば変換できますが、声は遅れて届きます。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
-- **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデル、翻訳のモデル（M2M100、NLLB-200）と、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
+- **モデルの取得**: Irodori-TTS、Qwen3-TTS、RVCの既定モデル、翻訳のモデル（M2M100、NLLB-200）と、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
 - **Linux対応**: Waylandでのグローバルショートカット（XDG portal）、PipeWireの仮想マイクとマイク選択、AppImageでの日本語入力（fcitx/Mozc、ibus）に対応しています。VR UI、Waylandネイティブのウィンドウを共有するチャット読み取り、音声タイピングモードの貼り付け（X11/XWaylandのウィンドウ）も使えます。
 
 RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です。[モデル取得の仕様](/docs/voice-stack/model-downloads.md)と、Windowsでは[Windowsで音声機能を使う](/docs/voice-stack/local-setup-windows.md)、Linuxでは[Linuxの手順](/docs/voice-stack/local-setup-linux.md)を参照してください。

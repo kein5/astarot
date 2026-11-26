@@ -1,4 +1,4 @@
-//! Optional bounded warm requests to an owned Irodori GPU server.
+//! Optional bounded warm requests to an owned Irodori-TTS GPU server.
 //!
 //! Generated audio is discarded here: no router, user text, microphone or queue. This
 //! trades idle power for latency; it is never enabled by default.

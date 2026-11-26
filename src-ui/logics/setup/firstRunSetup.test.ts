@@ -16,7 +16,7 @@ const catalog = unchecked<NonNullable<SetupCatalog>>({
         asr("reazon-q8", ["ja"], 660),
         asr("parakeet-f16", ["uk"], 1200),
         { id: "silero", target: "vad", name: "Silero", total_bytes: 1, profile: { recommended_for: [] } },
-        { id: "irodori", target: "japanese", name: "Irodori", total_bytes: 9, profile: { recommended_for: ["ja"] } },
+        { id: "irodori", target: "japanese", name: "Irodori-TTS", total_bytes: 9, profile: { recommended_for: ["ja"] } },
     ],
 });
 const empty = { model: "", vad_model: "" };

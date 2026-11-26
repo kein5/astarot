@@ -8,7 +8,7 @@ The item names below are those of the current English GUI.
 
 1. Open **TTS** from the gear on the main screen. RVC has its own page next to it, and the shared audio route is under **Device**.
 2. Open **Models and servers** near the bottom of the page, and in **Model GGUF path** under **Japanese TTS**, enter
-   the full path of an existing Irodori GGUF model. `~` also works.
+   the full path of an existing Irodori-TTS GGUF model. `~` also works.
    Leave **Voice GGUF path (optional)** empty and set **Inference device** to **Automatic**.
 3. Press Enter in the path field, or leave it, and the path is saved; settings save by themselves.
    Then press **Start server** for Japanese TTS and wait until it shows **Ready**. Saving alone does not start the model.
@@ -19,7 +19,7 @@ The item names below are those of the current English GUI.
 |---|---|
 | Chat voice | Original text |
 | Japanese server | Bundled server |
-| Japanese voice name | none (Irodori's standard voice) |
+| Japanese voice name | none (Irodori-TTS's standard voice) |
 | Audio route (Device page) | Existing external cable |
 | Output device | The earphones or speakers you are using |
 
@@ -45,15 +45,15 @@ and if it does not, leave the value empty and use ordinary TTS. Saving alone doe
 
 ## If you do not have a model
 
-Default models are available: Irodori for the Japanese slot on the TTS page, Qwen for the multilingual slot and Saisho Utane on the RVC page.
+Default models are available: Irodori-TTS for the Japanese slot on the TTS page, Qwen for the multilingual slot and Saisho Utane on the RVC page.
 Under "Download a default model" → "Review download", check the provider, terms of use, size and save location.
 Check the consent box and press "Agree and download". When the download and verification are complete, press "Apply model path".
 You can cancel while it downloads. Apply only after stopping the server or input concerned. Applying saves only the path of the downloaded model,
 and other fields of the form keep their values. If you are editing the path that will be replaced, press Enter to save it or Escape to put it back first.
 Settings other than the model path are kept, and downloading or applying alone does not start a server, speech or the microphone.
 
-Irodori is about 1.92 GB and Qwen about 1.21 GB. The RVC model and index come to about 336 MB together.
-As lighter variants, you can also choose Irodori Q8 (about 1.21 GB) and Qwen Q5 (about 874 MB).
+Irodori-TTS is about 1.92 GB and Qwen about 1.21 GB. The RVC model and index come to about 336 MB together.
+As lighter variants, you can also choose Irodori-TTS Q8 (about 1.21 GB) and Qwen Q5 (about 874 MB).
 The TTS download section shows the GPU name, its total memory and the VRAM free at the moment, and suggests candidates using each model's estimated usage plus a margin.
 You can switch between standard and lightweight by hand under "Model variant". The default margin is 2 GiB, for use alongside VRChat and similar apps.
 You can change it to 0.5 GiB for TTS alone, but this neither reserves memory nor guarantees that it works.
@@ -64,13 +64,13 @@ Public use of the Saisho model requires a CC BY 4.0 credit. For details, see [th
 
 ## Low-latency standby for Japanese TTS
 
-Stop the Japanese server, set the inference device to GPU, select "Low-latency standby (Irodori GPU)",
+Stop the Japanese server, set the inference device to GPU, select "Low-latency standby (Irodori-TTS on GPU)",
 then press "Save server settings" → "Start server". Check that it shows "Ready" and "Low-latency standby active".
 It is off by default. While it is on, the GPU keeps repeating short warm-up computations, so power use rises and it may compete with games.
 The audio from the standby computations is discarded and is not sent to the output. Standby continues even if you turn TTS off on the main screen.
 To stop standby, stop the Japanese server or quit ASTAROT.
 
-With an RTX 4080 SUPER, a fixed short sentence and Irodori F16 already loaded, the final AppImage had a p95 of 50.1 ms over 30 runs,
+With an RTX 4080 SUPER, a fixed short sentence and Irodori-TTS F16 already loaded, the final AppImage had a p95 of 50.1 ms over 30 runs,
 measured from sending in the GUI to the first PCM write. This does not guarantee the result for arbitrary text, other devices or use alongside a game, nor 100 ms until the sound reaches the ear.
 
 For RVC, save the model and runtime on the **RVC** page and press **Prepare and use virtual microphone**.
@@ -144,7 +144,7 @@ AppImageにはspeech.cppの実行ファイルを同梱している。音声モ�
 
 1. メイン画面の歯車から **TTS** を開く。RVCは隣の専用ページ、共通の音声経路は **Device** にある。
 2. ページの下のほうにある **Models and servers** を開き、**Japanese TTS** の **Model GGUF path** に
-   既存のIrodori GGUFモデルのフルパスを入力する。`~`も利用できる。
+   既存のIrodori-TTS GGUFモデルのフルパスを入力する。`~`も利用できる。
    **Voice GGUF path (optional)** は空欄、**Inference device** は **Automatic** にする。
 3. パスの欄でEnterを押すか欄を離れると、パスを保存する。設定は自分で保存する。
    そのあとJapanese TTSの **Start server** を押し、**Ready** になるまで待つ。保存だけではモデルを起動しない。
@@ -154,7 +154,7 @@ AppImageにはspeech.cppの実行ファイルを同梱している。音声モ�
 |---|---|
 | Chat voice | Original text |
 | Japanese server | Bundled server |
-| Japanese voice name | none（Irodoriの標準音声） |
+| Japanese voice name | none（Irodori-TTSの標準音声） |
 | Audio route（Deviceページ） | Existing external cable |
 | Output device | 使用中のイヤホン／スピーカー |
 
@@ -180,15 +180,15 @@ Deviceページの **Mute now** は共通経路全体のミュートなので、
 
 ## モデルを持っていない場合
 
-TTSページの日本語枠にはIrodori、多言語枠にはQwen、RVCページにはSaisho Utaneの既定モデルを用意した。
+TTSページの日本語枠にはIrodori-TTS、多言語枠にはQwen、RVCページにはSaisho Utaneの既定モデルを用意した。
 「既定モデルのダウンロード」→「取得内容を確認」で、提供元・利用条件・容量・保存先を確認する。
 同意にチェックして「同意してダウンロード」を押し、取得と検証が完了したら「モデルパスを適用」を押す。
 取得中は取消可能。適用は対象のサーバー／入力を停止してから行う。適用で保存するのは取得したモデルのパスだけで、
 フォームのほかの項目はそのまま残る。置き換えるパス自体を編集中の場合は、先にEnterで保存するかEscで元に戻す。
 モデルパス以外の設定は維持し、取得・適用だけではサーバー・発声・マイクを開始しない。
 
-Irodoriは約1.92 GB、Qwenは約1.21 GB、RVCのモデルとindexは合計約336 MB。
-軽量版としてIrodori Q8（約1.21 GB）、Qwen Q5（約874 MB）も選べる。
+Irodori-TTSは約1.92 GB、Qwenは約1.21 GB、RVCのモデルとindexは合計約336 MB。
+軽量版としてIrodori-TTS Q8（約1.21 GB）、Qwen Q5（約874 MB）も選べる。
 TTSの取得欄ではGPU名・総容量・現在の空きVRAMを表示し、モデルの使用量目安と余裕を含めて候補を案内する。
 「モデルの種類」で標準／軽量を手動で変更できる。VRChat等と併用する2 GiBの余裕が既定で、
 TTS単独用の0.5 GiBへ変更できるが、これはメモリの予約や動作保証ではない。
@@ -199,13 +199,13 @@ Saishoモデルの公開利用時はCC BY 4.0のクレジット表示が必要�
 
 ## 日本語TTSの低遅延待機
 
-日本語サーバーを停止してから、推論デバイスをGPUにし、「低遅延待機（Irodori・GPU）」を選んで
+日本語サーバーを停止してから、推論デバイスをGPUにし、「低遅延待機（Irodori-TTS・GPU）」を選んで
 「サーバー設定を保存」→「サーバーを起動」。準備完了と低遅延待機中の表示を確認する。
 既定はOFF。ONの間はGPUで短い準備計算を繰り返すため、消費電力が増え、ゲームと競合する場合がある。
 待機計算の音声は破棄し、出力へは流さない。トップのTTSをOFFにしても待機は続く。
 待機を止めるには日本語サーバーを停止するかASTAROTを終了する。
 
-RTX 4080 SUPER／固定短文／読込済みIrodori F16で、GUI送信から最初のPCM書込みまでの
+RTX 4080 SUPER／固定短文／読込済みIrodori-TTS F16で、GUI送信から最初のPCM書込みまでの
 最終AppImageで30回のp95は50.1 msだった。任意の文章・機器・ゲーム併用や、耳に届くまで100 msを保証するものではない。
 
 RVCは **RVC** ページでモデルとランタイムを保存し、**仮想マイクを準備して使用** を押す。

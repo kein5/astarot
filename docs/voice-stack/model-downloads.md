@@ -94,9 +94,9 @@ So that first-time users can compare and choose on the 0.5.0 screen, each catalo
 
 TTS rows (added on 2026-11-16):
 
-- These rows are pinned by hand in the catalog, so `ids` in `PROFILES` point to the catalog ID for each file type (for example `irodori-v41-f16` for Irodori MF F16).
-- The recommendation is `recommended_for` in `PROFILES`, and it replaces speech.cpp's `start`. This is because speech.cpp suggests Qwen3-TTS 0.6B for Japanese as well, while ASTAROT reads Japanese with Irodori (the japanese profile) and other languages with Qwen3-TTS (the multilingual profile). Japanese gets Irodori MF F16 and the other 9 languages get Qwen3-TTS 0.6B Q8_0; both are the files the app selects from the start. The other TTS rows are empty. Irodori Large is under the Gemma terms of use, so it is not recommended.
-- `cpu` is `impractical`. The test ran speech.cpp 0.10.0 on the CPU of an i7-1255U (2026-11-16, 5 short Japanese sentences). Irodori MF F16 took 3 to 7 seconds to the first sound and generated about 4 times slower than real time. Playback broke up. Qwen3-TTS 1.7B Q8_0 took about 1 second to the first sound but generated about 3 times slower. Irodori Small F16 took 20 to 100 seconds to the first sound. Large and Qwen3-TTS 0.6B were not measured on a CPU but are treated the same way because of their size. `gpu` is `recommended`.
+- These rows are pinned by hand in the catalog, so `ids` in `PROFILES` point to the catalog ID for each file type (for example `irodori-v41-f16` for Irodori-TTS MF F16).
+- The recommendation is `recommended_for` in `PROFILES`, and it replaces speech.cpp's `start`. This is because speech.cpp suggests Qwen3-TTS 0.6B for Japanese as well, while ASTAROT reads Japanese with Irodori-TTS (the japanese profile) and other languages with Qwen3-TTS (the multilingual profile). Japanese gets Irodori-TTS MF F16 and the other 9 languages get Qwen3-TTS 0.6B Q8_0; both are the files the app selects from the start. The other TTS rows are empty. Irodori-TTS Large is under the Gemma terms of use, so it is not recommended.
+- `cpu` is `impractical`. The test ran speech.cpp 0.10.0 on the CPU of an i7-1255U (2026-11-16, 5 short Japanese sentences). Irodori-TTS MF F16 took 3 to 7 seconds to the first sound and generated about 4 times slower than real time. Playback broke up. Qwen3-TTS 1.7B Q8_0 took about 1 second to the first sound but generated about 3 times slower. Irodori-TTS Small F16 took 20 to 100 seconds to the first sound. Large and Qwen3-TTS 0.6B were not measured on a CPU but are treated the same way because of their size. `gpu` is `recommended`.
 - `memory_bytes` is the peak memory per type from the model card at the pinned revision; all values are from an Apple M5 (Metal).
 
 ### Catalog screen (0.5.0)
@@ -249,11 +249,11 @@ The table below records the first catalog (version `2026-10-31.1`). The current 
 | rvc-saisho | Same as above | model.index / 278065619 | e9f7396e5db3077274c720d055e43abb8f1eac5609cbdf48b198ca4f4a35cad5 |
 | haas-ja-q8 | sakasegawa/Haas-ja-v1.0-GGUF @ 6b965d5007ba780585de51549d57a8c1c0d67c7e | Haas-616M-ja-v1.0-Q8_0.gguf / 656381472 | cd5f60b2f1c411404b83fca4a65e3ce30a26d9e951b6a346529e65f22758afeb |
 
-The base models were traced from the [Irodori card](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/README.md) and the [Qwen card](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/fd9df9364613a92a86b4137074bc281204823033/README.md) and checked against speech.cpp v0.9.0's [Irodori](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/irodori-tts.md) and [Qwen](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/qwen3-tts.md) documents. The dedicated GGUFs include the codec. Irodori shows MIT and, for the codec base, Apache-2.0, along with the provider's prohibitions such as unauthorized imitation and generating misinformation. Qwen is Apache-2.0.
+The base models were traced from the [Irodori-TTS card](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/README.md) and the [Qwen card](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/fd9df9364613a92a86b4137074bc281204823033/README.md) and checked against speech.cpp v0.9.0's [Irodori-TTS](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/irodori-tts.md) and [Qwen](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/qwen3-tts.md) documents. The dedicated GGUFs include the codec. Irodori-TTS shows MIT and, for the codec base, Apache-2.0, along with the provider's prohibitions such as unauthorized imitation and generating misinformation. Qwen is Apache-2.0.
 
 The base model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) was traced from the [Haas-ja card](https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/6b965d5007ba780585de51549d57a8c1c0d67c7e/README.md) and checked against speech.cpp v0.10.0's [FastConformer document](https://github.com/nyosegawa/speech.cpp/blob/v0.10.0/docs/models/fastconformer.md). Apache-2.0. The files at this revision need speech.cpp 0.9.4 or later and load with the bundled 0.10.0. The ASR server also needs a VAD model, which is not in the catalog; its path is set as before. Haas is not part of the hardware recommendation, because no measurement of the GPU memory it needs has been recorded on the VRCT side.
 
-On 2026-10-31, live tests with the bundled 0.10.0 Vulkan build, Haas Q8_0 and Silero v6.2 ran GPU/CPU startup through `SpeechServer`, listing of recognition models through `/v1/models`, REST recognition and Realtime (with and without server VAD), and passed. The input was 2 Japanese sentences synthesized with Irodori MF; this is not an evaluation of recognition accuracy.
+On 2026-10-31, live tests with the bundled 0.10.0 Vulkan build, Haas Q8_0 and Silero v6.2 ran GPU/CPU startup through `SpeechServer`, listing of recognition models through `/v1/models`, REST recognition and Realtime (with and without server VAD), and passed. The input was 2 Japanese sentences synthesized with Irodori-TTS MF; this is not an evaluation of recognition accuracy.
 
 The [Saisho author card](https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/blob/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a/README.md) states that the model uses the author's own voice and own dataset, is under CC BY 4.0 and requires attribution. Voice model created by **Saisho Utane** — [author](https://huggingface.co/Saisho-Utane) — Used under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/). This app does not modify the model. Users of the model are also advised to give credit in what they publish or in their descriptions, to link to the license and to indicate changes. Mia2026 is not included in the catalog.
 
@@ -271,7 +271,7 @@ Because the same GGUF is used on every supported backend, models are not split b
 
 | Slot | Standard candidate | Light candidate | Upstream VRAM measurement example (standard / light, decimal GB) |
 |---|---|---|---|
-| Japanese | Irodori MF F16 | Irodori MF Q8_0 | 2.30 / 1.59 |
+| Japanese | Irodori-TTS MF F16 | Irodori-TTS MF Q8_0 | 2.30 / 1.59 |
 | Multilingual | Qwen CustomVoice Q8_0 | Qwen CustomVoice Q5_K | 1.33 / 0.99 |
 
 The upstream values are measurement examples from the linked speech.cpp v0.9.0 documents, on an RTX 2080 / Vulkan with 20 Japanese sentences; they are not minimum requirements. The display also mentions the size reduction from quantization and the possible change in audio quality. Qwen Q4 was left out of the candidates this time because of its higher transcription error rate upstream.
@@ -285,11 +285,11 @@ The guidance uses these conditions:
 
 Selecting does not change the model path or the execution device in the settings. Consent to the warning, the download and Apply after verification remain separate actions, as before. The manual selection is kept, and switching to another candidate during a download leaves the progress, cancel and apply buttons in place. RVC is a choice of voice, so this VRAM estimate does not apply to it. Running TTS, RVC, ASR and a game at the same time, or long texts, needs extra headroom.
 
-For the 2 light candidates, the lead verified a full real download from HF and the pinned sizes and hashes. Irodori Q8, Qwen Q5 and Qwen Q8 were run through synthesis, cancel, stop and restart on a real GPU, and the PCM matched across 3 runs for each model. Through a separate real GUI, 2 runs each also confirmed a full PCM match against an independent reference and silence before and after. The comparison was at each model's own rate, 48 kHz for Irodori and 24 kHz for Qwen; it does not confirm resampling to 48 kHz on the host side or perceived quality. The observed peak VRAM was 1,499 / 1,000 / 1,332 MiB respectively (measured on the owning PID at 100 ms intervals), and peaks between samples may have been missed.
+For the 2 light candidates, the lead verified a full real download from HF and the pinned sizes and hashes. Irodori-TTS Q8, Qwen Q5 and Qwen Q8 were run through synthesis, cancel, stop and restart on a real GPU, and the PCM matched across 3 runs for each model. Through a separate real GUI, 2 runs each also confirmed a full PCM match against an independent reference and silence before and after. The comparison was at each model's own rate, 48 kHz for Irodori-TTS and 24 kHz for Qwen; it does not confirm resampling to 48 kHz on the host side or perceived quality. The observed peak VRAM was 1,499 / 1,000 / 1,332 MiB respectively (measured on the owning PID at 100 ms intervals), and peaks between samples may have been missed.
 
 The AppImage that includes the new guidance UI, `3c034035748633fa4e11d56c09379bd8dfe751dbf86b62aee0d1c3945a33036a`, was also checked through real GPU display → choosing the 2 light candidates → product verification of the already downloaded cache → Apply → starting and stopping the bundled Japanese and multilingual servers → OFF and path kept after restart. This was a cache verification, not a test that transferred all files again through the new UI.
 
-With the same AppImage, Irodori F16 and low-latency standby ON, 30 warm runs of a fixed short sentence gave a p95 upper bound of 50.054284 ms and a p50 upper bound of 46.018233 ms. The measurement runs from a trusted GUI click to the completion of the first non-zero PCM write. The following were recalculated independently from the saved records: a full S16 PCM match with zeros before and after for all 31 utterances including warmup; 2.304 seconds of zeros when OFF; one OSC message per send. This is not a speed guarantee for the light models. The interval between trials was about 10.18 to 10.24 seconds, and the results are not generalized to arbitrary long texts, contention with games or physical listening.
+With the same AppImage, Irodori-TTS F16 and low-latency standby ON, 30 warm runs of a fixed short sentence gave a p95 upper bound of 50.054284 ms and a p50 upper bound of 46.018233 ms. The measurement runs from a trusted GUI click to the completion of the first non-zero PCM write. The following were recalculated independently from the saved records: a full S16 PCM match with zeros before and after for all 31 utterances including warmup; 2.304 seconds of zeros when OFF; one OSC message per send. This is not a speed guarantee for the light models. The interval between trials was about 10.18 to 10.24 seconds, and the results are not generalized to arbitrary long texts, contention with games or physical listening.
 
 The latest build, with the RVC search fix, is the AppImage in `build/gpu-model-guidance-rvc-fixed-2026-10-30-artifacts/` (SHA256 b8050d10… above). The 30-run performance values are kept as measurements of the older 3c034035… build. The new input hash record has 575 entries, including copied items such as RVC. In the lead's extraction check, 18 adapter and license files matched their source files, and this worker also compared the record with the hashes of the current source. The older match record of 543 entries did not include anything under integrations.
 
@@ -413,9 +413,9 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 読み上げの行（2026-11-16に追加）：
 
-- カタログで手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori MFのF16は`irodori-v41-f16`など）。
-- おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、ASTAROTは日本語をIrodori（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori LargeはGemmaの利用規約に従うので、おすすめにしない。
-- `cpu`は`impractical`。i7-1255UのCPUでspeech.cpp 0.10.0を動かした（2026-11-16、短い日本語5文）。Irodori MF F16は最初の音まで3〜7秒で、生成は実時間の約4倍遅く、再生が途切れる。Qwen3-TTS 1.7B Q8_0は最初の音まで約1秒だが、生成は約3倍遅い。Irodori Small F16は最初の音まで20〜100秒だった。LargeとQwen3-TTS 0.6BはCPUで測っていないが、大きさから同じ扱いにした。`gpu`は`recommended`。
+- カタログで手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori-TTS MFのF16は`irodori-v41-f16`など）。
+- おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、ASTAROTは日本語をIrodori-TTS（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori-TTS MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori-TTS LargeはGemmaの利用規約に従うので、おすすめにしない。
+- `cpu`は`impractical`。i7-1255UのCPUでspeech.cpp 0.10.0を動かした（2026-11-16、短い日本語5文）。Irodori-TTS MF F16は最初の音まで3〜7秒で、生成は実時間の約4倍遅く、再生が途切れる。Qwen3-TTS 1.7B Q8_0は最初の音まで約1秒だが、生成は約3倍遅い。Irodori-TTS Small F16は最初の音まで20〜100秒だった。LargeとQwen3-TTS 0.6BはCPUで測っていないが、大きさから同じ扱いにした。`gpu`は`recommended`。
 - `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーで、どれもApple M5（Metal）での値である。
 ### カタログ画面（0.5.0）
 
@@ -566,11 +566,11 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 | rvc-saisho | 同上 | model.index / 278065619 | e9f7396e5db3077274c720d055e43abb8f1eac5609cbdf48b198ca4f4a35cad5 |
 | haas-ja-q8 | sakasegawa/Haas-ja-v1.0-GGUF @ 6b965d5007ba780585de51549d57a8c1c0d67c7e | Haas-616M-ja-v1.0-Q8_0.gguf / 656381472 | cd5f60b2f1c411404b83fca4a65e3ce30a26d9e951b6a346529e65f22758afeb |
 
-[Irodoriカード](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/README.md)と[Qwenカード](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/fd9df9364613a92a86b4137074bc281204823033/README.md)から元モデルへたどり、speech.cpp v0.9.0の[Irodori](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/irodori-tts.md)・[Qwen](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/qwen3-tts.md)資料と照合した。専用GGUFはcodecを含む。IrodoriはMITとcodec基盤Apache-2.0、提供元の無断模倣・誤情報生成禁止なども表示。QwenはApache-2.0。
+[Irodori-TTSのカード](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/README.md)と[Qwenカード](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/fd9df9364613a92a86b4137074bc281204823033/README.md)から元モデルへたどり、speech.cpp v0.9.0の[Irodori-TTS](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/irodori-tts.md)・[Qwen](https://github.com/nyosegawa/speech.cpp/blob/v0.9.0/docs/models/qwen3-tts.md)資料と照合した。専用GGUFはcodecを含む。Irodori-TTSはMITとcodec基盤Apache-2.0、提供元の無断模倣・誤情報生成禁止なども表示。QwenはApache-2.0。
 
 [Haas-jaカード](https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/6b965d5007ba780585de51549d57a8c1c0d67c7e/README.md)から元モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)へたどり、speech.cpp v0.10.0の[FastConformer資料](https://github.com/nyosegawa/speech.cpp/blob/v0.10.0/docs/models/fastconformer.md)と照合した。Apache-2.0。このrevisionのファイルはspeech.cpp 0.9.4以降が必要で、同梱0.10.0で読める。ASRサーバーにはVADモデルも必要だが、カタログには含めず従来どおりパスを指定する。HaasはGPU推奨量の実測をVRCT側で記録していないため、ハードウェア推奨の対象にしない。
 
-2026-10-31、同梱0.10.0 Vulkan版とHaas Q8_0・Silero v6.2で、`SpeechServer`経由のGPU/CPU起動、`/v1/models`での認識モデル列挙、REST認識、Realtime（サーバーVADあり/なし）のライブ試験を実行しPASS。入力はIrodori MFで合成した日本語2文で、認識精度の評価ではない。
+2026-10-31、同梱0.10.0 Vulkan版とHaas Q8_0・Silero v6.2で、`SpeechServer`経由のGPU/CPU起動、`/v1/models`での認識モデル列挙、REST認識、Realtime（サーバーVADあり/なし）のライブ試験を実行しPASS。入力はIrodori-TTS MFで合成した日本語2文で、認識精度の評価ではない。
 
 [Saisho作者カード](https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/blob/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a/README.md)は本人の声・自前データセット・CC BY 4.0・帰属必須を明記。Voice model created by **Saisho Utane** — [作者](https://huggingface.co/Saisho-Utane) — Used under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/). 本アプリはモデルを改変しない。モデル利用者にも公開物や説明でのクレジット、ライセンスへのリンク、改変表示を案内する。Mia2026はカタログに含めない。
 
@@ -588,7 +588,7 @@ TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11
 
 | 枠 | 標準候補 | 軽量候補 | 上流のVRAM測定例（標準 / 軽量、十進GB） |
 |---|---|---|---|
-| 日本語 | Irodori MF F16 | Irodori MF Q8_0 | 2.30 / 1.59 |
+| 日本語 | Irodori-TTS MF F16 | Irodori-TTS MF Q8_0 | 2.30 / 1.59 |
 | 多言語 | Qwen CustomVoice Q8_0 | Qwen CustomVoice Q5_K | 1.33 / 0.99 |
 
 上流値はリンク先のspeech.cpp v0.9.0資料にあるRTX 2080 / Vulkan・日本語20文での測定例であり、必要最低容量ではない。量子化による容量削減と音声品質の変化の可能性も表示する。Qwen Q4は上流の転記誤り率の増加を考慮して今回の候補から除外した。
@@ -602,11 +602,11 @@ TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11
 
 選択しても設定のモデルパスや実行デバイスは変わらない。警告への同意、取得、検証後のApplyは従来どおり別操作。手動選択を保持し、取得中に別候補へ切り替えても進捗・取消・適用ボタンを残す。RVCは声の選択であり、このVRAM見積りは適用しない。TTS・RVC・ASR・ゲームの同時利用や長文には追加の余裕が必要になる。
 
-軽量2候補は親担当が実HF全取得と固定size/hashを検証済み。Irodori Q8、Qwen Q5、Qwen Q8は実GPUで合成・取消・停止・再起動し、各モデル3回のPCM一致を確認した。別の実GUI経由でも各2回、独立参照との全PCM一致と前後の無音を確認。Irodoriは48 kHz、Qwenは24 kHzのモデル固有rateでの照合であり、ホスト側の48 kHzへの再サンプリングや知覚音質まで確認した結果ではない。観測ピークVRAMはそれぞれ1,499 / 1,000 / 1,332 MiB（100 ms間隔の所有PID測定）で、測定間のピークを取り逃す可能性がある。
+軽量2候補は親担当が実HF全取得と固定size/hashを検証済み。Irodori-TTS Q8、Qwen Q5、Qwen Q8は実GPUで合成・取消・停止・再起動し、各モデル3回のPCM一致を確認した。別の実GUI経由でも各2回、独立参照との全PCM一致と前後の無音を確認。Irodori-TTSは48 kHz、Qwenは24 kHzのモデル固有rateでの照合であり、ホスト側の48 kHzへの再サンプリングや知覚音質まで確認した結果ではない。観測ピークVRAMはそれぞれ1,499 / 1,000 / 1,332 MiB（100 ms間隔の所有PID測定）で、測定間のピークを取り逃す可能性がある。
 
 新しい案内UIを含むAppImage `3c034035748633fa4e11d56c09379bd8dfe751dbf86b62aee0d1c3945a33036a` でも、実GPU表示→軽量2候補の選択→既取得cacheの製品検証→Apply→同梱日本語/多言語サーバーの起動・停止→再起動時OFF・パス保持を確認した。これはcache検証であり、新UIで全ファイルを再転送した試験ではない。
 
-同じAppImageのIrodori F16・低遅延待機ONでは、固定短文のwarm 30回がp95上限50.054284 ms、p50上限46.018233 ms。測定は信頼されたGUIクリックから最初の非ゼロPCM書込み完了まで。warmupを含む31発声の全S16 PCM一致・前後ゼロ、OFF時2.304秒ゼロ、各送信のOSC1回を保存記録から独立再計算した。これは軽量モデルの速度保証ではない。試行間隔は約10.18〜10.24秒で、任意長文・ゲームとの競合・物理聴感へ一般化しない。
+同じAppImageのIrodori-TTS F16・低遅延待機ONでは、固定短文のwarm 30回がp95上限50.054284 ms、p50上限46.018233 ms。測定は信頼されたGUIクリックから最初の非ゼロPCM書込み完了まで。warmupを含む31発声の全S16 PCM一致・前後ゼロ、OFF時2.304秒ゼロ、各送信のOSC1回を保存記録から独立再計算した。これは軽量モデルの速度保証ではない。試行間隔は約10.18〜10.24秒で、任意長文・ゲームとの競合・物理聴感へ一般化しない。
 
 RVC検索修正を含む最新版は `build/gpu-model-guidance-rvc-fixed-2026-10-30-artifacts/` のAppImage（SHA256は上記b8050d10…）。30回の性能値は旧3c034035…版の測定として保持する。新しい入力hash記録はRVC等のコピー対象も含む575件。親担当の展開検査でアダプター・ライセンス18件が元ファイルと一致し、本担当も記録と現sourceのhashを照合した。旧543件の一致記録にはintegrations以下は含まれていなかった。
 

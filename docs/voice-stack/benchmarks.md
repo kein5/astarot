@@ -27,7 +27,7 @@ silencing of the virtual microphone in 79 to 84 ms in 3 failure runs. These are 
 
 Measured JSON /
 timestamp CSV.
-The same existing Irodori MF F16, RTX 4080 SUPER / Vulkan0, voice `none`.
+The same existing Irodori-TTS MF F16, RTX 4080 SUPER / Vulkan0, voice `none`.
 Excluding the 20.60-second startup warmup and the 2 preceding requests, the same Japanese test sentence was spoken 30 times.
 speech.cpp had been updated to 0.9.0 on the host before this measurement. These values are not aggregated with the single 0.8.11 value.
 
@@ -93,7 +93,7 @@ the `policy` profile in the installed WirePlumber configuration.
 ## Linux real-API smoke test (n=1)
 
 Measurement JSON: CachyOS, RTX 4080 SUPER,
-speech.cpp 0.8.11, an already downloaded Irodori MF F16, Vulkan0, voice `none`, 48 kHz mono.
+speech.cpp 0.8.11, an already downloaded Irodori-TTS MF F16, Vulkan0, voice `none`, 48 kHz mono.
 After the 15.67-second load/warmup finished, the CLI's test sentence was sent to a temporary PipeWire sink/source.
 
 | Boundary | Single observed value |
@@ -189,7 +189,7 @@ event→仮想マイク初音と実cancel/muteを測定した。以下の独立�
 
 実測JSON /
 timestamp CSV。
-同じ既存Irodori MF F16、RTX 4080 SUPER / Vulkan0、voice `none`。
+同じ既存Irodori-TTS MF F16、RTX 4080 SUPER / Vulkan0、voice `none`。
 起動時warmup 20.60秒と先行2要求を除外し、同じ日本語のテスト文を30回発声した。
 speech.cppはこの測定前にホスト側で0.9.0へ更新済みだった。0.8.11の単発値とは集約しない。
 
@@ -255,7 +255,7 @@ PCMはカウンターと時刻に変換して破棄。本文・生音声はレ�
 ## Linux実APIスモーク（n=1）
 
 測定JSON: CachyOS、RTX 4080 SUPER、
-speech.cpp 0.8.11、取得済みIrodori MF F16、Vulkan0、声`none`、48 kHz mono。
+speech.cpp 0.8.11、取得済みIrodori-TTS MF F16、Vulkan0、声`none`、48 kHz mono。
 load/warmup 15.67秒の終了後、CLIのテスト文を一時PipeWire sink/sourceへ送った。
 
 | 境界 | 1回の観測値 |

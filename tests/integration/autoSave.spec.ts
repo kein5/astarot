@@ -167,7 +167,7 @@ test("the text to speech settings save by themselves", async ({ app }) => {
     const server = page.getByLabel("Japanese server", { exact: true });
     await server.selectOption("external");
     await expect.poll(() => voice().japanese_server).toBe("external");
-    const address = page.getByLabel("Japanese server URL (Irodori)", { exact: true });
+    const address = page.getByLabel("Japanese server URL (Irodori-TTS)", { exact: true });
     await address.fill("http://127.0.0.1:8189");
     await address.press("Enter");
     await expect.poll(() => voice().japanese_url).toBe("http://127.0.0.1:8189");

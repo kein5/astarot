@@ -82,7 +82,7 @@ separate commercial from other use and allow redistribution with conditions
 VRCT-VOX does not redistribute; the review dialog names the terms and links
 `GEMMA_TERMS_OF_USE.md`, `GEMMA_PROHIBITED_USE_POLICY.md`, `LICENSE-MIT` and
 `LICENSE-APACHE-2.0` one by one, and the model is never the default pick. The
-Irodori model cards also prohibit imitating a voice without consent and
+Irodori-TTS model cards also prohibit imitating a voice without consent and
 misleading synthetic speech.
 
 ## Left out: drama-3
