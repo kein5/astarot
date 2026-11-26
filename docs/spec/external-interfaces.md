@@ -318,12 +318,13 @@ Japanese text to speech can also use an engine that the user installed and start
 
 | Label | Entry point | Content |
 |---|---|---|
-| `main` | `src-ui/index.html` | The main screen and the settings screen. Closing it quits the app |
+| `main` | `src-ui/index.html` | The main screen. Closing it puts the app away in the tray where a tray icon is shown, and quits it elsewhere |
+| `settings` | `src-ui/settings.html` | The settings screen (#1236). At most one: opening it again brings it to the front, at the page asked for. It remembers its own place and size (`SETTINGS_WINDOW_GEOMETRY`). Closing it closes only it |
 | `quick_chat` | `src-ui/quick-chat.html` | The small chat input window. A hotkey or a button opens it; closing it only hides it, and the draft remains |
 | `vr_panel` | `src-ui/vr.html` | The VR UI. Drawn off screen at (-10000, -10000), and the overlay captures it. Created only while the VR UI is on |
 | `caption_overlay` | `src-ui/caption-overlay.html` | The desktop captions. Placed topmost, passes clicks through and takes no focus. Receives the mouse only while Ctrl is held ([desktop captions](use-cases.md)). Created only while the captions or the inputs and outputs display is on |
 
-The settings screen is not a separate window but a page inside `main`.
+The settings screen has its own window since #1236. The settings button, the links to a settings page and the tray (its menu, its control panel and the hexagram's menu) open it or bring it to the front; a link to a page or a setting opens it there. While it is open, `main` does what it did while the settings page was open: the features pause, the hotkeys and Quick Chat wait, and the VR panel hears it. The main screen stays shown and usable beside it. "Go back" in the settings brings `main` to the front and closes the settings window. In a browser (development and the integration tests) there is no second window, and the settings stay a page of `main`.
 
 On Windows, WebView2 creates every window with the same launch arguments (`main` in `src-tauri/tauri.conf.json` and `BROWSER_ARGS` in `src-tauri/src/lib.rs`; a test confirms they are the same). All windows share one WebView2 environment that the app creates ([WebView2 network traffic](#webview2-network-traffic)). `msSmartScreenProtection` is removed from Tauri's default `--disable-features`, so SmartScreen works as it does by default (second security audit SEC-03). The features that stop rendering hidden windows (`CalculateNativeWinOcclusion` and stopping rendering in the background) are disabled, because the VR panel is placed off screen and captured. Traffic to Microsoft that has nothing to do with the screens is reduced with `--disable-background-networking` ([WebView2 network traffic](#webview2-network-traffic)).
 
@@ -763,12 +764,13 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 | ラベル | 入口 | 内容 |
 |---|---|---|
-| `main` | `src-ui/index.html` | メイン画面と設定画面。閉じるとアプリが終わる |
+| `main` | `src-ui/index.html` | メイン画面。閉じると、トレイのアイコンが出ているときはトレイにしまい、そうでなければアプリが終わる |
+| `settings` | `src-ui/settings.html` | 設定画面（#1236）。最大で1つで、もう一度開くと求められたページで手前に出る。自分の位置と大きさを覚える（`SETTINGS_WINDOW_GEOMETRY`）。閉じても閉じるのはこのウィンドウだけである |
 | `quick_chat` | `src-ui/quick-chat.html` | チャット入力の小窓。ホットキーかボタンで開き、閉じても隠すだけで下書きは残る |
 | `vr_panel` | `src-ui/vr.html` | VR UI。画面の外（-10000, -10000）に置いて描画し、オーバーレイが取り込む。VR UIがオンの間だけ作る |
 | `caption_overlay` | `src-ui/caption-overlay.html` | デスクトップの字幕。最前面に置き、クリックを通し、フォーカスを取らない。Ctrlキーを押している間だけマウスを受け取る（[デスクトップの字幕](use-cases.md)）。字幕か入力と出力の表示がオンの間だけ作る |
 
-設定画面は別ウィンドウではなく、`main`の中のページである。
+設定画面は#1236から専用のウィンドウである。設定ボタン、設定ページへのリンク、トレイ（メニュー、コントロールパネル、六芒星のメニュー）が開くか手前に出し、ページや設定へのリンクはその場所で開く。開いている間、`main`は設定ページが開いていたときと同じことをする。機能は一時停止し、ホットキーとQuick Chatは待ち、VR UIにも伝わる。メイン画面はその横で表示されたまま使える。設定の「戻る」は`main`を手前に出し、設定ウィンドウを閉じる。ブラウザー（開発と結合テスト）では2つ目のウィンドウはなく、設定は`main`のページのままである。
 
 WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。全ウィンドウはアプリが作った1つのWebView2の環境を共有する（[WebView2の通信](#webview2の通信)）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
