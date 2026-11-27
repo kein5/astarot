@@ -28,12 +28,14 @@ async function setup(initial: VoiceSettingsValue = {}) {
             }),
         },
         "../../../../../../logics/voice/useVoice": {
-            useVoice: () => ({ settings: draft, status: {}, devices: {}, error: null, send: () => {}, updateError: () => {} }),
+            useVoice: () => ({ settings: draft, status: {}, devices: {}, error: null, send: () => {}, updateError: () => {}, modelOptions: {} }),
         },
+        "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/voice/useSettingsDraft": {
             useSettingsDraft: () => ({ draft, setDraft, saving: false, dirty: false, submit: () => {}, navigationDialog: null }),
         },
-        "../tts/GenerationOptions": { GenerationOptions: "generation-options", validGenerationOptions: () => true },
+        "../tts/GenerationOptions": { GenerationOptions: "generation-options", validGenerationOptions: () => true, currentModelOptions: () => null },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, AUDIO_QUERY_ENGINES: [], validCoeiroinkOptions: () => true, validAudioQueryOptions: () => true },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" },
         "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },

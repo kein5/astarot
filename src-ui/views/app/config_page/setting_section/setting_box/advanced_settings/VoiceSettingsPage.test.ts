@@ -5,6 +5,7 @@ import { eventTarget, find, findIn, hooks, loadModule, nodesIn, stubGlobals, tre
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
+import * as languageNames from "../../../../../../logics/common/languageNames.ts";
 
 // The TTS page's voice form (VoiceSettings.tsx) drawn with the real settings draft, which makes the
 // save bar's entry: the names of the changed settings, whether they can be saved, and what a save
@@ -24,7 +25,8 @@ const saved: Settings = { mode: "off", mic_mode: "off", target_slot: "1", direct
 // The installed engines the label names: COEIROINK, and VOICEVOX, which reads an audio query.
 const TTS_ENGINES = { coeiroink: { name: "COEIROINK", url: "coeiroink_url" }, voicevox: { name: "VOICEVOX", url: "voicevox_url" } };
 
-interface Voice { settings: Settings | null; status: Settings; devices: { devices?: { id: string; label: string }[]; error?: string | null }; error: string | null }
+interface Voice { settings: Settings | null; status: Settings; devices: { devices?: { id: string; label: string }[]; error?: string | null }; error: string | null;
+    modelOptions?: Record<string, { options?: unknown }> }
 
 
 // The pages a test opened, closed together when it ends.
@@ -44,7 +46,7 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
     closeWithTest(context, runtime);
     stubGlobals(context, { window: eventTarget() });
     const voice: Voice = { settings: saved, status: {}, devices: { devices: [{ id: "speakers", label: "Speakers" }, { id: "vrct.virtual", label: "Virtual" }] },
-        error: null, ...given };
+        error: null, modelOptions: {}, ...given };
     const hook = { send: (endpoint: string, value?: unknown): unknown => {
         sent.push(value === undefined ? [endpoint] : [endpoint, value]);
         return endpoint === "/set/data/voice_settings" ? Promise.resolve({ status: 200, result: { ...voice.settings, ...(value as object) } }) : true;
@@ -67,7 +69,12 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
     const module = await loadModule<typeof import("./VoiceSettings.tsx")>(new URL("./VoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ ...voice, ...hook }) },
         "../../../../../../logics/voice/useSettingsDraft": drafts,
-        "../tts/GenerationOptions": { GenerationOptions: "generation-options", validGenerationOptions: (draft: Settings) => draft.seed !== "bad" },
+        // The model options of a role as the page receives them; matching them to the saved settings
+        // is GenerationOptions' own test.
+        "../tts/GenerationOptions": { GenerationOptions: "generation-options", validGenerationOptions: (draft: Settings) => draft.seed !== "bad",
+            currentModelOptions: ({ row }: { row?: { options?: unknown } }) => row?.options ?? null },
+        "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+        "../../../../../../logics/common/languageNames.ts": languageNames,
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES, AUDIO_QUERY_ENGINES: ["voicevox"],
             validCoeiroinkOptions: (draft: Settings) => draft.coeiroink_speed !== "bad", validAudioQueryOptions: (draft: Settings) => draft.voicevox_speed !== "bad" },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route-summary" },
@@ -171,6 +178,30 @@ test("what is read aloud, into which slot, and to which output device", async co
     assert.ok(find(tree, node => node.type === "virtual-mic"));
 });
 
+// #1266 (decided on 2026-11-27): once the server has answered for the saved settings, the voice is
+// chosen from the voices its model lists; a saved voice it does not list stays chosen and says so.
+test("a speech.cpp voice is chosen from the voices the server lists, keeping a saved one it does not list", async context => {
+    const voices = [{ name: "ono_anna", language: "ja", gender: "female", description: "Playful Japanese female voice." },
+        { name: "ryan", language: "en", gender: "male", description: "Dynamic male voice with rhythm." }];
+    const v = await voicePage(context, { settings: { ...saved, japanese_server: "bundled", japanese_voice: "none", multilingual_server: "bundled", multilingual_voice: "ryan" },
+        modelOptions: { multilingual: { options: { model: "qwen", voices } }, japanese: { options: { model: "irodori", voices: [{ name: "none", language: "" }] } } } });
+    v.open();
+    const group = (role: string) => fieldsetNamed(v.draw(), `speech_servers.${role} · voice.title`);
+    const multilingual = selectNamed(group("multilingual"), "voice.multilingual_voice");
+    assert.deepEqual([multilingual.props.value, optionsOf(multilingual)], ["ryan", [["ono_anna", "ono_anna（Japanese）", undefined], ["ryan", "ryan（English）", undefined]]]);
+    assert.deepEqual(optionsOf(selectNamed(group("japanese"), "voice.japanese_voice")), [["none", "voice_ui.voice_none", undefined]]);
+    assert.equal(ofType(group("multilingual"), "input").length, 0, "no field to type the voice into");
+    // Choosing another voice saves it, as every choice does.
+    choose(group("multilingual"), "voice.multilingual_voice", "ono_anna");
+    assert.equal(selectNamed(group("multilingual"), "voice.multilingual_voice").props.value, "ono_anna");
+    // A saved voice the model does not list is kept and named so.
+    const other = await voicePage(context, { settings: { ...saved, multilingual_server: "bundled", multilingual_voice: "Ana" },
+        modelOptions: { multilingual: { options: { model: "qwen", voices } } } });
+    other.open();
+    const kept = selectNamed(fieldsetNamed(other.draw(), "speech_servers.multilingual · voice.title"), "voice.multilingual_voice");
+    assert.deepEqual([kept.props.value, optionsOf(kept)[0]], ["Ana", ["Ana", `voice_ui.voice_not_listed {"name":"Ana"}`, undefined]]);
+});
+
 test("each language has its speech.cpp server and voice, and Japanese can come from an installed engine instead", async context => {
     // The core always names each language's server: bundled on a new install, external for settings saved before.
     const v = await voicePage(context, { settings: { ...saved, japanese_server: "bundled", japanese_voice: "none", multilingual_server: "external", multilingual_url: "http://x",
@@ -190,7 +221,10 @@ test("each language has its speech.cpp server and voice, and Japanese can come f
     assert.deepEqual(inputs("multilingual"), [["http://x", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512], ["Ana", "voice_ui.voice_unset", 128]]);
     assert.deepEqual([mono("japanese"), mono("multilingual")], [[false], [true, false]]);
     assert.deepEqual(ofType(group("multilingual"), "label").map(node => [node.props.children].flat()[0]),
-        ["speech_servers.multilingual_selection", "voice.multilingual_url", "voice.multilingual_voice"]);
+        ["speech_servers.multilingual_selection", "voice.multilingual_url"]);
+    // The voice is a settings row: typed until the server lists its voices, as its hint says (#1266).
+    const voiceRow = findIn(group("multilingual"), node => node.type === "row" && node.props.label === "voice.multilingual_voice").props;
+    assert.equal(voiceRow.description, "voice_ui.voice_list_hint");
     assert.equal(selectNamed(group("multilingual"), "speech_servers.multilingual_selection").props.value, "external");
     assert.equal(find(group("multilingual"), node => node.type === "engine"), null, "an installed engine reads Japanese only");
     ofType(group("japanese"), "input")[0].props.onChange({ target: { value: "Kei" } });
@@ -366,6 +400,25 @@ test("what failed last is said under the form: the page's error, the playback's 
         ["voice.error: voice.input_errors.tts_failed"]);
     assert.deepEqual(await alert({ devices: { error: "no devices" } }), [`voice.error: no devices · voice_ui.check_settings {"page":"config_page.tts.tts_settings.label"}`]);
     assert.deepEqual(await alert({}), []);
+});
+
+// #1266 (TT-1): a reading turned on with no output device says so under the output device, and a
+// refusal of the form is said under it, before the models and the route that follow.
+test("a reading with no output device says so under the device, and a refusal is said before what follows", async context => {
+    const lines = async (settings: Settings, given: Partial<Voice> = {}) => {
+        const v = await voicePage(context, { settings: { ...saved, ...settings }, ...given });
+        return ofType(v.open(), "p").filter(node => node.props.role === "alert").map(textOf);
+    };
+    assert.deepEqual(await lines({ mode: "translated", output_device: "" }), ["voice_ui.output_required"]);
+    assert.deepEqual(await lines({ mic_mode: "original", output_device: "" }), ["voice_ui.output_required"]);
+    for (const settings of [{ mode: "off" }, { mode: "translated", output_device: "speakers" }, { mode: "translated", output_device: "", routing: "managed" }])
+        assert.deepEqual(await lines(settings), [], JSON.stringify(settings));
+    // The refusal sits between the form and the parts after it (the models' setup, the route).
+    const v = await voicePage(context, { error: "busy" }, { known: ["voice_ui.errors.busy"] });
+    const top = [v.open().props.children].flat(3).filter(Boolean) as TreeNode[];
+    const at = (test: (node: TreeNode) => boolean) => top.findIndex(test);
+    const refusal = at(node => node.type === "p" && node.props?.role === "alert");
+    assert.ok(refusal > at(node => node.type === "form") && refusal < at(node => node.type === "route-summary"));
 });
 
 test("the output device alone, for other pages, edits the same voice settings", async context => {

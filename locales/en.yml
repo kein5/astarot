@@ -1878,6 +1878,11 @@ voice_ui:
     topbar_muted: "Muted"
     details: "Details"
     voice_unset: "Not set"
+    # The voice chosen from the voices the model lists (#1266), and what a reading needs (TT-1).
+    voice_none: "No reference recording"
+    voice_not_listed: "{{name}} (not a voice of this model)"
+    voice_list_hint: "While the server runs, the voices of its model are listed to choose from."
+    output_required: "Choose an output device to read aloud."
     stop_actions: "Stop"
     tts_description: "Read typed messages and final microphone translations. Turn it on with the Text to speech (TTS) switch on the main screen. With a bundled server selected, turning TTS on starts that server if it is stopped, and turning TTS off stops it again. A server you start yourself keeps running."
     tts_server_starting: "Starting server…"

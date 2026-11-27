@@ -2,7 +2,8 @@ import { useEffect, useId } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
-import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import type { ModelOptions, TtsModelCapabilities, VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import type { SpeechServerRow } from "../../../../../../logics/voice/useSpeechServers";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
@@ -20,6 +21,18 @@ export const validGenerationOptions = (draft: VoiceSettings) => ["japanese", "mu
 
 // One role's generation fields (seed and instructions) in the TTS draft; `field` writes one field
 // of the draft and `errorId` names the page's message about invalid options.
+// The model options of a role when they answer for the saved settings and the draft: the same
+// server and URL, and for the bundled server the same run. Otherwise none (not known yet).
+export const currentModelOptions = ({ role, saved, draft, row, owner }: { role: VoiceModelRole; saved: VoiceSettings | null | undefined;
+    draft: VoiceSettings; row: ModelOptions | undefined; owner: SpeechServerRow | undefined }): TtsModelCapabilities | null => {
+    const server = saved?.[`${role}_server`], url = saved?.[`${role}_url`];
+    const canQuery = server === "bundled" ? owner?.state === "ready" : !!url;
+    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
+        (server !== "bundled" || (row.server_generation === owner?.generation && row.base_url === owner?.base_url)) &&
+        draft[`${role}_server`] === server && draft[`${role}_url`] === url;
+    return matches ? row.options ?? null : null;
+};
+
 export interface GenerationOptionsProps {
     role: VoiceModelRole;
     draft: VoiceSettings;
@@ -45,11 +58,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         const timer = setInterval(query, 10000);
         return () => clearInterval(timer);
     }, [role, server, url, generation, phase, canQuery, send]);
-    const row = modelOptions[role];
-    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
-        (server !== "bundled" || (row.server_generation === generation && row.base_url === owner?.base_url)) &&
-        draft[`${role}_server`] === server && draft[`${role}_url`] === url;
-    const options = matches ? row.options : null;
+    const options = currentModelOptions({ role, saved: settings, draft, row: modelOptions[role], owner });
     const seedKey = `${role}_seed`, instructionKey = `${role}_instructions`;
     const seed = draft[seedKey] || "", instructions = draft[instructionKey] || "";
     const fixed = seed !== "";
