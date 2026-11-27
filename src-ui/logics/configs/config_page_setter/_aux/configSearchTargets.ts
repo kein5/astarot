@@ -7,6 +7,8 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all",
     "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
+    // What a device choice shows when nothing was found (#1266).
+    "device.none_found",
     // What the buttons that open another page say is done there: the row they sit on is the
     // result (PagePointer). The others are in their row's group (vr_panel_pointer, osc_pointer).
     "vrchat.tts_output_action", "device.mute_sync_action",

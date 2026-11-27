@@ -19,7 +19,8 @@ export const Rvc = () => {
     return <HintDescriptions>
         <DirectVoiceSettings variant="rvc" monitor={false} />
         {/* The monitor is changed on the TTS page: its row is here, not among the page's own controls (#1230). */}
-        <AdvancedSection status={t(forwarding ? "voice.input_active" : "voice.input_stopped")}>
+        {/* The pass-through by its own name (#1266, decided on 2026-11-27). */}
+        <AdvancedSection status={t(forwarding ? "voice.passthrough_active" : "voice.passthrough_stopped")}>
             <div className={styles.container}><VcMonitorRow converted /></div>
             <DirectVoiceSettings variant="legacy" subheading />
         </AdvancedSection>

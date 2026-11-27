@@ -165,7 +165,8 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                     </EnvReadout>
                     {!!owner?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
                     {/* The message says what to do; the code stays for reports. */}
-                    {owner?.error_code && <p role="alert">{t(`speech_servers.errors.${owner.error_code}`, { defaultValue: "" })} <code className={styles.error_code}>{owner.error_code}</code></p>}
+                    {/* In the screen's words, never the raw code (#1266); a code without words says itself. */}
+                    {owner?.error_code && <p role="alert">{t(`speech_servers.errors.${owner.error_code}`, { defaultValue: "" }) || owner.error_code}</p>}
                 </fieldset>;
             })}
         </form>}

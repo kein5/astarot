@@ -175,11 +175,24 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
     // What the form is for, what to expect of the conversion before Start (on the GPU and, without
     // one, on the CPU) and what this input does not do: the heading's hint on a page that keeps
     // descriptions out of sight (#614), a paragraph under it elsewhere.
+    // The pass-through under the voice changer's "More settings" (variant legacy) is named apart from
+    // the voice changer's own input, which has the same controls (#1266, decided on 2026-11-27).
+    const passThrough = variant === "legacy";
+    const words = {
+        title: passThrough ? "voice.passthrough_title" : "voice.input_title",
+        source: passThrough ? "voice.passthrough_source" : "voice.input_source",
+        start: passThrough ? "voice.passthrough_start" : "voice.input_start",
+        stop: passThrough ? "voice.passthrough_stop" : "voice.input_stop",
+    };
+    // Its states and its setup by the same name.
+    const PASS_THROUGH_STATES: Readonly<Record<string, string>> = { "voice.input_stopped": "voice.passthrough_stopped",
+        "voice.input_active": "voice.passthrough_active", "voice.input_failed": "voice.passthrough_failed" };
+    const shownStatus = passThrough ? PASS_THROUGH_STATES[status] ?? status : status;
     const intro = [t(variant === "rvc" ? "voice.vc_rvc_hint" : "voice.input_description"),
         (variant === "rvc" || (converted && rvc)) && t("voice_ui.rvc_latency_hint"), t("voice.input_scope")].filter(Boolean).join("\n");
-    return <section className={styles.container} aria-label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}>
-        <SectionLabelComponent sub={subheading} label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} desc={intro} />
-        <StatusLine tone={tone}>{t(status)}</StatusLine>
+    return <section className={styles.container} aria-label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t(words.title)} data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}>
+        <SectionLabelComponent sub={subheading} label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t(words.title)} desc={intro} />
+        <StatusLine tone={tone}>{t(shownStatus)}</StatusLine>
         {/* Where RVC converts and how far behind the voice it is, once it runs. */}
         {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
         {/* Selecting RVC is its own action: opening the page or saving other fields never switches the mode. */}
@@ -192,7 +205,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
         {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
         {/* What the conversion cannot run without comes first, open while it is missing (#1230). */}
-        <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}
+        <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : passThrough ? "voice_ui.setup_passthrough" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}
             needed={setupNeeded}>
             {converted && <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
                 {/* The RVC page already opens with the RVC hint. */}
@@ -259,9 +272,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
         {converted && rvc && !validNumbers(draft) && <p id={numbersErrorId} role="alert">{t("voice_ui.invalid_rvc_numbers")}</p>}
         {converted && rvc && draft.rvc_index_rate > 0 && !draft.rvc_index && <p role="alert">{t("voice_ui.rvc_index_required")}</p>}
         </fieldset>
-        <FormRow label={t("voice.input_source")} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
+        <FormRow label={t(words.source)} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
             actions={<Button onClick={() => send("/get/data/direct_voice_sources")}>{t("voice.refresh_inputs")}</Button>}>
-            <Select aria-label={t("voice.input_source")} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
+            <Select aria-label={t(words.source)} value={selected} disabled={busy} onChange={e => setSelected(e.target.value)}>
                 <SelectOption value="">{t("voice.select_input")}</SelectOption>
                 {selected && !source && <SelectOption value={selected}>{t("voice.disconnected")}</SelectOption>}
                 {sources.map(item => <SelectOption key={key(item.id)} value={key(item.id)}>{item.label}</SelectOption>)}
@@ -273,8 +286,8 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
             <Button tone="primary" disabled={!!startBlocked} aria-describedby={startBlocked ? reasonId : undefined}
                 onClick={() => source && send("/run/start_direct_voice", converted ? {
                     source: source.id, mode: "converted", options,
-                } : { source: source.id })}>{t("voice.input_start")}</Button>
-            <Button tone="quiet" disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t("voice.input_stop")}</Button>
+                } : { source: source.id })}>{t(words.start)}</Button>
+            <Button tone="quiet" disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t(words.stop)}</Button>
         </div>
         {/* A disabled start says what it waits for, under the button in the control column (#1096). */}
         {startBlocked && !busy && <p id={reasonId} className={styles.control_column}>{t(`voice_ui.${startBlocked}`)}</p>}

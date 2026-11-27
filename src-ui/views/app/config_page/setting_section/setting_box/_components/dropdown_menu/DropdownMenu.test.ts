@@ -100,6 +100,22 @@ test("a value the list does not hold still shows on the field, kept out of the o
     assert.deepEqual(none.options(), [{ value: "b", words: "b", disabled: true, hidden: true }]);
 });
 
+// #1266: the core's values for "no audio system" and "no device" are said in the screen's words,
+// never as they are.
+test("a device choice the core found nothing for says so in words, not with the core's value", async () => {
+    for (const selected_id of ["NoHost", "NoDevice"]) {
+        const f = await field({ selected_id, list: {} });
+        assert.equal(f.select().props.value, selected_id);
+        assert.deepEqual(f.options(), [{ value: selected_id, words: "config_page.device.none_found", disabled: true, hidden: true }]);
+        // The core lists it as the only entry too.
+        const listed = await field({ selected_id, list: { [selected_id]: selected_id } });
+        assert.deepEqual(listed.options(), [{ value: selected_id, words: "config_page.device.none_found", disabled: undefined, hidden: undefined }]);
+    }
+    // A device with no id, named so by the core.
+    const unnamed = await field({ selected_id: "", list: { "": "NoDevice" } });
+    assert.deepEqual(unnamed.options(), [{ value: "", words: "config_page.device.none_found", disabled: undefined, hidden: undefined }]);
+});
+
 test("before its value is read it holds no choices", async () => {
     const f = await field({ state: "error" });
     assert.deepEqual(f.options(), []);

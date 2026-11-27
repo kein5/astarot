@@ -35,7 +35,8 @@ const THRESHOLDS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
-const Failure = ({ code, t }: { code: string; t: TFunction }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;
+// Said in the screen's words, never as the raw code (#1266); a code without words says itself.
+const Failure = ({ code, t }: { code: string; t: TFunction }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" }) || code}</p>;
 
 export const RealtimeASRSettings = () => {
     const { t, i18n } = useI18n();

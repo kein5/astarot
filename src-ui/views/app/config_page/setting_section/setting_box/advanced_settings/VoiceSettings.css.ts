@@ -19,7 +19,6 @@ export const actions = style({});
 export const count = style({});
 export const hinted = style({});
 export const control_column = style({});
-export const error_code = style({});
 export const download_entry = style({});
 export const catalog_group = style({});
 export const catalog_advice = style({});
@@ -283,7 +282,6 @@ globalStyle(`div.${control_column}:not(.${actions})`, {
     gap: ".8rem",
 });
 globalStyle(`p.${control_column}`, { textAlign: "end", justifySelf: "end" });
-globalStyle(error_code, { fontSize: "1.2rem", color: vars.dark_400_color, overflowWrap: "anywhere" });
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 globalStyle(download_entry, { display: "grid", gap: ".8rem", minWidth: 0 });
 // The model catalog: one group per use (a subheading and space, no frame), one card per model.
