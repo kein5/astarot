@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useLayoutEffect, useRef } from "react";
+import { startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -156,6 +156,28 @@ export const useWindow = () => {
         asyncToggleMaximizeApp,
         asyncMinimizeApp,
     };
+};
+
+// Whether this page's window is maximized, kept in step with it: read when the page starts, and
+// again after each resize, which maximizing and restoring are. The title bar's button draws what
+// pressing it does from it (#1258), and the corners follow it (CornerRadiusController). A read the
+// window cannot answer (it is closing) leaves the last answer.
+export const useWindowMaximized = (): boolean => {
+    const [maximized, setMaximized] = useState(false);
+    useEffect(() => {
+        const appWindow = mainWindow(store.appWindow);
+        let live = true;
+        const read = () => {
+            appWindow.isMaximized().then(value => { if (live) setMaximized(value); }, () => {});
+        };
+        read();
+        const unlisten = appWindow.onResized(read);
+        return () => {
+            live = false;
+            unlisten.then(stop => stop());
+        };
+    }, []);
+    return maximized;
 };
 
 // Saves the window geometry and keeps the narrow layout in step with the window.

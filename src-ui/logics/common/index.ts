@@ -2,7 +2,7 @@ export { useSoftwareVersion } from "./useSoftwareVersion";
 export { useComputeMode } from "./useComputeMode";
 export { useInitProgress } from "./useInitProgress";
 export { useIsBackendReady } from "./useIsBackendReady";
-export { useWindow, WindowGeometryController, WindowCloseController } from "./useWindow";
+export { useWindow, useWindowMaximized, WindowGeometryController, WindowCloseController } from "./useWindow";
 export { useIsOpenedConfigPage } from "./useIsOpenedConfigPage";
 export { useIsSoftwareUpdating } from "./useIsSoftwareUpdating";
 export { useNotificationStatus } from "./useNotificationStatus";
