@@ -64,11 +64,25 @@ export const scroll_content = style({
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-start",
-    overflowY: "auto",
     flex: 1,
-    padding: "0 1rem",
+    // The scrollbar is always there (below): it takes its width from the right padding, so the
+    // tabs keep the room they had beside the thin scrollbar before (#1266 ★7).
+    padding: "0 .5rem 0 1rem",
+    // Scrolled always, as the main rail (main_page/sidebar_section): the track is quiet and the
+    // thumb stands out from it, so a menu that goes on below the window says so (decided on
+    // 2026-11-27, #1266 ★7). Without overflow there is no thumb to see.
+    overflowY: "scroll",
     selectors: {
-        "&::-webkit-scrollbar": { width: "0.3rem" },
+        "&::-webkit-scrollbar": { width: "0.8rem" },
+        // The icon rail has 56px; its scrollbar takes less of them.
+        [`${container}.${is_small} &::-webkit-scrollbar`]: { width: ".6rem" },
+        "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+        "&::-webkit-scrollbar-thumb": {
+            backgroundColor: vars.dark_750_color,
+            border: `.2rem solid ${vars.vox_rail}`,
+            borderRadius: "0.4rem",
+        },
+        "&:hover::-webkit-scrollbar-thumb": { backgroundColor: vars.dark_650_color },
     },
 });
 
