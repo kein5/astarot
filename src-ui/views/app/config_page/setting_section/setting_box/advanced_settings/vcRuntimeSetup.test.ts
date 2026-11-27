@@ -58,9 +58,10 @@ test("a setup waiting for the next start says to restart and offers no start", a
 });
 
 // One of a pair of builds for different GPUs (the translation's, #945): a badge under the name
-// says whether it fits the user's GPU. The one that fits offers its review as the main action;
-// the other leaves its summary out and offers no download.
-test("a build that fits the GPU leads with the main action; one that is not needed is quieter", async () => {
+// says whether it fits the user's GPU. The one that fits offers its review, a plain button as
+// every 「取得内容を確認」 (#474, #1266 T-4): its badge leads. The other leaves its summary out and
+// offers no download.
+test("a build that fits the GPU leads with its badge and offers a plain review; one that is not needed is quieter", async () => {
     const runtime = hooks();
     const vc: VcRuntimes = { catalog: { runtimes: [entry] }, state: { observation_id: "1", jobs: {}, installed: {} }, error: null, pending: false, send: () => {} };
     const VcRuntimeSetup = await load(runtime, vc);
@@ -69,12 +70,12 @@ test("a build that fits the GPU leads with the main action; one that is not need
     assert.equal(fits?.props["data-fit"], "fits");
     assert.ok(nodesIn(fits).some(node => node.type === kitStandIns.Badge && node.props.tone === "accent" && node.props.children === "vc_runtime.fit_fits"));
     assert.ok(words(fits).includes("vc_runtime.help_rvc_gpu"));
-    assert.equal(review(fits)?.props.tone, "primary");
+    assert.equal(review(fits)?.props.tone, "plain");
     const unneeded = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
     assert.ok(nodesIn(unneeded).some(node => node.type === kitStandIns.Badge && node.props.tone === "neutral" && node.props.children === "vc_runtime.fit_unneeded"));
     assert.ok(!words(unneeded).includes("vc_runtime.help_rvc_gpu"), "its summary is left out");
     assert.equal(review(unneeded), undefined, "a build not needed for the GPU offers no download");
-    // Alone (the voice changer's), it has neither the badge nor the main action.
+    // Alone (the voice changer's), it has no badge, and the same plain review.
     const alone = runtime.render(VcRuntimeSetup, { engine: "rvc" });
     assert.ok(!words(alone).some(word => word.startsWith("vc_runtime.fit_")));
     assert.equal(review(alone)?.props.tone, "plain");
