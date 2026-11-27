@@ -278,16 +278,17 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
     assert.equal(tree.props.open, false, "the user can close it again");
 });
 
-test("translation keeps its local model and its catalog in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
+test("translation keeps the engine and both of its systems in sight, as the speech recognition page; the APIs and servers it draws are its lists", () => {
     const source = read("translation/Translation.tsx");
     const { outside, fold } = pageParts(source, "Translation");
-    // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
-    // Its container gives its built-in cards the model list's choice (#1228).
-    assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalog_Container"]);
-    assert.ok(source.indexOf("<TranslationCatalog_Container />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
-    // What an LLM engine is sent leads the fold, once for the APIs and the local servers (#614);
-    // what they are all asked besides the text closes it, once for both (#392).
-    assert.deepEqual(fold, ["Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "LLMTranslationOptions_Container"]);
+    // #1266 ★4, ★17: the engine first, then on this PC (the model and its device, the catalog's
+    // models) and the APIs (what they are sent, the services, the servers of one's own, the APIs one
+    // added). The catalog's groups are in their parts, never in the fold (#597); their container
+    // gives the built-in cards the model list's choice (#1228).
+    assert.deepEqual(outside, ["TranslationEngine_Container", "EngineGroup", "AITranslation_Container", "TranslationCatalog_Container",
+        "EngineGroup", "Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "TranslationCatalog_Container"]);
+    // What they are all asked besides the text is set once, in 「詳細設定」 (#392).
+    assert.deepEqual(fold, ["LLMTranslationOptions_Container"]);
     const providers = (name: string) => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
     const list = (name: string) => {
         const match = source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`));
