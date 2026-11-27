@@ -19,7 +19,9 @@
 //! since 0.6.0 the local recognition migration of 0.3 to 0.5 and its notice are gone (#288):
 //! [`without_local_asr_migration`] takes them out of what Python did. And NLLB-200 3.3B is not
 //! offered since #565 (it will not be published): the list of local translation models has the
-//! others, and a saved choice of it loads as the default (no saved file here chose it).
+//! others, and a saved choice of it loads as the default (no saved file here chose it). And a new
+//! install recognizes through the bundled server since #1266, where Python's default was the
+//! external one: [`with_bundled_realtime_for_new_installs`] adds that to what Python wrote.
 
 use serde_json::{json, Map, Value};
 
@@ -179,6 +181,21 @@ fn without_local_asr_migration(want: &mut Value, input: &Value) {
     }
 }
 
+/// The seventh intended difference (#1266): a new install recognizes through the bundled server,
+/// where Python's default was the external one. Nothing saved, an empty object or a file that
+/// could not be read is a new install; a saved file keeps Python's choice
+/// (`Config::migrate_realtime_server`).
+fn with_bundled_realtime_for_new_installs(want: &mut Value, input: &Value, defaults: &Value) {
+    let new_install = input.is_null()
+        || input.as_object().is_some_and(|saved| saved.is_empty() || saved.contains_key("raw") || saved.contains_key("raw_bytes"));
+    let Some(changed) = want["changed"].as_object_mut() else { return };
+    if new_install && !changed.contains_key("REALTIME_ASR_SETTINGS") {
+        let mut realtime = defaults["REALTIME_ASR_SETTINGS"].clone();
+        realtime["server"] = json!("bundled");
+        changed.insert("REALTIME_ASR_SETTINGS".into(), realtime);
+    }
+}
+
 /// The fifth intended difference (#560): each key of the input the core does not know must be in
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
@@ -240,6 +257,7 @@ fn check_platform(name: &str, platform: Platform) {
         let mut want = want.clone();
         retire_google_engine(&mut want);
         without_local_asr_migration(&mut want, &reference["inputs"][case]);
+        with_bundled_realtime_for_new_installs(&mut want, &reference["inputs"][case], &expected["defaults"]);
         let wanted_keys = moved_keys(&mut want);
         moved += wanted_keys.len();
         let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();

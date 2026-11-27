@@ -1096,6 +1096,7 @@ impl Config {
         self.put_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
         self.migrate_usage_presets(&saved);
         self.migrate_speech_servers(&saved);
+        self.migrate_realtime_server(&saved);
         // The update channel the user chose stays (#466); until a choice it follows the running
         // version, as it always did: a beta build is on the beta channel.
         if !self.get_bool("RELEASE_CHANNEL_CHOSEN") {
@@ -1145,6 +1146,23 @@ impl Config {
         }
         if changed {
             self.set_loading("VOICE_SETTINGS", voice);
+        }
+    }
+
+    /// New settings recognize through the bundled server (#1266), as they speak through it
+    /// (#566). Before that the default was the external server, and a saved realtime choice
+    /// without a server read as external: a saved file keeps the external server unless it chose
+    /// the bundled one itself, so an update does not move anyone off a server they run. Nothing
+    /// saved, or a file that could not be read, is a new install and stays on the bundled server.
+    fn migrate_realtime_server(&self, saved: &Map<String, Value>) {
+        if saved.is_empty() {
+            return;
+        }
+        let chose_bundled = saved.get("REALTIME_ASR_SETTINGS").and_then(|realtime| realtime.get("server")).and_then(Value::as_str) == Some("bundled");
+        let mut realtime = self.get("REALTIME_ASR_SETTINGS");
+        if !chose_bundled && realtime["server"] == "bundled" {
+            realtime["server"] = json!("external");
+            self.set_loading("REALTIME_ASR_SETTINGS", realtime);
         }
     }
 

@@ -863,7 +863,9 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
     });
     let voice = tts_settings(&json!({}), &Ctx::empty(env)).unwrap_or_else(|| json!({}));
     let speech = astarot_speech_server::settings::normalize_settings(&json!({})).map(|s| s.to_json()).unwrap_or_default();
-    let realtime = voice_settings::normalize_realtime(&json!({})).unwrap_or_default();
+    // New settings recognize through the bundled server, as they speak through it (#566, #1266).
+    // A saved file keeps what it chose (`Config::migrate_realtime_server`).
+    let realtime = voice_settings::normalize_realtime(&json!({ "server": "bundled" })).unwrap_or_default();
     let entries: Vec<(&str, Value)> = vec![
         ("VERSION", json!(env.version)),
         ("PATH_LOCAL", json!(env.app_dir.to_string_lossy())),

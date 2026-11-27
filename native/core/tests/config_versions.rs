@@ -219,6 +219,54 @@ fn a_saved_file_that_never_chose_a_speech_server_keeps_the_external_one() {
 
 #[cfg(unix)]
 #[test]
+fn a_saved_file_keeps_its_recognition_server_and_a_new_install_takes_the_bundled_one() {
+    // New settings recognize through the bundled server (#1266). Before that the default was the
+    // external server, so a saved file keeps it unless it chose the bundled one itself; a value
+    // the core cannot read counts as no choice. A new install, or a file that could not be read,
+    // takes the bundled server.
+    let cases: [(Option<&str>, &str); 9] = [
+        (None, "bundled"),
+        (Some("{}"), "bundled"),
+        (Some("{not json"), "bundled"),
+        (Some(r#"{"UI_LANGUAGE": "ja"}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"version": 1}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "cloud"}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": "not settings"}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "external", "base_url": "http://127.0.0.1:8090"}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "bundled"}}"#), "bundled"),
+    ];
+    for (file, want) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(text) = file {
+            std::fs::write(dir.path().join("config.json"), text).unwrap();
+        }
+        let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+        assert_eq!(config.get("REALTIME_ASR_SETTINGS")["server"], want, "{file:?}");
+        let written = read(dir.path())["REALTIME_ASR_SETTINGS"].clone();
+        assert_eq!(written["server"], want, "{file:?}: the choice is saved");
+        // The rest of a saved choice is kept as it was.
+        if file.is_some_and(|text| text.contains("8090")) {
+            assert_eq!(written["base_url"], "http://127.0.0.1:8090");
+        }
+        config.close();
+    }
+
+    // A choice this version saved stays on the next start.
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    let mut realtime = config.get("REALTIME_ASR_SETTINGS");
+    assert_eq!(realtime["server"], "bundled");
+    realtime["server"] = json!("external");
+    config.set("REALTIME_ASR_SETTINGS", realtime).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("REALTIME_ASR_SETTINGS")["server"], "external", "the external server chosen here stays");
+    config.close();
+}
+
+#[test]
 fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
