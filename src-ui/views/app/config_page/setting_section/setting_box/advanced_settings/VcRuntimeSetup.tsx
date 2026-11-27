@@ -16,8 +16,9 @@ const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 // Offers to prepare an engine's runtime where the backend can; elsewhere it renders nothing.
 // current: the runtime folder in the form; onUse writes an installed folder into it.
 // fit: where it is one of a pair of builds for different GPUs (the translation's, #945), whether
-// it fits the user's GPU. A badge under its name says so; the one that fits offers its review as
-// the main action, and the other is quieter, leaves its summary out and offers no download.
+// it fits the user's GPU. A badge under its name says so; the one that fits offers its review,
+// and the other is quieter, leaves its summary out and offers no download. The review is a plain
+// button, as 「取得内容を確認」 is wherever it appears (#474, #1266 T-4): the badge leads.
 export type RuntimeFit = "fits" | "unneeded";
 export interface VcRuntimeSetupProps {
     engine: string;
@@ -90,7 +91,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
             {onUse && installed && installed !== current && <Button disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</Button>}
             {/* Fetched and waiting for the next start (Windows, #900): starting again would only wait again. */}
             {/* A build not needed for the user's GPU offers no download (#614, beta.2): its badge says so. */}
-            {!installed && !active && job?.phase !== "restart_required" && fit !== "unneeded" && <Button tone={fit === "fits" ? "primary" : "plain"}
+            {!installed && !active && job?.phase !== "restart_required" && fit !== "unneeded" && <Button tone="plain"
                 disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</Button>}
         </div>

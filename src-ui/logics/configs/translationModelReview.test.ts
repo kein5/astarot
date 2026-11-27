@@ -152,6 +152,22 @@ for (const language of ["en", "ja"]) {
         const card = findIn(s.render(), node => componentName(node) === "ModelDownloads");
         assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
+    // #1266 T-3: the press that opened the review asked for that model's review, so it opens at once
+    // over this one, which steps back; Back there closes this one too, a started download stays.
+    test(`${language}: the model asked about is reviewed at once, and Back there closes the review`, async context => {
+        const s = await dialogFixture(context, language, published("nllb-200-distilled-600m-onnx-int8"));
+        const tree = s.render();
+        const card = findIn(tree, node => componentName(node) === "ModelDownloads");
+        assert.equal(card.props.reviewAtOnce, true);
+        assert.equal(findIn(tree, node => node.type === kitStandIns.Dialog).props.stepsBack, true);
+        card.props.onReviewDone(true);
+        assert.equal(s.events.closed, 0, "a started download stays in sight with its progress");
+        card.props.onReviewDone(false);
+        assert.equal(s.events.closed, 1);
+        // Opened for a model the catalog does not offer, every model is listed: no review at once.
+        const every = await dialogFixture(context, language, published("m2m100-418m-onnx-int8"));
+        assert.equal(findIn(every.render(), node => componentName(node) === "ModelDownloads").props.reviewAtOnce, false);
+    });
 }
 
 // A translation model of the catalog that the core applied arrives as its weight

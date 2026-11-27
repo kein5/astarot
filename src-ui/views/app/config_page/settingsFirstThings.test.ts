@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, nodesIn, componentName, draw, drawWith, kitStandIns } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn, componentName, draw, drawWith, kitStandIns, treeNode } from "../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
@@ -312,7 +312,11 @@ test("each translation provider is one fold that says whether it can be used; th
             useStore_SelectedTranslationEngines: () => ({ currentSelectedTranslationEngines: { data: selected } }) },
         "../_components/setup_section/SetupSection": { SetupSection },
         // The translation catalog (#413) has cards, not provider folds.
-        "./TranslationCatalog": { TranslationCatalogSection: () => null },
+        "./TranslationCatalog": { TranslationCatalogGroup: () => null },
+        "../../../../../kit/index.ts": { Badge: "badge" },
+        // The page asks for the catalog, and reads the line of its 「詳細設定」 (#1266).
+        "@logics_configs": { useTranslation: () => ({}) },
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ send() {} }) },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
         "../_components/lead/Lead": { Lead: "lead" },
     });
@@ -321,12 +325,12 @@ test("each translation provider is one fold that says whether it can be used; th
     // The page shows its descriptions as hints (#614): everything is inside HintDescriptions.
     assert.equal(page.type, "hints");
     const folds: [string, unknown, unknown, unknown][] = [];
-    // The APIs and local LLMs are in 「詳細設定」 (#554), which opens by itself while a preset uses one.
-    const [, advanced] = page.props.children.props.children;
-    assert.equal(advanced.props.attention, true);
-    assert.equal(advanced.props.status, "config_page.advanced_status.translation");
-    // The fold starts with what an LLM engine is sent, once: the sentence, and its details as the hint.
-    const [lead, ...sections] = [advanced.props.children].flat();
+    // The APIs and the servers of one's own are the page's API part, in sight (#1266 ★17); a
+    // provider a preset uses stays open.
+    const api = [page.props.children.props.children].flat().find(node => node.props?.group === "api");
+    assert.ok(api);
+    // The part starts with what an LLM engine is sent, once: the sentence, and its details as the hint.
+    const [lead, ...sections] = [api.props.children].flat().filter(node => node.props?.group !== "api");
     assert.deepEqual([lead.type, lead.props.text, lead.props.details],
         ["lead", "config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
     for (const section of sections) {
@@ -344,6 +348,11 @@ test("each translation provider is one fold that says whether it can be used; th
     const by = Object.fromEntries(folds.map(([id, ...rest]) => [id, rest]));
     assert.deepEqual(by.DeepL_API, ["DeepL API", "config_page.translation.provider_ready", false]);
     assert.deepEqual(by.Gemini_API, ["Gemini API", "config_page.translation.provider_not_set", false]);
-    assert.deepEqual(by.Ollama, ["Ollama", "config_page.translation.provider_in_use", true]);
+    // A server of one's own is marked as the user's (#1266 T-8).
+    const [ollamaTitle, ...ollama] = by.Ollama;
+    assert.deepEqual(ollama, ["config_page.translation.provider_in_use", true]);
+    const titleParts: unknown[] = [treeNode(ollamaTitle)?.props.children].flat();
+    assert.deepEqual(titleParts.map(part => { const node = treeNode(part); return node?.type === "badge" ? `badge ${node.props.children}` : part; }),
+        ["Ollama", " ", "badge translation_catalog.kind.local_server"]);
     assert.deepEqual(by.Plamo_API, ["Plamo_API", "config_page.translation.provider_not_set", false], "an engine the list does not know keeps its id");
 });

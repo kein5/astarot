@@ -16,13 +16,14 @@ const engines = [
 // tree: found by its name and drawn (drawWith) with the props the list gave it.
 const isBox = (item: TreeNode, id: string) => componentName(item) === "TranslatorBox" && item.props.id === id;
 
-async function setup(selected: unknown[] = [], closed: unknown[] = [], busy = { now: false }) {
+async function setup(selected: unknown[] = [], closed: unknown[] = [], busy = { now: false }, opened: unknown[] = []) {
     const runtime = hooks();
     const { TranslatorSelector } = await loadModule<typeof import("./TranslatorSelector.tsx")>(new URL("./TranslatorSelector.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: unknown) => closed.push(value) }) },
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => !busy.now, isLanguageSettingsBusy: busy.now,
             setSelectedTranslationEngines: (id: unknown) => selected.push(id) }) },
         "../../../../../../../logics/main/translatorLabel.ts": translatorLabel,
+        "../../../../../../../logics/common/useOpenSettings.ts": { useOpenSettings: () => (place: unknown) => opened.push(place) },
         "./translatorPlacement.ts": translatorPlacement,
     });
     return { runtime, TranslatorSelector };
@@ -102,27 +103,41 @@ test("choosing an engine asks for it and closes the list; the one in use closes 
     assert.deepEqual([selected, closed], [["DeepL_API"], [false, false, false]]);
 });
 
-test("the reason an engine is unavailable is on screen and describes the group and the engine", async () => {
-    const { runtime, TranslatorSelector } = await setup();
+// #1266 T-7: the grey says an engine cannot be used; why is read by screen readers, and the way to
+// set it up is a button to the translation settings, not a sentence pointing there.
+test("an unavailable engine's reason describes the group and the engine for screen readers, and a button opens the translation settings", async () => {
+    const opened: unknown[] = [], closed: unknown[] = [];
+    const { runtime, TranslatorSelector } = await setup([], closed, { now: false }, opened);
     const render = (translation_engines: typeof engines, is_selected_same_language = false) =>
         draw(runtime, TranslatorSelector, { translation_engines, is_selected_same_language });
-    const text = (tree: TreeNode, key: string) => find(tree, item => item.type === "p" && item.props.children === key);
+    const text = (tree: TreeNode, key: string) => find(tree, item => ["p", "span"].includes(String(item.type)) && item.props.children === key);
     const box = (tree: TreeNode, id: string) => drawWith(runtime, findIn(tree, item => isBox(item, id)));
+    const settings = (tree: TreeNode) => find(tree, item => item.type === kitStandIns.Button && item.props["data-translator-settings"] === "");
 
     const tree = render(engines);
-    const hint = text(tree, "main_page.translator_selector.unavailable_hint");
-    assert.ok(hint);
-    assert.equal(groupOf(tree).props["aria-describedby"], hint.props.id);
-    assert.equal(box(tree, "DeepL_API").props["aria-describedby"], hint.props.id);
+    assert.equal(text(tree, "main_page.translator_selector.unavailable_hint"), null, "no sentence on screen");
+    const reason = text(tree, "main_page.translator_selector.unavailable_reason");
+    assert.ok(reason);
+    assert.deepEqual([reason.type, reason.props.className], ["span", "visually_hidden"]);
+    assert.equal(groupOf(tree).props["aria-describedby"], reason.props.id);
+    assert.equal(box(tree, "DeepL_API").props["aria-describedby"], reason.props.id);
     assert.equal(box(tree, "CTranslate2").props["aria-describedby"], undefined);
+    const button = settings(tree);
+    assert.ok(button);
+    assert.equal(button.props.children, "main_page.feature_settings.open_page");
+    button.props.onClick();
+    assert.deepEqual([closed, opened], [[false], [{ page: "translation", target: "select_translation_engine" }]],
+        "the list closes and the settings open at the translation page's engine choice");
 
     const all_available = render(engines.map(engine => ({ ...engine, is_available: true })));
-    assert.equal(text(all_available, "main_page.translator_selector.unavailable_hint"), null);
+    assert.equal(text(all_available, "main_page.translator_selector.unavailable_reason"), null);
+    assert.equal(settings(all_available), null);
     assert.equal(groupOf(all_available).props["aria-describedby"], undefined);
 
     // Choosing the same language has its own, more exact reason; it replaces the hint.
     const same_language = render(engines, true);
-    assert.equal(text(same_language, "main_page.translator_selector.unavailable_hint"), null);
+    assert.equal(text(same_language, "main_page.translator_selector.unavailable_reason"), null);
+    assert.equal(settings(same_language), null);
     const same_reason = text(same_language, "main_page.translator_selector.is_selected_same_language");
     assert.ok(same_reason);
     assert.equal(groupOf(same_language).props["aria-describedby"], same_reason.props.id);

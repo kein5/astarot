@@ -30,6 +30,8 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     // Words inside the mic and speaker rows of the Device page, each in both rows: the volume check
     // button and the parts of the device choice. The rows are found by their own texts.
     "device.check_volume", "device.label_auto_select", "device.label_host", "device.label_device",
+    // The words of the translation page's 「詳細設定」 line: the values in use there (#1266).
+    "translation.llm_temperature_default", "translation.llm_instructions_set", "translation.llm_instructions_unset",
 ]);
 
 // Parts of a larger setting with no place of their own: the search leads to the setting.
@@ -42,6 +44,8 @@ export const SETTING_TARGETS: Readonly<Record<string, string>> = {
     // One text names both voice switches; the TTS row comes first.
     "hotkeys.toggle_voice_switch": "toggle_tts",
     "ocr.source_language": "ocr_source_language",
+    // The local translation engine's name is an option of the engine choice at the page's head (#1266 ★4).
+    "translation.section_label_ai_translation": "select_translation_engine",
 };
 
 // The data-setting-id the search looks for first (it falls back to the label).

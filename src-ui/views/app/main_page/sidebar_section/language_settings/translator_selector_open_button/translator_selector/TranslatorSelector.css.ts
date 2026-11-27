@@ -15,10 +15,21 @@ export const relative_container = style({
     gap: "1rem",
 });
 
-export const unavailable_hint = style({
-    fontSize: "1.2rem",
-    lineHeight: 1.6,
-    color: vars.vox_description_text,
+// Why an engine is greyed, for screen readers: the grey says it on screen (#1266 T-7).
+export const visually_hidden = style({
+    position: "absolute",
+    width: ".1rem",
+    height: ".1rem",
+    margin: "-.1rem",
+    padding: 0,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+});
+
+// The way to the translation settings, under the engines, at the panel's start edge.
+export const settings = style({
+    alignSelf: "flex-start",
 });
 
 // The engines, the kit's ToggleGroup: it spans the panel, and its grid fills it.

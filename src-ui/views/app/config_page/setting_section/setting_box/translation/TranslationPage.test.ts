@@ -10,6 +10,7 @@ import * as localModelList from "../../../../../../logics/translation/localModel
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import * as uiConfigs from "../../../../../../logics/ui_configs.ts";
 import * as computeDeviceOptions from "../_components/compute_device/computeDeviceOptions.ts";
+import * as translatorLabel from "../../../../../../logics/main/translatorLabel.ts";
 
 // The translation settings page, drawn with the real rules it applies: which local models are listed
 // and by what name, the license of a non-commercial model, when a compute device needs the app
@@ -31,6 +32,10 @@ interface PageOptions {
     llm?: Record<string, unknown>;
     engines?: Engine[] | null;
     selected?: Record<string, string> | null;
+    // The language preset in use (the main screen's tab), "1" by default.
+    tab?: string;
+    // Whether the language settings take a change now, true by default.
+    canChange?: boolean;
     downloads?: unknown;
     catalog?: unknown;
     tauri?: boolean;
@@ -51,6 +56,8 @@ const builtin = (id: string, extra: Record<string, unknown> = {}) => {
 
 async function translationPage(options: PageOptions = {}) {
     const calls: unknown[][] = [], saves: SaveRequest[] = [], revealed: unknown[] = [], opened: string[] = [];
+    // What the page asked the translation catalog for.
+    const catalogAsked: unknown[][] = [];
     // What the license dialog asked useConsentDialog for on each drawing, and how often it closed.
     const consent = { asked: [] as { open: boolean; fallback: unknown }[], closed: 0 };
     const loading = hooks();
@@ -74,6 +81,14 @@ async function translationPage(options: PageOptions = {}) {
         "@logics_configs": { useTranslation: () => settings,
             useSaveButtonLogic: (request: SaveRequest) => { saves.push(request); return { variable: request.variable, onChangeFunction: "change", saveFunction: "save" }; } },
         "@logics_common": { useLLMConnection: () => llm },
+        "@logics_main": { useLanguageSettings: () => ({
+            currentTranslationEngines: { state: "ok", data: options.engines ?? [] },
+            currentSelectedTranslationEngines: { state: "ok", data: options.selected ?? {} },
+            currentSelectedPresetTabNumber: { state: "ok", data: options.tab ?? "1" },
+            canChangeLanguageSettings: () => options.canChange ?? true,
+            setSelectedTranslationEngines: (id: unknown) => { calls.push(["setSelectedTranslationEngines", id]); },
+        }) },
+        "../../../../../../logics/main/translatorLabel.ts": translatorLabel,
         "@store": { useStore_TranslationEngines: () => ({ currentTranslationEngines: { data: options.engines === undefined ? [] : options.engines } }),
             useStore_SelectedTranslationEngines: () => ({ currentSelectedTranslationEngines: { data: options.selected === undefined ? {} : options.selected } }) },
         "@ui_configs": uiConfigs,
@@ -89,13 +104,14 @@ async function translationPage(options: PageOptions = {}) {
             return { dialog: "dialog", close: () => { consent.closed++; } };
         } },
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: options.downloads ?? null }) },
-        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: options.catalog ?? null }) },
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: options.catalog ?? null,
+            send: (...args: unknown[]) => { catalogAsked.push(args); } }) },
         "../../../../../../logics/configs/revealSetting.ts": { revealSetting: (target: unknown) => { revealed.push(target); } },
         "../_components/credential_pair/CredentialPair": { CredentialPair: "credential-pair" },
         "../_components/form_row/FormRow": { FormRow: "form-row" },
-        "./TranslationCatalog": { TranslationCatalogSection: "catalog-section" },
+        "./TranslationCatalog": { TranslationCatalogGroup: "catalog-group" },
         "./TranslationGpuRuntimes": { TranslationGpuRuntimes: "gpu-runtimes" },
-        "../_templates/Templates": { DownloadModelsContainer: "download-models", AuthKeyContainer: "auth-key", EntryWithSaveButtonContainer: "entry",
+        "../_templates/Templates": { DownloadModelsContainer: "download-models", RadioButtonContainer: "radio", AuthKeyContainer: "auth-key", EntryWithSaveButtonContainer: "entry",
             DropdownMenuContainer: "dropdown", ConnectionCheckButtonContainer: "connection-check" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/compute_device/ComputeDevice": { ComputeDevice: "compute-device" },
@@ -125,7 +141,7 @@ async function translationPage(options: PageOptions = {}) {
     };
     // A part drawn, and the stand-in row of that type in it.
     const row = (name: string, type: string) => findIn(draw(reach(name)), node => node.type === type, `${type} in ${name}`);
-    return { module, calls, saves, revealed, opened, consent, values, llmValues, settings, draw, reach, row, tree: () => draw(elementOf(module.Translation)) };
+    return { module, calls, catalogAsked, saves, revealed, opened, consent, values, llmValues, settings, draw, reach, row, tree: () => draw(elementOf(module.Translation)) };
 }
 
 // An element of one of the module's components with the given props, as the page would draw it.
@@ -144,27 +160,67 @@ const textOf = (value: unknown): string => {
 };
 const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
 
-test("the advanced fold counts the ready APIs and local servers apart, and opens while a language preset uses one of them", async () => {
-    const apis = ["DeepL_API", "Google_Cloud_API", "Papago_API", "Plamo_API", "Gemini_API", "OpenAI_API", "Groq_API", "OpenRouter_API"];
-    const servers = ["LMStudio", "Ollama", "OpenAI_Compatible"];
-    // Only a provider the backend marks available with true counts; the local model is in neither group.
-    const engines = [...apis, ...servers, "CTranslate2"].map(id => ({ id, is_available: true }));
-    const fold = async (options: PageOptions) => {
-        const p = await translationPage(options);
+// #1266 ★4: the engine of the language preset in use is chosen at the page's head, as on the main
+// screen, under the two systems' names in the order of the parts below.
+test("the page starts with the translation engine of the preset in use, chosen as on the main screen", async () => {
+    const engines = [{ id: "CTranslate2", label: "CTranslate2", is_available: true }, { id: "DeepL_API", label: "DeepL API", is_available: true },
+        { id: "Groq_API", label: "Groq API", is_available: false }, { id: "Ollama", label: "Ollama", is_available: false }];
+    const p = await translationPage({ engines, selected: { 1: "CTranslate2", 2: "Groq_API" }, tab: "2" });
+    const container = p.draw(p.reach("TranslationEngine_Container"));
+    assert.deepEqual(ofType(container, "section-label").map(node => node.props.label), ["config_page.translation.section_label_translation_engines"]);
+    const radio = findIn(container, node => node.type === "radio").props;
+    assert.deepEqual([radio.name, radio.label, radio.desc], ["select_translation_engine", "config_page.translation.select_translation_engine.label",
+        "config_page.translation.select_translation_engine.desc"]);
+    // The local engine by the name the main screen gives it; an engine the core cannot use now is
+    // greyed, unless it is the one in use; an engine the core does not list is left out.
+    assert.deepEqual(radio.groups.map((group: { id: string; label: string; options: unknown[] }) => [group.id, group.label, group.options]), [
+        ["local", "config_page.translation.local_section.label", [{ id: "CTranslate2", label: "config_page.translation.section_label_ai_translation", disabled: false }]],
+        ["api", "config_page.translation.api_section.label", [{ id: "DeepL_API", label: "DeepL API", disabled: false },
+            { id: "Groq_API", label: "Groq API", disabled: false }, { id: "Ollama", label: "Ollama", disabled: true }]],
+    ]);
+    assert.deepEqual(radio.checked_variable, { state: "ok", data: "Groq_API" }, "the preset in use, the second");
+    const note = findIn(radio.note, node => node.props?.role === "status");
+    assert.equal(note.props.children, `config_page.translation.select_translation_engine.selected {"tab":"2","engine":"Groq API"}`);
+    assert.equal(radio["aria-describedby"], radio.note_id);
+    radio.selectFunction("DeepL_API");
+    radio.selectFunction("Groq_API");
+    assert.deepEqual(p.calls.filter(call => call[0] === "setSelectedTranslationEngines"), [["setSelectedTranslationEngines", "DeepL_API"]],
+        "the engine in use is not sent again");
+    // While the language settings are busy, a choice waits, as on the main screen.
+    const busy = await translationPage({ engines, selected: { 1: "CTranslate2" }, canChange: false });
+    findIn(busy.draw(busy.reach("TranslationEngine_Container")), node => node.type === "radio").props.selectFunction("DeepL_API");
+    assert.deepEqual(busy.calls.filter(call => call[0] === "setSelectedTranslationEngines"), []);
+    // Nothing chosen yet.
+    const none = await translationPage({ engines, selected: {} });
+    const unchosen = findIn(none.draw(none.reach("TranslationEngine_Container")), node => node.type === "radio").props;
+    assert.equal(findIn(unchosen.note, node => node.props?.role === "status").props.children,
+        `config_page.translation.select_translation_engine.selected {"tab":"1","engine":"config_page.translation.select_translation_engine.unselected"}`);
+});
+
+// #1266 ★17: 「詳細設定」 holds what every AI engine is asked besides the text, and its line says
+// the values in use. The providers are in the API part, always in sight.
+test("the advanced fold holds what the AI engines are asked, and its line says the temperature and whether instructions are set", async () => {
+    const fold = async (values: Record<string, unknown>) => {
+        const p = await translationPage({ values });
         return findIn(p.tree(), node => node.type === "advanced-section", "the advanced fold").props;
     };
-    const all = await fold({ engines, selected: { 1: "CTranslate2" } });
-    assert.equal(all.status, `config_page.advanced_status.translation {"api":8,"llm":3}`);
-    assert.equal(all.attention, false, "the local model alone keeps the fold closed");
+    const empty = await fold({});
+    assert.equal(empty.status, `config_page.advanced_status.translation {"temperature":"config_page.translation.llm_temperature_default","instructions":"config_page.translation.llm_instructions_unset"}`);
+    assert.equal(empty.attention, undefined);
+    const set = await fold({ currentLLMTranslationTemperature: ok("0.3"), currentLLMTranslationInstructions: ok("  Keep names. ") });
+    assert.equal(set.status, `config_page.advanced_status.translation {"temperature":"0.3","instructions":"config_page.translation.llm_instructions_set"}`);
+    const blank = await fold({ currentLLMTranslationTemperature: ok(" "), currentLLMTranslationInstructions: ok("   ") });
+    assert.equal(blank.status, empty.status, "blank values are the defaults");
+    const p = await translationPage();
+    const inside = nodesIn(findIn(p.tree(), node => node.type === "advanced-section").props.children).filter(node => typeof node.type === "function").map(componentName);
+    assert.deepEqual(inside, ["LLMTranslationOptions_Container"]);
+});
 
-    const some = await fold({ engines: [{ id: "DeepL_API", is_available: "yes" }, { id: "Groq_API", is_available: true }, { id: "Ollama", is_available: false },
-        { id: "LMStudio", is_available: true }, { id: "CTranslate2", is_available: true }] });
-    assert.equal(some.status, `config_page.advanced_status.translation {"api":1,"llm":1}`);
-    // Nothing known yet: none ready, the fold closed.
-    const none = await fold({ engines: null, selected: null });
-    assert.equal(none.status, `config_page.advanced_status.translation {"api":0,"llm":0}`);
-    assert.equal(none.attention, false);
-    for (const id of ["Groq_API", "LMStudio"]) assert.equal((await fold({ selected: { 1: "CTranslate2", 2: id } })).attention, true, id);
+// The page asks for the translation catalog once, for both of its groups.
+test("the page asks for the translation catalog once when it opens", async () => {
+    const p = await translationPage();
+    p.tree();
+    assert.deepEqual(p.catalogAsked, [["/get/data/translation_catalog"]]);
 });
 
 test("the page's provider lists are the APIs and the local servers it draws", async () => {
@@ -224,6 +280,18 @@ test("the local model's line names the model, whether it is downloaded or cannot
     // Before the list arrives the selected model is named, as not downloaded, and the fold waits closed.
     assert.deepEqual(await line({ values: values(null, M2M, { device: "cpu", device_index: 0, device_name: "cpu" }) }),
         { title: "config_page.translation.setup_title", status: "M2M100 418M · int8 · config_page.translation.setup_not_downloaded · CPU", attention: false, unavailable: [] });
+});
+
+// #1266 T-5: the GPU builds speed up a model on the PC. Before one is there they come too early.
+test("the GPU builds of ONNX Runtime are offered once a translation model is on the PC", async () => {
+    const gpuPart = async (rows: unknown) => {
+        const p = await translationPage({ values: { currentCTranslate2WeightTypeStatus: ok(rows), currentSelectedCTranslate2WeightType: ok(M2M) }, downloads: OFFERS_M2M });
+        return ofType(p.draw(p.reach("AITranslation_Container")), "gpu-runtimes").length;
+    };
+    assert.equal(await gpuPart([builtin(M2M), builtin(NLLB)]), 0, "no model on the PC yet");
+    assert.equal(await gpuPart(null), 0, "before the list arrives");
+    assert.equal(await gpuPart([builtin(M2M), builtin(NLLB, { is_downloaded: true })]), 1, "another model than the selected one counts");
+    assert.equal(await gpuPart([{ id: "user:mine", is_custom: true, is_downloaded: true }]), 1, "a model the user added counts");
 });
 
 test("the note about the retired models folder shows only while that folder is used, and leads to the form that adds a model", async () => {
@@ -345,7 +413,7 @@ test("the catalog's built-in cards choose a model as the model list does, throug
         builtin("nllb-200-distilled-1.3B-ct2-int8", { is_downloaded: false })]), currentSelectedCTranslate2WeightType: ok(NLLB) } });
     const element = p.reach("TranslationCatalog_Container"), runtime = hooks();
     const container = () => p.draw(element, runtime);
-    const section = () => findIn(container(), node => node.type === "catalog-section").props;
+    const section = () => findIn(container(), node => node.type === "catalog-group").props;
     const chosen = () => p.calls.filter(call => call[0] === "setSelectedCTranslate2WeightType").map(call => call[1]);
 
     // A commercial model on the PC: chosen at once, as the list chooses it.
@@ -364,7 +432,7 @@ test("a non-commercial model chosen from its card asks first, as from the list",
         currentSelectedCTranslate2WeightType: ok(M2M) } });
     const element = p.reach("TranslationCatalog_Container"), runtime = hooks();
     const container = () => p.draw(element, runtime);
-    const section = () => findIn(container(), node => node.type === "catalog-section").props;
+    const section = () => findIn(container(), node => node.type === "catalog-group").props;
     const dialog = () => nodesIn(container()).find(node => componentName(node) === "CTranslate2LicenseDialog");
     const chosen = () => p.calls.filter(call => call[0] === "setSelectedCTranslate2WeightType").map(call => call[1]);
     section().chooseWeight(NLLB);
@@ -683,12 +751,31 @@ test("the fields check a value with the core's rules before it is saved, and say
     for (const [name] of AUTO_SAVE_FIELDS.filter(([name]) => name.endsWith("AuthKey_Box"))) assert.equal(saveOf(p, name).validate, undefined, name);
 });
 
-test("the page's sections are headed in order, and the local servers point to how to use a model of one's own", async () => {
+// #1266 ★17: the page in the speech recognition page's order. The engine first, then its two
+// systems under their subheadings: on this PC, the model and its device, then the catalog's models;
+// the APIs, what they are sent, the services, the servers of one's own and the APIs one added.
+test("the page's parts follow the speech recognition page's order, and the servers point to how to use a model of one's own", async () => {
     const p = await translationPage();
-    const labels = (name: string) => ofType(p.draw(p.reach(name)), "section-label").map(node => [node.props.label, node.props.sub]);
-    assert.deepEqual(labels("AITranslation_Container"), [["config_page.translation.section_label_ai_translation", undefined]]);
-    assert.deepEqual(labels("ExternalTranslationAPI_Container"), [["config_page.translation.section_label_external_api", true]]);
-    assert.deepEqual(labels("LocalLLM_Container"), [["config_page.translation.section_label_local_llm", true]]);
-    assert.deepEqual(labels("LLMTranslationOptions_Container"), [["config_page.translation.section_label_llm_options", true]]);
+    const top = nodesIn(p.tree()).filter(node => typeof node.type === "function" || node.type === "advanced-section")
+        .map(node => node.type === "advanced-section" ? "advanced" : `${componentName(node)}${node.props.group ? ` ${node.props.group}` : ""}`);
+    assert.deepEqual(top.filter(name => ["TranslationEngine_Container", "EngineGroup local", "EngineGroup api", "advanced"].includes(name)),
+        ["TranslationEngine_Container", "EngineGroup local", "EngineGroup api", "advanced"]);
+    const group = (id: string) => findIn(p.tree(), node => componentName(node) === "EngineGroup" && node.props.group === id);
+    const inside = (id: string) => [group(id).props.children].flat().filter(Boolean)
+        .map((node: TreeNode) => typeof node.type === "function" ? `${componentName(node)}${node.props.group ? ` ${node.props.group}` : ""}` : String(node.type));
+    assert.deepEqual(inside("local"), ["AITranslation_Container", "TranslationCatalog_Container engine"]);
+    assert.deepEqual(inside("api"), ["lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "TranslationCatalog_Container api"]);
+    // Each system's subheading, where the search leads by its key.
+    for (const [id, key] of [["local", "local_section"], ["api", "api_section"]]) {
+        const drawn = p.draw(group(id));
+        const label = findIn(drawn, node => node.type === "section-label").props;
+        assert.deepEqual([label.label, label.desc, label.sub], [`config_page.translation.${key}.label`, `config_page.translation.${key}.desc`, true]);
+        assert.ok(findIn(drawn, node => node.props?.["data-setting-id"] === key));
+        assert.equal(drawn.props["data-engine-group"], id);
+    }
+    // The local model's part and the providers have no heading of their own any more.
+    for (const name of ["AITranslation_Container", "ExternalTranslationAPI_Container", "LocalLLM_Container"]) assert.deepEqual(ofType(p.draw(p.reach(name)), "section-label"), [], name);
+    assert.deepEqual(ofType(p.draw(p.reach("LLMTranslationOptions_Container")), "section-label").map(node => [node.props.label, node.props.sub]),
+        [["config_page.translation.section_label_llm_options", true]]);
     assert.deepEqual(ofType(p.draw(p.reach("LocalLLM_Container")), "custom-model-link").map(node => node.props.section), ["translation"]);
 });

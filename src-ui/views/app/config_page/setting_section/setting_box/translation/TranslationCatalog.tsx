@@ -6,7 +6,6 @@ import { useTranslationCatalog } from "../../../../../../logics/translation/useT
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState, weightLabel } from "../../../../../../logics/translation/translationCatalog";
 import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
-import { SectionLabelComponent } from "../_components";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
@@ -44,27 +43,20 @@ export interface WeightActions {
     reviewWeight?: (weight: string) => void;
 }
 
-export const TranslationCatalogSection = ({ chooseWeight, reviewWeight }: WeightActions = {}) => {
+// One group of the catalog, in its system's part of the page (#1266 ★17): the models on this PC,
+// or the APIs the user added. The page asks for the catalog once for both. A refusal is said in
+// the group whose change was refused; the catalog's own (it could not be read) in the models'.
+export const TranslationCatalogGroup = ({ group, chooseWeight, reviewWeight }: { group: CatalogGroupId } & WeightActions) => {
     const { t } = useI18n();
-    const { catalog, error, send } = useTranslationCatalog();
+    const { catalog, error, errorGroup } = useTranslationCatalog();
     const layout = useCatalogLayout();
-    // Asked again when the page opens: which entries can be used follows the keys and the
-    // downloads set up elsewhere since.
-    useEffect(() => { send("/get/data/translation_catalog"); }, [send]);
+    const problems = [error && (errorGroup === "api" ? "api" : "engine") === group ? error : null,
+        group === "engine" ? catalog?.error_code : null].filter((code): code is string => !!code);
     return (
-        <section className={styles.container} aria-label={t("translation_catalog.title")}>
-            {/* The cards' layout, chosen on the section's heading line, as on the model catalogs. */}
-            <div className={`${styles.catalog_head} ${styles.section_head}`}>
-                {/* What the catalog holds is the heading's hint (#614), a line under it elsewhere. */}
-                <SectionLabelComponent label={t("translation_catalog.title")} desc={t("translation_catalog.intro")} />
-                <CatalogLayoutSwitch />
-            </div>
-            {error && <p role="alert">{errorText(t, error)}</p>}
-            {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
-            {catalog ? <>
-                <CatalogGroup group="engine" catalog={catalog} layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />
-                <CatalogGroup group="api" catalog={catalog} layout={layout} />
-            </> : <p>{t("translation_catalog.loading")}</p>}
+        <section className={styles.container} aria-label={t(`translation_catalog.group.${group}`)}>
+            {problems.map(code => <p key={code} role="alert">{errorText(t, code)}</p>)}
+            {catalog ? <CatalogGroup group={group} catalog={catalog} layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />
+                : <p>{t("translation_catalog.loading")}</p>}
         </section>
     );
 };
@@ -79,23 +71,27 @@ const CatalogGroup = ({ group, catalog, layout, chooseWeight, reviewWeight }: { 
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
     // A built-in model is listed here as in the model list above (#565): only the ones the user has,
     // can download, has selected or is downloading. The rest could only show "not downloaded".
+    // The APIs the app ships are the providers above this group, each with its key: they are not
+    // listed again here (#1266 T-8).
     const listed = useListedLocalWeights();
-    const entries = entriesOf(catalog, group).filter(entry =>
-        entry.group !== "engine" || entry.item.origin !== "builtin" || listed.has(entry.item.weight));
+    const entries = entriesOf(catalog, group).filter(entry => entry.item.origin !== "builtin"
+        || (entry.group === "engine" && listed.has(entry.item.weight)));
     const shipped = entries.filter(entry => entry.item.origin === "builtin");
     const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
-        // A part of the catalog of its own, folded as the model catalogs' parts are. What the group is:
-        // its name's hint on a page that shows descriptions as hints, a line inside it elsewhere.
-        <CatalogSection level={3} data-catalog-group={group} title={t(`translation_catalog.group.${group}`)}
+        // A part of the catalog of its own, folded as the model catalogs' parts are, under its system's
+        // subheading. What the group is: its name's hint on a page that shows descriptions as hints, a
+        // line inside it elsewhere. The cards' layout is chosen at its top, where the cards are.
+        <CatalogSection level={4} data-catalog-group={group} title={t(`translation_catalog.group.${group}`)}
             help={[t(`translation_catalog.group_help.${group}`)]} readout={t("translation_catalog.group_readout", { count: entries.length })}>
+            {entries.length > 0 && <div className={catalogStyles.layout_line}><CatalogLayoutSwitch /></div>}
             {own.length > 0
                 ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
                 : <p>{t("translation_catalog.none_added", { add: t(`translation_catalog.add.${group}`) })}</p>}
-            <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
-                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout}
-                    chooseWeight={chooseWeight} reviewWeight={reviewWeight} />)}</CatalogList>
-            </Fold>
+            {shipped.length > 0 && <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
+                <CatalogList layout={layout}>{shipped.map(entry => entry.group === "engine" && <ShippedCard key={entry.item.id} item={entry.item}
+                    layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />)}</CatalogList>
+            </Fold>}
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
         </CatalogSection>
@@ -103,28 +99,25 @@ const CatalogGroup = ({ group, catalog, layout, chooseWeight, reviewWeight }: { 
 };
 
 // An entry the app ships: its name and whether it can be used now. The state ends the name's line,
-// where every card of the catalog has it; in the grid the entry's kind is the line under it, so
-// every card's state is in the same place.
+// where every card of the catalog has it; in the grid its marks are the line under it, so every
+// card's state is in the same place.
 // A built-in model's card is pressed anywhere to use it, or, when it is not downloaded, to review
-// its download (#1228); the card in use has nothing to press. The built-in APIs are the
-// translators the main screen chooses, so their cards only say whether they can be used.
-const ShippedCard = ({ group, item, layout, chooseWeight, reviewWeight }: CatalogEntry & { layout: CatalogLayout } & WeightActions) => {
+// its download (#1228); the card in use has nothing to press. Only the models are listed: the
+// APIs the app ships are the providers of the page's API part (#1266 T-8).
+const ShippedCard = ({ item, layout, chooseWeight, reviewWeight }: { item: EngineItem; layout: CatalogLayout } & WeightActions) => {
     const { t } = useI18n();
-    const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
-    const weight = group === "engine" && "weight" in item ? item.weight : null;
-    const name = group === "engine" ? weightLabel(item.weight, null) : item.name;
-    const press = weight === null ? null
-        : state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
+    const state = item.in_use ? "in_use" : item.available ? "ready" : "not_downloaded";
+    const weight = item.weight;
+    const name = weightLabel(weight, null);
+    const press = state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
             named: t("translation_catalog.use_named", { name }), tone: "primary" as const }
         : state === "not_downloaded" && reviewWeight ? { run: () => reviewWeight(weight), label: t("model_downloads.review"),
             named: t("translation_catalog.review_named", { name }), tone: undefined }
         : null;
-    // A license that bars commercial use is a caution: amber.
-    const kind = <>
-        <Badge>{t("translation_catalog.badge.builtin")}</Badge>
-        {group === "api" && item.kind && <Badge>{t(`translation_catalog.kind.${item.kind}`)}</Badge>}
-        {"non_commercial" in item && item.non_commercial && <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge>}
-    </>;
+    // A license that bars commercial use is a caution: amber. What the app provides carries no mark
+    // of its own (DESIGN.md "Roles in settings"): the fold's title says the entries are the app's
+    // (#1266 T-6).
+    const kind = item.non_commercial ? <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge> : null;
     return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? catalogStyles.pressable : undefined}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
@@ -132,7 +125,7 @@ const ShippedCard = ({ group, item, layout, chooseWeight, reviewWeight }: Catalo
             {layout === "list" && kind}
             <CatalogState state={state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
+        {layout === "grid" && kind && <div className={styles.card_badges}>{kind}</div>}
         {press && <div className={styles.actions}>
             <Button tone={press.tone} className={catalogStyles.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
         </div>}

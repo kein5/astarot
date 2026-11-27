@@ -414,6 +414,8 @@ main_page:
 
     translator_selector:
         is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{local_engine}}」のみが使用できます。"
+        # Why a greyed engine cannot be chosen, read by screen readers; the grey says it on screen (#1266 T-7).
+        unavailable_reason: "選べないエンジンは、この言語や現在の設定では使えません。"
         unavailable_hint: "選べないエンジンは、この言語や現在の設定では使えません。APIキーなどは設定の「翻訳」で確認できます。"
 
     message_log:
@@ -535,7 +537,7 @@ config_page:
         ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
         tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
         transcription: "マイクの区切り {{phrase}}秒 · 聞き取りの区切り {{speaker}}秒"
-        translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
+        translation: "LLMの温度 {{temperature}} · 指示 {{instructions}}"
         appearance: "ログの文字 {{log}}% · 不透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
         hotkeys_other: "{{count}}件にキーを割り当て済み"
@@ -697,13 +699,29 @@ config_page:
         setup_not_downloaded: "未ダウンロード"
         setup_unavailable: "まだダウンロードできません"
         download_unavailable: "まだ取得できません"
-        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「詳細設定」にある外部翻訳APIかローカルLLMを使ってください。"
+        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「API（クラウドや自分のサーバー）」のAPIか自分で動かすサーバーを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
+        # The local engine's name, as the main screen's translator list names it (translatorLabel.ts).
         section_label_ai_translation: "AI翻訳（ローカル）"
-        section_label_external_api: "外部翻訳API"
-        section_label_local_llm: "ローカルLLM・互換サーバー"
+        # The page in the speech recognition page's order (#1266 ★4, ★17): the engine first, then its two systems.
+        section_label_translation_engines: "翻訳エンジン"
+        select_translation_engine:
+            label: "翻訳で使用するエンジン"
+            desc: "メイン画面の「翻訳エンジン」と同じで、言語設定ごとに選びます。APIのエンジンは、下の「API（クラウドや自分のサーバー）」でAPIキーを登録するかサーバーにつなぐと選べます。"
+            selected: "言語設定{{tab}}で使用中: {{engine}}"
+            unselected: "未選択"
+        local_section:
+            label: "お使いのPCで動かす"
+            desc: "翻訳する文はお使いのPCの外に出ません。モデルを取得するか、お使いのPCにある自分のモデルを追加して使います。"
+        api_section:
+            label: "API（クラウドや自分のサーバー）"
+            desc: "文をサービスや自分で動かすサーバーへ送って翻訳します。APIキーを登録するかサーバーにつなぐと、上の「翻訳で使用するエンジン」で選べます。"
+        # The line of 「詳細設定」: what the AI engines are asked besides the text (#392).
+        llm_temperature_default: "既定"
+        llm_instructions_set: "あり"
+        llm_instructions_unset: "なし"
         llm_privacy_lead: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。"
         llm_privacy_desc: "会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
         # 以前の版のtranslation-modelsフォルダーに何か入っているあいだだけ出す（#597）。
@@ -1244,6 +1262,10 @@ config_page:
                 label: "おしゃべりAI"
                 lead: "設定に「おしゃべりAI」のページが加わります。声や画面を送るのは、そのページで対話を始めて同意したときだけです。"
                 desc: "画面を見せながら、AIと声で話します。対話の相手は外部のサービスで、OpenAI RealtimeのAPIキーか、自分で動かすvLLM-Omniのサーバーが要ります。試験中の機能です。"
+                # The row to the page it adds, while it is on (#1266 K-4).
+                page:
+                    label: "おしゃべりAIのページ"
+                    desc: "メニューの「声と読み取り」に加わるページです。対話の相手を選んで、対話を始めます。"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"
@@ -2472,15 +2494,14 @@ translation_catalog:
     # A group's bar: how many entries it has, the user's and the app's.
     group_readout_one: "{{count}}件"
     group_readout_other: "{{count}}件"
-    title: "翻訳のカタログ"
-    intro: "翻訳に使うものは2つのグループに分かれます。お使いのPCで動かすモデルと、アプリが呼び出すAPIです。どちらにも自分の項目を追加できます。追加しても項目を覚えるだけで、ダウンロードや切り替えはしません。"
     loading: "翻訳のカタログを読み込んでいます。"
+    # Each group under its system's part of the translation page (#1266 ★17).
     group:
-        engine: "お使いのPCで動かすモデル"
-        api: "API"
+        engine: "モデルのカタログ"
+        api: "自分で追加したAPI"
     group_help:
-        engine: "お使いのPCの推論エンジンで動かす翻訳のモデルです。手元のモデルはフォルダーを指定して追加します。"
-        api: "アプリがネットワーク越しに呼び出す翻訳のサービスです。お使いのPCやLANの中のサーバーも含みます。アドレスとモデルとキーを指定して追加します。"
+        engine: "アプリに含まれる翻訳のモデルと、自分で追加したモデルです。お使いのPCの推論エンジンで動かします。手元のモデルはフォルダーを指定して追加します。追加しても項目を覚えるだけで、ダウンロードや切り替えはしません。"
+        api: "アプリに含まれない翻訳のAPIを、アドレスとモデルとキーを指定して追加します。お使いのPCやLANの中のサーバーも追加できます。追加しても項目を覚えるだけで、切り替えはしません。"
     none_added: "自分で追加した項目はまだありません。下の「{{add}}」から追加できます。"
     shipped_title: "アプリに含まれる項目（{{count}}件）"
     # TranslateGemmaのような翻訳のLLMを動かすllama.cppのサーバー（ADR-015）。
@@ -2488,7 +2509,6 @@ translation_catalog:
         label: "翻訳のLLMを動かすllama.cppのサーバー"
         desc: "TranslateGemmaのような翻訳のLLMは、llama.cppのサーバーで動きます。サーバーはアプリに含まれていません。ここでサーバーを取得してから、下でモデルのファイルを追加してください。サーバーが起動するのは、そのモデルで翻訳をオンにしたときだけです。"
     badge:
-        builtin: "標準"
         user: "自分で追加"
         non_commercial: "非商用のライセンス"
     kind:
@@ -3068,7 +3088,7 @@ talk_ai:
     locked: "対話の間は、対話の相手と画面の送り方の設定を変えられません。変えるときは対話を終えてください。"
     providers:
         title: "対話の相手"
-        intro: "話す相手を選びます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。"
+        intro: "話す相手を選びます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。"
         loading: "対話の相手の一覧を読み込んでいます…"
         group:
             api: "API（クラウド）"
@@ -3085,8 +3105,6 @@ talk_ai:
         in_use: "使用中"
         ready: "使える"
         not_set: "APIキーが未設定"
-    state_help:
-        not_set: "下の「OpenAIのAPIキー」に入れると使えます。"
     fact:
         destination: "接続先"
         input: "受け取るもの"
@@ -3105,7 +3123,6 @@ talk_ai:
         none: "まだ入れていません"
         stored: "システムの資格情報ストアに保存してあります"
         memory: "アプリを閉じるまで覚えています（システムの資格情報ストアに保存できませんでした）"
-        save: "保存"
         remove: "キーを削除"
         placeholder: "APIキーを貼り付け"
         placeholder_replace: "新しいキーで置き換える"

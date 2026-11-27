@@ -21,6 +21,9 @@ import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../.
 // model of one's own is added in the translation catalog. It shows the variants of the model it
 // was opened for, or every translation model when the catalog has none of that one. The built-in
 // CTranslate2 download it reviewed before is gone: the core retired it in 0.5.0 (#1015).
+// A model of one file opens its review, with the consent, at once: the press that opened this
+// dialog asked for it, and a card with one more 「取得内容を確認」 was a second press (#1266 T-3).
+// Back there closes this dialog too; a started download stays here with its progress.
 // The download catalog, as far as the review reads it (docs/voice-stack/model-downloads.md).
 // Like the hook's catalog, it is declared, not checked.
 interface ReviewCatalog {
@@ -58,7 +61,7 @@ export const LegacyModelDownloadDialog = ({ weightType, onCancel, extraAction = 
     const usable = (currentCTranslate2WeightTypeStatus?.data ?? []).filter(item => item.is_downloaded).flatMap(item => translationCatalogIds(item.id));
     // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <Dialog ref={dialog} open onOpenChange={cancel} aria-describedby={undefined}>
+        <Dialog ref={dialog} open onOpenChange={cancel} stepsBack aria-describedby={undefined}>
             <DialogHeader>
                 <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
             </DialogHeader>
@@ -66,7 +69,7 @@ export const LegacyModelDownloadDialog = ({ weightType, onCancel, extraAction = 
                 {translationRows.length > 0
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} usable={usable}
                         only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice}
-                        onStart={onCatalogStart} />
+                        onStart={onCatalogStart} reviewAtOnce={ownRows.length > 0} onReviewDone={started => { if (!started) cancel(); }} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* What the download goes on to, when the caller continues something (#1015). */}
                 {note && translationRows.length > 0 && <p>{note}</p>}

@@ -104,14 +104,15 @@ test("on a page that shows descriptions as hints, what the runtime holds is its 
     assert.deepEqual(lines(tree), [[undefined, `${SIZE} · MIT`]]);
 });
 
-test("one of a pair of builds says whether it fits the GPU; the one that fits leads, the one not needed has no help and no download", async context => {
+test("one of a pair of builds says whether it fits the GPU; the one that fits offers its review, the one not needed has no help and no download", async context => {
     const r = await runtimeSetup(context, {}, { hints: true });
     let tree = r.draw({ fit: "fits" });
     assert.equal(tree.props["data-fit"], "fits");
     // The accent tone for the build that fits.
     const badge = (node: TreeNode) => findIn(node, item => item.type === "badge" && textOf(item).startsWith("vc_runtime.fit_"));
     assert.deepEqual([badge(tree).props.tone, textOf(badge(tree))], ["accent", "vc_runtime.fit_fits"]);
-    assert.deepEqual(buttons(tree), [["vc_runtime.review", false, "primary"]]);
+    // A plain review, as every 「取得内容を確認」 (#474, #1266 T-4): the badge leads, not the button.
+    assert.deepEqual(buttons(tree), [["vc_runtime.review", false, "plain"]]);
     tree = r.draw({ fit: "unneeded" });
     assert.deepEqual([badge(tree).props.tone, textOf(badge(tree)), tree.props["aria-describedby"]], ["neutral", "vc_runtime.fit_unneeded", undefined]);
     assert.equal(find(tree, node => node.type === "hint"), null);

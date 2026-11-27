@@ -1,7 +1,7 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
 import { instructionsProblem, papagoClientIdProblem, serverUrlProblem, temperatureProblem } from "../../../../../../logics/configs/fieldChecks.ts";
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -16,7 +16,8 @@ import { ENGINE_FORM_SETTING_ID, isUsersWeight, weightLabel } from "../../../../
 import { revealSetting } from "../../../../../../logics/configs/revealSetting.ts";
 import { FormRow } from "../_components/form_row/FormRow";
 import { localModelList } from "../../../../../../logics/translation/localModelList";
-import { TranslationCatalogSection } from "./TranslationCatalog";
+import { TranslationCatalogGroup } from "./TranslationCatalog";
+import { LOCAL_TRANSLATION_ENGINE, translatorLabel } from "../../../../../../logics/main/translatorLabel.ts";
 import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
 import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 import type { WeightTypeStatus } from "../../../../../../logics/configs/config_page_setter/settingTypes";
@@ -31,6 +32,7 @@ import * as styles from "./Translation.css.ts";
 
 import {
     DownloadModelsContainer,
+    RadioButtonContainer,
     AuthKeyContainer,
     EntryWithSaveButtonContainer,
     DropdownMenuContainer,
@@ -49,7 +51,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
-import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
+import { Badge, Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 
 import {
     deepl_auth_key_url,
@@ -63,43 +65,116 @@ import {
 } from "@ui_configs";
 
 import { useLLMConnection } from "@logics_common";
+import { useLanguageSettings } from "@logics_main";
 import { useStore_TranslationEngines, useStore_SelectedTranslationEngines } from "@store";
 
-// The providers in 「詳細設定」, by the lists they are drawn in below.
+// The providers of the API part, by the lists they are drawn in below: the services, then the
+// servers the user runs.
 export const EXTERNAL_API_PROVIDERS = ["DeepL_API", "Google_Cloud_API", "Papago_API", "Plamo_API", "Gemini_API", "OpenAI_API", "Groq_API", "OpenRouter_API"];
 export const LOCAL_LLM_PROVIDERS = ["LMStudio", "Ollama", "OpenAI_Compatible"];
 
-// The local AI translation is what a first start uses; its model is the first thing here. The
-// translation APIs and local LLMs are set up once by those who use them, in 「詳細設定」 (#554).
-// Its line counts the ones ready; it opens by itself while a language preset uses one of them.
-// The translation catalog (#413), where users add models and APIs of their own, is a section of
-// its own after the fold, always in sight (#597).
+// The page in the speech recognition page's order (decided on 2026-11-27, #1266 ★4, ★17): which
+// engine translates comes first, as on the main screen, then the two systems it chooses from,
+// each with all it needs. On this PC: the model and its device (what a first start uses), then
+// the catalog of models, where models of one's own are added (#413). The APIs: the services and
+// the servers of one's own, one fold per provider with its key, then the APIs the user added.
+// What every AI engine is asked besides the text is set once, in 「詳細設定」 (#392).
 export const Translation = () => {
     const { t } = useI18n();
-    const { currentTranslationEngines } = useStore_TranslationEngines();
-    const { currentSelectedTranslationEngines } = useStore_SelectedTranslationEngines();
-    const engines = currentTranslationEngines.data ?? [];
-    const ready = (ids: string[]) => engines.filter(engine => ids.includes(engine.id) && engine.is_available === true).length;
-    const inUse = Object.values(currentSelectedTranslationEngines.data ?? {})
-        .some(id => EXTERNAL_API_PROVIDERS.includes(id) || LOCAL_LLM_PROVIDERS.includes(id));
+    const { currentLLMTranslationTemperature, currentLLMTranslationInstructions } = useTranslation();
+    const { send } = useTranslationCatalog();
+    // Asked once when the page opens, for both of its groups: which entries can be used follows
+    // the keys and the downloads set up elsewhere since.
+    useEffect(() => { send("/get/data/translation_catalog"); }, [send]);
+    const temperature = String(currentLLMTranslationTemperature?.data ?? "").trim();
+    const instructions = String(currentLLMTranslationInstructions?.data ?? "").trim();
     // Reviewed against #614: the rows' general descriptions are their labels' hints. A license, a
     // warning, what a provider charges and what is sent out stay on screen.
     return (
         <HintDescriptions>
         <div className={styles.container}>
-            <AITranslation_Container />
-            <AdvancedSection attention={inUse} status={t("config_page.advanced_status.translation", {
-                api: ready(EXTERNAL_API_PROVIDERS), llm: ready(LOCAL_LLM_PROVIDERS) })}>
-                {/* What an LLM engine is sent, once for the APIs and the local servers below: the sentence
+            <TranslationEngine_Container />
+            <EngineGroup group="local">
+                <AITranslation_Container />
+                <TranslationCatalog_Container group="engine" />
+            </EngineGroup>
+            <EngineGroup group="api">
+                {/* What an LLM engine is sent, once for the APIs and the servers below: the sentence
                     stays on screen, and which messages and how long they are kept are its hint. */}
                 <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
                 <ExternalTranslationAPI_Container />
                 <LocalLLM_Container />
+                <TranslationCatalog_Container group="api" />
+            </EngineGroup>
+            <AdvancedSection status={t("config_page.advanced_status.translation", {
+                temperature: temperature || t("config_page.translation.llm_temperature_default"),
+                instructions: t(instructions ? "config_page.translation.llm_instructions_set" : "config_page.translation.llm_instructions_unset") })}>
                 <LLMTranslationOptions_Container />
             </AdvancedSection>
-            <TranslationCatalog_Container />
         </div>
         </HintDescriptions>
+    );
+};
+
+// The translation engine of the language preset in use, chosen here as on the main screen
+// (#1266 ★4): one choice, its options under the two systems' names, in the order the page shows
+// them below. An engine the core cannot use now (no key, no server) is greyed; the one in use
+// stays chosen. While the language settings are busy, a choice waits, as on the main screen.
+const TranslationEngine_Container = () => {
+    const { t } = useI18n();
+    const { currentTranslationEngines, currentSelectedTranslationEngines, currentSelectedPresetTabNumber,
+        canChangeLanguageSettings, setSelectedTranslationEngines } = useLanguageSettings();
+    const engines = currentTranslationEngines.data ?? [];
+    const tab = currentSelectedPresetTabNumber.data;
+    const selected = currentSelectedTranslationEngines.data?.[tab];
+    const option = (id: string) => {
+        const engine = engines.find(item => item.id === id);
+        return engine ? [{ id, label: translatorLabel(engine, t), disabled: engine.is_available !== true && id !== selected }] : [];
+    };
+    const noteId = useId();
+    const name = engines.find(item => item.id === selected);
+    const choose = (id: string) => {
+        if (!canChangeLanguageSettings()) return;
+        if (id !== selected) setSelectedTranslationEngines(id);
+    };
+    return (
+        <div>
+            <SectionLabelComponent label={t("config_page.translation.section_label_translation_engines")} />
+            <RadioButtonContainer
+                label={t("config_page.translation.select_translation_engine.label")}
+                desc={t("config_page.translation.select_translation_engine.desc")}
+                // The engine in use is a value, not a description: it stays under the label (#614).
+                note={<span role="status">{t("config_page.translation.select_translation_engine.selected", {
+                    tab, engine: name ? translatorLabel(name, t) : selected || t("config_page.translation.select_translation_engine.unselected") })}</span>}
+                note_id={noteId}
+                aria-describedby={noteId}
+                selectFunction={choose}
+                name="select_translation_engine"
+                groups={[
+                    { id: "local", label: t("config_page.translation.local_section.label"), options: option(LOCAL_TRANSLATION_ENGINE) },
+                    { id: "api", label: t("config_page.translation.api_section.label"),
+                        options: [...EXTERNAL_API_PROVIDERS, ...LOCAL_LLM_PROVIDERS].flatMap(option) },
+                ]}
+                checked_variable={{ state: currentSelectedTranslationEngines.state, data: selected }}
+            />
+        </div>
+    );
+};
+
+// The engines' two systems, each under its subheading with what it is: the subheading's hint on
+// this page (#614). The ids are where the settings search leads for config_page.translation.<id>.
+const ENGINE_GROUPS = { local: "local_section", api: "api_section" };
+
+const EngineGroup = ({ group, children }: { group: "local" | "api"; children?: ReactNode }) => {
+    const { t } = useI18n();
+    const id = ENGINE_GROUPS[group];
+    return (
+        <div className={styles.engine_group} data-engine-group={group}>
+            <div data-setting-id={id}>
+                <SectionLabelComponent sub label={t(`config_page.translation.${id}.label`)} desc={t(`config_page.translation.${id}.desc`)} />
+            </div>
+            {children}
+        </div>
     );
 };
 
@@ -123,9 +198,11 @@ const AITranslation_Container = () => {
     // No built-in model can be downloaded and the selected one cannot translate: say so, and
     // point to the engines in 「詳細設定」 below.
     const nothingToGet = localModelList(currentCTranslate2WeightTypeStatus.data, selected, catalog).unavailable;
+    // The GPU builds speed up a model on the PC: offered once one is there, not before the model
+    // that would use them (#1266 T-5).
+    const modelOnPc = (currentCTranslate2WeightTypeStatus.data ?? []).some(item => item.is_downloaded);
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.translation.section_label_ai_translation")} />
             {/* Open while the selected model is missing and a model can be downloaded (it, or another one
                 listed below): the download is the first thing to do here. */}
             <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded && !(unavailable && nothingToGet)}>
@@ -135,7 +212,7 @@ const AITranslation_Container = () => {
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
                 {/* The GPU builds of ONNX Runtime, fetched only when asked for (decision 2 (c)). */}
-                <TranslationGpuRuntimes />
+                {modelOnPc && <TranslationGpuRuntimes />}
             </SetupSection>
         </div>
     );
@@ -159,6 +236,8 @@ export const RetiredModelsFolderNote = () => {
 // none, and nine open forms made this page nine screens long. The line says
 // whether the provider can be used. A provider that a language preset uses
 // stays open, so its key and model are in sight.
+// A server the user runs is marked as theirs, as the speech recognition page marks the Whisper
+// server of one's own and the catalog marks what runs on the user's server (#1266 T-8).
 const Provider = ({ id, children }: { id: string; children?: ReactNode }) => {
     const { t } = useI18n();
     const { currentTranslationEngines } = useStore_TranslationEngines();
@@ -166,15 +245,15 @@ const Provider = ({ id, children }: { id: string; children?: ReactNode }) => {
     const engine = (currentTranslationEngines.data ?? []).find(item => item.id === id);
     const in_use = Object.values(currentSelectedTranslationEngines.data ?? {}).includes(id);
     const status = t(`config_page.translation.provider_${in_use ? "in_use" : engine?.is_available === true ? "ready" : "not_set"}`);
-    return <SetupSection title={engine?.label ?? id} status={status} attention={in_use}>{children}</SetupSection>;
+    const name = engine?.label ?? id;
+    const title = LOCAL_LLM_PROVIDERS.includes(id)
+        ? <>{name} <Badge tone="strong" variant="dashed">{t("translation_catalog.kind.local_server")}</Badge></> : name;
+    return <SetupSection title={title} status={status} attention={in_use}>{children}</SetupSection>;
 };
 
 const ExternalTranslationAPI_Container = () => {
-    const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent sub label={t("config_page.translation.section_label_external_api")} />
-
             <Provider id="DeepL_API">
                 <DeepLAuthKey_Box />
             </Provider>
@@ -210,13 +289,8 @@ const ExternalTranslationAPI_Container = () => {
 };
 
 const LocalLLM_Container = () => {
-    const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent sub label={t("config_page.translation.section_label_local_llm")} />
-            {/* A model you load into one of these servers yourself is how to translate with your own model. */}
-            <CustomModelLink section="translation" />
-
             {/* In the order they are done: where the server is, whether it answers, then its model. */}
             <Provider id="LMStudio">
                 <LMStudioURL_Box />
@@ -232,6 +306,8 @@ const LocalLLM_Container = () => {
                 <OpenAICompatibleCredentials />
                 <OpenAICompatibleModelContainer />
             </Provider>
+            {/* A model you load into one of these servers yourself is how to translate with your own model. */}
+            <CustomModelLink section="translation" />
         </div>
     );
 };
@@ -370,15 +446,16 @@ const useWeightChoice = (fallback: RefObject<HTMLElement | null>) => {
     return { choose, review, dialogs };
 };
 
-// The catalog of translation models and APIs. Its cards of the built-in models choose a model, or
-// open its download review, as the model list above does (#1228).
-const TranslationCatalog_Container = () => {
+// A group of the catalog of translation models and APIs, in its system's part of the page. The
+// cards of the built-in models choose a model, or open its download review, as the model list
+// above does (#1228).
+const TranslationCatalog_Container = ({ group }: { group: "engine" | "api" }) => {
     const place = useRef<HTMLDivElement>(null);
     const { choose, review, dialogs } = useWeightChoice(place);
     return (
         <div ref={place} tabIndex={-1}>
             {dialogs}
-            <TranslationCatalogSection chooseWeight={choose} reviewWeight={review} />
+            <TranslationCatalogGroup group={group} chooseWeight={choose} reviewWeight={review} />
         </div>
     );
 };

@@ -5,11 +5,12 @@ import { useI18n } from "@useI18n";
 
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
+import { useOpenSettings } from "../../../../../../../logics/common/useOpenSettings.ts";
 import type { TranslatorStatus } from "@ui_configs";
 import { LOCAL_TRANSLATION_ENGINE_NAME_KEY, translatorLabel } from "../../../../../../../logics/main/translatorLabel.ts";
 import { isAnchorInScrollport, translatorPanelMaxHeight, translatorPopoverSide } from "./translatorPlacement.ts";
 import type { PopoverSide } from "./translatorPlacement.ts";
-import { PopoverContent, ToggleGroup, ToggleGroupItem } from "../../../../../../kit/index.ts";
+import { Button, PopoverContent, ToggleGroup, ToggleGroupItem } from "../../../../../../kit/index.ts";
 
 // Space between the rail/button and the popover, and to the window's edges, in rem.
 const GAP = 0.8;
@@ -42,10 +43,14 @@ const isNode = (target: EventTarget | null): target is Node => target !== null &
 // outside or the focus leaving it closes it and leaves the focus where it went; so does the button
 // scrolling out of sight in the rail. Choosing an engine, or the one in use, closes it and gives the
 // focus back to the button.
+// A greyed engine says by its grey that it cannot be used now; why is its description for screen
+// readers, and the way to set it up is a button under the engines that opens the translation
+// settings at their engine choice, not a sentence that sends the user there (#1266 T-7, ★4).
 export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines, is_selected_same_language }: TranslatorSelectorProps) => {
     const { t } = useI18n();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
     const { canChangeLanguageSettings, setSelectedTranslationEngines } = useLanguageSettings();
+    const openSettings = useOpenSettings();
     // Unavailable engines leave the tab order, so their reason cannot wait for
     // focus: it is on screen, and it describes the group the keyboard enters.
     const reason_id = useId();
@@ -120,7 +125,7 @@ export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines
             }}>
             <div className={styles.relative_container}>
                 {has_unavailable && !is_selected_same_language &&
-                    <p id={reason_id} className={styles.unavailable_hint}>{t("main_page.translator_selector.unavailable_hint")}</p>
+                    <span id={reason_id} className={styles.visually_hidden}>{t("main_page.translator_selector.unavailable_reason")}</span>
                 }
                 <ToggleGroup type="single" rovingFocus={false} className={styles.engines} value={selected_id ?? ""}
                     aria-label={t("main_page.translator")} aria-describedby={has_unavailable || is_selected_same_language ? reason_id : undefined}
@@ -151,6 +156,11 @@ export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines
                     </div>
                 : null
                 }
+                {has_unavailable && !is_selected_same_language &&
+                    <Button className={styles.settings} data-translator-settings=""
+                        onClick={() => { updateIsOpenedTranslatorSelector(false); openSettings({ page: "translation", target: "select_translation_engine" }); }}>
+                        {t("main_page.feature_settings.open_page", { page: t("config_page.side_menu_labels.translation") })}
+                    </Button>}
             </div>
         </PopoverContent>
     );
