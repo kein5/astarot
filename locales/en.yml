@@ -3060,6 +3060,7 @@ first_run_setup:
         models: "Models to download"
         # #1308 S-6: models on the PC already are checked and used, not downloaded.
         models_on_pc: "Models on your PC, used without downloading"
+        on_pc: "On your PC, nothing to download"
         model_provider: "Provider: {{provider}}"
         model_card: "Model card and license"
         no_download: "Nothing needs downloading. Only the server and engine settings will be switched."

@@ -3060,6 +3060,7 @@ first_run_setup:
         models: "ダウンロードするモデル"
         # #1308 S-6: models on the PC already are checked and used, not downloaded.
         models_on_pc: "お使いのPCにあり、ダウンロードせずに使うモデル"
+        on_pc: "お使いのPCにあり、ダウンロードしません"
         model_provider: "提供元：{{provider}}"
         model_card: "モデルカードとライセンス"
         no_download: "ダウンロードするモデルはありません。サーバーとエンジンの設定だけを切り替えます。"

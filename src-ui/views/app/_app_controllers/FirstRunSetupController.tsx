@@ -645,16 +645,20 @@ const ModelSetup = ({ words, choice, offer, run, modelReady, alreadyReady = fals
 
 // The models a section downloads, one line each: the name, the license and the size (decided on
 // 2026-11-27, #1266). The provider and the model card are in the breakdown over the consent.
-const ModelLines = ({ label, models }: { label: string; models: readonly SetupEntry[] }) =>
-    <ul className={ui.models} aria-label={label}>
+// onPc: the models are on the PC already and are used, not downloaded (#1308 S-6): each says so in
+// place of its download's size.
+const ModelLines = ({ label, models, onPc = false }: { label: string; models: readonly SetupEntry[]; onPc?: boolean }) => {
+    const { t } = useI18n();
+    return <ul className={ui.models} aria-label={label}>
         {models.map(entry => <li key={entry.id} className={ui.model}>
             <span className={ui.modelName}>{familyLabel(entry)}</span>
             <span className={ui.modelFacts}>
                 {entry.license && <span>{entry.license}</span>}
-                <span>{gib(entry.total_bytes)}</span>
+                <span>{onPc ? t("first_run_setup.recognition.on_pc") : gib(entry.total_bytes)}</span>
             </span>
         </li>)}
     </ul>;
+};
 
 // A license restriction of a model the consent takes in (#411), with the section it is for.
 interface StartRestriction {
@@ -854,7 +858,7 @@ const RecognitionSetup = ({ plan, view, run, catalogReady }: RecognitionSetupPro
         {listening && <p className={ui.text}>{t("first_run_setup.recognition.listening_why", { name: familyLabel(listening.entry) })}</p>}
         {models.length > 0 && <ModelLines label={t("first_run_setup.recognition.models")} models={models} />}
         {/* Models on the PC already are used, not downloaded (#1308 S-6): listed apart, by their state. */}
-        {onPc.length > 0 && <ModelLines label={t("first_run_setup.recognition.models_on_pc")} models={onPc} />}
+        {onPc.length > 0 && <ModelLines label={t("first_run_setup.recognition.models_on_pc")} models={onPc} onPc />}
         {!run && models.length === 0 && onPc.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
         {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
             {plan.map((step, index) => {

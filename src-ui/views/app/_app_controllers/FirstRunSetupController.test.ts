@@ -933,6 +933,12 @@ test("models on the PC are checked, not downloaded, and are not in the consent",
     const plan = s.part(tree, "RecognitionSetup").props.plan;
     assert.deepEqual([logic.planModels(plan).map(entry => entry.id), logic.onPcModels(plan).map(entry => entry.id)],
         [[], ["reazonspeech-v2-q8", "silero-vad-v62"]]);
+    // Listed apart, each line saying it is on the PC in place of a download's size.
+    const local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const lines = find(drawWith(local, s.part(tree, "RecognitionSetup")), node => componentName(node) === "ModelLines" && node.props.onPc === true);
+    assert.deepEqual([lines?.props.label, lines?.props.models.map((entry: { id: string }) => entry.id)],
+        ["first_run_setup.recognition.models_on_pc", ["reazonspeech-v2-q8", "silero-vad-v62"]]);
     assert.deepEqual(s.start(tree).props.models, [], "no download, so no consent for it");
     assert.equal(s.start(tree).props.canBegin, true);
     s.begin();
