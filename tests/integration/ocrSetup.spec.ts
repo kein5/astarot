@@ -19,10 +19,14 @@ test("chat reading refused for its models offers them in its dialog, each review
     const count = await cards.count();
     await expect(dialog.getByRole("button", { name: "Review download" })).toHaveCount(count);
 
-    // The review: what it is, its terms and size, and a start that waits for the consent.
+    // The review: what it is, its license and size in one line, the exact bytes in its breakdown
+    // (#1266), and a start that waits for the consent.
     await cards.first().getByRole("button", { name: "Review download" }).click();
     const review = page.getByRole("dialog", { name: "Model download and terms" });
     await expect(review).toBeVisible();
+    await expect(review.getByText(/ · Apache-2\.0 · [\d.]+ MB$/).first()).toBeVisible();
+    await expect(review.getByText(/bytes/).first()).toBeHidden();
+    await review.getByText("Breakdown", { exact: true }).click();
     await expect(review.getByText(/bytes/).first()).toBeVisible();
     const start = review.getByRole("button", { name: "Agree and download" });
     await expect(start).toBeDisabled();
