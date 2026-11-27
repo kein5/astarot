@@ -347,7 +347,7 @@ test("a failed stop or mute is said with a notice where the user is, naming its 
         const mute = await loadRecordedRoutes({ exists: key => key === "voice_ui.errors.voice_route_closed" });
         mute.receive(endpoint, 409, { error_code: "voice_route_closed" });
         assert.deepEqual(callsOf(mute), [call("useVoice.updateError", "voice_route_closed"),
-            call("useNotificationStatus.showNotification_Error", "voice_ui.errors.voice_route_closed (voice_route_closed)",
+            call("useNotificationStatus.showNotification_Error", "voice_ui.errors.voice_route_closed",
                 { category_id: `voice_action:${endpoint}` })], endpoint);
         const page = await loadRecordedRoutes();
         page.receive(endpoint, 409, {});

@@ -440,7 +440,7 @@ test("an experimental feature without a description is found by its label alone"
 // the words of a button or row that leads elsewhere, a page's notice. Found, they would lead nowhere.
 const NOT_RESULTS = ["hotkeys.input_placeholder", "hotkeys.unassigned_placeholder", "hotkeys.disabled_notice", "hotkeys.error_in_use",
     "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all", "hotkeys.error_window_restore_failed",
-    "hotkeys.error_window_minimize_failed", "vr.hmd", "vr.left_hand", "vr.right_hand", "vrchat.tts_output_action", "device.mute_sync_action",
+    "hotkeys.error_window_minimize_failed", "vr.hmd", "vr.left_hand", "vr.right_hand", "device.none_found", "vrchat.tts_output_action", "device.mute_sync_action",
     "vrchat.tts_output_pointer", "device.mute_sync_pointer", "experimental_features.notice", "experimental_features.empty",
     "translation.setup_downloaded", "translation.setup_not_downloaded", "translation.setup_unavailable", "translation.provider_in_use",
     "translation.provider_ready", "translation.provider_not_set", "transcription.timing_status", "translation.download_unavailable",

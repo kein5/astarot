@@ -155,7 +155,10 @@ const alerts = (tree: unknown) => ofType(tree, "p").filter(node => node.props.ro
 // Whether Start can be pressed, and the line its button points to: what it waits for. While the
 // input runs that line is not shown ("hidden").
 const startReason = (tree: TreeNode) => {
-    const start = buttonNamed(tree, "voice.input_start");
+    // The pass-through's Start has its own name (#1266).
+    const start = (() => {
+        try { return buttonNamed(tree, "voice.passthrough_start"); } catch { return buttonNamed(tree, "voice.input_start"); }
+    })();
     const id = start.props["aria-describedby"];
     const line = id === undefined ? null : find(tree, node => node.type === "p" && node.props.id === id);
     return { disabled: start.props.disabled, reason: id === undefined ? null : line ? textOf(line) : "hidden" };
@@ -223,7 +226,7 @@ test("each page names the form its own way, and says what it is for", async cont
     };
     assert.deepEqual(heading("rvc", true), ["config_page.rvc.rvc_settings.label", "rvc_settings", "config_page.rvc.rvc_settings.label", true,
         "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"]);
-    assert.deepEqual(heading("legacy"), ["voice.input_title", "direct_voice_settings", "voice.input_title", false, "voice.input_description\nvoice.input_scope"]);
+    assert.deepEqual(heading("legacy"), ["voice.passthrough_title", "direct_voice_settings", "voice.passthrough_title", false, "voice.input_description\nvoice.input_scope"]);
     // The form that edits everything, with RVC saved: what to expect of the conversion too.
     assert.deepEqual(heading("all"), ["voice.input_title", "direct_voice_settings", "voice.input_title", false,
         "voice.input_description\nvoice_ui.rvc_latency_hint\nvoice.input_scope"]);
@@ -447,7 +450,7 @@ test("Start sends the chosen input with the conversion's options, or the input a
     assert.equal(classesOf(column).length, 2, "the actions' row in the control column");
 
     const forwarding = await directVoice(context);
-    buttonNamed(forwarding.open({ variant: "legacy" }), "voice.input_start").props.onClick();
+    buttonNamed(forwarding.open({ variant: "legacy" }), "voice.passthrough_start").props.onClick();
     assert.deepEqual(forwarding.sent.at(-1), ["/run/start_direct_voice", { source: "mic-1" }]);
 
     const running = await directVoice(context, { directState: { observation_id: "1", settings: rvcSaved, active: true, requested: true }, directOwner: "rvc" });
@@ -455,7 +458,7 @@ test("Start sends the chosen input with the conversion's options, or the input a
     assert.equal(buttonNamed(tree, "voice.input_stop").props.disabled, false);
     buttonNamed(tree, "voice.input_stop").props.onClick();
     assert.deepEqual(running.sent.at(-1), ["/run/stop_direct_voice"]);
-    assert.equal(buttonNamed(running.open({ variant: "legacy" }), "voice.input_stop").props.disabled, true, "another page's input");
+    assert.equal(buttonNamed(running.open({ variant: "legacy" }), "voice.passthrough_stop").props.disabled, true, "another page's input");
     // Started from nowhere chosen, nothing is sent.
     const none = await directVoice(context, { selectedSource: "" });
     buttonNamed(none.open({ variant: "rvc" }), "voice.input_start").props.onClick();
@@ -471,8 +474,8 @@ test("the setup fold's line says whether the runtime and the model are set and w
     assert.deepEqual(await fold({}, "rvc"), ["voice_ui.setup_rvc", "voice_ui.runtime_set · speech_servers.model_set · voice_ui.mic_ready", false]);
     assert.deepEqual(await fold({ settings: { routing: "direct" }, error: "route_failed" }, "rvc", { rvc_runtime: "", rvc_model: "voice.onnx" }),
         ["voice_ui.setup_rvc", "voice_ui.runtime_unset · speech_servers.model_unset · voice_ui.mic_unready", true]);
-    assert.deepEqual(await fold({ directState: { output_route: "device" }, settings: { output_device: "Speakers" } }, "legacy"), ["voice_ui.setup_input", "voice_ui.output_ready", false]);
-    assert.deepEqual(await fold({ directState: { output_route: "device" }, settings: {} }, "legacy"), ["voice_ui.setup_input", "voice_ui.output_unready", false]);
+    assert.deepEqual(await fold({ directState: { output_route: "device" }, settings: { output_device: "Speakers" } }, "legacy"), ["voice_ui.setup_passthrough", "voice_ui.output_ready", false]);
+    assert.deepEqual(await fold({ directState: { output_route: "device" }, settings: {} }, "legacy"), ["voice_ui.setup_passthrough", "voice_ui.output_unready", false]);
     // A Seed-VC conversion saved by an earlier version, on the form that edits everything.
     assert.deepEqual(await fold({}, "all", { engine: "seed-vc", runtime: "/seed", reference: "" }),
         ["voice_ui.setup_input", "voice_ui.runtime_set · speech_servers.model_unset · voice_ui.mic_ready", false]);
@@ -554,7 +557,7 @@ test("a Seed-VC conversion saved by an earlier version keeps its runtime and ref
 test("the input needs the managed microphone or its output device, and the fold offers to prepare the microphone with its errors", async context => {
     const v = await directVoice(context, { settings: { routing: "direct", monitor: "off" }, error: "mic_failed" }, { known: ["voice_setup_errors.mic_failed"] });
     let tree = v.open({ variant: "legacy" });
-    const setup = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_input");
+    const setup = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.setup_passthrough");
     assert.deepEqual(ofType(setup, "description").map(node => node.props.text), ["voice.input_requires_managed"]);
     const prepare = buttonNamed(setup, "voice.prepare_microphone");
     assert.equal(prepare.props.disabled, false);
@@ -562,9 +565,9 @@ test("the input needs the managed microphone or its output device, and the fold 
     assert.deepEqual(v.sent.at(-1), ["/set/data/voice_settings", { routing: "managed", monitor: "off" }]);
     const column = findIn(setup, node => node.type === "div" && find(node, inner => inner.type === "button") !== null);
     assert.equal(classesOf(column).length, 2);
-    assert.deepEqual(alerts(setup), ["voice_setup_errors.mic_failed (mic_failed)"]);
+    assert.deepEqual(alerts(setup), ["voice_setup_errors.mic_failed"]);
     assert.equal(find(tree, node => node.type === "route-controls"), null);
-    assert.equal(findIn(tree, node => node.type === "row" && node.props.label === "voice.input_source").props.description, "voice.input_selection_hint");
+    assert.equal(findIn(tree, node => node.type === "row" && node.props.label === "voice.passthrough_source").props.description, "voice.input_selection_hint");
     // The route's own sentence, else the voice pages' and the main screen's, else the code with the page to check.
     const other = await directVoice(context, { settings: { routing: "direct" }, error: "odd code" });
     assert.deepEqual(alerts(findIn(other.open({ variant: "legacy" }), node => node.type === "setup")),
@@ -587,7 +590,7 @@ test("the input needs the managed microphone or its output device, and the fold 
     tree = device.open({ variant: "legacy" });
     assert.ok(find(tree, node => node.type === "route-controls"));
     assert.deepEqual(ofType(findIn(tree, node => node.type === "setup"), "description").map(node => node.props.text), ["voice.input_requires_output"]);
-    assert.equal(findIn(tree, node => node.type === "row" && node.props.label === "voice.input_source").props.description, "voice.input_selection_hint_device");
+    assert.equal(findIn(tree, node => node.type === "row" && node.props.label === "voice.passthrough_source").props.description, "voice.input_selection_hint_device");
     const reason = findIn(tree, node => node.type === "p" && textOf(node) === "voice_ui.start_needs_output");
     assert.equal(classesOf(reason).length, 1, "under the button, in the control column");
 });
@@ -621,12 +624,12 @@ test("why the input cannot be used is said once, from the inputs, the form or th
         return alerts(v.open({ variant: "rvc" })).at(-1);
     };
     assert.equal(await last({ directSources: { sources: [microphone], error: "no_inputs" }, directError: "later", directState: { observation_id: "1", settings: rvcSaved, error: "last" } },
-        ["voice_ui.errors.no_inputs"]), "voice.input_error: voice_ui.errors.no_inputs (no_inputs)");
+        ["voice_ui.errors.no_inputs"]), "voice.input_error: voice_ui.errors.no_inputs");
     assert.equal(await last({ directError: "worker_crashed", directState: { observation_id: "1", settings: rvcSaved, error: "last" } }, ["voice.input_errors.worker_crashed"]),
-        "voice.input_error: voice.input_errors.worker_crashed (worker_crashed)");
+        "voice.input_error: voice.input_errors.worker_crashed");
     assert.equal(await last({ directState: { observation_id: "1", settings: rvcSaved, error: "state_error" } }),
         `voice.input_error: state_error · voice_ui.check_settings {"page":"config_page.side_menu_labels.rvc"}`);
-    assert.equal(await last({ directError: "save_unconfirmed" }, ["voice_ui.errors.save_unconfirmed"]), "voice_ui.errors.save_unconfirmed (save_unconfirmed)");
+    assert.equal(await last({ directError: "save_unconfirmed" }, ["voice_ui.errors.save_unconfirmed"]), "voice_ui.errors.save_unconfirmed");
     assert.equal(await last({}), undefined);
 });
 

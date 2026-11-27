@@ -103,11 +103,12 @@ const selectNamed = (tree: unknown, name: string) => findIn(tree, node => node.t
 const optionsOf = (select: TreeNode) => ofType(select, "option").map(option => [option.props.value, textOf(option)]);
 const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === "button" && textOf(node) === words, `the button ${words}`);
 const fieldsetOf = (tree: unknown, source: string) => findIn(tree, node => node.type === "fieldset" && textOf(findIn(node, inner => inner.type === "legend")) === `realtime.${source}`, source);
-// The failure lines, drawn by the form's own part: the words and the code.
+// The failure lines, drawn by the form's own part: the words alone, never the raw code (#1266).
 const failures = (tree: unknown) => nodesIn(tree).filter(node => componentName(node) === "Failure").map(node => {
     const line = componentOf(node)(node.props);
     assert.equal(line.props.role, "alert");
-    return [textOf(line).trim(), textOf(findIn(line, inner => inner.type === "code"))];
+    assert.equal(nodesIn(line).some(inner => inner.type === "code"), false);
+    return textOf(line).trim();
 });
 
 test("the form asks for its settings, state, built-in terms, the server's state and both sources' devices, and again on a new connection", async context => {
@@ -224,12 +225,12 @@ test("the model list offers the server's models only while they are the current 
     assert.equal(selectNamed(f.draw(), "realtime.model").props.value, "qwen");
 });
 
-test("a failure to list the models, a device or a source is said in the toggles' words with its code, and the form's own error under it", async context => {
+test("a failure to list the models, a device or a source is said in the toggles' words, and the form's own error under it", async context => {
     const f = await captionsForm(context, { models: { ...current, error_code: "models_unreachable" }, error: "absent_code",
         endpoints: { mic: { endpoints: [], error_code: "mic_missing" }, speaker: { endpoints: [] } }, state: { mic: { state: "failed" }, speaker: { state: "failed", error_code: "speaker_failed" } } });
     const tree = f.open();
-    assert.deepEqual(failures(tree), [["realtime_toggle.models_unreachable models_unreachable", "models_unreachable"], ["realtime_toggle.mic_missing mic_missing", "mic_missing"],
-        ["realtime_toggle.speaker_failed speaker_failed", "speaker_failed"], ["absent_code", "absent_code"]]);
+    // A code without words says itself.
+    assert.deepEqual(failures(tree), ["realtime_toggle.models_unreachable", "realtime_toggle.mic_missing", "realtime_toggle.speaker_failed", "absent_code"]);
     const clean = await captionsForm(context);
     assert.deepEqual(failures(clean.open()), []);
 });

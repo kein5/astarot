@@ -54,6 +54,11 @@ export interface MultiDropdownMenuProps<P> {
 const choicesOf = (list: DropdownList | undefined): Readonly<Record<string, string | number>> =>
     list === undefined || Array.isArray(list) ? {} : list;
 
+// What the core holds for a device choice when it found no audio system or device, as the value, as
+// the list's only entry, or as the name of a device with no id: said in the screen's words, never
+// as the raw value (#1266).
+const NONE_FOUND: readonly string[] = ["NoHost", "NoDevice"];
+
 // The kit's select (a native <select>): the system draws the open list and gives the keys.
 // While the value waits for the backend, the field says so and neither the pointer nor the keys
 // open it; it stays focused if it was, so a choice made with the keys keeps its place (the
@@ -76,10 +81,12 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
     const options = () => {
         if (pending) return <SelectOption value={current}>{t("common.loading")}</SelectOption>;
         if (props.state !== "ok") return null;
-        const entries = Object.entries(choices).map(([key, words]) => <SelectOption key={key} value={key}>{words}</SelectOption>);
+        // The value, or the words of a device the core names so (a device with no id).
+        const wordsOf = (key: string, words: string | number): string | number => NONE_FOUND.includes(key) || NONE_FOUND.includes(String(words)) ? t("config_page.device.none_found") : words;
+        const entries = Object.entries(choices).map(([key, words]) => <SelectOption key={key} value={key}>{wordsOf(key, words)}</SelectOption>);
         if (current in choices) return entries;
         return <>
-            <SelectOption value={current} disabled hidden>{current}</SelectOption>
+            <SelectOption value={current} disabled hidden>{wordsOf(current, current)}</SelectOption>
             {entries}
         </>;
     };

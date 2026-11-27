@@ -361,9 +361,9 @@ test("what failed last is said under the form: the page's error, the playback's 
         const v = await voicePage(context, given, { known });
         return ofType(v.open(), "p").filter(node => node.props.role === "alert").map(textOf);
     };
-    assert.deepEqual(await alert({ error: "busy", status: { last_error: "later" } }, ["voice_ui.errors.busy"]), ["voice.error: voice_ui.errors.busy (busy)"]);
+    assert.deepEqual(await alert({ error: "busy", status: { last_error: "later" } }, ["voice_ui.errors.busy"]), ["voice.error: voice_ui.errors.busy"]);
     assert.deepEqual(await alert({ status: { last_error: "tts_failed" }, devices: { error: "later" } }, ["voice.input_errors.tts_failed"]),
-        ["voice.error: voice.input_errors.tts_failed (tts_failed)"]);
+        ["voice.error: voice.input_errors.tts_failed"]);
     assert.deepEqual(await alert({ devices: { error: "no devices" } }), [`voice.error: no devices · voice_ui.check_settings {"page":"config_page.tts.tts_settings.label"}`]);
     assert.deepEqual(await alert({}), []);
 });

@@ -156,7 +156,7 @@ test("#436: saving an RVC field with forwarding saved keeps forwarding", async (
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const forms: [Variant, string, string][] = [
     ["rvc", "config_page.rvc.rvc_settings.label", "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"],
-    ["legacy", "voice.input_title", "voice.input_description\nvoice.input_scope"],
+    ["legacy", "voice.passthrough_title", "voice.input_description\nvoice.input_scope"],
 ];
 for (const [variant, heading, intro] of forms) test(`${variant}: the form's description is its heading's`, async () => {
     const page = await open(variant, rvcSettings);

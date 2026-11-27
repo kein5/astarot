@@ -44,7 +44,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
 2. Under "Realtime captions" in "More settings" on the same page, choose which sound to turn into text. Your choice is saved at once.
    - "Microphone captions" transcribe the microphone chosen under "Microphone input". At first it follows the system's default input.
-   - "Game audio captions" transcribe other players' voices from "Game audio output". Choose an output device that plays only VRChat's sound. If other apps play through the same output, their sound is transcribed too.
+   - "Listening captions" transcribe other players' voices from "Listening output". Choose an output device that plays only VRChat's sound. If other apps play through the same output, their sound is transcribed too.
 
    ![Settings → Speech recognition (ASR)](/screenshots/en/transcription.webp)
 
@@ -68,7 +68,7 @@ What ASTAROT transcribes from game audio is never sent to your chatbox or played
 
 ### Tell speakers apart
 
-Game audio captions can show who is speaking. ASTAROT tells the voices apart and marks them "Speaker A", "Speaker B" and so on.
+Listening captions can show who is speaking. ASTAROT tells the voices apart and marks them "Speaker A", "Speaker B" and so on.
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 

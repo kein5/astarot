@@ -18,10 +18,11 @@ for (const language of ["en", "ja"]) test(`${language}: every code the voice pag
     for (const code of codes) {
         const text = voiceErrorText(code, "RVC", t, exists);
         const key = exists(`voice_ui.errors.${code}`) ? `voice_ui.errors.${code}` : `voice.input_errors.${code}`;
-        assert.equal(text, `${t(key)} (${code})`, code);
+        // The sentence alone: a code is never shown as it is (#1266).
+        assert.equal(text, t(key), code);
     }
     // voice_ui.errors wins where both have the code.
-    assert.equal(voiceErrorText("voice_route_muted", "TTS", t, exists), `${t("voice_ui.errors.voice_route_muted")} (voice_route_muted)`);
+    assert.equal(voiceErrorText("voice_route_muted", "TTS", t, exists), t("voice_ui.errors.voice_route_muted"));
 });
 
 // The TTS settings page shows why a save was refused. The core refuses with these codes
@@ -33,7 +34,7 @@ for (const language of ["en", "ja"]) test(`${language}: a refused TTS settings s
     for (const code of ["VOICE_SETTINGS_INVALID", "direct_voice_stop_required", "voice_route_closed", "voice_request_failed",
         "audio_devices_unavailable", "backend_unavailable"]) {
         const text = voiceErrorText(code, "TTS", t, exists);
-        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+        assert.ok(!text.includes(code), `${code}: ${text}`);
     }
 });
 
@@ -44,11 +45,11 @@ for (const language of ["en", "ja"]) test(`${language}: the codes the UI makes a
     const t: Translate = (key, params) => i18n.t(key, params), exists = (key: string) => i18n.exists(key);
     for (const code of ["save_unconfirmed", "source_bridge_request_failed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"]) {
         const text = voiceErrorText(code, "RVC", t, exists, ["voice_setup_errors"]);
-        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+        assert.ok(!text.includes(code), `${code}: ${text}`);
     }
     // The route's own setup codes come from voice_setup_errors.
     assert.equal(voiceErrorText("managed_setup_timeout", "RVC", t, exists, ["voice_setup_errors"]),
-        `${t("voice_setup_errors.managed_setup_timeout")} (managed_setup_timeout)`);
+        t("voice_setup_errors.managed_setup_timeout"));
 });
 
 test("an unknown code is shown as it is, with where to look", () => {
