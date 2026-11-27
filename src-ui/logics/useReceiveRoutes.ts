@@ -468,7 +468,10 @@ export const useReceiveRoutes = () => {
     }, [gpuCheckRunning, pollGpuCheck]);
     const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
     const { fail: failTalkAi, reset: resetTalkAi, backendStopped: stopTalkAi } = talkAi.useTalkAiSession();
-    const realtimeActive = Object.values(realtimeState).some(value => value.requested);
+    // Polled while a source is asked to run, and while one is stopping (#1302): the core reports a
+    // stopping session as no longer asked to run, and does not send its end. A settings change
+    // that stops the captions (another server, another model) left "Stopping captions" for good.
+    const realtimeActive = Object.values(realtimeState).some(value => value.requested || value.state === "stopping");
     useEffect(() => {
         if (!realtimeActive) return;
         const timer = setInterval(() => !store.backend_stopped && sendRealtime("/get/data/realtime_asr_state"), 500);
