@@ -165,6 +165,16 @@ def scopes(args):
     return GROUPS.get(args.scope, (args.scope,))
 
 
+def feature_binaries(root, crate):
+    """The binaries of a crate that build only with features (`required-features`), with those
+    features. A run of the crate without them skips these binaries and their tests (#1270)."""
+    manifest = root / crate / "Cargo.toml"
+    if not manifest.is_file():
+        return []
+    targets = tomllib.loads(manifest.read_text(encoding="utf-8")).get("bin", [])
+    return [(target["name"], target["required-features"]) for target in targets if target.get("required-features")]
+
+
 def checks_plan(args, root):
     steps = []
     selected = scopes(args)
@@ -230,6 +240,12 @@ def checks_plan(args, root):
                 # so a crate with a library runs them with cargo test --doc as before.
                 steps.append(Step(f"Cargo nextest {crate}", ["cargo", "nextest", "run", "--locked", "--offline",
                     "--manifest-path", f"{crate}/Cargo.toml", "--no-tests", "pass"]))
+                # That run skips a binary that needs features, so its tests run on their own with
+                # the features (the RVC worker, #1270). CI runs them the same way (voice-tests.yml).
+                for binary, features in feature_binaries(root, crate):
+                    steps.append(Step(f"Cargo nextest {crate} {binary}", ["cargo", "nextest", "run", "--locked",
+                        "--offline", "--manifest-path", f"{crate}/Cargo.toml", "--features", ",".join(features),
+                        "--bin", binary]))
                 if (root / crate / "src/lib.rs").is_file():
                     steps.append(Step(f"Cargo doctests {crate}", ["cargo", "test", "--doc", "--locked", "--offline",
                         "--manifest-path", f"{crate}/Cargo.toml"]))
