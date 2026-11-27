@@ -27,7 +27,7 @@ test("a refusal the main screen can fix opens the fix; the switch settles off an
 test("a refusal it cannot fix stays a notice", async () => {
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/set/enable/transcription_receive", status: 400,
-        result: { error_code: "TRANSCRIPTION_RECEIVE_NOT_READY", data: false, details: { reason: "speech_server_autostart_off" } } });
+        result: { error_code: "TRANSCRIPTION_RECEIVE_NOT_READY", data: false, details: { reason: "realtime_endpoint_required" } } });
     assert.equal(s.recognitionFix().request, null);
     assert.equal(s.notices.length, 1);
 });

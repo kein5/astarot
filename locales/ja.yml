@@ -1708,6 +1708,8 @@ recognition_fix:
   # #1242: 聞き取りには聞き取りだけのモデル。マイク入力のモデルはそのまま。
   detect_body_listening: "{{model}}は{{count}}の言語を認識し、どの言語が話されているかを判定します。確認の画面で大きさとライセンスを示してから取得します。用意ができると聞き取りだけがこのモデルを使い、マイク入力のモデルはそのままで、聞き取りがオンになります。"
   open_setting: "設定を開く"
+  # #1308 N-14: a bundled server that was busy, slow or gone is tried again.
+  turn_on_again: "もう一度オンにする"
   close: "閉じる"
   model_ready: "新しい音声認識モデルを設定しました。"
   # #1242: 聞き取りのモデルがマイク入力のモデルと一緒に収まらない。両方で1つのモデルに。

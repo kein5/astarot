@@ -1708,6 +1708,8 @@ recognition_fix:
   # #1242: for Listening, a model of its own; Mic input keeps its model.
   detect_body_listening: "{{model}} recognizes {{count}} languages and tells which one is spoken. Its review shows the size and the license before anything is downloaded. Once it is ready, Listening uses it on its own, Mic input keeps its model, and Listening turns on."
   open_setting: "Open the setting"
+  # #1308 N-14: a bundled server that was busy, slow or gone is tried again.
+  turn_on_again: "Turn on again"
   close: "Close"
   model_ready: "The new speech recognition model is set."
   # #1242: Listening's own model does not fit beside Mic input's; one model for both.

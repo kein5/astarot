@@ -236,11 +236,33 @@ test("the words exist in both languages with the same names to fill in", () => {
         const locale = readLocale(language);
         for (const key of ["title", "models_body", "get_models", "language_auto_body", "language_body", "language_label", "use_language",
             "detect_heading", "detect_body", "detect_body_listening", "open_setting", "close", "model_ready", "server_running",
-            "share_body", "use_shared", "mic_model"]) {
+            "share_body", "use_shared", "mic_model", "turn_on_again"]) {
             assert.equal(typeof localeAt(locale, `recognition_fix.${key}`), "string", `${language} ${key}`);
         }
         assert.match(String(localeAt(locale, "recognition_fix.title")), /\{\{name\}\}/);
         assert.match(String(localeAt(locale, "recognition_fix.detect_body")), /\{\{model\}\}.*\{\{count\}\}.*\{\{name\}\}/);
         assert.match(String(localeAt(locale, "recognition_fix.use_shared")), /\{\{model\}\}/);
     }
+});
+
+// #1308 N-14: the bundled server that did not start is said in the switch's words, with the action that
+// fixes it: another try for a server that was busy, slow or gone, its settings otherwise.
+test("a server that was busy is tried again from the dialog; one whose model failed opens its settings", async context => {
+    const s = await fixture(context);
+    let tree = s.open(RECEIVE, { reason: "speech_server_busy" });
+    assert.deepEqual(nodesIn(find(tree, node => node.type === kitStandIns.DialogHeader)).filter(node => node.type === "p").map(node => node.props.children),
+        ["realtime_toggle.speech_server_busy"]);
+    assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_setting", undefined], ["recognition_fix.turn_on_again", "primary"]]);
+    s.click("turn_on_again");
+    assert.equal(s.render(), null);
+    assert.deepEqual(s.events, [["close"], ["receive", true]]);
+    s.events.length = 0;
+    tree = s.open(SEND, { reason: "speech_server_model_invalid" });
+    assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_setting", "primary"]]);
+    s.click("open_setting");
+    assert.deepEqual(s.events, [["close"], ["tab", "transcription"], ["config_page", true], ["reveal", { setting_id: "speechcpp_section" }]]);
+    s.events.length = 0;
+    s.open(SEND, { reason: "speech_server_autostart_off" });
+    s.click("open_setting");
+    assert.deepEqual(s.events.at(-1), ["reveal", { setting_id: "asr_server" }], "whether a switch may start the server");
 });
