@@ -2150,7 +2150,9 @@ model_downloads:
     notice_parakeet_v3: "Speech recognition in 25 European languages that detects the spoken language itself. It does not recognize Japanese. CC BY 4.0, by NVIDIA, converted by sakasegawa. If you share the model itself, credit NVIDIA and link the license. Review the model card before use."
     notice_nemotron_asr: "A large multilingual recognizer (30B parameters, 4B active). Even its smallest file is about 19 GB (17.7 GiB), and the whole file must fit in GPU and system memory together. Next to VRChat it needs a PC with a lot of spare memory. OpenMDW-1.1, by NVIDIA, converted by sakasegawa. Review the model card and the license before use."
     notice_silero: "Voice activity detection that finds where someone speaks, in any language, for speech.cpp 0.8.0 or later. MIT, by the Silero Team, converted by sakasegawa."
-    asr_requirements: "This downloads only the recognition model. The bundled ASR server also needs a VAD model: download Silero VAD below, or enter a VAD path. Download completion does not start recognition."
+    asr_requirements: "The bundled ASR server needs a VAD model too. While none is set, it is taken with a speech recognition model. A finished download does not start recognition."
+    # A recognition model's review that takes the VAD with it (#1266).
+    with_vad: "The bundled ASR server needs a VAD model too, so it is taken with this one."
     asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. The bundled ASR server loads one recognition model for both Mic and Speaker."
     # A short plain description per catalog model (catalog row profile.summary).
     summary:
