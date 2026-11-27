@@ -1879,6 +1879,11 @@ voice_ui:
     topbar_muted: "ミュート中"
     details: "詳細"
     voice_unset: "未設定"
+    # The voice chosen from the voices the model lists (#1266), and what a reading needs (TT-1).
+    voice_none: "参照の録音なし"
+    voice_not_listed: "{{name}}（このモデルにない声）"
+    voice_list_hint: "サーバーが動いていると、モデルが持つ声を一覧から選べます。"
+    output_required: "読み上げるには出力デバイスを選んでください。"
     stop_actions: "停止"
     tts_description: "チャット入力とマイク音声の確定した翻訳を読み上げます。メイン画面で「テキスト読み上げ（TTS）」をオンにします。同梱サーバーを選んでいると、TTSのオンとオフに合わせてサーバーも起動・停止します。自分で起動したサーバーはそのまま動きます。"
     tts_server_starting: "サーバー起動中…"

@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
-import { GenerationOptions, validGenerationOptions } from "../tts/GenerationOptions";
+import { GenerationOptions, currentModelOptions, validGenerationOptions } from "../tts/GenerationOptions";
+import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import { TtsEngine, validCoeiroinkOptions, validAudioQueryOptions } from "../tts/TtsEngine";
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
@@ -17,7 +19,7 @@ import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
-import type { VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
+import type { TtsModelVoice, VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
 import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // The speech.cpp roles, each with its server and its voice.
@@ -34,7 +36,9 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const optionsErrorId = useId();
-    const { settings, status, devices, error, send, updateError } = useVoice();
+    const { settings, status, devices, error, send, updateError, modelOptions } = useVoice();
+    // The bundled servers' runs, which the model options answer for (#1266).
+    const { state: speechServers } = useSpeechServers();
     // Saves by itself (#1111, decided 3): a choice at once, a slider when let go, typed text when
     // focus leaves the form or on Enter.
     const form = useSettingsDraft(settings, error, updateError, {
@@ -49,14 +53,32 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
         <Button onClick={() => send("/get/data/voice_settings")}>{t("voice.retry")}</Button>
     </div>;
     const field = (key: string, value: string) => setDraft(previous => ({ ...previous, [key]: value }));
-    const input = (key: string) => {
+    // labelled: in a label of its own; a settings row (FormRow) labels it otherwise.
+    const input = (key: string, labelled = true) => {
         const voice = key.endsWith("_voice");
-        return <label>{t(`voice.${key}`)}
-            {/* The kit's TextField; an address is in the monospaced font (#476). */}
-            <TextField mono={!voice} value={voice && draft[key] === "none" ? "" : draft[key]}
-                placeholder={voice ? t("voice_ui.voice_unset") : t("voice_ui.example", { value: "http://127.0.0.1:8080" })}
-                onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
-        </label>;
+        // The kit's TextField; an address is in the monospaced font (#476).
+        const text = <TextField mono={!voice} aria-label={labelled ? undefined : t(`voice.${key}`)} value={voice && draft[key] === "none" ? "" : draft[key]}
+            placeholder={voice ? t("voice_ui.voice_unset") : t("voice_ui.example", { value: "http://127.0.0.1:8080" })}
+            onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />;
+        return labelled ? <label>{t(`voice.${key}`)}{text}</label> : text;
+    };
+    // The voice of a language's speech.cpp model (decided on 2026-11-27, #1266): chosen from the
+    // voices its server lists, once it has answered for these settings; typed as before until then.
+    // A saved voice the model does not list stays chosen and says so, so nothing changes by itself.
+    const names = createLanguageNames(i18n?.language);
+    const voiceLabel = (voice: TtsModelVoice) => voice.name === "none" ? t("voice_ui.voice_none")
+        : voice.language ? `${voice.name}（${names.fromCode(voice.language)}）` : voice.name;
+    const voiceField = (role: VoiceModelRole) => {
+        const key = `${role}_voice`, value = draft[key] ?? "";
+        const voices = currentModelOptions({ role, saved: settings, draft, row: modelOptions[role], owner: speechServers[role] })?.voices ?? [];
+        if (!voices.length) return <FormRow label={t(`voice.${key}`)} description={t("voice_ui.voice_list_hint")}>{input(key, false)}</FormRow>;
+        return <FormRow label={t(`voice.${key}`)}>
+            <Select aria-label={t(`voice.${key}`)} value={value} onChange={e => field(key, e.target.value)}>
+                {!voices.some(voice => voice.name === value) &&
+                    <SelectOption value={value}>{t("voice_ui.voice_not_listed", { name: value === "none" ? t("voice_ui.voice_none") : value })}</SelectOption>}
+                {voices.map(voice => <SelectOption key={voice.name} value={voice.name}>{voiceLabel(voice)}</SelectOption>)}
+            </Select>
+        </FormRow>;
     };
     // The server of a language: the bundled one unless the settings name another, as the core reads
     // them (native/core/src/config/mod.rs, migrate_speech_servers).
@@ -74,6 +96,9 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
     const micSpeechOn = draft.mic_mode === "original" || draft.mic_mode === "translated";
+    // A reading turned on needs where it plays (the core refuses the settings without one): said
+    // under the output device, not at the page's end (#1111, #1266 TT-1).
+    const outputMissing = (draft.mode !== "off" || micSpeechOn) && draft.routing !== "managed" && !String(draft.output_device ?? "").trim();
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
         {/* What the page reads and how it starts: the heading's hint on a page that keeps descriptions out of sight (#614). */}
         <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} desc={t("voice_ui.tts_description")} />
@@ -99,15 +124,20 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
                         {deviceList.map(device => <SelectOption key={device.id} value={device.id}>{device.label}</SelectOption>)}
                     </Select>
                 </FormRow>
+                {/* What the core refuses the reading for, under the field it needs (#1266, TT-1). */}
+                {outputMissing && <p role="alert">{t("voice_ui.output_required")}</p>}
                 <VirtualMicEntry />
                 {ROLES.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
                     <legend>{t(`speech_servers.${role}`)}</legend>
                     {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
                     {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />}
-                    {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
+                    {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{voiceField(role)}</>}
                 </fieldset>)}
             </fieldset>
         </form>
+        {/* A refusal is said under the form it refuses (#1111), before the parts that follow (#1266, TT-1). */}
+        {!!problem && <p role="alert">{t("voice.error")}: {voiceErrorText(String(problem),
+            t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
         {/* The models the voices above need, then the route, which is changed on the Device page,
             after this page's own controls (#1230). */}
         {setup}
@@ -167,9 +197,6 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
             </fieldset>
         </form>
         {!validGenerationOptions(draft) && <p id={optionsErrorId} role="alert">{t("voice_ui.invalid_options")}</p>}
-        {/* The sentence says what to do; the code stays for reports. */}
-        {!!problem && <p role="alert">{t("voice.error")}: {voiceErrorText(String(problem),
-            t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
     </section>;
 };
 

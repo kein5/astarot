@@ -104,9 +104,11 @@ test("TTS model-specific seed range error is associated without changing the sav
 // hints: whether the page keeps descriptions out of sight (#614).
 const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
     loadModule<typeof import("../advanced_settings/VoiceSettings.tsx")>(new URL("../advanced_settings/VoiceSettings.tsx", import.meta.url), runtime, {
-        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {} }) },
+        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {}, modelOptions: {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
-        "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
+        "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions, currentModelOptions: () => null },
+        "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, AUDIO_QUERY_ENGINES: [], validCoeiroinkOptions: () => true, validAudioQueryOptions: () => true },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "./StopVoiceButton": { StopVoiceButton: "stop-voice" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
@@ -123,7 +125,8 @@ const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
 test("TTS form supplies an existing error ID to both language groups", async () => {
     const s = await setup(), runtime = hooks();
     const { VoiceSettings } = await loadVoiceSettings(s, runtime);
-    const tree = runtime.render(VoiceSettings), alert = findIn(tree, node => node.props?.role === "alert");
+    // The options' error is the alert with an id; a missing output device is said apart (#1266).
+    const tree = runtime.render(VoiceSettings), alert = findIn(tree, node => node.props?.role === "alert" && !!node.props.id);
     const groups: TreeNode[] = [];
     find(tree, node => { if (node.type === s.GenerationOptions) groups.push(node); return false; });
     assert.equal(groups.length, 2);
@@ -151,7 +154,9 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TT
     }
     const rows: unknown[][] = [];
     find(tree, node => { if (node.type === "row") rows.push([node.props.label, node.props.description]); return false; });
-    assert.deepEqual(rows, [["voice.output_device", "voice_ui.output_hint"], ["voice.mic_mode", "voice.mic_hint"], ["voice.conversion", "voice.conversion_hint"]]);
+    // Each speech.cpp voice is a row too, typed until the server lists its voices (#1266).
+    assert.deepEqual(rows, [["voice.output_device", "voice_ui.output_hint"], ["voice.japanese_voice", "voice_ui.voice_list_hint"],
+        ["voice.multilingual_voice", "voice_ui.voice_list_hint"], ["voice.mic_mode", "voice.mic_hint"], ["voice.conversion", "voice.conversion_hint"]]);
     const instruction = findIn(s.render(), node => node.type === "row");
     assert.deepEqual([instruction.props.description, instruction.props.keepDescription], ["voice_ui.instruction_desc", undefined]);
     assert.equal(instruction.props.actions.props.children, "voice_ui.instruction_count");

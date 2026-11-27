@@ -94,12 +94,23 @@ export interface DirectVoiceSources {
 
 export type VoiceModelRole = "japanese" | "multilingual";
 
+// One voice of a speech.cpp model, as its server lists it (native/tts/src/model_options.rs, #1266):
+// the name `voice` takes, and its language, gender and description, empty when not given.
+export interface TtsModelVoice {
+    readonly name: string;
+    readonly language?: string;
+    readonly gender?: string;
+    readonly description?: string;
+}
+
 // What the model of a speech server takes (native/tts/src/model_options.rs): its name, the range of
-// a fixed seed when it takes one, and whether it takes instructions.
+// a fixed seed when it takes one, whether it takes instructions, and its voices (none when the
+// server did not say).
 export interface TtsModelCapabilities {
     readonly model?: string | null;
     readonly seed?: { readonly minimum: number | string; readonly maximum: number | string } | null;
     readonly instructions?: boolean;
+    readonly voices?: readonly TtsModelVoice[];
 }
 
 // /get/data/tts_model_options for one role, or the request still waiting for it (options null).

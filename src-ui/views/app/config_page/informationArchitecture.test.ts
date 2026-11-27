@@ -246,7 +246,7 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
     const page = source.split("export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const fold = rest.split("</AdvancedSection>")[0];
-    for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /input\(`\$\{role\}_voice`\)/])
+    for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /voiceField\(role\)/])
         assert.match(before, part);
     for (const part of [/monitor_heading/, /<GenerationOptions /, /t\("voice\.mic_mode"\)/, /t\("voice\.conversion"\)/]) {
         assert.match(fold, part);
