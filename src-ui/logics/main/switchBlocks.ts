@@ -5,7 +5,7 @@ import { directRouteReady, usesOutputDevice } from "../voice/routeState.ts";
 export type SwitchBlockId = "translation" | "transcription_send" | "transcription_receive" | "ocr" | "tts" | "rvc";
 
 export type SwitchBlockReason = "translation_model" | "translation_unavailable" | "translation_downloading" | "asr_models"
-    | "ocr_language" | "ocr_models" | "tts_source" | "rvc_model" | "rvc_output_device" | "rvc_route";
+    | "ocr_language" | "ocr_models" | "tts_source" | "tts_model" | "rvc_model" | "rvc_output_device" | "rvc_route";
 
 // "translator" opens the translator list in the sidebar. "recognition_setup" opens the first-run
 // setup, which shows the recommended speech recognition models and their size and downloads them
@@ -31,6 +31,16 @@ export interface SwitchVoiceSettings {
     mic_mode?: unknown;
     output_device?: unknown;
     routing?: unknown;
+    // Which engine reads Japanese, and which server each language's speech.cpp voice uses.
+    japanese_engine?: unknown;
+    japanese_server?: unknown;
+    multilingual_server?: unknown;
+}
+
+// The speech server settings (/get/data/speech_server_settings), as far as they are read here:
+// the model each profile has.
+export interface SwitchSpeechServers {
+    profiles?: Readonly<Record<string, { model?: unknown } | undefined>> | null;
 }
 
 // The saved direct voice settings.
@@ -52,6 +62,7 @@ export interface SwitchBlocksInput {
     needs?: readonly SetupNeed[];
     ocr?: OcrReadiness | null;
     voiceSettings?: SwitchVoiceSettings | null;
+    speechServers?: SwitchSpeechServers | null;
     directState?: SwitchDirectState | null;
 }
 
@@ -72,7 +83,7 @@ export interface SwitchStatus {
 // Only what is known blocks a switch. State that has not arrived yet blocks nothing, so a
 // switch that could start is never greyed out; the switch's own error and the setup
 // dialogs still answer anything this does not see.
-export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, directState = null }: SwitchBlocksInput = {}): SwitchBlocks => {
+export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, speechServers = null, directState = null }: SwitchBlocksInput = {}): SwitchBlocks => {
     const blocks: SwitchBlocks = {};
 
     const translation = needs.find(need => need.id === "translation");
@@ -102,6 +113,10 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     // Nothing to read aloud: the engine refuses with tts_source_not_selected.
     if (voiceSettings && voiceSettings.mode === "off" && voiceSettings.mic_mode === "off") {
         blocks.tts = { reason: "tts_source", action: "tts" };
+    } else if (voiceSettings && speechServers?.profiles && !ttsVoiceReady(voiceSettings, speechServers.profiles)) {
+        // No voice to read with (#1266, TT-3): each language reads through the bundled speech.cpp
+        // server, and neither has its model. The models are downloaded on the TTS page.
+        blocks.tts = { reason: "tts_model", action: "tts" };
     }
 
     // The saved settings the RVC switch starts from (MainFunctionSwitch's toggleRvc). The
@@ -119,6 +134,16 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     }
 
     return blocks;
+};
+
+// Whether a language can be read aloud: Japanese through an engine the user installed (which has
+// its own voices), or a speech.cpp voice on a server of the user's own (whose model is its own
+// business) or on the bundled server with its model set. Unknown settings count as ready.
+const ttsVoiceReady = (voice: SwitchVoiceSettings, profiles: NonNullable<SwitchSpeechServers["profiles"]>): boolean => {
+    const bundledWithoutModel = (role: "japanese" | "multilingual") =>
+        (voice[`${role}_server`] ?? "bundled") === "bundled" && !String(profiles[role]?.model ?? "").trim();
+    const japanese = (voice.japanese_engine ?? "speechcpp") !== "speechcpp" || !bundledWithoutModel("japanese");
+    return japanese || !bundledWithoutModel("multilingual");
 };
 
 // The block a switch shows now. A switch that is off and waits for nothing stays off while its

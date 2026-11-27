@@ -6,6 +6,7 @@ import { switchBlocks } from "./switchBlocks";
 import type { SwitchBlockAction, SwitchBlocks } from "./switchBlocks";
 import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
+import { useSpeechServers } from "../voice/useSpeechServers";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
 import { OCR_MODELS_SETTING_ID } from "../ocr/useOcrSetup";
 import { useOpenSettings } from "../common/useOpenSettings";
@@ -20,6 +21,8 @@ export const useSwitchBlocksSource = (): SwitchBlocks => {
     const { needs } = useSetupNeeds();
     const { currentOcrModelReadiness, getOcrModelReadiness, currentOcrSourceLanguage, currentOcrReadiness } = useOcr();
     const { settings: voiceSettings, directState } = useVoice();
+    // The models of the bundled speech servers, for the TTS switch (#1266).
+    const { settings: speechServers } = useSpeechServers();
     const { state: downloads } = useModelDownloads();
     const { updateSwitchBlocks } = useStore_SwitchBlocks();
     const ready = currentIsBackendReady.data === true;
@@ -33,7 +36,7 @@ export const useSwitchBlocksSource = (): SwitchBlocks => {
     }, [ready, currentOcrSourceLanguage.data, finished, currentOcrReadiness.data]);
 
     // Until the engine has sent its settings, nothing is known to be missing.
-    const blocks = ready ? switchBlocks({ needs, ocr: currentOcrModelReadiness.data, voiceSettings, directState }) : {};
+    const blocks = ready ? switchBlocks({ needs, ocr: currentOcrModelReadiness.data, voiceSettings, speechServers, directState }) : {};
     // Written only when a block changes: the VR panel is sent every change of the atom. The
     // blocks of the render whose key changed are the ones the key was made from.
     const key = JSON.stringify(blocks);

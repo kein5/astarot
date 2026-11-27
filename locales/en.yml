@@ -395,6 +395,7 @@ main_page:
         ocr_models: "The chat reading models are not downloaded yet. Download them in Settings → Chat reading (OCR) → Recognition models."
         ocr_language: "Chat reading does not support the selected language. Choose another language in Settings → Chat reading (OCR)."
         tts_source: "Nothing is chosen to read aloud. In Settings → Text to speech (TTS), set Chat voice or Realtime microphone speech to something other than Off."
+        tts_model: "No text to speech model yet. Download one in Settings → Text to speech (TTS) → Models and servers."
         rvc_model: "No conversion model and runtime are set. Set them in Settings → Voice changer (RVC) → Models and runtime."
         rvc_output_device: "No output is chosen for the converted voice. Choose an Output device in Settings → Text to speech (TTS)."
         rvc_route: "The audio route is not the managed virtual microphone. Choose it in Settings → Device → Audio route."

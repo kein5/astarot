@@ -13,6 +13,7 @@ interface State {
     jobs: Record<string, { phase: string }>;
     ocr: Record<string, unknown>;
     voiceSettings: SwitchVoiceSettings | null;
+    speechServers: { profiles: Record<string, { model: string }> } | null;
     directState: SwitchDirectState;
     published: unknown;
 }
@@ -21,7 +22,7 @@ const load = async () => {
     const runtime = hooks(), calls: unknown[] = [];
     const state: State = { ready: true, needs: [], language: "Japanese", fullReadiness: null, jobs: {},
         ocr: { language: "Japanese", language_supported: true, required_models: ["a"], missing_models: ["a"] },
-        voiceSettings: null, directState: {}, published: {} };
+        voiceSettings: null, speechServers: null, directState: {}, published: {} };
     const mod = await loadModule<typeof import("./useSwitchBlocks.ts")>(new URL("./useSwitchBlocks.ts", import.meta.url), runtime, {
         "@logics_configs": { useOcr: () => ({
             currentOcrModelReadiness: { data: state.ocr }, currentOcrSourceLanguage: { data: state.language },
@@ -38,6 +39,7 @@ const load = async () => {
         "./switchBlocks": switchBlocks,
         "../voice/useVoice": { useVoice: () => ({ settings: state.voiceSettings, directState: state.directState }) },
         "../voice/useModelDownloads": { useModelDownloads: () => ({ state: { jobs: state.jobs } }) },
+        "../voice/useSpeechServers": { useSpeechServers: () => ({ settings: state.speechServers }) },
         "../translation/useTranslationSetup": { useTranslationSetup: () => ({ open: (resume: unknown) => calls.push(["review", resume]) }) },
         "../ocr/useOcrSetup": { OCR_MODELS_SETTING_ID: "ocr_models", focusOcrModels: () => calls.push("focus") },
         "../setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => calls.push("setup") }) },
@@ -58,6 +60,15 @@ test("the blocks follow the settings as they change, without a restart", async (
     s.state.voiceSettings = { mode: "off", mic_mode: "off" };
     assert.equal(s.render().tts?.reason, "tts_source");
     assert.equal(s.read().blocks.tts?.reason, "tts_source");
+    // A reading with no model for its voices (#1266), then a model applied: the switch comes back.
+    s.state.voiceSettings = { mode: "translated", mic_mode: "off" };
+    s.state.speechServers = { profiles: { japanese: { model: "" }, multilingual: { model: "" } } };
+    assert.equal(s.render().tts?.reason, "tts_model");
+    s.state.speechServers = { profiles: { japanese: { model: "/ja.gguf" }, multilingual: { model: "" } } };
+    assert.equal(s.render().tts, undefined);
+    s.state.voiceSettings = { mode: "off", mic_mode: "off" };
+    s.state.speechServers = null;
+    assert.equal(s.render().tts?.reason, "tts_source");
     s.state.voiceSettings = { mode: "original", mic_mode: "off" };
     s.render();
     assert.equal(s.read().blocks.tts, undefined);

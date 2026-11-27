@@ -57,6 +57,23 @@ test("speech is blocked only when nothing is chosen to read aloud", () => {
         assert.equal(switchBlocks({ voiceSettings: speech(values) }).tts, undefined);
 });
 
+// #1266 (TT-3): a reading that has no voice to read with is blocked, and leads to the TTS page.
+test("speech is blocked when every voice it can read with is on the bundled server without its model", () => {
+    const profiles = (japanese = "", multilingual = "") => ({ profiles: { japanese: { model: japanese }, multilingual: { model: multilingual }, asr: { model: "" } } });
+    const block = (values: Record<string, unknown>, servers: ReturnType<typeof profiles> | null = profiles()) =>
+        switchBlocks({ voiceSettings: speech({ mode: "translated", ...values }), speechServers: servers }).tts;
+    // A new install: both voices on the bundled server, no model.
+    assert.deepEqual(block({}), { reason: "tts_model", action: "tts" });
+    assert.deepEqual(block({ japanese_server: "bundled", multilingual_server: "bundled" }), { reason: "tts_model", action: "tts" });
+    // One language with its model, a server of the user's own, or an installed engine for Japanese: it can read.
+    for (const [values, servers] of [[{}, profiles("/ja.gguf")], [{}, profiles("", "/multi.gguf")], [{ japanese_server: "external" }, profiles()],
+        [{ multilingual_server: "external" }, profiles()], [{ japanese_engine: "voicevox" }, profiles()]] as const)
+        assert.equal(block(values, servers), undefined, JSON.stringify([values, servers]));
+    // The speech servers not known yet: nothing blocks. Nothing to read: that reason first.
+    assert.equal(block({}, null), undefined);
+    assert.equal(switchBlocks({ voiceSettings: speech({ mode: "off" }), speechServers: profiles() }).tts?.reason, "tts_source");
+});
+
 test("voice conversion needs its saved model and runtime, then its route", () => {
     const block = (settings: SwitchDirectSettings, voiceSettings: SwitchVoiceSettings | null = speech(), values?: SwitchDirectState) => switchBlocks({ voiceSettings, directState: direct(settings, values) }).rvc;
     assert.equal(block(rvc()), undefined);
