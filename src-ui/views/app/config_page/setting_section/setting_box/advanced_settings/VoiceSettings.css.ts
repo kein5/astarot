@@ -448,3 +448,8 @@ globalStyle(hardware, { display: "grid", gap: ".8rem", minWidth: 0, containerTyp
 globalStyle(inForm("select:open::picker(select)"), {
     "@supports": { [BASE_SELECT]: { "@starting-style": { opacity: 0, transform: "translateY(-.6rem) scaleY(.94)" } } },
 });
+
+// A field for a short value of known length (a number) keeps its short width, at most 14rem, at
+// the row's right end (DESIGN.md "Field widths", #1266 R-3).
+export const short_field = style({});
+globalStyle(`${container} ${short_field}`, { width: "min(14rem, 100%)", justifySelf: "end" });

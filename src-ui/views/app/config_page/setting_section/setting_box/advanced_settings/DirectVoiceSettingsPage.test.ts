@@ -100,7 +100,8 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
-        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../_components/path_field/PathField": { PathField: "path-field" },
@@ -384,6 +385,41 @@ test("where the DirectML runtime is offered, the worker can use it and the setup
     assert.equal(ofType(setup, "runtime")[1].props.disabled, false);
     const plain = await directVoice(context);
     assert.equal(find(plain.open({ variant: "rvc" }), node => node.type === "lead"), null);
+});
+
+// #1266 ★5, R-2, R-6: the setup in the order a first start takes it: the runtime, the default
+// voices, then DirectML once the runtime it speeds up is set, and the files of one's own folded
+// last with their paths, the drop zone and the link, as the speech pages have them (#1272).
+test("the setup gives the runtime and the default voices first, and folds the files of one's own after them", async context => {
+    const v = await directVoice(context, {}, { directml: true });
+    const setup = findIn(v.open({ variant: "rvc" }), node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
+    const parts = nodesIn(setup).map(node => node.type === "fold" ? `fold ${node.props.summary}` : node.type === "runtime" ? `runtime ${node.props.engine}` : String(node.type))
+        .filter(part => part.startsWith("runtime") || ["downloads", "lead", "fold speech_servers.own_model"].includes(part));
+    assert.deepEqual(parts, ["runtime rvc", "downloads", "lead", `runtime ${rvcStartOptions.DIRECTML_RUNTIME}`, "fold speech_servers.own_model"]);
+    const fold = findIn(setup, node => node.type === "fold");
+    assert.deepEqual([fold.props.size, fold.props["data-own-model"]], ["link", "rvc"]);
+    // What one's own files need is inside: the link, the drop zone and the three paths.
+    assert.ok(find(fold, node => node.type === "custom-model-link"));
+    assert.ok(find(fold, node => node.type === "file-drop"));
+    assert.deepEqual(pathRows(fold), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
+    assert.deepEqual(pathRows(setup), pathRows(fold), "no path outside the fold");
+    // DirectML speeds up the runtime: offered only once that runtime is saved.
+    const unset = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, rvc_runtime: "" } } }, { directml: true });
+    const unsetSetup = findIn(unset.open({ variant: "rvc" }), node => node.type === "setup" && node.props.title === "voice_ui.setup_rvc");
+    assert.equal(find(unsetSetup, node => node.type === "lead"), null);
+    assert.deepEqual(ofType(unsetSetup, "runtime").map(node => node.props.engine), ["rvc"]);
+});
+
+// #1266 R-3: a number keeps its short width (DESIGN.md "Field widths"). R-5: the block length,
+// set on the advanced settings page, has a row that leads there.
+test("RVC's numbers keep their short width, and the worker's fold leads to the block length on the advanced page", async context => {
+    const v = await directVoice(context);
+    const tree = v.open({ variant: "rvc" });
+    for (const name of ["voice.vc_rvc_pitch", "voice.vc_rvc_index_rate", "voice.vc_rvc_threads"]) assert.equal(inputNamed(tree, name).props.className, "short_field", name);
+    const worker = findIn(tree, node => node.type === "setup" && node.props.title === "voice_ui.rvc_worker_title");
+    const pointer = findIn(worker, node => node.type === "page-pointer").props;
+    assert.deepEqual([pointer.label, pointer.description, pointer.tab, pointer.action, pointer.target], ["config_page.advanced_settings.rvc_block_ms.label",
+        "voice_ui.rvc_block_ms_pointer", "advanced_settings", "voice_ui.rvc_block_ms_action", "rvc_block_ms"]);
 });
 
 test("the input is chosen from the inputs found, a lost one stays named as disconnected, and the list can be asked for again", async context => {
