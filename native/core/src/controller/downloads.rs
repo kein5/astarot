@@ -1,5 +1,6 @@
 //! Model downloads and the hardware probe behind them ([`controller.py`]: `getModelDownload*`,
 //! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `astarot_ops::downloads`).
+//! A model already on the PC is checked instead of downloaded (`/run/check_model_download`, #1263).
 //!
 //! A download starts only from the user's consent to one entry of the current catalog, and for
 //! an entry with restrictions (a non-commercial license) from their separate acknowledgement
@@ -29,7 +30,9 @@ use astarot_ops::downloads::{Downloads, Error};
 use astarot_ops::telemetry::Telemetry;
 
 /// The codes answered with 409: the request may pass once the state changes.
-const CONFLICTS: [&str; 6] = ["download_busy", "downloads_closed", "stale_job", "download_not_ready", "settings_changed", "model_target_busy"];
+const CONFLICTS: [&str; 7] = ["download_busy", "downloads_closed", "stale_job", "download_not_ready", "settings_changed", "model_target_busy",
+    // A check of a model that is not on the PC: it may pass once the model is downloaded (#1263).
+    "model_not_downloaded"];
 /// How long the hardware probe may take (`HardwareProbe(timeout=3)`).
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 /// How long shutdown waits for a download, an apply or a probe (`close(timeout=2)`).
@@ -281,6 +284,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     });
     b.with("/get/data/model_download_state", OPEN, |core, _| ok(to_value(core.ops().downloads.state())));
     b.with("/run/start_model_download", OPEN, |core, data| answer(core.ops().downloads.start(data), "download_failed"));
+    // A model already on the PC (#1263): its files are checked, never downloaded, and no consent is
+    // asked. The job then applies as a download's does.
+    b.with("/run/check_model_download", OPEN, |core, data| answer(core.ops().downloads.check(data), "download_failed"));
     b.with("/run/cancel_model_download", OPEN, |core, data| match request(data, false) {
         Some((id, job_id)) => answer(core.ops().downloads.cancel(id, job_id), "download_failed"),
         None => failure("download_request_invalid"),

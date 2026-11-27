@@ -953,3 +953,76 @@ fn a_first_download_whose_thread_cannot_start_leaves_no_job_behind() {
     start(&s.manager).expect("the download can be asked for again");
     assert_eq!(phase(&finish(&s.manager)), "ready");
 }
+
+// #1263: a model already on the PC is used without its acquisition's review. Its files are
+// checked, never downloaded: a download asks for the consent, a check does not.
+fn check(m: &Downloads) -> Result<Json, Error> {
+    m.check(&json!({"id": "test-model", "catalog_version": m.catalog_version()}))
+}
+
+#[test]
+fn files_on_the_pc_are_checked_without_consent_and_never_downloaded() {
+    let s = setup();
+    // Nothing on the PC: nothing to check, and nothing starts.
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    assert!(s.opened.lock().unwrap().is_empty());
+    assert_eq!(s.manager.state().get("jobs"), Some(&Json::Object(Object::new())));
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+    // On the PC: checked and ready with its paths, without the network.
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!(phase(&job), "ready");
+    assert_eq!(model_path(&job), path);
+    assert_eq!(s.opened.lock().unwrap().len(), 1, "a check downloads nothing");
+    // Of its size, other bytes: the check fails, the file is left as it is, and nothing is downloaded.
+    let changed = vec![b'x'; CONTENT.len()];
+    fs::write(&path, &changed).unwrap();
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!((phase(&job), text(&job, "error_code")), ("failed", "model_files_changed"));
+    assert_eq!(fs::read(&path).unwrap(), changed);
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+    assert!(partials(&s.root).is_empty());
+    // Of another size, or gone: not on the PC as the catalog has it, so the check is refused.
+    fs::write(&path, b"bad").unwrap();
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    fs::remove_file(&path).unwrap();
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn a_check_takes_exactly_the_entry_and_the_catalog_version() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    finish(&s.manager);
+    for request in [json!({"id": "test-model"}), json!({"catalog_version": CATALOG_VERSION}), json!("test-model"), json!(null),
+        // A check takes no consent: a request with one is not a check.
+        json!({"id": "test-model", "catalog_version": CATALOG_VERSION, "consent": true})] {
+        assert_eq!(code(s.manager.check(&request).unwrap_err()), "download_request_invalid", "{request}");
+    }
+    for request in [json!({"id": "other", "catalog_version": CATALOG_VERSION}), json!({"id": "test-model", "catalog_version": "old"})] {
+        assert_eq!(code(s.manager.check(&request).unwrap_err()), "catalog_changed", "{request}");
+    }
+}
+
+#[test]
+fn a_checked_model_is_applied_as_a_downloaded_one_and_its_license_was_acknowledged_when_it_came() {
+    // A non-commercial entry: its download asked for the acknowledgement, its check does not.
+    let s = setup_with(non_commercial(), None);
+    assert_eq!(code(s.manager.start(&with_acknowledged(None, true)).unwrap_err()), "model_download_restriction_unacknowledged");
+    s.manager.start(&with_acknowledged(Some(json!(["non_commercial"])), true)).unwrap();
+    let path = model_path(&finish(&s.manager));
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!(phase(&job), "ready");
+    let mut applied = Vec::new();
+    let answer = s.manager.apply("test-model", text(&job, "job_id"), |_, paths| {
+        applied.push(paths.clone());
+        Ok(())
+    }).unwrap();
+    assert_eq!(applied, [vec![("model".to_string(), path.to_string_lossy().into_owned())]]);
+    assert_eq!(phase(answer.get("jobs").unwrap().get("test-model").unwrap()), "applied");
+}

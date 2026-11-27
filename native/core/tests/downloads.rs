@@ -628,3 +628,40 @@ fn chat_reading_s_table_repeats_the_ocr_entries_of_the_download_catalog() {
         (astarot_ops::downloads::catalog::DETECTOR_MODEL_ID, astarot_ops::downloads::catalog::DETECTOR_FILE_NAME)
     );
 }
+
+// #1263: a model already on the PC is used without its acquisition's review: its files are
+// checked, never downloaded, and the checked job is applied as a downloaded one is.
+fn check(ui: &Ui, id: &str) -> Value {
+    ui.request("/run/check_model_download", Some(json!({ "id": id, "catalog_version": CATALOG_VERSION })))
+}
+
+#[test]
+fn a_model_on_the_pc_is_checked_without_consent_and_applied_and_a_changed_one_is_said() {
+    let world = World::default();
+    let ui = world.start();
+    // Not on the PC: refused, and nothing starts.
+    assert_eq!(failure(&check(&ui, "voice-ja")), (409, "model_not_downloaded"));
+    assert!(world.opened().is_empty());
+    let downloaded = download(&ui, "voice-ja");
+    assert_eq!(world.opened().len(), 1);
+    // On the PC: checked without the network, then applied.
+    assert_eq!(check(&ui, "voice-ja")["status"], 200);
+    let job = wait_phase(&ui, "voice-ja", &["ready", "failed"]);
+    assert_eq!((job["phase"].clone(), job["paths"].clone()), (json!("ready"), downloaded["paths"].clone()));
+    assert_eq!(world.opened().len(), 1, "a check downloads nothing");
+    let answer = apply(&ui, "voice-ja", &job, json!({ "model": "" }));
+    assert_eq!(answer["status"], 200, "{answer}");
+    assert_eq!(speech_settings(&ui)["profiles"]["japanese"]["model"], job["paths"]["model"]);
+    // Of its size, other bytes: the check fails and says so, and the file is left for a download.
+    let published = PathBuf::from(job["paths"]["model"].as_str().unwrap());
+    std::fs::write(&published, [b'z'; 64]).unwrap();
+    assert_eq!(check(&ui, "voice-ja")["status"], 200);
+    let job = wait_phase(&ui, "voice-ja", &["ready", "failed"]);
+    assert_eq!((job["phase"].as_str(), job["error_code"].as_str()), (Some("failed"), Some("model_files_changed")));
+    assert_eq!(std::fs::read(&published).unwrap(), [b'z'; 64]);
+    assert_eq!(world.opened().len(), 1);
+    // A request with a consent is not a check.
+    let consented = ui.request("/run/check_model_download", Some(consent("voice-ja")));
+    assert_eq!(failure(&consented), (400, "download_request_invalid"));
+    ui.stop();
+}
