@@ -92,7 +92,8 @@ class NativeWebDriver:
                 " summary.scrollIntoView({block:'center', inline:'center', behavior:'instant'}); return summary;", element)
             if not summary:
                 break
-            self.command("POST", f"/element/{summary[key]}/click", {})
+            # As any control is pressed: a fold's summary can be covered too (see below).
+            self.element_command(summary, "click")
         self.evaluate("const e = arguments[0].tagName === 'OPTION' ? arguments[0].parentElement : arguments[0]; e.scrollIntoView({block:'center', inline:'center', behavior:'instant'}); return true;", element)
         # Plain text typed into a field (no WebDriver key such as Tab or Enter)
         # must arrive whole; see _complete_typed.
@@ -122,9 +123,25 @@ class NativeWebDriver:
                     except AssertionError as notice_error:
                         if not any(code in str(notice_error) for code in ('"element not interactable"', '"element click intercepted"', '"stale element reference"')):
                             raise
+                else:
+                    self._move_pointer_aside()
                 # The configuration drawer animates. Retry only interactions
                 # WebDriver explicitly says were not delivered.
                 time.sleep(.1)
+
+    def _move_pointer_aside(self):
+        """Rest the pointer at the window's right edge, as a user moves on from what they pointed at.
+
+        What the pointer opens covers the page until it leaves: in a narrow window the settings
+        menu widens over the start of the page while the pointer is on it (SidebarSection), and
+        pressing one of its pages leaves the pointer there, over a fold's summary at the start of
+        a row (#1266 ★5).
+        """
+        width, height = self.evaluate("return [innerWidth, innerHeight]")
+        self.command("POST", "/actions", {"actions": [{
+            "type": "pointer", "id": "mouse", "parameters": {"pointerType": "mouse"},
+            "actions": [{"type": "pointerMove", "duration": 0, "origin": "viewport", "x": width - 2, "y": height // 2}],
+        }]})
 
     def click(self, selector):
         element = self.command("POST", "/element", {"using": "css selector", "value": selector})
