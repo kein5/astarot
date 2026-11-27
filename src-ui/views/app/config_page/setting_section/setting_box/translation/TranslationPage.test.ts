@@ -226,6 +226,18 @@ test("the local model's line names the model, whether it is downloaded or cannot
         { title: "config_page.translation.setup_title", status: "M2M100 418M · int8 · config_page.translation.setup_not_downloaded · CPU", attention: false, unavailable: [] });
 });
 
+// #1266 T-5: the GPU builds speed up a model on the PC. Before one is there they come too early.
+test("the GPU builds of ONNX Runtime are offered once a translation model is on the PC", async () => {
+    const gpuPart = async (rows: unknown) => {
+        const p = await translationPage({ values: { currentCTranslate2WeightTypeStatus: ok(rows), currentSelectedCTranslate2WeightType: ok(M2M) }, downloads: OFFERS_M2M });
+        return ofType(p.draw(p.reach("AITranslation_Container")), "gpu-runtimes").length;
+    };
+    assert.equal(await gpuPart([builtin(M2M), builtin(NLLB)]), 0, "no model on the PC yet");
+    assert.equal(await gpuPart(null), 0, "before the list arrives");
+    assert.equal(await gpuPart([builtin(M2M), builtin(NLLB, { is_downloaded: true })]), 1, "another model than the selected one counts");
+    assert.equal(await gpuPart([{ id: "user:mine", is_custom: true, is_downloaded: true }]), 1, "a model the user added counts");
+});
+
 test("the note about the retired models folder shows only while that folder is used, and leads to the form that adds a model", async () => {
     const note = async (used: unknown) => {
         const p = await translationPage({ catalog: { retired_folder_used: used } });

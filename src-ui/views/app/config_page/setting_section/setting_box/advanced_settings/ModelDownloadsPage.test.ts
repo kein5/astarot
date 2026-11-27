@@ -694,6 +694,46 @@ test("the review shows what the download is, where it goes and what it needs, an
     assert.equal(p.consent.closed, 3);
 });
 
+// #1266 T-3: the translation review asks about one model; the press that opened it asked for its
+// review, so the review opens at once rather than after a card's second 「取得内容を確認」.
+test("a caller asking about one model of one file gets its review at once, once, and hears whether its download started", async context => {
+    const row = model("t-int8", { name: "T · int8", target: "translation", notice: "general" });
+    const asked = { targets: ["translation"], only: ["t-int8"], reviewAtOnce: true };
+    const done: boolean[] = [];
+    const back = await catalogPage(context, { catalog: catalogOf([row]) });
+    back.draw({ ...asked, onReviewDone: started => { done.push(started); } });
+    let dialog = findIn(back.draw(), isDialog, "the review, at once");
+    assert.equal(texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p")[0], "T · int8 · MIT · 1.00 GiB");
+    buttonNamed(dialog, "model_downloads.back").props.onClick();
+    assert.equal(find(back.draw(), isDialog), null);
+    assert.deepEqual(done, [false], "Back is told, so the caller closes too");
+    assert.equal(find(back.draw(), isDialog), null, "not opened again");
+
+    const start = await catalogPage(context, { catalog: catalogOf([row]) });
+    done.length = 0;
+    start.draw({ ...asked, onReviewDone: started => { done.push(started); } });
+    dialog = findIn(start.draw(), isDialog);
+    ofType(dialog, "input")[0].props.onChange({ target: { checked: true } });
+    buttonNamed(findIn(start.draw(), isDialog), "model_downloads.start").props.onClick();
+    assert.deepEqual([start.sent.filter(call => call[0] === "/run/start_model_download").length, done], [1, [true]]);
+    assert.equal(find(start.draw(), isDialog), null);
+
+    // The card stays first: a model of several files, where the file is chosen; one on the PC or
+    // downloading; a caller that did not ask; a catalog of every model.
+    const cases: [string, Partial<Downloads>, object][] = [
+        ["several files", { catalog: catalogOf([row, model("t-f16", { name: "T · float16", target: "translation" })]) }, { only: ["t-int8", "t-f16"] }],
+        ["on the PC", { catalog: catalogOf([row]), state: { observation_id: "1", jobs: {}, downloaded: { "t-int8": { model: "x" } } } }, {}],
+        ["downloading", { catalog: catalogOf([row]), state: { observation_id: "1", jobs: { "t-int8": { job_id: "j", phase: "downloading" } } } }, {}],
+        ["not asked", { catalog: catalogOf([row]) }, { reviewAtOnce: false }],
+        ["every model", { catalog: catalogOf([row]) }, { only: undefined }],
+    ];
+    for (const [name, given, props] of cases) {
+        const p = await catalogPage(context, given);
+        p.draw({ ...asked, ...props });
+        assert.equal(find(p.draw(), isDialog), null, name);
+    }
+});
+
 test("a restriction the app has no words for is shown as another one, and keeps the download from starting", async context => {
     const p = await catalogPage(context, { catalog: catalogOf([model("m", { name: "M", restrictions: ["future_terms"] })]) });
     buttonNamed(p.draw(), "model_downloads.review").props.onClick();

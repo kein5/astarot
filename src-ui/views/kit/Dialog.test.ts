@@ -115,6 +115,20 @@ test("the dialog has shadcn/ui's width, room and gap, and the app's corners, gro
     assert.match(css, /export const description = style\(\{[^}]*fontSize: "1\.4rem",\s*lineHeight: 1\.6,\s*color: vars\.vox_description_text,/);
 });
 
+// #1266 T-3: the translation review steps back while its model's review is open over it.
+test("a dialog that steps back is hidden with its dimming while a dialog opened from it is open, and only then", async () => {
+    const runtime = hooks();
+    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime);
+    const classes = (props: object) => String(findIn(runtime.render(Dialog, { open: true, onOpenChange: () => {}, children: "words", ...props }),
+        node => node.type === "dialog").props.className).split(" ");
+    assert.deepEqual(classes({ stepsBack: true, className: "own" }), ["content", "stepsBack", "own"]);
+    assert.deepEqual(classes({ className: "own" }), ["content", "own"], "an opt-in: a dialog keeps its look over another by default");
+    const css = read("Dialog.css.ts");
+    assert.match(css, /export const stepsBack = style\(\{\s*selectors: \{\s*"&:has\(dialog\[open\]\)": \{ visibility: "hidden" \},\s*"&:has\(dialog\[open\]\)::backdrop": \{ background: "transparent" \},/);
+    assert.match(css, /globalStyle\(`\$\{stepsBack\}:has\(dialog\[open\]\) dialog\[open\]`, \{ visibility: "visible" \}\);/);
+    runtime.unmount();
+});
+
 test("the caller's ref gets the dialog, as a function or an object, and the newest ref wins", async () => {
     const runtime = hooks();
     const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime);

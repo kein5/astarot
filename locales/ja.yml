@@ -414,6 +414,8 @@ main_page:
 
     translator_selector:
         is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{local_engine}}」のみが使用できます。"
+        # Why a greyed engine cannot be chosen, read by screen readers; the grey says it on screen (#1266 T-7).
+        unavailable_reason: "選べないエンジンは、この言語や現在の設定では使えません。"
         unavailable_hint: "選べないエンジンは、この言語や現在の設定では使えません。APIキーなどは設定の「翻訳」で確認できます。"
 
     message_log:
@@ -2485,7 +2487,6 @@ translation_catalog:
         label: "翻訳のLLMを動かすllama.cppのサーバー"
         desc: "TranslateGemmaのような翻訳のLLMは、llama.cppのサーバーで動きます。サーバーはアプリに含まれていません。ここでサーバーを取得してから、下でモデルのファイルを追加してください。サーバーが起動するのは、そのモデルで翻訳をオンにしたときだけです。"
     badge:
-        builtin: "標準"
         user: "自分で追加"
         non_commercial: "非商用のライセンス"
     kind:

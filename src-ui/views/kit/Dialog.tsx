@@ -19,11 +19,13 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "open"> & {
     // Called with false when the dialog asks to close (Esc, or a form with method="dialog"); the
     // owner of `open` closes it, as with shadcn/ui's onOpenChange.
     onOpenChange: (open: boolean) => void;
+    // Hidden, with its dimming, while a dialog opened from it is open over it (#1266 T-3).
+    stepsBack?: boolean;
 };
 
 // DialogContent. A dialog without a description passes aria-describedby={undefined}, as with Radix.
 // A ref is one of the props, as React 19 passes it; it gets the <dialog> the dialog also keeps.
-export function Dialog({ open, onOpenChange, className, children, onCancel, onClose, ref, ...rest }: DialogProps) {
+export function Dialog({ open, onOpenChange, stepsBack = false, className, children, onCancel, onClose, ref, ...rest }: DialogProps) {
     const element = useRef<HTMLDialogElement | null>(null);
     const attach = useCallback((node: HTMLDialogElement | null) => {
         element.current = node;
@@ -45,7 +47,7 @@ export function Dialog({ open, onOpenChange, className, children, onCancel, onCl
                 data-slot="dialog-content"
                 aria-labelledby={ids.title}
                 aria-describedby={ids.description}
-                className={clsx(styles.content, className)}
+                className={clsx(styles.content, stepsBack && styles.stepsBack, className)}
                 onCancel={event => {
                     onCancel?.(event);
                     event.preventDefault();

@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../theme/vars.css.ts";
 
 // shadcn/ui's Dialog parts on the native <dialog>, which the app's dialogs use (D-23 of the
@@ -30,6 +30,17 @@ export const content = style({
         "&::backdrop": { background: "rgb(0 0 0 / .5)" },
     },
 });
+
+// A dialog that steps back while a dialog opened from it is open over it (stepsBack; the translation
+// review under its model's review and consent, #1266 T-3): hidden with its dimming, so one dialog
+// is seen at a time under one dimming. It comes back when the other closes.
+export const stepsBack = style({
+    selectors: {
+        "&:has(dialog[open])": { visibility: "hidden" },
+        "&:has(dialog[open])::backdrop": { background: "transparent" },
+    },
+});
+globalStyle(`${stepsBack}:has(dialog[open]) dialog[open]`, { visibility: "visible" });
 
 // DialogHeader: the title and its description (flex-col gap-2). The words keep to the left at
 // every width, as the app's dialogs do (shadcn/ui centres them in a narrow window, D-43).

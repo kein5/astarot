@@ -123,6 +123,9 @@ const AITranslation_Container = () => {
     // No built-in model can be downloaded and the selected one cannot translate: say so, and
     // point to the engines in 「詳細設定」 below.
     const nothingToGet = localModelList(currentCTranslate2WeightTypeStatus.data, selected, catalog).unavailable;
+    // The GPU builds speed up a model on the PC: offered once one is there, not before the model
+    // that would use them (#1266 T-5).
+    const modelOnPc = (currentCTranslate2WeightTypeStatus.data ?? []).some(item => item.is_downloaded);
     return (
         <div>
             <SectionLabelComponent label={t("config_page.translation.section_label_ai_translation")} />
@@ -135,7 +138,7 @@ const AITranslation_Container = () => {
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
                 {/* The GPU builds of ONNX Runtime, fetched only when asked for (decision 2 (c)). */}
-                <TranslationGpuRuntimes />
+                {modelOnPc && <TranslationGpuRuntimes />}
             </SetupSection>
         </div>
     );

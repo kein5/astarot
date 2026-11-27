@@ -414,7 +414,9 @@ main_page:
 
     translator_selector:
         is_selected_same_language: "You are selecting the same language for '{{your_language}}' and '{{target_language}}' so only '{{local_engine}}' is available."
-        unavailable_hint: "Engines you can't select don't work with these languages or your current settings. Check API keys and other setup in Settings > Translation."
+        # Why a greyed engine cannot be chosen, read by screen readers; the grey says it on screen (#1266 T-7).
+        unavailable_reason: "Engines you cannot select do not work with these languages or your current settings."
+        unavailable_hint: "Engines you cannot select do not work with these languages or your current settings. Check API keys and other setup in Settings > Translation."
 
     message_log:
         region_label: "Message log"
@@ -1442,7 +1444,7 @@ vr_panel:
         choose_anchor: "Press to change the anchor"
         recall_help: "Recall moves the log to a world anchor"
         unlocked: "Movable"
-        lock_help: "Press to lock (can't be grabbed and moved)"
+        lock_help: "Press to lock (cannot be grabbed and moved)"
         unlock_help: "Press to unlock"
         font: "Text size"
         smaller: "Smaller text"
@@ -1680,7 +1682,7 @@ speech_servers:
     device: "Inference device"
     device_named: "{{label}} ({{name}})"
     device_missing: "{{name}} (not found)"
-    device_integrated: "{{label}} ({{name}}): integrated graphics can't be used"
+    device_integrated: "{{label}} ({{name}}): integrated graphics cannot be used"
     device_help: "You can choose the CPU or a dedicated GPU; integrated graphics are not used. Auto and GPU use a dedicated GPU, and of several the one with the most memory. Without a dedicated GPU, Auto runs on the CPU. This works the same for AMD, Intel and NVIDIA. Running this on the GPU that RVC uses can make RVC stop more easily."
     cpu_build_separate: "CPU runs a CPU-only build of speech.cpp that needs no Vulkan. Auto also uses it when no GPU can be used."
     cpu_build_shared: "CPU runs the same speech.cpp on the processor. It still needs the Vulkan library of your GPU driver (vulkan-1.dll)."
@@ -2485,7 +2487,6 @@ translation_catalog:
         label: "llama.cpp's server for translation LLMs"
         desc: "A translation LLM such as TranslateGemma runs on llama.cpp's server, which the app does not include. Fetch it here, then add your model file below. The server starts only when you turn translation on with that model."
     badge:
-        builtin: "Included"
         user: "Added by you"
         non_commercial: "Non-commercial license"
     kind:

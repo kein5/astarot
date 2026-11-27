@@ -207,6 +207,9 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // the user chooses to use, for a caller that goes on once that model is there (the switch that
 // asked for the translation model, #1015). Such a caller applies what is ready itself (the
 // recognition fix); without one, a model chosen to use is applied here once its files are checked.
+// reviewAtOnce: with `only`, the review of that one model opens at once when its card would offer
+// it, so the one press that asked reaches the consent (#1266 T-3); onReviewDone hears how it ended,
+// started or not, for a caller that closes with it.
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -221,9 +224,11 @@ export interface ModelDownloadsProps {
     // chosen on the page, which the user's voice is recorded from.
     audition?: RvcAudition | null;
     onStart?: (id: string) => void;
+    reviewAtOnce?: boolean;
+    onReviewDone?: (started: boolean) => void;
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -260,7 +265,16 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         return () => clearInterval(timer);
     }, [hasTTS]);
     const busy = !!pending || Object.values(state.jobs).some(job => activePhases.includes(job.phase));
-    const close = () => { closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null); };
+    // The review opened at once for the model asked about (reviewAtOnce): whether it is still open or
+    // its download was started, told to the caller when it closes.
+    const askedReview = useRef<"open" | "started" | null>(null), reviewAsked = useRef(false);
+    const close = () => {
+        closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null);
+        if (!askedReview.current) return;
+        const started = askedReview.current === "started";
+        askedReview.current = null;
+        onReviewDone?.(started);
+    };
     const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
@@ -337,6 +351,20 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             setFollowing(({ [id]: _done, ...rest }) => rest);
         }
     }, [following, state.jobs, catalog, pending, send]);
+
+    // The model a caller asks about (reviewAtOnce, `only`): its review opens once the catalog is
+    // here, when the model is one file not on the PC, as its card's 「取得内容を確認」 would open it.
+    // A model with several files keeps its card, where the file is chosen first.
+    useEffect(() => {
+        if (!reviewAtOnce || !only || reviewAsked.current || !catalog) return;
+        reviewAsked.current = true;
+        const families = targets.flatMap(target => catalogFamilies(matching.filter(entry => entry.target === target)));
+        const row = families.length === 1 && families[0].rows.length === 1 ? families[0].rows[0] : null;
+        if (!row || ["downloaded", "in_use"].includes(status(row)) || activePhases.includes(state.jobs[row.id]?.phase)) return;
+        askedReview.current = "open";
+        setConsent(false); setAcknowledged([]);
+        setSelected({ ...row, catalog_version: catalog.catalog_version });
+    });
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
     const card = (target: string, family: CatalogFamily<ModelCatalogRow>, version: string) => {
@@ -597,6 +625,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
                     send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id);
+                    if (askedReview.current) askedReview.current = "started";
                     // The VAD follows with the same consent (#1266).
                     if (companion) {
                         setFollowing(previous => ({ ...previous, [selected.id]: { id: companion.id, version: selected.catalog_version,

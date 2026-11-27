@@ -53,9 +53,12 @@ test("a built-in model that is not downloaded opens its download review and star
     const missing = engine.locator("[data-status=not_downloaded]").first();
     await expect(missing).toBeVisible();
     await missing.getByRole("button", { name: /^Review the download of / }).click();
+    // A model of one file: its review and consent open at once, over the translation review, which
+    // steps back (#1266 T-3). Back closes both.
     const review = page.getByRole("dialog");
-    await expect(review).toBeVisible();
-    await review.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(review).toHaveCount(0);
+    await expect(review).toHaveCount(1);
+    await expect(review.getByRole("checkbox", { name: /^I have checked the license and the size/ })).toHaveCount(1);
+    await review.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
     expect(app.settings().CTRANSLATE2_WEIGHT_TYPE ?? M2M).toBe(M2M);
 });
