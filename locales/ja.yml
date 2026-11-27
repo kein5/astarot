@@ -1672,7 +1672,7 @@ realtime_toggle:
   speech_server_vulkan_missing: "GPUドライバーのVulkanライブラリ（vulkan-1.dll）が見つかりません。GPUドライバーを入れるか更新してからもう一度オンにしてください。"
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選び、もう一度オンにしてください。"
   speech_server_start_timeout: "ASRモデルの読み込みに時間がかかりすぎました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選び、もう一度オンにしてください。"
-  speech_server_not_ready: "ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、設定 → 音声認識（ASR） → リアルタイム字幕で同梱サーバーを選んでから、もう一度オンにしてください。"
+  speech_server_not_ready: "同梱ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動してから、もう一度オンにしてください。"
   speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、同じページの「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにしてから、もう一度オンにしてください。"
   realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR）の「ASRサーバーURL」が正しいことを確認してください。"
   realtime_model_required: "ASRモデルが選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデルを選んでください。"

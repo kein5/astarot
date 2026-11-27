@@ -171,8 +171,13 @@ test("the models are asked for when there is an address, and again when the serv
     f.speech.state = { asr: { state: "ready", base_url: "http://127.0.0.1:2", generation: 2 } };
     f.draw();
     assert.equal(asked(), 5);
-    findIn(f.draw(), node => node.type === "form-row" && node.props.label === "realtime.model").props.actions.props.onClick();
+    // The refresh is an external server's (#1308 ★4): the bundled server shows no ASR model field.
+    assert.equal(find(f.draw(), node => node.type === "form-row" && node.props.label === "realtime.model"), null);
+    f.asr.settings = settings;
+    f.draw();
     assert.equal(asked(), 6);
+    findIn(f.draw(), node => node.type === "form-row" && node.props.label === "realtime.model").props.actions.props.onClick();
+    assert.equal(asked(), 7);
 });
 
 test("the form names its part, says what the captions are, and what a change stops", async context => {
@@ -233,15 +238,16 @@ test("the model list offers the server's models only while they are the current 
     assert.deepEqual(await listed({ ...current, configured_url: "http://old" }), unavailable, "asked for another address");
     assert.deepEqual(await listed({ ...current, base_url: "http://old" }), unavailable);
     assert.deepEqual(await listed({ ...current, models: undefined }), [["", "realtime.select_model"], ["whisper", "whisper (realtime.unavailable)"]]);
-    // The bundled server: its models while it runs at the address it answered from, in this run.
+    // The bundled server loads the model its settings name: the field is an external server's
+    // alone, and is not shown for it, running or not, nor its list's failure (#1308 ★4).
     const bundled = { ...settings, server: "bundled" };
-    const fromBundled = { ...current, server: "bundled", base_url: "http://127.0.0.1:1", server_generation: 3 };
-    const running = { asr: { state: "ready", base_url: "http://127.0.0.1:1", generation: 3 } };
-    assert.deepEqual(await listed(fromBundled, { settings: bundled }, running), all);
-    assert.deepEqual(await listed(fromBundled, { settings: bundled }, { asr: { ...running.asr, state: "starting" } }), unavailable);
-    assert.deepEqual(await listed(fromBundled, { settings: bundled }, { asr: { ...running.asr, base_url: "http://127.0.0.1:2" } }), unavailable);
-    assert.deepEqual(await listed(fromBundled, { settings: bundled }, { asr: { ...running.asr, generation: 4 } }), unavailable);
-    assert.deepEqual(await listed(fromBundled, { settings: bundled }), unavailable, "no bundled server state yet");
+    const fromBundled = { ...current, server: "bundled", base_url: "http://127.0.0.1:1", server_generation: 3, error_code: "speech_server_not_ready" };
+    for (const servers of [{ asr: { state: "ready", base_url: "http://127.0.0.1:1", generation: 3 } }, undefined]) {
+        const f = await captionsForm(context, { models: fromBundled, settings: bundled }, { servers });
+        const tree = f.open();
+        assert.equal(find(tree, node => node.type === "form-row" && node.props.label === "realtime.model"), null);
+        assert.equal(find(tree, node => node.props?.role === "alert" && JSON.stringify(node.props.children ?? "").includes("speech_server_not_ready")), null);
+    }
     // No model saved: nothing marked unavailable.
     assert.deepEqual(await listed({ ...current, models: [] }, { settings: { ...settings, model: "" } }), [["", "realtime.select_model"]]);
     const f = await captionsForm(context);
