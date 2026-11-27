@@ -1,7 +1,7 @@
 [package]
 name = "astarot-voice-conversion"
 version = "0.1.0"
-description = "Direct voice, the voice conversion worker's owner and its runtime setup for VRCT-VOX"
+description = "Direct voice, the voice conversion worker's owner and its runtime setup for ASTAROT"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"

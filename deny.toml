@@ -43,7 +43,7 @@ exceptions = [
 ]
 
 [licenses.private]
-# This repository's own crates (publish = false) are VRCT-VOX's code under its LICENSE.
+# This repository's own crates (publish = false) are ASTAROT's code under its LICENSE.
 ignore = true
 
 [bans]

@@ -1,7 +1,7 @@
 [package]
 name = "astarot-vr-overlay"
 version = "0.0.0"
-description = "The SteamVR overlays of VRCT-VOX: the subtitle logs, the VR panel and its launcher (codename Nuberus)"
+description = "The SteamVR overlays of ASTAROT: the subtitle logs, the VR panel and its launcher (codename Nuberus)"
 edition = "2024"
 publish = false
 

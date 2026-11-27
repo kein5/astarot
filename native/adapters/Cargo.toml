@@ -1,7 +1,7 @@
 [package]
 name = "astarot-adapters"
 version = "0.0.0"
-description = "External adapters of VRCT-VOX: OSC and OSCQuery, the OBS browser source, the WebSocket server and the clipboard"
+description = "External adapters of ASTAROT: OSC and OSCQuery, the OBS browser source, the WebSocket server and the clipboard"
 edition = "2024"
 publish = false
 

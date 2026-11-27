@@ -1,7 +1,7 @@
 [package]
 name = "astarot-translate-onnx"
 version = "0.0.0"
-description = "Local translation for VRCT-VOX: M2M100 and NLLB-200 on ONNX Runtime, with their SentencePiece tokenizers"
+description = "Local translation for ASTAROT: M2M100 and NLLB-200 on ONNX Runtime, with their SentencePiece tokenizers"
 edition = "2024"
 publish = false
 
