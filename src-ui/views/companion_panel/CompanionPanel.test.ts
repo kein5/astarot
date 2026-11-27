@@ -26,7 +26,7 @@ const ready: {
 
 type Status = typeof ready;
 
-async function setup(context: TestContext, initial: Status = ready) {
+async function setup(context: TestContext, initial: Status = ready, startup?: ThemeSetting | null) {
     const runtime = hooks(), properties = new Map<string, string>(), requests: string[] = [], removals: string[] = [], languages: string[] = [];
     const callbacks: { changed?: () => void; opened?: () => void } = {};
     let current = initial, hides = 0;
@@ -52,6 +52,8 @@ async function setup(context: TestContext, initial: Status = ready) {
         "../../logics/companion/bridge.ts": { companionBridge: bridge },
         "../../logics/companion/status.ts": status,
         "../../logics/theme/themes.ts": themes,
+        // The theme the shell gave the page (#1259); none in a browser.
+        "../../logics/theme/startupTheme.ts": { startupTheme: () => startup },
     });
     const render = () => runtime.render(CompanionPanel, { bridge });
     render(); await flush(); render();
@@ -180,6 +182,26 @@ test("the panel follows preset and custom themes and clears overrides on the def
     s.set({ ...ready, theme: { preset: "dark_plum", custom: { base: "#15261c", accent: "#62c98c" } } });
     await s.callbacks.changed();
     s.render();
+    assert.equal(s.properties.size, 0);
+});
+
+// #1259: the panel starts in the theme the shell gave it, and keeps it until the main window's
+// report carries the theme, which it then follows.
+test("the panel keeps the shell's theme until the main window reports one", async context => {
+    const midnight = { preset: "midnight", custom: { base: "#14203a", accent: "#6ea8fe" } };
+    const s = await setup(context, { ...ready, theme: null }, midnight);
+    const tokens = themes.deriveTokens(midnight.custom);
+    assert.equal(s.properties.get("--vox_canvas"), tokens["--vox_canvas"]);
+    s.set({ ...ready, theme: { preset: "rose", custom: midnight.custom } });
+    assert.ok(s.callbacks.changed);
+    await s.callbacks.changed();
+    s.render();
+    const rose = themes.deriveTokens(themes.PRESETS.find(preset => preset.id === "rose")?.colors ?? themes.PRESETS[0].colors);
+    assert.equal(s.properties.get("--vox_canvas"), rose["--vox_canvas"]);
+});
+
+test("a panel the shell gave the default theme sets nothing until the main window reports one", async context => {
+    const s = await setup(context, { ...ready, theme: null }, null);
     assert.equal(s.properties.size, 0);
 });
 

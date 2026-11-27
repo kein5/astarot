@@ -292,6 +292,14 @@ impl CompanionState {
     }
 }
 
+/// The theme the main window reported last, for a window made now (#1259, `startup_theme`): None
+/// before its first report, or for one that is not a theme.
+pub(crate) fn published_theme<R: tauri::Runtime, M: Manager<R>>(manager: &M) -> Option<crate::quick_chat::ThemeSetting> {
+    let state = manager.try_state::<CompanionState>()?;
+    let inner = state.lock().ok()?;
+    inner.status.theme.clone().filter(crate::quick_chat::ThemeSetting::is_valid)
+}
+
 /// The main window, for the commands of the tray icon, which is there in every run.
 fn from_main(label: &str) -> Result<(), String> {
     if label == "main" { Ok(()) } else { Err("companion_forbidden".into()) }

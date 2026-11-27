@@ -4,6 +4,7 @@ import { quickChatBridge } from '../../logics/quickChat/bridge';
 import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
 import { applyThemeTokens, themeSetting, themeTokens } from '../../logics/theme/themes.ts';
+import { startupTheme } from '../../logics/theme/startupTheme.ts';
 import * as styles from './QuickChat.css.ts';
 import { Button, Textarea } from '../kit/index.ts';
 
@@ -20,7 +21,8 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
     const field = useRef<HTMLTextAreaElement>(null), composing = useRef(false), sending = useRef(false);
     const lengthWarningId = useId(), overflowLength = chatboxOverflowLength(value);
     const container = useRef<HTMLElement>(null), warning = useRef<HTMLParagraphElement>(null), grown = useRef(0), isOverflowing = overflowLength !== null;
-    const savedTheme = JSON.stringify(context.theme ?? null);
+    // Until the main window's first answer, the theme the shell gave the page (#1259).
+    const savedTheme = JSON.stringify(context.theme ?? startupTheme() ?? null);
     useLayoutEffect(() => {
         // This document has its own root. Font names stay a single CSS string,
         // with the local Noto/system fallbacks supplied by root.css.

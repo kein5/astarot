@@ -3,6 +3,7 @@ import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge } from "../../logics/companion/bridge.ts";
 import { actionFor, MAIN_SCREEN_ORDER, panelState, switchLabelKey, type CompanionStatus, type Switch as SwitchState } from "../../logics/companion/status.ts";
 import { applyThemeTokens, themeSetting, themeTokens } from "../../logics/theme/themes.ts";
+import { startupTheme } from "../../logics/theme/startupTheme.ts";
 import * as styles from "./CompanionPanel.css.ts";
 import { Button, Switch } from "../kit/index.ts";
 
@@ -16,7 +17,8 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
     const [status, setStatus] = useState<CompanionStatus | null>(null);
     const first = useRef<HTMLButtonElement>(null);
     const titleId = useId(), switchId = useId();
-    const savedTheme = JSON.stringify(status?.theme ?? null);
+    // Until the main window's report comes, the theme the shell gave the page (#1259).
+    const savedTheme = JSON.stringify(status?.theme ?? startupTheme() ?? null);
 
     useLayoutEffect(() => {
         applyThemeTokens(document.documentElement.style, themeTokens(themeSetting(JSON.parse(savedTheme))));
