@@ -108,6 +108,7 @@ const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions, currentModelOptions: () => null },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+        "./EngineCatalog": { EngineCatalog: "engine-catalog" }, "./catalogLayout": { useCatalogLayout: () => "list" },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, AUDIO_QUERY_ENGINES: [], validCoeiroinkOptions: () => true, validAudioQueryOptions: () => true },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "./StopVoiceButton": { StopVoiceButton: "stop-voice" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,

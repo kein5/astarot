@@ -19,6 +19,8 @@ import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { EngineCatalog } from "./EngineCatalog";
+import { useCatalogLayout } from "./catalogLayout";
 import type { TtsModelVoice, VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
 import { Button, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
@@ -32,6 +34,12 @@ const validVoiceSettings = (draft: VoiceSettingsValue) => validGenerationOptions
 
 // setup: the page's 「モデルとサーバー」, drawn after the voices it serves and before 「詳細設定」, as
 // DESIGN.md orders a page (#1230).
+//
+// The page follows the speech recognition page's order (decided on 2026-11-27, #1266 ★17): the
+// rows every reading needs first (what is read, the slot, the output), then each language's way to
+// read (the engine, the server, the voice), then the speech.cpp models on this PC, then the
+// external servers and the engines the user installed (their addresses and settings, and the
+// engines' list), then the route and 「詳細設定」.
 export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
@@ -39,6 +47,8 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     const { settings, status, devices, error, send, updateError, modelOptions } = useVoice();
     // The bundled servers' runs, which the model options answer for (#1266).
     const { state: speechServers } = useSpeechServers();
+    // The engines' list shares the catalogs' layout (#831).
+    const layout = useCatalogLayout();
     // Saves by itself (#1111, decided 3): a choice at once, a slider when let go, typed text when
     // focus leaves the form or on Enter.
     const form = useSettingsDraft(settings, error, updateError, {
@@ -96,6 +106,10 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
     const micSpeechOn = draft.mic_mode === "original" || draft.mic_mode === "translated";
+    // What the external part holds: an engine installed for Japanese, and the languages read by a
+    // speech.cpp server of the user's own.
+    const japaneseEngine = !speechcpp("japanese");
+    const externalRoles = ROLES.filter(role => speechcpp(role) && serverOf(role) !== "bundled");
     // A reading turned on needs where it plays (the core refuses the settings without one): said
     // under the output device, not at the page's end (#1111, #1266 TT-1).
     const outputMissing = (draft.mode !== "off" || micSpeechOn) && draft.routing !== "managed" && !String(draft.output_device ?? "").trim();
@@ -129,18 +143,45 @@ export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {
                 <VirtualMicEntry />
                 {ROLES.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
                     <legend>{t(`speech_servers.${role}`)}</legend>
-                    {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
-                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />}
-                    {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{voiceField(role)}</>}
+                    {/* Japanese can also come from an engine the user installed (ADR-008); its settings are
+                        with the external servers below, and replace speech.cpp's here. */}
+                    {role === "japanese" && <TtsEngine part="choice" draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />}
+                    {speechcpp(role) && <>{server(role)}{voiceField(role)}</>}
                 </fieldset>)}
             </fieldset>
         </form>
         {/* A refusal is said under the form it refuses (#1111), before the parts that follow (#1266, TT-1). */}
         {!!problem && <p role="alert">{t("voice.error")}: {voiceErrorText(String(problem),
             t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
-        {/* The models the voices above need, then the route, which is changed on the Device page,
-            after this page's own controls (#1230). */}
-        {setup}
+        {/* The models the voices above need on this PC (#1230), then the servers and engines outside
+            it, then the route, which is changed on the Device page, after this page's own controls. */}
+        <div className={styles.part} data-tts-part="local">
+            <div data-setting-id="local_section">
+                <SectionLabelComponent sub label={t("config_page.tts.local_section.label")} desc={t("config_page.tts.local_section.desc")} />
+            </div>
+            {setup}
+        </div>
+        <div className={styles.part} data-tts-part="external">
+            <div data-setting-id="external_section">
+                <SectionLabelComponent sub label={t("config_page.tts.external_section.label")} desc={t("config_page.tts.external_section.desc")} />
+            </div>
+            {(japaneseEngine || externalRoles.length > 0) && <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
+                <fieldset className={styles.fields}>
+                    {/* The engine the user installed for Japanese: its address, whether it answers, its voice and reading. */}
+                    {japaneseEngine && <fieldset className={styles.group} aria-label={`${t("speech_servers.japanese")} · ${t("voice_ui.engine.label")}`}>
+                        <legend>{t("speech_servers.japanese")}</legend>
+                        <TtsEngine part="details" draft={draft} setDraft={setDraft} resetDraft={form.change} saved={settings} />
+                    </fieldset>}
+                    {/* A speech.cpp server of the user's own: its address. */}
+                    {externalRoles.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("speech_servers.external")}`}>
+                        <legend>{t(`speech_servers.${role}`)}</legend>
+                        {input(`${role}_url`)}
+                    </fieldset>)}
+                </fieldset>
+            </form>}
+            {/* The engines a user installs, to choose above (ADR-008). */}
+            <EngineCatalog layout={layout} />
+        </div>
         <VoiceRouteSummary />
         <form {...form.groupProps} aria-busy={saving} onSubmit={e => { e.preventDefault(); form.commit(); }}>
             <fieldset className={styles.fields}>

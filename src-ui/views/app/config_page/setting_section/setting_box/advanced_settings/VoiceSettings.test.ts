@@ -31,6 +31,7 @@ async function setup(initial: VoiceSettingsValue = {}) {
             useVoice: () => ({ settings: draft, status: {}, devices: {}, error: null, send: () => {}, updateError: () => {}, modelOptions: {} }),
         },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+        "./EngineCatalog": { EngineCatalog: "engine-catalog" }, "./catalogLayout": { useCatalogLayout: () => "list" },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/voice/useSettingsDraft": {
             useSettingsDraft: () => ({ draft, setDraft, saving: false, dirty: false, submit: () => {}, navigationDialog: null }),
@@ -105,8 +106,9 @@ test("original microphone speech enables direct policy and the advanced status, 
 });
 
 test("a language whose server the settings do not name uses the bundled one, and asks for no address", async () => {
+    // The address is with the external servers, after the models (#1266 ★17).
     const addressShown = (tree: unknown, role: string) => find(tree, node => node.type === "fieldset"
-        && node.props["aria-label"] === `speech_servers.${role} · voice.title`
+        && node.props["aria-label"] === `speech_servers.${role} · speech_servers.external`
         && find(node, inner => typeof inner.props?.placeholder === "string" && inner.props.placeholder.startsWith("voice_ui.example")) !== null) !== null;
     const serverChoice = (tree: unknown, role: string) =>
         findIn(tree, node => node.type === kitStandIns.Select && node.props["aria-label"] === `speech_servers.${role}_selection`).props.value;

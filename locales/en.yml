@@ -597,6 +597,13 @@ config_page:
         tts_settings:
             label: "Text to speech (TTS)"
             desc: "Read typed messages and final microphone translations. Turn it on with the Text to speech (TTS) switch on the main screen."
+        # The page's parts after the ways to read (#1266 ★17), as the speech recognition page's.
+        local_section:
+            label: "On your PC (speech.cpp)"
+            desc: "Speech is made on your PC. Download a model for the bundled server, or register a model file of your own that is on your PC."
+        external_section:
+            label: "External servers and engines"
+            desc: "Read aloud through a speech.cpp server you start yourself, or speech software installed on your PC (such as VOICEVOX). Choose that server or engine above, then set it up here."
     rvc:
         rvc_settings:
             label: "Voice changer (RVC)"
@@ -1791,8 +1798,8 @@ voice_ui:
     # The engine that reads Japanese (ADR-008): one the user installs and starts.
     engine:
         label: "Engine that reads Japanese"
-        description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine."
-        description_speechcpp: "AI voice reads with a speech.cpp TTS server. It starts with the bundled server, so download its model under Models and servers below. To use a server you started yourself, choose External server and enter its URL."
+        description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine. Set its URL and voice under External servers and engines below."
+        description_speechcpp: "AI voice reads with a speech.cpp TTS server. It starts with the bundled server, so download its model under Models and servers below. To use a server you started yourself, choose External server and enter its URL under External servers and engines below."
         speechcpp: "AI voice (speech.cpp)"
         url: "Engine URL"
         url_hint: "Where the engine runs on your PC. The engine's default usually works."

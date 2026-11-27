@@ -597,6 +597,13 @@ config_page:
         tts_settings:
             label: "テキスト読み上げ（TTS）"
             desc: "チャット入力とマイク音声の確定した翻訳を読み上げます。メイン画面で「テキスト読み上げ（TTS）」をオンにしてください。"
+        # The page's parts after the ways to read (#1266 ★17), as the speech recognition page's.
+        local_section:
+            label: "お使いのPCで動かす（speech.cpp）"
+            desc: "読み上げはお使いのPCの中で行います。同梱サーバーで使うモデルを取得するか、お使いのPCにある自分のモデルのファイルを登録して使います。"
+        external_section:
+            label: "外部のサーバーとエンジン"
+            desc: "自分で起動したspeech.cppのサーバーや、お使いのPCに入れた読み上げソフト（VOICEVOXなど）で読み上げます。上でそのサーバーかエンジンを選ぶと、ここで設定します。"
     rvc:
         rvc_settings:
             label: "ボイスチェンジャー（RVC）"
@@ -1791,8 +1798,8 @@ voice_ui:
     # 日本語を読み上げるエンジン（ADR-008）。利用者が自分で入れて起動するエンジンにつなぐ。
     engine:
         label: "日本語を読み上げるエンジン"
-        description: "VOICEVOXなどのエンジンを自分で入れて起動すると、その声で日本語を読み上げられます。アプリはエンジンを入れたり起動したりしません。"
-        description_speechcpp: "AIボイスはspeech.cppのTTSサーバーで読み上げます。はじめは同梱サーバーを使うので、下の「モデルとサーバー」でモデルを取得してください。自分で起動したサーバーを使うときは「外部サーバー」を選んでURLを入れます。"
+        description: "VOICEVOXなどのエンジンを自分で入れて起動すると、その声で日本語を読み上げられます。アプリはエンジンを入れたり起動したりしません。エンジンのURLと声は、下の「外部のサーバーとエンジン」で設定します。"
+        description_speechcpp: "AIボイスはspeech.cppのTTSサーバーで読み上げます。はじめは同梱サーバーを使うので、下の「モデルとサーバー」でモデルを取得してください。自分で起動したサーバーを使うときは「外部サーバー」を選び、下の「外部のサーバーとエンジン」でURLを入れます。"
         speechcpp: "AIボイス（speech.cpp）"
         url: "エンジンのURL"
         url_hint: "お使いのPCで動くエンジンのURLです。ふつうはエンジンの既定のままで使えます。"

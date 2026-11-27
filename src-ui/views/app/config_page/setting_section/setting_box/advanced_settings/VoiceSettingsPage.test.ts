@@ -75,6 +75,7 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
             currentModelOptions: ({ row }: { row?: { options?: unknown } }) => row?.options ?? null },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
         "../../../../../../logics/common/languageNames.ts": languageNames,
+        "./EngineCatalog": { EngineCatalog: "engine-catalog" }, "./catalogLayout": { useCatalogLayout: () => "list" },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES, AUDIO_QUERY_ENGINES: ["voicevox"],
             validCoeiroinkOptions: (draft: Settings) => draft.coeiroink_speed !== "bad", validAudioQueryOptions: (draft: Settings) => draft.voicevox_speed !== "bad" },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route-summary" },
@@ -208,43 +209,73 @@ test("each language has its speech.cpp server and voice, and Japanese can come f
         multilingual_voice: "Ana" } });
     let tree = v.open();
     const group = (role: string) => fieldsetNamed(v.draw(), `speech_servers.${role} · voice.title`);
+    // The address of a server of the user's own is with the external servers, after the models (#1266 ★17).
+    const external = (role: string) => find(v.draw(), node => node.type === "fieldset" && node.props["aria-label"] === `speech_servers.${role} · speech_servers.external`);
     assert.equal(textOf(findIn(group("japanese"), node => node.type === "legend")), "speech_servers.japanese");
+    // The way to read: the engine's choice here; an installed engine's settings with the external ones.
     const engine = findIn(group("japanese"), node => node.type === "engine").props;
-    assert.equal(engine.saved, v.voice.settings);
+    assert.deepEqual([engine.saved, engine.part], [v.voice.settings, "choice"]);
     const server = selectNamed(group("japanese"), "speech_servers.japanese_selection");
     assert.deepEqual([server.props.value, optionsOf(server)], ["bundled", [["external", "speech_servers.external", undefined], ["bundled", "speech_servers.bundled", undefined]]]);
-    const inputs = (role: string) => ofType(group(role), "input").map(node => [node.props.value, node.props.placeholder, node.props.maxLength]);
-    // An address is in the monospaced font, a voice's name is not (#476).
-    const mono = (role: string) => ofType(group(role), "input").map(node => node.props.mono);
-    // The bundled server needs no address; a voice of "none" is an empty field.
-    assert.deepEqual(inputs("japanese"), [["", "voice_ui.voice_unset", 128]]);
-    assert.deepEqual(inputs("multilingual"), [["http://x", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512], ["Ana", "voice_ui.voice_unset", 128]]);
-    assert.deepEqual([mono("japanese"), mono("multilingual")], [[false], [true, false]]);
-    assert.deepEqual(ofType(group("multilingual"), "label").map(node => [node.props.children].flat()[0]),
-        ["speech_servers.multilingual_selection", "voice.multilingual_url"]);
+    const inputs = (node: unknown) => ofType(node, "input").map(input => [input.props.value, input.props.placeholder, input.props.maxLength]);
+    // The bundled server needs no address; a voice of "none" is an empty field. A voice's name is
+    // not in the monospaced font, an address is (#476).
+    assert.deepEqual(inputs(group("japanese")), [["", "voice_ui.voice_unset", 128]]);
+    assert.deepEqual(inputs(group("multilingual")), [["Ana", "voice_ui.voice_unset", 128]]);
+    assert.equal(external("japanese"), null);
+    const address = external("multilingual");
+    assert.ok(address);
+    assert.deepEqual(inputs(address), [["http://x", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512]]);
+    assert.deepEqual(ofType(address, "input").map(input => input.props.mono), [true]);
+    assert.deepEqual([ofType(group("japanese"), "input").map(input => input.props.mono), ofType(group("multilingual"), "label").map(node => [node.props.children].flat()[0])],
+        [[false], ["speech_servers.multilingual_selection"]]);
     // The voice is a settings row: typed until the server lists its voices, as its hint says (#1266).
     const voiceRow = findIn(group("multilingual"), node => node.type === "row" && node.props.label === "voice.multilingual_voice").props;
     assert.equal(voiceRow.description, "voice_ui.voice_list_hint");
     assert.equal(selectNamed(group("multilingual"), "speech_servers.multilingual_selection").props.value, "external");
     assert.equal(find(group("multilingual"), node => node.type === "engine"), null, "an installed engine reads Japanese only");
     ofType(group("japanese"), "input")[0].props.onChange({ target: { value: "Kei" } });
-    assert.deepEqual(inputs("japanese"), [["Kei", "voice_ui.voice_unset", 128]]);
+    assert.deepEqual(inputs(group("japanese")), [["Kei", "voice_ui.voice_unset", 128]]);
     ofType(group("japanese"), "input")[0].props.onChange({ target: { value: "" } });
-    assert.deepEqual(inputs("japanese"), [["", "voice_ui.voice_unset", 128]]);
+    assert.deepEqual(inputs(group("japanese")), [["", "voice_ui.voice_unset", 128]]);
     v.draw();
     assert.deepEqual(v.entry().changes, [], "a cleared voice is saved as none again");
     choose(group("japanese"), "speech_servers.japanese_selection", "external");
-    assert.equal(inputs("japanese").length, 2, "an external server needs its address");
-    ofType(group("japanese"), "input")[0].props.onChange({ target: { value: "" } });
-    assert.deepEqual(inputs("japanese")[0], ["", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512], "an empty address stays empty");
-    // An installed engine reads Japanese: speech.cpp's fields and its generation options go.
+    const japaneseAddress = external("japanese");
+    assert.ok(japaneseAddress, "an external server needs its address, with the external ones");
+    ofType(japaneseAddress, "input")[0].props.onChange({ target: { value: "" } });
+    assert.deepEqual(inputs(external("japanese"))[0], ["", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512], "an empty address stays empty");
+    // An installed engine reads Japanese: speech.cpp's fields and its generation options go, and
+    // the engine's own settings are with the external ones.
     engine.setDraft((draft: Settings) => ({ ...draft, japanese_engine: "coeiroink" }));
     tree = v.draw();
     assert.deepEqual(ofType(group("japanese"), "input"), []);
     assert.equal(find(group("japanese"), node => node.type === "select"), null);
+    assert.equal(external("japanese"), null);
+    const details = findIn(fieldsetNamed(tree, "speech_servers.japanese · voice_ui.engine.label"), node => node.type === "engine").props;
+    assert.equal(details.part, "details");
     assert.deepEqual(ofType(tree, "generation-options").map(node => node.props.role), ["multilingual"]);
     engine.setDraft((draft: Settings) => ({ ...draft, japanese_engine: "speechcpp" }));
     assert.deepEqual(ofType(v.draw(), "generation-options").map(node => node.props.role), ["japanese", "multilingual"]);
+});
+
+// #1266 (decided on 2026-11-27, ★17): the page follows the speech recognition page's order. The rows
+// every reading needs, the ways to read, then the speech.cpp models on this PC, then the external
+// servers and the installed engines with the engines' list, then the route and 「詳細設定」.
+test("the page's parts follow the speech recognition page's order", async context => {
+    const v = await voicePage(context, { settings: { ...saved, japanese_server: "bundled", multilingual_server: "external", multilingual_url: "http://x" } });
+    const top = [v.open().props.children].flat(3).filter(Boolean) as TreeNode[];
+    const kind = (node: TreeNode) => node.props?.["data-tts-part"] ?? (typeof node.type === "string" ? node.type : "other");
+    assert.deepEqual(top.map(kind).filter(name => ["form", "local", "external", "route-summary"].includes(String(name))),
+        ["form", "local", "external", "route-summary", "form"]);
+    const part = (name: string) => findIn(v.draw(), node => node.props?.["data-tts-part"] === name);
+    const heading = (name: string) => findIn(part(name), node => node.type === "heading").props;
+    assert.deepEqual([heading("local").label, heading("local").sub, heading("external").label],
+        ["config_page.tts.local_section.label", true, "config_page.tts.external_section.label"]);
+    // The search leads to each heading by its key (configSearchTargets.ts).
+    assert.ok(find(part("local"), node => node.props?.["data-setting-id"] === "local_section"));
+    assert.ok(find(part("external"), node => node.props?.["data-setting-id"] === "external_section"));
+    assert.ok(find(part("external"), node => node.type === "engine-catalog"), "the engines' list is with the external ones");
 });
 
 test("the advanced fold's line says whether the monitor and the microphone's speech are on", async context => {

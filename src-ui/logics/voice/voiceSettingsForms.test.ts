@@ -48,6 +48,7 @@ async function setup(context: TestContext) {
             "../../../../../../logics/voice/useSettingsDraft": draft,
             "../tts/GenerationOptions": { validGenerationOptions: () => true, currentModelOptions: () => null },
             "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
+            "./EngineCatalog": { EngineCatalog: "engine-catalog" }, "./catalogLayout": { useCatalogLayout: () => "list" },
             "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) }, "../tts/TtsEngine": { TTS_ENGINES: {}, AUDIO_QUERY_ENGINES: [], validCoeiroinkOptions: () => true, validAudioQueryOptions: () => true }, "../device/VoiceRouteSettings": {}, "../tts/VirtualMicEntry": { VirtualMicEntry: () => null }, "./StopVoiceButton": { StopVoiceButton: "stop-voice" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule, "../../../../../../logics/configs/revealSetting.ts": { revealSetting: () => {} },
             "./StatusLine": {}, "../_components/description/Description": {},
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
