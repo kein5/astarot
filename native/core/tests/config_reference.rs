@@ -12,7 +12,8 @@
 //! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391). And
 //! settings added after the Python backend (Issue #390) are written with their defaults into the
 //! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
-//! before the comparison. The RVC worker's choices added to the direct voice settings are not:
+//! before the comparison, as Listening's own recognition model is to each speech server profile
+//! (#1242). The RVC worker's choices added to the direct voice settings are not:
 //! left at their defaults they stay out of the file, which 0.4 reads (#428). And a key the core
 //! does not know stays in the file as it was, where Python dropped it, so that the version that
 //! wrote it finds it again (#560): [`without_unknown_keys`] checks that and leaves it out. And
@@ -43,6 +44,12 @@ fn with_added(settings: &mut Map<String, Value>) {
                 saved.entry(field.clone()).or_insert_with(|| value.clone());
             }
         }
+    }
+    // One level deeper: Listening's own recognition model (#1242), none in each speech server
+    // profile, so that Listening keeps the model Python's settings gave both sources.
+    let profiles = settings.get_mut("SPEECH_SERVER_SETTINGS").and_then(|saved| saved.get_mut("profiles")).and_then(Value::as_object_mut);
+    for row in profiles.into_iter().flat_map(|profiles| profiles.values_mut()).filter_map(Value::as_object_mut) {
+        row.entry("listening_model").or_insert_with(|| json!(""));
     }
 }
 use std::path::Path;

@@ -86,7 +86,7 @@ const SECOND: Duration = Duration::from_secs(3);
 #[test]
 fn choices_persist_without_recording_process_intent() {
     let default = normalize_settings(&json!({})).unwrap();
-    let row = json!({"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false});
+    let row = json!({"model": "", "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false});
     assert_eq!(
         default.to_json(),
         json!({"version": 1, "profiles": {"japanese": row, "multilingual": row, "asr": row}})
@@ -102,6 +102,27 @@ fn choices_persist_without_recording_process_intent() {
         normalize_settings(&json!({"profiles": {"asr": {"device": "Vulkan12"}}})).unwrap().profile(Profile::Asr).device,
         "Vulkan12"
     );
+}
+
+// #1242: Listening's recognition model is the `asr` profile's `listening_model`. Settings saved before
+// it existed load with none, and Listening takes Mic input's model from the same server, as it did;
+// the same file as Mic input's is one server too.
+#[test]
+fn listening_takes_mic_inputs_model_until_it_has_its_own() {
+    let older = json!({"profiles": {"asr": {"model": "/m/ja.gguf", "vad_model": "/m/vad.gguf", "diarization_model": "", "voice_file": "", "device": "gpu", "low_latency": false}}});
+    let asr = normalize_settings(&older).unwrap().profile(Profile::Asr).clone();
+    assert_eq!((asr.listening_model.as_str(), asr.listening_model(), asr.listening_apart()), ("", "/m/ja.gguf", false));
+    let row = |listening: &str| {
+        let mut chosen = older.clone();
+        chosen["profiles"]["asr"]["listening_model"] = listening.into();
+        let settings = normalize_settings(&chosen).unwrap();
+        assert_eq!(settings.to_json()["profiles"]["asr"]["listening_model"], listening, "kept as chosen");
+        settings.profile(Profile::Asr).clone()
+    };
+    let same = row("/m/ja.gguf");
+    assert_eq!((same.listening_model(), same.listening_apart()), ("/m/ja.gguf", false));
+    let own = row("/m/qwen3-asr.gguf");
+    assert_eq!((own.model.as_str(), own.listening_model(), own.listening_apart()), ("/m/ja.gguf", "/m/qwen3-asr.gguf", true));
 }
 
 #[test]
@@ -124,6 +145,9 @@ fn invalid_settings_are_rejected() {
         json!({"profiles": {"japanese": {"low_latency": 1}}}),
         json!({"profiles": {"asr": {"diarization_model": 1}}}),
         json!({"profiles": {"asr": {"voice_file": "wrong.gguf"}}}),
+        json!({"profiles": {"asr": {"listening_model": 1}}}),
+        json!({"profiles": {"japanese": {"listening_model": "wrong.gguf"}}}),
+        json!({"profiles": {"multilingual": {"listening_model": "wrong.gguf"}}}),
         json!({"profiles": {"asr": {"started": true}}}),
     ];
     for case in cases {
