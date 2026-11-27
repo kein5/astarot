@@ -324,6 +324,28 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("cargo test --doc --locked --offline --manifest-path native/core/Cargo.toml", output)
         self.assertNotIn("--doc --locked --offline --manifest-path native/tts/Cargo.toml", output)
 
+    def test_rust_check_runs_a_binary_that_needs_features_with_them(self):
+        # The crate's own run skips a binary with required-features, and its tests with it (#1270).
+        (self.root / "native/rvc-runtime").mkdir(parents=True)
+        (self.root / "native/rvc-runtime/Cargo.toml").write_text(
+            '[package]\nname = "x"\n\n[[bin]]\nname = "plain"\n\n'
+            '[[bin]]\nname = "astarot-rvc-worker"\nrequired-features = ["worker", "extra"]\n', encoding="utf-8")
+        code, output = self.call("check", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("cargo nextest run --locked --offline --manifest-path native/rvc-runtime/Cargo.toml "
+                      "--features worker,extra --bin astarot-rvc-worker", output)
+        self.assertNotIn("--bin plain", output)
+        self.assertEqual(output.count("--features"), 1)
+
+    def test_ci_runs_every_binary_that_needs_features(self):
+        # The same binaries in the repository, run by the crates job of voice-tests.yml.
+        workflow = (ROOT / ".github/workflows/voice-tests.yml").read_text(encoding="utf-8")
+        found = [(crate, *binary) for crate in self.dev.NATIVE_CRATES for binary in self.dev.feature_binaries(ROOT, crate)]
+        self.assertIn(("native/rvc-runtime", "astarot-rvc-worker", ["worker"]), found)
+        for crate, binary, features in found:
+            command = f"cargo test --locked --manifest-path {crate}/Cargo.toml --features {','.join(features)} --bin {binary}"
+            self.assertTrue(command in workflow, f"voice-tests.yml does not run: {command}")
+
     def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
         code, output = self.call("check", "--scope", "crates", "--dry-run")
         self.assertEqual(code, 0)
