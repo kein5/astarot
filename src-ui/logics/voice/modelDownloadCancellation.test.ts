@@ -278,16 +278,15 @@ test("a model downloaded before a restart says so, and in use only when its file
     const action = (card: TreeNode) => findIn(card, node => node.type === "button" && node.props.children?.startsWith?.("model_"));
     const actionOf = (card: TreeNode) => nodesIn(card).find(node => node.type === "button" && node.props.children?.startsWith?.("model_"))?.props.children ?? null;
     // In use, it is ready: nothing to check or prepare, so no button offers it (#947). On the PC but
-    // not set, it still needs its check and its path; not on the PC, its review.
-    assert.deepEqual(cards.map(actionOf), [null, "model_catalog.prepare", "model_downloads.review"]);
-    assert.ok(!nodesIn(cards[0]).some(node => node.props?.children === "model_catalog.prepare_hint"));
-    assert.ok(nodesIn(cards[1]).some(node => node.props?.children === "model_catalog.prepare_hint"));
-    // Getting a downloaded file ready still goes through the review and consent.
+    // not set, it is used from its card (#1263); not on the PC, its review.
+    assert.deepEqual(cards.map(actionOf), [null, "model_catalog.use", "model_downloads.review"]);
+    assert.ok(!nodesIn(cards[0]).some(node => node.props?.children === "model_catalog.use_hint"));
+    assert.ok(nodesIn(cards[1]).some(node => node.props?.children === "model_catalog.use_hint"));
+    // Using a downloaded file checks it, with no review or consent in between (#1263).
     action(cards[1]).props.onClick();
-    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
-    // The review is the kit's Dialog (D-23).
-    const dialog = find(render(), node => node.type === kitStandIns.Dialog);
-    assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
+    assert.deepEqual(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")),
+        [["/run/check_model_download", { id: "b", catalog_version: "v" }]]);
+    assert.equal(find(render(), node => node.type === kitStandIns.Dialog), null);
     // The audition (#415) follows the card's own action in its row, with the card's status and
     // model id; the RVC form's values and the chosen input reach it when the page has them.
     const row = findIn(cards[1], node => node.props?.className === "actions");

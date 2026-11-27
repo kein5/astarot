@@ -2182,6 +2182,9 @@ model_downloads:
         model_target_busy: "Stop the target server or voice input before applying its model path."
         download_not_ready: "The model is not verified and ready to apply."
         catalog_changed: "The model catalog changed. Reopen the download review."
+        # A check of a model already on the PC (#1263).
+        model_files_changed: "This model's files on your PC do not match the catalog, so it was not applied. Review the download to get them again."
+        model_not_downloaded: "This model is not on your PC. Review the download to get it."
         consent_required: "Review the model terms and explicitly agree before downloading."
         model_download_restriction_unacknowledged: "This model's license restricts its use. Open the download review again and tick the checkbox for that restriction as well."
         stale_job: "This download request is no longer current. Refresh and retry."
@@ -2307,10 +2310,9 @@ model_catalog:
         in_use: "In use"
         working: "Downloading"
         ready: "Verified, not applied"
-    prepare: "Check the files and get ready to use"
-    prepare_hint: "Already downloaded. To use it, check the files, then apply the model path."
-    prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
-    prepare_start: "Agree and check"
+    # A model already on the PC is used from its card, with no review in between (#1263).
+    use: "Use this model"
+    use_hint: "Already on your PC. Using it checks its files and applies it; nothing is downloaded."
     engine:
         terms_notice: "The engines and their voices (voice libraries) are used under the terms on their official sites. Some voices need a credit. Read the terms before you use them."
         languages: "Japanese"

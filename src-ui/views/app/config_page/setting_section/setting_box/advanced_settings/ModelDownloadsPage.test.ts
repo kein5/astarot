@@ -550,7 +550,7 @@ test("a download of another file of the model stays in sight, named, while it ru
     assert.deepEqual(texts(card, "readout"), ["model_downloads.phase_applied", "Model · Q4_K: model_downloads.phase_ready"]);
 });
 
-test("the review button offers a download, or a check of a file on the PC, and none for a model ready to use", async context => {
+test("a card offers a download's review, or the use of a model on the PC, and nothing for a model ready to use", async context => {
     const rows = [model("new", { name: "New" }), model("here", { name: "Here" }), model("used", { name: "Used" }),
         model("tr", { target: "translation", name: "Tr" }), model("tr-usable", { target: "translation", name: "Tr usable" })];
     const p = await catalogPage(context, { catalog: catalogOf(rows), state: { observation_id: "1", jobs: {},
@@ -558,13 +558,13 @@ test("the review button offers a download, or a check of a file on the PC, and n
     const tree = p.draw({ targets: ["asr", "translation"], expected: { asr: { model: "/used.gguf" } }, usable: ["tr-usable"], audition: { values: { pitch: 1 }, input: "mic" } as never });
     const buttons = (label: string) => texts(cardNamed(tree, label), "button");
     assert.deepEqual(buttons("New"), ["model_downloads.review"]);
-    assert.deepEqual(buttons("Here"), ["model_catalog.prepare"]);
+    assert.deepEqual(buttons("Here"), ["model_catalog.use"]);
     assert.deepEqual(buttons("Used"), []);
-    assert.deepEqual(buttons("Tr"), ["model_catalog.prepare"], "a translation model on the PC that the core does not count yet");
+    assert.deepEqual(buttons("Tr"), ["model_catalog.use"], "a translation model on the PC that the core does not count yet");
     assert.deepEqual(buttons("Tr usable"), []);
-    assert.ok(texts(cardNamed(tree, "Here"), "p").includes("model_catalog.prepare_hint"));
-    assert.equal(texts(cardNamed(tree, "New"), "p").includes("model_catalog.prepare_hint"), false);
-    assert.equal(texts(cardNamed(tree, "Used"), "p").includes("model_catalog.prepare_hint"), false);
+    assert.ok(texts(cardNamed(tree, "Here"), "p").includes("model_catalog.use_hint"));
+    assert.equal(texts(cardNamed(tree, "New"), "p").includes("model_catalog.use_hint"), false);
+    assert.equal(texts(cardNamed(tree, "Used"), "p").includes("model_catalog.use_hint"), false);
     const audition = findIn(cardNamed(tree, "Here"), node => node.type === "audition-button").props;
     assert.deepEqual([audition.target, audition.status, audition.entry, audition.values, audition.input], ["asr", "downloaded", "here", { pitch: 1 }, "mic"]);
     const note = findIn(cardNamed(tree, "Here"), node => node.type === "audition-note").props;
@@ -686,14 +686,12 @@ test("a restriction the app has no words for is shown as another one, and keeps 
     assert.equal(buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start").props.disabled, true);
 });
 
-test("the review of a file already on the PC prepares it, and says what each use needs", async context => {
+test("the review says what each use needs, and that the files come over the network", async context => {
     const rows = ["rvc", "vad", "diarization", "japanese"].map(target => model(target, { target, name: target, notice: "other" }));
-    const p = await catalogPage(context, { catalog: catalogOf(rows), hardware: readyHardware([gpu("GPU0", GiB, GiB)]),
-        state: { observation_id: "1", jobs: {}, downloaded: { vad: { model: "/vad.gguf" } } } });
+    const p = await catalogPage(context, { catalog: catalogOf(rows), hardware: readyHardware([gpu("GPU0", GiB, GiB)]) });
     p.draw({ targets: ["rvc", "vad", "diarization", "japanese"], reserve: "vr" });
     const review = (label: string) => {
-        const card = cardNamed(p.draw(), label);
-        findIn(card, node => node.type === "button" && node.props.disabled === false).props.onClick();
+        buttonNamed(cardNamed(p.draw(), label), "model_downloads.review").props.onClick();
         const dialog = findIn(p.draw(), isDialog);
         const lines = texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p");
         buttonNamed(dialog, "model_downloads.back").props.onClick();
@@ -705,14 +703,66 @@ test("the review of a file already on the PC prepares it, and says what each use
     assert.equal(rvc.lines.some(line => /asr_requirements|vad_requirements|diarization_requirements/.test(line)), false);
     const vad = review("vad");
     assert.ok(vad.lines.includes("model_downloads.vad_requirements"));
-    assert.ok(vad.lines.includes("model_catalog.prepare_notice"));
-    assert.equal(vad.lines.includes("model_downloads.connection_notice"), false, "nothing to fetch");
-    assert.equal(vad.start, "model_catalog.prepare_start");
+    assert.ok(vad.lines.includes("model_downloads.connection_notice"));
+    assert.equal(vad.start, "model_downloads.start");
     assert.ok(review("diarization").lines.includes("model_downloads.diarization_requirements"));
     const japanese = review("japanese");
     assert.equal(japanese.lines.some(line => line.endsWith("_requirements")), false);
     assert.equal(japanese.start, "model_downloads.start");
-    assert.equal(japanese.lines.includes("model_catalog.prepare_notice"), false);
+});
+
+// #1263: a model already on the PC is used from its card. Its files are checked, never downloaded,
+// with no review or consent in between, and it is applied once the check is ready.
+const onThePc = () => ({ catalog: catalogOf([model("here", { name: "Here" })]),
+    state: { observation_id: "1", jobs: {}, downloaded: { here: { model: "/here.gguf" } } } });
+const runs = (sent: unknown[][]) => sent.filter(([endpoint]) => typeof endpoint === "string" && endpoint.startsWith("/run/") && !endpoint.includes("hardware"));
+
+test("a model on the PC is checked and applied from its card, with no review in between", async context => {
+    const p = await catalogPage(context, onThePc());
+    const use = buttonNamed(cardNamed(p.draw({ targets: ["asr"], expected: { asr: { model: "/old.gguf" } } }), "Here"), "model_catalog.use");
+    assert.equal(use.props.className, "primary");
+    use.props.onClick();
+    assert.deepEqual(runs(p.sent), [["/run/check_model_download", { id: "here", catalog_version: "v7" }]]);
+    assert.equal(find(p.draw(), isDialog), null, "no review");
+    // Checking: nothing is applied yet.
+    p.downloads.state = { ...p.downloads.state, jobs: { here: { job_id: "c1", phase: "verifying", received_bytes: 0, total_bytes: 1 } } };
+    p.draw();
+    assert.equal(runs(p.sent).length, 1);
+    // Checked: applied at once, with the path the page holds, and only once.
+    p.downloads.state = { ...p.downloads.state, jobs: { here: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1, paths: { model: "/here.gguf" } } } };
+    p.draw();
+    p.draw();
+    assert.deepEqual(runs(p.sent).slice(1), [["/run/apply_model_download", { id: "here", job_id: "c1", expected: { model: "/old.gguf" } }]]);
+});
+
+test("a check that finds the files changed says so, applies nothing, and offers the download's review", async context => {
+    const p = await catalogPage(context, onThePc());
+    buttonNamed(cardNamed(p.draw({ targets: ["asr"], expected: { asr: { model: "" } } }), "Here"), "model_catalog.use").props.onClick();
+    p.downloads.state = { ...p.downloads.state, jobs: { here: { job_id: "c1", phase: "failed", error_code: "model_files_changed", received_bytes: 0, total_bytes: 1 } } };
+    const card = cardNamed(p.draw(), "Here");
+    assert.ok(texts(card, "p").includes("model_downloads.errors.model_files_changed"));
+    assert.deepEqual(runs(p.sent).map(([endpoint]) => endpoint), ["/run/check_model_download"]);
+    // Getting the files again is a download: its review, with the consent.
+    buttonNamed(card, "model_downloads.review").props.onClick();
+    const dialog = findIn(p.draw(), isDialog);
+    assert.ok(texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p").includes("model_downloads.connection_notice"));
+    assert.equal(ofPart(dialog, kitStandIns.Button).map(textOf)[1], "model_downloads.start");
+});
+
+test("a model on the PC waits to be used while its field is edited, and a caller that goes on applies it itself", async context => {
+    const edited = await catalogPage(context, onThePc());
+    const card = cardNamed(edited.draw({ targets: ["asr"], expected: { asr: { model: "" } }, blocked: "edited" }), "Here");
+    assert.equal(buttonNamed(card, "model_catalog.use").props.disabled, true);
+    assert.ok(texts(card, "p").includes("model_downloads.blocked_edited"));
+    // The recognition fix (#1232) waits for the model and applies it: the catalog checks it only.
+    const started: string[] = [];
+    const fix = await catalogPage(context, onThePc());
+    buttonNamed(cardNamed(fix.draw({ targets: ["asr"], expected: { asr: { model: "" } }, onStart: id => { started.push(id); } }), "Here"),
+        "model_catalog.use").props.onClick();
+    fix.downloads.state = { ...fix.downloads.state, jobs: { here: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1, paths: { model: "/here.gguf" } } } };
+    fix.draw();
+    assert.deepEqual(started, ["here"]);
+    assert.deepEqual(runs(fix.sent).map(([endpoint]) => endpoint), ["/run/check_model_download"]);
 });
 
 test("the review warns about a model too heavy for the PC, and says nothing for one that fits", async context => {

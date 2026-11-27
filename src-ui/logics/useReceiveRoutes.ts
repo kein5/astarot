@@ -127,6 +127,8 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/run/refresh_model_download_hardware", ns: downloads, hook_name: "useModelDownloads", method_name: "updateHardware" },
     { endpoint: "/get/data/model_download_state", ns: downloads, hook_name: "useModelDownloads", method_name: "updateState" },
     { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // A model already on the PC, checked instead of downloaded (#1263).
+    { endpoint: "/run/check_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     // Models the user registers under a name (#403).
