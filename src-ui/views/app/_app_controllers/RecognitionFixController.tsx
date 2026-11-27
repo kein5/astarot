@@ -36,7 +36,7 @@ export const RecognitionFixController = () => {
     const { t, i18n } = useI18n();
     const { request, setRequest, waiting, setWaiting } = useRecognitionFix();
     const { settings: realtime, send: sendRealtime } = useRealtimeASR();
-    const { settings: speech } = useSpeechServers();
+    const { settings: speech, send: sendSpeech } = useSpeechServers();
     const { catalog, state: downloads, error: downloadError, send: sendDownload } = useModelDownloads();
     const { setTranscriptionSend, setTranscriptionReceive } = useMainFunction();
     const { showNotification_Success, showNotification_Error } = useNotificationStatus();
@@ -63,8 +63,11 @@ export const RecognitionFixController = () => {
     }, [realtime]);
 
     // The download of a model that tells the language: applied once it is verified, as the
-    // first-run setup applies its downloads; the switch is turned on once its path is saved.
-    const saved = speech?.profiles?.asr?.model ?? "";
+    // first-run setup applies its downloads; the switch is turned on once its path is saved. For
+    // Listening it is Listening's own model (#1242): Mic input keeps its model.
+    const asr = speech?.profiles?.asr;
+    const savedFor = (source: RecognitionFix["source"] | undefined) => (source === "speaker" ? asr?.listening_model : asr?.model) ?? "";
+    const saved = savedFor(waiting?.fix.source ?? request?.source);
     const job = waiting ? downloads.jobs[waiting.model] : undefined;
     const ours = job?.job_id && job.job_id !== waiting?.before ? job : undefined;
     const ready = ours?.phase === "ready" ? ours.job_id ?? null : null;
@@ -72,7 +75,8 @@ export const RecognitionFixController = () => {
     useEffect(() => {
         if (!ready || !waiting || applied.current === ready) return;
         applied.current = ready;
-        sendDownload("/run/apply_model_download", { id: waiting.model, job_id: ready, expected: { model: waiting.expected } });
+        sendDownload("/run/apply_model_download", { id: waiting.model, job_id: ready, expected: { model: waiting.expected },
+            ...(waiting.fix.source === "speaker" && { source: "speaker" }) });
     }, [ready]);
     const arrived = !!waiting && saved !== "" && saved !== waiting.expected;
     const abandoned = ours?.phase === "failed" || ours?.phase === "cancelled";
@@ -95,6 +99,16 @@ export const RecognitionFixController = () => {
         }
     }, [arrived, abandoned, refused]);
 
+    // One model for both (#1242): Listening's own model is taken away, and the switch is turned on
+    // again once the saved settings come back without it.
+    const sharing = useRef<RecognitionFix | null>(null);
+    useEffect(() => {
+        const fix = sharing.current;
+        if (!fix || (asr?.listening_model ?? "") !== "") return;
+        sharing.current = null;
+        turnOn(fix);
+    }, [asr?.listening_model]);
+
     if (!request) return null;
     const fix = request;
     const cancel = () => { chosen.current = null; close(); setRequest(null); };
@@ -112,13 +126,27 @@ export const RecognitionFixController = () => {
         sendRealtime("/set/data/realtime_asr_settings", withLanguage(realtime, fix.source, language));
     };
     const detecting = offersModel ? detectingAsr(catalog) : null;
+    // The name of Mic input's model, for the offer to share it: its catalog entry's, if it is one.
+    const micName = (() => {
+        const id = Object.entries(downloads.downloaded ?? {}).find(([, paths]) => !!asr?.model && paths?.model === asr.model)?.[0];
+        const entry = id ? catalog?.models.find(model => model.id === id) : undefined;
+        return entry ? familyLabel(entry) : t("recognition_fix.mic_model");
+    })();
+    const share = () => {
+        if (!speech || !asr) return;
+        sharing.current = fix;
+        close();
+        setRequest(null);
+        sendSpeech("/set/data/speech_server_settings", { ...speech, profiles: { ...speech.profiles, asr: { ...asr, listening_model: "" } } });
+    };
+    const detectBody = fix.source === "speaker" ? "recognition_fix.detect_body_listening" : "recognition_fix.detect_body";
     // Named by its title, without a description, as the other dialogs of the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <Dialog ref={dialog} open onOpenChange={cancel} aria-describedby={undefined}>
             <DialogHeader>
                 <DialogTitle>{t("recognition_fix.title", { name })}</DialogTitle>
-                {fix.kind === "models"
-                    ? <p>{t("recognition_fix.models_body")}</p>
+                {fix.kind === "models" ? <p>{t("recognition_fix.models_body")}</p>
+                    : fix.kind === "share" ? <p>{t("recognition_fix.share_body")}</p>
                     : <p>{t(fix.auto ? "recognition_fix.language_auto_body" : "recognition_fix.language_body")}</p>}
             </DialogHeader>
             {fix.kind === "language" && fix.languages.length > 0 && <div data-recognition-fix-language>
@@ -136,15 +164,16 @@ export const RecognitionFixController = () => {
                 are shown and agreed to before anything is downloaded. */}
             {detecting && <section data-recognition-fix-model aria-label={t("recognition_fix.detect_heading")}>
                 <h3>{t("recognition_fix.detect_heading")}</h3>
-                <p>{t("recognition_fix.detect_body", { model: familyLabel(detecting), name })}</p>
+                <p>{t(detectBody, { model: familyLabel(detecting), name, count: detecting.speech?.languages?.length ?? 0 })}</p>
                 <ModelDownloads targets={["asr"]} only={[detecting.id]} expected={{ asr: { model: saved } }}
                     onStart={id => setWaiting({ fix, model: id, before: downloads.jobs[id]?.job_id ?? null, expected: saved })} />
             </section>}
             <DialogFooter>
                 <Button autoFocus onClick={cancel}>{t("recognition_fix.close")}</Button>
-                <Button onClick={() => openSetting(fix.kind === "models" ? MODELS_SETTING_ID : languageSettingId(fix.source))}>
+                <Button onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source) : MODELS_SETTING_ID)}>
                     {t("recognition_fix.open_setting")}</Button>
                 {fix.kind === "models" && <Button tone="primary" onClick={() => { cancel(); openSetup(); }}>{t("recognition_fix.get_models")}</Button>}
+                {fix.kind === "share" && <Button tone="primary" disabled={!speech || !asr} onClick={share}>{t("recognition_fix.use_shared", { model: micName })}</Button>}
             </DialogFooter>
         </Dialog>
     </div>;

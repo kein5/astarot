@@ -20,7 +20,7 @@ export type CatalogEntry = {
     profile?: CatalogProfile | null;
     // detects: whether the recognizer tells the language it hears, from speech.cpp's own languages
     // (#1242); absent from a core before it.
-    speech?: { name: string; label: string; type: string; default: boolean; detects?: boolean } | null;
+    speech?: { name: string; label: string; type: string; default: boolean; languages?: readonly string[]; detects?: boolean } | null;
 };
 export type CatalogFamily<T extends CatalogEntry = CatalogEntry> = { key: string; rows: T[] };
 export type DownloadJob = { phase: string; paths?: Record<string, string> };

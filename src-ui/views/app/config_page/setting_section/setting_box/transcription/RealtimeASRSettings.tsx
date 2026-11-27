@@ -4,6 +4,10 @@ import { useI18n } from "@useI18n";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
 import { languageSettingId } from "../../../../../../logics/transcription/recognitionFix";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
+import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
+import { SAME, listeningApply, listeningChoice, listeningLanguages } from "../../../../../../logics/transcription/listeningModel";
+import type { ListeningAsk } from "../../../../../../logics/transcription/listeningModel";
+import { familyLabel } from "../../../../../../logics/voice/modelCatalog";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -43,7 +47,34 @@ export const RealtimeASRSettings = () => {
     const names = createLanguageNames(i18n.language);
     const languageLabel = (code: string) => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
     const { settings, state, endpoints, models, error, builtinVocabulary, send, updateError } = useRealtimeASR();
-    const { state: servers, send: sendSpeech } = useSpeechServers();
+    const { settings: speech, state: servers, send: sendSpeech } = useSpeechServers();
+    // Listening's own model on the bundled server (#1242): chosen among the recognition models on
+    // the PC, checked, then applied for Listening alone.
+    const { catalog, state: downloads, send: sendDownload } = useModelDownloads();
+    const bundled = settings?.server === "bundled";
+    const asr = speech?.profiles?.asr;
+    const listening = listeningChoice(catalog, downloads.downloaded, asr);
+    const [askedListening, setAskedListening] = useState<ListeningAsk | null>(null);
+    const applyListening = listeningApply(askedListening, downloads.jobs, listening.path);
+    useEffect(() => {
+        if (!applyListening) return;
+        setAskedListening(null);
+        sendDownload("/run/apply_model_download", applyListening);
+    }, [applyListening?.job_id]);
+    useEffect(() => {
+        if (!bundled) return;
+        if (!catalog) sendDownload("/get/data/model_download_catalog");
+        sendDownload("/get/data/model_download_state");
+    }, [bundled]);
+    const chooseListening = (value: string) => {
+        if (value === SAME) {
+            if (speech && asr) sendSpeech("/set/data/speech_server_settings", { ...speech, profiles: { ...speech.profiles, asr: { ...asr, listening_model: "" } } });
+            return;
+        }
+        if (!catalog) return;
+        setAskedListening({ id: value, before: downloads.jobs[value]?.job_id ?? null });
+        sendDownload("/run/check_model_download", { id: value, catalog_version: catalog.catalog_version });
+    };
     // Saves by itself (#1111, decided 3): a choice at once, the address when focus leaves the
     // form or on Enter, and an edit made while a save waits once it ends. A refusal is said under
     // the form.
@@ -129,8 +160,10 @@ export const RealtimeASRSettings = () => {
                 const choices = endpoints[source]?.endpoints ?? [];
                 const follow = !draft[source].endpoint && draft[source].follow_default !== false;
                 const selected = follow || choices.find(row => key(row.endpoint) === key(draft[source].endpoint));
-                // "auto" only for a model that detects the language (Qwen3-ASR).
-                const languages = [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
+                // "auto" only for a model that detects the language (Qwen3-ASR). Listening's own model
+                // (#1242) is read from the catalog, as its server is another than the listed one's.
+                const own = source === "speaker" && bundled && listening.apart ? listeningLanguages(listening.current) : null;
+                const languages = own ?? [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
                 const owner = state[source];
                 const failure = endpoints[source]?.error_code || owner?.error_code;
                 // Which output to choose for the game audio, and what following the system's default does.
@@ -148,13 +181,23 @@ export const RealtimeASRSettings = () => {
                             {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
                         </select>
                     </FormRow>
+                    {/* Listening's own model, on the bundled server (#1242). */}
+                    {source === "speaker" && bundled && <FormRow label={t("realtime.listening_model")} description={t("realtime.listening_model_help")}>
+                        <select aria-label={t("realtime.listening_model")} value={listening.apart ? listening.current?.id ?? listening.path : SAME}
+                            disabled={!speech || !!askedListening} onChange={event => chooseListening(event.target.value)}>
+                            <option value={SAME}>{listening.mic ? t("realtime.listening_same_named", { model: familyLabel(listening.mic) }) : t("realtime.listening_same")}</option>
+                            {listening.apart && !listening.current && <option value={listening.path}>{t("realtime.listening_own_file")}</option>}
+                            {listening.choices.filter(row => row.id !== listening.mic?.id || listening.apart).map(row =>
+                                <option key={row.id} value={row.id}>{row.name}</option>)}
+                        </select>
+                    </FormRow>}
                     {/* The switch's fix leads here when the model does not take the language (#1225). */}
                     <label data-setting-id={languageSettingId(source)}>{t(`realtime.${source}_language`)}<select aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
                         onChange={event => updateSource(source, { language: event.target.value })}>
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}
                     </select></label>
-                    <button type="button" disabled={saving || dirty || !selected || !selectedModel || !languages.includes(draft[source].language) ||
+                    <button type="button" disabled={saving || dirty || !selected || !(own || selectedModel) || !languages.includes(draft[source].language) ||
                         !owner || owner.requested || !!endpoints[source]?.error_code}
                         onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
                     <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>

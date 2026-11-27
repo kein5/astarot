@@ -141,7 +141,8 @@ export const loadBridgeRoutes = async (
     const translationSetup = await loadModule<typeof import("../translation/useTranslationSetup.ts")>(new URL("../translation/useTranslationSetup.ts", import.meta.url), runtime);
     const ocrSetup = await loadModule<typeof import("../ocr/useOcrSetup.ts")>(new URL("../ocr/useOcrSetup.ts", import.meta.url), runtime);
     const recognitionFix = await loadModule<typeof import("../transcription/useRecognitionFix.ts")>(new URL("../transcription/useRecognitionFix.ts", import.meta.url), runtime);
-    const recognitionFixes = await loadModule<typeof import("../transcription/recognitionFix.ts")>(new URL("../transcription/recognitionFix.ts", import.meta.url), runtime);
+    const recognitionFixes = await loadModule<typeof import("../transcription/recognitionFix.ts")>(new URL("../transcription/recognitionFix.ts", import.meta.url), runtime,
+        { "../setup/firstRunSetup.ts": await import("../setup/firstRunSetup.ts") });
     const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n },
