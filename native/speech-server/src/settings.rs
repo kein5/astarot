@@ -8,22 +8,39 @@ use serde_json::{Map, Value};
 
 use crate::{codes, Code};
 
+/// A server of the app. `AsrListening` is Listening's recognition server, started only when
+/// Listening has a model of its own (#1242): it has no settings of its own, and runs the `asr`
+/// profile's settings with Listening's model ([`start_options`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Profile {
     Japanese,
     Multilingual,
     Asr,
+    AsrListening,
 }
 
 impl Profile {
-    pub const ALL: [Profile; 3] = [Profile::Japanese, Profile::Multilingual, Profile::Asr];
+    pub const ALL: [Profile; 4] = [Profile::Japanese, Profile::Multilingual, Profile::Asr, Profile::AsrListening];
+    /// The profiles of the settings file, one row each.
+    pub const SETTINGS: [Profile; 3] = [Profile::Japanese, Profile::Multilingual, Profile::Asr];
 
     pub fn name(self) -> &'static str {
         match self {
             Profile::Japanese => "japanese",
             Profile::Multilingual => "multilingual",
             Profile::Asr => "asr",
+            Profile::AsrListening => "asr_listening",
         }
+    }
+
+    /// A recognition server (and not a speech one): Mic input's and Listening's.
+    pub fn recognizes(self) -> bool {
+        matches!(self, Profile::Asr | Profile::AsrListening)
+    }
+
+    /// The settings row a server runs: Listening's server runs the `asr` one.
+    pub fn settings_row(self) -> Profile {
+        if self == Profile::AsrListening { Profile::Asr } else { self }
     }
 
     pub fn from_name(name: &str) -> Result<Profile, Code> {
@@ -82,14 +99,15 @@ impl ProfileSettings {
 }
 
 impl Settings {
+    /// A server's settings row: Listening's server reads the `asr` one.
     pub fn profile(&self, profile: Profile) -> &ProfileSettings {
-        &self.profiles[profile.index()]
+        &self.profiles[profile.settings_row().index()]
     }
 
     /// The form the settings file holds.
     pub fn to_json(&self) -> Value {
         let mut profiles = Map::new();
-        for profile in Profile::ALL {
+        for profile in Profile::SETTINGS {
             let row = self.profile(profile);
             let mut item = Map::new();
             item.insert("model".into(), row.model.clone().into());
@@ -152,11 +170,11 @@ pub fn normalize_settings(value: &Value) -> Result<Settings, Code> {
         Some(Value::Object(given)) => given,
         Some(_) => return Err(invalid),
     };
-    if given.keys().any(|key| Profile::from_name(key).is_err()) {
+    if given.keys().any(|key| !Profile::SETTINGS.iter().any(|profile| profile.name() == key)) {
         return Err(invalid);
     }
     let mut result = Settings::default();
-    for profile in Profile::ALL {
+    for profile in Profile::SETTINGS {
         let row = match given.get(profile.name()) {
             None => &empty,
             Some(Value::Object(row)) => row,
@@ -224,16 +242,37 @@ fn gguf(value: &str) -> Result<String, Code> {
 }
 
 /// The options to start `profile` with, or the code of what is wrong with its files.
+///
+/// The recognition servers share the `asr` profile's VAD and device. While Listening has a model
+/// of its own (#1242), Mic input's server loads `model` and Listening's loads `listening_model`;
+/// the diarization model, which only Listening asks for, goes with Listening's. Otherwise Mic
+/// input's server is the one for both, with the diarization model, and Listening's has no model
+/// to start (`speech_server_model_invalid`).
 pub fn start_options(settings: &Value, profile: Profile) -> Result<StartOptions, Code> {
     let mut row = normalize_settings(settings)?.profile(profile).clone();
-    row.model = gguf(&row.model)?;
-    if profile == Profile::Asr {
+    if profile.recognizes() {
+        let apart = row.listening_apart();
+        if profile == Profile::AsrListening {
+            if !apart {
+                return Err(codes::MODEL_INVALID);
+            }
+            row.model = std::mem::take(&mut row.listening_model);
+        } else {
+            row.listening_model.clear();
+            if apart {
+                row.diarization_model.clear();
+            }
+        }
+        row.model = gguf(&row.model)?;
         row.vad_model = gguf(&row.vad_model)?;
         if !row.diarization_model.is_empty() {
             row.diarization_model = gguf(&row.diarization_model)?;
         }
-    } else if !row.voice_file.is_empty() {
-        row.voice_file = gguf(&row.voice_file)?;
+    } else {
+        row.model = gguf(&row.model)?;
+        if !row.voice_file.is_empty() {
+            row.voice_file = gguf(&row.voice_file)?;
+        }
     }
     Ok(row)
 }

@@ -393,9 +393,9 @@ impl Inner {
             (shared.options.low_latency, !shared.options.diarization_model.is_empty())
         };
         let mut expected =
-            if self.profile == Profile::Asr { vec!["recognition", "detection"] } else { vec!["synthesis"] };
+            if self.profile.recognizes() { vec!["recognition", "detection"] } else { vec!["synthesis"] };
         // A file in the diarization field that is another kind of model fails here.
-        if self.profile == Profile::Asr && diarization {
+        if self.profile.recognizes() && diarization {
             expected.push("diarization");
         }
         tasks.sort_unstable();
@@ -403,7 +403,7 @@ impl Inner {
         if tasks != expected {
             return Err(codes::MODEL_TASKS);
         }
-        if self.profile != Profile::Asr {
+        if !self.profile.recognizes() {
             if let (Some(hook), Some(pid)) = (&self.hooks.on_listener, self.shared.lock().unwrap().pid) {
                 hook(Some((port, pid)));
             }
@@ -618,7 +618,7 @@ impl Inner {
         }
         let (standby, child, listened) = {
             let shared = self.shared.lock().unwrap();
-            (shared.standby.clone(), shared.child.clone(), self.profile != Profile::Asr && shared.pid.is_some())
+            (shared.standby.clone(), shared.child.clone(), !self.profile.recognizes() && shared.pid.is_some())
         };
         if listened {
             if let Some(hook) = &self.hooks.on_listener {
