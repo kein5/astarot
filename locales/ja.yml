@@ -1995,7 +1995,10 @@ voice_ui:
     invalid_rvc_numbers: "ピッチは−24〜24の整数、検索結果の混合率は0〜1の数値、CPUのスレッド数は0〜64の整数で指定してください。"
     rvc_worker_title: "変換に使うデバイスと処理"
     rvc_worker_status: "{{device}} · スレッド {{threads}} · ハイパス{{highpass}}"
-    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。自動ではNVIDIAのGPU、DirectML、CPUの順に、使えるものを選びます。DirectMLは内蔵のGPUしかないPCでは選びません。NVIDIAのGPUかDirectMLを選ぶと、そのGPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。変換する単位の長さは「高度な設定」で変えられます。"
+    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。自動ではNVIDIAのGPU、DirectML、CPUの順に、使えるものを選びます。DirectMLは内蔵のGPUしかないPCでは選びません。NVIDIAのGPUかDirectMLを選ぶと、そのGPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。"
+    # The row that leads to the block length on the advanced settings page (#1266 R-5).
+    rvc_block_ms_pointer: "マイクの音声をこの長さずつ区切って変換します。「高度な設定」で変えます。"
+    rvc_block_ms_action: "変更"
     rvc_threads_auto: "自動"
     # The sentence in view, and its details as its hint (#614, the lead's form).
     rvc_directml_lead: "WindowsではAMDやIntelのGPUでもDirectMLを通して変換できます。"
@@ -2053,7 +2056,7 @@ vc_runtime:
     fit_unneeded: "お使いのGPUでは不要"
     help_rvc: "変換に使うONNX Runtime、NVIDIAのCUDAとcuDNNのライブラリ（CUDA 13）、基礎モデル（HuBERTとRMVPE）です。GPUで変換するには、NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
     help_rvc_cpu: "変換に使うONNX Runtime（CPU版）と、基礎モデル（HuBERTとRMVPE）です。内容を確認してから取得します。"
-    cpu_only: "NVIDIAのドライバーが見つからないので、CPUで変換する実行環境を取得します。CPUでは、変換した声が約1.3秒遅れて届きます。CPUでの変換が間に合わないPCでは、開始したときに知らせて変換しません。"
+    cpu_only: "NVIDIAのドライバーが見つからないので、CPUで変換する実行環境を取得します。CPUでは、変換した声が約1.3秒遅れて届きます。"
     help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してから取得します。"
     help_onnx_cuda: "AI翻訳をNVIDIAのGPUで動かすためのONNX Runtime（CUDA 13版）と、NVIDIAのCUDAとcuDNNのライブラリです。NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
     help_onnx_directml: "DirectMLを通してAI翻訳とボイスチェンジャー（RVC）をGPUで動かすためのONNX Runtime（DirectML版）とDirectMLです。AMDやIntelのGPUでも使えます。内容を確認してから取得します。"

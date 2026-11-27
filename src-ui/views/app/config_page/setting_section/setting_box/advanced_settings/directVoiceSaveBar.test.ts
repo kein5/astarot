@@ -45,7 +45,7 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
-        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" }, "../_components/fold/Fold": { Fold: "fold" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../_components/path_field/PathField": { PathField: "path-field" },

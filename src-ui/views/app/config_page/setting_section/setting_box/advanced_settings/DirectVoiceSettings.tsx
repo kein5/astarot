@@ -15,7 +15,8 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
-import { PageLinkButton } from "../_components/page_pointer/PagePointer";
+import { PageLinkButton, PagePointer } from "../_components/page_pointer/PagePointer";
+import { Fold } from "../_components/fold/Fold";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
@@ -205,36 +206,16 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
         {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
         {/* What the conversion cannot run without comes first, open while it is missing (#1230). */}
+        {/* The setup in the order a first start takes it (decided on 2026-11-27, #1266 ★5): the runtime
+            the conversion needs, the default voices, then what speeds it up on other GPUs, and last the
+            files of one's own, folded with their paths, as on the speech recognition and text to speech
+            pages (#1272). */}
         <SetupSection title={t(variant === "rvc" ? "voice_ui.setup_rvc" : passThrough ? "voice_ui.setup_passthrough" : "voice_ui.setup_input")} status={setupStatus} attention={!!error}
             needed={setupNeeded}>
-            {converted && <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
-                {/* The RVC page already opens with the RVC hint. */}
-                {variant !== "rvc" && <Description text={t(rvc ? "voice.vc_rvc_hint" : "voice.vc_hint")} />}
-                {/* Dropped files fill the model and index fields and save at once. */}
-                {rvc && <FileDropZone accept={[".pth", ".index"]} disabled={busy || saving} hint={t("voice_ui.rvc_drop_hint")}
-                    onFiles={paths => {
-                        const model = paths.find(path => extensionOf(path) === ".pth");
-                        const index = paths.find(path => extensionOf(path) === ".index");
-                        form.change(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
-                    }} />}
-                {/* Each path is typed, pasted or picked (#1231): a picked one fills the field as typing does. */}
-                {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name =>
-                    <FormRow key={name} label={t(`voice.vc_${name}`)}>
-                        <PathField value={draft[name]} disabled={busy} maxLength={4096} pick={PATH_PICKS[name]} label={t(`voice.vc_${name}`)}
-                            placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
-                            onChange={value => setDraft({ ...draft, [name]: value })} />
-                    </FormRow>)}
-                {/* How to use a model or reference voice of your own. */}
-                <CustomModelLink section={rvc ? "rvc" : "seed-vc"} />
-            </fieldset>}
+            {/* The RVC page already opens with the RVC hint. */}
+            {converted && variant !== "rvc" && <Description text={t(rvc ? "voice.vc_rvc_hint" : "voice.vc_hint")} />}
             {converted && <VcRuntimeSetup engine={rvc ? "rvc" : "seed-vc"} current={rvc ? draft.rvc_runtime : draft.runtime} disabled={busy || saving}
                 onUse={path => form.change({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
-            {/* DirectML (Windows) needs its own runtime, shared with the translation; the worker finds it at Start. */}
-            {/* What DirectML offers stays in one sentence; what it needs is that sentence's hint (#614). */}
-            {converted && rvc && directmlOffered && <>
-                <Lead text={t("voice_ui.rvc_directml_lead")} details={t("voice_ui.rvc_directml_details")} />
-                <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
-            </>}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. A
                 card's audition records the user's voice from the input chosen on the page and converts it
                 with the pitch and index rate on the form, saved or not (#415). */}
@@ -242,6 +223,33 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
                 draft.rvc_model !== savedForm(saved).rvc_model || draft.rvc_index !== savedForm(saved).rvc_index ? "edited" : false}
                 expected={{ rvc: { model: directState.settings?.rvc_model || "", index: directState.settings?.rvc_index || "" } }}
                 audition={{ values: rvcAuditionValues(draft.rvc_pitch, draft.rvc_index_rate), input: source?.id ?? null }} />}
+            {/* DirectML (Windows) needs its own runtime, shared with the translation; the worker finds it at Start.
+                It speeds up the runtime above on other GPUs: offered once that runtime is set (#1266 R-6).
+                What DirectML offers stays in one sentence; what it needs is that sentence's hint (#614). */}
+            {converted && rvc && directmlOffered && !!savedPaths.rvc_runtime && <>
+                <Lead text={t("voice_ui.rvc_directml_lead")} details={t("voice_ui.rvc_directml_details")} />
+                <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
+            </>}
+            {converted && <Fold size="link" className={styles.more} summary={t("speech_servers.own_model")} data-own-model={rvc ? "rvc" : "seed-vc"}>
+                <fieldset className={styles.fields} aria-busy={saving} {...form.groupProps}>
+                    {/* How to use a model or reference voice of your own. */}
+                    <CustomModelLink section={rvc ? "rvc" : "seed-vc"} />
+                    {/* Dropped files fill the model and index fields and save at once. */}
+                    {rvc && <FileDropZone accept={[".pth", ".index"]} disabled={busy || saving} hint={t("voice_ui.rvc_drop_hint")}
+                        onFiles={paths => {
+                            const model = paths.find(path => extensionOf(path) === ".pth");
+                            const index = paths.find(path => extensionOf(path) === ".index");
+                            form.change(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
+                        }} />}
+                    {/* Each path is typed, pasted or picked (#1231): a picked one fills the field as typing does. */}
+                    {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name =>
+                        <FormRow key={name} label={t(`voice.vc_${name}`)}>
+                            <PathField value={draft[name]} disabled={busy} maxLength={4096} pick={PATH_PICKS[name]} label={t(`voice.vc_${name}`)}
+                                placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
+                                onChange={value => setDraft({ ...draft, [name]: value })} />
+                        </FormRow>)}
+                </fieldset>
+            </Fold>}
             {deviceRoute && !routeReady && <Description text={t("voice.input_requires_output")} />}
             {/* The route is unknown until the first state arrives, and Windows has no microphone to prepare. */}
             {directState.observation_id && !managed && !deviceRoute && <><Description text={t("voice.input_requires_managed")} />
@@ -261,7 +269,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
         </label>}
         {converted && rvc && ([["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]] as const).map(([name, min, max, step]) =>
             <label key={name}>{t(`voice.vc_${name}`)}
-                <TextField type="number" min={min} max={max} step={step} disabled={busy}
+                <TextField type="number" min={min} max={max} step={step} disabled={busy} className={styles.short_field}
                     placeholder={t("voice_ui.example", { value: exampleNumbers[name] })}
                     aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
                     invalid={name === "rvc_pitch" ? !Number.isInteger(draft[name]) || Math.abs(draft[name]) > 24 :
@@ -305,7 +313,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
                 </Select>
             </label>
             <label>{t("voice.vc_rvc_threads")}
-                <TextField type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy}
+                <TextField type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy} className={styles.short_field}
                     placeholder={t("voice_ui.example", { value: 4 })}
                     invalid={!validThreads(draft)} aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
                     value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
@@ -317,6 +325,10 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false, monit
                     onCheckedChange={on => form.change({ ...draft, rvc_highpass: on })} />
                 {t("voice.vc_rvc_highpass")}
             </label>
+            {/* The length of each converted block is set on the advanced settings page: a row leads
+                there (DESIGN.md "Roles in settings", #1266 R-5). */}
+            <PagePointer label={t("config_page.advanced_settings.rvc_block_ms.label")} description={t("voice_ui.rvc_block_ms_pointer")}
+                tab="advanced_settings" action={t("voice_ui.rvc_block_ms_action")} target="rvc_block_ms" />
         </SetupSection>}
         </fieldset>}
         {/* The route and the monitor are changed on other pages: after this page's own controls (#1230). */}
