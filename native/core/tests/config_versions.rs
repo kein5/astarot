@@ -349,6 +349,24 @@ fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
     config.close();
 }
 
+/// The installer preselects the UI language of the settings it installs over (#1261). It does not
+/// parse `config.json` (src-tauri/nsis/template.nsi, ReadSavedUiLanguage): it finds the line of
+/// `"UI_LANGUAGE"` as text and reads `"ja"` or `"en"` on it. So the saved file keeps the key on a
+/// line of its own, with nothing else on that line that could read as a language.
+#[test]
+fn the_saved_ui_language_is_on_a_line_of_its_own_for_the_installer() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    config.set("UI_LANGUAGE", json!("ja")).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+    let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+    let lines: Vec<&str> = text.lines().filter(|line| line.contains("\"UI_LANGUAGE\"")).collect();
+    assert_eq!(lines.len(), 1, "one line names the key");
+    assert_eq!(lines[0].trim_end_matches(','), "    \"UI_LANGUAGE\": \"ja\"");
+}
+
 /// A value a newer version saved that this version cannot use (here a choice of the catalog's
 /// layout this version does not have) is not used, but it is written back as it was, also after
 /// this version saved and started again, until it is changed here (#560). The file names the
