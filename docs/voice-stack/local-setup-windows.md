@@ -97,6 +97,8 @@ Some Windows builds (the one checked was Insider Beta build 26220) ask for micro
 
 If the process ends without an answer, the exe at the same location is refused from then on without a prompt and gets `asr_capture_stream_create_failed`. This is the same for MME, DirectSound and WASAPI. An exe at another location gets a new prompt. A development build (such as `src-tauri\target\debug\astarot.exe`) is treated the same way.
 
+Realtime captions report these two by their own codes too (#1300). Before that they said "Audio capture stopped. The device may have been unplugged or changed", which sent the user to the hardware while Windows' question waited. A microphone that opens but delivers nothing for 5 seconds is also reported as `asr_capture_start_timeout`. One that stops delivering after it started is still reported as `realtime_capture_failed`.
+
 The microphone is also refused without a prompt while another system prompt, such as the firewall prompt, is open. This refusal is not recorded, so if you answer that prompt and start again, the microphone prompt appears. Up to 0.4, a sidecar at a new location raised the firewall prompt at startup, so the two prompts could overlap on the first start. From 0.5.0 the core listened inside the app's process, so the prompt was about the app's executable. After the fix in #442, the app does not raise the firewall prompt (next paragraph).
 
 The firewall prompt appeared because the mDNS used to advertise OSCQuery listened on UDP port 5353 on all interfaces (`native/adapters/src/osc/mdns.rs` in 0.5.x, Python's zeroconf up to 0.4). Windows asks about each program that receives from the network, per executable path. While the prompt was showing, a rule that blocks incoming traffic for that path already existed, and choosing to allow turned it into an allow rule (2026-11-21). For a path with a rule, no prompt appeared even when the network type differed from the rule's. The prompt appeared every time a version's ZIP was extracted to a different folder, or the install location or the executable's name changed, because the path changed (#442).
@@ -221,6 +223,8 @@ runtime\
 一部のWindows（確認したのはInsider Beta build 26220）は、デスクトップアプリごとにマイクの許可を確認します。初めて開くときに確認の画面が出て、答えるまで開く処理が止まります。ASTAROTは120秒待ち、それでも答えがなければ`asr_capture_start_timeout`で止まります。確認の画面はデスクトップに出るので、VRのヘッドセットの中からは見えません。
 
 答えないままプロセスが終わると、同じ場所のexeは次から確認なしで拒否され、`asr_capture_stream_create_failed`になります。MME、DirectSound、WASAPIのどれでも同じです。別の場所のexeには、改めて確認が出ます。開発用のビルド（`src-tauri\target\debug\astarot.exe`など）から試すときも同じ扱いです。
+
+リアルタイム字幕も、この2つをそれぞれのコードで伝えます（#1300）。それまでは「音声の取り込みが止まりました。デバイスが外れたか変わった可能性があります。」と出て、Windowsの確認を待っている間にも、機器を確かめるよう案内していました。開いたのに5秒間音を渡さないマイクも、`asr_capture_start_timeout`で伝えます。音を渡し始めたあとに止まったマイクは、これまでどおり`realtime_capture_failed`です。
 
 ファイアウォールの確認など、別のシステムの確認が開いている間も、確認なしで拒否されます。こちらは記録に残らないので、その確認に答えてから開始し直せば確認が出ます。0.4までは、新しい場所のサイドカーが起動時にファイアウォールの確認を出したので、最初の開始で重なることがありました。0.5.0からは中核がアプリのプロセスの中で待ち受けたので、確認の対象はアプリの実行ファイルになりました。#442で直したあとは、アプリはファイアウォールの確認を出しません（次の段落）。
 
