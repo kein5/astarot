@@ -217,7 +217,6 @@ fn a_saved_file_that_never_chose_a_speech_server_keeps_the_external_one() {
     config.close();
 }
 
-#[cfg(unix)]
 #[test]
 fn a_saved_file_keeps_its_recognition_server_and_a_new_install_takes_the_bundled_one() {
     // New settings recognize through the bundled server (#1266). Before that the default was the
@@ -266,6 +265,7 @@ fn a_saved_file_keeps_its_recognition_server_and_a_new_install_takes_the_bundled
     config.close();
 }
 
+#[cfg(unix)]
 #[test]
 fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
     use std::os::unix::fs::PermissionsExt;
