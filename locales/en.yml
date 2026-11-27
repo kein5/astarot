@@ -1627,8 +1627,8 @@ realtime_toggle:
   speech_server_out_of_memory: "Not enough memory to load the ASR model. Stop other GPU applications or select CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
   speech_server_start_timeout: "The ASR model took too long to load. Choose another inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
   speech_server_not_ready: "The ASR server is not running. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or select the bundled server in Settings → Speech recognition (ASR) → Realtime captions, then turn this on again."
-  speech_server_autostart_off: "The bundled ASR server is stopped. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or turn on \"Start the bundled ASR server when a switch is turned on\" under Realtime captions, then turn this on again."
-  realtime_models_unavailable: "The ASR server did not answer. If you use an external server, make sure it is running and that its URL in Settings → Speech recognition (ASR) → Realtime captions is correct."
+  speech_server_autostart_off: "The bundled ASR server is stopped. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or turn on \"Start the bundled ASR server when a switch is turned on\" on the same page, then turn this on again."
+  realtime_models_unavailable: "The ASR server did not answer. If you use an external server, make sure it is running and that \"ASR server URL\" in Settings → Speech recognition (ASR) is correct."
   realtime_model_required: "No ASR model is selected. In Settings → Speech recognition (ASR) → Realtime captions, select one."
   realtime_model_unavailable: "The selected ASR model is not loaded on the server. In Settings → Speech recognition (ASR) → Realtime captions, refresh the models and select an available one."
   realtime_language_unsupported: "The ASR model does not recognize the selected language. Choose a language it lists in Settings → Speech recognition (ASR) → Realtime captions."
@@ -1654,6 +1654,8 @@ recognition_fix:
   server_running: "The new model is downloaded, but it cannot be set while the bundled ASR server is running. Stop the ASR server in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then apply the model there."
 
 speech_servers:
+    # The closed fold of a server group with the paths of a model of one's own (#1266).
+    own_model: "Your own model"
     setup_title: "Models and servers"
     model_set: "Model set"
     model_unset: "No model set"

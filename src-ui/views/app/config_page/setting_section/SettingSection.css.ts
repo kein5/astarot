@@ -112,3 +112,15 @@ globalStyle(`${container} > :not(:has(> [data-section-label]:first-child)) > [da
     borderRadius: GROUP_RADIUS,
     ...STACKED,
 });
+// A part marked as a group of its own inside a part that is not a section (the speech recognition
+// page's server choice, first in its speech.cpp part, #1266): the same ground, frame and inset.
+globalStyle(`${container} [data-settings-group]`, {
+    paddingBlock: ".4rem",
+    paddingInlineStart: START,
+    paddingInlineEnd: END,
+    background: "var(--settings_group)",
+    border: `${LINE} solid var(--settings_frame)`,
+    borderRadius: GROUP_RADIUS,
+    ...STACKED,
+});
+globalStyle(`${container} [data-settings-group] [data-hint-row]:last-child`, { borderBottomColor: "transparent" });

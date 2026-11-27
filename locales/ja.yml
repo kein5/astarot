@@ -1627,8 +1627,8 @@ realtime_toggle:
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選び、もう一度オンにしてください。"
   speech_server_start_timeout: "ASRモデルの読み込みに時間がかかりすぎました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選び、もう一度オンにしてください。"
   speech_server_not_ready: "ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、設定 → 音声認識（ASR） → リアルタイム字幕で同梱サーバーを選んでから、もう一度オンにしてください。"
-  speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、リアルタイム字幕の「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにしてから、もう一度オンにしてください。"
-  realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR） → リアルタイム字幕のURLが正しいことを確認してください。"
+  speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、同じページの「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにしてから、もう一度オンにしてください。"
+  realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR）の「ASRサーバーURL」が正しいことを確認してください。"
   realtime_model_required: "ASRモデルが選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデルを選んでください。"
   realtime_model_unavailable: "選んだASRモデルがサーバーに読み込まれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデル一覧を更新し、使えるモデルを選んでください。"
   realtime_language_unsupported: "このASRモデルは選んだ言語を認識できません。設定 → 音声認識（ASR） → リアルタイム字幕で、モデルが対応する言語を選んでください。"
@@ -1654,6 +1654,8 @@ recognition_fix:
   server_running: "新しいモデルは取得しましたが、同梱ASRサーバーが動いている間は設定できません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでASRサーバーを停止し、そこでモデルを適用してください。"
 
 speech_servers:
+    # The closed fold of a server group with the paths of a model of one's own (#1266).
+    own_model: "自分のモデル"
     setup_title: "モデルとサーバー"
     model_set: "モデル設定済み"
     model_unset: "モデル未設定"

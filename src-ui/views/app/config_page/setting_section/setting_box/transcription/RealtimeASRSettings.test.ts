@@ -31,8 +31,10 @@ interface Listener {
 }
 type Reply = (answer: { status: number; result: unknown }) => void;
 
-// hints: whether the page keeps descriptions out of sight (#614).
-async function fixture(context: TestContext, { hints = false }: { hints?: boolean } = {}) {
+// hints: whether the page keeps descriptions out of sight (#614). part: the captions' form in
+// 「詳細設定」, or the server choice first in the page's speech.cpp part (AsrServer, #1266), which
+// edits the same settings and holds the address.
+async function fixture(context: TestContext, { hints = false, part = "captions" }: { hints?: boolean; part?: "captions" | "server" } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
     const window = {
@@ -77,7 +79,23 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const render = () => { runtime.render(RealtimeASRSettings); return runtime.render(RealtimeASRSettings); };
+    const { AsrServer } = await loadModule<typeof import("./AsrServer.tsx")>(new URL("./AsrServer.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
+        "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
+        "../../../../../../logics/voice/useSettingsDraft": draftHooks,
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
+        "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" },
+    });
+    const component = part === "server" ? AsrServer : RealtimeASRSettings;
+    // The first drawing makes the draft; the server part draws nothing before it.
+    const render = () => {
+        runtime.render(component);
+        const tree = runtime.render(component);
+        assert.ok(tree);
+        return tree;
+    };
     const field = (label: string) => findIn(render(), node => node.type === "input" && node.props["aria-label"] === label).props;
     const changeURL = () => { field("realtime.url").onChange({ target: { value: "http://localhost:9090" } }); render(); };
     // #1111: the form saves when focus leaves it, on Enter in the address, and a choice at once.
@@ -133,8 +151,8 @@ test("the dictionary is one list, with the built-in terms the page asked for", a
     s.runtime.unmount();
 });
 
-test("the captions save by themselves: the address when focus leaves the form, not while it moves inside", async context => {
-    const s = await fixture(context);
+test("the server's address saves by itself when focus leaves the form, not while it moves inside", async context => {
+    const s = await fixture(context, { part: "server" });
     s.changeURL();
     assert.deepEqual(s.writes(), [], "typing never submits");
     // Focus moving from the address to another field of the form saves nothing yet.
@@ -175,7 +193,7 @@ test("a dictionary file read in saves at once, as a term added in the list does"
 
 test("leaving the page with an edit asks nothing first, and Escape puts the saved address back", async context => {
     // #1111, decided 4: an edit not saved yet goes with the page.
-    const s = await fixture(context);
+    const s = await fixture(context, { part: "server" });
     s.changeURL();
     for (const type of ["vrct:settings-leave", "beforeunload"]) {
         const event = { defaultPrevented: false, detail: { proceed() {} }, preventDefault() { this.defaultPrevented = true; } };
@@ -190,7 +208,7 @@ test("leaving the page with an edit asks nothing first, and Escape puts the save
 
 for (const method of ["Enter", "leaving"]) {
     test(`${method} saves the address once and waits for its answer without starting audio`, async context => {
-        const s = await fixture(context);
+        const s = await fixture(context, { part: "server" });
         s.changeURL();
         const save = () => {
             if (method === "Enter") s.field("realtime.url").onKeyDown({ key: "Enter", preventDefault() {} });
@@ -228,7 +246,7 @@ test("canonical vocabulary acknowledgement enables realtime Start", async contex
 });
 
 test("rejected and unconfirmed saves keep edits visible and say so under the form; refresh does not erase them", async context => {
-    const s = await fixture(context);
+    const s = await fixture(context, { part: "server" });
     s.changeURL();
     s.asr.settings = { ...s.asr.settings, model: "refreshed-model" };
     s.render();
@@ -310,15 +328,15 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     const tree = s.render();
     const heading = findIn(tree, node => node.type === "section-label");
     assert.equal(heading.props.sub, true);
-    assert.equal(heading.props.desc, "realtime.scope\nrealtime.server_help");
+    assert.equal(heading.props.desc, "realtime.scope");
     const row = (label: string) => findIn(tree, node => node.type === "form-row" && node.props.label === label).props;
     assert.equal(row("realtime.model").description, "realtime.auto_help");
     assert.equal(row("realtime.silence").description, "realtime.silence_help");
     // Following the system's default says what that does; the game audio says which output to pick.
     assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
     assert.equal(row("realtime.speaker_input").description, "realtime.speaker_help\nrealtime.follow_default_help");
-    const check = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([check.label, check.description], ["realtime.start_server", "realtime.start_server_help"]);
+    // The server and whether a main switch starts it are chosen in the page's speech.cpp part (#1266).
+    assert.equal(find(tree, node => node.type === "hint-check"), null);
     const descriptions: unknown[] = [];
     find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
     // Saving before Start is what the disabled Start waits for: it stays in sight.
