@@ -21,6 +21,8 @@ The meaning of each column is in [Fields and values](#fields-and-values). When y
 3. Regenerate the index table with `python tools/adr_catalog.py --write` (`mise run adr`). The `tooling` part of `python tools/dev.py check` runs `--check`, which checks for duplicate numbers, the fields and values, the `evidence` paths, links and a stale index.
 4. Keep changes to the substance of a decision and changes that only move files or touch metadata in separate pull requests.
 
+Write the text by the rules of the [ADR authoring guideline](authoring.md): where references go, facts and evidence, how fine-grained a decision is, and writing.
+
 When you update an ADR later, do not rewrite the body either. When the implementation moves forward, update `implementation_status`, `implementation_checked` and `evidence`. When the decision changes, write a new ADR and update `validity` and `superseded_by` of the old one.
 
 ## Fields and values
@@ -191,6 +193,8 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 2. front matter を埋める。確かめていない値は `unknown` にし、推測で埋めない。
 3. `python tools/adr_catalog.py --write`（`mise run adr`）で一覧の表を作り直す。`python tools/dev.py check` の `tooling` が `--check` を実行し、番号の重複、項目と値、`evidence` のパス、リンク、一覧の古さを確かめる。
 4. 判断の内容を変える変更と、ファイルの移動やメタデータだけの変更は、別のプルリクエストに分ける。
+
+文面は [ADR の執筆ガイドライン](authoring.md) の規約（参照の置き場所、事実と根拠、決定の粒度、表記）に従う。
 
 ADR を後から更新するときも本文は書き換えない。実装が進んだら `implementation_status`、`implementation_checked`、`evidence` を直し、判断が変わるなら新しい ADR を書いて、古い ADR の `validity` と `superseded_by` を直す。
 
