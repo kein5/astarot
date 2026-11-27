@@ -169,9 +169,13 @@ export interface TtsEngineProps {
     // What a reset button changes the draft with: saved at once (#1111). setDraft otherwise.
     resetDraft?: TtsDraftSetter;
     saved: VoiceSettings | null;
+    // Which part to draw (#1266, ★17): the choice of the engine, with the language's way to read,
+    // or an installed engine's own settings (its address, check, voice and reading), with the
+    // other external servers and engines after the models. Both when not given.
+    part?: "choice" | "details";
 }
 
-export const TtsEngine = ({ draft, setDraft, resetDraft, saved }: TtsEngineProps) => {
+export const TtsEngine = ({ draft, setDraft, resetDraft, saved, part }: TtsEngineProps) => {
     const { t } = useI18n();
     const { engineVoices, send } = useVoice();
     const [linkError, setLinkError] = useState<string | null>(null);
@@ -179,9 +183,11 @@ export const TtsEngine = ({ draft, setDraft, resetDraft, saved }: TtsEngineProps
     const spec = ttsEngineSpec(engine), terms = spec?.terms;
     const url = spec ? draft[spec.url] ?? "" : "";
     const check = () => send("/get/data/tts_engine_voices", { engine, url });
-    // Check when an engine is chosen or the page opens with one; a typed URL is checked with the button.
+    const choice = part !== "details", details = part !== "choice";
+    // Check when an engine is chosen or the page opens with one; a typed URL is checked with the
+    // button. The part with the engine's settings checks it; the choice alone does not.
     // biome-ignore lint/correctness/useExhaustiveDependencies: only the engine starts a check (see above), not the typed URL.
-    useEffect(() => { if (spec) check(); }, [engine]);
+    useEffect(() => { if (spec && details) check(); }, [engine]);
 
     const choose = (value: string) => setDraft(current => {
         // A voice belongs to its engine. Coming back to the saved engine brings its saved voice back.
@@ -207,13 +213,13 @@ export const TtsEngine = ({ draft, setDraft, resetDraft, saved }: TtsEngineProps
 
     return <>
         {/* The description follows the chosen engine: AI voice needs a speech server, the others are installed by the user. */}
-        <FormRow label={t("voice_ui.engine.label")} description={t(spec ? "voice_ui.engine.description" : "voice_ui.engine.description_speechcpp")}>
+        {choice && <FormRow label={t("voice_ui.engine.label")} description={t(spec ? "voice_ui.engine.description" : "voice_ui.engine.description_speechcpp")}>
             <Select aria-label={t("voice_ui.engine.label")} value={engine} onChange={event => choose(event.target.value)}>
                 <SelectOption value="speechcpp">{t("voice_ui.engine.speechcpp")}</SelectOption>
                 {Object.entries(TTS_ENGINES).map(([id, item]) => <SelectOption key={id} value={id}>{item.name}</SelectOption>)}
             </Select>
-        </FormRow>
-        {spec && <>
+        </FormRow>}
+        {details && spec && <>
             <p>
                 <a href={spec.site} target="_blank" rel="noreferrer" onClick={event => open(event, spec.site)}>{t("voice_ui.engine.site", { engine: spec.name })}</a>
                 {terms && <>{" · "}<a href={terms} target="_blank" rel="noreferrer" onClick={event => open(event, terms)}>{t("voice_ui.engine.terms")}</a></>}

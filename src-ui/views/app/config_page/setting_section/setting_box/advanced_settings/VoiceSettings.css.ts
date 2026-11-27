@@ -9,6 +9,9 @@ import { leavesKit } from "./formSelectors.ts";
 export const container = style({});
 export const fields = style({});
 export const group = style({});
+// A part of the text-to-speech page under its subheading (#1266 ★17): the speech.cpp models on this
+// PC, or the external servers and engines; laid out as the forms' sections are.
+export const part = style({});
 export const quiet = style({});
 export const more = style({});
 export const problem_slot = style({});
@@ -66,6 +69,8 @@ globalStyle(container, {
     borderBottom: ".1rem solid var(--settings_rule, var(--vox_border, #34363b))",
 });
 globalStyle(inForm("form", "fieldset"), { display: "grid", gap: "1.2rem", minWidth: 0, containerType: "inline-size" });
+// A part keeps the page's gap between what it holds (#1266).
+globalStyle(inForm(`div.${part}`), { display: "grid", gap: "1.6rem", minWidth: 0 });
 globalStyle(inForm("fieldset"), { border: ".1rem solid var(--vox_border, #344662)", borderRadius: "var(--vox_radius, .8rem)", padding: "1.6rem" });
 globalStyle(inForm(`fieldset.${fields}`), { border: 0, padding: 0, margin: 0 });
 // A group inside a section: space and a subheading, no frame. Frames stay for real units (one server).
