@@ -914,7 +914,7 @@ config_page:
             desc: "文字起こしされたメッセージがログに表示されるまでに溜められる最大数です。これを超えると古いものから表示されずに破棄されます。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。サーバーは下の「ASRサーバー」で、入力ごとのモデルは「マイク入力のモデル」と「聞き取りのモデル」で選び、モデルは「モデルとサーバー」で取得します。"
             # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
             badge_own: "自分のサーバー"
             engines:

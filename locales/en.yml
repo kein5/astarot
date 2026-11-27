@@ -914,7 +914,7 @@ config_page:
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
-            desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
+            desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its server is chosen under \"ASR server\" below, each input's model under \"Mic input's model\" and \"Listening's model\", and the models are downloaded under \"Models and servers\"."
             # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
             badge_own: "Your server"
             engines:
