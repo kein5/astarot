@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { SAME, listeningApply, listeningChoice, catalogLanguages, listeningRow } from "./listeningModel.ts";
+import { SAME, catalogLanguages, listeningApply, listeningChoice, listeningRow, sourceApply, sourcesByPath } from "./listeningModel.ts";
 import type { ModelCatalogRow, ModelDownloadCatalog } from "../voice/useModelDownloads";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -50,4 +50,25 @@ test("a checked choice is applied for Listening once its own check is ready, wit
     assert.equal(listeningApply(asked, job("new", "verifying"), ""), null);
     assert.deepEqual(listeningApply(asked, job("new", "ready"), "/m/old.gguf"),
         { id: "qwen-q8", job_id: "new", expected: { model: "/m/old.gguf" }, source: "speaker" });
+});
+
+// #1308 ★1: Mic input's and Listening's models are chosen side by side; a choice is applied for its
+// input alone, and the catalog marks a model with the inputs that use it.
+test("a checked choice is applied for the input it was chosen for", () => {
+    const jobs = { "qwen-q8": { job_id: "new", phase: "ready", received_bytes: 1, total_bytes: 1 } };
+    const paths = { mic: "/m/reazon.gguf", speaker: "/m/own.gguf" };
+    assert.deepEqual(sourceApply({ id: "qwen-q8", before: null, source: "mic" }, jobs, paths),
+        { id: "qwen-q8", job_id: "new", expected: { model: "/m/reazon.gguf" } }, "Mic input's: no source, checked against its model");
+    assert.deepEqual(sourceApply({ id: "qwen-q8", before: null, source: "speaker" }, jobs, paths),
+        { id: "qwen-q8", job_id: "new", expected: { model: "/m/own.gguf" }, source: "speaker" });
+    assert.equal(sourceApply(null, jobs, paths), null);
+    assert.equal(sourceApply({ id: "qwen-q8", before: "new", source: "mic" }, jobs, paths), null, "an earlier check is not this one");
+});
+
+test("a model file is marked with the inputs that use it", () => {
+    assert.deepEqual(sourcesByPath({ model: "/m/reazon.gguf", listening_model: "" }), { "/m/reazon.gguf": ["mic", "speaker"] }, "one model for both");
+    assert.deepEqual(sourcesByPath({ model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }), { "/m/reazon.gguf": ["mic"], "/m/qwen.gguf": ["speaker"] });
+    assert.deepEqual(sourcesByPath({ model: "", listening_model: "/m/qwen.gguf" }), { "/m/qwen.gguf": ["speaker"] }, "Listening's alone");
+    assert.deepEqual(sourcesByPath({ model: "", listening_model: "" }), {});
+    assert.deepEqual(sourcesByPath(null), {});
 });

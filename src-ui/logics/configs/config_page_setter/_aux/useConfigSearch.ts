@@ -248,6 +248,13 @@ export const useConfigSearch = () => {
             searchTarget: [t("voice.input_title"), t("voice.input_source"), t("voice.input_start")]
                 .map(text => text.normalize("NFKC").toLowerCase()),
         });
+        // Each input's speech recognition model (#1308 ★1, N-13), found by its fields' names.
+        entries.push({
+            tab: "transcription", setting_id: "source_models", label: t("source_models.title"),
+            desc: t("source_models.help"), tab_label: t(TAB_LABEL_KEYS.transcription), prereq: null,
+            searchTarget: [t("source_models.title"), t("source_models.mic"), t("realtime.listening_model")]
+                .map(text => text.normalize("NFKC").toLowerCase()),
+        });
         entries.push({
             tab: "transcription", setting_id: "realtime_asr", label: t("realtime.title"),
             desc: t("realtime.auto_help"), tab_label: t(TAB_LABEL_KEYS.transcription), prereq: null,

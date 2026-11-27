@@ -29,6 +29,7 @@ import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
+import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -153,9 +154,11 @@ const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: Model
 
 // A short word on the card's head for the state of the shown file; the readout below says more.
 // It ends the name's line, in the same place on every card.
-const StatusBadge = ({ status }: { status: DownloadStatus }) => {
+// A recognition model in use says by which inputs (#1308 ★1): Mic input, Listening, or both.
+const StatusBadge = ({ status, sources = [] }: { status: DownloadStatus; sources?: readonly CaptionSource[] }) => {
     const { t } = useI18n();
-    return <CatalogState state={status}>{t(`model_catalog.status.${status}`)}</CatalogState>;
+    const text = status === "in_use" && sources.length ? t(`model_catalog.status.in_use_${sources.length > 1 ? "both" : sources[0]}`) : t(`model_catalog.status.${status}`);
+    return <CatalogState state={status}>{text}</CatalogState>;
 };
 
 
@@ -195,7 +198,8 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 
 // Every downloadable model of one use (a target), one card per model with its file types.
 // The download, verification and apply steps are the same as before; only the choice is laid out
-// as a catalog. Nothing here starts a download or changes a setting by itself.
+// as a catalog. Nothing here starts a download by itself; a download taken here is applied once it
+// is ready (#1308 ★3), as the first-run setup's is.
 // only: the catalog ids to show, when the caller asks about one model (a translation weight's row).
 // reserve: the headroom a page with a shared HardwareReadout chose; without it the catalog asks itself.
 // engines: also list the speech engines a user installs (the Japanese TTS catalog).
@@ -211,6 +215,9 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // reviewAtOnce: with `only`, the review of that one model opens at once when its card would offer
 // it, so the one press that asked reaches the consent (#1266 T-3); onReviewDone hears how it ended,
 // started or not, for a caller that closes with it.
+// chooseIn: the targets whose model is chosen outside the catalog, for each input (the recognition
+// models, #1308 ★1): their cards download and say which inputs use them (usedBy, by file path), and
+// offer no "Use this model".
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -227,9 +234,11 @@ export interface ModelDownloadsProps {
     onStart?: (id: string) => void;
     reviewAtOnce?: boolean;
     onReviewDone?: (started: boolean) => void;
+    chooseIn?: readonly string[];
+    usedBy?: Readonly<Record<string, readonly CaptionSource[]>>;
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone, chooseIn, usedBy }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -292,7 +301,21 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const advice = Object.fromEntries(targets.map(target => [target, target === "translation" ? NO_ADVICE
         : modelAdvice(matching.filter(entry => entry.target === target), hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
     const memory = (value: number | null) => isNumber(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
-    const status = (entry: ModelCatalogRow) => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+    // A model chosen for each input is in use by the inputs whose saved file it is (#1308 ★1).
+    const chosenElsewhere = (target: string) => !!chooseIn?.includes(target);
+    const sourcesOf = (entry: ModelCatalogRow): readonly CaptionSource[] => {
+        const path = chosenElsewhere(entry.target) ? state.downloaded?.[entry.id]?.model : undefined;
+        return path ? usedBy?.[path] ?? [] : [];
+    };
+    const status = (entry: ModelCatalogRow): DownloadStatus => {
+        if (!chosenElsewhere(entry.target)) return downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+        const shown = downloadStatus(entry, state.jobs[entry.id], state.downloaded, undefined);
+        return shown === "downloaded" && sourcesOf(entry).length ? "in_use" : shown;
+    };
+    // A download taken here is applied once it is ready (#1308 ★3, decided on 2026-11-28), as the
+    // first-run setup's is. A model chosen for each input is applied so only while Mic input has none
+    // yet: a model already set is changed in its input's field, never by a download.
+    const appliesOnceReady = (entry: ModelCatalogRow) => !onStart && !(chosenElsewhere(entry.target) && String(expected?.[entry.target]?.model ?? "").trim());
     const translationMode = translationDeviceMode(translationDevice, hardware);
     const warningOf = (entry: ModelCatalogRow) => entry.target !== "translation" ? hardwareWarning(entry, hardware, { deviceMode })
         : translationMode === null ? null : hardwareWarning(entry, hardware, { deviceMode: translationMode });
@@ -396,12 +419,12 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {/* The bar spans the card under its readout; the actions share one row below. */}
                 {active && <Progress aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
                 {job.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {job.phase === "ready" && <p>{t("model_downloads.apply_hint")}</p>}
+                {job.phase === "ready" && <p>{t(chosenElsewhere(entry.target) ? "model_catalog.choose_above" : "model_downloads.apply_hint")}</p>}
                 {(active || job.phase === "ready") && <div className={styles.actions}>
                     {active && <button type="button" disabled={job.phase === "cancelling" || !!pending?.some(request =>
                         request.endpoint !== "/run/apply_model_download" || request.id !== entry.id || request.job_id !== job.job_id)}
                         onClick={() => request("/run/cancel_model_download", entry, job)}>{t("model_downloads.cancel")}</button>}
-                    {job.phase === "ready" && <button type="button" className="primary" disabled={busy || !!blocked || !savedPaths}
+                    {job.phase === "ready" && !chosenElsewhere(entry.target) && <button type="button" className="primary" disabled={busy || !!blocked || !savedPaths}
                         onClick={() => send("/run/apply_model_download", { id: entry.id, job_id: job.job_id, expected: savedPaths })}>{t("model_downloads.apply")}</button>}
                 </div>}
                 {job.phase === "ready" && blocked && <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
@@ -456,11 +479,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t('model_downloads.manual_choice')}</p>;
         // A check of the files on the PC found them changed: getting them again is a download, reviewed.
         const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
-        const useHint = downloaded && !prepared && !job && <p>{t("model_catalog.use_hint")}</p>;
+        // A model chosen for each input is chosen in its input's field, not here (#1308 ★1).
+        const choosesAbove = chosenElsewhere(current.target);
+        const useHint = downloaded && !prepared && !job && (!choosesAbove || shownStatus === "downloaded") &&
+            <p>{t(choosesAbove ? "model_catalog.choose_above" : "model_catalog.use_hint")}</p>;
         // The card's main action is pressed anywhere on it (#1254): a model on the PC is used, one
         // that is not has its download reviewed. The card in use, or one being downloaded or
         // checked, has nothing to press: its readout's Cancel or Apply is what it offers.
-        const pressable = !prepared && !["working", "ready"].includes(shownStatus);
+        const pressable = !prepared && !["working", "ready"].includes(shownStatus) && !(choosesAbove && downloaded);
         const press = pressable ? cardPress.press : undefined;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
             summary={t(measured !== null || profileMemory ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
@@ -477,7 +503,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 return vad && vadJob && (activePhases.includes(vadJob.phase) || vadJob.phase === "ready" || vadJob.phase === "failed") ? jobView(vad, false) : null;
             })()}
             <div className={styles.actions}>
-                {!prepared && (downloaded && !changed
+                {!prepared && !(choosesAbove && downloaded && !changed) && (downloaded && !changed
                     // On the PC: used at once, with its files checked (#1263). Its Apply needs the
                     // saved paths and an unchanged field, as a download's does.
                     ? <button type="button" className={press ? `primary ${press}` : "primary"} data-use-model={current.id}
@@ -493,7 +519,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />
             </div>
             {/* Why Use waits, as a ready download's Apply says it. */}
-            {!prepared && downloaded && !changed && !onStart && blocked && !job &&
+            {!prepared && downloaded && !changed && !onStart && blocked && !job && !choosesAbove &&
                 <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
         </>;
         const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />;
@@ -508,7 +534,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     what speaks for or against the model under it. */}
                 <div className={styles.card_head}>
                     <CardTitle>{label}</CardTitle>
-                    <StatusBadge status={shownStatus} />
+                    <StatusBadge status={shownStatus} sources={sourcesOf(current)} />
                 </div>
                 {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
                     {suggested.length > 0 && <Badge tone="accent">{recommended}</Badge>}
@@ -631,6 +657,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
                 <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
+                    if (appliesOnceReady(selected)) setUsing(previous => ({ ...previous, [selected.id]: state.jobs[selected.id]?.job_id ?? null }));
                     send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id);
                     if (askedReview.current) askedReview.current = "started";
                     // The VAD follows with the same consent (#1266).

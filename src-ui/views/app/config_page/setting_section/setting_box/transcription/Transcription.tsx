@@ -8,6 +8,7 @@ import { Badge } from "../../../../../kit/index.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { AsrApiEntries } from "./AsrApiEntries";
 import { AsrServer } from "./AsrServer";
+import { SourceModels } from "./SourceModels";
 import { genNumObjArray } from "@utils";
 import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
@@ -60,6 +61,8 @@ export const Transcription = () => {
             <TranscriptionEngine_Container />
             <EngineGroup group="speechcpp">
                 <AsrServer />
+                {/* Each input's model, side by side (#1308 ★1); the catalog below downloads them. */}
+                <SourceModels />
                 <SpeechServers profiles={["asr"]} needed={asrModelsNeeded} />
             </EngineGroup>
             <EngineGroup group="api">

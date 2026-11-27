@@ -914,7 +914,7 @@ config_page:
             desc: "文字起こしされたメッセージがログに表示されるまでに溜められる最大数です。これを超えると古いものから表示されずに破棄されます。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。サーバーは下の「ASRサーバー」で、入力ごとのモデルは「マイク入力のモデル」と「聞き取りのモデル」で選び、モデルは「モデルとサーバー」で取得します。"
             # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
             badge_own: "自分のサーバー"
             engines:
@@ -1581,7 +1581,7 @@ realtime:
   mic_permission_wait: "マイクがまだ開いていません。ASTAROTにマイクを使わせるかを、Windowsがデスクトップで確認しているかもしれません。そこで許可すると、字幕が始まります。"
   save_help: "入力の設定を変えるとその字幕を停止し、サーバーやモデルを変えると両方の字幕を停止します。"
   auto_language: "自動判定（auto）"
-  auto_help: "自動判定にはQwen3-ASRのように言語を判定できるモデルが必要です。日本語以外を話すプレイヤーがいるなら、聞き取りにそのようなモデルを使ってください。同梱ASRサーバーでは、下の「聞き取りのモデル」で選べます。マイク入力のモデルは変わりません。"
+  auto_help: "自動判定にはQwen3-ASRのように言語を判定できるモデルが必要です。日本語以外を話すプレイヤーがいるなら、聞き取りにそのようなモデルを使ってください。同梱ASRサーバーでは、「お使いのPCで動かす（speech.cpp）」の「聞き取りのモデル」で選べます。マイク入力のモデルは変わりません。"
   follow_default_mic: "システムの既定の入力に従う"
   follow_default_speaker: "システムの既定の出力に従う"
   follow_default_help: "字幕の開始時にシステムの既定を読み取り、停止するまでそのデバイスを使います。ASTAROTの仮想デバイスと、既定のマイクになっている仮想ケーブルは対象にしません。"
@@ -1651,6 +1651,15 @@ realtime:
   vocabulary_put_back_of: "{{term}}を戻す"
   vocabulary_restore_all: "内蔵の用語をすべて元に戻す"
 
+# #1308 ★1: each input's speech recognition model on the bundled server, side by side.
+source_models:
+  title: "入力ごとの音声認識モデル"
+  mic: "マイク入力のモデル"
+  help: "お使いのPCにある音声認識モデルから選びます。ほかのモデルは、下の「モデルとサーバー」のカタログで取得します。"
+  none_on_pc: "お使いのPCには、まだ音声認識モデルがありません。"
+  running: "ASRサーバーが動いている間はモデルを変えられません。先に「モデルとサーバー」で止めてください。"
+  unset: "未設定"
+
 realtime_toggle:
   save_unconfirmed: "設定の保存を確認できませんでした。内容を確認してもう一度保存してください。"
   realtime_request_failed: "リアルタイム認識の操作を完了できませんでした。状態を確かめてから、もう一度操作してください。"
@@ -1669,7 +1678,7 @@ realtime_toggle:
   speech_server_start_failed: "同梱ASRサーバーを起動できませんでした。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでモデルファイルと推論デバイスを確認し、もう一度オンにしてください。"
   speech_server_exited: "同梱ASRサーバーが予期せず停止しました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでモデルファイルと推論デバイスを確認し、もう一度オンにしてください。"
   speech_server_out_of_memory: "ASRモデルを読み込むメモリが足りません。ほかのGPUアプリを止めるか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでCPUを選び、もう一度オンにしてください。"
-  realtime_asr_models_do_not_fit: "聞き取りの音声認識モデルが、マイク入力のモデルと一緒にはGPUのメモリに収まりません。マイク入力をオフにするか、設定 → 音声認識（ASR） → モデルとサーバーで両方に同じモデルを使うようにしてから、もう一度オンにしてください。"
+  realtime_asr_models_do_not_fit: "聞き取りの音声認識モデルが、マイク入力のモデルと一緒にはGPUのメモリに収まりません。マイク入力をオフにするか、設定 → 音声認識（ASR）の「聞き取りのモデル」で「マイク入力と同じ」を選んでから、もう一度オンにしてください。"
   realtime_platform_unsupported: "このシステムではリアルタイム字幕を使えません。"
   speech_server_vulkan_missing: "GPUドライバーのVulkanライブラリ（vulkan-1.dll）が見つかりません。GPUドライバーを入れるか更新してからもう一度オンにしてください。"
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選び、もう一度オンにしてください。"
@@ -2193,7 +2202,7 @@ model_downloads:
     cancel: "ダウンロードを取消"
     progress: "モデルのダウンロード進捗"
     apply: "モデルパスを適用"
-    apply_hint: "検証が完了しました。適用すると取得したモデルのパスをすぐに設定へ保存します。このフォームで編集中のほかの項目は、未保存のまま残ります。"
+    apply_hint: "照合しました。適用すると、取得したモデルのパスを設定に入れます。"
     blocked: "対象のサーバーや音声入力を停止してから適用してください。設定の保存中は保存が終わるまでお待ちください。"
     blocked_edited: "このダウンロードで置き換えるパスに未保存の編集があります。保存または破棄してから適用してください。"
     notice_irodori: "speech.cpp 0.9.0用の日本語TTSです。モデルとcodecはMIT、codecの基盤はApache-2.0です。提供元は無断の声の模倣・なりすましや、誤解を招く合成音声の生成を禁止しています。参照音声を使わなくても実在する声に偶然似る場合があります。モデルカードの条件を確認してください。"
@@ -2217,7 +2226,7 @@ model_downloads:
     asr_requirements: "同梱ASRサーバーにはVADのモデルも要ります。VADのモデルがまだなければ、音声認識のモデルと一緒に取ります。取得が終わっただけでは認識を始めません。"
     # A recognition model's review that takes the VAD with it (#1266).
     with_vad: "同梱ASRサーバーにはVADのモデルも要るので、一緒に取ります。"
-    asr_choice: "speech.cppが提供する認識モデルから選べます。認識できる言語はモデルごとに違い、選んだモデルの下に表示します。日本語以外を話すプレイヤーがいるなら、その言語を認識できるモデル（Qwen3-ASRなど）を選んでください。小さいファイルの種類（Q4_Kなど）は容量とメモリが少なく済みますが、誤りが少し増えることがあります。既定はspeech.cpp自身が取得するファイルです。ここで使うモデルはマイク入力のもので、聞き取りも同じモデルを使います。聞き取りに別のモデルを使うときは、リアルタイム字幕の「聞き取りのモデル」で選びます。そのときはモデルごとにサーバーが動くので、メモリを多く使います。"
+    asr_choice: "speech.cppが提供する認識モデルから選べます。認識できる言語はモデルごとに違い、選んだモデルの下に表示します。日本語以外を話すプレイヤーがいるなら、その言語を認識できるモデル（Qwen3-ASRなど）を選んでください。小さいファイルの種類（Q4_Kなど）は容量とメモリが少なく済みますが、誤りが少し増えることがあります。既定はspeech.cpp自身が取得するファイルです。マイク入力と聞き取りが使うモデルは、上の「マイク入力のモデル」と「聞き取りのモデル」で選びます。違うモデルを使うときはモデルごとにサーバーが動くので、メモリを多く使います。マイク入力のモデルがまだないときは、ここで取得したモデルがマイク入力のモデルになります。"
     # カタログの各モデルの短い説明（カタログの行の profile.summary）。
     summary:
         qwen3_asr_06b: "日本語を含む30言語を文字にし、話している言語も判定します。いろいろな言語のプレイヤーがいる場で使いやすい軽めのモデルです。"
@@ -2389,8 +2398,14 @@ model_catalog:
         not_downloaded: "未取得"
         downloaded: "取得済み"
         in_use: "使用中"
+        # #1308 ★1: a speech recognition model says which inputs use it.
+        in_use_mic: "使用中（マイク入力）"
+        in_use_speaker: "使用中（聞き取り）"
+        in_use_both: "使用中（マイク入力と聞き取り）"
         working: "取得中"
         ready: "検証済み・未適用"
+    # #1308 ★1: a speech recognition model is chosen for each input above its catalog.
+    choose_above: "お使いのPCにあります。上の「マイク入力のモデル」か「聞き取りのモデル」で選びます。"
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "このモデルを使う"
     # A card pressed anywhere names its model after its button's words, in the button's

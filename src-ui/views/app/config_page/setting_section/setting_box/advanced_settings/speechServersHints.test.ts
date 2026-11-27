@@ -19,6 +19,7 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
     const profile = { model: "", voice_file: "", vad_model: "", diarization_model: "", device: "auto", low_latency: false };
     const settings = { profiles: { japanese: { ...profile }, asr: { ...profile } } };
     const { SpeechServers } = await loadModule<typeof import("./SpeechServers.tsx")>(new URL("./SpeechServers.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings, state: {}, devices,
             builds: { cpu_build: cpuBuild, gpu_build: gpuBuild }, pending: {}, error: null, send() {}, updateError() {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: settings, setDraft() {}, saving: false, dirty: false, submit() {}, navigationDialog: null }) },
@@ -81,6 +82,7 @@ async function server({ state = {}, pending = {}, dirty = false, saving = false,
     const profile = { model, voice_file: "", vad_model: vad, diarization_model: "", device: "auto", low_latency: false };
     const settings = { profiles: { japanese: { ...profile }, asr: { ...profile } } };
     const { SpeechServers } = await loadModule<typeof import("./SpeechServers.tsx")>(new URL("./SpeechServers.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings, state, devices: [],
             builds: { cpu_build: "separate", gpu_build: "ready" }, pending, error: null,
             send: (endpoint: string, body?: unknown) => sent.push([endpoint, body]), updateError() {} }) },

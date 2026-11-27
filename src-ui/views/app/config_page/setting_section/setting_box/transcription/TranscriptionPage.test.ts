@@ -44,6 +44,7 @@ async function transcriptionPage(context: TestContext, given: Record<string, unk
         "./RealtimeASRSettings": { RealtimeASRSettings: "realtime-asr" },
         "./AsrApiEntries": { AsrApiEntries: "asr-api-entries" },
         "./AsrServer": { AsrServer: "asr-server" },
+        "./SourceModels": { SourceModels: "source-models" },
         "../_templates/Templates": { WordFilterContainer: "word-filter", RadioButtonContainer: "radio", DropdownMenuContainer: "dropdown", AuthKeyContainer: "auth-key",
             SliderContainer: "slider" },
         "../_components": { SectionLabelComponent: "section-label" },
@@ -105,7 +106,8 @@ test("the page puts the engine first, then speech.cpp and the APIs under their n
     // speech.cpp's part starts with which server it uses, under the engine choice (#1266), then its
     // models and servers; the server is not chosen in the advanced fold any more.
     const local = [groups[0].props.children].flat().filter(Boolean).map((child: { type: unknown }) => child.type);
-    assert.deepEqual(local, ["asr-server", "speech-servers"]);
+    // Each input's model between the server and the catalog that downloads it (#1308 ★1).
+    assert.deepEqual(local, ["asr-server", "source-models", "speech-servers"]);
     assert.equal(find(findIn(tree, node => node.type === "advanced"), node => node.type === "asr-server"), null);
     // An unknown pause shows as a dash in the fold's line.
     assert.equal(findIn(tree, node => node.type === "advanced").props.status, `config_page.advanced_status.transcription {"phrase":"-","speaker":4}`);

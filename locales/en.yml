@@ -914,7 +914,7 @@ config_page:
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
-            desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
+            desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its server is chosen under \"ASR server\" below, each input's model under \"Mic input's model\" and \"Listening's model\", and the models are downloaded under \"Models and servers\"."
             # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
             badge_own: "Your server"
             engines:
@@ -1581,7 +1581,7 @@ realtime:
   mic_permission_wait: "The microphone has not opened yet. Windows may be asking on the desktop whether ASTAROT may use the microphone. Allow it there, and the captions start."
   save_help: "Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
-  auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. If other players speak languages other than Japanese, use such a model for Listening. On the bundled ASR server, choose it under \"Listening's model\" below; Mic input keeps its own."
+  auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. If other players speak languages other than Japanese, use such a model for Listening. On the bundled ASR server, choose it under \"Listening's model\" in \"On your PC (speech.cpp)\"; Mic input keeps its own."
   follow_default_mic: "Follow the system default input"
   follow_default_speaker: "Follow the system default output"
   follow_default_help: "The system default is read when captions start and kept until they stop. ASTAROT's own virtual devices, and a virtual cable set as the default microphone, are never captured."
@@ -1651,6 +1651,15 @@ realtime:
   vocabulary_put_back_of: "Put back {{term}}"
   vocabulary_restore_all: "Restore all built-in terms"
 
+# #1308 ★1: each input's speech recognition model on the bundled server, side by side.
+source_models:
+  title: "Each input's speech recognition model"
+  mic: "Mic input's model"
+  help: "Chosen among the speech recognition models on your PC. Get more from the catalog under \"Models and servers\" below."
+  none_on_pc: "No speech recognition model is on your PC yet."
+  running: "The models cannot change while the ASR server runs. Stop it under \"Models and servers\" first."
+  unset: "Not set"
+
 realtime_toggle:
   save_unconfirmed: "The save could not be confirmed. Check the settings and try saving again."
   realtime_request_failed: "The realtime recognition request could not be finished. Check its state, then try again."
@@ -1672,7 +1681,7 @@ realtime_toggle:
   speech_server_vulkan_missing: "The GPU driver's Vulkan library (vulkan-1.dll) was not found. Install or update your GPU driver, then turn this on again."
   speech_server_device_failed: "The selected inference device could not run the model. Update your GPU driver, or choose another inference device or CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
   speech_server_out_of_memory: "Not enough memory to load the ASR model. Stop other GPU applications or select CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
-  realtime_asr_models_do_not_fit: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Turn Mic input off, or use one model for both in Settings → Speech recognition (ASR) → Models and servers, then turn this on again."
+  realtime_asr_models_do_not_fit: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Turn Mic input off, or choose \"Same as Mic input\" under \"Listening's model\" in Settings → Speech recognition (ASR), then turn this on again."
   speech_server_start_timeout: "The ASR model took too long to load. Choose another inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
   speech_server_not_ready: "The bundled ASR server is not running. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
   speech_server_autostart_off: "The bundled ASR server is stopped. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or turn on \"Start the bundled ASR server when a switch is turned on\" on the same page, then turn this on again."
@@ -2193,7 +2202,7 @@ model_downloads:
     cancel: "Cancel download"
     progress: "Model download progress"
     apply: "Apply model path"
-    apply_hint: "Verification completed. Applying saves the downloaded path to the settings right away. Other unsaved edits in this form stay as they are."
+    apply_hint: "Verified. Applying puts the downloaded path in the settings."
     blocked: "Stop the target server or input before applying. If settings are being saved, wait until saving finishes."
     blocked_edited: "A path that this download replaces has unsaved edits. Save or discard them before applying."
     notice_irodori: "Japanese TTS for speech.cpp 0.9.0. MIT model and codec, with Apache-2.0 codec base. The provider prohibits impersonation without consent and misleading synthetic speech. Text-only voices can coincidentally resemble a person; review all model-card restrictions."
@@ -2217,7 +2226,7 @@ model_downloads:
     asr_requirements: "The bundled ASR server needs a VAD model too. While none is set, it is taken with a speech recognition model. A finished download does not start recognition."
     # A recognition model's review that takes the VAD with it (#1266).
     with_vad: "The bundled ASR server needs a VAD model too, so it is taken with this one."
-    asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. A model used here is Mic input's, and Listening uses it too. To give Listening another model, choose it under \"Listening's model\" in Realtime captions; the two models then run on two servers and use more memory."
+    asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. Choose which model each input uses under \"Mic input's model\" and \"Listening's model\" above; two different models run on two servers and use more memory. While Mic input has no model, one downloaded here becomes its model."
     # A short plain description per catalog model (catalog row profile.summary).
     summary:
         qwen3_asr_06b: "Writes speech in 30 languages, Japanese included, and tells which language is spoken. A light model for places where players speak several languages."
@@ -2389,8 +2398,14 @@ model_catalog:
         not_downloaded: "Not downloaded"
         downloaded: "Downloaded"
         in_use: "In use"
+        # #1308 ★1: a speech recognition model says which inputs use it.
+        in_use_mic: "In use (Mic input)"
+        in_use_speaker: "In use (Listening)"
+        in_use_both: "In use (Mic input and Listening)"
         working: "Downloading"
         ready: "Verified, not applied"
+    # #1308 ★1: a speech recognition model is chosen for each input above its catalog.
+    choose_above: "On your PC. Choose it for Mic input or Listening under their models above."
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "Use this model"
     # A card pressed anywhere names its model after its button's words, in the button's
