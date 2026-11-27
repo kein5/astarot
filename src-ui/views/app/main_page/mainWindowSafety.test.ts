@@ -261,6 +261,7 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
         "../../../../../../logics/main/sameLanguage.ts": sameLanguage,
         "../../../../../../logics/main/translatorLabel.ts": translatorLabel,
         "../../../../../../../logics/main/translatorLabel.ts": translatorLabel,
+        "../../../../../../../logics/common/useOpenSettings.ts": { useOpenSettings: () => () => {} },
         "./translatorPlacement.ts": translatorPlacement,
         "react-dom": { createPortal: (node: unknown) => node } };
     const cases = [
