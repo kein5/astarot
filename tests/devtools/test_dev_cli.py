@@ -337,6 +337,15 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertNotIn("--bin plain", output)
         self.assertEqual(output.count("--features"), 1)
 
+    def test_ci_runs_every_binary_that_needs_features(self):
+        # The same binaries in the repository, run by the crates job of voice-tests.yml.
+        workflow = (ROOT / ".github/workflows/voice-tests.yml").read_text(encoding="utf-8")
+        found = [(crate, *binary) for crate in self.dev.NATIVE_CRATES for binary in self.dev.feature_binaries(ROOT, crate)]
+        self.assertIn(("native/rvc-runtime", "astarot-rvc-worker", ["worker"]), found)
+        for crate, binary, features in found:
+            command = f"cargo test --locked --manifest-path {crate}/Cargo.toml --features {','.join(features)} --bin {binary}"
+            self.assertTrue(command in workflow, f"voice-tests.yml does not run: {command}")
+
     def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
         code, output = self.call("check", "--scope", "crates", "--dry-run")
         self.assertEqual(code, 0)

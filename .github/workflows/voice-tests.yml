@@ -213,6 +213,8 @@ jobs:
       - run: cargo test --locked --manifest-path native/adapters/Cargo.toml
       - run: cargo test --locked --manifest-path native/ocr-runtime/Cargo.toml
       - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml
+      # The RVC worker builds only with its feature, so the run above skips its tests (#1270).
+      - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml --features worker --bin astarot-rvc-worker
       - run: cargo test --locked --manifest-path native/talk-ai/Cargo.toml
   # The line, function and region coverage of each Rust crate with its own tests (#550, decision 1
   # of #871), in this job's summary. It is reported, never held to a threshold: the job never
