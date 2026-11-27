@@ -42,7 +42,7 @@ The runtime that is fetched depends on whether the PC has an NVIDIA driver.
 | Download, about | 1.7 GB on Windows, 1.9 GB on Linux | 0.7 GB on Windows and Linux |
 | Free disk space needed, about | 2.7 GB on Windows, 3.3 GB on Linux | 0.8 GB |
 
-From 0.6.0 on Windows, you can download "ONNX Runtime · DirectML" under "Models and runtime". Automatic selection tries CUDA first, then DirectML on a dedicated GPU, then the CPU. To try DirectML on integrated graphics, select DirectML in the RVC settings. CPU conversion only starts if the speed check passes. See [System requirements](../guide/requirements#rvc-on-an-nvidia-gpu) for CUDA driver requirements.
+From 0.6.0 on Windows, once the RVC runtime is in use, you can download "ONNX Runtime · DirectML" under "Models and runtime". Automatic selection tries CUDA first, then DirectML on a dedicated GPU, then the CPU. To try DirectML on integrated graphics, select DirectML in the RVC settings. CPU conversion only starts if the speed check passes. See [System requirements](../guide/requirements#rvc-on-an-nvidia-gpu) for CUDA driver requirements.
 
 An RVC runtime fetched by an earlier version (the kind that uses PyTorch) can no longer be used. If the page says "The runtime in this folder is of an earlier kind and can no longer be used", fetch it again the same way. It goes into the same folder, so your saved settings keep working. When it finishes, the files of the earlier kind (`venv`, `python`, `engine`, `rmvpe.pt` and so on) are deleted automatically. Only what the earlier setup put there is deleted; models (`.pth`, `.index` and the like) and audio files you put in `engine` are kept.
 
@@ -102,7 +102,7 @@ Together with speaking the translation of what you say ("Speak final translation
 
 ### Conversion block length
 
-Your microphone is converted in pieces of a set length. With "Conversion block length" under Settings → "Advanced" left at the default, "Automatic", the app times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Choose "Automatic" again to have the GPU timed again the next time conversion starts.
+Your microphone is converted in pieces of a set length. With "Conversion block length" under Settings → "Advanced" left at the default, "Automatic", the app times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Choose "Automatic" again to have the GPU timed again the next time conversion starts. "Device and processing" on the voice changer page also has a button that leads to this setting.
 
 ### Stop
 
