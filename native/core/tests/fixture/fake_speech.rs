@@ -8,6 +8,7 @@
 //!   `MODEL.speech`);
 //! - `...slow...` answers 3 s of the tone instead, at about a third of real time;
 //! - `...crash...` exits at once with an error;
+//! - `...oom...` exits at once as speech.cpp does when the model does not fit in memory;
 //! - `...gate...` prints its ready line only once `MODEL.go` exists;
 //! - `...die...` exits with an error once `MODEL.die` exists.
 //!
@@ -234,6 +235,10 @@ fn main() {
     let device = args.iter().position(|arg| arg == "--device").and_then(|at| args.get(at + 1)).cloned().unwrap_or_default();
     let _ = std::fs::write(marker(&model, ".ran"), format!("{} {device}", folder.unwrap_or_default()));
     if stem.contains("crash") {
+        std::process::exit(1);
+    }
+    if stem.contains("oom") {
+        eprintln!("speech: out_of_memory (device): vk::Device::allocateMemory failed for {}", model.display());
         std::process::exit(1);
     }
     if stem.contains("gate") {
