@@ -96,6 +96,12 @@ export const square_svg = style({
     width: "1.2rem",
 });
 
+// The restore icon (two squares), in the maximize icon's place and size (#1258).
+export const restore_svg = style({
+    ...buttonIcon,
+    width: "1.2rem",
+});
+
 export const line_svg = style({
     ...buttonIcon,
     paddingTop: "0.1rem",

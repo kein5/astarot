@@ -219,3 +219,36 @@ test("the settings window saves its own place and closes alone", async context =
     assert.deepEqual(sent, [["/set/data/settings_window_geometry", { x_pos: 40, y_pos: 50, width: 800, height: 600 }]]);
     assert.deepEqual(calls, ["destroy"]);
 });
+
+// #1258: the title bar's maximize button draws what pressing it does, so whether the window is
+// maximized is read when the page starts and again after each resize (maximizing and restoring
+// are resizes). The listener goes with the page, and an answer that comes after it is dropped.
+test("whether the window is maximized is read at the start and after each resize, until the page goes", async () => {
+    const runtime = hooks();
+    let maximized = false, resized: (() => void) | undefined, stopped = 0;
+    const appWindow = {
+        isMaximized: async () => maximized,
+        onResized: async (listener: () => void) => { resized = listener; return () => { stopped += 1; }; },
+    };
+    const { useWindowMaximized } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), runtime, {
+        "@tauri-apps/api/window": {},
+        "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
+    });
+    const settle = () => new Promise(resolve => setImmediate(resolve));
+    const Probe = () => useWindowMaximized();
+    assert.equal(runtime.render(Probe), false, "not maximized until the window says so");
+    maximized = true;
+    await settle();
+    assert.equal(runtime.render(Probe), false, "nothing changed: no resize yet");
+    resized?.();
+    await settle();
+    assert.equal(runtime.render(Probe), true);
+    maximized = false;
+    resized?.();
+    await settle();
+    assert.equal(runtime.render(Probe), false);
+    runtime.unmount();
+    await settle();
+    assert.equal(stopped, 1, "the resize listener is removed with the page");
+});

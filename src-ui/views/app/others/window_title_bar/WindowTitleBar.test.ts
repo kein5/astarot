@@ -6,11 +6,11 @@ import * as closeBehavior from "../../../../logics/common/closeBehavior.ts";
 // The title bar's three buttons are icons. Each one's name is also its tooltip (#766), so what
 // closing does here, quit or stay in the tray, is seen before the button is pressed.
 
-async function titleBar(hides: boolean | null, inSettingsWindow = false) {
+async function titleBar(hides: boolean | null, inSettingsWindow = false, maximized = false) {
     const runtime = hooks(), calls: string[] = [];
     const { WindowTitleBar } = await loadModule<typeof import("./WindowTitleBar.tsx")>(new URL("./WindowTitleBar.tsx", import.meta.url), runtime, {
         "@logics_common": { useWindow: () => ({ asyncCloseApp: () => calls.push("close"), asyncToggleMaximizeApp: () => calls.push("maximize"),
-            asyncMinimizeApp: () => calls.push("minimize") }) },
+            asyncMinimizeApp: () => calls.push("minimize") }), useWindowMaximized: () => maximized },
         "../../../../logics/common/closeBehavior.ts": { closeButtonLabelKey: closeBehavior.closeButtonLabelKey,
             useCloseHides: (ask?: () => Promise<unknown>) => { if (ask) calls.push("not asked"); return hides; } },
         "../../../../logics/common/settingsWindow.ts": { isSettingsWindow: () => inSettingsWindow },
@@ -22,7 +22,9 @@ async function titleBar(hides: boolean | null, inSettingsWindow = false) {
         return { words: tip.props.title, side: tip.props.placement, bare: tip.props.bare, button };
     });
     const title = find(runtime.render(WindowTitleBar), node => node.type === "span")?.props.children;
-    return { tips, calls, title };
+    // The icon each button draws, by its class (the icons themselves are stand-ins).
+    const icons = tips.map(tip => find(tip.button.props.children, node => typeof node.props?.className === "string")?.props.className);
+    return { tips, calls, title, icons };
 }
 
 test("each button of the title bar shows its name as a tooltip under it", async () => {
@@ -52,4 +54,17 @@ test("the settings window's title bar names it, and its close button says it clo
     assert.equal(tips[2].words, "studio.close_settings");
     assert.ok(calls.includes("not asked"));
     assert.equal((await titleBar(false)).title, "ASTAROT");
+});
+
+// #1258: the middle button draws what pressing it does, as Windows does: a square while the window
+// can be maximized, two squares while it is maximized and can be restored. Its name and tooltip say
+// both, so they stay the same; the settings window's title bar draws it the same way.
+test("the maximize button draws the restore icon while the window is maximized, and keeps its name", async () => {
+    for (const inSettingsWindow of [false, true]) {
+        const normal = await titleBar(false, inSettingsWindow, false), maximized = await titleBar(false, inSettingsWindow, true);
+        assert.deepEqual([normal.icons[1], maximized.icons[1]], ["square_svg", "restore_svg"]);
+        assert.deepEqual([normal.tips[1].words, maximized.tips[1].words], ["studio.maximize", "studio.maximize"]);
+        assert.equal(maximized.tips[1].button.props["aria-label"], "studio.maximize");
+        assert.deepEqual([normal.icons[0], normal.icons[2]], [maximized.icons[0], maximized.icons[2]], "the other buttons do not change");
+    }
 });
