@@ -31,7 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ADR_DIR = PurePosixPath("docs/adr")
 LEGACY_DIR = PurePosixPath("docs/voice-stack")
 LEGACY_INDEX = LEGACY_DIR / "decisions.md"
-NON_ADR_FILES = {"README.md", "TEMPLATE.md"}
+# The index, the template and the authoring guideline sit next to the ADRs without being ADRs.
+NON_ADR_FILES = {"README.md", "TEMPLATE.md", "authoring.md"}
 START = "<!-- adr-index:start -->"
 END = "<!-- adr-index:end -->"
 NOTE = "<!-- 自動生成。手で編集しない。`python tools/adr_catalog.py --write`で更新する。 -->"

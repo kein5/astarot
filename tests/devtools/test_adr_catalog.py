@@ -129,6 +129,10 @@ class AdrCatalogFixtureTests(unittest.TestCase):
         (self.root / "docs/adr/adr-4-short.md").write_text(FRONT + "# ADR-004: x\n", encoding="utf-8")
         self.assertReported("ADR files are named adr-NNN-")
 
+    def test_the_authoring_guideline_is_not_an_adr(self):
+        (self.root / "docs/adr/authoring.md").write_text("# ADR authoring guideline\n", encoding="utf-8")
+        self.assertEqual(self.errors(), [])
+
     def test_missing_and_unknown_fields(self):
         self.edit("adr-001-first-choice.md", "era: rust-core\n", "")
         self.assertReported("missing field 'era'")

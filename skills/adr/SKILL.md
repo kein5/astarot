@@ -44,7 +44,7 @@ ADRは公開物です。人の名前、担当者、開発環境の情報を書�
    - `implementation_status`は実装を確かめるまで`pending`か`unknown`にします。`accepted`にしただけで`implemented`にしません。
    - `evidence`にはこのADR自身のパスと、値の裏付けにしたファイルを書きます。
    - 確かめていない値は`unknown`にし、推測で埋めません。
-5. 本文はテンプレートの節で書きます（背景、決定、検討した案、影響、検証と受け入れの条件、見直す条件、未決のこと）。
+5. 本文はテンプレートの節で書きます（背景、決定、検討した案、影響、検証と受け入れの条件、見直す条件、未決のこと）。文面の規約（参照の置き場所、事実と根拠、決定の粒度、表記）は[ADRの執筆ガイドライン](../../docs/adr/authoring.md)に従います。
 6. `python tools/adr_catalog.py --write`（`mise run adr`）で一覧の表を作り直し、索引の「各 ADR の要約」に1段落を足します。
 7. `python tools/dev.py check`を実行し、`tooling`の`adr_catalog.py --check`が通ることを確かめます。番号の重複、項目と値、`evidence`のパス、リンク、一覧の古さを調べます。
 
