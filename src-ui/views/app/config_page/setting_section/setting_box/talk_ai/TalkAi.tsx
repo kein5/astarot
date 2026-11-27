@@ -31,8 +31,10 @@ import * as styles from "./TalkAi.css.ts";
 export const talkErrorText = (t: TFunction, code: string): string => t(errorKeys(code), { code });
 
 // The page of Talk AI (#388, ADR-018), there only while its experimental feature is on (#969,
-// decision 2). It starts with the choice the rest follows: whom to talk with (the catalog, in its
-// API and local groups). Then the conversation, then the screen. Nothing is sent from here until
+// decision 2). It starts with the choice the rest follows: whom to talk with, in the speech
+// recognition page's order (decided on 2026-11-27, #1266 ★17): the local group and its server's
+// address, then the API group and its key, each system's setting under its cards. Then the
+// conversation, then the screen. Nothing is sent from here until
 // the user starts a conversation and consents to it in the dialog; the screen has a consent of its
 // own (talkAi.ts). While a conversation runs, the settings it was started with stay as they are:
 // the core ends a conversation when one of them changes.
@@ -87,18 +89,20 @@ const Providers = () => {
             </div>
             {catalog === null
                 ? <p>{t("talk_ai.providers.loading")}</p>
-                : (["api", "local"] as const).map(group => {
+                : (["local", "api"] as const).map(group => {
                     const items = catalog.filter(item => item.cloud === (group === "api"));
                     if (items.length === 0) return null;
+                    // Each system's setting under its cards, whichever is chosen: the key is set
+                    // before an API is used (#1266 ★17). On the settings group's ground, so it
+                    // ends on the page's right edge as the other rows do (#1233, #1266 K-2).
                     return <div key={group} data-catalog-group={group}>
                         <SectionLabelComponent sub label={t(`talk_ai.providers.group.${group}`)} desc={t(`talk_ai.providers.group_help.${group}`)} />
                         <CatalogList layout={layout}>
                             {items.map(item => <ProviderCard key={item.id} item={item} selected={selected?.id === item.id} layout={layout} />)}
                         </CatalogList>
+                        <div data-settings-group>{group === "api" ? <KeyRow /> : <LocalUrlRow />}</div>
                     </div>;
                 })}
-            {selected?.cloud && <KeyRow />}
-            {selected && !selected.cloud && <LocalUrlRow />}
         </section>
     );
 };
@@ -128,16 +132,17 @@ const ProviderCard = ({ item, selected, layout }: { item: TalkProvider; selected
             {item.recommended_model && <div><dt>{t("talk_ai.fact.model")}</dt><dd>{item.recommended_model}</dd></div>}
             {item.minimum_gpu_memory_gib !== null && <div><dt>{t("talk_ai.fact.gpu")}</dt>
                 <dd>{t("talk_ai.fact.gpu_value", { minimum: item.minimum_gpu_memory_gib, recommended: item.recommended_gpu_memory_gib ?? item.minimum_gpu_memory_gib })}</dd></div>}
-            {item.cloud && <div><dt>{t("talk_ai.fact.key")}</dt><dd>{t(keyState(view.key))}</dd></div>}
+            {/* Where the key is kept, once there is one: a missing key is the card's state (#1266 K-5). */}
+            {item.cloud && view.key?.configured && <div><dt>{t("talk_ai.fact.key")}</dt><dd>{t(keyState(view.key))}</dd></div>}
             {item.cloud && <div><dt>{t("talk_ai.fact.cost")}</dt><dd>{t("talk_ai.fact.cost_value")}</dd></div>}
         </dl></CatalogFacts>
-        <CardFooter>
-            {!selected && <div className={catalogStyles.actions}>
+        {/* A missing key is said by the card's state and by why Start waits, not again here (#1266 K-5). */}
+        {!selected && <CardFooter>
+            <div className={catalogStyles.actions}>
                 <Button tone="primary" disabled={locked || currentTalkAiProvider.state === "pending"}
                     onClick={() => void setTalkAiProvider(item.id)}>{t("talk_ai.use")}</Button>
-            </div>}
-            {selected && !ready && <p>{t("talk_ai.state_help.not_set")}</p>}
-        </CardFooter>
+            </div>
+        </CardFooter>}
     </Card>;
 };
 
@@ -145,8 +150,9 @@ const keyState = (key: TalkKey | null): string => key === null ? "common.loading
     : !key.configured ? "talk_ai.key.none" : key.stored ? "talk_ai.key.stored" : "talk_ai.key.memory";
 
 // The OpenAI key. It is only written: the core never gives it back, so the field starts empty and
-// the line under the label says whether one is kept. Enter or Save keeps what was typed; Remove
-// forgets the kept key. Both end a conversation in progress, so they wait until it ends.
+// the line under the label says where a kept one is. It saves by itself (#1111, #1266 K-1): Enter,
+// or focus leaving the field, keeps what was typed; Remove forgets the kept key. Both end a
+// conversation in progress, so they wait until it ends.
 const KeyRow = () => {
     const { t } = useI18n();
     const { view, setKey } = useTalkAiSession();
@@ -165,16 +171,16 @@ const KeyRow = () => {
         if (event.key === "Escape") setValue("");
     };
     const openKeyPage = () => { if (isTauri()) void openUrl(openai_auth_key_url).catch(() => {}); };
-    return <FormRow label={t("talk_ai.key.label")} description={t("talk_ai.key.desc")} status={t(keyState(view.key))}
+    // Where a kept key is; no key is said by the cards' state and by Start (#1266 K-5).
+    return <FormRow label={t("talk_ai.key.label")} description={t("talk_ai.key.desc")} status={view.key?.configured ? t(keyState(view.key)) : undefined}
         actions={<div className={catalogStyles.actions}>
-            <Button disabled={!value.trim() || busy || locked} onClick={save}>{t("talk_ai.key.save")}</Button>
             {view.key?.configured && <Button tone="danger" disabled={busy || locked} onClick={() => void setKey(null)}>{t("talk_ai.key.remove")}</Button>}
             <Button onClick={openKeyPage}>{t("config_page.common.open_auth_key_webpage")}</Button>
             {keyError && <p role="alert" className={styles.problem}>{talkErrorText(t, keyError)}</p>}
         </div>}>
         <TextField type="password" mono autoComplete="off" spellCheck={false} value={value} readOnly={busy || locked}
             placeholder={t(view.key?.configured ? "talk_ai.key.placeholder_replace" : "talk_ai.key.placeholder")}
-            onChange={event => setValue(event.target.value)} onKeyDown={onKeyDown} />
+            onChange={event => setValue(event.target.value)} onKeyDown={onKeyDown} onBlur={save} />
     </FormRow>;
 };
 
@@ -246,14 +252,16 @@ const Conversation = () => {
                 <p>{t("talk_ai.output.virtual_mic_missing")}</p>
                 <PageLinkButton tab="tts" />
             </div>}
-            <div className={catalogStyles.actions}>
+            {/* In the control column, aligned to the rows' right end (#473, #1096, #1266 K-3). */}
+            <div className={`${catalogStyles.actions} ${catalogStyles.control_column}`}>
                 <Button tone="primary" disabled={!ready || locked} onClick={() => setConsenting(true)}>{t("talk_ai.start")}</Button>
                 <Button tone="quiet" disabled={!active || view.pending === "stop"} onClick={() => void stop()}>{t("talk_ai.stop")}</Button>
                 {active && view.status.phase === "ready" && <Button onClick={() => void interrupt()}>{t("talk_ai.interrupt")}</Button>}
                 {active && view.status.phase === "ready" && selected && !selected.cloud &&
                     <Button onClick={() => void endTurn()}>{t("talk_ai.end_turn")}</Button>}
             </div>
-            {!ready && selected && <p className={styles.note}>{t("talk_ai.start_needs_key")}</p>}
+            {/* What a disabled Start waits for, under it in the control column (#1096). */}
+            {!ready && selected && <p className={`${styles.reason} ${catalogStyles.control_column}`}>{t("talk_ai.start_needs_key")}</p>}
             {selected && !selected.cloud && <p className={styles.note}>{t("talk_ai.end_turn_help")}</p>}
             {startError && <p role="alert" className={styles.problem}>{talkErrorText(t, startError)}</p>}
             {consenting && selected && <TalkAiConsentDialog provider={selected} output={view.output} device={view.output === "virtual_mic" ? virtualMic : null}
@@ -307,11 +315,11 @@ const ScreenSharing = () => {
                     {DETAIL_CHOICES.map(detail => <SelectOption key={detail} value={detail}>{t(`talk_ai.screen.detail.${detail}`)}</SelectOption>)}
                 </Select>
             </FormRow>
-            <div className={catalogStyles.actions}>
+            <div className={`${catalogStyles.actions} ${catalogStyles.control_column}`}>
                 <Button tone="primary" disabled={!canShare} onClick={() => setConsenting(true)}>{t("talk_ai.screen.start")}</Button>
                 {sharing && <Button tone="quiet" disabled={view.pending === "stop"} onClick={() => void stopScreen()}>{t("talk_ai.screen.stop")}</Button>}
             </div>
-            {vision && view.status.phase !== "ready" && <p className={styles.note}>{t("talk_ai.screen.needs_conversation")}</p>}
+            {vision && view.status.phase !== "ready" && <p className={`${styles.reason} ${catalogStyles.control_column}`}>{t("talk_ai.screen.needs_conversation")}</p>}
             {screenError && <p role="alert" className={styles.problem}>{talkErrorText(t, screenError)}</p>}
             {consenting && selected && <TalkAiScreenDialog provider={selected} source={view.source}
                 interval={Number(currentTalkAiScreenIntervalMs.data)} edge={Number(currentTalkAiScreenLongEdge.data)} onClose={() => setConsenting(false)} />}

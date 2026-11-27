@@ -18,6 +18,7 @@ import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../..
 import { ActionButtonContainer, SwitchContainer, DropdownMenuContainer } from "../_templates/Templates";
 import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
 
 type Current = { state?: string; data?: unknown };
@@ -98,6 +99,10 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                             />
                             {id === "tray_companion" && enabled && edge && <TrayCompanionEdge {...edge} />}
                             {id === "tray_companion" && enabled && monitor && <TrayCompanionMonitor {...monitor} />}
+                            {/* The page it adds is in another group of the menu: a row leads there
+                                (DESIGN.md "Roles in settings", #1266 K-4). */}
+                            {id === "talk_ai" && enabled && <PagePointer label={t("config_page.experimental_features.items.talk_ai.page.label")}
+                                description={t("config_page.experimental_features.items.talk_ai.page.desc")} tab="talk_ai" />}
                         </div>
                     );
                 })}

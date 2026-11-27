@@ -31,6 +31,15 @@ export const note = style({
     color: fallbackVar(vars.vox_description_text, "#adbed6"),
 });
 
+// What a disabled button waits for, under it in the control column at the rows' right end (#1096).
+export const reason = style({
+    margin: 0,
+    textAlign: "end",
+    fontSize: "1.3rem",
+    lineHeight: 1.5,
+    color: fallbackVar(vars.vox_description_text, "#adbed6"),
+});
+
 export const problem = style({
     margin: 0,
     fontSize: "1.3rem",

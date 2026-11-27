@@ -1262,6 +1262,10 @@ config_page:
                 label: "おしゃべりAI"
                 lead: "設定に「おしゃべりAI」のページが加わります。声や画面を送るのは、そのページで対話を始めて同意したときだけです。"
                 desc: "画面を見せながら、AIと声で話します。対話の相手は外部のサービスで、OpenAI RealtimeのAPIキーか、自分で動かすvLLM-Omniのサーバーが要ります。試験中の機能です。"
+                # The row to the page it adds, while it is on (#1266 K-4).
+                page:
+                    label: "おしゃべりAIのページ"
+                    desc: "メニューの「声と読み取り」に加わるページです。対話の相手を選んで、対話を始めます。"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"
@@ -3081,7 +3085,7 @@ talk_ai:
     locked: "対話の間は、対話の相手と画面の送り方の設定を変えられません。変えるときは対話を終えてください。"
     providers:
         title: "対話の相手"
-        intro: "話す相手を選びます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。"
+        intro: "話す相手を選びます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。"
         loading: "対話の相手の一覧を読み込んでいます…"
         group:
             api: "API（クラウド）"
@@ -3098,8 +3102,6 @@ talk_ai:
         in_use: "使用中"
         ready: "使える"
         not_set: "APIキーが未設定"
-    state_help:
-        not_set: "下の「OpenAIのAPIキー」に入れると使えます。"
     fact:
         destination: "接続先"
         input: "受け取るもの"
@@ -3118,7 +3120,6 @@ talk_ai:
         none: "まだ入れていません"
         stored: "システムの資格情報ストアに保存してあります"
         memory: "アプリを閉じるまで覚えています（システムの資格情報ストアに保存できませんでした）"
-        save: "保存"
         remove: "キーを削除"
         placeholder: "APIキーを貼り付け"
         placeholder_replace: "新しいキーで置き換える"

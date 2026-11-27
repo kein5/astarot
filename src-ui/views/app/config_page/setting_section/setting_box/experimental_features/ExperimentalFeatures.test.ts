@@ -53,6 +53,7 @@ async function load(context: TestContext, registryModule: typeof registry = regi
         "../_templates/Templates": { SwitchContainer: "switch", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
         "../_components": { SectionLabelComponent: "heading" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
+        "../_components/page_pointer/PagePointer": { PagePointer: "page-pointer" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
     const render = (props: ListProps): TreeNode => inside(runtime.render(module.ExperimentalFeatureList, props));
@@ -138,6 +139,20 @@ test("the tray companion and Talk AI are listed and stay off until the user turn
     switches[1].props.toggleFunction();
     // Each switch asks for its own feature only; the core keeps the others as they are.
     assert.deepEqual(s.writes, [{ tray_companion: true }, { talk_ai: true }]);
+});
+
+// #1266 K-4: the page Talk AI adds is in another group of the menu; while it is on, a row under its
+// switch leads there.
+test("while Talk AI is on, a row under its switch opens its page", async context => {
+    const s = await load(context);
+    const features = [{ id: "talk_ai" }];
+    const pointer = (on: boolean) => children(s.render({ features, current: { state: "ok", data: { talk_ai: on } }, setValues: () => {} }))
+        .find(item => item.type === "page-pointer");
+    assert.equal(pointer(false), undefined, "off: no page to open");
+    const row = pointer(true);
+    assert.ok(row);
+    assert.deepEqual([row.props.label, row.props.description, row.props.tab, row.props.action],
+        ["config_page.experimental_features.items.talk_ai.page.label", "config_page.experimental_features.items.talk_ai.page.desc", "talk_ai", undefined]);
 });
 
 test("while the tray companion is on, the edge its hexagram hides at can be chosen under its switch", async context => {
