@@ -7,7 +7,7 @@ import { styleOf } from "../../../../../../logics/test/styleSource.ts";
 // 「自動選択」 heads the field column of the microphone row and of the speaker row alike, over the
 // lists it chooses for, its switch where the lists start. It was put beside the lists, between the
 // label column and the field column, where it lined up with neither.
-const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, SettingSwitch = () => null;
+const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, SettingSwitch = () => null, PagePointer = () => null;
 
 
 const load = async () => {
@@ -28,7 +28,7 @@ const load = async () => {
         "../_components": { SectionLabelComponent: () => null, LabelComponent: () => null, DropdownMenu,
             ThresholdComponent: () => null, RadioButton: () => null, SettingSwitch },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: () => null },
-        "../_components/page_pointer/PagePointer": { PagePointer: () => null },
+        "../_components/page_pointer/PagePointer": { PagePointer },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const page = runtime.render(device.Device).props.children;
@@ -85,4 +85,16 @@ test("the switch starts where the lists start: the space around it goes into the
     assert.match(rule, /marginInlineStart: "-0\.8rem",/, "as wide as the space before the dense switch");
     const target = styleOf((await import("node:fs")).readFileSync(new URL("../_components/setting_switch/SettingSwitch.css.ts", import.meta.url), "utf8"), "target");
     assert.match(target, /\[`&\.\$\{dense\}`\]: \{ padding: "\.8rem 0 \.8rem \.8rem" \},/);
+});
+
+// #1266 ★3 (decided on 2026-11-27): the speech recognition on this PC listens to the microphone and
+// the output of its realtime captions, chosen on the speech recognition page. Under the Device
+// page's microphone and speaker, a row leads there, to the very field.
+test("under the microphone and the speaker, a row leads to the realtime captions' own choice", async () => {
+    const { mic, speaker } = await load();
+    const pointer = (part: TreeNode) => findIn(part, node => node.type === PagePointer).props;
+    assert.deepEqual(pointer(mic), { label: "config_page.device.realtime_mic_pointer.label", description: "config_page.device.realtime_mic_pointer.desc",
+        tab: "transcription", target: "realtime_mic", action: "config_page.device.realtime_mic_pointer.action" });
+    assert.deepEqual(pointer(speaker), { label: "config_page.device.realtime_speaker_pointer.label", description: "config_page.device.realtime_speaker_pointer.desc",
+        tab: "transcription", target: "realtime_speaker", action: "config_page.device.realtime_speaker_pointer.action" });
 });

@@ -619,6 +619,15 @@ config_page:
         section_label_mic_sensitivity: "Microphone sensitivity"
         section_label_speaker_sensitivity: "Speaker sensitivity"
         mute_sync_pointer: "Pauses speech recognition from the microphone while you are muted in VRChat."
+        # The rows to the realtime captions' microphone and game audio on the speech recognition page (#1266 ★3).
+        realtime_mic_pointer:
+            label: "Realtime captions microphone"
+            desc: "Speech recognition on your PC (speech.cpp) listens to the microphone chosen under \"Realtime captions\" in \"Speech recognition (ASR)\", not to this one."
+            action: "Change the microphone"
+        realtime_speaker_pointer:
+            label: "Realtime captions listening"
+            desc: "Speech recognition on your PC (speech.cpp) listens to the output chosen under \"Realtime captions\" in \"Speech recognition (ASR)\", not to this speaker."
+            action: "Change the output"
         mute_sync_action: "Set up mute sync"
         check_volume: "Check volume"
         label_auto_select: "Auto select"
@@ -626,8 +635,8 @@ config_page:
         label_device: "Device"
         mic_host_device:
             label: "Mic device"
-            desc: "The mic used for standard transcription. The selected mic is also the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
-            desc_pipewire: "On Linux this list shows PipeWire inputs. The selected mic is the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
+            desc: "The mic used for standard transcription. The selected mic is also the default RVC input (Start RVC from the Voice changer (RVC) switch)."
+            desc_pipewire: "On Linux this list shows PipeWire inputs. The selected mic is the default RVC input (Start RVC from the Voice changer (RVC) switch)."
         mic_dynamic_energy_threshold:
             label: "Mic sensitivity settings"
             desc_for_automatic: "Automatically control mic input sensitivity."

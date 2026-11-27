@@ -619,6 +619,15 @@ config_page:
         section_label_mic_sensitivity: "マイクの感度"
         section_label_speaker_sensitivity: "スピーカーの感度"
         mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。"
+        # The rows to the realtime captions' microphone and game audio on the speech recognition page (#1266 ★3).
+        realtime_mic_pointer:
+            label: "リアルタイム字幕のマイク"
+            desc: "お使いのPCで動かす音声認識（speech.cpp）は、ここのマイクではなく、「音声認識（ASR）」の「リアルタイム字幕」で選んだマイクを聞きます。"
+            action: "マイクを変更"
+        realtime_speaker_pointer:
+            label: "リアルタイム字幕の聞き取り"
+            desc: "お使いのPCで動かす音声認識（speech.cpp）は、ここのスピーカーではなく、「音声認識（ASR）」の「リアルタイム字幕」で選んだ出力先の音を聞きます。"
+            action: "出力先を変更"
         mute_sync_action: "ミュート同期を設定"
         check_volume: "音量チェック"
         label_auto_select: "自動選択"
@@ -626,8 +635,8 @@ config_page:
         label_device: "デバイス"
         mic_host_device:
             label: "マイク（デバイス）"
-            desc: "通常の音声認識で使うマイクです。選んだマイクはRVCの入力の初期値にもなります（RVCはメイン画面の「ボイスチェンジャー（RVC）」スイッチで開始）。リアルタイム音声認識のマイクは「音声認識（ASR）」の設定で選びます。"
-            desc_pipewire: "LinuxではPipeWireの入力デバイスを表示します。選んだマイクがRVCの入力の初期値になります（RVCはメイン画面の「ボイスチェンジャー（RVC）」スイッチで開始）。リアルタイム音声認識のマイクは「音声認識（ASR）」の設定で選びます。"
+            desc: "通常の音声認識で使うマイクです。選んだマイクはRVCの入力の初期値にもなります（RVCはメイン画面の「ボイスチェンジャー（RVC）」スイッチで開始）。"
+            desc_pipewire: "LinuxではPipeWireの入力デバイスを表示します。選んだマイクがRVCの入力の初期値になります（RVCはメイン画面の「ボイスチェンジャー（RVC）」スイッチで開始）。"
         mic_dynamic_energy_threshold:
             label: "マイク入力感度の調整"
             desc_for_automatic: "マイクの入力感度を自動的に調節する。"

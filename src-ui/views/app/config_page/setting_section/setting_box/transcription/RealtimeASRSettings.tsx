@@ -135,7 +135,8 @@ export const RealtimeASRSettings = () => {
                 const failure = endpoints[source]?.error_code || owner?.error_code;
                 // Which output to choose for the game audio, and what following the system's default does.
                 const inputHelp = [source === "speaker" && t("realtime.speaker_help"), follow && t("realtime.follow_default_help")].filter(Boolean).join("\n");
-                return <fieldset key={source}>
+                // Where the Device page's rows lead (#1266 ★3).
+                return <fieldset key={source} data-setting-id={`realtime_${source}`}>
                     <legend>{t(`realtime.${source}`)}</legend>
                     <FormRow label={t(`realtime.${source}_input`)} description={inputHelp || undefined}>
                         <select aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
