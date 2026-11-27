@@ -33,6 +33,9 @@ struct Inner {
     format: Mutex<[(u32, u16); 2]>,
     /// Targets that refuse to open (endpoint IDs or endpoint names), with the code of each refusal.
     refused: Mutex<Vec<(String, String)>>,
+    /// Targets whose open waits until they are let go, as Windows holds a microphone's open until
+    /// its permission question is answered.
+    held: Mutex<Vec<String>>,
     /// What was opened, in order: (source, endpoint id or name).
     opened: Mutex<Vec<(Source, String)>>,
     running: [AtomicUsize; 2],
@@ -83,6 +86,15 @@ impl FakeCapture {
 
     pub fn refuse(&self, target: &str) {
         self.refuse_with(target, "asr_capture_stream_create_failed");
+    }
+
+    /// `target`'s open waits until [`let_go`](Self::let_go).
+    pub fn hold(&self, target: &str) {
+        self.0.held.lock().unwrap().push(target.to_string());
+    }
+
+    pub fn let_go(&self, target: &str) {
+        self.0.held.lock().unwrap().retain(|held| held != target);
     }
 
     /// `target` refuses to open with `code`, as a WASAPI open that waited too long for Windows'
@@ -152,6 +164,9 @@ impl CapturePlatform for FakeCapture {
             Target::Device(device) => device.endpoint_id.clone().unwrap_or_else(|| device.name.clone()),
             Target::Endpoint(endpoint) => endpoint.name.clone(),
         };
+        while self.0.held.lock().unwrap().contains(&name) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
         if let Some((_, code)) = self.0.refused.lock().unwrap().iter().find(|(target, _)| *target == name) {
             return Err(code.clone());
         }

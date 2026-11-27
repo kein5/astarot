@@ -311,6 +311,11 @@ export const { useHook: useStore_VrCustomTranslationModelNames } = createAtomWit
     initial<Partial<Record<string, string>>>({}), "VrCustomTranslationModelNames", { is_state_ok: true });
 // The main window works it out once (SwitchBlocksController) and the VR panel reads the same value.
 export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks } = createAtomWithHook(initial<SwitchBlocks>({}), "SwitchBlocks", { is_state_ok: true });
+// Whether Mic input's microphone has taken long to open, as when Windows asks on the desktop whether
+// ASTAROT may use it (#1300, decided on 2026-11-28). The main window works it out
+// (MicCaptureWaitController) and the VR panel's launcher says it, as the question cannot be seen
+// from inside a headset.
+export const { atomInstance: Atom_MicCaptureWaiting, useHook: useStore_MicCaptureWaiting } = createAtomWithHook(false, "MicCaptureWaiting", { is_state_ok: true });
 export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook(initial<MainFunctionsStateMemory>({
     transcription_send: false,
     transcription_receive: false,

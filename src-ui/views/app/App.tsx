@@ -6,6 +6,7 @@ import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeCon
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
+import { MicCaptureWaitController } from "./_app_controllers/MicCaptureWaitController";
 import { SettingsWindowController } from "./_app_controllers/SettingsWindowController";
 import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
 import { TalkAiController } from "./_app_controllers/TalkAiController";
@@ -111,6 +112,7 @@ const Contents = ({ locked }: { locked: boolean }) => {
                     page in this one, as before. */}
                 {!locked && <>
                     <SwitchBlocksController />
+                    <MicCaptureWaitController />
                     {!settingsHaveAWindow() && <ConfigPage />}
                 </>}
                 <MainPage focusFallback={mainPage} locked={locked} />

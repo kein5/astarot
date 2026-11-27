@@ -1577,6 +1577,8 @@ realtime:
   state_stopping: "字幕を停止中"
   state_closed: "字幕は停止中"
   state_failed: "エラーにより字幕を停止しました"
+  # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
+  mic_permission_wait: "マイクがまだ開いていません。ASTAROTにマイクを使わせるかを、Windowsがデスクトップで確認しているかもしれません。そこで許可すると、字幕が始まります。"
   save_help: "入力の設定を変えるとその字幕を停止し、サーバーやモデルを変えると両方の字幕を停止します。"
   auto_language: "自動判定（auto）"
   auto_help: "自動判定にはQwen3-ASRのように言語を判定できるモデルが必要です。日本語以外を話すプレイヤーがいるなら、聞き取りにそのようなモデルを使ってください。同梱ASRサーバーでは、下の「聞き取りのモデル」で選べます。マイク入力のモデルは変わりません。"
