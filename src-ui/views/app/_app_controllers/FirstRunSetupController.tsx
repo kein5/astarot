@@ -460,7 +460,8 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
             downloads.send("/run/start_model_download", { id: action.entry.id, consent: true, catalog_version: run.version });
         } else if (action.kind === "apply") {
             setRun(previous => previous && { ...previous, applied: [...previous.applied, action.jobId] });
-            downloads.send("/run/apply_model_download", { id: action.entry.id, job_id: action.jobId, expected: action.expected });
+            downloads.send("/run/apply_model_download", { id: action.entry.id, job_id: action.jobId, expected: action.expected,
+                ...(action.source && { source: action.source }) });
         } else if (action.kind === "server") {
             if (!realtime.settings) { sent.current.delete(key); return; }
             setRun(previous => previous && { ...previous, sentServer: true });
@@ -835,9 +836,12 @@ const RecognitionSetup = ({ plan, view, run, catalogReady }: RecognitionSetupPro
     const { t } = useI18n();
     if (!catalogReady || !plan) return <p role="status" className={ui.text}>{t("first_run_setup.recognition.loading")}</p>;
     const models = planModels(plan);
+    const listening = plan.find((step): step is Extract<SetupStep, { kind: "model" }> => step.kind === "model" && step.target === "listening");
     const failedAt = run?.phase === "failed" ? run.failure?.step ?? null : null;
     return <>
         {models.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>}
+        {/* Why a second recognition model comes along (#1242): the first cannot tell the language. */}
+        {listening && <p className={ui.text}>{t("first_run_setup.recognition.listening_why", { name: familyLabel(listening.entry) })}</p>}
         {models.length > 0 && <ModelLines label={t("first_run_setup.recognition.models")} models={models} />}
         {!run && models.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
         {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
@@ -845,7 +849,8 @@ const RecognitionSetup = ({ plan, view, run, catalogReady }: RecognitionSetupPro
                 const state = stepState(plan, index, view, failedAt);
                 const job = step.kind === "model" ? view.jobs[step.entry.id] : null;
                 const active = job && ACTIVE.includes(job.phase);
-                const label = step.kind === "model" ? t("first_run_setup.recognition.step_model", { name: familyLabel(step.entry) })
+                const label = step.kind === "model"
+                    ? t(step.target === "listening" ? "first_run_setup.recognition.step_listening_model" : "first_run_setup.recognition.step_model", { name: familyLabel(step.entry) })
                     : t(`first_run_setup.recognition.step_${step.kind}`);
                 return <li key={index} className={ui.step} data-state={state}>
                     <span className={ui.stepLabel}>{label}</span>

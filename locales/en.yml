@@ -3044,6 +3044,9 @@ first_run_setup:
         no_download: "Nothing needs downloading. Only the server and engine settings will be switched."
         progress: "Setup progress"
         step_model: "Download {{name}} and put it in the settings"
+        step_listening_model: "Download {{name}} for Listening and put it in the settings"
+        # #1242: Listening hears the other side, whose language is not known.
+        listening_why: "Listening uses {{name}} too, which tells the language it hears, so that it captions the other side in any language."
         step_server: "Use the bundled speech recognition server"
         step_engine: "Set the speech recognition engine to speech.cpp"
         state_waiting: "Waiting"
