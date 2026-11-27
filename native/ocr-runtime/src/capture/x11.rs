@@ -2,7 +2,7 @@
 //!
 //! VRChat under Proton is an X11 client, so on a Wayland desktop it is an XWayland
 //! window. GetImage on the window reads the window's own contents, not the screen, so
-//! VRCT-VOX or another window on top does not end up in the frame (as PrintWindow on
+//! ASTAROT or another window on top does not end up in the frame (as PrintWindow on
 //! Windows). Without a compositor an occluded window reads as whatever covers it, which
 //! the blank-frame check or the chatbox filter then drops.
 //!

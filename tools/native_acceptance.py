@@ -1,6 +1,6 @@
 """Run the native GUI acceptance tests against a built app.
 
-    python tools/native_acceptance.py --appimage path/to/VRCT-VOX.AppImage
+    python tools/native_acceptance.py --appimage path/to/ASTAROT.AppImage
     python tools/native_acceptance.py --app src-tauri/target/debug/astarot --only ui
     python tools/native_acceptance.py --app ... --vrchat
 

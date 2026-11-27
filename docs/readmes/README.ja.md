@@ -78,7 +78,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 ## 名称と保存先
 
-画面にはASTAROTと表示しますが、実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`のままです。Linuxでは、0.6.0から設定とデータを`astarot`ディレクトリ（`~/.config/astarot`と`~/.local/share/astarot`）に保存します。0.6.0の最初の起動で、0.5.xの`vrct-vox`ディレクトリをそこへ移し、古い名前のリンクを残します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
+0.7.0から、実行ファイル、パッケージ、リリースのファイルもASTAROTの名前になりました。実行ファイルは`astarot`（Windowsでは`astarot.exe`）、debとrpmのパッケージは`astarot`です。リリースのファイルは`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.*`で、アプリIDは`io.github.kein5.astarot`です。0.6.xまでは`vrct-vox`、`VRCT-VOX`、`io.github.kein5.vrct-vox`でした。0.7.xのリリースには、古い名前のリリースのファイルも入っています。更新すると、インストールも新しい名前に移ります。Windowsのインストーラーは`vrct-vox.exe`を置き換え、`%LOCALAPPDATA%\VRCT-VOX`のインストールを`%LOCALAPPDATA%\ASTAROT`へ移します。debとrpmでは、`astarot`のパッケージが`vrct-vox`のパッケージを置き換えます。Linuxでは、0.6.0から設定とデータを`astarot`ディレクトリ（`~/.config/astarot`と`~/.local/share/astarot`）に保存します。0.6.0以降の最初の起動で、0.5.xの`vrct-vox`ディレクトリをそこへ移し、古い名前のリンクを残します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
 
 ## プライバシーとモデル
 

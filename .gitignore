@@ -78,6 +78,7 @@ CLAUDE.md
 /.review/
 
 # Fork release archives (including legacy candidates)
+/ASTAROT*.zip*
 /VRCT-VOX*.zip*
 
 # Written for one release build by tools/installer_package_hashes.py

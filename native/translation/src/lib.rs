@@ -1,4 +1,4 @@
-//! Translation providers and readings for VRCT-VOX (#277), moved from
+//! Translation providers and readings for ASTAROT (#277), moved from
 //! `src-python/models/translation/` and `src-python/models/transliteration/`.
 //!
 //! Codename: Hael (#689; the table is in `docs/voice-stack/project-rename.md`).

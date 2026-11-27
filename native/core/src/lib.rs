@@ -1,4 +1,4 @@
-//! The backend core of VRCT-VOX, in Rust (Issue #285).
+//! The backend core of ASTAROT, in Rust (Issue #285).
 //!
 //! Codename: Ayperos (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!

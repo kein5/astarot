@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VRCT-VOX developer commands. Python 3.11+, standard library only.
+"""ASTAROT developer commands. Python 3.11+, standard library only.
 
 doctor/check never install dependencies or enable native/model/audio tests.
 setup is the explicit dependency installation boundary; it does not install

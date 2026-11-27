@@ -1,7 +1,7 @@
 [package]
 name = "astarot-tts"
 version = "0.1.0"
-description = "Speech synthesis requests, speech scheduling and PCM hand-off for VRCT-VOX (codename Forau)"
+description = "Speech synthesis requests, speech scheduling and PCM hand-off for ASTAROT (codename Forau)"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"

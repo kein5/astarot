@@ -66,15 +66,15 @@ def test_source_archive_allows_hk_config_and_rvc_test_fixtures_only():
 
     # Source archives allow those explicit repo paths, bare or inside the archive prefix.
     assert violation("hk.pkl", source_archive=True) is None
-    assert violation("VRCT-VOX-source.zip/hk.pkl", source_archive=True) is None
-    assert violation("VRCT-VOX-source.zip/native/rvc-runtime/tests/data/tiny_v2_f0_40k.pth", source_archive=True) is None
-    assert violation("VRCT-VOX-source.zip/native/rvc-runtime/tests/data/tiny_hubert/pytorch_model.bin", source_archive=True) is None
+    assert violation("ASTAROT-source.zip/hk.pkl", source_archive=True) is None
+    assert violation("ASTAROT-source.zip/native/rvc-runtime/tests/data/tiny_v2_f0_40k.pth", source_archive=True) is None
+    assert violation("ASTAROT-source.zip/native/rvc-runtime/tests/data/tiny_hubert/pytorch_model.bin", source_archive=True) is None
 
     # Stray models, OCR weights, and private voice assets remain refused even in source archives.
-    assert violation("VRCT-VOX-source.zip/src-tauri/model.pkl", source_archive=True) == "Model file"
-    assert violation("VRCT-VOX-source.zip/native/rvc-runtime/voice.pth", source_archive=True) == "Model file"
-    assert violation("VRCT-VOX-source.zip/native/rvc-runtime/tests/data/chatbox_yolo.onnx", source_archive=True) == "Restricted OCR model"
-    assert violation("VRCT-VOX-source.zip/native/rvc-runtime/tests/data/mia2026.pth", source_archive=True) == "Private voice asset"
+    assert violation("ASTAROT-source.zip/src-tauri/model.pkl", source_archive=True) == "Model file"
+    assert violation("ASTAROT-source.zip/native/rvc-runtime/voice.pth", source_archive=True) == "Model file"
+    assert violation("ASTAROT-source.zip/native/rvc-runtime/tests/data/chatbox_yolo.onnx", source_archive=True) == "Restricted OCR model"
+    assert violation("ASTAROT-source.zip/native/rvc-runtime/tests/data/mia2026.pth", source_archive=True) == "Private voice asset"
 
 
 def test_tracked_repository_files_pass_source_archive_inspection():
@@ -82,6 +82,6 @@ def test_tracked_repository_files_pass_source_archive_inspection():
     failures = [
         (path, reason)
         for path in tracked
-        if (reason := violation(f"VRCT-VOX-source.zip/{path}", source_archive=True)) is not None
+        if (reason := violation(f"ASTAROT-source.zip/{path}", source_archive=True)) is not None
     ]
     assert failures == []

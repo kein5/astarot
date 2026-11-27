@@ -361,7 +361,7 @@ pub fn enumerate_endpoints(source: &str) -> Result<Vec<EndpointRow>> {
 }
 
 /// The OS default microphone or speaker. A cable as the default microphone would
-/// transcribe or convert VRCT-VOX's own speech, so it is refused.
+/// transcribe or convert ASTAROT's own speech, so it is refused.
 pub fn default_endpoint(source: &str) -> Result<Endpoint> {
     let missing = || Error::value("realtime_default_endpoint_missing");
     let identity = {

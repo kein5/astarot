@@ -1,5 +1,5 @@
 # Build candidates only. Draft preparation is a separate manual workflow.
-name: Validate VRCT-VOX distribution
+name: Validate ASTAROT distribution
 
 on:
   workflow_dispatch:
@@ -52,9 +52,9 @@ jobs:
       - name: Inspect source archive without OCR weights
         shell: pwsh
         run: |
-          git archive --format=zip --output=VRCT-VOX-source.zip HEAD
+          git archive --format=zip --output=ASTAROT-source.zip HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/check_voice_distribution.py --source-archive VRCT-VOX-source.zip
+          python tools/check_voice_distribution.py --source-archive ASTAROT-source.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # The installer from `npm run release` above has no hash built in. Bundle it again now

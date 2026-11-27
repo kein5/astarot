@@ -1,7 +1,7 @@
 //! VRChat's window through PrintWindow (Windows; [`ocr_capture_hwnd.py`]).
 //!
 //! PrintWindow renders from the window's own surface, so VRChat's content is read even
-//! while another window (VRCT-VOX itself) covers it; a screen grab would read whatever
+//! while another window (ASTAROT itself) covers it; a screen grab would read whatever
 //! is on top.
 //!
 //! [`ocr_capture_hwnd.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_hwnd.py

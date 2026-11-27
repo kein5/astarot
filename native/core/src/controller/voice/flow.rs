@@ -98,7 +98,7 @@ fn voice(state: &FlowState) -> Value {
     let live = if state.muted {
         "muted"
     } else if state.direct_mode == "off" || !state.direct_active {
-        // VRCT-VOX does not carry the voice; VRChat reads the microphone itself.
+        // ASTAROT does not carry the voice; VRChat reads the microphone itself.
         "vrchat_mic"
     } else {
         state.direct_mode.as_str()

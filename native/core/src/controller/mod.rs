@@ -180,7 +180,7 @@ pub struct Services {
     /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
     /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
-    /// The usage-event sender, to VRCT-VOX's own receiver by default.
+    /// The usage-event sender, to ASTAROT's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> astarot_ops::telemetry::Telemetry + Send + Sync>,
     /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,

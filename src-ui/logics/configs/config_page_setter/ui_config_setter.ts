@@ -1271,7 +1271,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "auto_download_models",
     },
     {
-        // Usage events (the app started; an error by its code) go to VRCT-VOX's receiver unless this is off.
+        // Usage events (the app started; an error by its code) go to ASTAROT's receiver unless this is off.
         Category: "Others",
         Base_Name: "Telemetry",
         default_value: true,

@@ -1,7 +1,7 @@
 [package]
 name = "astarot-ocr-runtime"
 version = "0.1.0"
-description = "Chat-bubble OCR and VRChat frame capture for VRCT-VOX (codename Humots)"
+description = "Chat-bubble OCR and VRChat frame capture for ASTAROT (codename Humots)"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"

@@ -1,4 +1,4 @@
-name: VRCT-VOX user documentation (GitHub Pages)
+name: ASTAROT user documentation (GitHub Pages)
 # Builds site/ on pull requests that touch it. Deploys to GitHub Pages from
 # develop, on a push that touches site/ or by hand. Pages must be enabled once in
 # the repository settings with "GitHub Actions" as the source.

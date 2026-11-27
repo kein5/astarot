@@ -1,7 +1,7 @@
 //! The reading engine: what `RapidOCR(params)(crop)` and `readtext_bgr_or_raise` do in
 //! the Python implementation, on ONNX Runtime.
 //!
-//! Steps (RapidOCR 3.9.2 with VRCT-VOX's parameters):
+//! Steps (RapidOCR 3.9.2 with ASTAROT's parameters):
 //! 1. keep the picture within 30..2000 px per side, in multiples of 32;
 //! 2. pad short or very wide pictures with black rows;
 //! 3. detect text lines (`det`), crop each with a perspective warp;
@@ -77,7 +77,7 @@ pub(crate) fn run(session: &mut Session, io: &(String, String), shape: [usize; 4
     Ok((shape.iter().map(|&d| d as usize).collect(), data.to_vec()))
 }
 
-/// RapidOCR's settings that VRCT-VOX leaves at their defaults, plus the thread count.
+/// RapidOCR's settings that ASTAROT leaves at their defaults, plus the thread count.
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
     pub det: DetConfig,

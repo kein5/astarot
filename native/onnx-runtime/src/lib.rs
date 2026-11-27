@@ -1,4 +1,4 @@
-//! The ONNX Runtime library and environment of a VRCT-VOX process, shared by chat reading
+//! The ONNX Runtime library and environment of a ASTAROT process, shared by chat reading
 //! (`native/ocr-runtime`), local translation (`native/translate-onnx`) and the RVC worker
 //! (`native/rvc-runtime`).
 //!

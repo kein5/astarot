@@ -9,7 +9,7 @@
 [project]
 name = "astarot"
 version = "0.7.0-beta.3"
-description = "VRCT-VOX developer tools and tests"
+description = "ASTAROT developer tools and tests"
 requires-python = "==3.14.*"
 dependencies = []
 
@@ -37,7 +37,7 @@ voice-test = [
     # from this wheel (tools/runtime_libraries.py; its hash is held to uv.lock's).
     "openvr==2.12.1401",
 ]
-# Optional browser/stdio fixtures, never bundled with VRCT-VOX.
+# Optional browser/stdio fixtures, never bundled with ASTAROT.
 voice-ui-test = [
     {include-group = "voice-test"},
     "playwright==1.65.2",
