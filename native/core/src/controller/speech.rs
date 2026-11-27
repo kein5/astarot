@@ -69,7 +69,7 @@ struct Subscribers {
     ended: Vec<EndListener>,
     listeners: Vec<ListenerHook>,
     /// The last run of each profile whose end was told.
-    told: [Option<u64>; 3],
+    told: [Option<u64>; 4],
 }
 
 /// The servers of the app and who hears of them.

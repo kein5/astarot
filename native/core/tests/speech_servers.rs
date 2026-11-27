@@ -142,7 +142,7 @@ fn restoring_and_saving_the_settings_never_starts_a_server() {
     let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services: fake_services(), ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(snapshot["/get/data/speech_server_settings"], settings);
-    for profile in ["japanese", "multilingual", "asr"] {
+    for profile in ["japanese", "multilingual", "asr", "asr_listening"] {
         assert_eq!(snapshot["/get/data/speech_server_state"][profile]["state"], "stopped", "{profile}");
         assert_eq!(state(&ui)[profile], json!({ "state": "stopped", "base_url": null, "error_code": null, "generation": 0 }));
     }
@@ -266,6 +266,37 @@ fn a_start_prepares_then_becomes_ready_and_a_stop_invalidates_its_generation() {
     let current = state(&ui)["japanese"]["generation"].clone();
     assert_eq!(start(&ui, "japanese", &current)["status"], 200);
     wait_state(&ui, "ready restart", |s| s["japanese"]["state"] == "ready");
+    ui.stop();
+}
+
+// #1242: Listening's recognition server starts as the others do, while Listening has a model of
+// its own: it runs that model, beside Mic input's server and its model. Without one of its own,
+// Mic input's server is the one for both, and Listening's has nothing to start.
+#[test]
+fn listenings_server_starts_only_with_a_model_of_its_own() {
+    let models = Models::new();
+    let ui = Ui::with(Setup { services: fake_services(), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/speech_server_state"]["asr_listening"]["state"], "stopped");
+    let mut settings = models.settings("tts", "asr");
+    ui.ok("/set/data/speech_server_settings", Some(settings.clone()));
+    let refused = start(&ui, "asr_listening", &json!(0));
+    assert_eq!((refused["status"].clone(), error_code(&refused)), (json!(400), "speech_server_model_invalid"));
+
+    settings["profiles"]["asr"]["listening_model"] = json!(models.gguf("asr_listening"));
+    ui.ok("/set/data/speech_server_settings", Some(settings));
+    assert_eq!(start(&ui, "asr", &json!(0))["status"], 200);
+    assert_eq!(start(&ui, "asr_listening", &json!(0))["status"], 200);
+    let ready = wait_state(&ui, "both recognition servers", |s| s["asr"]["state"] == "ready" && s["asr_listening"]["state"] == "ready");
+    assert_ne!(ready["asr"]["base_url"], ready["asr_listening"]["base_url"], "two servers");
+    assert!(models.marker("asr", ".started").exists() && models.marker("asr_listening", ".started").exists(), "each runs its own model");
+
+    // Each stops on its own.
+    let stopped = ui.request("/run/stop_speech_server", Some(json!({ "profile": "asr_listening" })));
+    assert_eq!(stopped["result"]["asr"]["state"], "ready", "Mic input's server keeps running");
+    wait_state(&ui, "Listening's server stopped", |s| s["asr_listening"]["state"] == "stopped");
+    assert!(gone(&models.marker("asr_listening", ".started")));
+    assert_eq!(state(&ui)["asr"]["state"], "ready");
     ui.stop();
 }
 

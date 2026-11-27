@@ -1,4 +1,4 @@
-//! The three servers of the app, one per profile, with the generations that keep a late
+//! The four servers of the app, one per profile, with the generations that keep a late
 //! Stop or a late end from acting on a newer start.
 
 use std::sync::{Arc, Mutex};
@@ -24,7 +24,7 @@ struct Slot {
 
 struct Shared {
     closed: bool,
-    slots: [Slot; 3],
+    slots: [Slot; 4],
     next_owner: u64,
 }
 
@@ -52,11 +52,11 @@ impl SpeechServers {
     /// `on_end` is replaced by this owner's.
     pub fn with_hooks(launch: Launch, on_end: Option<EndHook>, hooks: Option<ServerHooks>) -> SpeechServers {
         let slot = || Slot { owner: None, generation: 0, run: None };
-        let shared = Shared { closed: false, slots: [slot(), slot(), slot()], next_owner: 0 };
+        let shared = Shared { closed: false, slots: [slot(), slot(), slot(), slot()], next_owner: 0 };
         SpeechServers { inner: Arc::new(Inner { launch, shared: Mutex::new(shared), on_end, hooks }) }
     }
 
-    pub fn state(&self) -> [(Profile, ProfileState); 3] {
+    pub fn state(&self) -> [(Profile, ProfileState); 4] {
         let shared = self.inner.shared.lock().unwrap();
         Profile::ALL.map(|profile| {
             let slot = &shared.slots[profile.index()];

@@ -99,7 +99,7 @@ pub fn warm_up(profile: Profile, port: u16, models: &[Value], cancel: &Cancel, l
     let deadline = Instant::now() + limit;
     match profile {
         Profile::Japanese if on_gpu(models, "synthesis").is_some() => speak(port, cancel, deadline),
-        Profile::Asr => match on_gpu(models, "recognition") {
+        Profile::Asr | Profile::AsrListening => match on_gpu(models, "recognition") {
             Some(model) if !model.contains(['\r', '\n']) => transcribe(port, &model, cancel, deadline),
             _ => false,
         },

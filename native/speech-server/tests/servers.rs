@@ -38,13 +38,18 @@ impl Drop for Folder {
 
 fn options(folder: &Folder, name: &str, profile: Profile, diarization: Option<&str>) -> StartOptions {
     let mut row = json!({"model": folder.gguf(name)});
-    if profile == Profile::Asr {
+    if profile.recognizes() {
         row["vad_model"] = folder.gguf("vad").into();
+    }
+    if profile == Profile::AsrListening {
+        // Listening's server runs Listening's own model, beside Mic input's (#1242).
+        row["listening_model"] = row["model"].clone();
+        row["model"] = folder.gguf("mic").into();
     }
     if let Some(diarization) = diarization {
         row["diarization_model"] = folder.gguf(diarization).into();
     }
-    start_options(&json!({"profiles": {profile.name(): row}}), profile).unwrap()
+    start_options(&json!({"profiles": {profile.settings_row().name(): row}}), profile).unwrap()
 }
 
 fn launch(timeout: Duration) -> Launch {
@@ -149,10 +154,40 @@ fn invalid_settings_are_rejected() {
         json!({"profiles": {"japanese": {"listening_model": "wrong.gguf"}}}),
         json!({"profiles": {"multilingual": {"listening_model": "wrong.gguf"}}}),
         json!({"profiles": {"asr": {"started": true}}}),
+        // Listening's server has no settings of its own.
+        json!({"profiles": {"asr_listening": {}}}),
     ];
     for case in cases {
         assert_eq!(normalize_settings(&case).err(), Some(codes::SETTINGS_INVALID), "{case}");
     }
+}
+
+// #1242: Listening's server runs the asr profile's settings (its VAD and device) with Listening's
+// own model, and takes the diarization model, which only Listening asks for; Mic input's server
+// then loads its model alone. Without a model of Listening's own, or with Mic input's file, there
+// is one server for both, and Listening's has nothing to start.
+#[test]
+fn listenings_server_runs_the_asr_settings_with_its_own_model() {
+    let folder = Folder::new();
+    let row = |listening: &str| {
+        json!({"profiles": {"asr": {"model": folder.gguf("ja"), "vad_model": folder.gguf("vad"), "diarization_model": folder.gguf("who"),
+            "listening_model": listening, "device": "Vulkan1"}}})
+    };
+    let apart = row(&folder.gguf("qwen3"));
+    let mic = start_options(&apart, Profile::Asr).unwrap();
+    let listening = start_options(&apart, Profile::AsrListening).unwrap();
+    assert_eq!((Path::new(&mic.model), mic.diarization_model.as_str(), mic.listening_model.as_str()), (folder.0.join("ja.gguf").as_path(), "", ""));
+    assert_eq!(Path::new(&listening.model), folder.0.join("qwen3.gguf"));
+    assert_eq!(Path::new(&listening.diarization_model), folder.0.join("who.gguf"));
+    assert_eq!((listening.vad_model.as_str(), listening.device.as_str(), listening.listening_model.as_str()), (mic.vad_model.as_str(), "Vulkan1", ""));
+    for shared in [row(""), row(&folder.gguf("ja"))] {
+        assert_eq!(start_options(&shared, Profile::AsrListening).err(), Some(codes::MODEL_INVALID), "{shared}");
+        let one = start_options(&shared, Profile::Asr).unwrap();
+        assert_eq!(Path::new(&one.diarization_model), folder.0.join("who.gguf"), "one server for both keeps the diarization model");
+    }
+    // Listening's own file is checked as Mic input's is.
+    let absent = row(folder.0.join("absent.gguf").to_str().unwrap());
+    assert_eq!(start_options(&absent, Profile::AsrListening).err(), Some(codes::MODEL_INVALID));
 }
 
 #[test]
@@ -183,12 +218,14 @@ fn a_start_requires_local_gguf_files() {
 #[test]
 fn an_asr_server_loads_the_diarization_model_it_is_given() {
     let folder = Folder::new();
-    for (name, state, code) in
-        [("diarization", State::Ready, None), ("another", State::Failed, Some(codes::MODEL_TASKS))]
-    {
-        let server = server(Profile::Asr, options(&folder, "asr", Profile::Asr, Some(name)));
+    for (profile, name, state, code) in [
+        (Profile::Asr, "diarization", State::Ready, None),
+        (Profile::Asr, "another", State::Failed, Some(codes::MODEL_TASKS)),
+        (Profile::AsrListening, "diarization", State::Ready, None),
+    ] {
+        let server = server(profile, options(&folder, "asr", profile, Some(name)));
         server.start().unwrap();
-        assert_eq!(settled(&server), state);
+        assert_eq!(settled(&server), state, "{profile:?}");
         assert_eq!(server.health().error_code, code);
         assert!(server.close(SECOND));
     }
@@ -197,7 +234,7 @@ fn an_asr_server_loads_the_diarization_model_it_is_given() {
 #[test]
 fn a_server_becomes_ready_then_stops_and_reaps_its_child() {
     let folder = Folder::new();
-    for (profile, model) in [(Profile::Japanese, "tts"), (Profile::Multilingual, "tts"), (Profile::Asr, "asr")] {
+    for (profile, model) in [(Profile::Japanese, "tts"), (Profile::Multilingual, "tts"), (Profile::Asr, "asr"), (Profile::AsrListening, "asr")] {
         let ended = Arc::new(Mutex::new(Vec::new()));
         let listeners = Arc::new(Mutex::new(Vec::new()));
         let (told, heard) = (ended.clone(), listeners.clone());
@@ -223,7 +260,7 @@ fn a_server_becomes_ready_then_stops_and_reaps_its_child() {
         assert_eq!(*ended.lock().unwrap(), [profile]);
         // Only a speech server has a listener to watch, and its end is told too.
         let port: u16 = url.rsplit(':').next().unwrap().parse().unwrap();
-        let expected = if profile == Profile::Asr { vec![] } else { vec![Some((port, pid)), None] };
+        let expected = if profile.recognizes() { vec![] } else { vec![Some((port, pid)), None] };
         assert_eq!(*listeners.lock().unwrap(), expected);
         assert_eq!(server.start().err(), Some(codes::SINGLE_USE));
     }
