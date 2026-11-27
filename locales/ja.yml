@@ -2152,7 +2152,9 @@ model_downloads:
     notice_parakeet_v3: "ヨーロッパの25言語を認識し、話している言語も自動で判定する音声認識モデルです。日本語は認識しません。NVIDIA提供、sakasegawa変換、CC BY 4.0です。モデル自体を人に渡すときは、NVIDIAのクレジットとライセンスへのリンクを付けてください。利用前にモデルカードを確認してください。"
     notice_nemotron_asr: "多言語の大きな音声認識モデルです（300億パラメーターのうち40億が動く）。いちばん小さいファイルでも約19 GB（17.7 GiB）あり、ファイル全体がGPUとPCのメモリに収まる必要があります。VRChatと一緒に使うには、メモリに大きな余裕があるPCが要ります。NVIDIA提供、sakasegawa変換、OpenMDW-1.1です。利用前にモデルカードとライセンスを確認してください。"
     notice_silero: "speech.cpp 0.8.0以降用の、言語を問わず発話区間を検出するVADモデルです。Silero Team提供、sakasegawa変換、MITです。"
-    asr_requirements: "取得するのは音声認識モデルだけです。同梱ASRサーバーの起動にはVADモデルも必要です。下のSilero VADを取得するか、VADのパスを入力してください。取得完了だけでは認識を開始しません。"
+    asr_requirements: "同梱ASRサーバーにはVADのモデルも要ります。VADのモデルがまだなければ、音声認識のモデルと一緒に取ります。取得が終わっただけでは認識を始めません。"
+    # A recognition model's review that takes the VAD with it (#1266).
+    with_vad: "同梱ASRサーバーにはVADのモデルも要るので、一緒に取ります。"
     asr_choice: "speech.cppが提供する認識モデルから選べます。認識できる言語はモデルごとに違い、選んだモデルの下に表示します。日本語以外を話すプレイヤーがいるなら、その言語を認識できるモデル（Qwen3-ASRなど）を選んでください。小さいファイルの種類（Q4_Kなど）は容量とメモリが少なく済みますが、誤りが少し増えることがあります。既定はspeech.cpp自身が取得するファイルです。同梱ASRサーバーが読み込む認識モデルは1つで、マイクと聞き取りで共用します。"
     # カタログの各モデルの短い説明（カタログの行の profile.summary）。
     summary:

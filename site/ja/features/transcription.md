@@ -38,7 +38,7 @@ route: transcription
 
 ### はじめて使う
 
-1. 「設定」→「音声認識（ASR）」の「お使いのPCで動かす（speech.cpp）」にある「モデルとサーバー」を開き、「ASR + VAD」で認識モデルとSilero VADを取得します。
+1. 「設定」→「音声認識（ASR）」の「お使いのPCで動かす（speech.cpp）」にある「モデルとサーバー」を開き、「ASR + VAD」で認識モデルを取得します。VADのモデルがまだなければ、Silero VADも一緒に取得します。
 
    ![「設定」→「音声認識（ASR）」の「モデルとサーバー」にある「ASR + VAD」の欄](/screenshots/ja/asr-models.webp)
 

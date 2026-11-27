@@ -38,7 +38,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
 ### First steps
 
-1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and download a recognition model and Silero VAD under "ASR + VAD".
+1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and download a recognition model under "ASR + VAD". While no VAD model is set, Silero VAD is downloaded with it.
 
    ![The "ASR + VAD" section of "Models and servers" in Settings → Speech recognition (ASR)](/screenshots/en/asr-models.webp)
 

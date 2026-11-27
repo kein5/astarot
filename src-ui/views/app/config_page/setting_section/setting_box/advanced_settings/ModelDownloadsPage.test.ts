@@ -615,14 +615,15 @@ test("the review shows what the download is, where it goes and what it needs, an
     // One line: the file, its license and its size (decided on 2026-11-27, #1266).
     assert.equal(lines[0], "Model · Q8_0 · CC-BY-NC-4.0 · 1.00 GiB");
     // The restriction notes are drawn by their own part, between these lines.
-    assert.deepEqual(lines.slice(1, 4), ["model_downloads.notice_general", "model_downloads.asr_requirements", "model_downloads.connection_notice"]);
+    // The VAD's sentence went (M-4): a recognition model takes the VAD with it where one is needed (#1266).
+    assert.deepEqual(lines.slice(1, 3), ["model_downloads.notice_general", "model_downloads.connection_notice"]);
     // The provider, the pages, where it goes, each file's exact size and what the download does not
     // do are in the breakdown, closed (#1266).
     const fold = findIn(header, node => node.type === "fold");
     assert.deepEqual([fold.props.summary, fold.props.size, fold.props.open], ["model_downloads.breakdown", "link", undefined]);
     assert.deepEqual(texts(fold, "p"), [`model_downloads.provider {"provider":"Maker"}`, "model_downloads.source: org/repo",
         "model_downloads.license_links:  model_downloads.model_card  LICENSE-MIT  CC-BY-NC-4.0 (2) ", "model_downloads.destination: models/asr", "model_downloads.no_start"]);
-    assert.deepEqual(lines.slice(4), texts(fold, "p"), "nothing else follows the breakdown");
+    assert.deepEqual(lines.slice(3), texts(fold, "p"), "nothing else follows the breakdown");
     assert.deepEqual(texts(fold, "li"), [`model.gguf · model_downloads.exact_bytes {"bytes":"1,073,741,824"} (1.00 GiB)`,
         `vocab.json · model_downloads.exact_bytes {"bytes":"2,048"} (0.00 GiB)`]);
     assert.deepEqual(ofType(dialog, "code").map(node => [textOf(node), node.props.style]), [["models/asr", { overflowWrap: "anywhere" }]]);
@@ -717,6 +718,73 @@ test("the review says what each use needs, and that the files come over the netw
     const japanese = review("japanese");
     assert.equal(japanese.lines.some(line => line.endsWith("_requirements")), false);
     assert.equal(japanese.start, "model_downloads.start");
+});
+
+// #1266 (decided on 2026-11-27): a recognition model taken from the catalog takes the VAD with it
+// while no VAD is set, as the first-run setup does: one review and one consent for both, the VAD's
+// download after the recognition model's, and the VAD applied once it is ready.
+const withVad = (downloaded: Record<string, Record<string, string>> = {}) => ({
+    catalog: catalogOf([model("asr", { name: "ASR · Q8_0" }), model("vad", { target: "vad", name: "VAD · F32", total_bytes: 1258291, destination: "models/vad",
+        artifacts: [{ filename: "vad.gguf", size: 1258291 }] })]),
+    state: { observation_id: "1", jobs: {}, downloaded } });
+const runsOf = (sent: unknown[][]) => sent.filter(([endpoint]) => typeof endpoint === "string" && endpoint.startsWith("/run/") && !endpoint.includes("hardware"));
+
+test("a recognition model takes the VAD with it: one review, one consent, then the VAD's download, applied when ready", async context => {
+    const p = await catalogPage(context, withVad());
+    const props = { targets: ["asr", "vad"], expected: { asr: { model: "" }, vad: { model: "" } } };
+    buttonNamed(cardNamed(p.draw(props), "ASR"), "model_downloads.review").props.onClick();
+    const dialog = findIn(p.draw(), isDialog);
+    const lines = texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p");
+    assert.deepEqual(lines.slice(0, 3), ["ASR · Q8_0 · MIT · 1.00 GiB", "VAD · F32 · MIT · 1.2 MiB", "model_downloads.with_vad"]);
+    const fold = findIn(dialog, node => node.type === "fold");
+    assert.deepEqual(texts(fold, "strong"), ["ASR · Q8_0", "VAD · F32"], "the breakdown names each file");
+    assert.equal(ofType(dialog, "input").length, 1, "one consent for both");
+    ofType(dialog, "input")[0].props.onChange({ target: { checked: true } });
+    buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start").props.onClick();
+    assert.deepEqual(runsOf(p.sent), [["/run/start_model_download", { id: "asr", consent: true, catalog_version: "v7" }]]);
+    // The recognition model downloads; the VAD waits for it, one download at a time.
+    p.downloads.state = { ...p.downloads.state, jobs: { asr: { job_id: "a1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
+    p.draw();
+    assert.equal(runsOf(p.sent).length, 1);
+    // Downloaded: the VAD's download starts with the consent given, and only once.
+    p.downloads.state = { ...p.downloads.state, jobs: { asr: { job_id: "a1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
+    p.draw(); p.draw();
+    assert.deepEqual(runsOf(p.sent).slice(1), [["/run/start_model_download", { id: "vad", consent: true, catalog_version: "v7" }]]);
+    // Its progress shows on the recognition model's card, where it was asked for.
+    p.downloads.state = { ...p.downloads.state, jobs: { ...p.downloads.state.jobs, vad: { job_id: "v1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
+    assert.ok(texts(cardNamed(p.draw(), "ASR"), "p").some(line => line.startsWith("VAD · F32: model_downloads.phase_downloading")));
+    // Ready: the VAD is applied with the path the page holds; the recognition model keeps its own Apply.
+    p.downloads.state = { ...p.downloads.state, jobs: { ...p.downloads.state.jobs, vad: { job_id: "v1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
+    p.draw(); p.draw();
+    assert.deepEqual(runsOf(p.sent).slice(2), [["/run/apply_model_download", { id: "vad", job_id: "v1", expected: { model: "" } }]]);
+});
+
+test("a VAD on the PC is checked after the recognition model, a set one is left alone, and a stopped download takes none", async context => {
+    const props = { targets: ["asr", "vad"], expected: { asr: { model: "" }, vad: { model: "" } } };
+    const review = async (given: object, drawn: object = props) => {
+        const p = await catalogPage(context, given);
+        buttonNamed(cardNamed(p.draw(drawn), "ASR"), "model_downloads.review").props.onClick();
+        const dialog = findIn(p.draw(), isDialog);
+        ofType(dialog, "input")[0].props.onChange({ target: { checked: true } });
+        buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start").props.onClick();
+        return { p, lines: texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p") };
+    };
+    // On the PC, not set: checked, not downloaded again.
+    const onPc = await review(withVad({ vad: { model: "/vad.gguf" } }));
+    assert.ok(onPc.lines.includes("VAD · F32 · MIT · 1.2 MiB"));
+    onPc.p.downloads.state = { ...onPc.p.downloads.state, jobs: { asr: { job_id: "a1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
+    onPc.p.draw(); onPc.p.draw();
+    assert.deepEqual(runsOf(onPc.p.sent).slice(1), [["/run/check_model_download", { id: "vad", catalog_version: "v7" }]]);
+    // A VAD set already: the review is the recognition model's alone.
+    const set = await review(withVad(), { ...props, expected: { asr: { model: "" }, vad: { model: "/mine/vad.gguf" } } });
+    assert.ok(!set.lines.some(line => line.startsWith("VAD")) && !set.lines.includes("model_downloads.with_vad"));
+    // Stopped or failed: no VAD follows.
+    const stopped = await review(withVad());
+    stopped.p.downloads.state = { ...stopped.p.downloads.state, jobs: { asr: { job_id: "a1", phase: "cancelled", received_bytes: 1, total_bytes: 2 } } };
+    stopped.p.draw(); stopped.p.draw();
+    stopped.p.downloads.state = { ...stopped.p.downloads.state, jobs: { asr: { job_id: "a1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
+    stopped.p.draw();
+    assert.equal(runsOf(stopped.p.sent).length, 1, "only the recognition model's start");
 });
 
 // #1263: a model already on the PC is used from its card. Its files are checked, never downloaded,

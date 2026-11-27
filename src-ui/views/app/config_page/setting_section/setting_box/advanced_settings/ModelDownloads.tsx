@@ -237,6 +237,12 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     // The models on the PC the user chose to use (#1263), with the job each had before: once its
     // check is ready, it is applied, with no review in between.
     const [using, setUsing] = useState<Readonly<Record<string, string | null>>>({});
+    // The VAD taken with a recognition model (#1266): by the recognition model's id, the VAD's,
+    // the catalog version the review showed, whether the VAD is on the PC already (it is then
+    // checked, not downloaded), and the recognition model's job before its download. The VAD
+    // follows once that download is done; its card's progress shows on the recognition model's.
+    const [following, setFollowing] = useState<Readonly<Record<string, { id: string; version: string; onPc: boolean; before: string | null }>>>({});
+    const [paired, setPaired] = useState<Readonly<Record<string, string>>>({});
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
@@ -277,6 +283,12 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         : translationMode === null ? null : hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const selectedWarning = selected && warningOf(selected);
     const selectedRestrictions = restrictionsOf(selected);
+    // The bundled speech recognition server needs a VAD model too (decided on 2026-11-27, #1266):
+    // a recognition model taken here takes the VAD with it, as the first-run setup does, while no
+    // VAD is set. A caller that goes on by itself (onStart, the recognition fix) prepares its own.
+    const vadRow = targets.includes("vad") && !onStart ? catalog?.models.find(entry => entry.target === "vad") ?? null : null;
+    const vadNeeded = !!vadRow && !String(expected?.vad?.model ?? "").trim() && status(vadRow) !== "in_use" && restrictionsOf(vadRow).length === 0;
+    const companion = selected?.target === "asr" && vadNeeded ? vadRow : null;
     // The consent and every restriction ticked: only then may the review start.
     const agreed = !!selected && canStart(selected, consent, acknowledged);
     // The cards' layout: chosen on the heading's line, except for one model asked about (the
@@ -308,6 +320,23 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             setUsing(({ [id]: _done, ...rest }) => rest);
         }
     }, [using, state.jobs, catalog, expected, blocked, pending, send]);
+    // The VAD follows the recognition model's download, one download at a time: a VAD on the PC is
+    // checked, another downloaded with the consent given in the review; either is applied once
+    // ready (using, above). A download that failed or was stopped takes no VAD with it.
+    useEffect(() => {
+        for (const [id, next] of Object.entries(following)) {
+            const job = state.jobs[id];
+            if (!job || job.job_id === next.before || activePhases.includes(job.phase)) continue;
+            const vad = catalog?.models.find(model => model.id === next.id);
+            if (["ready", "applied"].includes(job.phase) && vad) {
+                if (pending || Object.values(state.jobs).some(other => activePhases.includes(other.phase))) continue;
+                setUsing(previous => ({ ...previous, [vad.id]: state.jobs[vad.id]?.job_id ?? null }));
+                if (next.onPc) send("/run/check_model_download", { id: vad.id, catalog_version: next.version });
+                else send("/run/start_model_download", { id: vad.id, consent: true, catalog_version: next.version });
+            }
+            setFollowing(({ [id]: _done, ...rest }) => rest);
+        }
+    }, [following, state.jobs, catalog, pending, send]);
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
     const card = (target: string, family: CatalogFamily<ModelCatalogRow>, version: string) => {
@@ -402,6 +431,12 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const run = <>
             {jobView(current, true)}
             {others.map(entry => jobView(entry, false))}
+            {/* The VAD taken with this model (#1266): its download and check, here where it was asked for. */}
+            {paired[current.id] && (() => {
+                const vad = catalog?.models.find(model => model.id === paired[current.id]);
+                const vadJob = vad && state.jobs[vad.id];
+                return vad && vadJob && (activePhases.includes(vadJob.phase) || vadJob.phase === "ready" || vadJob.phase === "failed") ? jobView(vad, false) : null;
+            })()}
             <div className={styles.actions}>
                 {!prepared && (downloaded && !changed
                     // On the PC: used at once, with its files checked (#1263). Its Apply needs the
@@ -520,24 +555,28 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
             <DialogHeader>
                 <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
-                {/* One line: the file, its license and its size (decided on 2026-11-27, #1266). */}
-                <p>{[selected.name, selected.license, gib(selected.total_bytes)].filter(Boolean).join(" · ")}</p>
+                {/* One line per file: its name, license and size (decided on 2026-11-27, #1266). */}
+                {[selected, ...(companion ? [companion] : [])].map(model =>
+                    <p key={model.id}>{[model.name, model.license, fileSize(model.total_bytes)].filter(Boolean).join(" · ")}</p>)}
+                {companion && <p>{t("model_downloads.with_vad")}</p>}
                 {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
                 {selectedWarning && <WarningNote warning={selectedWarning} />}
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
                 {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
-                {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
                 {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
                 {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
                 <p>{t("model_downloads.connection_notice")}</p>
                 {/* The rest is in the breakdown (#1266): who provides it, its pages, where it goes,
                     each file's exact size, and what the download does not do. */}
                 <Fold size="link" summary={t("model_downloads.breakdown")}>
-                    {selected.provider && <p>{t("model_downloads.provider", { provider: selected.provider })}</p>}
-                    <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-                    <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
-                    <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                    <ul className={styles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+                    {[selected, ...(companion ? [{ ...companion, catalog_version: selected.catalog_version }] : [])].map(model => <div key={model.id}>
+                        {companion && <p><strong>{model.name}</strong></p>}
+                        {model.provider && <p>{t("model_downloads.provider", { provider: model.provider })}</p>}
+                        <p>{t("model_downloads.source")}: <a href={model.source} onClick={event => openLink(event, model.source)} target="_blank" rel="noreferrer">{model.repo}</a></p>
+                        <p>{t("model_downloads.license_links")}: {model.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(model, url, i)}</a> </span>)}</p>
+                        <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{model.destination}</code></p>
+                        <ul className={styles.dialog_files}>{model.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+                    </div>)}
                     <p>{t("model_downloads.no_start")}</p>
                 </Fold>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
@@ -552,7 +591,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
                 <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
-                    send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id); close();
+                    send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id);
+                    // The VAD follows with the same consent (#1266).
+                    if (companion) {
+                        setFollowing(previous => ({ ...previous, [selected.id]: { id: companion.id, version: selected.catalog_version,
+                            onPc: status(companion) === "downloaded", before: state.jobs[selected.id]?.job_id ?? null } }));
+                        setPaired(previous => ({ ...previous, [selected.id]: companion.id }));
+                    }
+                    close();
                 }}>{t("model_downloads.start")}</Button>
             </DialogFooter>
         </Dialog>}
