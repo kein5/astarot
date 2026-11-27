@@ -5,7 +5,7 @@ import { useRealtimeASR } from "../../../../../../logics/transcription/useRealti
 import { languageSettingId } from "../../../../../../logics/transcription/recognitionFix";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
-import { SAME, listeningApply, listeningChoice, listeningLanguages } from "../../../../../../logics/transcription/listeningModel";
+import { SAME, listeningApply, listeningChoice, listeningLanguages, listeningRow } from "../../../../../../logics/transcription/listeningModel";
 import type { ListeningAsk } from "../../../../../../logics/transcription/listeningModel";
 import { familyLabel } from "../../../../../../logics/voice/modelCatalog";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
@@ -160,10 +160,15 @@ export const RealtimeASRSettings = () => {
                 const choices = endpoints[source]?.endpoints ?? [];
                 const follow = !draft[source].endpoint && draft[source].follow_default !== false;
                 const selected = follow || choices.find(row => key(row.endpoint) === key(draft[source].endpoint));
-                // "auto" only for a model that detects the language (Qwen3-ASR). Listening's own model
-                // (#1242) is read from the catalog, as its server is another than the listed one's.
-                const own = source === "speaker" && bundled && listening.apart ? listeningLanguages(listening.current) : null;
-                const languages = own ?? [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
+                // "auto" only for a model that detects the language (Qwen3-ASR). Listening's languages
+                // are those of the model it uses, as the catalog lists them (#1298): its own (#1242),
+                // whose server is another than the listed one's, or Mic input's when it shares it, so
+                // they are there while the server is stopped and its list is empty. A model that is not
+                // a catalog download is read from the server's list, as Mic input's is.
+                const fromCatalog = source === "speaker" && bundled ? listeningLanguages(listeningRow(listening)) : null;
+                const languages = fromCatalog ?? [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
+                // Listening's own model runs on its own server, which the listed models do not tell of.
+                const own = source === "speaker" && bundled && listening.apart && !!fromCatalog;
                 const owner = state[source];
                 const failure = endpoints[source]?.error_code || owner?.error_code;
                 // Which output to choose for the game audio, and what following the system's default does.

@@ -36,6 +36,10 @@ export const listeningChoice = (catalog: ModelDownloadCatalog | null | undefined
     return { apart: path !== "" && path !== micPath, path, current: find(path), mic: find(micPath), choices };
 };
 
+// The catalog's entry of the model Listening uses (#1298): its own, or Mic input's when it shares
+// Mic input's. Null when that model is not a download of the catalog (a file of one's own).
+export const listeningRow = (choice: ListeningChoice): ModelCatalogRow | null => choice.apart ? choice.current : choice.mic;
+
 // The languages Listening's own model takes, "auto" first when it tells the language: the catalog's
 // own, from speech.cpp. Null without an entry to read them from.
 export const listeningLanguages = (row: ModelCatalogRow | null): string[] | null => {

@@ -105,6 +105,21 @@ test("the setting leads to the speech.cpp models, or to the source's language", 
     assert.deepEqual(s.events, [["close"], ["tab", "transcription"], ["config_page", true], ["reveal", { setting_id: "realtime_mic_language" }]]);
 });
 
+// #1298: Listening refused on "auto": each button of the dialog goes on for Listening alone. The
+// setting it opens is Listening's language, which offers "auto" again for a model that tells it.
+test("for Listening on auto, the setting it opens is Listening's language", async context => {
+    const s = await fixture(context);
+    const tree = s.open(RECEIVE, { reason: "realtime_language_auto_unsupported", languages: ["ja"] });
+    assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_setting", undefined]]);
+    s.click("open_setting");
+    assert.deepEqual(s.events, [["close"], ["tab", "transcription"], ["config_page", true], ["reveal", { setting_id: "realtime_speaker_language" }]]);
+    s.events.length = 0;
+    s.open(RECEIVE, { reason: "realtime_language_auto_unsupported", languages: ["ja"] });
+    s.click("close");
+    assert.equal(s.render(), null);
+    assert.equal(s.events.some(event => ["receive", "/set/data/realtime_asr_settings"].includes(String(event[0]))), false, "closing changes nothing");
+});
+
 test("a language is chosen here, saved, and the switch is turned on again once it is saved", async context => {
     const s = await fixture(context);
     const tree = s.open(RECEIVE, { reason: "realtime_language_auto_unsupported", languages: ["en", "ja"] });

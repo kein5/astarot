@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { SAME, listeningApply, listeningChoice, listeningLanguages } from "./listeningModel.ts";
+import { SAME, listeningApply, listeningChoice, listeningLanguages, listeningRow } from "./listeningModel.ts";
 import type { ModelCatalogRow, ModelDownloadCatalog } from "../voice/useModelDownloads";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -29,6 +29,17 @@ test("Listening's own model's languages come from the catalog, auto first when i
     assert.deepEqual(listeningLanguages(unchecked<ModelCatalogRow>(row("qwen-q8", ["ja", "en"], true))), ["auto", "ja", "en"]);
     assert.deepEqual(listeningLanguages(unchecked<ModelCatalogRow>(row("reazon-q8", ["ja"], false))), ["ja"]);
     assert.equal(listeningLanguages(null), null);
+});
+
+// #1298: Listening's languages are those of the model it uses, its own or the one it shares with Mic
+// input, so "auto" is there for a model that tells the language whether its server runs or not.
+test("the model Listening uses is its own, or Mic input's when it shares it", () => {
+    assert.equal(listeningRow(listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }))?.id, "qwen-q8");
+    assert.equal(listeningRow(listeningChoice(catalog, downloaded, { model: "/m/qwen.gguf", listening_model: "" }))?.id, "qwen-q8");
+    assert.equal(listeningRow(listeningChoice(catalog, downloaded, { model: "/m/qwen.gguf", listening_model: "/m/qwen.gguf" }))?.id, "qwen-q8");
+    // A file of one's own has no entry to read languages from.
+    assert.equal(listeningRow(listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "/own.gguf" })), null);
+    assert.equal(listeningRow(listeningChoice(catalog, downloaded, { model: "/own.gguf", listening_model: "" })), null);
 });
 
 test("a checked choice is applied for Listening once its own check is ready, with Listening's saved file", () => {
