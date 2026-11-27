@@ -162,6 +162,8 @@ impl Run {
 fn settings_are_normalized_saved_and_refused_with_a_code() {
     let run = start(Platform::Windows, json!({}), false);
     let defaults = run.ui.ok("/get/data/realtime_asr_settings", None);
+    // The run saves the chatbox's address and no recognition server: a saved file that never chose
+    // one keeps the external server (#1266; a new install takes the bundled one, config_versions.rs).
     assert_eq!((defaults["server"].clone(), defaults["mic"]["language"].clone(), defaults["speaker"]["language"].clone()), (json!("external"), json!("ja"), json!("auto")));
 
     let answer = run.ui.request("/set/data/realtime_asr_settings", Some(json!({ "server": "cloud" })));

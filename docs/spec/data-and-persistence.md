@@ -157,6 +157,12 @@ The length into which RVC conversion splits the microphone audio is saved in `RV
 
 When saved settings exist and their `VOICE_SETTINGS` lacks one of these fields, that field is set to `external` (the core's `Config::migrate_speech_servers`, Python's `Config._migrateSpeechServers`). This keeps people who used an external server with the earlier default from being moved to the bundled server by an update. Settings without `VOICE_SETTINGS`, or where it is not an object, are handled the same way. The two fields are decided separately, and saved values are not changed. Settings with nothing saved, and files that cannot be read, are treated like a new install and stay `bundled`. No step is recorded ([config.json](#the-configjson-file)).
 
+### Speech recognition server
+
+`server` in `REALTIME_ASR_SETTINGS` says whether the local speech recognition (speech.cpp) uses the bundled server (`bundled`) or an external server (`external`). The default for new settings is `bundled` (#1266), as for the TTS servers. Before that, the default was `external`, connecting to the default `base_url`, `http://127.0.0.1:8080`, and a saved value without `server` was read as `external`.
+
+When saved settings exist and their `REALTIME_ASR_SETTINGS` does not choose `bundled` itself, `server` is set to `external` (the core's `Config::migrate_realtime_server`). This covers a missing `REALTIME_ASR_SETTINGS`, one without `server`, and one the core cannot read. It keeps people who used an external server with the earlier default from being moved to the bundled server by an update. The rest of the saved value is not changed. Settings with nothing saved, and files that cannot be read, are treated like a new install and stay `bundled`. No step is recorded. With the bundled server and no models yet, `/get/data/vad_available` is `false` until the recognition and VAD models are set, and the settings screen opens the models' setup.
+
 ### Compute devices and compute types
 
 Only translation (CTranslate2) has a choice of compute device and compute type. Speech recognition's `SELECTED_TRANSCRIPTION_COMPUTE_DEVICE` and `SELECTED_TRANSCRIPTION_COMPUTE_TYPE` were removed together with local Whisper, and are not loaded even if an old `config.json` has them.
@@ -700,6 +706,12 @@ RVCの変換でマイクの音声を区切る長さは、`DIRECT_VOICE_SETTINGS`
 `VOICE_SETTINGS`の`japanese_server`と`multilingual_server`はspeech.cppのサーバーを同梱サーバー（`bundled`）と外部サーバー（`external`）のどちらにするかを表す。新しい設定の既定は`bundled`である（#566）。それより前は`external`が既定で、日本語は`japanese_url`の既定の`http://127.0.0.1:8080`に接続していた。
 
 保存した設定があり、その`VOICE_SETTINGS`にこの項目がないときは、その項目を`external`にする（中核の`Config::migrate_speech_servers`、Pythonの`Config._migrateSpeechServers`）。前の版の既定のまま外部サーバーを使っていた人が、更新で同梱サーバーに移らないようにするためである。`VOICE_SETTINGS`がない設定や、オブジェクトでない設定も同じに扱う。2つの項目は別々に決め、保存してある値は変えない。何も保存していない設定と読めないファイルは新しく入れたときと同じで、`bundled`のままになる。段階は記録しない（[config.json](#configjson)）。
+
+### 音声認識のサーバー
+
+`REALTIME_ASR_SETTINGS`の`server`は、ローカルの音声認識（speech.cpp）が同梱サーバー（`bundled`）を使うか、外部サーバー（`external`）を使うかを表す。新しい設定の既定は、読み上げのサーバーと同じく`bundled`である（#1266）。それまでの既定は`external`で、既定の`base_url`の`http://127.0.0.1:8080`へつないでいた。`server`のない保存値も`external`として読んでいた。
+
+保存した設定があり、その`REALTIME_ASR_SETTINGS`が自分で`bundled`を選んでいないときは、`server`を`external`にする（中核の`Config::migrate_realtime_server`）。`REALTIME_ASR_SETTINGS`がない設定、`server`のない設定、中核が読めない設定がこれに当たる。前の版の既定のまま外部サーバーを使っていた人が、更新で同梱サーバーに移らないようにするためである。保存してある値のほかの項目は変えない。何も保存していない設定と読めないファイルは新しく入れたときと同じで、`bundled`のままになる。段階は記録しない。同梱サーバーでモデルがまだないときは、認識モデルとVADモデルを設定するまで`/get/data/vad_available`は`false`で、設定画面はモデルの準備を開く。
 
 ### 計算デバイスと計算型
 
