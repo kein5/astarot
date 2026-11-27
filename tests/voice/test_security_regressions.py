@@ -114,7 +114,7 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         # measuring run's artifacts and write the Bencher check and comment, nothing else; the
         # Bencher key reaches the two sending steps, and the step that sees whether it is set.
         assert set(document["on"]) == {"workflow_run"}
-        assert document["on"]["workflow_run"] == {"workflows": ["VRCT-VOX voice contracts (no models)"], "types": ["completed"]}
+        assert document["on"]["workflow_run"] == {"workflows": ["ASTAROT voice contracts (no models)"], "types": ["completed"]}
         assert document["permissions"] == {"contents": "read"}
         assert set(document["jobs"]) == {"send"}
         job = document["jobs"]["send"]

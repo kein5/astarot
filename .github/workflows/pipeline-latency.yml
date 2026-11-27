@@ -12,7 +12,7 @@ name: Pipeline latency on Bencher
 # variable nothing is sent.
 on:
   workflow_run:
-    workflows: ["VRCT-VOX voice contracts (no models)"]
+    workflows: ["ASTAROT voice contracts (no models)"]
     types: [completed]
 permissions:
   contents: read

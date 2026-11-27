@@ -1,4 +1,4 @@
-name: VRCT-VOX Linux candidate (no publication)
+name: ASTAROT Linux candidate (no publication)
 
 on:
   # One candidate per architecture carries both pinned speech.cpp builds (CPU and Vulkan).

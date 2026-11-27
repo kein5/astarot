@@ -1,4 +1,4 @@
-name: VRCT-VOX voice contracts (no models)
+name: ASTAROT voice contracts (no models)
 on:
   # Pushes run the jobs on develop and main only. A push to a pull request's branch would run the
   # same commit a second time (Issue #773). develop's runs keep the Rust caches that pull requests

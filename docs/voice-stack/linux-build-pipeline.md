@@ -33,7 +33,7 @@ that the GUI binary's libraries resolve, the CPU build starts without Vulkan, th
 starts once the loader is installed, and removal leaves nothing behind. It does not open the GUI, so the backend core inside it is tested by the tar.gz and
 AppImage acceptance instead.
 
-The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets Ubuntu 24.04.
+The GitHub Actions workflow `ASTAROT Linux candidate (no publication)` targets Ubuntu 24.04.
 It runs on relevant pull requests or manual dispatch, runs the app's unit tests (`src-tauri`, which
 no other job runs), tests the relocated package,
 and the AppImage extraction fallback, then retains successful candidates for seven days. It has `contents: read`, no
@@ -231,7 +231,7 @@ These are the gates that still apply; the first releases have been published.
 
 CIは続けて、同じ候補のフォルダーから`.deb`と`.rpm`を作ります。コマンドは`python3 tools/linux_packages.py --candidate build/linux/candidate/ASTAROT --output-dir build/linux/artifacts`です（`dpkg-deb`と`rpmbuild`が要ります）。パッケージの名前は`astarot`です。パッケージは変更していないファイルを`/opt/astarot`の下に入れ、コマンド`/usr/bin/astarot`、デスクトップエントリ（`astarot.desktop`）、アイコン（`astarot.png`）、ライセンスの通知文書を足します。また、パッケージマネージャーで入れたことをアプリが見分けられるように、`/opt/astarot/package-manager`（`deb`か`rpm`）を書きます。0.6.xまでのパッケージの名前は`vrct-vox`で、`/opt/vrct-vox`の下に入っていました。新しいパッケージは古いパッケージを置き換えます。debは`vrct-vox`に対してconflicts、replaces、providesを宣言し、rpmはobsoletesとprovidesを宣言するので、新しいファイルを入れると古いパッケージは削除されます。0.6.xまでのコマンド`/usr/bin/vrct-vox`は、0.7.xの間は同じ実行ファイルを起動します（`tools/linux_packages.py`の`LEGACY_COMMAND_UNTIL`）。CIは先に古いパッケージの代わりになるもの（`tools/ci/legacy_linux_packages.py`）を入れ、それが置き換わることを確かめます。パッケージにはglibc（マニフェストに記録したいちばん新しい版）、GTK 3、WebKitGTK 4.1、libpipewireが要ります。Vulkanローダー（`libvulkan1`、`vulkan-loader`）、MesaのVulkanドライバー、PipeWireのツールは推奨の依存です。speech.cppのVulkan版はローダーをシステムから読み込み、同じパッケージのCPU版はローダーがなくても動くからです（[中核の統合](core-integration.md)の決定48）。`tools/ci/check_linux_package.sh`は各パッケージを推奨パッケージなしで、クリーンなUbuntu 24.04、Debian 13、Fedora 44のいずれかのコンテナに入れます。そして、GUIの実行ファイルのライブラリが解決できること、CPU版がVulkanなしで起動すること、ローダーを入れるとVulkan版が起動すること、削除で何も残らないことを確かめます。この検査はGUIを開かないので、GUIの中にあるバックエンドの中核は代わりにtar.gzとAppImageの受け入れ試験で確かめます。
 
-GitHub Actionsのワークフロー`VRCT-VOX Linux candidate (no publication)`はUbuntu 24.04を対象にします。関係するPRか手動実行で動き、アプリの単体試験（`src-tauri`。ほかのジョブは実行しません）を流し、再配置したパッケージとAppImageの展開による代わりの起動を試験します。そのあと、成功した候補を7日間保存します。権限は`contents: read`で、公開のための資格情報もリリースやAURへの操作もありません。[`v0.1.0-beta.1`のプレリリース](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)から後に公開したリリースのLinuxのパッケージは、このワークフローの候補で、[リリースの下書きの検査](release-candidates.md)を通して公開しました。手元でビルドしたものは公開していない候補です。
+GitHub Actionsのワークフロー`ASTAROT Linux candidate (no publication)`はUbuntu 24.04を対象にします。関係するPRか手動実行で動き、アプリの単体試験（`src-tauri`。ほかのジョブは実行しません）を流し、再配置したパッケージとAppImageの展開による代わりの起動を試験します。そのあと、成功した候補を7日間保存します。権限は`contents: read`で、公開のための資格情報もリリースやAURへの操作もありません。[`v0.1.0-beta.1`のプレリリース](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)から後に公開したリリースのLinuxのパッケージは、このワークフローの候補で、[リリースの下書きの検査](release-candidates.md)を通して公開しました。手元でビルドしたものは公開していない候補です。
 
 ## 手元でビルドする
 

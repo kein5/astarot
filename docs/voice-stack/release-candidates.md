@@ -66,8 +66,8 @@ These are the steps for when a published version has a bug to fix urgently and d
 1. Set the version in `package.json` to the format of the branch you release from, and run `npm run update-version` to carry it into `src-tauri/tauri.conf.json`, `pyproject.toml` and `uv.lock`. The same command regenerates the spec list that shows the version (`docs/spec/reference/config-keys.md`).
    For a stable release only, then run `npm run changelog` to write this version's section in `CHANGELOG.md`. Commit it together with the version change as `chore(release): version X.Y.Z`. The grouping and the steps are in [CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases).
    For a stable release, merging the `release/X.Y.Z` PR into `main` runs steps 2 to 4 below and [Make the draft](#make-the-draft) automatically. For a beta, or when the automatic run stopped and you continue by hand, go on from step 2.
-2. Run "VRCT-VOX Linux candidate (no publication)" in GitHub Actions by hand on `main` (stable) or `develop` (beta). From 0.5.0 it builds one candidate that holds both the CPU and the Vulkan builds of speech.cpp, so there is nothing to choose. The file names are `ASTAROT-<version>-linux-x64-release` followed by `.tar.gz`, `.AppImage`, `.deb` or `.rpm` (`VRCT-VOX-<version>-…` up to 0.6.x, and `linux-x64-vulkan` or `linux-x64-cpu` up to 0.4).
-3. Run "Validate VRCT-VOX distribution" by hand on the same commit to build the Windows candidate. This workflow also runs on PRs into main, but only the result of a manual run can be used for a draft.
+2. Run "ASTAROT Linux candidate (no publication)" in GitHub Actions by hand on `main` (stable) or `develop` (beta). From 0.5.0 it builds one candidate that holds both the CPU and the Vulkan builds of speech.cpp, so there is nothing to choose. The file names are `ASTAROT-<version>-linux-x64-release` followed by `.tar.gz`, `.AppImage`, `.deb` or `.rpm` (`VRCT-VOX-<version>-…` up to 0.6.x, and `linux-x64-vulkan` or `linux-x64-cpu` up to 0.4).
+3. Run "Validate ASTAROT distribution" by hand on the same commit to build the Windows candidate. This workflow also runs on PRs into main, but only the result of a manual run can be used for a draft.
 4. When both runs succeed, note their run IDs. Candidates are kept for 7 days.
 
 A candidate is stored only after its checks pass: on Linux, the GUI tests of the relocated archive and of the AppImage; on Windows, the check for files that must not be distributed inside the ZIP and the NSIS installer. The Linux candidate has four files: tar.gz, AppImage, deb and rpm (eight for 0.7.x, with their copies under the names used up to 0.6.x; see "Copies under the old names" below). The deb and rpm put the same files as the tar.gz under `/opt/astarot` (`tools/linux_packages.py`). They are checked by installing each with its own package manager, without recommended packages, into Ubuntu 24.04, Debian 13 and Fedora 44 containers pinned by digest (`tools/ci/check_linux_package.sh`). The check confirms that the main executable's libraries resolve, that the bundled speech engine starts and that removal leaves nothing behind. From 0.5.0 the backend is inside the main executable, and nothing else is started separately. Whether the window displays is not checked. Each candidate's `candidate-manifest.json` records the repository, commit, version, file names, sizes and SHA-256. `SHA256SUMS` lists every release file; an individual `.sha256` sidecar is kept only for Windows ZIP packages (`ASTAROT.zip`, and `VRCT-VOX.zip` while legacy copies are carried), saved as 64 ASCII characters with no newline for the NSIS installer.
@@ -82,7 +82,7 @@ A successful candidate build does not mean that everything about the release fil
 
 ### Handling candidates
 
-- Candidates are not published files. Only candidates built by a manual run can become a draft. The result of "Validate VRCT-VOX distribution" run on a PR into main cannot be used ([Build the candidates](#build-the-candidates)).
+- Candidates are not published files. Only candidates built by a manual run can become a draft. The result of "Validate ASTAROT distribution" run on a PR into main cannot be used ([Build the candidates](#build-the-candidates)).
 - Candidates are kept for 7 days. After that, build them again.
 - The Linux and Windows candidates are built from the same commit on the same branch. If the branch moves to a new commit, build both again ([Make the draft](#make-the-draft)).
 - The candidate build neither downloads nor bundles speech.cpp or RVC models. If OCR weights or Mia2026 material are in the release files, the checks stop the build. The Linux check looks at paths and file types, so it cannot recognize weights under a changed name ([Linux build](linux-build-pipeline.md#acceptance-and-exclusions), [AppImage](appimage.md#acceptance-and-limits)).
@@ -485,8 +485,8 @@ flowchart TD
 1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
    正式版のときだけ、続けて`npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。版の変更と一緒に`chore(release): version X.Y.Z`でコミットします。分類と手順は[CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases)にあります。
    正式版では`release/X.Y.Z`のPRを`main`へマージすると、次の2〜4と[下書きを作る](#下書きを作る)が自動で進みます。ベータ版のときと、自動の実行が止まって手で続けるときは、2から進めます。
-2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`ASTAROT-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.6.xまでは`VRCT-VOX-<version>-…`、0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
-3. 「Validate VRCT-VOX distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
+2. GitHub Actionsの「ASTAROT Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`ASTAROT-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.6.xまでは`VRCT-VOX-<version>-…`、0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
+3. 「Validate ASTAROT distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
 4. 両方の実行が成功したら、run IDを控えます。候補の保存期間は7日です。
 
 Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです（0.7.xは、その0.6.xまでの名前の写しを合わせて8つ。下の「旧名の写し」）。debとrpmはtar.gzと同じファイルを`/opt/astarot`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`に全配布物を載せ、個別の`.sha256`ファイルはWindowsのZIP（`ASTAROT.zip`、旧名の写しがある間は`VRCT-VOX.zip`も）だけに同梱し、NSISインストーラー向けに改行なしの64 ASCII文字で保存します。
@@ -501,7 +501,7 @@ Windowsの候補は、ビルドのジョブで`ASTAROT.zip`とインストーラ
 
 ### 候補の扱い
 
-- 候補は公開物ではありません。下書きを作れるのは、手動実行で作った候補だけです。main宛てのPRで動いた「Validate VRCT-VOX distribution」の結果は使えません（[候補を作る](#候補を作る)）。
+- 候補は公開物ではありません。下書きを作れるのは、手動実行で作った候補だけです。main宛てのPRで動いた「Validate ASTAROT distribution」の結果は使えません（[候補を作る](#候補を作る)）。
 - 候補の保存期間は7日です。過ぎたら作り直します。
 - LinuxとWindowsの候補は、同じブランチの同じコミットから作ります。コミットが進んだら、両方を作り直します（[下書きを作る](#下書きを作る)）。
 - 候補のビルドはspeech.cppとRVCのモデルを取得も同梱もしません。OCRの重みとMia2026の素材は、配布物に入っていると検査で止まります。Linuxの検査はパスとファイルの種類で調べるもので、名前を変えた重みは見分けられません（[Linuxのビルド](linux-build-pipeline.md#acceptance-and-exclusions)、[AppImage](appimage.md#acceptance-and-limits)）。
