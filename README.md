@@ -77,7 +77,7 @@ Report bugs and ask questions on **[Issues](https://github.com/kein5/astarot/iss
 
 ## Names and storage
 
-The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, settings and data live in `astarot` directories from 0.6.0 (`~/.config/astarot` and `~/.local/share/astarot`); the first start of 0.6.0 moves the `vrct-vox` directories of 0.5.x there and leaves links with the old names. See [names and identifiers](/docs/voice-stack/project-rename.md).
+From 0.7.0, the executable, the packages and the release files use the ASTAROT name too. The executable is `astarot` (`astarot.exe` on Windows), the deb and rpm package is `astarot`, the release files are `ASTAROT.zip`, `ASTAROT_setup.exe` and `ASTAROT-<version>-linux-x64-release.*`, and the application ID is `io.github.kein5.astarot`. Up to 0.6.x they were `vrct-vox`, `VRCT-VOX` and `io.github.kein5.vrct-vox`, and each 0.7.x release also carries its release files under those old names. An update moves an install to the new names: the Windows installer replaces `vrct-vox.exe` and moves an install in `%LOCALAPPDATA%\VRCT-VOX` to `%LOCALAPPDATA%\ASTAROT`, and the `astarot` package replaces the `vrct-vox` package. On Linux, settings and data live in `astarot` directories from 0.6.0 (`~/.config/astarot` and `~/.local/share/astarot`). The first start of 0.6.0 or later moves the `vrct-vox` directories of 0.5.x there and leaves links with the old names. See [names and identifiers](/docs/voice-stack/project-rename.md).
 
 ## Privacy and models
 

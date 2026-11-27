@@ -36,7 +36,7 @@ The project maintainers have the right and responsibility to remove, edit, or re
 
 ## Scope
 
-This code of conduct applies within all spaces of the VRCT-VOX project on GitHub: the repository, its issues, pull requests and reviews, and the project's pages. It also applies when an individual is officially representing the project in public spaces.
+This code of conduct applies within all spaces of the ASTAROT project on GitHub: the repository, its issues, pull requests and reviews, and the project's pages. It also applies when an individual is officially representing the project in public spaces.
 
 ## Reporting
 
@@ -97,7 +97,7 @@ For answers to common questions about this code of conduct, see the FAQ at <http
 - 公開・非公開を問わない嫌がらせ
 - 本人の許可なく他人の個人情報を公開すること（このプロジェクトでは、他人の音声、チャットのログ、VRChat のアカウントやインスタンスの情報を含みます）
 
-この規範は GitHub 上の VRCT-VOX のリポジトリ、Issue、PR、レビュー、プロジェクトのページに適用します。
+この規範は GitHub 上の ASTAROT のリポジトリ、Issue、PR、レビュー、プロジェクトのページに適用します。
 
 問題のある Issue や PR、コメントは、そのコメントの **…** メニューの「Report content」からリポジトリの管理者あてに報告してください。報告されたことは、報告された本人には知らされません。1つのコメントに限らない問題や管理者自身が関わる問題は、同じメニューか [GitHub の報告フォーム](https://support.github.com/contact/report-abuse)から GitHub に報告してください。報告の詳細を公開の Issue に書かないでください。
 

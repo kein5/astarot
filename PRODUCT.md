@@ -15,7 +15,7 @@ The user tests on Linux and Steam Frame, communicates in Japanese, and uses the 
 Preserve existing backend contracts, settings, translations, OSC routes, hotkeys, Quick Chat, VR panels, model-download consent, and independent TTS/RVC controls. A visual redesign must not enable a microphone, download models, send messages, or change audio routes on its own. Model guidance is advisory; performance results are hardware- and workload-specific.
 
 ## Brand commitments
-The user requested the name VRCT-VOX and a full application redesign on 2026-10-30. The app is now shown as ASTAROT (ADR-011), and the repository was renamed to `kein5/astarot` at the 0.5.0 release. The executable, the application ID and the release file names keep the `vrct-vox` / `VRCT-VOX` identifiers; the storage, the packages and the rest move to ASTAROT's names as ADR-014 plans (the current table is in `docs/voice-stack/project-rename.md`). The chosen visual direction is a dark studio, calm and appropriate to an audio tool; its navy palette gave way to the ASTAROT colors, dark plum and lilac, on 2026-11-18 ([DESIGN.md](DESIGN.md)). Retain upstream licensing and acknowledgements. Japanese prose uses yomiyasu.
+The user requested the name VRCT-VOX and a full application redesign on 2026-10-30. The app is now shown as ASTAROT (ADR-011), and the repository was renamed to `kein5/astarot` at the 0.5.0 release. From 0.7.0, the executable, the application ID, the packages and the release file names use ASTAROT's names too, as ADR-014 planned. The current names, and the few identifiers that keep the old name, are listed in `docs/voice-stack/project-rename.md`. The chosen visual direction is a dark studio, calm and appropriate to an audio tool; its navy palette gave way to the ASTAROT colors, dark plum and lilac, on 2026-11-18 ([DESIGN.md](DESIGN.md)). Retain upstream licensing and acknowledgements. Japanese prose uses yomiyasu.
 
 ## Evidence
 The current components live under src-ui/views. Functional tests cover voice settings, model downloads, Quick Chat and native AppImage startup. Historical acceptance reports are under docs/voice-stack; their old artifact names and measurement boundaries remain factual.
@@ -40,7 +40,7 @@ Tauri、React 19、Rustのバックエンドで作った、デスクトップで
 既存のバックエンドの契約、設定、翻訳、OSCの経路、ホットキー、Quick Chat、VR UI、モデルの取得の同意、TTSとRVCの独立した操作を保ちます。見た目の作り直しが、それだけでマイクをオンにしたり、モデルを取得したり、メッセージを送ったり、音声の経路を変えたりしてはいけません。モデルの案内は目安です。性能の結果は、ハードウェアと処理の内容によって変わります。
 
 ## ブランドの約束
-利用者は2026-10-30に、VRCT-VOXという名前と、アプリ全体の作り直しを依頼しました。いまアプリはASTAROTと表示し（ADR-011）、リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました。実行ファイル、アプリID、リリースのファイル名は、`vrct-vox`と`VRCT-VOX`の識別子のままです。保存先、パッケージ、そのほかは、ADR-014の計画どおりASTAROTの名前へ移ります（いまの表は`docs/voice-stack/project-rename.md`にあります）。選んだ見た目の方向は、音声の道具にふさわしい落ち着いた「暗いスタジオ」です。その紺の配色は、2026-11-18にASTAROTの色のダークプラムとライラックに替わりました（[DESIGN.md](DESIGN.md)）。上流のライセンスと謝辞を保ちます。日本語の文章の推敲にはyomiyasuを使います。
+利用者は2026-10-30に、VRCT-VOXという名前と、アプリ全体の作り直しを依頼しました。いまアプリはASTAROTと表示し（ADR-011）、リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました。0.7.0から、実行ファイル、アプリID、パッケージ、リリースのファイル名も、ADR-014の計画どおりASTAROTの名前になりました。いまの名前と、古い名前のまま残るいくつかの識別子は、`docs/voice-stack/project-rename.md`に表があります。選んだ見た目の方向は、音声の道具にふさわしい落ち着いた「暗いスタジオ」です。その紺の配色は、2026-11-18にASTAROTの色のダークプラムとライラックに替わりました（[DESIGN.md](DESIGN.md)）。上流のライセンスと謝辞を保ちます。日本語の文章の推敲にはyomiyasuを使います。
 
 ## 裏付け
 いまの部品は`src-ui/views`にあります。機能の試験は、音声の設定、モデルの取得、Quick Chat、AppImageでのネイティブの起動を確かめます。過去の受け入れの報告は`docs/voice-stack`にあります。その中の古い成果物の名前と計測の範囲は、記録として正しいままです。

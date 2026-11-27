@@ -1,5 +1,5 @@
 name: Bug report / 不具合の報告
-description: Something in VRCT-VOX does not work as expected. / VRCT-VOX が期待どおりに動かない。
+description: Something in ASTAROT does not work as expected. / ASTAROT が期待どおりに動かない。
 labels: ["bug"]
 body:
   - type: markdown
@@ -11,7 +11,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: VRCT-VOX version / 版
+      label: ASTAROT version / 版
       description: Shown at the bottom of the settings screen (e.g. 0.1.0). / 設定画面の左下に表示されています。
       placeholder: "0.1.0"
     validations:
@@ -74,7 +74,7 @@ body:
     attributes:
       label: Relevant log output / ログ
       description: |
-        Windows: the `logs` folder next to vrct-vox.exe. Linux: `~/.config/astarot/logs/` (`~/.config/vrct-vox/logs/` up to 0.5.x).
+        Windows: the `logs` folder next to astarot.exe (vrct-vox.exe up to 0.6.x). Linux: `~/.config/astarot/logs/` (`~/.config/vrct-vox/logs/` up to 0.5.x).
         Remove API keys, chat text and other personal data before pasting. / API キーや会話の内容などの個人情報は取り除いてください。
       render: text
     validations:
@@ -86,5 +86,5 @@ body:
       options:
         - label: I searched existing issues. / 既存の Issue を検索しました。
           required: true
-        - label: This happens in VRCT-VOX, not only in upstream VRCT. / 上流の VRCT ではなく VRCT-VOX で起きる問題です。
+        - label: This happens in ASTAROT, not only in upstream VRCT. / 上流の VRCT ではなく ASTAROT で起きる問題です。
           required: true
