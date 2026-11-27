@@ -21,6 +21,8 @@ interface Options {
     configOpen?: boolean;
     statuses?: Record<string, Status>;
     blocks?: Record<string, Block>;
+    // Mic input's microphone waits to open (#1300).
+    micWaiting?: boolean;
 }
 
 // The launchers a test draws, unmounted together before the globals go back: their clean-up stops
@@ -28,7 +30,7 @@ interface Options {
 const drawnByTest = new WeakMap<TestContext, { unmount: () => void }[]>();
 
 async function launcher(context: TestContext, { windows = { log: false, popup: null }, intro = "idle", outOfView = false, configOpen = false,
-    statuses = {}, blocks = {} }: Options = {}) {
+    statuses = {}, blocks = {}, micWaiting = false }: Options = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks();
     let drawn = drawnByTest.get(context);
@@ -60,7 +62,8 @@ async function launcher(context: TestContext, { windows = { log: false, popup: n
             toggleTranscriptionReceive: record("transcription_receive"), currentTranscriptionReceiveStatus: status("transcription_receive"),
             toggleOcrCapture: record("ocr"), currentOcrCaptureStatus: status("ocr"),
         }) },
-        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }) },
+        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }),
+            useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: micWaiting } }) },
         "../../logics/main/switchBlocks": switchBlocks,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: record("send") }) },
         "@images/brand/icon-small.svg": "icon.svg",
@@ -176,6 +179,23 @@ test("while the settings page is open, every switch is locked, says why, and is 
     // The lock mark is the same for all, a block or a wait under it does not show.
     assert.equal(new Set(view.functions.map(markOf)).size, 1);
     assert.deepEqual([view.functions[3].props["aria-busy"], view.functions[3].props.tipState], [true, "OFF · vr_panel.tooltip.config_open"]);
+});
+
+// #1300 (decided on 2026-11-28): while Mic input's microphone waits to open, as Windows' question on
+// the desktop holds it, the microphone's tooltip says so even with the tooltips off: there is nowhere
+// else in VR to read it. The switch stays as it is and can still be turned off. A lock or a missing
+// setup says its own.
+test("while Mic input's microphone waits to open, its button says Windows may be asking on the desktop", async context => {
+    const view = await launcher(context, { micWaiting: true, statuses: { transcription_send: { state: "ok", data: true } } });
+    const [translation, microphone] = view.functions;
+    assert.deepEqual(tipOf(microphone), { label: "main_page.transcription_send", pressed: true, disabled: undefined, busy: undefined,
+        title: "vr_panel.tooltip.microphone", state: "ON", help: "realtime.mic_permission_wait", force: true });
+    assert.ok(markOf(microphone), "marked as waiting");
+    assert.deepEqual([translation.props.tipHelp, translation.props.tipForce], ["vr_panel.tooltip.enable", false]);
+    microphone.props.onClick();
+    assert.deepEqual(view.calls, [["transcription_send"]]);
+    const locked = await launcher(context, { micWaiting: true, configOpen: true });
+    assert.deepEqual([locked.functions[1].props.tipHelp, locked.functions[1].props.tipForce], ["vr_panel.locked_by_config_page", false]);
 });
 
 test("the lock, the wait and the missing setup each have a mark of their own", async context => {

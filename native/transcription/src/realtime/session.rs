@@ -49,6 +49,11 @@ const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 /// that went away (`realtime_capture_failed`).
 const NEVER_STARTED: &str = "asr_capture_start_timeout";
 
+/// How long a microphone's open may take before the session says it is waiting (#1300, decided on
+/// 2026-11-28). Windows holds the open until its permission question on the desktop is answered,
+/// which cannot be seen from inside a VR headset, so the screens say so while it waits.
+const CAPTURE_WAIT_HINT: Duration = Duration::from_secs(3);
+
 /// The code a failed open is told by (#1300). Windows holds a microphone's open until its
 /// permission question is answered, and refuses the microphone when the question was left
 /// unanswered or another of its questions is open (docs/voice-stack/local-setup-windows.md): the
@@ -140,6 +145,15 @@ struct Status {
     state: &'static str,
     error: Option<String>,
     namespace: Option<String>,
+    /// Since when the capture's open has been running, until it returns.
+    opening: Option<Instant>,
+}
+
+/// Whether a capture of `source` whose open has run for `opened_for` is reported as waiting
+/// (`capture_waiting`): a microphone's, past [`CAPTURE_WAIT_HINT`]. A speaker's loopback asks
+/// nothing of the user.
+fn capture_waiting(source: Source, opened_for: Option<Duration>) -> bool {
+    source == Source::Mic && opened_for.is_some_and(|elapsed| elapsed >= CAPTURE_WAIT_HINT)
 }
 
 struct Ingress {
@@ -265,7 +279,7 @@ impl Session {
                 options,
                 endpoint,
                 platform,
-                status: Mutex::new(Status { state: "idle", error: None, namespace: None }),
+                status: Mutex::new(Status { state: "idle", error: None, namespace: None, opening: None }),
                 stop: AtomicBool::new(false),
                 cancel: Cancel::new(),
                 updates: Mutex::new(VecDeque::new()),
@@ -290,7 +304,7 @@ impl Session {
         self.inner.status.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// `{source, state, namespace, error_code}`.
+    /// `{source, state, namespace, error_code, capture_waiting}`.
     pub fn health(&self) -> Value {
         let status = self.status().clone();
         json!({
@@ -298,6 +312,7 @@ impl Session {
             "state": status.state,
             "namespace": status.namespace,
             "error_code": status.error,
+            "capture_waiting": capture_waiting(self.inner.source, status.opening.map(|since| since.elapsed())),
         })
     }
 
@@ -620,10 +635,14 @@ impl Session {
                 crate::report_failure("realtime", "realtime_capture_failed");
             }
         });
-        self.inner
+        self.status().opening = Some(Instant::now());
+        let opened = self
+            .inner
             .platform
             .open(self.inner.source, &Target::Endpoint(self.inner.endpoint.clone()), CAPTURE_OPEN_TIMEOUT, on_audio, on_error)
-            .map_err(|code| Failure::Session(open_failure(&code)))
+            .map_err(|code| Failure::Session(open_failure(&code)));
+        self.status().opening = None;
+        opened
     }
 
     fn stream(
@@ -764,6 +783,17 @@ mod tests {
     // #1300: an open Windows held for its microphone question, and a microphone it refused, are
     // told by the capture's own codes, which the screen words as such; anything else stays a
     // capture that stopped.
+    // #1300 (decided on 2026-11-28): a microphone whose open has run 3 s is reported as waiting,
+    // which the screens tell as Windows' permission question perhaps waiting on the desktop. A
+    // speaker's loopback, or an open that returned, is not.
+    #[test]
+    fn a_microphone_whose_open_runs_long_is_reported_as_waiting() {
+        assert!(!capture_waiting(Source::Mic, None));
+        assert!(!capture_waiting(Source::Mic, Some(Duration::from_millis(2999))));
+        assert!(capture_waiting(Source::Mic, Some(Duration::from_secs(3))));
+        assert!(!capture_waiting(Source::Speaker, Some(Duration::from_secs(60))));
+    }
+
     #[test]
     fn a_failed_open_is_told_by_the_captures_own_code() {
         assert_eq!(open_failure("asr_capture_start_timeout"), "asr_capture_start_timeout");

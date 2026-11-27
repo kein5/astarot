@@ -5,7 +5,7 @@ import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage, useVrPanelLogOutOfView, useVrPanelLauncherIntro } from "@logics_common";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useMainFunction } from "@logics_main";
-import { useStore_SwitchBlocks } from "@store";
+import { useStore_MicCaptureWaiting, useStore_SwitchBlocks } from "@store";
 import { activeSwitchBlock } from "../../logics/main/switchBlocks";
 import type { SwitchBlock, SwitchBlockId, SwitchStatus } from "../../logics/main/switchBlocks";
 import TranslationSvg from "@images/translation.svg?react";
@@ -54,6 +54,8 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }: VrLaunc
     // The same blocks as the main window's switches, worked out there (SwitchBlocksController).
     const { currentSwitchBlocks } = useStore_SwitchBlocks();
     const blockOf = (id: SwitchBlockId, state: SwitchStatus) => activeSwitchBlock(currentSwitchBlocks.data, id, state);
+    // Mic input's microphone waits to open, perhaps on Windows' question on the desktop (#1300).
+    const { currentMicCaptureWaiting } = useStore_MicCaptureWaiting();
     const recallLog = () => { openLog(); asyncStdoutToPython("/run/vr_panel_recall_log"); };
     return <div className={styles.root} style={{ "--intro-logo": `url("${intro_logo}")` }}>
         {intro === "playing" && <>
@@ -65,7 +67,8 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }: VrLaunc
                 <FunctionButton Svg={TranslationSvg} label={t("vr_panel.tooltip.translate")} name={t("main_page.translation")}
                     state={currentTranslationStatus} block={blockOf("translation", currentTranslationStatus)} onClick={toggleTranslation} is_locked={is_locked} />
                 <FunctionButton Svg={MicSvg} label={t("vr_panel.tooltip.microphone")} name={t("main_page.transcription_send")}
-                    state={currentTranscriptionSendStatus} block={blockOf("transcription_send", currentTranscriptionSendStatus)} onClick={toggleTranscriptionSend} is_locked={is_locked} />
+                    state={currentTranscriptionSendStatus} block={blockOf("transcription_send", currentTranscriptionSendStatus)} onClick={toggleTranscriptionSend} is_locked={is_locked}
+                    waiting={currentMicCaptureWaiting.data === true} />
                 <FunctionButton Svg={HeadphonesSvg} label={t("vr_panel.tooltip.listen")} name={t("main_page.transcription_receive")}
                     state={currentTranscriptionReceiveStatus} block={blockOf("transcription_receive", currentTranscriptionReceiveStatus)} onClick={toggleTranscriptionReceive} is_locked={is_locked} />
                 <FunctionButton Svg={ChatTranscribeSvg} label={t("vr_panel.tooltip.chat_detect")} name={t("main_page.ocr")}
@@ -95,25 +98,31 @@ interface FunctionButtonProps {
     block: SwitchBlock | null | undefined;
     onClick: () => void;
     is_locked: boolean;
+    // The switch's device waits to open, perhaps on a question on the desktop (#1300).
+    waiting?: boolean;
 }
 
 // A blocked switch (its setup is missing) is greyed out with a mark, does nothing when pressed,
 // and says in its tooltip what is missing and where on the PC to provide it. That tooltip shows
-// even when the tooltips are turned off: there is nowhere else in VR to read it.
-const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked }: FunctionButtonProps) => {
+// even when the tooltips are turned off: there is nowhere else in VR to read it. So does the hint
+// of a switch whose device waits to open, as Windows' microphone question on the desktop holds
+// it (#1300, decided on 2026-11-28); the switch stays as it is, and can be turned off.
+const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked, waiting = false }: FunctionButtonProps) => {
     const { t } = useI18n();
     const is_pending = state.state === "pending";
     const is_blocked = !is_locked && !!block;
+    const is_waiting = !is_locked && !is_blocked && waiting;
     const status = [state.data === true ? "ON" : "OFF", is_locked ? t("vr_panel.tooltip.config_open") :
         is_blocked ? t("vr_panel.switch_blocked.state") : is_pending ? t("vr_panel.settings.changing_short") : ""]
         .filter(Boolean).join(" · ");
-    const mark = is_locked ? "locked" : is_blocked ? "blocked" : is_pending ? "pending" : null;
+    const mark = is_locked ? "locked" : is_blocked ? "blocked" : is_pending || is_waiting ? "pending" : null;
     return <VrTooltipButton className={clsx(shared.button, styles.button, {
         [shared.is_on]: state.data === true, [styles.is_pending]: is_pending,
         [styles.is_disabled]: is_locked || is_blocked, [styles.is_blocked]: is_blocked,
     })} aria-label={name} aria-pressed={state.data === true} aria-disabled={is_pending || is_locked || is_blocked || undefined}
-        aria-busy={is_pending || undefined} tipTitle={label} tipState={status} tipForce={is_blocked}
+        aria-busy={is_pending || undefined} tipTitle={label} tipState={status} tipForce={is_blocked || is_waiting}
         tipHelp={is_locked ? t("vr_panel.locked_by_config_page") : block && is_blocked ? t(`vr_panel.switch_blocked.${block.reason}`) :
+            is_waiting ? t("realtime.mic_permission_wait") :
             is_pending ? t("vr_panel.tooltip.busy_help") : t(`vr_panel.tooltip.${state.data === true ? "disable" : "enable"}`)}
         onClick={() => { if (!is_pending && !is_locked && !is_blocked) onClick(); }}>
         <Svg className={styles.icon} aria-hidden="true" />
