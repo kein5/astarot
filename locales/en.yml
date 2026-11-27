@@ -3066,7 +3066,7 @@ talk_ai:
     locked: "During a conversation, the service and the screen settings cannot be changed. End the conversation to change them."
     providers:
         title: "Who you talk with"
-        intro: "Choose whom to talk with. API connects to an internet service with your API key. Local connects to a server you run on your PC or in your LAN."
+        intro: "Choose whom to talk with. Local connects to a server you run on your PC or in your LAN. API connects to an internet service with your API key."
         loading: "Loading the list of services…"
         group:
             api: "API (cloud)"
@@ -3083,8 +3083,6 @@ talk_ai:
         in_use: "In use"
         ready: "Ready"
         not_set: "No API key"
-    state_help:
-        not_set: "Enter it under \"OpenAI API key\" below to use it."
     fact:
         destination: "Address"
         input: "Takes"
@@ -3103,7 +3101,6 @@ talk_ai:
         none: "Not entered yet"
         stored: "Kept in the system's credential store"
         memory: "Kept until the app closes (the system's credential store did not take it)"
-        save: "Save"
         remove: "Remove key"
         placeholder: "Paste the API key"
         placeholder_replace: "Replace with a new key"

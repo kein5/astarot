@@ -3066,7 +3066,7 @@ talk_ai:
     locked: "対話の間は、対話の相手と画面の送り方の設定を変えられません。変えるときは対話を終えてください。"
     providers:
         title: "対話の相手"
-        intro: "話す相手を選びます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。"
+        intro: "話す相手を選びます。ローカルは、お使いのPCかLANの中で自分で動かすサーバーにつなぎます。APIはインターネットのサービスに、お使いのAPIキーでつなぎます。"
         loading: "対話の相手の一覧を読み込んでいます…"
         group:
             api: "API（クラウド）"
@@ -3083,8 +3083,6 @@ talk_ai:
         in_use: "使用中"
         ready: "使える"
         not_set: "APIキーが未設定"
-    state_help:
-        not_set: "下の「OpenAIのAPIキー」に入れると使えます。"
     fact:
         destination: "接続先"
         input: "受け取るもの"
@@ -3103,7 +3101,6 @@ talk_ai:
         none: "まだ入れていません"
         stored: "システムの資格情報ストアに保存してあります"
         memory: "アプリを閉じるまで覚えています（システムの資格情報ストアに保存できませんでした）"
-        save: "保存"
         remove: "キーを削除"
         placeholder: "APIキーを貼り付け"
         placeholder_replace: "新しいキーで置き換える"
