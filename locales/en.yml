@@ -2101,11 +2101,15 @@ model_downloads:
     warning_title: "Model download and terms"
     source: "Provider on Hugging Face"
     destination: "Save to"
+    # The review's fold of what is not needed to decide (#1266): the provider, the pages, where
+    # it goes, each file's exact size.
+    breakdown: "Breakdown"
+    provider: "Provider: {{provider}}"
     license_links: "Terms and licenses"
     model_card: "Model card and usage terms"
     connection_notice: "This connects to Hugging Face and its file hosting service. Large downloads use disk space and may incur network charges."
     no_start: "Downloading and applying a path do not load a model, speak, start a server or enable the microphone."
-    consent: "I have reviewed the source, usage terms, size and save location and agree to download."
+    consent: "I have checked the license and the size, and I agree to the download."
     # What a model's license restricts (the catalog row's restrictions). The review says it and
     # asks for a checkbox of its own besides the consent above (#411).
     restriction:
@@ -2135,9 +2139,9 @@ model_downloads:
     notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on your PC's CPU; screen contents are never uploaded."
     notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on your PC's CPU; screen contents are never uploaded."
     notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on your PC; the text you translate is never uploaded. Check the license of the original model."
-    # NLLB-200 distilled 600M (the notice of its translation_models.json entry); the size and memory were measured with that version.
-    notice_translation_nllb_600m: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 600M. It runs on your PC; the text you translate is never uploaded. Its license, CC-BY-NC-4.0, allows non-commercial use only. The download needs about 643 MB of free space, and translating uses about 1.4 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
-    notice_translation_nllb_1_3b: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 1.3B. It runs on your PC; the text you translate is never uploaded. Its license, CC-BY-NC-4.0, allows non-commercial use only. The download needs about 1.4 GB of free space, and translating uses about 2.6 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
+    # NLLB-200 distilled 600M (the notice of its translation_models.json entry); the memory was measured with that version.
+    notice_translation_nllb_600m: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 600M. It runs on your PC; the text you translate is never uploaded. Translating uses about 1.4 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
+    notice_translation_nllb_1_3b: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 1.3B. It runs on your PC; the text you translate is never uploaded. Translating uses about 2.6 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."

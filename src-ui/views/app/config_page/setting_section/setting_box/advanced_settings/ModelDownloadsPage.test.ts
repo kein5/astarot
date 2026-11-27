@@ -610,12 +610,20 @@ test("the review shows what the download is, where it goes and what it needs, an
     assert.deepEqual([dialog.props.ref, dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], ["dialog", true, true, undefined]);
     assert.deepEqual(p.consent.asked.at(-1), { open: true, fallback: tree.props.ref }, "focus goes back to the catalog when it closes");
     assert.deepEqual(ofPart(dialog, kitStandIns.DialogTitle).map(textOf), ["model_downloads.warning_title"]);
-    const lines = texts(findIn(dialog, node => node.type === kitStandIns.DialogHeader), "p");
-    assert.deepEqual(lines.slice(0, 2), ["Model · Q8_0 · Maker", `model_downloads.exact_bytes {"bytes":"1,073,741,824"} (1.00 GiB) · CC-BY-NC-4.0`]);
+    const header = findIn(dialog, node => node.type === kitStandIns.DialogHeader);
+    const lines = texts(header, "p");
+    // One line: the file, its license and its size (decided on 2026-11-27, #1266).
+    assert.equal(lines[0], "Model · Q8_0 · CC-BY-NC-4.0 · 1.00 GiB");
     // The restriction notes are drawn by their own part, between these lines.
-    assert.deepEqual(lines.slice(2), ["model_downloads.notice_general", "model_downloads.asr_requirements", "model_downloads.connection_notice", "model_downloads.no_start",
-        "model_downloads.source: org/repo", "model_downloads.license_links:  model_downloads.model_card  LICENSE-MIT  CC-BY-NC-4.0 (2) ", "model_downloads.destination: models/asr"]);
-    assert.deepEqual(texts(dialog, "li"), [`model.gguf · model_downloads.exact_bytes {"bytes":"1,073,741,824"} (1.00 GiB)`,
+    assert.deepEqual(lines.slice(1, 4), ["model_downloads.notice_general", "model_downloads.asr_requirements", "model_downloads.connection_notice"]);
+    // The provider, the pages, where it goes, each file's exact size and what the download does not
+    // do are in the breakdown, closed (#1266).
+    const fold = findIn(header, node => node.type === "fold");
+    assert.deepEqual([fold.props.summary, fold.props.size, fold.props.open], ["model_downloads.breakdown", "link", undefined]);
+    assert.deepEqual(texts(fold, "p"), [`model_downloads.provider {"provider":"Maker"}`, "model_downloads.source: org/repo",
+        "model_downloads.license_links:  model_downloads.model_card  LICENSE-MIT  CC-BY-NC-4.0 (2) ", "model_downloads.destination: models/asr", "model_downloads.no_start"]);
+    assert.deepEqual(lines.slice(4), texts(fold, "p"), "nothing else follows the breakdown");
+    assert.deepEqual(texts(fold, "li"), [`model.gguf · model_downloads.exact_bytes {"bytes":"1,073,741,824"} (1.00 GiB)`,
         `vocab.json · model_downloads.exact_bytes {"bytes":"2,048"} (0.00 GiB)`]);
     assert.deepEqual(ofType(dialog, "code").map(node => [textOf(node), node.props.style]), [["models/asr", { overflowWrap: "anywhere" }]]);
     // Each restriction is a note, and a box of its own that points to it.

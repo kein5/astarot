@@ -70,9 +70,13 @@ export const LegacyModelDownloadDialog = ({ weightType, onCancel, extraAction = 
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* What the download goes on to, when the caller continues something (#1015). */}
                 {note && translationRows.length > 0 && <p>{note}</p>}
-                {/* A model of one's own is added in the translation catalog, from any folder (#597). */}
-                <p>{t("legacy_model_downloads.translation_own_model")}</p>
-                <CustomModelLink section="translation" />
+                {/* A model of one's own is added in the translation catalog, from any folder (#597). Said
+                    only when none is published: someone getting a built-in model is not asked about
+                    their own (#1266). */}
+                {translationRows.length === 0 && <>
+                    <p>{t("legacy_model_downloads.translation_own_model")}</p>
+                    <CustomModelLink section="translation" />
+                </>}
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
             <DialogFooter>
                 <Button autoFocus onClick={cancel}>{t(catalog ? "legacy_model_downloads.close" : "model_downloads.back")}</Button>
