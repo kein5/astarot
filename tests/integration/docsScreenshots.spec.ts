@@ -171,7 +171,8 @@ for (const lang of ["ja", "en"] as const) {
             await app.unfold(group);
             const fold = group.locator("details").first();
             if (!(await fold.evaluate(element => (element as HTMLDetailsElement).open))) await fold.locator(":scope > summary").click();
-            await group.getByRole("button", { name: REVIEW[lang], exact: true }).first().click();
+            // The button names its model after its words (#1254): "Review download (…)".
+            await group.getByRole("button", { name: new RegExp(`^${REVIEW[lang]}[（(]`) }).first().click();
             const dialog = page.getByRole("dialog");
             await dialog.waitFor();
             await page.waitForTimeout(300);

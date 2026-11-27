@@ -2366,6 +2366,10 @@ model_catalog:
         ready: "検証済み・未適用"
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "このモデルを使う"
+    # A card pressed anywhere names its model after its button's words, in the button's
+    # accessible name (#1228, #1254).
+    use_named: "このモデルを使う（{{name}}）"
+    review_named: "取得内容を確認（{{name}}）"
     use_hint: "お使いのPCに取得済みです。使うときはファイルを確かめて適用し、何もダウンロードしません。"
     engine:
         terms_notice: "エンジンと声（音声ライブラリ）の利用条件は、それぞれの公式サイトの規約に従います。声によってはクレジットの表記が必要です。使う前に規約を確認してください。"
@@ -2554,9 +2558,11 @@ translation_catalog:
     use:
         engine: "お使いのPCの翻訳に使う"
         api: "OpenAI互換の接続先にする"
-    # A built-in model's card names its model in its button's accessible name (#1228).
-    use_named: "{{name}}をお使いのPCの翻訳に使う"
-    review_named: "{{name}}の取得内容を確認"
+    # A card pressed anywhere names its model after its button's words, in the button's
+    # accessible name (#1228, #1254).
+    use_named:
+        engine: "お使いのPCの翻訳に使う（{{name}}）"
+        api: "OpenAI互換の接続先にする（{{name}}）"
     remove: "削除"
     remove_confirm:
         engine: "項目だけを削除します。フォルダーとファイルはそのまま残ります。"

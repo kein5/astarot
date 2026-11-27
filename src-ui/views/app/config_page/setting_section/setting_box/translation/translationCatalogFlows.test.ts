@@ -208,12 +208,17 @@ test("an added engine entry is the user's, names its languages, is used with one
     assert.ok(textOf(ready).includes("translation_catalog.badge.user"));
     assert.ok(textOf(ready).includes("ja, en"));
     assert.equal(button(ready, "translation_catalog.remove").props.disabled, false);
-    button(ready, "translation_catalog.use.engine").props.onClick();
+    // Use covers the card, pressed anywhere on it, and names the entry (#1254).
+    const use = button(ready, "translation_catalog.use.engine");
+    assert.deepEqual([treeNode(ready)?.props.className, use.props.className], ["pressable", "press"]);
+    assert.match(String(use.props["aria-label"]), /^translation_catalog\.use_named\.engine/);
+    use.props.onClick();
     assert.deepEqual(sentTo("/run/use_translation_catalog_entry"), [{ id: "tr-1" }]);
 
     reset(catalogWith([{ ...mine, in_use: true }]));
     const inUse = (await card(context, "engine", "tr-1"))();
     assert.equal(find(inUse, node => node.type === kitStandIns.Button && textOf(node) === "translation_catalog.use.engine"), null);
+    assert.equal(treeNode(inUse)?.props.className, undefined, "the card in use has nothing to press");
     assert.equal(button(inUse, "translation_catalog.remove").props.disabled, true);
     assert.ok(textOf(inUse).includes("translation_catalog.remove_in_use"));
 });
