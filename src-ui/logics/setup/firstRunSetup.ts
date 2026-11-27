@@ -59,16 +59,19 @@ export const vadEntry = (catalog: SetupCatalog): SetupEntry | null => (catalog?.
 // Whether a recognition model tells the language it hears (the catalog's flag, #1242).
 export const detectsLanguage = (entry: SetupEntry | null | undefined): boolean => entry?.speech?.detects === true;
 
-// Listening's model when the one for one's own voice cannot tell the language (decided on
-// 2026-11-27, #1242): Listening hears the other side, whose language is not known, and starts on
-// "auto". It is the recognizer that tells the language that speech.cpp recommends for the most
-// languages, the file it fetches first. A model that tells the language serves both: none then.
-export const recommendedListening = (catalog: SetupCatalog, asr: SetupEntry | null | undefined): SetupEntry | null => {
-    if (!asr || detectsLanguage(asr)) return null;
+// The recognizer offered where a model has to tell the language (#1242): of those that tell it, the
+// one speech.cpp recommends for the most languages, the file it fetches first.
+export const detectingRecognizer = (catalog: SetupCatalog): SetupEntry | null => {
     const reach = (entry: SetupEntry) => entry.profile?.recommended_for?.length ?? 0;
     const rows = (catalog?.models ?? []).filter(entry => entry.target === "asr" && detectsLanguage(entry) && entry.speech?.default !== false && reach(entry) > 0);
     return rows.reduce<SetupEntry | null>((best, entry) => !best || reach(entry) > reach(best) ? entry : best, null);
 };
+
+// Listening's model when the one for one's own voice cannot tell the language (decided on
+// 2026-11-27, #1242): Listening hears the other side, whose language is not known, and starts on
+// "auto". A model that tells the language serves both: none then.
+export const recommendedListening = (catalog: SetupCatalog, asr: SetupEntry | null | undefined): SetupEntry | null =>
+    !asr || detectsLanguage(asr) ? null : detectingRecognizer(catalog);
 
 // One step of the recognition setup.
 // "listening": Listening's own recognition model (#1242).

@@ -8,14 +8,18 @@
 // - "language": the model does not take the language chosen for the source ("auto" for a model
 //   that cannot tell the language). The fix is to choose one of the model's languages, which the
 //   refusal lists, or, on the bundled server, to get a model that tells the language by itself.
+//   For Listening that model is Listening's own (#1242): Mic input keeps its model.
+// - "share": Listening's own model does not fit beside Mic input's (#1242, decided on 2026-11-27).
+//   The fix is one model for both: Listening uses Mic input's again.
 //
 // Nothing here downloads: a download starts only from a review that shows its size, after consent.
 
 import type { CaptionSource } from "./realtimeCaptionState";
 import type { TranscriptionEndpoint } from "./useTranscriptionConsent";
+import { detectingRecognizer } from "../setup/firstRunSetup.ts";
 import type { SetupCatalog, SetupEntry } from "../setup/firstRunSetup.ts";
 
-export type RecognitionFixKind = "models" | "language";
+export type RecognitionFixKind = "models" | "language" | "share";
 
 export interface RecognitionFix {
     endpoint: TranscriptionEndpoint;
@@ -46,20 +50,16 @@ export const recognitionFixOf = (endpoint: string, details: unknown): Recognitio
     if (!source || !reason) return null;
     const switchEndpoint = endpoint as TranscriptionEndpoint;
     if (MODEL_REASONS.includes(reason)) return { endpoint: switchEndpoint, source, kind: "models", reason, languages: [], auto: false };
+    if (reason === "realtime_asr_models_do_not_fit") return { endpoint: switchEndpoint, source, kind: "share", reason, languages: [], auto: false };
     if (!LANGUAGE_REASONS.includes(reason)) return null;
     const listed = isRecord(details) && Array.isArray(details.languages) ? details.languages : [];
     const languages = [...new Set(listed.filter((code): code is string => typeof code === "string" && code !== "" && code !== "auto"))];
     return { endpoint: switchEndpoint, source, kind: "language", reason, languages, auto: reason === "realtime_language_auto_unsupported" };
 };
 
-// The model offered to tell the language by itself: Qwen3-ASR 0.6B, as the file speech.cpp fetches
-// for it. The download catalog does not say which models tell the language, so the one the
-// notice has always named is chosen by its speech.cpp name.
-export const DETECTING_ASR = "qwen3-asr-0.6b";
-export const detectingAsr = (catalog: SetupCatalog): SetupEntry | null => {
-    const rows = (catalog?.models ?? []).filter(entry => entry.target === "asr" && entry.speech?.name === DETECTING_ASR);
-    return rows.find(entry => entry.speech?.default !== false) ?? rows[0] ?? null;
-};
+// The model offered to tell the language by itself: the catalog says which models do (#1242), and
+// the one speech.cpp recommends for the most languages is offered, as the first-run setup does.
+export const detectingAsr = (catalog: SetupCatalog): SetupEntry | null => detectingRecognizer(catalog);
 
 // The language first offered: the UI's when the model takes it, else the first it lists.
 export const firstLanguage = (languages: readonly string[], uiLanguage: unknown): string => {

@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import { SAME, listeningApply, listeningChoice, listeningLanguages } from "./listeningModel.ts";
+import type { ModelCatalogRow, ModelDownloadCatalog } from "../voice/useModelDownloads";
+import { unchecked } from "../test/hookHarness.ts";
+
+// #1242: Listening's own model is chosen among the recognition models on the PC; its languages come
+// from the catalog, and a checked choice is applied for Listening alone.
+const row = (id: string, languages: string[], detects: boolean, target = "asr") =>
+    ({ id, target, name: id, speech: { name: id, label: id, type: "q8_0", default: true, languages, detects } });
+const catalog = unchecked<ModelDownloadCatalog>({ catalog_version: "v7", models: [
+    row("reazon-q8", ["ja"], false), row("qwen-q8", ["ja", "en"], true), row("absent-q8", ["en"], false), row("vad", [], false, "vad")] });
+const downloaded = { "reazon-q8": { model: "/m/reazon.gguf" }, "qwen-q8": { model: "/m/qwen.gguf" }, vad: { model: "/m/vad.gguf" } };
+
+test("Listening's choice lists the recognition models on the PC and tells whether Listening has its own", () => {
+    const shared = listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "" });
+    assert.deepEqual([shared.apart, shared.path, shared.current, shared.mic?.id, shared.choices.map(entry => entry.id)],
+        [false, "", null, "reazon-q8", ["reazon-q8", "qwen-q8"]]);
+    const apart = listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" });
+    assert.deepEqual([apart.apart, apart.current?.id], [true, "qwen-q8"]);
+    // The same file as Mic input's is one model for both; a file of one's own has no catalog entry.
+    assert.equal(listeningChoice(catalog, downloaded, { model: "/m/qwen.gguf", listening_model: "/m/qwen.gguf" }).apart, false);
+    assert.deepEqual(Object.values(listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "/own.gguf" })).slice(0, 3), [true, "/own.gguf", null]);
+    assert.equal(listeningChoice(null, undefined, null).choices.length, 0);
+    assert.equal(SAME, "");
+});
+
+test("Listening's own model's languages come from the catalog, auto first when it tells the language", () => {
+    assert.deepEqual(listeningLanguages(unchecked<ModelCatalogRow>(row("qwen-q8", ["ja", "en"], true))), ["auto", "ja", "en"]);
+    assert.deepEqual(listeningLanguages(unchecked<ModelCatalogRow>(row("reazon-q8", ["ja"], false))), ["ja"]);
+    assert.equal(listeningLanguages(null), null);
+});
+
+test("a checked choice is applied for Listening once its own check is ready, with Listening's saved file", () => {
+    const asked = { id: "qwen-q8", before: "old" };
+    assert.equal(listeningApply(null, {}, ""), null);
+    const job = (job_id: string, phase: string) => ({ "qwen-q8": { job_id, phase, received_bytes: 1, total_bytes: 1 } });
+    assert.equal(listeningApply(asked, job("old", "ready"), ""), null, "an earlier check is not this one");
+    assert.equal(listeningApply(asked, job("new", "verifying"), ""), null);
+    assert.deepEqual(listeningApply(asked, job("new", "ready"), "/m/old.gguf"),
+        { id: "qwen-q8", job_id: "new", expected: { model: "/m/old.gguf" }, source: "speaker" });
+});

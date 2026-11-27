@@ -1557,6 +1557,12 @@ realtime:
   speaker_input: "Listening output"
   mic_language: "Microphone language"
   speaker_language: "Listening language"
+  # #1242: Listening's own model on the bundled server.
+  listening_model: "Listening's model"
+  listening_model_help: "Listening can use a model of its own, such as one that tells the language the other side speaks. Two models run on two servers and use more memory."
+  listening_same: "Same as Mic input"
+  listening_same_named: "Same as Mic input ({{model}})"
+  listening_own_file: "A file of your own"
   select_device: "Select a device"
   disconnected: "Disconnected — select the device again"
   speaker_help: "Select an output dedicated to the game. A shared output also includes other apps. What Listening hears is never sent to your microphone or OSC chatbox."
@@ -1687,10 +1693,16 @@ recognition_fix:
   language_label: "Spoken language"
   use_language: "Use this language and turn on"
   detect_heading: "A model that tells the language"
-  detect_body: "{{model}} recognizes 30 languages and tells which one is spoken. Its review shows the size and the license before anything is downloaded. Once it is ready, it becomes the speech recognition model and {{name}} turns on."
+  detect_body: "{{model}} recognizes {{count}} languages and tells which one is spoken. Its review shows the size and the license before anything is downloaded. Once it is ready, it becomes the speech recognition model and {{name}} turns on."
+  # #1242: for Listening, a model of its own; Mic input keeps its model.
+  detect_body_listening: "{{model}} recognizes {{count}} languages and tells which one is spoken. Its review shows the size and the license before anything is downloaded. Once it is ready, Listening uses it on its own, Mic input keeps its model, and Listening turns on."
   open_setting: "Open the setting"
   close: "Close"
   model_ready: "The new speech recognition model is set."
+  # #1242: Listening's own model does not fit beside Mic input's; one model for both.
+  share_body: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Listening can use Mic input's model too, or you can turn Mic input off and turn Listening on again."
+  use_shared: "Use {{model}} for Listening too and turn on"
+  mic_model: "the Mic input model"
   server_running: "The new model is downloaded, but it cannot be set while the bundled ASR server is running. Stop the ASR server in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then apply the model there."
 
 speech_servers:

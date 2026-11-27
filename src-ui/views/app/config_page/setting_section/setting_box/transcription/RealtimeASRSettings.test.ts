@@ -68,6 +68,10 @@ async function fixture(context: TestContext, { hints = false, part = "captions" 
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
         "../../../../../../logics/transcription/recognitionFix": recognitionFix,
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
+        // Listening's own model (#1242): no model on the PC here; listeningModel.test.ts covers the choice.
+        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: null, state: { jobs: {}, downloaded: {} }, send: () => true }) },
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
+        "../../../../../../logics/voice/modelCatalog": { familyLabel: (entry: { name?: string }) => entry.name },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },

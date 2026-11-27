@@ -9,13 +9,16 @@ import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 
 type Realtime = { server: string; mic: { language: string }; speaker: { language: string } };
 const QWEN = { id: "qwen3-asr-06b-q8", target: "asr", name: "Qwen3-ASR 0.6B · Q8_0", total_bytes: 841502336,
-    speech: { name: "qwen3-asr-0.6b", label: "Qwen3-ASR 0.6B", type: "q8_0", default: true } };
+    speech: { name: "qwen3-asr-0.6b", label: "Qwen3-ASR 0.6B", type: "q8_0", default: true, detects: true, languages: ["ja", "en"] },
+    profile: { recommended_for: ["en"] } };
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), events: unknown[][] = [];
     const state = {
         realtime: { server: "bundled", mic: { language: "ja" }, speaker: { language: "auto" } } as Realtime | null,
         saved: "/models/reazonspeech.gguf",
+        // Listening's own model (#1242): none, so Listening shares Mic input's.
+        listening: "",
         catalog: { models: [QWEN] } as unknown,
         jobs: {} as Record<string, { job_id?: string; phase?: string } | undefined>,
         error: null as string | null,
@@ -39,8 +42,9 @@ async function fixture(context: TestContext) {
         "../../../logics/transcription/recognitionFix": fixes,
         "../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ settings: state.realtime,
             send: (endpoint: string, value: unknown) => events.push([endpoint, value]) }) },
-        "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles: { asr: { model: state.saved } } } }) },
-        "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: state.catalog, state: { jobs: state.jobs }, error: state.error,
+        "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles: { asr: { model: state.saved, listening_model: state.listening } } },
+            send: (endpoint: string, value: unknown) => events.push([endpoint, value]) }) },
+        "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: state.catalog, state: { jobs: state.jobs, downloaded: { "reazonspeech-v2-q8": { model: "/models/reazonspeech.gguf" } } }, error: state.error,
             send: (endpoint: string, value?: unknown) => events.push(value === undefined ? [endpoint] : [endpoint, value]) }) },
         "../../../logics/voice/modelCatalog": { familyLabel: (entry: { speech?: { label?: string } }) => entry.speech?.label },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => events.push(["setup"]) }) },
@@ -133,7 +137,8 @@ test("on the bundled server, a model that tells the language is offered through 
     const tree = s.open(RECEIVE, { reason: "realtime_language_auto_unsupported", languages: ["ja"] });
     const offer = find(tree, node => node.type === "model-downloads");
     assert.ok(offer);
-    assert.deepEqual([offer.props.targets, offer.props.only, offer.props.expected], [["asr"], ["qwen3-asr-06b-q8"], { asr: { model: "/models/reazonspeech.gguf" } }]);
+    // For Listening it is Listening's own model (#1242): the field it fills is Listening's.
+    assert.deepEqual([offer.props.targets, offer.props.only, offer.props.expected], [["asr"], ["qwen3-asr-06b-q8"], { asr: { model: "" } }]);
     assert.equal(find(tree, node => node.type === "h3")?.props.children, "recognition_fix.detect_heading");
     // Not when the language is merely unsupported, nor on a server of the user's own.
     assert.equal(find(s.open(RECEIVE, { reason: "realtime_language_unsupported", languages: ["ja"] }), node => node.type === "model-downloads"), null);
@@ -155,8 +160,9 @@ test("the downloaded model is applied once, and the switch turns on when its pat
     s.state.jobs = { "qwen3-asr-06b-q8": { job_id: "new", phase: "ready" } };
     s.render();
     s.render();
-    assert.deepEqual(s.events, [["/run/apply_model_download", { id: "qwen3-asr-06b-q8", job_id: "new", expected: { model: "/models/reazonspeech.gguf" } }]]);
-    s.state.saved = "/models/qwen3-asr.gguf";
+    // Applied for Listening alone: Mic input keeps its model (#1242).
+    assert.deepEqual(s.events, [["/run/apply_model_download", { id: "qwen3-asr-06b-q8", job_id: "new", expected: { model: "" }, source: "speaker" }]]);
+    s.state.listening = "/models/qwen3-asr.gguf";
     s.render();
     s.render();
     assert.deepEqual(s.events.slice(1), [["success", "recognition_fix.model_ready"], ["receive", true]]);
@@ -176,14 +182,50 @@ test("an apply refused while the ASR server runs says how to go on and turns not
     assert.equal(s.runtime.render(s.hook.useRecognitionFix).waiting, null);
 });
 
+// #1242 (decided on 2026-11-27): Listening's own model that does not fit beside Mic input's is
+// offered one model for both. Listening's own model is taken away, and Listening turns on once the
+// saved settings come back without it; Mic input's model is named, as the catalog names it.
+test("when the two models do not fit, Listening is offered Mic input's model and turns on once it is saved", async context => {
+    const s = await fixture(context);
+    s.state.listening = "/models/qwen3-asr.gguf";
+    const tree = s.open(RECEIVE, { reason: "realtime_asr_models_do_not_fit" });
+    assert.equal(find(tree, node => node.type === "p")?.props.children, "recognition_fix.share_body");
+    assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_setting", undefined], ["recognition_fix.use_shared", "primary"]]);
+    const share = find(find(tree, node => node.type === kitStandIns.DialogFooter), node => node.type === kitStandIns.Button && node.props.children === "recognition_fix.use_shared");
+    s.events.length = 0;
+    share?.props.onClick();
+    assert.deepEqual(s.events, [["close"], ["/set/data/speech_server_settings",
+        { profiles: { asr: { model: "/models/reazonspeech.gguf", listening_model: "" } } }]]);
+    s.render();
+    assert.equal(s.events.some(event => event[0] === "receive"), false, "not before the settings come back");
+    s.state.listening = "";
+    s.render();
+    s.render();
+    assert.deepEqual(s.events.filter(event => event[0] === "receive"), [["receive", true]]);
+});
+
+// Mic input's fix still changes Mic input's model, and only Mic input's.
+test("for Mic input, the model that tells the language becomes Mic input's", async context => {
+    const s = await fixture(context);
+    const offer = find(s.open(SEND, { reason: "realtime_language_auto_unsupported", languages: ["ja"] }), node => node.type === "model-downloads");
+    assert.deepEqual(offer?.props.expected, { asr: { model: "/models/reazonspeech.gguf" } });
+    offer?.props.onStart("qwen3-asr-06b-q8");
+    s.state.jobs = { "qwen3-asr-06b-q8": { job_id: "new", phase: "ready" } };
+    s.events.length = 0;
+    s.render();
+    assert.deepEqual(s.events, [["/run/apply_model_download", { id: "qwen3-asr-06b-q8", job_id: "new", expected: { model: "/models/reazonspeech.gguf" } }]]);
+});
+
 test("the words exist in both languages with the same names to fill in", () => {
     for (const language of ["en", "ja"]) {
         const locale = readLocale(language);
         for (const key of ["title", "models_body", "get_models", "language_auto_body", "language_body", "language_label", "use_language",
-            "detect_heading", "detect_body", "open_setting", "close", "model_ready", "server_running"]) {
+            "detect_heading", "detect_body", "detect_body_listening", "open_setting", "close", "model_ready", "server_running",
+            "share_body", "use_shared", "mic_model"]) {
             assert.equal(typeof localeAt(locale, `recognition_fix.${key}`), "string", `${language} ${key}`);
         }
         assert.match(String(localeAt(locale, "recognition_fix.title")), /\{\{name\}\}/);
-        assert.match(String(localeAt(locale, "recognition_fix.detect_body")), /\{\{model\}\}.*\{\{name\}\}/);
+        assert.match(String(localeAt(locale, "recognition_fix.detect_body")), /\{\{model\}\}.*\{\{count\}\}.*\{\{name\}\}/);
+        assert.match(String(localeAt(locale, "recognition_fix.use_shared")), /\{\{model\}\}/);
     }
 });
