@@ -40,9 +40,10 @@ export const listeningChoice = (catalog: ModelDownloadCatalog | null | undefined
 // Mic input's. Null when that model is not a download of the catalog (a file of one's own).
 export const listeningRow = (choice: ListeningChoice): ModelCatalogRow | null => choice.apart ? choice.current : choice.mic;
 
-// The languages Listening's own model takes, "auto" first when it tells the language: the catalog's
-// own, from speech.cpp. Null without an entry to read them from.
-export const listeningLanguages = (row: ModelCatalogRow | null): string[] | null => {
+// The languages a recognition model of the catalog takes, "auto" first when it tells the language:
+// the catalog's own, from speech.cpp. Null without an entry to read them from. Both inputs' choices
+// on the bundled server come from them (#1242, #1298).
+export const catalogLanguages = (row: ModelCatalogRow | null): string[] | null => {
     const speech = row?.speech;
     if (!speech?.languages) return null;
     return [...(speech.detects ? ["auto"] : []), ...speech.languages];

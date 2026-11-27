@@ -363,26 +363,31 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     }
 });
 
-// #1298: on the bundled server, Listening's languages are those of the model it uses, as the catalog
-// lists them: there while its server is stopped and the listed models are none, with "auto" for a
-// model that tells the language, whether Listening shares Mic input's model or has its own.
-test("Listening's languages come from the model it uses while its server is stopped", async context => {
+// #1298: on the bundled server, each input's languages are those of the model it uses, as the
+// catalog lists them (Mic input's too, decided on 2026-11-28): there while the server is stopped and
+// the listed models are none, with "auto" for a model that tells the language. Listening's is its own
+// model, or Mic input's when it shares it.
+test("each input's languages come from the model it uses while the server is stopped", async context => {
     const row = (id: string, languages: string[], detects: boolean) =>
         ({ id, target: "asr", name: id, speech: { name: id, label: id, type: "q8_0", default: true, languages, detects } });
     const catalog = { catalog_version: "v7", models: [row("reazon-q8", ["ja"], false), row("qwen-q8", ["ja", "en"], true)] };
     const downloaded = { "reazon-q8": { model: "/m/reazon.gguf" }, "qwen-q8": { model: "/m/qwen.gguf" } };
-    const languagesOf = async (asr: Models["asr"]) => {
+    const languagesOf = async (asr: Models["asr"], server = "bundled") => {
         const s = await fixture(context, { models: { catalog, downloaded, asr } });
-        s.asr.settings = { ...s.asr.settings, server: "bundled" };
-        const select = findIn(s.render(), node => node.type === "select" && node.props["aria-label"] === `realtime.speaker_language`);
-        return nodesIn(select).filter(node => node.type === "option").map(node => node.props.value);
+        s.asr.settings = { ...s.asr.settings, server };
+        const tree = s.render();
+        const options = (source: string) => nodesIn(findIn(tree, node => node.type === "select" && node.props["aria-label"] === `realtime.${source}_language`))
+            .filter(node => node.type === "option").map(node => node.props.value);
+        return { mic: options("mic"), speaker: options("speaker") };
     };
-    // Shared with Mic input: the model the two use.
-    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }), ["auto", "ja", "en"]);
-    // Listening's own, beside Mic input's that cannot tell the language.
-    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }), ["auto", "ja", "en"]);
-    // A model that cannot tell the language offers no "auto"; the saved one is still shown.
-    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "" }), ["ja"]);
+    // One model for both.
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }), { mic: ["auto", "ja", "en"], speaker: ["auto", "ja", "en"] });
+    // Listening's own, beside Mic input's that cannot tell the language: no "auto" for Mic input,
+    // whose saved language is still shown.
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }), { mic: ["ja"], speaker: ["auto", "ja", "en"] });
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "" }), { mic: ["ja"], speaker: ["ja"] });
+    // A server of one's own lists its models itself: nothing comes from the catalog (none listed here).
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }, "external"), { mic: ["ja"], speaker: ["ja"] });
 });
 
 // #1299: since #1242 Listening may have a model of its own. The texts on which model the inputs use
