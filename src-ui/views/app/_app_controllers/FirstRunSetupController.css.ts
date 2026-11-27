@@ -45,18 +45,22 @@ const list = {
     borderRadius: vars.vox_radius,
 } as const;
 
-// The models to consent to: the same frame, one row per model, its name over its facts.
 // The model a section prepares, chosen from a list (#955): its name, and the forms' field beside it.
 export const choice = within({
     display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", alignItems: "center", gap: ".8rem 1.6rem",
     fontSize: "1.4rem", fontWeight: 500, color: vars.vox_secondary_text,
     "@media": { "(max-width: 700px)": { gridTemplateColumns: "minmax(0, 1fr)" } },
 });
+// The models to download: the same frame, one line per model, its name then its license and size
+// (decided on 2026-11-27, #1266); a narrow window wraps the facts under the name.
 export const models = within(list);
 export const model = within({
-    display: "grid",
-    gap: ".4rem",
-    padding: "1.2rem 1.6rem",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    columnGap: "1.6rem",
+    rowGap: ".2rem",
+    padding: "1rem 1.6rem",
 }, separated);
 export const modelName = within({ fontSize: "1.4rem", fontWeight: 500, color: vars.dark_200_color, overflowWrap: "anywhere" });
 export const modelFacts = within({
@@ -117,5 +121,7 @@ export const finished = within({ margin: 0, maxWidth: "none", fontSize: "1.4rem"
 // A row of buttons.
 export const actions = within({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".8rem" });
 
-// In the footer (the kit's DialogFooter), a line of its own under Later and Done.
-export const footerLine = within({ flexBasis: "100%" });
+// In the footer (the kit's DialogFooter), a line of its own under Later and Done. Its bubble
+// (the settings' Hint) opens above it, inside the dialog.
+export const footerLine = within({ flexBasis: "100%", display: "flex", alignItems: "center", gap: ".4rem" });
+globalStyle(`${dialog} ${footerLine} [data-slot="tooltip-content"]`, { top: "auto", bottom: "calc(100% + .6rem)" });

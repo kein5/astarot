@@ -28,7 +28,7 @@ const Findings = () => {
                 <ItemGroup>
                     {row("attention", "first_run_setup.found.mic", "first_run_setup.found.mic_missing")}
                     {row("attention", "first_run_setup.found.translation", "first_run_setup.found.translation_missing",
-                        "first_run_setup.found.translation_open_settings")}
+                        "first_run_setup.choose_other")}
                 </ItemGroup>
             </Example>
             <Example name="ItemGroup variant=outline">

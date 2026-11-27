@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Dispatch, MouseEvent, ReactNode, SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
@@ -15,7 +15,7 @@ import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, planBytes, nextAction, stepState, recommendedAsr } from "../../../logics/setup/firstRunSetup.ts";
+import { setupPlan, planModels, nextAction, stepState, recommendedAsr } from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupEntry, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { DEFAULT_TRANSLATION_WEIGHT, translationEntry, translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
 import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
@@ -32,8 +32,11 @@ import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import { Fold } from "../config_page/setting_section/setting_box/_components/fold/Fold";
+import { Hint } from "../config_page/setting_section/setting_box/_components/hint/Hint";
+import { pageLinkLabel } from "../config_page/setting_section/setting_box/_components/page_pointer/PagePointer";
 import * as ui from "./FirstRunSetupController.css.ts";
-import { Button, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Item, ItemActions, ItemContent, ItemDescription, ItemGroup,
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle, Item, ItemActions, ItemContent, ItemDescription, ItemGroup,
     ItemMedia, ItemTitle, Progress, Select, SelectOptGroup, SelectOption } from "../../kit/index.ts";
 import type { ItemState } from "../../kit/index.ts";
 
@@ -46,24 +49,30 @@ const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).t
 // is still suggested and the local speech recognition is not ready yet, the first screen's line to
 // it stands out (EmptyState), and the user opens it.
 //
-// It leads with what it is for, shows what was found (microphone, VRChat, virtual microphone,
-// translation, speech recognition), and offers one action: download the recommended recognition
-// model and the VAD model after one consent that names each model, its provider, license and
-// size, then write them into the settings and switch the recognition to the bundled speech.cpp
-// server. Nothing is downloaded before that consent, and nothing turns the microphone on.
+// It shows what was found (microphone, VRChat, virtual microphone, translation, speech
+// recognition), then a section per feature (speech recognition, translation, text to speech) with
+// the model chosen for it, one line per model to download (its name, license and size), and what
+// the preparation changes besides the download in one sentence. Under the sections, one consent
+// for every model chosen and one "Start preparation" (decided on 2026-11-27, #1266): the
+// providers and the model cards are in the "Breakdown" fold above the consent. Nothing is
+// downloaded before that consent, and nothing turns the microphone on. What to turn on on the
+// main screen is said once the preparation is over (NextSteps), not before.
 //
-// The run is derived from the saved settings and the download state (firstRunSetup.ts), so a
-// failed step stops it there and "Try again" continues from the first step not done. Downloads
-// are verified before they are applied, so a failure keeps the previous settings (#517).
+// The features are prepared one after another, as the downloads go one at a time: the next run
+// waits ("queued") until the one before it is done. A failure or a stop holds the rest, and
+// "Try again" continues from the run that failed. Each run is derived from the saved settings and
+// the download state (firstRunSetup.ts, translationSetup.ts), so a failed step stops it there and
+// "Try again" continues from the first step not done. Downloads are verified before they are
+// applied, so a failure keeps the previous settings (#517).
 //
 // "Later" and Escape put it away; downloads already started go on. "Done" and "Stop highlighting"
 // end the suggestion: the first screen's line to it no longer stands out.
 //
 // The local translation's model is prepared here too (#936), never by leaving the setup: when the
-// selected translation model can be downloaded, its own section shows the model's name,
-// provider, license and size with links to its card and license, takes the consent (and one per
-// license restriction, as the catalogs do), downloads it, applies it, and says the translation is
-// ready; the translation row above then reads as ready.
+// selected translation model can be downloaded, its section shows the model, the consent takes it
+// in (with one acknowledgement per license restriction, as the catalogs do), and the run
+// downloads it, applies it and says the translation is ready; the translation row above then
+// reads as ready.
 //
 // It is drawn as shadcn/ui's Dialog with its parts, and what was found as an Item list: each
 // row has a mark that tells at a glance whether it is ready or needs the user, the name, what was
@@ -72,11 +81,16 @@ const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).t
 // A model step of the plan.
 type ModelStep = Extract<SetupStep, { kind: "model" }>;
 
+// How far a run has come. queued: started with the others under the one consent, waiting for the
+// run before it to be done; the runners leave it alone.
+type RunPhase = "queued" | "running" | "done" | "failed";
+const UNDER_WAY: readonly unknown[] = ["queued", "running"];
+
 // One run: the plan fixed at the consent with the catalog version it was shown for, what it has
-// asked for so far, and how it ended. A new id for each run, "Try again" included.
+// asked for so far, and how it ended. A new id each time it starts running, "Try again" included.
 interface SetupRun {
     id: number;
-    phase: "running" | "done" | "failed";
+    phase: RunPhase;
     plan: SetupStep[];
     version: unknown;
     started: Readonly<Record<string, string | null>>;
@@ -91,7 +105,7 @@ interface SetupRun {
 // switched: it has asked to select the model.
 interface ModelRun {
     id: number;
-    phase: "running" | "done" | "failed";
+    phase: RunPhase;
     offer: TranslationOffer;
     version: unknown;
     acknowledged: readonly string[];
@@ -181,16 +195,33 @@ export const FirstRunSetupController = () => {
     useModelRunner({ run: speechRun, setRun: setSpeechRun, ready: speechDone, modelReady: false, downloads,
         expected: { model: String(speechServers?.profiles?.[speechTarget]?.model ?? "") } });
 
+    // "Stop highlighting" says where the setup opens again in the settings' bubble (Hint), as a modal
+    // dialog draws no tooltip of the page's.
+    const dontShowHint = useId();
+    // The acknowledgements of the license restrictions of the translation's and the text to speech's
+    // models, each taken with the one consent (#411).
+    const [acknowledged, setAcknowledged] = useState<Record<ModelWords, readonly string[]>>({ translation: [], speech: [] });
+    // The runs go one after another, as the downloads do: the first one queued starts once none is
+    // running, unless one failed or was stopped, which holds the rest until "Try again".
+    useEffect(() => {
+        const runs = [run, translationRun, speechRun];
+        if (runs.some(item => item?.phase === "running" || item?.phase === "failed")) return;
+        const next = runs.findIndex(item => item?.phase === "queued");
+        if (next === 0) setRun(promoted);
+        else if (next === 1) setTranslationRun(promoted);
+        else if (next === 2) setSpeechRun(promoted);
+    }, [run?.phase, translationRun?.phase, speechRun?.phase]);
+
     if (!open) return null;
     const running = run?.phase === "running";
     const recognitionReady = run?.phase === "done" || (!running && ["ready", "cloud", "own_server"].includes(recognition));
-    const needsConsent = planModels(draftPlan).length > 0;
+    const translationUnderWay = UNDER_WAY.includes(translationRun?.phase);
     // Each feature settled: ready, or not installed now, and nothing of it under way. "Done" is then
     // offered, with what to turn on on the main screen (#955).
     const features: Record<SetupFeature, FeatureView> = {
-        recognition: { ready: recognitionReady, skipped: recognitionSkipped && !run, running },
-        translation: { ready: !translationNeed, skipped: translationValue === SKIP && !translationRun, running: translationRun?.phase === "running" },
-        speech: { ready: speechReadyBefore || speechRun?.phase === "done", skipped: speechChoice === SKIP && !speechRun, running: speechRun?.phase === "running" },
+        recognition: { ready: recognitionReady, skipped: recognitionSkipped && !run, running: UNDER_WAY.includes(run?.phase) },
+        translation: { ready: !translationNeed, skipped: translationValue === SKIP && !translationRun, running: translationUnderWay },
+        speech: { ready: speechReadyBefore || speechRun?.phase === "done", skipped: speechChoice === SKIP && !speechRun, running: UNDER_WAY.includes(speechRun?.phase) },
     };
     const finished = Object.values(features).every(isSettled);
     const finish = (forGood: boolean) => {
@@ -201,22 +232,82 @@ export const FirstRunSetupController = () => {
         if (forGood && finished) leads.lead(switchesToLead(features));
         setup.closeSetup();
     };
-    // Each run has its own id, so the error watch below starts over with it.
+    const recognitionShown = !["cloud", "own_server"].includes(recognition);
+    const recognitionDone = recognitionReady;
+
+    // What the one "Start preparation" starts: each feature with something chosen and not started.
+    // A run under way or held by a failure starts nothing new until it is over.
+    const runs = [run, translationRun, speechRun];
+    const underWay = runs.some(item => UNDER_WAY.includes(item?.phase));
+    const failedRun = runs.some(item => item?.phase === "failed");
+    // A run going: the ways to the settings wait for it. A failure or a stop that holds the rest does not.
+    const anyRunning = runs.some(item => item?.phase === "running");
+    const recognitionWork = recognitionShown && !recognitionDone && !recognitionSkipped && !run && !!draftPlan?.length;
+    const translationWork = !!translationNeed && !translationRun && !!translationOffered;
+    const speechWork = !speechReadyBefore && !speechRun && !!speechOffered;
+    const startModels: SetupEntry[] = [
+        ...(recognitionWork ? planModels(draftPlan) : []),
+        ...(translationWork && translationOffered?.entry ? [translationOffered.entry] : []),
+        ...(speechWork && speechOffered?.entry ? [speechOffered.entry] : []),
+    ];
+    const startRestrictions: StartRestriction[] = [
+        ...(translationWork && translationOffered ? restrictionsToAcknowledge("translation", translationOffered) : []),
+        ...(speechWork && speechOffered ? restrictionsToAcknowledge("speech", speechOffered) : []),
+    ];
+    // A model run may start with the consent (when it downloads) and every restriction of its
+    // license acknowledged, as the catalogs' confirmation does.
+    const offerReady = (offer: TranslationOffer, ticked: readonly string[]) => offer.entry
+        ? canStart(offer.entry, consent, ticked) : offer.restrictions.every(kind => ticked.includes(kind));
+    const startable = !underWay && !failedRun && (recognitionWork || translationWork || speechWork);
+    const canBegin = startable
+        && (!recognitionWork || planModels(draftPlan).length === 0 || consent)
+        && (!translationWork || !translationOffered || offerReady(translationOffered, acknowledged.translation))
+        && (!speechWork || !speechOffered || offerReady(speechOffered, acknowledged.speech));
     const begin = () => {
-        if (!draftPlan?.length || (needsConsent && !consent) || running) return;
-        setRun({ id: newRunId(), phase: "running", plan: draftPlan, version: downloads.catalog?.catalog_version,
+        if (!canBegin) return;
+        const version = downloads.catalog?.catalog_version;
+        // The first run starts, the others wait for it (the effect above starts each in turn).
+        let first = true;
+        const phase = (): RunPhase => { const value = first ? "running" : "queued"; first = false; return value; };
+        const modelRun = (offer: TranslationOffer, ticked: readonly string[]): ModelRun => ({ id: newRunId(), phase: phase(), offer, version,
+            acknowledged: ticked, started: undefined, applied: [], switched: false, failure: null });
+        if (recognitionWork && draftPlan) setRun({ id: newRunId(), phase: phase(), plan: draftPlan, version,
             started: {}, applied: [], sentServer: false, failure: null });
+        if (translationWork && translationOffered) setTranslationRun(modelRun(translationOffered, acknowledged.translation));
+        if (speechWork && speechOffered) setSpeechRun(modelRun(speechOffered, acknowledged.speech));
+        // A consent is for the models it was shown with: what is chosen later asks again.
+        setConsent(false);
+        setAcknowledged({ translation: [], speech: [] });
     };
-    const retry = () => setRun(previous => previous && { ...previous, id: newRunId(), phase: "running",
-        started: {}, applied: [], sentServer: false, failure: null });
-    const stop = () => {
-        // Stop shows only while a run goes, and a run has its plan.
+    // Each run has its own id, so the error watch below starts over with it.
+    const retry = () => {
+        if (run?.phase === "failed") setRun(previous => previous && { ...previous, id: newRunId(), phase: "running",
+            started: {}, applied: [], sentServer: false, failure: null });
+        else if (translationRun?.phase === "failed") setTranslationRun(retried);
+        else if (speechRun?.phase === "failed") setSpeechRun(retried);
+    };
+    const stopRecognition = () => {
+        // A recognition run that runs has its plan.
         if (!plan) return;
         const step = plan.find((item): item is ModelStep => item.kind === "model" && ACTIVE.includes(downloads.state.jobs[item.entry.id]?.phase));
         const job = step && downloads.state.jobs[step.entry.id];
         if (step && job && job.phase !== "cancelling") downloads.send("/run/cancel_model_download", { id: step.entry.id, job_id: job.job_id });
         else setRun(previous => previous && { ...previous, phase: "failed", failure: { step: plan.findIndex((_, i) => stepState(plan, i, view, null) !== "done"), code: "stopped" } });
     };
+    const stopModel = (item: ModelRun, set: Dispatch<SetStateAction<ModelRun | null>>) => {
+        const entry = item.offer.entry;
+        const job = entry ? downloads.state.jobs[entry.id] : undefined;
+        if (entry && job && ACTIVE.includes(job.phase) && job.phase !== "cancelling") downloads.send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id });
+        else set(previous => previous && { ...previous, phase: "failed", failure: "stopped" });
+    };
+    // Stop holds the runs still queued: "Try again" continues with them.
+    const stop = () => {
+        if (running) stopRecognition();
+        else if (translationRun?.phase === "running") stopModel(translationRun, setTranslationRun);
+        else if (speechRun?.phase === "running") stopModel(speechRun, setSpeechRun);
+    };
+    const acknowledge = (words: ModelWords, kind: string, checked: boolean) => setAcknowledged(previous => ({ ...previous,
+        [words]: checked ? [...previous[words].filter(item => item !== kind), kind] : previous[words].filter(item => item !== kind) }));
     const choiceLabel = t("first_run_setup.choice.label");
     // A model that may be too heavy for the PC says so in its choice (#955), as in the catalogs: the
     // speech models for where the speech engine runs (automatic), the translation's for its device.
@@ -224,20 +315,22 @@ export const FirstRunSetupController = () => {
     const speechWarned = (entry: SetupEntry) => !!hardwareWarning(entry, hardware);
     const translationMode = translationDeviceMode(currentSelectedTranslationComputeDevice?.data, hardware);
     const translationWarned = (entry: SetupEntry) => translationMode !== null && !!hardwareWarning(entry, hardware, { deviceMode: translationMode });
-    const recognitionDone = recognitionReady;
+    // No text-to-speech model to choose: none offered, or each needs a GPU the PC does not have (what
+    // the PC has is known, modelHardwareWarning.ts). One line then says so instead of the section
+    // (decided on 2026-11-27, #1266); the models stay in the settings' catalog.
+    const needsGpu = (entry: SetupEntry) => hardwareWarning(entry, hardware)?.reason === "no_gpu";
+    const speechUnavailable = !!downloads.catalog && !speechReadyBefore && !speechRun && speechChoices.every(needsGpu);
 
-    // The kit's Dialog (D-23). What the setup is for is drawn as its description; the dialog is
-    // named by its title alone and has no description, as before the kit (D-43).
+    // The kit's Dialog (D-23), named by its title alone: the sections' headings say what it is for.
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <Dialog ref={dialog} open={open} onOpenChange={() => finish(false)} className={ui.dialog} aria-describedby={undefined}>
             <DialogHeader>
                 <DialogTitle>{t("first_run_setup.title")}</DialogTitle>
-                <DialogDescription>{t("first_run_setup.purpose")}</DialogDescription>
             </DialogHeader>
             <Findings recognition={recognition} onLeave={() => finish(false)}
-                translationPreparing={translationRun?.phase === "running"} translationHere={!!translationOffered}
+                translationPreparing={translationUnderWay} translationHere={!!translationOffered}
                 translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog && translationValue !== SKIP} />
-            {!["cloud", "own_server"].includes(recognition) && <section className={ui.section} aria-labelledby="first-run-recognition">
+            {recognitionShown && <section className={ui.section} aria-labelledby="first-run-recognition">
                 <h4 id="first-run-recognition" className={ui.sectionTitle}>{t("first_run_setup.recognition.heading")}</h4>
                 {recognitionDone
                     ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")}</p>
@@ -246,44 +339,53 @@ export const FirstRunSetupController = () => {
                             recommended={recommendedRecognition?.id} value={recognitionValue ?? SKIP} onChange={setRecognitionChoice} warned={speechWarned} />}
                         {recognitionSkipped && !run
                             ? <p className={ui.text}>{t("first_run_setup.recognition.skipped")}</p>
-                            : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
-                                catalogReady={!!downloads.catalog} />}
+                            : <RecognitionSetup plan={plan} view={view} run={run} catalogReady={!!downloads.catalog} />}
                     </>}
-                {/* Stop is the kit's danger Button, as every stop (D-10). */}
-                {!recognitionDone && <div className={ui.actions}>
-                    {!run && !recognitionSkipped && <Button tone="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
-                        {t("first_run_setup.recognition.start")}</Button>}
-                    {running && <Button tone="danger" onClick={stop}>{t("first_run_setup.recognition.stop")}</Button>}
-                    {run?.phase === "failed" && <Button tone="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</Button>}
-                    {!running && <OpenSettings tab="transcription" label={t("first_run_setup.recognition.choose_other")} onLeave={() => finish(false)} />}
+                {!recognitionDone && !anyRunning && <div className={ui.actions}>
+                    <OpenSettings tab="transcription" label={pageLinkLabel(t, "transcription", t("first_run_setup.choose_other"))} onLeave={() => finish(false)} />
                 </div>}
             </section>}
-            {(translationNeed || translationRun) && <ModelSetup words="translation" offer={translationOffered} run={translationRun} setRun={setTranslationRun}
+            {(translationNeed || translationRun) && <ModelSetup words="translation" offer={translationOffered} run={translationRun} busy={anyRunning}
                 choice={translationChoices.length > 0 && <ModelChoice label={choiceLabel} choices={translationChoices} recommended={defaultTranslation?.id}
                     value={translationValue ?? SKIP} onChange={setTranslationChoice} warned={translationWarned} />}
                 modelReady={!!translationOffered && downloadedWeights.includes(translationOffered.weight)} onLeave={() => finish(false)}
-                settingsTab="translation" settingsLabel={t("first_run_setup.found.translation_open_settings")}
-                version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />}
-            <ModelSetup words="speech" offer={speechOffered} run={speechRun} setRun={setSpeechRun} alreadyReady={speechReadyBefore}
-                choice={speechChoices.length > 0 && <ModelChoice label={choiceLabel} choices={speechChoices} recommended={recommendedVoice?.id}
-                    value={speechChoice} onChange={setSpeechChoice} groupOf={entry => t(`first_run_setup.speech.group_${entry.target}`)} warned={speechWarned} />}
-                modelReady={speechDone} onLeave={() => finish(false)}
-                settingsTab="tts" settingsLabel={t("first_run_setup.speech.choose_other")}
-                version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />
+                settingsTab="translation" settingsLabel={pageLinkLabel(t, "translation", t("first_run_setup.choose_other"))} jobs={downloads.state.jobs} />}
+            {speechUnavailable
+                ? <p className={ui.text}>{t("first_run_setup.speech.needs_gpu")}</p>
+                : <ModelSetup words="speech" offer={speechOffered} run={speechRun} alreadyReady={speechReadyBefore} busy={anyRunning}
+                    choice={speechChoices.length > 0 && <ModelChoice label={choiceLabel} choices={speechChoices} recommended={recommendedVoice?.id}
+                        value={speechChoice} onChange={setSpeechChoice} groupOf={entry => t(`first_run_setup.speech.group_${entry.target}`)} warned={speechWarned} />}
+                    modelReady={speechDone} onLeave={() => finish(false)}
+                    settingsTab="tts" settingsLabel={pageLinkLabel(t, "tts", t("first_run_setup.choose_other"))} jobs={downloads.state.jobs} />}
+            {startable && <StartPreparation models={startModels} restrictions={startRestrictions} acknowledged={acknowledged} onAcknowledge={acknowledge}
+                consent={consent} setConsent={setConsent} canBegin={canBegin} onBegin={begin} />}
+            {/* Stop is the kit's danger Button, as every stop (D-10). */}
+            {(underWay || failedRun) && <div className={ui.actions}>
+                {underWay && !failedRun && <Button tone="danger" onClick={stop}>{t("first_run_setup.stop")}</Button>}
+                {failedRun && <Button tone="primary" onClick={retry}>{t("first_run_setup.retry")}</Button>}
+            </div>}
             {/* The setup's end (#955): which switches on the main screen to turn on, for the features
                 prepared; the others can stay off. Nothing is turned on here. */}
             {finished && <NextSteps features={features} />}
             <DialogFooter>
                 <Button onClick={() => finish(false)}>{t("first_run_setup.later")}</Button>
                 {finished && <Button tone="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</Button>}
-                {/* Ending the suggestion: the kit's quiet Button, on its own line under the two (decided on 2026-11-25). */}
-                {!finished && setup.notice === true && <div className={ui.footerLine}>
-                    <Button tone="quiet" onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</Button>
+                {/* Ending the suggestion: the kit's quiet Button, on its own line under the two (decided on 2026-11-25).
+                    Where the setup opens again is in its bubble (#1266). */}
+                {!finished && setup.notice === true && <div className={ui.footerLine} data-hint-host>
+                    <Button tone="quiet" aria-describedby={dontShowHint} onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</Button>
+                    <Hint text={t("first_run_setup.dont_show_hint")} id={dontShowHint} />
                 </div>}
             </DialogFooter>
         </Dialog>
     </div>;
 };
+
+// A queued run that starts, and a failed run that starts again, each with a new id.
+const promoted = <T extends { id: number; phase: RunPhase }>(previous: T | null): T | null =>
+    previous && previous.phase === "queued" ? { ...previous, id: newRunId(), phase: "running" } : previous;
+const retried = (previous: ModelRun | null): ModelRun | null => previous && { ...previous, id: newRunId(), phase: "running",
+    started: undefined, applied: [], switched: false, failure: null };
 
 // What to do on the main screen once the setup is settled (#955): for each feature, its switch to
 // turn on when it was prepared, or that it is not used now and its switch can stay off. The rows
@@ -460,68 +562,46 @@ const ModelChoice = ({ label, choices, recommended, value, onChange, groupOf, wa
 };
 
 // A one-model section (#936, #955), laid out as the recognition's section above: the choice of the
-// model, what it does, the model with its facts and total, the consent (and one for each license
-// restriction), then the steps (download it; select it when another model is selected) and the way
-// to the settings page for more. Nothing downloads before the consent, and the feature itself is
-// not turned on. words: the section's own words (first_run_setup.<words>.*). offer: null while
-// "do not install" is chosen; the section then says the feature is not used now.
+// model, what the preparation changes besides the download in one sentence, the model's line, then
+// the steps once it is started (download it; select it when another model is selected) and the way
+// to the settings page for more. Its consent and start are the setup's one (StartPreparation), and
+// the feature itself is not turned on. words: the section's own words (first_run_setup.<words>.*).
+// offer: null while "do not install" is chosen; the section then says the feature is not used now.
+type ModelWords = "translation" | "speech";
 interface ModelSetupProps {
-    words: "translation" | "speech";
+    words: ModelWords;
     choice: ReactNode;
     offer: TranslationOffer | null;
     run: ModelRun | null;
-    setRun: Dispatch<SetStateAction<ModelRun | null>>;
     // The offered model is on the PC.
     modelReady: boolean;
     // The section's feature was ready before it opened: no choice, only that.
     alreadyReady?: boolean;
+    // A run of the setup is going: the way to the settings waits for it.
+    busy: boolean;
     settingsTab: string;
     settingsLabel: string;
     onLeave: () => void;
-    version: unknown;
     jobs: ReturnType<typeof useModelDownloads>["state"]["jobs"];
-    send: ReturnType<typeof useModelDownloads>["send"];
 }
-const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyReady = false, settingsTab, settingsLabel, onLeave, version, jobs, send }: ModelSetupProps) => {
+const ModelSetup = ({ words, choice, offer, run, modelReady, alreadyReady = false, busy, settingsTab, settingsLabel, onLeave, jobs }: ModelSetupProps) => {
     const { t } = useI18n();
-    const [consent, setConsent] = useState(false);
-    const [acknowledged, setAcknowledged] = useState<string[]>([]);
-    const [linkFailed, setLinkFailed] = useState<string | null>(null);
     const key = (name: string) => `first_run_setup.${words}.${name}`;
     const shown = run?.offer ?? offer;
     const entry = shown?.entry ?? null, switches = !!shown?.switches;
-    const restrictions = shown?.restrictions ?? [];
     const job = entry ? jobs[entry.id] : undefined;
     const active = !!job && ACTIVE.includes(job.phase);
     const running = run?.phase === "running";
     const failed = run?.phase === "failed";
-    const acknowledgedAll = restrictions.every(kind => acknowledged.includes(kind));
-    // Nothing to download: no consent is asked, as the recognition's section with no model; a
-    // restricted license is still acknowledged before the choice changes.
-    const ready = !!shown && (entry ? canStart(entry, consent, acknowledged) : acknowledgedAll);
-    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
-        if (!isTauri()) return;
-        event.preventDefault();
-        try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
-    };
-    const begin = () => {
-        if (running || !ready || !shown) return;
-        setRun({ id: newRunId(), phase: "running", offer: shown, version, acknowledged, started: undefined, applied: [], switched: false, failure: null });
-    };
-    const retry = () => setRun(previous => previous && { ...previous, id: newRunId(), phase: "running", started: undefined, applied: [], switched: false, failure: null });
-    const stop = () => {
-        if (active && job.phase !== "cancelling") send("/run/cancel_model_download", { id: entry?.id, job_id: job.job_id });
-        else setRun(previous => previous && { ...previous, phase: "failed", failure: "stopped" });
-    };
-    const card = entry ? entry.source ?? entry.licenses?.[0] : undefined;
-    const what = !shown ? "" : !entry ? t(key("what_switch_only"), { name: shown.name }) : t(key(switches ? "what_switch" : "what"));
-    // The steps, as the recognition's: the download, then the choice. One that failed says why.
-    const modelLabel = entry ? t(key("step_model"), { name: entry.name }) : "";
-    const modelState = modelReady ? "done" : failed ? "failed" : "working";
+    // The model's name without its file's kind (Q8_0, int8), as the choice shows it.
+    const name = shown ? shown.entry ? familyLabel(shown.entry) : shown.name.split(" · ")[0] : "";
+    const what = !shown ? "" : !entry ? t(key("what_switch_only"), { name }) : t(key(switches ? "what_switch" : "what"));
+    // The steps, as the recognition's: the download, then the choice. One that failed says why; a
+    // run still queued waits.
+    const modelLabel = entry ? t(key("step_model"), { name: familyLabel(entry) }) : "";
+    const modelState = modelReady ? "done" : failed ? "failed" : running ? "working" : "waiting";
     const switchState = !modelReady ? "waiting" : failed ? "failed" : "working";
     const stateText = (state: string) => state === "failed" ? failureText(t, run?.failure ?? undefined) : t(`first_run_setup.recognition.state_${state}`);
-    const acknowledge = (kind: string, checked: boolean) =>
-        setAcknowledged(previous => checked ? [...previous.filter(item => item !== kind), kind] : previous.filter(item => item !== kind));
     return <section className={ui.section} aria-labelledby={`first-run-${words}`}>
         <h4 id={`first-run-${words}`} className={ui.sectionTitle}>{t(key("heading"))}</h4>
         {run?.phase === "done" || (alreadyReady && !run)
@@ -530,35 +610,7 @@ const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyRead
                 {!run && choice}
                 {!shown ? <p className={ui.text}>{t(key("skipped"))}</p> : <>
                 <p className={ui.text}>{what}</p>
-                {entry && <ul className={ui.models} aria-label={t(key("model"))}>
-                    <li className={ui.model}>
-                        <span className={ui.modelName}>{entry.name}</span>
-                        <span className={ui.modelFacts}>
-                            <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider ?? "" })}</span>
-                            <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
-                            <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
-                            {card && <a href={card} target="_blank" rel="noreferrer" onClick={event => openLink(event, card)}>
-                                {t("first_run_setup.recognition.model_card")}</a>}
-                        </span>
-                    </li>
-                </ul>}
-                {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
-                {entry && <p className={ui.total}>{t("first_run_setup.recognition.total", { size: gib(entry.total_bytes),
-                    bytes: Number.isFinite(entry.total_bytes) ? entry.total_bytes.toLocaleString("en-US") : "0" })}</p>}
-                {/* A license that restricts the use is said, and acknowledged on its own (#411). */}
-                {restrictions.map(kind => <p key={kind} className={ui.text}>
-                    <strong>{t([`model_downloads.restriction.${kind}.title`, "model_downloads.restriction.other.title"])}</strong>{" "}
-                    {t([`model_downloads.restriction.${kind}.note`, "model_downloads.restriction.other.note"], { license: shown.entry?.license ?? "" })}</p>)}
-                {!run && <>
-                    {entry && <label className={styles.checkLabel}>
-                        <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
-                        {t("first_run_setup.recognition.consent")}
-                    </label>}
-                    {restrictions.map(kind => <label key={kind} className={styles.checkLabel}>
-                        <input type="checkbox" checked={acknowledged.includes(kind)} onChange={event => acknowledge(kind, event.target.checked)} />
-                        {t(`model_downloads.restriction.${kind}.acknowledge`, { license: shown.entry?.license ?? "" })}
-                    </label>)}
-                </>}
+                {entry && <ModelLines label={t(key("model"))} models={[entry]} />}
                 {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
                     {entry && <li className={ui.step} data-state={modelState}>
                         <span className={ui.stepLabel}>{modelLabel}</span>
@@ -571,21 +623,98 @@ const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyRead
                             <Progress value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={modelLabel} />}
                     </li>}
                     {switches && <li className={ui.step} data-state={switchState}>
-                        <span className={ui.stepLabel}>{t(key("step_switch"), { name: shown.name })}</span>
+                        <span className={ui.stepLabel}>{t(key("step_switch"), { name })}</span>
                         <span className={ui.stepState} role={switchState === "failed" ? "alert" : undefined}>{stateText(switchState)}</span>
                     </li>}
                 </ol>}
                 {failed && <p className={ui.text}>{t(key("kept"))}</p>}
                 </>}
-                <div className={ui.actions}>
-                    {!run && shown && <Button tone="primary" disabled={!ready} onClick={begin}>
-                        {t("first_run_setup.recognition.start")}</Button>}
-                    {running && <Button tone="danger" onClick={stop}>{t("first_run_setup.recognition.stop")}</Button>}
-                    {failed && <Button tone="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</Button>}
-                    {!running && <OpenSettings tab={settingsTab} label={settingsLabel} onLeave={onLeave} />}
-                </div>
+                {!busy && <div className={ui.actions}><OpenSettings tab={settingsTab} label={settingsLabel} onLeave={onLeave} /></div>}
             </>}
     </section>;
+};
+
+// The models a section downloads, one line each: the name, the license and the size (decided on
+// 2026-11-27, #1266). The provider and the model card are in the breakdown over the consent.
+const ModelLines = ({ label, models }: { label: string; models: readonly SetupEntry[] }) =>
+    <ul className={ui.models} aria-label={label}>
+        {models.map(entry => <li key={entry.id} className={ui.model}>
+            <span className={ui.modelName}>{familyLabel(entry)}</span>
+            <span className={ui.modelFacts}>
+                {entry.license && <span>{entry.license}</span>}
+                <span>{gib(entry.total_bytes)}</span>
+            </span>
+        </li>)}
+    </ul>;
+
+// A license restriction of a model the consent takes in (#411), with the section it is for.
+interface StartRestriction {
+    words: ModelWords;
+    kind: string;
+    license: string;
+}
+const restrictionsToAcknowledge = (words: ModelWords, offer: TranslationOffer): StartRestriction[] =>
+    offer.restrictions.map(kind => ({ words, kind, license: offer.entry?.license ?? "" }));
+
+// The setup's one consent and one start (decided on 2026-11-27, #1266) for every feature chosen
+// and not started: the total, the breakdown (each file with its provider and its model card), a
+// license that restricts the use said and acknowledged on its own (#411), the consent, then
+// "Start preparation". Nothing to download: only the acknowledgements, if any, and the start.
+interface StartPreparationProps {
+    models: readonly SetupEntry[];
+    restrictions: readonly StartRestriction[];
+    acknowledged: Readonly<Record<ModelWords, readonly string[]>>;
+    onAcknowledge: (words: ModelWords, kind: string, checked: boolean) => void;
+    consent: boolean;
+    setConsent: (consent: boolean) => void;
+    canBegin: boolean;
+    onBegin: () => void;
+}
+const StartPreparation = ({ models, restrictions, acknowledged, onAcknowledge, consent, setConsent, canBegin, onBegin }: StartPreparationProps) => {
+    const { t } = useI18n();
+    const [linkFailed, setLinkFailed] = useState<string | null>(null);
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
+        if (!isTauri()) return;
+        event.preventDefault();
+        try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
+    };
+    const bytes = models.reduce((sum, entry) => sum + (finiteNumber(entry.total_bytes) ? entry.total_bytes : 0), 0);
+    return <div className={ui.section}>
+        {models.length > 0 && <>
+            <p className={ui.total}>{t("first_run_setup.total", { size: gib(bytes) })}</p>
+            <Fold size="link" summary={t("first_run_setup.breakdown")}>
+                <ul className={ui.models} aria-label={t("first_run_setup.breakdown")}>
+                    {models.map(entry => {
+                        const card = entry.source ?? entry.licenses?.[0];
+                        return <li key={entry.id} className={ui.model}>
+                            <span className={ui.modelName}>{entry.name}</span>
+                            {/* Each fact keeps its label and value together; a long provider name wraps inside its own item. */}
+                            <span className={ui.modelFacts}>
+                                {entry.provider && <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider })}</span>}
+                                {card && <a href={card} target="_blank" rel="noreferrer" onClick={event => openLink(event, card)}>
+                                    {t("first_run_setup.recognition.model_card")}</a>}
+                            </span>
+                        </li>;
+                    })}
+                </ul>
+                {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
+            </Fold>
+        </>}
+        {restrictions.map(item => <p key={`${item.words}-${item.kind}`} className={ui.text}>
+            <strong>{t([`model_downloads.restriction.${item.kind}.title`, "model_downloads.restriction.other.title"])}</strong>{" "}
+            {t([`model_downloads.restriction.${item.kind}.note`, "model_downloads.restriction.other.note"], { license: item.license })}</p>)}
+        {models.length > 0 && <label className={styles.checkLabel}>
+            <input type="checkbox" autoFocus checked={consent} onChange={event => setConsent(event.target.checked)} />
+            {t("first_run_setup.consent")}
+        </label>}
+        {restrictions.map(item => <label key={`${item.words}-${item.kind}`} className={styles.checkLabel}>
+            <input type="checkbox" checked={acknowledged[item.words].includes(item.kind)} onChange={event => onAcknowledge(item.words, item.kind, event.target.checked)} />
+            {t(`model_downloads.restriction.${item.kind}.acknowledge`, { license: item.license })}
+        </label>)}
+        <div className={ui.actions}>
+            <Button tone="primary" disabled={!canBegin} onClick={onBegin}>{t("first_run_setup.start")}</Button>
+        </div>
+    </div>;
 };
 
 // What was found. Each row only reads; its button leads to the place where it is set.
@@ -621,7 +750,7 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
     // #938). The model's list not read yet: the row waits for it. Nothing to prepare here: only
     // the Translation settings. A download started elsewhere shows how far it has come.
     const openTranslationSettings = <Button onClick={() => { onLeave(); openSettings({ page: "translation" }); }}>
-        {t("first_run_setup.found.translation_open_settings")}</Button>;
+        {pageLinkLabel(t, "translation")}</Button>;
     const translationProgress = translation ? downloadProgress(translation.weight) : null;
     const translationRow = (): Pick<FindingProps, "state" | "action" | "children"> => {
         if (!translation) return { state: "ready", children: t("first_run_setup.found.translation_ready") };
@@ -695,55 +824,28 @@ const Finding = ({ state, name, live = false, action, children }: FindingProps) 
         {action && <ItemActions>{action}</ItemActions>}
     </Item>;
 
-// The consent for the recognition models, then each step's progress.
+// The recognition's models, one line each, then each step's progress once it is started.
 interface RecognitionSetupProps {
     plan: SetupStep[] | null;
     view: RunView;
     run: SetupRun | null;
-    consent: boolean;
-    setConsent: (consent: boolean) => void;
     catalogReady: boolean;
 }
-const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }: RecognitionSetupProps) => {
+const RecognitionSetup = ({ plan, view, run, catalogReady }: RecognitionSetupProps) => {
     const { t } = useI18n();
-    const [linkFailed, setLinkFailed] = useState<string | null>(null);
     if (!catalogReady || !plan) return <p role="status" className={ui.text}>{t("first_run_setup.recognition.loading")}</p>;
     const models = planModels(plan);
-    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
-        if (!isTauri()) return;
-        event.preventDefault();
-        try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
-    };
     const failedAt = run?.phase === "failed" ? run.failure?.step ?? null : null;
     return <>
-        <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>
-        {models.length > 0 && <ul className={ui.models} aria-label={t("first_run_setup.recognition.models")}>
-            {models.map(entry => <li key={entry.id} className={ui.model}>
-                <span className={ui.modelName}>{entry.name}</span>
-                {/* Each fact keeps its label and value together; a long provider name wraps inside its own item. */}
-                <span className={ui.modelFacts}>
-                    <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider ?? "" })}</span>
-                    <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
-                    <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
-                    {entry.licenses?.[0] && <a href={entry.licenses[0]} target="_blank" rel="noreferrer"
-                        onClick={event => { const url = entry.licenses?.[0]; if (url) openLink(event, url); }}>{t("first_run_setup.recognition.model_card")}</a>}
-                </span>
-            </li>)}
-        </ul>}
-        {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
-        {models.length > 0 && <p className={ui.total}>{t("first_run_setup.recognition.total", { size: gib(planBytes(plan)),
-            bytes: planBytes(plan).toLocaleString("en-US") })}</p>}
-        {!run && models.length > 0 && <label className={styles.checkLabel}>
-            <input type="checkbox" autoFocus checked={consent} onChange={event => setConsent(event.target.checked)} />
-            {t("first_run_setup.recognition.consent")}
-        </label>}
+        {models.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>}
+        {models.length > 0 && <ModelLines label={t("first_run_setup.recognition.models")} models={models} />}
         {!run && models.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
         {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
             {plan.map((step, index) => {
                 const state = stepState(plan, index, view, failedAt);
                 const job = step.kind === "model" ? view.jobs[step.entry.id] : null;
                 const active = job && ACTIVE.includes(job.phase);
-                const label = step.kind === "model" ? t("first_run_setup.recognition.step_model", { name: step.entry.name })
+                const label = step.kind === "model" ? t("first_run_setup.recognition.step_model", { name: familyLabel(step.entry) })
                     : t(`first_run_setup.recognition.step_${step.kind}`);
                 return <li key={index} className={ui.step} data-state={state}>
                     <span className={ui.stepLabel}>{label}</span>

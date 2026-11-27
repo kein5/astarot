@@ -21,9 +21,10 @@ test("a failed step says why under its name, and the name keeps the row's width"
         };
     });
     await page.getByRole("button", { name: "Open setup" }).first().click();
-    const recognition = page.getByRole("region", { name: "Prepare speech recognition in one go" });
-    await recognition.getByRole("checkbox", { name: /I have checked the providers/ }).check();
-    await recognition.getByRole("button", { name: "Start setup" }).click();
+    // The setup's one consent and start, under the sections (#1266).
+    const recognition = page.getByRole("region", { name: "Prepare speech recognition" });
+    await page.getByRole("checkbox", { name: /I have checked the licenses and sizes/ }).check();
+    await page.getByRole("button", { name: "Start setup" }).click();
     const steps = recognition.getByRole("list", { name: /progress/i });
     const failed = steps.getByRole("alert");
     await expect(failed).toHaveText("Another model download is running. Wait or cancel it first.");
