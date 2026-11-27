@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useTranscription, useTranslation, useSettingValue } from "@logics_configs";
+import { useTranscription, useTranslation, useSettingValue, useUsagePresets } from "@logics_configs";
 import { useStore_IsBackendReady } from "@store";
 import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
@@ -15,7 +15,8 @@ import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, nextAction, stepState, recommendedAsr } from "../../../logics/setup/firstRunSetup.ts";
+import { setupPlan, planModels, onPcModels, nextAction, stepState, recommendedRecognizer, setupSources, missingRecognition } from "../../../logics/setup/firstRunSetup.ts";
+import type { SetupSources } from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupEntry, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { DEFAULT_TRANSLATION_WEIGHT, translationEntry, translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
 import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
@@ -142,7 +143,10 @@ export const FirstRunSetupController = () => {
     // starts at "do not install". The plan is fixed when the consent is shown, with the catalog
     // version it was shown for.
     const language = i18n?.language;
-    const recommendedRecognition = recommendedAsr(downloads.catalog, language);
+    // The inputs the chosen uses show (#1308 ★2): the recognition recommended is what they need.
+    const { currentUsagePresets } = useUsagePresets();
+    const sources = setupSources(currentUsagePresets.data);
+    const recommendedRecognition = recommendedRecognizer(downloads.catalog, language, sources);
     const recognitionChoices = modelChoices(downloads.catalog, ["asr"], recommendedRecognition?.id);
     const [recognitionChoice, setRecognitionChoice] = useState<string | null>(null);
     // null while the catalog is not known yet: nothing chosen, nothing skipped.
@@ -151,7 +155,8 @@ export const FirstRunSetupController = () => {
     const [consent, setConsent] = useState(false);
     const [run, setRun] = useState<SetupRun | null>(null);
     const draftPlan = recognitionSkipped ? null
-        : setupPlan({ catalog: downloads.catalog, language, engine, server, paths, asr: chosenEntry(recognitionChoices, recognitionValue) });
+        : setupPlan({ catalog: downloads.catalog, language, engine, server, paths, asr: chosenEntry(recognitionChoices, recognitionValue),
+            sources, downloaded: downloads.state.downloaded });
     const plan = run?.plan ?? draftPlan;
     const view: RunView = { engine, server, paths, jobs: downloads.state.jobs, started: run?.started ?? {}, applied: run?.applied ?? [] };
 
@@ -327,13 +332,14 @@ export const FirstRunSetupController = () => {
             <DialogHeader>
                 <DialogTitle>{t("first_run_setup.title")}</DialogTitle>
             </DialogHeader>
-            <Findings recognition={recognition} onLeave={() => finish(false)}
+            <Findings recognition={recognition} missing={missingRecognition(paths, sources)} onLeave={() => finish(false)}
                 translationPreparing={translationUnderWay} translationHere={!!translationOffered}
                 translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog && translationValue !== SKIP} />
             {recognitionShown && <section className={ui.section} aria-labelledby="first-run-recognition">
                 <h4 id="first-run-recognition" className={ui.sectionTitle}>{t("first_run_setup.recognition.heading")}</h4>
                 {recognitionDone
-                    ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")}</p>
+                    // Ready, with the switch to turn on for the inputs in use (#1308, ★13's rest).
+                    ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")} {t(`first_run_setup.recognition.turn_on_${sourcesKey(sources)}`)}</p>
                     : <>
                         {!run && recognition === "needs_setup" && recognitionChoices.length > 0 && <ModelChoice label={choiceLabel} choices={recognitionChoices}
                             recommended={recommendedRecognition?.id} value={recognitionValue ?? SKIP} onChange={setRecognitionChoice} warned={speechWarned} />}
@@ -457,7 +463,9 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
         sent.current.add(key);
         if (action.kind === "start") {
             setRun(previous => previous && { ...previous, started: { ...previous.started, [action.entry.id]: view.jobs[action.entry.id]?.job_id ?? null } });
-            downloads.send("/run/start_model_download", { id: action.entry.id, consent: true, catalog_version: run.version });
+            // A model on the PC is checked, not downloaded: no consent is asked for it (#1263, #1308 S-6).
+            if (action.onPc) downloads.send("/run/check_model_download", { id: action.entry.id, catalog_version: run.version });
+            else downloads.send("/run/start_model_download", { id: action.entry.id, consent: true, catalog_version: run.version });
         } else if (action.kind === "apply") {
             setRun(previous => previous && { ...previous, applied: [...previous.applied, action.jobId] });
             downloads.send("/run/apply_model_download", { id: action.entry.id, job_id: action.jobId, expected: action.expected,
@@ -637,16 +645,20 @@ const ModelSetup = ({ words, choice, offer, run, modelReady, alreadyReady = fals
 
 // The models a section downloads, one line each: the name, the license and the size (decided on
 // 2026-11-27, #1266). The provider and the model card are in the breakdown over the consent.
-const ModelLines = ({ label, models }: { label: string; models: readonly SetupEntry[] }) =>
-    <ul className={ui.models} aria-label={label}>
+// onPc: the models are on the PC already and are used, not downloaded (#1308 S-6): each says so in
+// place of its download's size.
+const ModelLines = ({ label, models, onPc = false }: { label: string; models: readonly SetupEntry[]; onPc?: boolean }) => {
+    const { t } = useI18n();
+    return <ul className={ui.models} aria-label={label}>
         {models.map(entry => <li key={entry.id} className={ui.model}>
             <span className={ui.modelName}>{familyLabel(entry)}</span>
             <span className={ui.modelFacts}>
                 {entry.license && <span>{entry.license}</span>}
-                <span>{gib(entry.total_bytes)}</span>
+                <span>{onPc ? t("first_run_setup.recognition.on_pc") : gib(entry.total_bytes)}</span>
             </span>
         </li>)}
     </ul>;
+};
 
 // A license restriction of a model the consent takes in (#411), with the section it is for.
 interface StartRestriction {
@@ -729,13 +741,15 @@ const StartPreparation = ({ models, restrictions, acknowledged, onAcknowledge, c
 // is not read yet.
 interface FindingsProps {
     recognition: RecognitionState;
+    // What the recognition still lacks, by input (#1308 N-3).
+    missing?: ReturnType<typeof missingRecognition>;
     onLeave: () => void;
     translationHere?: boolean;
     translationSwitches?: boolean;
     translationPreparing?: boolean;
     translationLoading?: boolean;
 }
-const Findings = ({ recognition, onLeave, translationHere = false, translationSwitches = false, translationPreparing = false,
+const Findings = ({ recognition, missing = null, onLeave, translationHere = false, translationSwitches = false, translationPreparing = false,
     translationLoading = false }: FindingsProps) => {
     const { t } = useI18n();
     const mic = useSettingValue("SelectedMicDevice");
@@ -781,7 +795,7 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationSw
         ...(virtualMicRow ? [virtualMicRow] : []),
         { id: "translation", name: t("first_run_setup.found.translation"), ...translationRow() },
         { id: "recognition", state: RECOGNITION_STATES[recognition], name: t("first_run_setup.found.recognition"),
-            children: t(`first_run_setup.found.recognition_${recognition}`) },
+            children: t(recognition === "needs_setup" && missing ? `first_run_setup.found.recognition_missing_${missing}` : `first_run_setup.found.recognition_${recognition}`) },
     ];
     const urgent = rows.filter(row => row.state === "attention");
     const settled = rows.filter(row => row.state !== "attention");
@@ -835,22 +849,24 @@ interface RecognitionSetupProps {
 const RecognitionSetup = ({ plan, view, run, catalogReady }: RecognitionSetupProps) => {
     const { t } = useI18n();
     if (!catalogReady || !plan) return <p role="status" className={ui.text}>{t("first_run_setup.recognition.loading")}</p>;
-    const models = planModels(plan);
+    const models = planModels(plan), onPc = onPcModels(plan);
     const listening = plan.find((step): step is Extract<SetupStep, { kind: "model" }> => step.kind === "model" && step.target === "listening");
     const failedAt = run?.phase === "failed" ? run.failure?.step ?? null : null;
     return <>
-        {models.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>}
+        {(models.length > 0 || onPc.length > 0) && <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>}
         {/* Why a second recognition model comes along (#1242): the first cannot tell the language. */}
         {listening && <p className={ui.text}>{t("first_run_setup.recognition.listening_why", { name: familyLabel(listening.entry) })}</p>}
         {models.length > 0 && <ModelLines label={t("first_run_setup.recognition.models")} models={models} />}
-        {!run && models.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
+        {/* Models on the PC already are used, not downloaded (#1308 S-6): listed apart, by their state. */}
+        {onPc.length > 0 && <ModelLines label={t("first_run_setup.recognition.models_on_pc")} models={onPc} onPc />}
+        {!run && models.length === 0 && onPc.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
         {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
             {plan.map((step, index) => {
                 const state = stepState(plan, index, view, failedAt);
                 const job = step.kind === "model" ? view.jobs[step.entry.id] : null;
                 const active = job && ACTIVE.includes(job.phase);
                 const label = step.kind === "model"
-                    ? t(step.target === "listening" ? "first_run_setup.recognition.step_listening_model" : "first_run_setup.recognition.step_model", { name: familyLabel(step.entry) })
+                    ? t(`first_run_setup.recognition.step_${step.target === "listening" ? "listening_model" : "model"}${step.onPc ? "_on_pc" : ""}`, { name: familyLabel(step.entry) })
                     : t(`first_run_setup.recognition.step_${step.kind}`);
                 return <li key={index} className={ui.step} data-state={state}>
                     <span className={ui.stepLabel}>{label}</span>
@@ -880,3 +896,6 @@ const OpenSettings = ({ tab, label, onLeave }: { tab: string; label: string; onL
     const openSettings = useOpenSettings();
     return <Button onClick={() => { onLeave(); openSettings({ page: tab }); }}>{label}</Button>;
 };
+
+// The key of the words for the inputs in use (#1308): both, Mic input's or Listening's.
+const sourcesKey = (sources: SetupSources): "both" | "mic" | "speaker" => sources.mic && sources.speaker ? "both" : sources.mic ? "mic" : "speaker";

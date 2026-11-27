@@ -64,6 +64,10 @@ interface World {
     vrchat: string;
     cables: object[];
     needs: object[];
+    // The uses chosen (USAGE_PRESETS, #1308 ★2); none known counts as both inputs.
+    presets?: string[] | null;
+    // The catalog's models on the PC (the download state's downloaded, #1308 S-6).
+    onPc?: Record<string, object>;
     // The selected translation model (CTRANSLATE2_WEIGHT_TYPE), and the ones on the PC.
     weight: string;
     downloaded: string[];
@@ -93,6 +97,7 @@ async function setup(context: TestContext, w = world()) {
             useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: w.telemetryPending } } }),
             useTranscription: () => ({ setSelectedTranscriptionEngine: async (engine: unknown) => { record("/set/data/selected_transcription_engine", engine); return true; } }),
             useSettingValue: () => ({ state: "ok", data: w.mic }),
+            useUsagePresets: () => ({ currentUsagePresets: { state: "ok", data: w.presets ?? null } }),
             useTranslation: () => ({ currentSelectedCTranslate2WeightType: { state: "ok", data: w.weight },
                 currentCTranslate2WeightTypeStatus: { state: "ok", data: w.downloaded.map(id => ({ id, is_downloaded: true })) },
                 setSelectedCTranslate2WeightType: (value: unknown) => { w.calls.push(["weight", value]); } }),
@@ -107,7 +112,7 @@ async function setup(context: TestContext, w = world()) {
             settings: { version: 1, server: w.server, base_url: "http://127.0.0.1:8080" }, error: w.realtimeError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
-            catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError, hardware: w.hardware, ensureHardware: () => w.calls.push("hardware"),
+            catalog: w.catalog, state: { jobs: w.jobs, downloaded: w.onPc ?? {} }, error: w.downloadError, hardware: w.hardware, ensureHardware: () => w.calls.push("hardware"),
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
         "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs, start: (id: string) => w.calls.push(["start", id]) }) },
@@ -456,8 +461,11 @@ test("every string it uses is in both languages", () => {
     const source = readFileSync(new URL("./FirstRunSetupController.tsx", import.meta.url), "utf8");
     const keys = new Set([...source.matchAll(/"(first_run_setup\.[a-z_.]+)"/g)].map(match => match[1]));
     for (const state of ["waiting", "working", "done", "failed"]) keys.add(`first_run_setup.recognition.state_${state}`);
-    for (const state of ["ready", "cloud", "own_server", "needs_setup", "unknown"]) keys.add(`first_run_setup.found.recognition_${state}`);
-    for (const step of ["server", "engine"]) keys.add(`first_run_setup.recognition.step_${step}`);
+    for (const state of ["ready", "cloud", "own_server", "needs_setup", "unknown", "missing_mic_speaker", "missing_mic", "missing_speaker", "missing_vad"]) {
+        keys.add(`first_run_setup.found.recognition_${state}`);
+    }
+    for (const step of ["server", "engine", "model_on_pc", "listening_model_on_pc"]) keys.add(`first_run_setup.recognition.step_${step}`);
+    for (const sources of ["both", "mic", "speaker"]) keys.add(`first_run_setup.recognition.turn_on_${sources}`);
     for (const language of ["en", "ja"]) {
         const messages = readLocale(language);
         for (const key of keys) assert.equal(typeof localeAt(messages, key), "string", `${language}: ${key}`);
@@ -813,7 +821,7 @@ test("one consent starts every feature chosen, one after another; a stop holds t
         const tree = s.render();
         // A recognition done shows that it is ready in place of its steps.
         const recognition = find(tree, node => componentName(node) === "RecognitionSetup")?.props.run?.phase
-            ?? (nodesIn(tree).some(node => node.props?.children === "first_run_setup.recognition.finished") ? "done" : null);
+            ?? (nodesIn(tree).some(node => [node.props?.children].flat().includes("first_run_setup.recognition.finished")) ? "done" : null);
         return [recognition, s.modelPart(tree, "translation").props.run?.phase, s.modelPart(tree, "speech").props.run?.phase];
     };
     // The recognition first; the others wait, their steps waiting.
@@ -903,4 +911,47 @@ test("the setup sits in the forms' section and the shared host, and ending the s
     assert.equal(await link({ notice: false }), null, "no longer suggested: nothing to stop highlighting");
     const ready = { engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } };
     assert.equal(await link(ready), null, "finished: Done ends the suggestion");
+});
+
+// #1308 (decided on 2026-11-28): the setup prepares what the chosen uses need (★2), says which input
+// lacks its model (N-3), uses the models on the PC without downloading them (S-6), and ends by
+// saying which switch to turn on (★13's rest).
+test("the silent use is prepared one model that tells the language, and Listening's lack is named", async context => {
+    // Qwen3-ASR tells the language (the catalog's flag, #1292).
+    const telling = { ...CATALOG, models: CATALOG.models.map(model => model.id === "qwen3-asr-06b-q8" ? { ...model, speech: { ...model.speech, detects: true } } : model) };
+    const w = world({ presets: ["nonverbal"], catalog: telling });
+    const s = await setup(context, w);
+    const tree = s.render();
+    assert.deepEqual(logic.planModels(s.part(tree, "RecognitionSetup").props.plan).map(entry => entry.id), ["qwen3-asr-06b-q8", "silero-vad-v62"]);
+    assert.equal(s.part(tree, "Findings").props.missing, "speaker");
+});
+
+test("models on the PC are checked, not downloaded, and are not in the consent", async context => {
+    const w = world({ onPc: { "reazonspeech-v2-q8": { model: "/r.gguf" }, "silero-vad-v62": { model: "/s.gguf" } } });
+    const s = await setup(context, w);
+    const tree = s.render();
+    const plan = s.part(tree, "RecognitionSetup").props.plan;
+    assert.deepEqual([logic.planModels(plan).map(entry => entry.id), logic.onPcModels(plan).map(entry => entry.id)],
+        [[], ["reazonspeech-v2-q8", "silero-vad-v62"]]);
+    // Listed apart, each line saying it is on the PC in place of a download's size.
+    const local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const lines = find(drawWith(local, s.part(tree, "RecognitionSetup")), node => componentName(node) === "ModelLines" && node.props.onPc === true);
+    assert.deepEqual([lines?.props.label, lines?.props.models.map((entry: { id: string }) => entry.id)],
+        ["first_run_setup.recognition.models_on_pc", ["reazonspeech-v2-q8", "silero-vad-v62"]]);
+    assert.deepEqual(s.start(tree).props.models, [], "no download, so no consent for it");
+    assert.equal(s.start(tree).props.canBegin, true);
+    s.begin();
+    s.render();
+    assert.deepEqual<unknown>(w.sent, [["/run/check_model_download", { id: "reazonspeech-v2-q8", catalog_version: "2026-11-16.3" }]]);
+});
+
+test("a setup that ends says which switch to turn on for the inputs in use", async context => {
+    for (const [presets, key] of [[null, "both"], [["voice_changer"], "mic"], [["nonverbal"], "speaker"]] as const) {
+        const w = world({ presets: presets === null ? null : [...presets], engine: "SpeechCpp", server: "bundled", paths: { model: "/m.gguf", vad_model: "/v.gguf" } });
+        const s = await setup(context, w);
+        const finished = nodesIn(s.render()).find(node => [node.props?.children].flat().includes("first_run_setup.recognition.finished"));
+        assert.ok(finished, key);
+        assert.ok([finished.props.children].flat().includes(`first_run_setup.recognition.turn_on_${key}`), key);
+    }
 });

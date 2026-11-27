@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { recognitionState, recommendedAsr, recommendedListening, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
-    setupSuggested, setupWork, hasSetupWork } from "./firstRunSetup.ts";
+    setupSuggested, setupWork, hasSetupWork, setupSources, recommendedRecognizer, onPcModels, missingRecognition, BOTH_SOURCES } from "./firstRunSetup.ts";
 import type { RunView, SetupCatalog, SetupEntry } from "./firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -189,4 +189,58 @@ test("Listening's own model is applied for Listening, into its own field", () =>
     // Its saved path ends the step; the VAD is next.
     assert.equal(at({ model: "/reazon.gguf", listening_model: "/qwen.gguf" }).kind, "start");
     assert.deepEqual(at({ model: "/reazon.gguf", listening_model: "/qwen.gguf" }), { kind: "start", entry: (telling.models ?? [])[4] });
+});
+
+// #1308 ★2 (decided on 2026-11-28): the setup recommends what the chosen uses need. Both inputs:
+// as before. One input alone: one model that tells the language, so one model is enough.
+test("the inputs in use come from the uses chosen; none known counts as both", () => {
+    assert.deepEqual(setupSources(["basic"]), { mic: true, speaker: true });
+    assert.deepEqual(setupSources(["nonverbal"]), { mic: false, speaker: true }, "the silent use listens only");
+    assert.deepEqual(setupSources(["voice_changer"]), { mic: true, speaker: false });
+    assert.deepEqual(setupSources(["nonverbal", "voice_changer"]), { mic: true, speaker: true });
+    assert.deepEqual(setupSources(["all"]), BOTH_SOURCES);
+    assert.deepEqual(setupSources(null), BOTH_SOURCES);
+});
+
+test("one input alone gets one model that tells the language; both keep Listening's own after a model that cannot", () => {
+    const mic = { mic: true, speaker: false }, speaker = { mic: false, speaker: true };
+    assert.equal(recommendedRecognizer(telling, "ja")?.id, "reazon-q8");
+    for (const sources of [mic, speaker]) {
+        assert.equal(recommendedRecognizer(telling, "ja", sources)?.id, "qwen-q8");
+        assert.deepEqual(ids(setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty, sources })),
+            ["asr:qwen-q8", "vad:silero", "server", "engine"], JSON.stringify(sources));
+    }
+    // A model chosen in the setup that cannot tell the language takes no Listening's model for one input.
+    assert.deepEqual(ids(setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty, sources: mic,
+        asr: (telling.models ?? [])[2] })), ["asr:reazon-q8", "vad:silero", "server", "engine"]);
+    assert.deepEqual(ids(setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty, sources: BOTH_SOURCES })),
+        ["asr:reazon-q8", "listening:qwen-q8", "vad:silero", "server", "engine"]);
+});
+
+// #1308 S-6: models on the PC already are checked and used, not downloaded: listed apart, out of the
+// download's size and consent.
+test("a model on the PC is checked, not downloaded, and is not in the download's size", () => {
+    const plan = setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty,
+        downloaded: { "reazon-q8": { model: "/r.gguf" }, silero: { model: "/s.gguf" } } });
+    assert.ok(plan);
+    assert.deepEqual(planModels(plan).map(entry => entry.id), ["qwen-q8"]);
+    assert.deepEqual(onPcModels(plan).map(entry => entry.id), ["reazon-q8", "silero"]);
+    assert.equal(planBytes(plan), 800);
+    const action = nextAction(plan, view({}));
+    assert.deepEqual(action, { kind: "start", entry: (telling.models ?? [])[2], onPc: true });
+    assert.equal(nextAction(plan, view({ paths: { ...empty, model: "/r.gguf" } })).kind, "start");
+    assert.equal((nextAction(plan, view({ paths: { ...empty, model: "/r.gguf" } })) as { onPc?: boolean }).onPc, undefined, "Listening's model is downloaded");
+});
+
+// #1308 N-3: the findings say which input in use has no recognition model.
+test("what the recognition lacks is said by input, for the inputs in use", () => {
+    const none = { model: "", vad_model: "", listening_model: "" };
+    assert.equal(missingRecognition(none), "mic_speaker");
+    assert.equal(missingRecognition(none, { mic: true, speaker: false }), "mic");
+    assert.equal(missingRecognition(none, { mic: false, speaker: true }), "speaker");
+    // Listening with a model of its own lacks nothing; Mic input does.
+    assert.equal(missingRecognition({ ...none, listening_model: "/l.gguf" }), "mic");
+    assert.equal(missingRecognition({ ...none, listening_model: "/l.gguf" }, { mic: false, speaker: true }), "vad");
+    assert.equal(missingRecognition({ model: "/m.gguf", vad_model: "", listening_model: "" }), "vad");
+    assert.equal(missingRecognition({ model: "/m.gguf", vad_model: "/v.gguf", listening_model: "" }), null, "the engine or the server is what is left");
 });
