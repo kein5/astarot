@@ -283,6 +283,20 @@ test("the voice input is found on the RVC page by its words", async () => {
     }
 });
 
+// #1308 ★1, N-13: each input's speech recognition model is found by its fields' names, in both
+// languages, where the fields are (「聞き取りのモデル」 found nothing before).
+test("each input's speech recognition model is found by its fields' names", async () => {
+    for (const language of ["en", "ja"]) {
+        const s = await loadSearch({ language, models: { models: [] }, settings: null });
+        const t = tOf(language);
+        for (const query of [t("source_models.mic"), t("realtime.listening_model"), t("source_models.title")]) {
+            assert.deepEqual(s.search(searchable(query)).filter(result => result.setting_id === "source_models")
+                .map(result => [result.tab, result.label, result.desc, result.tab_label]),
+                [["transcription", t("source_models.title"), t("source_models.help"), menuName(language, "transcription")]], `${language} ${query}`);
+        }
+    }
+});
+
 test("the real-time recognition is found by its words and by the languages its models and sources use", async () => {
     const models = { models: [{ languages: ["ko"] }, { languages: ["de", ""] }, { name: "no languages" }, null] };
     const settings = { mic: { language: "auto" }, speaker: { language: "fr" } };

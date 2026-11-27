@@ -9,6 +9,7 @@
 
 import type { ModelCatalogRow, ModelDownloadCatalog, ModelDownloadJob } from "../voice/useModelDownloads";
 import type { SpeechServerProfileSettings } from "../voice/useSpeechServers";
+import type { CaptionSource } from "./realtimeCaptionState";
 
 // The choice of Mic input's model for Listening too.
 export const SAME = "";
@@ -56,4 +57,33 @@ export const listeningApply = (asked: ListeningAsk | null, jobs: Readonly<Record
     const job = jobs[asked.id];
     if (!job?.job_id || job.job_id === asked.before || job.phase !== "ready") return null;
     return { id: asked.id, job_id: job.job_id, expected: { model: path }, source: "speaker" as const };
+};
+
+// A check asked for one input's model (#1308 ★1, decided on 2026-11-28): Mic input's and Listening's
+// models are chosen side by side, each among the recognition models on the PC.
+export interface SourceAsk extends ListeningAsk {
+    source: CaptionSource;
+}
+
+// The apply of a checked model for the input it was chosen for, once its check is ready; null until
+// then. Mic input's is checked against its saved model and changes it alone; Listening's against its
+// own (`"source": "speaker"`), as above.
+export const sourceApply = (asked: SourceAsk | null, jobs: Readonly<Record<string, ModelDownloadJob | undefined>>,
+    paths: { readonly mic: string; readonly speaker: string }) => {
+    const apply = listeningApply(asked, jobs, asked?.source === "mic" ? paths.mic : paths.speaker);
+    if (!apply || asked?.source !== "mic") return apply;
+    return { id: apply.id, job_id: apply.job_id, expected: apply.expected };
+};
+
+// Which inputs use a recognition model file, by its path (#1308 ★1): Mic input's model, and
+// Listening's own or Mic input's when Listening shares it. The catalog marks a model in use by them.
+export const sourcesByPath = (asr: AsrProfile): Readonly<Record<string, readonly CaptionSource[]>> => {
+    const used: Record<string, CaptionSource[]> = {};
+    const mic = asr?.model?.trim() ?? "", own = asr?.listening_model?.trim() ?? "";
+    const add = (path: string, source: CaptionSource) => {
+        if (path) used[path] = [...(used[path] ?? []), source];
+    };
+    add(mic, "mic");
+    add(own || mic, "speaker");
+    return used;
 };

@@ -804,17 +804,19 @@ test("a recognition model takes the VAD with it: one review, one consent, then t
     p.downloads.state = { ...p.downloads.state, jobs: { asr: { job_id: "a1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
     p.draw();
     assert.equal(runsOf(p.sent).length, 1);
-    // Downloaded: the VAD's download starts with the consent given, and only once.
+    // Downloaded: it is applied, as no model is set (#1308 ★3), and the VAD's download starts with the
+    // consent given, only once.
     p.downloads.state = { ...p.downloads.state, jobs: { asr: { job_id: "a1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
     p.draw(); p.draw();
-    assert.deepEqual(runsOf(p.sent).slice(1), [["/run/start_model_download", { id: "vad", consent: true, catalog_version: "v7" }]]);
+    assert.deepEqual(runsOf(p.sent).slice(1), [["/run/apply_model_download", { id: "asr", job_id: "a1", expected: { model: "" } }],
+        ["/run/start_model_download", { id: "vad", consent: true, catalog_version: "v7" }]]);
     // Its progress shows on the recognition model's card, where it was asked for.
     p.downloads.state = { ...p.downloads.state, jobs: { ...p.downloads.state.jobs, vad: { job_id: "v1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
     assert.ok(texts(cardNamed(p.draw(), "ASR"), "p").some(line => line.startsWith("VAD · F32: model_downloads.phase_downloading")));
-    // Ready: the VAD is applied with the path the page holds; the recognition model keeps its own Apply.
+    // Ready: the VAD is applied with the path the page holds.
     p.downloads.state = { ...p.downloads.state, jobs: { ...p.downloads.state.jobs, vad: { job_id: "v1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
     p.draw(); p.draw();
-    assert.deepEqual(runsOf(p.sent).slice(2), [["/run/apply_model_download", { id: "vad", job_id: "v1", expected: { model: "" } }]]);
+    assert.deepEqual(runsOf(p.sent).slice(3), [["/run/apply_model_download", { id: "vad", job_id: "v1", expected: { model: "" } }]]);
 });
 
 test("a VAD on the PC is checked after the recognition model, a set one is left alone, and a stopped download takes none", async context => {
@@ -832,7 +834,8 @@ test("a VAD on the PC is checked after the recognition model, a set one is left 
     assert.ok(onPc.lines.includes("VAD · F32 · MIT · 1.2 MiB"));
     onPc.p.downloads.state = { ...onPc.p.downloads.state, jobs: { asr: { job_id: "a1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
     onPc.p.draw(); onPc.p.draw();
-    assert.deepEqual(runsOf(onPc.p.sent).slice(1), [["/run/check_model_download", { id: "vad", catalog_version: "v7" }]]);
+    assert.deepEqual(runsOf(onPc.p.sent).slice(1), [["/run/apply_model_download", { id: "asr", job_id: "a1", expected: { model: "" } }],
+        ["/run/check_model_download", { id: "vad", catalog_version: "v7" }]]);
     // A VAD set already: the review is the recognition model's alone.
     const set = await review(withVad(), { ...props, expected: { asr: { model: "" }, vad: { model: "/mine/vad.gguf" } } });
     assert.ok(!set.lines.some(line => line.startsWith("VAD")) && !set.lines.includes("model_downloads.with_vad"));
@@ -1174,4 +1177,64 @@ test("a card's choice of the file keeps the column's width: the rule sizes the k
     const css = (await import("node:fs")).readFileSync(new URL("./VoiceSettings.css.ts", import.meta.url), "utf8");
     assert.match(css, /globalStyle\(variants\.map\(selector => `\$\{selector\} \[data-slot="native-select-wrapper"\]`\)\.join\(", "\), \{ width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" \}\);/);
     assert.doesNotMatch(css, /\$\{selector\} select`/);
+});
+
+// #1308 ★1 (decided on 2026-11-28): a speech recognition model is chosen for each input above the
+// catalog (SourceModels). Its card downloads it and says which inputs use it; it offers no "Use this
+// model", and a model on the PC is not pressed for one.
+test("a recognition model's card says which inputs use it, and points to the fields above for the choice", async context => {
+    const p = await catalogPage(context, { catalog: catalogOf(["mic", "own", "other", "away"].map(id => model(id, { name: id }))),
+        state: { observation_id: "1", jobs: {}, downloaded: { mic: { model: "/mic.gguf" }, own: { model: "/own.gguf" }, other: { model: "/other.gguf" } } } });
+    const props = { targets: ["asr"], expected: { asr: { model: "/mic.gguf" } }, chooseIn: ["asr"],
+        usedBy: { "/mic.gguf": ["mic"], "/own.gguf": ["speaker"] } } as const;
+    const tree = p.draw(props);
+    // The card's state badge, drawn with the props the card gives it.
+    const state = (id: string, drawn: unknown = tree) => {
+        const badge = findIn(cardNamed(drawn, id), node => componentName(node) === "StatusBadge");
+        return textOf(drawPart(drawn, "StatusBadge", badge.props));
+    };
+    assert.deepEqual(["mic", "own", "other", "away"].map(id => state(id)),
+        ["model_catalog.status.in_use_mic", "model_catalog.status.in_use_speaker", "model_catalog.status.downloaded", "model_catalog.status.not_downloaded"]);
+    const other = cardNamed(tree, "other");
+    assert.equal(find(other, node => node.props?.["data-use-model"] !== undefined), null, "no Use this model");
+    assert.equal(other.props.className, undefined, "not pressed for a choice");
+    assert.ok(texts(other, "p").includes("model_catalog.choose_above"));
+    // One not on the PC is still downloaded from its card.
+    assert.equal(cardNamed(tree, "away").props.className, "pressable");
+    // One model for both inputs.
+    assert.equal(state("mic", p.draw({ ...props, usedBy: { "/mic.gguf": ["mic", "speaker"] } })), "model_catalog.status.in_use_both");
+    // Elsewhere (the speech synthesis models), a model on the PC is used from its card, as before.
+    const plain = cardNamed(p.draw({ chooseIn: undefined, usedBy: undefined }), "other");
+    assert.ok(find(plain, node => node.props?.["data-use-model"] === "other"));
+});
+
+// #1308 ★3 (decided on 2026-11-28): a download taken here is applied once it is ready, as the
+// first-run setup's is. A recognition model is applied so only while Mic input has none: one set is
+// changed in its input's field, never by a download.
+test("a download taken here is applied once ready; a recognition model only while Mic input has none", async context => {
+    const download = async (given: object, props: object, id: string) => {
+        const p = await catalogPage(context, given);
+        buttonNamed(cardNamed(p.draw(props), id), "model_downloads.review").props.onClick();
+        ofType(findIn(p.draw(), isDialog), "input")[0].props.onChange({ target: { checked: true } });
+        buttonNamed(findIn(p.draw(), isDialog), "model_downloads.start").props.onClick();
+        p.downloads.state = { ...p.downloads.state, jobs: { [id]: { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
+        p.draw();
+        p.downloads.state = { ...p.downloads.state, jobs: { [id]: { job_id: "j1", phase: "ready", received_bytes: 2, total_bytes: 2 } } };
+        p.draw(); p.draw();
+        return p;
+    };
+    const one = (id: string, target = "asr") => ({ catalog: catalogOf([model(id, { name: id, target })]), state: { observation_id: "1", jobs: {} } });
+    // A speech synthesis model replaces the one set.
+    const tts = await download(one("voice", "japanese"), { targets: ["japanese"], expected: { japanese: { model: "/old.gguf" } } }, "voice");
+    assert.deepEqual(runsOf(tts.sent).slice(1), [["/run/apply_model_download", { id: "voice", job_id: "j1", expected: { model: "/old.gguf" } }]]);
+    // A recognition model while Mic input has none becomes Mic input's.
+    const first = await download(one("asr"), { targets: ["asr"], expected: { asr: { model: "" } }, chooseIn: ["asr"], usedBy: {} }, "asr");
+    assert.deepEqual(runsOf(first.sent).slice(1), [["/run/apply_model_download", { id: "asr", job_id: "j1", expected: { model: "" } }]]);
+    // With one set, it is downloaded and left to the fields above: no apply, and no Apply button.
+    const asrProps = { targets: ["asr"], expected: { asr: { model: "/set.gguf" } }, chooseIn: ["asr"], usedBy: { "/set.gguf": ["mic", "speaker"] } } as const;
+    const another = await download(one("asr"), asrProps, "asr");
+    assert.equal(runsOf(another.sent).length, 1, "its download alone");
+    const card = cardNamed(another.draw(asrProps), "asr");
+    assert.ok(texts(card, "p").includes("model_catalog.choose_above"));
+    assert.equal(find(card, node => textOf(node) === "model_downloads.apply" && node.type === "button"), null);
 });

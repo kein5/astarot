@@ -7,9 +7,11 @@ ASTAROT packages contain no models for text to speech, speech recognition, trans
 1. Under "Download a default model" on a page, press the card of the model to download. A press anywhere on the card does what "Review download" does. On "Text to speech (TTS)" and "Speech recognition (ASR)" it is inside "Models and servers".
 2. Check the model name, license and size. Open "Breakdown" for the provider, the links to the terms, where it will be saved and each file's exact size.
 3. Tick the agreement and press "Agree and download". You can cancel while it downloads.
-4. When the download and check finish, press "Apply model path". First stop the server or feature that uses the model.
+4. When the download and check finish, the model is put in the settings by itself. If the server or feature that uses it is running, stop it, then press "Apply model path".
 
 A model that is already on your PC is used when you press its card: its files are checked, and nothing is downloaded.
+
+Speech recognition models are chosen for each input instead, under "Mic input's model" and "Listening's model" in "On your PC (speech.cpp)". Their cards download them and say which input uses each ("In use (Mic input)", "In use (Listening)"). A downloaded speech recognition model is put in the settings by itself only while Mic input has none; it then becomes Mic input's model, and speech.cpp is selected as the speech recognition engine if none was.
 
 The [first setup](./first-setup) screen can also choose the speech recognition, translation and text to speech models for each feature and download them in one go.
 

@@ -166,10 +166,10 @@ test("speech recognition opens on the engine choice and its two systems; the res
     // APIs with their keys. The word filter, the timing and the realtime captions are set once
     // (#554). The old Whisper models' screen went in 0.6.0 (#288). The page keeps its descriptions
     // out of sight, as hints (#614).
-    assert.deepEqual(order, ["HintDescriptions", "TranscriptionEngine_Container", "EngineGroup", "AsrServer", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
+    assert.deepEqual(order, ["HintDescriptions", "TranscriptionEngine_Container", "EngineGroup", "AsrServer", "SourceModels", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
         "AdvancedSection", "Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
     // The models and servers start open while speech recognition on the bundled server has no model (#1230).
-    assert.match(page, /<EngineGroup group="speechcpp">\s*<AsrServer \/>\s*<SpeechServers profiles=\{\["asr"\]\} needed=\{asrModelsNeeded\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
+    assert.match(page, /<EngineGroup group="speechcpp">\s*<AsrServer \/>[\s\S]*?<SourceModels \/>\s*<SpeechServers profiles=\{\["asr"\]\} needed=\{asrModelsNeeded\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
     assert.match(page, /<AdvancedSection [^>]*>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);
     const section = (name: string) => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
