@@ -13,6 +13,8 @@ import { catalogAtom } from "../../../../../../logics/translation/translationCat
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { ApiItem, EngineItem, TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
 import type { PendingCatalogChange } from "../../../../../../logics/translation/useTranslationCatalog.ts";
+import * as translatorLabelModule from "../../../../../../logics/main/translatorLabel.ts";
+import { translator_status } from "../../../../../../logics/ui_configs.ts";
 
 const REGISTER = "/run/register_translation_catalog_entry";
 
@@ -57,6 +59,7 @@ const loadSection = async (runtime: HookRuntime, t?: Translate) => {
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => new Set(shippedEngine.map(item => item.weight)) },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": { endpointNotices: () => ({ description: "", warning: null }) },
+        "../../../../../../logics/main/translatorLabel.ts": translatorLabelModule, "../../../../../../logics/ui_configs.ts": { translator_status },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
@@ -159,7 +162,8 @@ test("each group says when nothing was added, and keeps the entries the app ship
         const fold = findIn(drawn, node => node.type === "fold" && node.props.summary === "translation_catalog.shipped_title", `${id}: the fold`);
         const cards = nodesIn(fold).filter(node => componentName(node) === "ShippedCard").map(node => { runtime.remount(); return drawWith(runtime, node); });
         assert.equal(cards.length, 2, id);
-        for (const shipped of cards) assert.ok(textOf(shipped).includes("translation_catalog.badge.builtin"), id);
+        // The fold's title says they are the app's; the cards carry no mark that repeats it (#1266 T-6).
+        for (const shipped of cards) assert.ok(!textOf(shipped).includes("translation_catalog.badge.builtin"), id);
     }
     const shipped = (id: string) => {
         const drawn = group(shippedEngine.some(item => item.id === id) ? "engine" : "api");
@@ -171,6 +175,8 @@ test("each group says when nothing was added, and keeps the entries the app ship
     assert.ok(!textOf(shipped("m2m100_418M-ct2-int8")).includes("translation_catalog.badge.non_commercial"));
     assert.ok(textOf(shipped("Ollama")).includes("translation_catalog.kind.local_server"));
     assert.ok(textOf(shipped("DeepL_API")).includes("translation_catalog.kind.cloud"));
+    // Named as the translator list names it, not by its id (#1266, C-3).
+    assert.ok(textOf(shipped("DeepL_API")).includes("DeepL API") && !textOf(shipped("DeepL_API")).includes("DeepL_API"));
 });
 
 test("an engine entry is not sent without a name; Enter sends it once, cleaned, and the form empties after the answer", async context => {

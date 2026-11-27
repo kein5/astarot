@@ -2472,7 +2472,6 @@ translation_catalog:
         label: "翻訳のLLMを動かすllama.cppのサーバー"
         desc: "TranslateGemmaのような翻訳のLLMは、llama.cppのサーバーで動きます。サーバーはアプリに含まれていません。ここでサーバーを取得してから、下でモデルのファイルを追加してください。サーバーが起動するのは、そのモデルで翻訳をオンにしたときだけです。"
     badge:
-        builtin: "標準"
         user: "自分で追加"
         non_commercial: "非商用のライセンス"
     kind:

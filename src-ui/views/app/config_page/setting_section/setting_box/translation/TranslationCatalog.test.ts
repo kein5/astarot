@@ -6,6 +6,8 @@ import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
 import * as endpointPrivacy from "../../../../../../logics/common/endpointPrivacy.ts";
+import * as translatorLabelModule from "../../../../../../logics/main/translatorLabel.ts";
+import { translator_status } from "../../../../../../logics/ui_configs.ts";
 
 // Test data: a catalog with only the fields the cards read. Shipped and added entries of both
 // groups: one in use, one that cannot run yet, one ready.
@@ -38,6 +40,7 @@ async function catalog(context: TestContext, hints = false, layout = "list", act
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
+        "../../../../../../logics/main/translatorLabel.ts": translatorLabelModule, "../../../../../../logics/ui_configs.ts": { translator_status },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
@@ -104,6 +107,25 @@ test("in the grid a card's first line is its name and its state, and its marks a
         const own = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge && badge.props.children === "translation_catalog.badge.user")
             .map(badge => `${badge.props.tone} ${badge.props.variant}`);
         assert.deepEqual([own(headLine), own(marks)], id === "mine" ? [[], ["strong dashed"]] : [[], []], id);
+    }
+});
+
+// #1266 T-6: what the app ships carries no mark of its own, its fold's title says so; a built-in
+// API is named as the translator list names it, not by its id (C-3).
+test("a shipped entry has no mark saying it is shipped, and a built-in API is named as the translators are", async context => {
+    shownCatalog = unchecked<TranslationCatalog>({ ...CATALOG,
+        engine: [{ id: "free", weight: "free", origin: "builtin", name: "Free", runtime: "onnx", available: true, in_use: false }],
+        api: [{ id: "DeepL_API", origin: "builtin", name: "DeepL_API", kind: "cloud", available: false }, ...(CATALOG.api ?? [])] });
+    listed = new Set(["free"]);
+    context.onTestFinished(() => { shownCatalog = CATALOG; listed = new Set(["shipped"]); });
+    for (const layout of ["list", "grid"]) {
+        const { cards } = await catalog(context, false, layout);
+        const badges = (id: string) => nodesIn(cards.get(id)).filter(node => node.type === kitStandIns.Badge).map(node => node.props.children);
+        assert.deepEqual([badges("free"), badges("DeepL_API"), badges("cloud")],
+            [[], ["translation_catalog.kind.cloud"], ["translation_catalog.kind.cloud"]], layout);
+        assert.equal(find(cards.get("free"), node => classOf(node) === "card_badges"), null, `${layout}: no empty line of marks`);
+        const title = (id: string) => [findIn(cards.get(id), node => node.type === kitStandIns.CardTitle).props.children].flat().join("");
+        assert.deepEqual([title("DeepL_API"), title("cloud")], ["DeepL API", "Cloud"], "a name the list does not know stays the catalog's");
     }
 });
 
@@ -269,6 +291,7 @@ test("when a group has no user-added entries, its empty state names that group's
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
+        "../../../../../../logics/main/translatorLabel.ts": translatorLabelModule, "../../../../../../logics/ui_configs.ts": { translator_status },
         "@useI18n": { useI18n: () => ({ t: (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key }) },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => true },

@@ -2472,7 +2472,6 @@ translation_catalog:
         label: "llama.cpp's server for translation LLMs"
         desc: "A translation LLM such as TranslateGemma runs on llama.cpp's server, which the app does not include. Fetch it here, then add your model file below. The server starts only when you turn translation on with that model."
     badge:
-        builtin: "Included"
         user: "Added by you"
         non_commercial: "Non-commercial license"
     kind:

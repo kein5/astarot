@@ -6,6 +6,8 @@ import { useTranslationCatalog } from "../../../../../../logics/translation/useT
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState, weightLabel } from "../../../../../../logics/translation/translationCatalog";
 import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
+import { translatorLabel } from "../../../../../../logics/main/translatorLabel.ts";
+import { translator_status } from "../../../../../../logics/ui_configs.ts";
 import { SectionLabelComponent } from "../_components";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
@@ -112,19 +114,23 @@ const ShippedCard = ({ group, item, layout, chooseWeight, reviewWeight }: Catalo
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
     const weight = group === "engine" && "weight" in item ? item.weight : null;
-    const name = group === "engine" ? weightLabel(item.weight, null) : item.name;
+    // A built-in API by the name the translator list gives it, not by its id (#1266, C-3).
+    const translator = group === "api" ? translator_status.find(engine => engine.id === item.id) : undefined;
+    const name = group === "engine" ? weightLabel(item.weight, null) : translator ? translatorLabel(translator, t) : item.name;
     const press = weight === null ? null
         : state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
             named: t("translation_catalog.use_named", { name }), tone: "primary" as const }
         : state === "not_downloaded" && reviewWeight ? { run: () => reviewWeight(weight), label: t("model_downloads.review"),
             named: t("translation_catalog.review_named", { name }), tone: undefined }
         : null;
-    // A license that bars commercial use is a caution: amber.
-    const kind = <>
-        <Badge>{t("translation_catalog.badge.builtin")}</Badge>
-        {group === "api" && item.kind && <Badge>{t(`translation_catalog.kind.${item.kind}`)}</Badge>}
-        {"non_commercial" in item && item.non_commercial && <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge>}
-    </>;
+    // A license that bars commercial use is a caution: amber. What the app provides carries no mark
+    // of its own (DESIGN.md "Roles in settings"): the fold's title says the entries are the app's
+    // (#1266 T-6).
+    const marks = [
+        group === "api" && item.kind && <Badge key="kind">{t(`translation_catalog.kind.${item.kind}`)}</Badge>,
+        "non_commercial" in item && item.non_commercial && <Badge key="license" tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge>,
+    ].filter(Boolean);
+    const kind = marks.length > 0 ? <>{marks}</> : null;
     return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? catalogStyles.pressable : undefined}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
@@ -132,7 +138,7 @@ const ShippedCard = ({ group, item, layout, chooseWeight, reviewWeight }: Catalo
             {layout === "list" && kind}
             <CatalogState state={state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
+        {layout === "grid" && kind && <div className={styles.card_badges}>{kind}</div>}
         {press && <div className={styles.actions}>
             <Button tone={press.tone} className={catalogStyles.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
         </div>}
