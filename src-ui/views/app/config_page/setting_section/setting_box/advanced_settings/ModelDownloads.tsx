@@ -10,6 +10,7 @@ import { hardwareWarning, translationDeviceMode } from "../../../../../../logics
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, isPrepared, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import * as styles from "./VoiceSettings.css.ts";
+import * as cardPress from "./catalogLayout.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
@@ -456,6 +457,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // A check of the files on the PC found them changed: getting them again is a download, reviewed.
         const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
         const useHint = downloaded && !prepared && !job && <p>{t("model_catalog.use_hint")}</p>;
+        // The card's main action is pressed anywhere on it (#1254): a model on the PC is used, one
+        // that is not has its download reviewed. The card in use, or one being downloaded or
+        // checked, has nothing to press: its readout's Cancel or Apply is what it offers.
+        const pressable = !prepared && !["working", "ready"].includes(shownStatus);
+        const press = pressable ? cardPress.press : undefined;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
             summary={t(measured !== null || profileMemory ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
@@ -474,10 +480,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {!prepared && (downloaded && !changed
                     // On the PC: used at once, with its files checked (#1263). Its Apply needs the
                     // saved paths and an unchanged field, as a download's does.
-                    ? <button type="button" className="primary" data-use-model={current.id}
+                    ? <button type="button" className={press ? `primary ${press}` : "primary"} data-use-model={current.id}
+                        aria-label={t("model_catalog.use_named", { name: label })}
                         disabled={busy || (!onStart && (!!blocked || !expected?.[current.target]))}
                         onClick={() => use(current, version)}>{t("model_catalog.use")}</button>
-                    : <button type="button" disabled={busy} onClick={() => {
+                    : <button type="button" className={press} aria-label={t("model_catalog.review_named", { name: label })} disabled={busy} onClick={() => {
                         setConsent(false);
                         setAcknowledged([]);
                         setSelected({ ...current, catalog_version: version });
@@ -495,7 +502,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // what it is, its size and hardware, and what can be done; the file's choice, the
         // languages, the terms and the notes are in its fold.
         return <Card as="li" key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label}
-            active={shownStatus === "in_use"} data-status={shownStatus}>
+            active={shownStatus === "in_use"} data-status={shownStatus} className={pressable ? cardPress.pressable : undefined}>
             <CardHeader>
                 {/* The name and the state on one line, so every card's state is at the same place;
                     what speaks for or against the model under it. */}

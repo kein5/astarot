@@ -166,13 +166,13 @@ test("a built-in model's card is pressed to use it, or to review its download; t
     const use = press("m2m");
     assert.ok(use);
     assert.deepEqual([use.props.children, use.props.tone, use.props["aria-label"], use.props.className],
-        ["translation_catalog.use.engine", "primary", "translation_catalog.use_named", "press"]);
+        ["translation_catalog.use.engine", "primary", "translation_catalog.use_named.engine", "press"]);
     assert.equal(cards.get("m2m")?.props.className, "pressable", "the button's hit area covers the card");
     use.props.onClick();
     const review = press("nllb-13");
     assert.ok(review);
     assert.deepEqual([review.props.children, review.props.tone, review.props["aria-label"]],
-        ["model_downloads.review", undefined, "translation_catalog.review_named"]);
+        ["model_downloads.review", undefined, "model_catalog.review_named"]);
     review.props.onClick();
     assert.deepEqual(pressed, [["choose", "m2m"], ["review", "nllb-13"]]);
     // The card in use, and the built-in APIs (the translators the main screen chooses), press nothing.

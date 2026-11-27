@@ -88,11 +88,16 @@ test("a model's card says its state by the catalogs' badges, why it is listed, i
         const words = nodesIn(missing).filter(node => node.type === "dd").map(node => node.props.children);
         assert.ok(words.includes("30.0 MB"), layout);
         assert.ok(nodesIn(missing).some(node => node.type === "dd" && [node.props.children].flat().join("").includes("PaddlePaddle")), layout);
-        findIn(missing, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review").props.onClick();
-        // Downloaded: the filled badge, and nothing left to do.
+        // Not on the PC: its review is pressed anywhere on the card, named with the model (#1254).
+        const review = findIn(missing, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.review");
+        assert.deepEqual([missing.props.className, review.props.className, review.props["aria-label"]],
+            ["pressable", "press", 'model_catalog.review_named:{"name":"PP-OCR small"}']);
+        review.props.onClick();
+        // Downloaded: the filled badge, and nothing left to do or to press.
         const there = card(s.draw({ missing: [] }));
         assert.equal(state(there).state, "downloaded");
         assert.equal(find(there, node => node.type === kitStandIns.Button), null);
+        assert.equal(there.props.className, undefined);
     }
 });
 
@@ -100,6 +105,7 @@ test("a download in progress says so on its card, with its progress and a way to
     const s = await ocrModels("grid", { ppocr: { job_id: "job", phase: "downloading", received_bytes: 10_485_760, total_bytes: 31_457_280 } });
     const running = card(s.draw({ missing: ["ppocr"] }));
     assert.equal(state(running).state, "working");
+    assert.equal(running.props.className, undefined, "its Cancel is pressed on its own, not the card");
     const bar = findIn(running, node => node.type === kitStandIns.Progress).props;
     assert.deepEqual([bar["aria-label"], bar.value, bar.max], ["model_downloads.progress", 10_485_760, 31_457_280]);
     assert.ok(find(running, node => node.type === "readout"), "what runs, on the card");

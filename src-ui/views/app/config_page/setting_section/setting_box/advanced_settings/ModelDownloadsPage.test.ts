@@ -531,7 +531,8 @@ test("a download's readout follows its phase, with its progress, its error and t
 
     const failed = view({ job_id: "j3", phase: "failed", error_code: "disk_full", received_bytes: 0, total_bytes: GiB });
     assert.deepEqual([failed.tone, failed.progress, failed.words, failed.bar, failed.alerts], ["failed", undefined, "model_downloads.phase_failed", null, ["model_downloads.errors.disk_full"]]);
-    assert.deepEqual(failed.buttons, [["model_downloads.review", false, undefined]], "no actions of the job");
+    // A failed download is reviewed again, pressed anywhere on its card (#1254).
+    assert.deepEqual(failed.buttons, [["model_downloads.review", false, "press"]], "no actions of the job");
     assert.deepEqual(view({ job_id: "j3", phase: "failed", error_code: "absent_reason" }).alerts, ["model_downloads.errors.download_failed"]);
     const applied = view({ job_id: "j4", phase: "applied", paths: { model: "/m.gguf" } });
     assert.deepEqual([applied.tone, applied.progress, applied.alerts], ["neutral", "done", []]);
@@ -853,7 +854,7 @@ const runs = (sent: unknown[][]) => sent.filter(([endpoint]) => typeof endpoint 
 test("a model on the PC is checked and applied from its card, with no review in between", async context => {
     const p = await catalogPage(context, onThePc());
     const use = buttonNamed(cardNamed(p.draw({ targets: ["asr"], expected: { asr: { model: "/old.gguf" } } }), "Here"), "model_catalog.use");
-    assert.equal(use.props.className, "primary");
+    assert.equal(use.props.className, "primary press", "pressed anywhere on its card (#1254)");
     use.props.onClick();
     assert.deepEqual(runs(p.sent), [["/run/check_model_download", { id: "here", catalog_version: "v7" }]]);
     assert.equal(find(p.draw(), isDialog), null, "no review");
@@ -866,6 +867,31 @@ test("a model on the PC is checked and applied from its card, with no review in 
     p.draw();
     p.draw();
     assert.deepEqual(runs(p.sent).slice(1), [["/run/apply_model_download", { id: "here", job_id: "c1", expected: { model: "/old.gguf" } }]]);
+});
+
+// #1254: a card's main action is pressed anywhere on it, as the built-in translation models' are
+// (#1228): a model on the PC is used, one that is not has its download reviewed. The button that
+// does it carries the hit area and names the model; the card in use, and one being downloaded or
+// checked, have nothing to press.
+test("a model's card is pressed anywhere for its main action, named with the model; in use, downloading or checked, it presses nothing", async context => {
+    const p = await catalogPage(context, { catalog: catalogOf(["here", "away", "used", "fetching", "checked"].map(id => model(id, { name: id }))),
+        state: { observation_id: "1", downloaded: { here: { model: "/here.gguf" }, used: { model: "/used.gguf" } }, jobs: {
+            fetching: { job_id: "f1", phase: "downloading", received_bytes: 1, total_bytes: 2 },
+            checked: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1, paths: { model: "/checked.gguf" } } } } });
+    const tree = p.draw({ targets: ["asr"], expected: { asr: { model: "/used.gguf" } } });
+    const main = (id: string) => find(cardNamed(tree, id), node => node.type === "button"
+        && ["model_catalog.use", "model_downloads.review"].includes(textOf(node)));
+    const view = (id: string) => {
+        const button = main(id);
+        return [cardNamed(tree, id).props.className, button && [textOf(button), button.props.className, button.props["aria-label"]]];
+    };
+    const named = (key: string, name: string) => `${key} ${JSON.stringify({ name })}`;
+    assert.deepEqual(view("here"), ["pressable", ["model_catalog.use", "primary press", named("model_catalog.use_named", "here")]]);
+    assert.deepEqual(view("away"), ["pressable", ["model_downloads.review", "press", named("model_catalog.review_named", "away")]]);
+    assert.deepEqual(view("used"), [undefined, null], "the card in use");
+    assert.equal(view("fetching")[0], undefined, "a download runs: its readout's Cancel is what it offers");
+    assert.equal(view("checked")[0], undefined, "checked: its readout's Apply is what it offers");
+    for (const id of ["fetching", "checked"]) assert.notEqual((view(id)[1] as unknown[] | null)?.[1], "press", id);
 });
 
 test("a check that finds the files changed says so, applies nothing, and offers the download's review", async context => {

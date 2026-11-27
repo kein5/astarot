@@ -6,6 +6,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import * as styles from "./Ocr.css.ts";
+import * as cardPress from "../advanced_settings/catalogLayout.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Fold } from "../_components/fold/Fold";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
@@ -116,6 +117,10 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
                     const installed = installedOf(entry);
                     const status = active ? "working" : installed ? "downloaded" : "not_downloaded";
+                    // A model not on the PC is pressed anywhere on its card to review its download,
+                    // as in the other catalogs (#1254). Nothing here is switched: what reading needs
+                    // is used once it is on the PC.
+                    const pressable = status === "not_downloaded";
                     // The size is on the card in either layout; the terms are beside it in the list, in
                     // the card's fold in the grid.
                     const size = <div><dt>{t("model_catalog.size")}</dt><dd>{megabytes(entry.total_bytes)}</dd></div>;
@@ -123,7 +128,7 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     // The card's parts in the order they are read (#614), as a model catalog's card:
                     // what it is and its state, its size and terms, then what runs and the download.
                     return <Card as="li" key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
-                        data-status={status}>
+                        data-status={status} className={pressable ? cardPress.pressable : undefined}>
                         <CardHeader>
                             <div className={voiceStyles.card_head}>
                                 <CardTitle>{entry.name}</CardTitle>
@@ -148,7 +153,8 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                             <div className={voiceStyles.actions}>
                                 {active && job && <Button disabled={!!pending || job.phase === "cancelling"}
                                     onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</Button>}
-                                {!installed && !active && <Button disabled={busy}
+                                {!installed && !active && <Button disabled={busy} className={pressable ? cardPress.press : undefined}
+                                    aria-label={t("model_catalog.review_named", { name: entry.name })}
                                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
                                     {t("model_downloads.review")}</Button>}
                             </div>

@@ -11,6 +11,7 @@ import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import * as catalogStyles from "./TranslationCatalog.css.ts";
+import * as cardPress from "../advanced_settings/catalogLayout.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
@@ -110,15 +111,15 @@ const ShippedCard = ({ item, layout, chooseWeight, reviewWeight }: { item: Engin
     const weight = item.weight;
     const name = weightLabel(weight, null);
     const press = state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
-            named: t("translation_catalog.use_named", { name }), tone: "primary" as const }
+            named: t("translation_catalog.use_named.engine", { name }), tone: "primary" as const }
         : state === "not_downloaded" && reviewWeight ? { run: () => reviewWeight(weight), label: t("model_downloads.review"),
-            named: t("translation_catalog.review_named", { name }), tone: undefined }
+            named: t("model_catalog.review_named", { name }), tone: undefined }
         : null;
     // A license that bars commercial use is a caution: amber. What the app provides carries no mark
     // of its own (DESIGN.md "Roles in settings"): the fold's title says the entries are the app's
     // (#1266 T-6).
     const kind = item.non_commercial ? <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge> : null;
-    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? catalogStyles.pressable : undefined}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? cardPress.pressable : undefined}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
             <CardTitle>{name}</CardTitle>
@@ -127,7 +128,7 @@ const ShippedCard = ({ item, layout, chooseWeight, reviewWeight }: { item: Engin
         </div>
         {layout === "grid" && kind && <div className={styles.card_badges}>{kind}</div>}
         {press && <div className={styles.actions}>
-            <Button tone={press.tone} className={catalogStyles.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
+            <Button tone={press.tone} className={cardPress.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
         </div>}
     </Card>;
 };
@@ -144,16 +145,20 @@ const stateHelp = (item: EngineItem | ApiItem, state: string) => state === "unav
 const keyText = (item: ApiItem) => item.key_in_memory ? "translation_catalog.key_memory"
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
-// An entry the user added: what it points at, and Use and Remove.
+// An entry the user added: what it points at, and Use and Remove. An entry that can be used is
+// pressed anywhere on its card to use it, as a built-in model is (#1254); its Remove and the
+// facts' fold stay pressed on their own.
 const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
     const state = entryState(item);
     const busy = !!pending;
+    const pressable = state === "ready" && !removing;
     // Laid out as a card of the model catalog: what it is and its state, its facts, then its
     // notes and actions.
-    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} tabIndex={-1} role="group" aria-label={item.name}
+        className={pressable ? cardPress.pressable : undefined}>
         {/* In the grid the "added by you" mark is the line under the name, as on the shipped cards. */}
         <CardHeader><div className={styles.card_head}>
             <CardTitle>{item.name}</CardTitle>
@@ -191,6 +196,7 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
                     </InlineConfirmContent>
                     : <div className={styles.actions}>
                         {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"}
+                            className={pressable ? cardPress.press : undefined} aria-label={t(`translation_catalog.use_named.${group}`, { name: item.name })}
                             onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</Button>}
                         {/* The kit's danger Button: it removes something. */}
                         <InlineConfirmTrigger tone="danger" disabled={busy || (group === "engine" && state === "in_use")}

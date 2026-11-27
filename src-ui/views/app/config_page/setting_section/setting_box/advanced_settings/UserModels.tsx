@@ -7,6 +7,7 @@ import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { FormRow } from "../_components/form_row/FormRow";
 import { PathField } from "../_components/path_field/PathField";
 import * as styles from "./VoiceSettings.css.ts";
+import * as cardPress from "./catalogLayout.css.ts";
 import { Badge, Card, CardFooter, CardHeader, CardTitle } from "../../../../../kit/index.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
@@ -47,8 +48,11 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
         const status = userModelStatus(model, expected?.[target]);
         const roles = USER_MODEL_FILES[target] ?? [];
         const savedPaths = expected?.[target];
+        // A registered model that is not in use is pressed anywhere on its card to use it, as a
+        // downloaded one is (#1254); its audition and Remove stay pressed on their own.
+        const pressable = status === "registered" && removing !== model.id;
         return <Card as="li" key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name}
-            active={status === "in_use"} data-status={status}>
+            active={status === "in_use"} data-status={status} className={pressable ? cardPress.pressable : undefined}>
             {/* In the grid the "your model" mark is the line under the name, so the state ends the name's line on every card.
                 A registered model's files are there, as a downloaded one's: its state looks so. */}
             <CardHeader><div className={styles.card_head}>
@@ -82,7 +86,8 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
                             setRemoving(null); send("/run/remove_user_model", { id: model.id });
                         }}>{t("user_models.remove_do")}</InlineConfirmAction>
                     </InlineConfirmContent> : <div className={styles.actions}>
-                        {status !== "in_use" && <button type="button" className="primary"
+                        {status !== "in_use" && <button type="button" className={pressable ? `primary ${cardPress.press}` : "primary"}
+                            aria-label={t("model_catalog.use_named", { name: model.name })}
                             disabled={busy || !!blocked || status !== "registered" || !savedPaths}
                             onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
                         {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}

@@ -106,11 +106,17 @@ test("Use writes the model's paths over the saved ones when nothing else runs; t
         const button = find(card, node => node.type === "button" && textOf(node) === "user_models.use");
         return [card.props["aria-label"], button && [button.props.disabled, button.props.className]];
     }));
-    assert.deepEqual(use({}), { "Voice ok": [false, "primary"], "Voice used": null, "Voice gone": [true, "primary"] });
-    assert.deepEqual(use({ busy: true })["Voice ok"], [true, "primary"]);
-    assert.deepEqual(use({ blocked: "edited" })["Voice ok"], [true, "primary"]);
-    assert.deepEqual(use({ expected: {} })["Voice ok"], [true, "primary"], "without the saved paths it would replace");
-    const [ok] = cardsIn(u.cards({ expected }));
+    // A registered model's Use covers its card, pressed anywhere (#1254), also while it waits.
+    assert.deepEqual(use({}), { "Voice ok": [false, "primary press"], "Voice used": null, "Voice gone": [true, "primary"] });
+    assert.deepEqual(use({ busy: true })["Voice ok"], [true, "primary press"]);
+    assert.deepEqual(use({ blocked: "edited" })["Voice ok"], [true, "primary press"]);
+    assert.deepEqual(use({ expected: {} })["Voice ok"], [true, "primary press"], "without the saved paths it would replace");
+    const shown = cardsIn(u.cards({ expected }));
+    const [ok] = shown;
+    // Pressed anywhere on the card, named with the model (#1254); the card in use and a model whose
+    // files went press nothing.
+    assert.deepEqual(shown.map(card => card.props.className), ["pressable", undefined, undefined]);
+    assert.equal(buttonNamed(ok, "user_models.use").props["aria-label"], `model_catalog.use_named ${JSON.stringify({ name: "Voice ok" })}`);
     buttonNamed(ok, "user_models.use").props.onClick();
     assert.deepEqual(u.sent, [["/run/apply_user_model", { id: "ok", expected: expected.rvc }]]);
     const [used] = cardsIn(u.cards({ expected })).slice(1);

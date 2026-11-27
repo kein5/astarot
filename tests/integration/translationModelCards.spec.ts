@@ -19,7 +19,7 @@ test("a downloaded built-in model's card switches the model in use, and the card
     await engine.getByRole("heading", { name: "Model catalog", exact: true }).click();
     await engine.locator("summary").filter({ hasText: /^Included with the app/ }).click();
     const card = (weight: string) => engine.locator(`[data-catalog-item="${weight}"]`);
-    const use = (weight: string) => card(weight).getByRole("button", { name: /for translation on your PC$/ });
+    const use = (weight: string) => card(weight).getByRole("button", { name: /^Use for translation on your PC \(/ });
 
     // M2M100 418M is the model in use at first: nothing to press on its card.
     await expect(card(M2M)).toHaveAttribute("data-status", "in_use");
@@ -54,7 +54,7 @@ test("a built-in model that is not downloaded opens its download review and star
     await engine.locator("summary").filter({ hasText: /^Included with the app/ }).click();
     const missing = engine.locator("[data-status=not_downloaded]").first();
     await expect(missing).toBeVisible();
-    await missing.getByRole("button", { name: /^Review the download of / }).click();
+    await missing.getByRole("button", { name: /^Review download \(/ }).click();
     // A model of one file: its review and consent open at once, over the translation review, which
     // steps back (#1266 T-3). Back closes both.
     const review = page.getByRole("dialog");

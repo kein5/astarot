@@ -2369,6 +2369,10 @@ model_catalog:
         ready: "Verified, not applied"
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "Use this model"
+    # A card pressed anywhere names its model after its button's words, in the button's
+    # accessible name (#1228, #1254).
+    use_named: "Use this model ({{name}})"
+    review_named: "Review download ({{name}})"
     use_hint: "Already on your PC. Using it checks its files and applies it; nothing is downloaded."
     engine:
         terms_notice: "The engines and their voices (voice libraries) are used under the terms on their official sites. Some voices need a credit. Read the terms before you use them."
@@ -2557,9 +2561,11 @@ translation_catalog:
     use:
         engine: "Use for translation on your PC"
         api: "Use as the OpenAI-compatible connection"
-    # A built-in model's card names its model in its button's accessible name (#1228).
-    use_named: "Use {{name}} for translation on your PC"
-    review_named: "Review the download of {{name}}"
+    # A card pressed anywhere names its model after its button's words, in the button's
+    # accessible name (#1228, #1254).
+    use_named:
+        engine: "Use for translation on your PC ({{name}})"
+        api: "Use as the OpenAI-compatible connection ({{name}})"
     remove: "Remove"
     remove_confirm:
         engine: "Only the entry is removed. The folder and its files stay."
