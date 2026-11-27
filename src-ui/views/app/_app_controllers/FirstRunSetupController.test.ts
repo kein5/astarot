@@ -130,6 +130,11 @@ async function setup(context: TestContext, w = world()) {
             return { state, engine: w.engine, server: w.server, paths: w.paths };
         } },
         "../../../logics/setup/firstRunSetup.ts": logic,
+        "../config_page/setting_section/setting_box/_components/fold/Fold": { Fold: "fold" },
+        "../config_page/setting_section/setting_box/_components/hint/Hint": { Hint: "hint" },
+        // A button to a settings page names the page and what is done there (#537).
+        "../config_page/setting_section/setting_box/_components/page_pointer/PagePointer": {
+            pageLinkLabel: (_t: unknown, tab: string, action: string | null = null) => action ? `page_link.do ${tab} ${action}` : `page_link.open ${tab}` },
         "../others/vrchat_presence/VrchatPresence": { useVrchatPresence: () => ({ state: w.vrchat, tone: "neutral",
             lines: [`vrchat_presence.${w.vrchat}`, ...(w.vrchat === "not_found" ? ["vrchat_presence.not_found_hint"] : [])] }) },
     });
@@ -146,7 +151,15 @@ async function setup(context: TestContext, w = world()) {
     const part = (tree: unknown, name: string) => findIn(tree, node => componentName(node) === name, name);
     // A one-model section (#955), by its words: the translation's or the text to speech's.
     const modelPart = (tree: unknown, words: string) => findIn(tree, node => componentName(node) === "ModelSetup" && node.props.words === words, words);
-    return { render, button, buttons, part, modelPart };
+    // The setup's one consent and start for every feature chosen (#1266).
+    const start = (tree: unknown = render()) => part(tree, "StartPreparation");
+    const consent = () => { start().props.setConsent(true); };
+    const begin = () => {
+        const shown = start();
+        assert.equal(shown.props.canBegin, true, "it can start");
+        shown.props.onBegin();
+    };
+    return { render, button, buttons, part, modelPart, start, consent, begin };
 }
 
 // #935: it never opens by itself, not even pending with the recognition needing it, after the
@@ -175,24 +188,24 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     let tree = s.render();
     const recognition = s.part(tree, "RecognitionSetup");
     assert.deepEqual(logic.planModels(recognition.props.plan).map(entry => entry.id), ["reazonspeech-v2-q8", "silero-vad-v62"]);
-    const start = s.button(tree, "first_run_setup.recognition.start");
-    assert.equal(start.props.disabled, true, "the start waits for the consent");
-    assert.equal(start.props.tone, "primary", "the step the setup exists for");
-    start.props.onClick();
+    // The setup's one consent and start (#1266): the models it takes in, and the start waits for the consent.
+    const start = s.start(tree);
+    assert.deepEqual(start.props.models.map((entry: { id: string }) => entry.id), ["reazonspeech-v2-q8", "silero-vad-v62"]);
+    assert.equal(start.props.canBegin, false, "the start waits for the consent");
+    start.props.onBegin();
     s.render();
     // <unknown> keeps the assertion from narrowing w.sent, which the run goes on adding to.
     assert.deepEqual<unknown>(w.sent, []);
 
-    recognition.props.setConsent(true);
-    tree = s.render();
-    s.button(tree, "first_run_setup.recognition.start").props.onClick();
+    s.consent();
+    s.begin();
     s.render();
     assert.deepEqual<unknown>(w.sent, [["/run/start_model_download", { id: "reazonspeech-v2-q8", consent: true, catalog_version: "2026-11-16.3" }]]);
 
     // Downloading, then verified: applied once against the saved (empty) path. While it runs, Stop
     // is the kit's danger Button, as every stop (D-10).
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
-    assert.equal(s.button(s.render(), "first_run_setup.recognition.stop").props.tone, "danger");
+    assert.equal(s.button(s.render(), "first_run_setup.stop").props.tone, "danger");
     assert.equal(w.sent.length, 1);
     // The step that downloads a known size has a bar, named after the step; no bar while the size
     // is not known or once it is checked; before its first bytes it stands at 0.
@@ -242,21 +255,19 @@ test("nothing downloads before the consent; the run downloads, applies and switc
 test("a failed download stops the run at its step; Try again continues from there", async context => {
     const w = world();
     const s = await setup(context, w);
-    let tree = s.render();
-    s.part(tree, "RecognitionSetup").props.setConsent(true);
-    tree = s.render();
-    s.button(tree, "first_run_setup.recognition.start").props.onClick();
+    s.consent();
+    s.begin();
     s.render();
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "failed", error_code: "insufficient_space" } };
-    tree = s.render();
+    const tree = s.render();
     const recognition = s.part(tree, "RecognitionSetup");
     assert.deepEqual(recognition.props.run.failure, { step: 0, code: "insufficient_space" });
     assert.equal(w.sent.filter(([endpoint]) => endpoint === "/run/start_model_download").length, 1, "it does not retry by itself");
     // Nothing was applied: the settings stay as they were.
     assert.equal(w.sent.some(([endpoint]) => endpoint === "/run/apply_model_download"), false);
 
-    assert.equal(s.button(tree, "first_run_setup.recognition.retry").props.tone, "primary");
-    s.button(tree, "first_run_setup.recognition.retry").props.onClick();
+    assert.equal(s.button(tree, "first_run_setup.retry").props.tone, "primary");
+    s.button(tree, "first_run_setup.retry").props.onClick();
     s.render();
     assert.equal(w.sent.filter(([endpoint]) => endpoint === "/run/start_model_download").length, 2);
     // An outcome of the earlier job is not the new run's.
@@ -266,11 +277,9 @@ test("a failed download stops the run at its step; Try again continues from ther
 test("a refused request stops the run with its reason, and a stale error does not", async context => {
     const stale = world({ downloadError: "download_busy" });
     const s = await setup(context, stale);
+    s.consent();
+    s.begin();
     let tree = s.render();
-    s.part(tree, "RecognitionSetup").props.setConsent(true);
-    tree = s.render();
-    s.button(tree, "first_run_setup.recognition.start").props.onClick();
-    tree = s.render();
     assert.equal(s.part(tree, "RecognitionSetup").props.run.phase, "running", "an error from before the run is not its own");
     const local = hooks();
     context.onTestFinished(() => local.unmount());
@@ -292,21 +301,24 @@ test("Later puts it away for this run without dismissing it; Don't show again do
     const v = world();
     s = await setup(context, v);
     const tree = s.render();
-    // The kit's Dialog (D-23): named by its title alone, as before (D-43); what it is for is drawn as
-    // the kit's description. Later is the footer's plain Button, and ending the suggestion the kit's
-    // quiet Button on a line of its own under it (D-24, decided on 2026-11-25).
+    // The kit's Dialog (D-23): named by its title alone, as before (D-43), with no description under
+    // it: the sections' headings say what it is for (#1266). Later is the footer's plain Button, and
+    // ending the suggestion the kit's quiet Button on a line of its own under it (D-24, decided on
+    // 2026-11-25), with where the setup opens again in its bubble (#1266).
     const dialog = findIn(tree, node => node.type === kitStandIns.Dialog);
     assert.deepEqual([dialog.props.open, dialog.props.className, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]],
         [true, "dialog", true, undefined]);
     const header = findIn(dialog, node => node.type === kitStandIns.DialogHeader);
-    assert.deepEqual([findIn(header, node => node.type === kitStandIns.DialogTitle).props.children,
-        findIn(header, node => node.type === kitStandIns.DialogDescription).props.children], ["first_run_setup.title", "first_run_setup.purpose"]);
+    assert.equal(findIn(header, node => node.type === kitStandIns.DialogTitle).props.children, "first_run_setup.title");
+    assert.equal(find(header, node => node.type === kitStandIns.DialogDescription), null);
     const footer = findIn(dialog, node => node.type === kitStandIns.DialogFooter);
     assert.deepEqual(nodesIn(footer).filter(node => node.type === kitStandIns.Button).map(node => [node.props.children, node.props.tone]),
         [["first_run_setup.later", undefined], ["first_run_setup.dont_show", "quiet"]]);
     const line = findIn(footer, node => node.props?.className === "footerLine");
     const dontShow = findIn(line, node => node.type === kitStandIns.Button);
     assert.equal(dontShow.props.children, "first_run_setup.dont_show");
+    const hint = findIn(line, node => node.type === "hint");
+    assert.deepEqual([line.props["data-hint-host"], hint.props.text, dontShow.props["aria-describedby"]], [true, "first_run_setup.dont_show_hint", hint.props.id]);
     dontShow.props.onClick();
     assert.ok(v.calls.includes("dismiss"));
     // Escape puts it away for this run, as Later does: the kit's Dialog asks the setup (Dialog.test.ts).
@@ -366,7 +378,7 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.equal(needing.rows.translation.children, "first_run_setup.found.translation_missing");
     const choose = needing.rows.translation.action, guide = needing.rows.virtual_mic.action;
     assert.ok(choose && guide);
-    assert.equal(choose.props.children, "first_run_setup.found.translation_open_settings");
+    assert.equal(choose.props.children, "page_link.open translation");
     assert.equal(guide.props.children, "first_run_setup.found.virtual_mic_open");
 
     const ready = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
@@ -404,7 +416,7 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.deepEqual([other.rows.translation.state, other.rows.translation.children], ["attention", "first_run_setup.found.translation_switch_here"]);
     const otherAction = other.rows.translation.action;
     assert.ok(otherAction);
-    assert.equal(otherAction.props.children, "first_run_setup.found.translation_open_settings");
+    assert.equal(otherAction.props.children, "page_link.open translation");
 
     const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
         cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
@@ -437,7 +449,7 @@ test("a finding is drawn as the kit's Item, its look and mark from its state", a
     assert.deepEqual(look("translation"), [true, "attention", "attention", "attention", "first_run_setup.found.translation", undefined, true]);
     // The action is the row's own button, under its words: the kit's plain Button (D-23).
     const action = findIn(findIn(drawn.translation, node => node.type === kitStandIns.ItemActions), node => node.type === kitStandIns.Button, "the button");
-    assert.deepEqual([action.props.children, action.props.tone], ["first_run_setup.found.translation_open_settings", undefined]);
+    assert.deepEqual([action.props.children, action.props.tone], ["page_link.open translation", undefined]);
 });
 
 test("every string it uses is in both languages", () => {
@@ -449,40 +461,47 @@ test("every string it uses is in both languages", () => {
     for (const language of ["en", "ja"]) {
         const messages = readLocale(language);
         for (const key of keys) assert.equal(typeof localeAt(messages, key), "string", `${language}: ${key}`);
-        // Japanese text never says "this PC" (このPC); it names the user's own computer.
-        if (language === "ja") assert.ok(!JSON.stringify(branchAt(messages, "first_run_setup")).includes("このPC"));
+        // Japanese text never says "this PC" (このPC); it names the user's own PC (お使いのPC).
+        if (language === "ja") for (const word of ["このPC", "お使いのコンピューター"])
+            assert.ok(!JSON.stringify(branchAt(messages, "first_run_setup")).includes(word), word);
     }
 });
 
-// #936: the translation's model is prepared in the setup itself: reviewed (name, provider,
-// license, size, the model's card), consented to, downloaded and applied without leaving it, and
-// the setup then says the translation is ready.
+// #936: the translation's model is prepared in the setup itself: shown in its section (one line:
+// name, license, size), consented to with the setup's one consent (the provider and the model's
+// card in the breakdown), downloaded and applied without leaving it, and the setup then says the
+// translation is ready.
 test("the translation's model is reviewed, downloaded and applied in the setup, which then says it is ready", async context => {
-    const w = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    // A cloud recognition: the translation is the only feature to prepare.
+    const w = world({ engine: "Deepgram", needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
     const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     let drawn = section();
-    const facts = nodesIn(drawn).filter(node => node.type === "span").map(node => [node.props.children].flat().join(""));
-    assert.ok(facts.includes("M2M100 418M · int8"));
-    assert.ok(facts.includes("first_run_setup.recognition.model_license"));
-    const card = find(drawn, node => node.type === "a");
-    assert.equal(card?.props.href, "https://example.invalid/m2m100", "the model's card is linked");
-    // As the recognition's section: its total, one consent, and the way to other models.
-    assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.recognition.total")?.type, "p");
-    assert.equal(nodesIn(drawn).filter(node => node.type === "input" && node.props.type === "checkbox").length, 1);
-    assert.ok(find(drawn, node => node.props?.tab === "translation" && node.props?.label === "first_run_setup.found.translation_open_settings"));
+    // One line per model (decided on 2026-11-27, #1266): the name without its file's kind, the license, the size.
+    const lines = findIn(drawn, node => componentName(node) === "ModelLines", "the model's line");
+    assert.deepEqual(nodesIn(draw(lines)).filter(node => node.type === "span" && typeof node.props.children === "string").map(node => node.props.children),
+        ["M2M100 418M", "MIT", "0.47 GiB"]);
+    assert.equal(find(drawn, node => node.type === "a"), null, "the model's card is in the breakdown");
+    assert.equal(nodesIn(drawn).filter(node => node.type === "input").length, 0, "the consent is the setup's one");
+    assert.ok(find(drawn, node => node.props?.tab === "translation" && node.props?.label === "page_link.do translation first_run_setup.choose_other"));
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what")?.type, "p");
-    const startButton = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
-    assert.equal(startButton()?.props.disabled, true, "nothing starts before the consent");
-    const consent = find(drawn, node => node.type === "input" && node.props.type === "checkbox");
-    assert.ok(consent);
-    consent.props.onChange({ target: { checked: true } });
+    // The setup's one consent: the total, the breakdown with the provider and the card, one checkbox.
+    const consent = drawWith(local, s.start());
+    assert.equal(find(consent, node => node.type === "p" && node.props.children === "first_run_setup.total")?.type, "p");
+    const breakdown = findIn(consent, node => node.type === "fold", "the breakdown");
+    assert.equal(breakdown.props.summary, "first_run_setup.breakdown");
+    assert.equal(find(breakdown, node => node.type === "a")?.props.href, "https://example.invalid/m2m100", "the model's card is linked");
+    assert.ok(nodesIn(breakdown).some(node => node.props?.children === "first_run_setup.recognition.model_provider"));
+    assert.equal(nodesIn(consent).filter(node => node.type === "input" && node.props.type === "checkbox").length, 1);
+    const startButton = () => nodesIn(drawWith(local, s.start())).find(node => isButton(node) && node.props.children === "first_run_setup.start");
+    assert.deepEqual([startButton()?.props.disabled, startButton()?.props.tone], [true, "primary"], "nothing starts before the consent");
+    s.consent();
     assert.equal(startButton()?.props.disabled, false);
     startButton()?.props.onClick();
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "m2m100-418m-onnx-int8", consent: true, catalog_version: "2026-11-16.3" }]);
-    // Its download, in the setup; the row above says it is being prepared there.
+    // Its download, in the setup; the row above says it is being prepared.
     w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 100, total_bytes: 500000000 } };
     drawn = section();
     const bar = () => find(section(), node => node.type === kitStandIns.Progress)?.props;
@@ -512,19 +531,19 @@ test("the translation's model is reviewed, downloaded and applied in the setup, 
 test("with another model selected, the setup downloads the default model and then selects it", async context => {
     // A model with a restricted license selected and not on the PC: the setup recommends the default
     // (its license allows any use), as the recognition's section recommends its model.
-    const w = world({ weight: "nllb-200-distilled-600M-ct2-int8",
+    const w = world({ engine: "Deepgram", weight: "nllb-200-distilled-600M-ct2-int8",
         needs: [{ id: "translation", action: "review", weight: { id: "nllb-200-distilled-600M-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
     const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     let drawn = section();
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what_switch")?.type, "p");
-    assert.ok(nodesIn(drawn).some(node => node.type === "span" && node.props.children === "M2M100 418M · int8"));
-    assert.ok(!nodesIn(drawn).some(node => node.type === "strong"), "no restriction to acknowledge");
-    const boxes = nodesIn(drawn).filter(node => node.type === "input" && node.props.type === "checkbox");
-    assert.equal(boxes.length, 1, "one consent, as the recognition's");
+    assert.deepEqual(findIn(drawn, node => componentName(node) === "ModelLines").props.models.map((entry: { id: string }) => entry.id), ["m2m100-418m-onnx-int8"]);
+    assert.deepEqual(s.start().props.restrictions, [], "no restriction to acknowledge");
+    const boxes = nodesIn(drawWith(local, s.start())).filter(node => node.type === "input" && node.props.type === "checkbox");
+    assert.equal(boxes.length, 1, "one consent");
     boxes[0].props.onChange({ target: { checked: true } });
-    nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start")?.props.onClick();
+    s.begin();
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "m2m100-418m-onnx-int8", consent: true, catalog_version: "2026-11-16.3" }]);
     // The steps: the download, then the choice, waiting for it.
@@ -545,17 +564,16 @@ test("with another model selected, the setup downloads the default model and the
 });
 
 test("the default model on the PC already: nothing is downloaded and no consent is asked; only the choice changes", async context => {
-    const w = world({ weight: "m2m100_1.2B-ct2-int8", downloaded: ["m2m100_418M-ct2-int8"],
+    const w = world({ engine: "Deepgram", weight: "m2m100_1.2B-ct2-int8", downloaded: ["m2m100_418M-ct2-int8"],
         needs: [{ id: "translation", action: "choose", weight: { id: "m2m100_1.2B-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
-    const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
-    const drawn = section();
+    const drawn = drawWith(local, s.modelPart(s.render(), "translation"));
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what_switch_only")?.type, "p");
     assert.equal(nodesIn(drawn).filter(node => node.type === "input").length, 0);
-    const start = nodesIn(drawn).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
-    assert.equal(start?.props.disabled, false);
-    start?.props.onClick();
+    assert.deepEqual(s.start().props.models, []);
+    assert.equal(nodesIn(drawWith(local, s.start())).filter(node => node.type === "input").length, 0, "no consent to give");
+    s.begin();
     s.render(); s.render();
     assert.ok(!w.sent.some(([endpoint]) => endpoint === "/run/start_model_download"));
     assert.deepEqual(w.calls.filter(call => Array.isArray(call) && call[0] === "weight"), [["weight", "m2m100_418M-ct2-int8"]]);
@@ -576,11 +594,11 @@ test("the recognition's model is chosen in the setup, the recommended one first,
     choice.props.onChange("qwen3-asr-06b-q8");
     const steps = s.part(s.render(), "RecognitionSetup").props.plan.flatMap((step: { kind: string; entry?: { id: string } }) => step.entry ? [step.entry.id] : []);
     assert.deepEqual(steps, ["qwen3-asr-06b-q8", "silero-vad-v62"]);
-    // None: the section says the recognition is not used, and offers no start.
+    // None: the section says the recognition is not used, and nothing is left to start.
     choiceIn(s.render())[0].props.onChange("skip");
     const tree = s.render();
     assert.ok(nodesIn(tree).some(node => node.props?.children === "first_run_setup.recognition.skipped"));
-    assert.ok(!s.buttons(tree).some(node => node.props.children === "first_run_setup.recognition.start"));
+    assert.equal(find(tree, node => componentName(node) === "StartPreparation"), null);
 });
 
 test("text to speech starts at none; a model chosen is downloaded and written into its profile", async context => {
@@ -588,7 +606,7 @@ test("text to speech starts at none; a model chosen is downloaded and written in
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
     const section = () => drawWith(local, s.modelPart(s.render(), "speech"));
-    let drawn = section();
+    const drawn = section();
     assert.ok(nodesIn(drawn).some(node => node.props?.children === "first_run_setup.speech.skipped"), "none at first: it needs a GPU");
     const choice = choiceIn(drawn)[0];
     assert.deepEqual(choice.props.choices.map((entry: { id: string }) => entry.id), ["irodori-v41-f16", "qwen3-06b-q8"]);
@@ -596,11 +614,9 @@ test("text to speech starts at none; a model chosen is downloaded and written in
     assert.deepEqual(["irodori-v41-f16", "qwen3-06b-q8"].map(id => choice.props.groupOf(CATALOG.models.find(model => model.id === id))),
         ["first_run_setup.speech.group_japanese", "first_run_setup.speech.group_multilingual"]);
     choice.props.onChange("irodori-v41-f16");
-    drawn = section();
-    const start = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
-    assert.equal(start()?.props.disabled, true, "nothing starts before the consent");
-    nodesIn(drawn).find(node => node.type === "input" && node.props.type === "checkbox")?.props.onChange({ target: { checked: true } });
-    start()?.props.onClick();
+    assert.equal(s.start().props.canBegin, false, "nothing starts before the consent");
+    s.consent();
+    s.begin();
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "irodori-v41-f16", consent: true, catalog_version: "2026-11-16.3" }]);
     // Verified: applied once, with the profile's path it replaces.
@@ -619,13 +635,15 @@ test("a translation model with a restricted license is acknowledged on its own, 
     context.onTestFinished(() => local.unmount());
     const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     choiceIn(section())[0].props.onChange("nllb-200-distilled-600m-onnx-int8");
-    const boxes = () => nodesIn(section()).filter(node => node.type === "input" && node.props.type === "checkbox");
-    const start = () => nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start");
+    // Said and acknowledged with the setup's one consent, on its own (#411).
+    const consent = () => drawWith(local, s.start());
+    assert.ok(find(consent(), node => node.type === "strong"), "the restriction is said");
+    const boxes = () => nodesIn(consent()).filter(node => node.type === "input" && node.props.type === "checkbox");
     assert.equal(boxes().length, 2, "the consent, and one for the restriction");
     boxes()[0].props.onChange({ target: { checked: true } });
-    assert.equal(start()?.props.disabled, true, "the consent alone does not start it");
+    assert.equal(s.start().props.canBegin, false, "the consent alone does not start it");
     boxes()[1].props.onChange({ target: { checked: true } });
-    start()?.props.onClick();
+    s.begin();
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download",
         { id: "nllb-200-distilled-600m-onnx-int8", consent: true, catalog_version: "2026-11-16.3", acknowledged: ["non_commercial"] }]);
@@ -735,46 +753,127 @@ test("a model choice is the kit's Select with the kit's options and groups, and 
             ["skip", "first_run_setup.choice.skip"]]);
 });
 
-// The setup's buttons are the kit's (D-23, D-10): each section offers Start (primary) before its run,
-// Stop (danger) while it runs, Try again (primary) once it failed, and the way to its settings
-// except while it runs.
-test("a section's buttons follow its run: Start, then Stop, then Try again, with its settings around them", async context => {
+// The setup's buttons are the kit's (D-23, D-10): one Start (primary) under the sections before the
+// runs, Stop (danger) while they go, Try again (primary) once one failed; each section keeps its way
+// to its settings except while a run is going (#1266).
+test("one Start for the setup, then Stop, then Try again; each section keeps its way to its settings", async context => {
     const offered = (tree: unknown) => nodesIn(tree).flatMap(node => isButton(node) ? [[node.props.children, node.props.tone]]
         : componentName(node) === "OpenSettings" ? [["settings", node.props.tab]] : []);
-    // The recognition's section, drawn by the setup itself.
+    // The buttons the setup draws itself between the sections and the footer.
+    const runButtons = (tree: unknown) => offered(tree).filter(([label]) => label === "first_run_setup.stop" || label === "first_run_setup.retry");
     const w = world();
-    const s = await setup(context, w);
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
     const recognition = () => findIn(s.render(), node => node.type === "section" && node.props["aria-labelledby"] === "first-run-recognition");
-    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.start", "primary"], ["settings", "transcription"]]);
-    s.part(s.render(), "RecognitionSetup").props.setConsent(true);
-    assert.equal(s.button(recognition(), "first_run_setup.recognition.start").props.disabled, false, "the consent given, it starts");
-    s.button(recognition(), "first_run_setup.recognition.start").props.onClick();
+    assert.deepEqual(offered(recognition()), [["settings", "transcription"]]);
+    assert.deepEqual(offered(drawWith(local, s.start())), [["first_run_setup.start", "primary"]]);
+    assert.deepEqual(runButtons(s.render()), []);
+    s.consent();
+    s.begin();
     s.render();
-    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.stop", "danger"]]);
+    assert.deepEqual(offered(recognition()), [], "the way to the settings waits for the run");
+    assert.equal(find(s.render(), node => componentName(node) === "StartPreparation"), null);
+    assert.deepEqual(runButtons(s.render()), [["first_run_setup.stop", "danger"]]);
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "failed", error_code: "insufficient_space" } };
-    assert.deepEqual(offered(recognition()), [["first_run_setup.recognition.retry", "primary"], ["settings", "transcription"]]);
+    s.render();
+    assert.deepEqual(offered(recognition()), [["settings", "transcription"]]);
+    assert.deepEqual(runButtons(s.render()), [["first_run_setup.retry", "primary"]]);
 
     // The translation's section, drawn by ModelSetup.
-    const t = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
-    const r = await setup(context, t), local = hooks();
-    context.onTestFinished(() => local.unmount());
+    const t = world({ engine: "Deepgram", needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const r = await setup(context, t);
     const section = () => drawWith(local, r.modelPart(r.render(), "translation"));
-    assert.deepEqual(offered(section()), [["first_run_setup.recognition.start", "primary"], ["settings", "translation"]]);
-    find(section(), node => node.type === "input" && node.props.type === "checkbox")?.props.onChange({ target: { checked: true } });
-    nodesIn(section()).find(node => isButton(node) && node.props.children === "first_run_setup.recognition.start")?.props.onClick();
+    assert.deepEqual(offered(section()), [["settings", "translation"]]);
+    r.consent();
+    r.begin();
     r.render();
     t.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
-    assert.deepEqual(offered(section()), [["first_run_setup.recognition.stop", "danger"]]);
+    assert.deepEqual(offered(section()), []);
+    assert.deepEqual(runButtons(r.render()), [["first_run_setup.stop", "danger"]]);
     t.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "failed", error_code: "insufficient_space" } };
     r.render();
-    assert.deepEqual(offered(section()), [["first_run_setup.recognition.retry", "primary"], ["settings", "translation"]]);
+    assert.deepEqual(offered(section()), [["settings", "translation"]]);
+    assert.deepEqual(runButtons(r.render()), [["first_run_setup.retry", "primary"]]);
 });
 
-test("nothing to download: the recognition's Start needs no consent", async context => {
+// #1266 (decided on 2026-11-27): one consent and one start for every feature chosen. The runs go one
+// after another, as the downloads do; a stop holds the rest, and Try again continues with them.
+test("one consent starts every feature chosen, one after another; a stop holds the rest until Try again", async context => {
+    // The recognition's models on the PC already: its run only switches the server and the engine.
+    const w = world({ paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" },
+        needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0].props.onChange("irodori-v41-f16");
+    assert.deepEqual(s.start().props.models.map((entry: { id: string }) => entry.id), ["m2m100-418m-onnx-int8", "irodori-v41-f16"]);
+    assert.equal(s.start().props.canBegin, false, "one consent for both");
+    s.consent();
+    s.begin();
+    const phases = () => {
+        const tree = s.render();
+        // A recognition done shows that it is ready in place of its steps.
+        const recognition = find(tree, node => componentName(node) === "RecognitionSetup")?.props.run?.phase
+            ?? (nodesIn(tree).some(node => node.props?.children === "first_run_setup.recognition.finished") ? "done" : null);
+        return [recognition, s.modelPart(tree, "translation").props.run?.phase, s.modelPart(tree, "speech").props.run?.phase];
+    };
+    // The recognition first; the others wait, their steps waiting.
+    assert.deepEqual(phases(), ["running", "queued", "queued"]);
+    assert.deepEqual(w.sent.map(([endpoint]) => endpoint), ["/set/data/realtime_asr_settings"]);
+    assert.deepEqual(nodesIn(drawWith(local, s.modelPart(s.render(), "translation"))).filter(node => node.type === "li").map(node => node.props["data-state"]),
+        ["waiting"]);
+    w.server = "bundled"; s.render();
+    w.engine = "SpeechCpp"; s.render();
+    // The recognition done: the translation starts, the text to speech still waits.
+    assert.deepEqual(phases(), ["done", "running", "queued"]);
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "m2m100-418m-onnx-int8", consent: true, catalog_version: "2026-11-16.3" }]);
+    // Stop: the translation's download is cancelled, and the text to speech waits for Try again.
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
+    s.button(s.render(), "first_run_setup.stop").props.onClick();
+    assert.deepEqual(w.sent.at(-1), ["/run/cancel_model_download", { id: "m2m100-418m-onnx-int8", job_id: "j1" }]);
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "cancelled" } };
+    assert.deepEqual(phases(), ["done", "failed", "queued"]);
+    assert.ok(!w.sent.some(([, data]) => (data as { id?: string } | null)?.id === "irodori-v41-f16"), "the rest waits");
+    // Held, not going: the ways to the settings are back; Try again continues with the translation,
+    // then the text to speech.
+    assert.ok(find(s.render(), node => componentName(node) === "OpenSettings" && node.props.tab === "transcription") === null, "the recognition is ready");
+    assert.ok(nodesIn(drawWith(local, s.modelPart(s.render(), "speech"))).some(node => componentName(node) === "OpenSettings"));
+    s.button(s.render(), "first_run_setup.retry").props.onClick();
+    assert.deepEqual(phases(), ["done", "running", "queued"]);
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j2", phase: "ready" } };
+    s.render(); s.render();
+    w.needs = []; w.downloaded = ["m2m100_418M-ct2-int8"];
+    assert.deepEqual(phases(), ["done", "done", "running"]);
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "irodori-v41-f16", consent: true, catalog_version: "2026-11-16.3" }]);
+});
+
+test("nothing to download: the setup's Start needs no consent", async context => {
     // The models are on the PC; only the server and the engine are left to set.
-    const s = await setup(context, world({ paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } }));
-    const start = s.button(s.render(), "first_run_setup.recognition.start");
-    assert.equal(start.props.disabled, false);
+    const s = await setup(context, world({ paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } })), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    assert.equal(s.start().props.canBegin, true);
+    assert.equal(nodesIn(drawWith(local, s.start())).filter(node => node.type === "input").length, 0);
+});
+
+// #1266 (decided on 2026-11-27): with no text-to-speech model to choose, one line instead of the
+// section: none offered, or each needs a GPU the PC does not have.
+test("no text-to-speech model to choose: one line says it needs a GPU", async context => {
+    const line = (tree: unknown) => nodesIn(tree).some(node => node.type === "p" && node.props.children === "first_run_setup.speech.needs_gpu");
+    const section = (tree: unknown) => find(tree, node => componentName(node) === "ModelSetup" && node.props.words === "speech");
+    const noSpeech = { ...CATALOG, models: CATALOG.models.filter(model => !["japanese", "multilingual"].includes(model.target)) };
+    const onlyGpu = { ...CATALOG, models: CATALOG.models.filter(model => model.target !== "multilingual") };
+    const cpuOnly = { phase: "ready", devices: [{ name: "cpu", kind: "cpu", description: "CPU", memory_total: 16 * 1073741824 }] };
+    for (const values of [{ catalog: noSpeech }, { catalog: onlyGpu, hardware: cpuOnly }]) {
+        const tree = (await setup(context, world(values))).render();
+        assert.deepEqual([line(tree), section(tree)], [true, null], JSON.stringify(values));
+    }
+    // A model the CPU runs, or nothing known of the PC: the section with its choice.
+    for (const values of [{ hardware: cpuOnly }, { catalog: onlyGpu }]) {
+        const tree = (await setup(context, world(values))).render();
+        assert.deepEqual([line(tree), !!section(tree)], [false, true], JSON.stringify(values));
+    }
+    // The catalog not read yet: neither.
+    const unread = (await setup(context, world({ catalog: null }))).render();
+    assert.deepEqual([line(unread), !!section(unread)], [false, true]);
 });
 
 test("the rows' buttons and the way to the settings leave the setup for the place they name", async context => {
