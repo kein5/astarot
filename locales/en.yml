@@ -1577,6 +1577,8 @@ realtime:
   state_stopping: "Stopping captions"
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
+  # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
+  mic_permission_wait: "The microphone has not opened yet. Windows may be asking on the desktop whether ASTAROT may use the microphone. Allow it there, and the captions start."
   save_help: "Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
   auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. If other players speak languages other than Japanese, use such a model for Listening. On the bundled ASR server, choose it under \"Listening's model\" in \"On your PC (speech.cpp)\"; Mic input keeps its own."

@@ -5,7 +5,7 @@ import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController", "RecognitionFixController",
-    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
+    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "MicCaptureWaitController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController", "TalkAiController", "TalkAiIndicator"].map(name => [name, named(name)]));
 
 const load = async (phase: string, windowed = false) => {
@@ -19,6 +19,7 @@ const load = async (phase: string, windowed = false) => {
         "./_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: parts.VirtualMicGuideController },
         "./_app_controllers/FirstRunSetupController": { FirstRunSetupController: parts.FirstRunSetupController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
+        "./_app_controllers/MicCaptureWaitController": { MicCaptureWaitController: parts.MicCaptureWaitController },
         "./_app_controllers/SettingsWindowController": {},
         "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => windowed },
         "./_app_controllers/TalkAiController": { TalkAiController: parts.TalkAiController },
@@ -60,6 +61,8 @@ test("from the first frame the main page and title bar are drawn, locked until t
         for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController, parts.RecognitionFixController,
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
             parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController,
+            // What says that Mic input's microphone waits to open (#1300).
+            parts.MicCaptureWaitController,
             // Talk AI's band over both pages, and what keeps its status current (#388).
             parts.TalkAiController, parts.TalkAiIndicator]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         const geometry = find(inner, node => node.type === parts.WindowGeometryController);
@@ -76,5 +79,5 @@ test("from the first frame the main page and title bar are drawn, locked until t
 test("in the app the main window draws no settings page", async () => {
     const { inner, has } = await load("ready", true);
     assert.equal(has(inner, parts.ConfigPage), false);
-    for (const part of [parts.MainPage, parts.SwitchBlocksController, parts.ModalController, parts.FirstRunSetupController]) assert.ok(has(inner, part), part.name);
+    for (const part of [parts.MainPage, parts.SwitchBlocksController, parts.MicCaptureWaitController, parts.ModalController, parts.FirstRunSetupController]) assert.ok(has(inner, part), part.name);
 });

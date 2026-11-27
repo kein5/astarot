@@ -614,6 +614,23 @@ fn leaving_the_local_engine_stops_its_realtime_session() {
     run.ui.stop();
 }
 
+// #1298: Listening turned on with "auto" on a model that cannot tell the language is refused with
+// the model's languages, as Mic input is, so the switch's dialog can offer them and a model that
+// tells the language (#1225, #1242). The dialog's buttons are covered in
+// `RecognitionFixController.test.ts`.
+#[test]
+fn listening_on_auto_is_refused_with_the_models_languages() {
+    let run = start(Platform::Linux, json!({}), true);
+    let mut value = settings(&run.asr);
+    value["speaker"]["language"] = json!("auto");
+    run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+    let endpoint = "/set/enable/transcription_receive";
+    let mark = run.ui.send(endpoint, None);
+    let answer = run.ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint);
+    assert_eq!(error_code(&answer), "TRANSCRIPTION_RECEIVE_NOT_READY", "{answer}");
+    assert_eq!(answer["result"]["details"], json!({ "reason": "realtime_language_auto_unsupported", "languages": ["ja"] }));
+}
+
 #[test]
 fn a_switch_says_what_is_missing() {
     let run = start(Platform::Linux, json!({}), true);
@@ -807,6 +824,24 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
 // #1300: Windows holds a microphone's open until its permission question is answered, and refuses
 // the microphone when the question was left unanswered. The switch says so by the capture's own
 // codes, whose words name the question and the privacy setting, not as a device that went away.
+// #1300 (decided on 2026-11-28): while Windows holds a microphone's open for its permission question
+// on the desktop, the captions' state says so once the open has run 3 s, so the screens can tell a
+// user in VR to look at the desktop. It goes once the open returns.
+#[test]
+fn a_microphone_whose_open_waits_is_reported_as_waiting() {
+    let run = start(Platform::Linux, json!({}), true);
+    run.capture.hold("alsa.mic");
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mic = || run.ui.ok("/get/data/realtime_asr_state", None)["mic"].clone();
+    std::thread::sleep(Duration::from_millis(1500));
+    assert_eq!((mic()["state"].clone(), mic()["capture_waiting"].clone()), (json!("starting"), json!(false)), "not before 3 s");
+    eventually("the open is reported as waiting", || mic()["capture_waiting"] == true);
+    run.capture.let_go("alsa.mic");
+    eventually("the captions run", || mic()["state"] == "ready");
+    assert_eq!(mic()["capture_waiting"], false);
+    run.ui.stop();
+}
+
 #[test]
 fn a_microphone_windows_holds_or_refuses_is_told_as_such() {
     // The reason Mic input's switch gives when its microphone's open fails with `code`.

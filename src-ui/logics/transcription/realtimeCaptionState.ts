@@ -11,6 +11,8 @@ export type RealtimeSession = {
     namespace?: string | null;
     requested?: boolean;
     state?: string;
+    // The microphone's open has run 3 s and not returned (#1300).
+    capture_waiting?: boolean;
     [key: string]: unknown;
 };
 export type RealtimeSessions = Partial<Record<CaptionSource, RealtimeSession>>;
