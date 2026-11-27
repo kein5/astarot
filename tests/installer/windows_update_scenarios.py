@@ -744,24 +744,27 @@ def gui_language_scenario(installer, work, uilang, saved, expected):
                                env=installer_environment(work / f"temp-gui-language-{uilang}-{saved}"))
     desktop = Desktop(backend="win32")
     preselected = None
+    # Each page the wizard showed, once: its title and its controls (kind, ID, words, checked).
     events = []
     deadline = time.monotonic() + 180
     try:
         while process.poll() is None and time.monotonic() < deadline:
             for window in desktop.windows(process=process.pid, visible_only=True):
-                text = "\n".join(control.window_text() for control in window.descendants())
-                events.append(text)
+                controls = window.descendants()
+                text = "\n".join(control.window_text() for control in controls)
                 buttons = [b for b in window.descendants(class_name="Button") if b.is_visible() and b.is_enabled()]
+                page = [window.window_text()] + [
+                    f"{c.friendly_class_name()} {c.control_id()} {c.window_text()!r}"
+                    + (f" checked={c.get_check_state()}" if c.friendly_class_name() in ("CheckBox", "RadioButton") else "")
+                    for c in controls if c.is_visible()]
+                if not events or events[-1] != page:
+                    events.append(page)
                 if "UI Language" in text and preselected is None:
                     combos = [c for c in window.descendants(class_name="ComboBox") if c.is_visible()]
                     preselected = combos[0].window_text() if combos else ""
                 # Keeping 日本語 turns the wizard's own words Japanese from the next page on, so the
-                # controls are found by kind and ID, not by their English words.
-                # Over the install of before: the second choice keeps it, nothing to uninstall first.
-                radios = [b for b in buttons if b.friendly_class_name() == "RadioButton"]
-                if len(radios) == 2 and radios[1].get_check_state() != 1:
-                    radios[1].click()
-                    continue
+                # controls are found by kind and ID, not by their English words. The page over the
+                # install of before keeps its first choice, as clicking through does.
                 # The finish page's boxes: neither start the app (a stub here) nor add a shortcut.
                 for box in buttons:
                     if box.friendly_class_name() == "CheckBox" and box.get_check_state() == 1:
@@ -772,14 +775,17 @@ def gui_language_scenario(installer, work, uilang, saved, expected):
                     forward[0].click()
                     time.sleep(0.2)
             time.sleep(0.1)
-        assert process.poll() is not None, "Wizard timed out"
+        assert process.poll() is not None, f"Wizard timed out on {json.dumps(events[-1:], ensure_ascii=False)}"
         assert process.returncode == 0, f"install: exit {process.returncode}"
         assert preselected == {"ja": "日本語", "en": "English"}[expected], f"preselected {preselected!r}"
         assert (directory / "installer_language.txt").read_text(encoding="ascii") == expected
         print(f"PASS the language page preselects {expected} (/UILANG={uilang}, settings in {saved}) and keeps it", flush=True)
     finally:
         set_installer_language(language)
-        (work / f"gui-language-{uilang}-{saved}-controls.json").write_text(json.dumps(events, indent=2), encoding="utf-8")
+        # gui-controls.json, as the workflow keeps it for diagnosis.
+        record = work / f"gui-language-{uilang}-{saved}"
+        record.mkdir(exist_ok=True)
+        (record / "gui-controls.json").write_text(json.dumps(events, indent=2, ensure_ascii=False), encoding="utf-8")
         if process.poll() is None:
             process.kill()
             process.wait(timeout=10)
