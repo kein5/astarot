@@ -29,7 +29,7 @@ Neither comes with the app: download them, or point to files you have ([Model do
 
 The sizes are those of the file speech.cpp fetches by default. Each recognition model also comes in other file types (quantizations), which you choose when you download it ([Downloading models](../guide/models)).
 
-The bundled server uses one recognition model for both microphone captions and game audio captions.
+With the bundled server, microphone captions and game audio captions can use different models. Choose Listening's model under "Listening's model" in the Listening part of "Realtime captions", from the recognition models on your PC. It starts as "Same as Mic input", one model for both. Another model runs on a second server, so the two use more memory. With the screen in Japanese, the first-run setup picks a model that tells the language (Qwen3-ASR 0.6B) for Listening.
 
 - If you talk with people who don't speak Japanese, choose Qwen3-ASR.
 - "Detect automatically (auto)" needs a model that can detect the language, such as Qwen3-ASR.
