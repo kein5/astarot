@@ -233,7 +233,7 @@ Stop has one name too (#476): 「読み上げを停止」 / "Stop speech" on bot
 
 ## Elevation & Depth
 
-Group controls with spacing, alignment and quiet borders. A dim backdrop identifies modal scope. Avoid decorative elevation in routine forms.
+Group controls with spacing, alignment and quiet borders. A dim backdrop identifies modal scope. Avoid decorative elevation in routine forms. One dialog is seen at a time: where a dialog opens another from inside it, as the translation review opens its model's review and consent, the first steps back, its dimming too, until the other closes (`Dialog`'s `stepsBack`).
 
 ## Shapes
 
@@ -446,7 +446,7 @@ VRのウィンドウの中では、どの部品も吹き出しを開きません
 
 ## 高さと奥行き
 
-操作部品は余白、整列、控えめな境界線でまとめます。暗くした背景でモーダルの範囲を示します。ふだんのフォームでは、飾りの浮き上がりを避けます。
+操作部品は余白、整列、控えめな境界線でまとめます。暗くした背景でモーダルの範囲を示します。ふだんのフォームでは、飾りの浮き上がりを避けます。見えるダイアログは一度に1つです。翻訳の取得の確認がそのモデルの確認と同意を開くように、ダイアログがその中から別のダイアログを開くところでは、別のダイアログが閉じるまで、最初のダイアログを暗くした背景ごと隠します（`Dialog`の`stepsBack`）。
 
 ## 形
 
