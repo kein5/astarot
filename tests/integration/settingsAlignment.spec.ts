@@ -198,6 +198,10 @@ test("settings controls of every kind share one right edge and keep selects comp
     // compact input select + refresh button, Start/Stop buttons, and the disabled-start reason share one right edge.
     await app.page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).click();
     await app.page.waitForTimeout(250);
+    // The paths of one's own files are folded after the downloads (#1266 ★5): opened, so their
+    // fields are measured too.
+    await app.page.locator('details[data-own-model="rvc"]').evaluate(node => { (node as HTMLDetailsElement).open = true; });
+    await app.page.waitForTimeout(100);
     const rvcRight = assertPageRightAligned("RVC", await measureRowControls(app.page), 6);
     const stopButtonRight = await app.page.getByRole("button", { name: "Stop input forwarding" }).evaluate(el => Math.round(el.getBoundingClientRect().right));
     expect(Math.abs(stopButtonRight - rvcRight), `RVC Stop button right=${stopButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);

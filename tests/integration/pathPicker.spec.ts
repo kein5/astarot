@@ -12,6 +12,8 @@ test("a path field's button fills it with the picked folder or file, and a cance
         // The setup fold, opened unless it already is (it starts open while its setup is missing).
         const setup = app.page.locator("details[data-setup]", { has: app.page.locator(":scope > summary", { hasText: "Models and runtime" }) }).first();
         if (!(await setup.evaluate(node => (node as HTMLDetailsElement).open))) await setup.locator(":scope > summary").click();
+        // The paths of one's own files are in the fold after the downloads (#1266 ★5).
+        await setup.locator('details[data-own-model="rvc"] > summary').click();
         const runtime = app.page.getByLabel("RVC runtime folder", { exact: true });
         const model = app.page.getByLabel("Permitted RVC model (.pth)", { exact: true });
         await expect(runtime).toHaveValue("");

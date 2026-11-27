@@ -245,10 +245,12 @@ def prepare(port):
         path.write_bytes(data)
 
 
-def installer_command(installer, directory, version, silent=True, extra=""):
+def installer_command(installer, directory, version, silent=True, extra="", uilang="en"):
+    """`uilang`: the /UILANG= the app passes when it runs the installer; None for a run by hand."""
     # NSIS requires /D last, without quotes even when its value contains spaces.
     flags = "/S " if silent else ""
-    return f'"{installer}" {flags}/NS /UILANG=en /VERSION={version} {extra}/D={directory}'
+    language = f"/UILANG={uilang} " if uilang else ""
+    return f'"{installer}" {flags}/NS {language}/VERSION={version} {extra}/D={directory}'
 
 
 def installer_environment(temp):
@@ -717,6 +719,73 @@ def gui_scenario(installer, work):
         print("PASS default wizard uninstall-before-installing preserves old tree", flush=True)
     finally:
         (work / "gui-controls.json").write_text(json.dumps(events, indent=2), encoding="utf-8")
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+
+
+def gui_language_scenario(installer, work, uilang, saved, expected):
+    """#1261: the UI language page preselects /UILANG= (the app's run), or, in a run by hand, the
+    language of the settings the install goes over; clicking through keeps it for the app
+    (installer_language.txt). It always preselected English: it read $UILang above its Var line."""
+    from pywinauto import Desktop
+    directory = work / f"gui language {uilang or 'by hand'} {saved or 'no settings'}"
+    run_install(installer, directory, "old", work / f"temp-gui-language-seed-{uilang}-{saved}", True)
+    if saved:
+        # As the app writes it: one key a line, four spaces in (native/core/src/config/mod.rs).
+        (directory / "config.json").write_text(json.dumps({"MESSAGE_FORMAT": "日本語 😀", "UI_LANGUAGE": saved, "UI_SCALING": 100},
+                                                           indent=4, ensure_ascii=False), encoding="utf-8")
+    else:
+        (directory / "config.json").unlink(missing_ok=True)
+    language = installer_language()
+    # The installer's own words in English, for the captions below.
+    set_installer_language("1033")
+    process = subprocess.Popen(installer_command(installer, directory, "new", silent=False, uilang=uilang),
+                               env=installer_environment(work / f"temp-gui-language-{uilang}-{saved}"))
+    desktop = Desktop(backend="win32")
+    preselected = None
+    # Each page the wizard showed, once: its title and its controls (kind, ID, words, checked).
+    events = []
+    deadline = time.monotonic() + 180
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            for window in desktop.windows(process=process.pid, visible_only=True):
+                controls = window.descendants()
+                text = "\n".join(control.window_text() for control in controls)
+                buttons = [b for b in window.descendants(class_name="Button") if b.is_visible() and b.is_enabled()]
+                page = [window.window_text()] + [
+                    f"{c.friendly_class_name()} {c.control_id()} {c.window_text()!r}"
+                    + (f" checked={c.get_check_state()}" if c.friendly_class_name() in ("CheckBox", "RadioButton") else "")
+                    for c in controls if c.is_visible()]
+                if not events or events[-1] != page:
+                    events.append(page)
+                if "UI Language" in text and preselected is None:
+                    combos = [c for c in window.descendants(class_name="ComboBox") if c.is_visible()]
+                    preselected = combos[0].window_text() if combos else ""
+                # Keeping 日本語 turns the wizard's own words Japanese from the next page on, so the
+                # controls are found by kind and ID, not by their English words. The page over the
+                # install of before keeps its first choice, as clicking through does.
+                # The finish page's boxes: neither start the app (a stub here) nor add a shortcut.
+                for box in buttons:
+                    if box.friendly_class_name() == "CheckBox" and box.get_check_state() == 1:
+                        box.uncheck()
+                # OK, Next, Install, Close and Finish are the dialog's default button, ID 1.
+                forward = [b for b in buttons if b.control_id() == 1]
+                if forward:
+                    forward[0].click()
+                    time.sleep(0.2)
+            time.sleep(0.1)
+        assert process.poll() is not None, f"Wizard timed out on {json.dumps(events[-1:], ensure_ascii=False)}"
+        assert process.returncode == 0, f"install: exit {process.returncode}"
+        assert preselected == {"ja": "日本語", "en": "English"}[expected], f"preselected {preselected!r}"
+        assert (directory / "installer_language.txt").read_text(encoding="ascii") == expected
+        print(f"PASS the language page preselects {expected} (/UILANG={uilang}, settings in {saved}) and keeps it", flush=True)
+    finally:
+        set_installer_language(language)
+        # gui-controls.json, as the workflow keeps it for diagnosis.
+        record = work / f"gui-language-{uilang}-{saved}"
+        record.mkdir(exist_ok=True)
+        (record / "gui-controls.json").write_text(json.dumps(events, indent=2, ensure_ascii=False), encoding="utf-8")
         if process.poll() is None:
             process.kill()
             process.wait(timeout=10)
@@ -1382,6 +1451,10 @@ def main():
         else:
             delete_app_data_scenario(args.installer.resolve(), work)
             gui_scenario(args.installer.resolve(), work)
+            # #1261: a run by hand over settings in Japanese, the app's run with /UILANG=ja, and a
+            # run by hand without settings (a first install keeps English).
+            for uilang, saved, expected in ((None, "ja", "ja"), ("ja", "en", "ja"), (None, None, "en")):
+                gui_language_scenario(args.installer.resolve(), work, uilang, saved, expected)
             gui_second_run_scenario(args.installer.resolve(), work, server)
 
 

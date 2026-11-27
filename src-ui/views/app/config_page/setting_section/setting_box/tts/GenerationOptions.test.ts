@@ -24,7 +24,7 @@ async function setup({ seed = "invalid", instructions = "\u0001", modelOptions =
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/form_row/FormRow": { FormRow: "row" },
-        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" }, "../_components/fold/Fold": { Fold: "fold" },
         ...(t ? { "@useI18n": { useI18n: () => ({ t }) } } : {}),
     });
     return { runtime, draft, GenerationOptions, validGenerationOptions,
@@ -118,7 +118,7 @@ const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
-        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" }, "../_components/fold/Fold": { Fold: "fold" },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     });
@@ -183,7 +183,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/path_field/PathField": { PathField: "path-field" },
-        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" }, "../_components/fold/Fold": { Fold: "fold" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },
