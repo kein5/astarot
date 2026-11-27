@@ -1,8 +1,8 @@
 {
-  "name": "vrct-vox-docs",
+  "name": "astarot-docs",
   "private": true,
   "type": "module",
-  "description": "User documentation for ASTAROT (VRCT-VOX), built with Rspress and published on GitHub Pages.",
+  "description": "User documentation for ASTAROT, built with Rspress and published on GitHub Pages.",
   "license": "MIT",
   "scripts": {
     "dev": "rspress dev",

@@ -1,5 +1,5 @@
 {
-  "name": "vrct-vox-motion",
+  "name": "astarot-motion",
   "private": true,
   "description": "Short animations for the user guide's home page, rendered with Remotion into site/public/motion.",
   "license": "MIT",
