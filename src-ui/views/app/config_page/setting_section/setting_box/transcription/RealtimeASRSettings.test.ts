@@ -35,7 +35,14 @@ type Reply = (answer: { status: number; result: unknown }) => void;
 // hints: whether the page keeps descriptions out of sight (#614). part: the captions' form in
 // 「詳細設定」, or the server choice first in the page's speech.cpp part (AsrServer, #1266), which
 // edits the same settings and holds the address.
-async function fixture(context: TestContext, { hints = false, part = "captions" }: { hints?: boolean; part?: "captions" | "server" } = {}) {
+// models: the recognition models on the PC and the speech servers' settings, for Listening's model
+// (#1242, #1298); none by default.
+interface Models {
+    catalog: unknown;
+    downloaded: Record<string, Record<string, string>>;
+    asr: { model: string; listening_model: string };
+}
+async function fixture(context: TestContext, { hints = false, part = "captions", models }: { hints?: boolean; part?: "captions" | "server"; models?: Models } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
     const window = {
@@ -62,15 +69,16 @@ async function fixture(context: TestContext, { hints = false, part = "captions" 
         },
         updateError: error => { asr.error = error; },
     };
-    const speech = { state: {}, send: () => {} };
+    const speech = { settings: models && { profiles: { asr: models.asr } }, state: {}, send: () => {} };
     const { RealtimeASRSettings } = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { "../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
         "../../../../../../logics/transcription/recognitionFix": recognitionFix,
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
-        // Listening's own model (#1242): no model on the PC here; listeningModel.test.ts covers the choice.
-        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: null, state: { jobs: {}, downloaded: {} }, send: () => true }) },
+        // Listening's own model (#1242): no model on the PC unless given; listeningModel.test.ts covers the choice.
+        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: models?.catalog ?? null,
+            state: { jobs: {}, downloaded: models?.downloaded ?? {} }, send: () => true }) },
         "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
         "../../../../../../logics/voice/modelCatalog": { familyLabel: (entry: { name?: string }) => entry.name },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
@@ -353,6 +361,33 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
         assert.ok(mark);
         assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
     }
+});
+
+// #1298: on the bundled server, each input's languages are those of the model it uses, as the
+// catalog lists them (Mic input's too, decided on 2026-11-28): there while the server is stopped and
+// the listed models are none, with "auto" for a model that tells the language. Listening's is its own
+// model, or Mic input's when it shares it.
+test("each input's languages come from the model it uses while the server is stopped", async context => {
+    const row = (id: string, languages: string[], detects: boolean) =>
+        ({ id, target: "asr", name: id, speech: { name: id, label: id, type: "q8_0", default: true, languages, detects } });
+    const catalog = { catalog_version: "v7", models: [row("reazon-q8", ["ja"], false), row("qwen-q8", ["ja", "en"], true)] };
+    const downloaded = { "reazon-q8": { model: "/m/reazon.gguf" }, "qwen-q8": { model: "/m/qwen.gguf" } };
+    const languagesOf = async (asr: Models["asr"], server = "bundled") => {
+        const s = await fixture(context, { models: { catalog, downloaded, asr } });
+        s.asr.settings = { ...s.asr.settings, server };
+        const tree = s.render();
+        const options = (source: string) => nodesIn(findIn(tree, node => node.type === "select" && node.props["aria-label"] === `realtime.${source}_language`))
+            .filter(node => node.type === "option").map(node => node.props.value);
+        return { mic: options("mic"), speaker: options("speaker") };
+    };
+    // One model for both.
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }), { mic: ["auto", "ja", "en"], speaker: ["auto", "ja", "en"] });
+    // Listening's own, beside Mic input's that cannot tell the language: no "auto" for Mic input,
+    // whose saved language is still shown.
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }), { mic: ["ja"], speaker: ["auto", "ja", "en"] });
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "" }), { mic: ["ja"], speaker: ["ja"] });
+    // A server of one's own lists its models itself: nothing comes from the catalog (none listed here).
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }, "external"), { mic: ["ja"], speaker: ["ja"] });
 });
 
 // #1299: since #1242 Listening may have a model of its own. The texts on which model the inputs use

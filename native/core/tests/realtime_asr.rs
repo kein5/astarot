@@ -614,6 +614,23 @@ fn leaving_the_local_engine_stops_its_realtime_session() {
     run.ui.stop();
 }
 
+// #1298: Listening turned on with "auto" on a model that cannot tell the language is refused with
+// the model's languages, as Mic input is, so the switch's dialog can offer them and a model that
+// tells the language (#1225, #1242). The dialog's buttons are covered in
+// `RecognitionFixController.test.ts`.
+#[test]
+fn listening_on_auto_is_refused_with_the_models_languages() {
+    let run = start(Platform::Linux, json!({}), true);
+    let mut value = settings(&run.asr);
+    value["speaker"]["language"] = json!("auto");
+    run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+    let endpoint = "/set/enable/transcription_receive";
+    let mark = run.ui.send(endpoint, None);
+    let answer = run.ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint);
+    assert_eq!(error_code(&answer), "TRANSCRIPTION_RECEIVE_NOT_READY", "{answer}");
+    assert_eq!(answer["result"]["details"], json!({ "reason": "realtime_language_auto_unsupported", "languages": ["ja"] }));
+}
+
 #[test]
 fn a_switch_says_what_is_missing() {
     let run = start(Platform::Linux, json!({}), true);
