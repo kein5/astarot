@@ -520,8 +520,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
             <DialogHeader>
                 <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
-                <p>{selected.name} · {selected.provider}</p>
-                <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
+                {/* One line: the file, its license and its size (decided on 2026-11-27, #1266). */}
+                <p>{[selected.name, selected.license, gib(selected.total_bytes)].filter(Boolean).join(" · ")}</p>
                 {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
                 {selectedWarning && <WarningNote warning={selectedWarning} />}
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
@@ -530,12 +530,17 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
                 {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
                 <p>{t("model_downloads.connection_notice")}</p>
-                <p>{t("model_downloads.no_start")}</p>
-                <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-                <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
+                {/* The rest is in the breakdown (#1266): who provides it, its pages, where it goes,
+                    each file's exact size, and what the download does not do. */}
+                <Fold size="link" summary={t("model_downloads.breakdown")}>
+                    {selected.provider && <p>{t("model_downloads.provider", { provider: selected.provider })}</p>}
+                    <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
+                    <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
+                    <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
+                    <ul className={styles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+                    <p>{t("model_downloads.no_start")}</p>
+                </Fold>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
-                <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                <ul className={styles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
             </DialogHeader>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             {/* One more checkbox per restriction, each ticked on its own (#411). */}

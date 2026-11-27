@@ -20,6 +20,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: { catalog_version: "1", models: [model] },
             state: { jobs }, error: null, pending, send: (...request: unknown[]) => sent.push(request) }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts",
             CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section", CatalogState: "catalog-state" },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
@@ -132,12 +133,18 @@ test("the review is the kit's Dialog, with Back and the primary Start in its foo
     assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
     const header = findIn(dialog, node => node.type === kitStandIns.DialogHeader);
     assert.equal(findIn(header, node => node.type === kitStandIns.DialogTitle).props.children, "model_downloads.warning_title");
+    // One line: the model, its license and its size (#1266).
+    assert.equal(findIn(header, node => node.type === "p").props.children, "PP-OCR small · Apache-2.0 · 30.0 MB");
+    // The provider, the pages, where it goes and each file's size are in the breakdown (#1266).
+    const fold = findIn(header, node => node.type === "fold");
+    assert.equal(fold.props.summary, "model_downloads.breakdown");
+    assert.equal(findIn(fold, node => node.type === "p").props.children, 'model_downloads.provider:{"provider":"PaddlePaddle"}');
     // Where it goes, in a line that breaks anywhere, and each file with its exact size, keyed by its
     // name (the harness reads the keys as React.Children gives them).
-    const destination = findIn(header, node => node.type === "code");
+    const destination = findIn(fold, node => node.type === "code");
     assert.deepEqual([destination.props.children, destination.props.style], ["/models/ocr", { overflowWrap: "anywhere" }]);
-    assert.equal(findIn(header, node => node.type === "p" && [node.props.children].flat().some(child => child?.type === "code")).props.children[0], "model_downloads.destination");
-    const list = findIn(header, node => node.type === "ul");
+    assert.equal(findIn(fold, node => node.type === "p" && [node.props.children].flat().some(child => child?.type === "code")).props.children[0], "model_downloads.destination");
+    const list = findIn(fold, node => node.type === "ul");
     assert.equal(list.props.className, "dialog_files");
     assert.deepEqual(nodesIn(list).filter(node => node.type === "li").map(item => [item.key, [item.props.children].flat().join("")]), [
         [".$det.onnx", 'det.onnx · model_downloads.exact_bytes:{"bytes":"9,880,512"}'], [".$rec.yml", 'rec.yml · model_downloads.exact_bytes:{"bytes":"150,579"}']]);

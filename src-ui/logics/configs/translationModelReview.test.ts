@@ -113,6 +113,9 @@ for (const language of ["en", "ja"]) {
         // Opened for NLLB, which the catalog does not offer: every translation model is shown.
         assert.equal(card.props.only, undefined);
         assert.equal(find(tree, node => node.type === "p" && node.props.children === s.t("legacy_model_downloads.translation_not_published")), null);
+        // Someone getting a built-in model is not told about their own (#1266): no note, no link.
+        assert.equal(find(tree, node => node.type === "p" && node.props.children === s.t("legacy_model_downloads.translation_own_model")), null);
+        assert.equal(find(tree, node => componentName(node) === "CustomModelLink"), null);
     });
     test(`${language}: the switch's review says what follows and hears a card's download start (#1015)`, async context => {
         const model = "nllb-200-distilled-600m-onnx-int8";
