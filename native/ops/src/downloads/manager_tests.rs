@@ -1026,3 +1026,24 @@ fn a_checked_model_is_applied_as_a_downloaded_one_and_its_license_was_acknowledg
     assert_eq!(applied, [vec![("model".to_string(), path.to_string_lossy().into_owned())]]);
     assert_eq!(phase(answer.get("jobs").unwrap().get("test-model").unwrap()), "applied");
 }
+
+// #1297, #1301: a start, a check, a cancel and an apply answer with the files on the PC, as the
+// state does. Their answer is a newer observation than the last poll, so the UI takes it in place
+// of the state it holds: without the files, its pages lost every model on the PC.
+#[test]
+fn every_answer_carries_the_files_on_the_pc() {
+    let s = setup();
+    let on_pc = |answer: &Json| answer.get("downloaded").cloned();
+    // Nothing on the PC yet: the start's answer says so too.
+    assert_eq!(on_pc(&start(&s.manager).unwrap()), Some(Json::Object(Object::new())));
+    let path = model_path(&finish(&s.manager));
+    let files = s.manager.downloaded();
+    assert_eq!(files.get("test-model").and_then(|f| f.get("model")).and_then(Json::as_str), Some(path.to_string_lossy().as_ref()));
+    let checked = check(&s.manager).unwrap();
+    assert_eq!(on_pc(&checked), Some(files.clone()));
+    let job = finish(&s.manager);
+    let applied = s.manager.apply("test-model", text(&job, "job_id"), |_, _| Ok(())).unwrap();
+    assert_eq!(on_pc(&applied), Some(files.clone()));
+    assert_eq!(on_pc(&s.manager.cancel("test-model", text(&job, "job_id")).unwrap()), Some(files.clone()));
+    assert_eq!(on_pc(&s.manager.state()), Some(files));
+}

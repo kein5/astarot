@@ -269,12 +269,9 @@ impl Downloads {
     }
 
     /// `{observation_id, jobs: {id: {job_id, phase, received_bytes, total_bytes, paths, error_code}},
-    /// downloaded: {id: {role: path}}}`.
+    /// downloaded: {id: {role: path}}}`. A start, a check, a cancel and an apply answer the same.
     pub fn state(&self) -> Json {
-        let downloaded = self.downloaded();
-        let Json::Object(mut state) = self.inner.state.lock().unwrap().to_json() else { unreachable!("the state is an object") };
-        state.insert("downloaded", downloaded);
-        Json::Object(state)
+        self.inner.answer(&self.inner.state.lock().unwrap())
     }
 
     /// `{id: {role: path}}` for every entry whose files are on disk, including those of earlier
@@ -282,11 +279,7 @@ impl Downloads {
     ///
     /// [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
     pub fn downloaded(&self) -> Json {
-        let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
-        self.inner.entries.iter().fold(Object::new(), |o, m| match self.inner.present(m) {
-            Some(found) => o.with(m.id.as_str(), paths(found)),
-            None => o,
-        }).into()
+        self.inner.downloaded()
     }
 
     /// Starts downloading one entry. The request is exactly `{id, consent, catalog_version}`,
@@ -384,7 +377,7 @@ impl Downloads {
         match started {
             Ok(handle) => {
                 state.worker = Some(Worker { handle, done });
-                Ok(state.to_json())
+                Ok(self.inner.answer(&state))
             }
             Err(error) => {
                 // Nothing runs: the entry, the worker and the cancel flag are put back as they
@@ -426,7 +419,7 @@ impl Downloads {
                 response.abort();
             }
         }
-        Ok(state.to_json())
+        Ok(self.inner.answer(&state))
     }
 
     /// Re-verifies a ready download and hands its paths to `callback`, which saves them in the
@@ -474,7 +467,7 @@ impl Downloads {
             callback(&entry, &job.paths.clone())?;
             job.phase = "applied";
             job.error_code = None;
-            Ok(state.to_json())
+            Ok(inner.answer(&state))
         })();
         let outcome = match result {
             Ok(answer) => Ok(answer),
@@ -551,6 +544,25 @@ impl Drop for Downloads {
 }
 
 impl Inner {
+    /// `{id: {role: path}}` for every entry whose files are on disk ([`Downloads::downloaded`]).
+    fn downloaded(&self) -> Json {
+        let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
+        self.entries.iter().fold(Object::new(), |o, m| match self.present(m) {
+            Some(found) => o.with(m.id.as_str(), paths(found)),
+            None => o,
+        }).into()
+    }
+
+    /// What every answer carries ([`Downloads::state`]): the jobs and the files on disk. A
+    /// command's answer is a newer observation than the last poll, so the UI takes it in place of
+    /// the state it holds; without the files, the pages that read them lost every model on the PC
+    /// until they asked again (#1297, #1301).
+    fn answer(&self, state: &State) -> Json {
+        let Json::Object(mut answer) = state.to_json() else { unreachable!("the state is an object") };
+        answer.insert("downloaded", self.downloaded());
+        Json::Object(answer)
+    }
+
     fn destination(&self, entry: &Model) -> PathBuf {
         self.root.join(&entry.id).join(&entry.revision)
     }
