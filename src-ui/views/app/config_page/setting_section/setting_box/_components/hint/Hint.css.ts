@@ -55,6 +55,11 @@ export const tip = style({
 // A row's label hint: opened by keyboard focus anywhere in the row.
 export const tip_row = style({});
 
+// A row whose field says what is wrong with it under the field (aria-invalid, FieldProblem) opens
+// its hints above the label: under it, a bubble would cover the problem being fixed while the
+// field keeps the focus (#1111, #1266 T-2).
+globalStyle(`[data-hint-row]:has([aria-invalid="true"]) ${tip}`, above);
+
 globalStyle("[data-hint-host]", { position: "relative" });
 
 // The pointer on the label (or the option) opens its bubble; so does keyboard focus on what
