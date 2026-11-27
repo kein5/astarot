@@ -177,6 +177,26 @@ test("word-filter input/Add wraps within the actual available width and auto-exp
     }
 });
 
+// #1266 ★7 (decided on 2026-11-27): the settings menu shows a thumb whenever it goes on below the
+// window, as the main rail does: scrolled always, a quiet track, a thumb that stands out.
+test("the settings menu shows the main rail's thumb whenever it goes on below the window", () => {
+    const sidebar = read("sidebar_section/SidebarSection.css.ts");
+    const main = readFileSync(new URL("../main_page/sidebar_section/SidebarSection.css.ts", import.meta.url), "utf8");
+    const menu = styleOf(sidebar, "scroll_content"), rail = styleOf(main, "scrollContainer");
+    assert.match(menu, /overflowY: "scroll",/);
+    assert.doesNotMatch(menu, /overflowY: "auto"/);
+    for (const part of ['"&::-webkit-scrollbar": { width: "0.8rem" }', '"&::-webkit-scrollbar-track": { backgroundColor: "transparent" }',
+        '"&:hover::-webkit-scrollbar-thumb": { backgroundColor: vars.dark_650_color }']) {
+        assert.ok(menu.includes(part) && rail.includes(part), part);
+    }
+    const thumb = (text: string) => /"&::-webkit-scrollbar-thumb": \{([^}]*)\}/.exec(text)?.[1].replace(/\s+/g, " ").trim();
+    assert.equal(thumb(menu), thumb(rail), "the same thumb");
+    // The scrollbar takes its width from the right padding: the tabs keep their room.
+    assert.match(menu, /padding: "0 \.5rem 0 1rem",/);
+    // The icon rail keeps more of its width for the icons.
+    assert.match(menu, /\[`\$\{container\}\.\$\{is_small\} &::-webkit-scrollbar`\]: \{ width: "\.6rem" \}/);
+});
+
 test("search and every top-bar action occupy disjoint shared-grid areas with automatically reserved height", () => {
     const page = read("ConfigPage.css.ts"), top = read("topbar/Topbar.css.ts");
     const search = read("search_bar/SearchBar.css.ts"), sidebar = read("sidebar_section/SidebarSection.css.ts");

@@ -282,6 +282,8 @@ test("each source follows the system's device or one chosen, keeps a lost one na
     const f = await captionsForm(context, { settings: { ...settings, speaker: { endpoint: endpoint("Gone"), follow_default: false, language: "en" } } });
     let tree = f.open();
     const mic = fieldsetOf(tree, "mic");
+    // Where the Device page's rows lead (#1266 ★3).
+    assert.deepEqual([mic.props["data-setting-id"], fieldsetOf(tree, "speaker").props["data-setting-id"]], ["realtime_mic", "realtime_speaker"]);
     const micRow = findIn(mic, node => node.type === "form-row").props;
     assert.deepEqual([micRow.label, micRow.description], ["realtime.mic_input", "realtime.follow_default_help"]);
     const micList = selectNamed(mic, "realtime.mic_input");

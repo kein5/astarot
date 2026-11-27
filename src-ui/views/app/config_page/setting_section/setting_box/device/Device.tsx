@@ -171,6 +171,11 @@ const MicContainer = ({ part }: { part: ContainerPart }) => {
                     }
                 ]}
             />
+            {/* The speech recognition on this PC listens to the microphone of its realtime captions,
+                chosen on the speech recognition page: a row leads there (decided on 2026-11-27,
+                #1266 ★3; DESIGN.md "Roles in settings"). */}
+            <PagePointer label={t("config_page.device.realtime_mic_pointer.label")} description={t("config_page.device.realtime_mic_pointer.desc")}
+                tab="transcription" target="realtime_mic" action={t("config_page.device.realtime_mic_pointer.action")} />
         </div>
     );
 
@@ -294,6 +299,9 @@ const SpeakerContainer = ({ part }: { part: ContainerPart }) => {
                     />
                 </div>
             </div>
+            {/* What the realtime captions hear of the game is chosen there too (#1266 ★3). */}
+            <PagePointer label={t("config_page.device.realtime_speaker_pointer.label")} description={t("config_page.device.realtime_speaker_pointer.desc")}
+                tab="transcription" target="realtime_speaker" action={t("config_page.device.realtime_speaker_pointer.action")} />
         </div>
     );
 
