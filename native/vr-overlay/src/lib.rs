@@ -1,4 +1,4 @@
-//! The SteamVR overlays of VRCT-VOX (`src-python/models/overlay/`, issue #282).
+//! The SteamVR overlays of ASTAROT (`src-python/models/overlay/`, issue #282).
 //!
 //! Codename: Nuberus (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!

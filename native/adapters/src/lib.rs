@@ -1,4 +1,4 @@
-//! The external adapters of VRCT-VOX, in Rust: OSC and OSCQuery towards VRChat, the
+//! The external adapters of ASTAROT, in Rust: OSC and OSCQuery towards VRChat, the
 //! OBS browser source page, the local WebSocket server (with TLS beyond this PC) and
 //! the clipboard with automatic paste.
 //!

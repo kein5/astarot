@@ -2,7 +2,7 @@
 //!
 //! A YOLOX-Tiny trained on VRCT-VOX's own frames (tools/chatbox_lab), MIT, loaded only
 //! from its hash-verified download. The upstream VRCT detector
-//! (`chatbox_yolox_tiny.onnx`) must never run in VRCT-VOX: only the catalog file name
+//! (`chatbox_yolox_tiny.onnx`) must never run in ASTAROT: only the catalog file name
 //! is accepted, and there is no fallback lookup.
 //!
 //! Decoding (grid and strides) is inside the exported graph; here are the letterbox,

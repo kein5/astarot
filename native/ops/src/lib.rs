@@ -1,4 +1,4 @@
-//! The operations side of the VRCT-VOX backend, moved from Python (Issue #284).
+//! The operations side of the ASTAROT backend, moved from Python (Issue #284).
 //!
 //! Codename: Nebiros (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!

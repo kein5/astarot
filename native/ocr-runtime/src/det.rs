@@ -23,7 +23,7 @@ pub struct DetConfig {
 }
 
 impl Default for DetConfig {
-    /// What VRCT-VOX passes: a 320 px shorter side and the ImageNet normalisation from
+    /// What ASTAROT passes: a 320 px shorter side and the ImageNet normalisation from
     /// PaddleOCR's `inference.yml`; RapidOCR's defaults for the rest.
     fn default() -> Self {
         DetConfig {

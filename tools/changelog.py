@@ -40,7 +40,7 @@ USER, INTERNAL = "user", "internal"
 USER_HEADINGS = ("Breaking Changes", "Features", "Improvements", "Bug Fixes", "Performance", "Security")
 INTERNAL_HEADINGS = ("Refactoring", "Dependencies", "Build & CI", "Tests", "Documentation", "Maintenance")
 GROUP_TITLES = {USER: "User-facing Changes", INTERNAL: "Internal Changes"}
-# A feat, fix or perf in these scopes changes how VRCT-VOX is built or checked, not the app.
+# A feat, fix or perf in these scopes changes how ASTAROT is built or checked, not the app.
 DEVELOPER_SCOPES = {"dev": "Maintenance", "tooling": "Maintenance", "ci": "Build & CI", "build": "Build & CI",
                     "test": "Tests", "tests": "Tests", "deps": "Dependencies", "docs": "Documentation"}
 INTERNAL_BY_TYPE = {"refactor": "Refactoring", "build": "Build & CI", "ci": "Build & CI", "test": "Tests",
