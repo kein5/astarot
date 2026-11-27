@@ -3043,6 +3043,9 @@ first_run_setup:
         no_download: "ダウンロードするモデルはありません。サーバーとエンジンの設定だけを切り替えます。"
         progress: "準備の進み具合"
         step_model: "{{name}}をダウンロードして設定に入れる"
+        step_listening_model: "聞き取り用に{{name}}をダウンロードして設定に入れる"
+        # #1242: 聞き取りが聞くのは相手で、その言語は先に分からない。
+        listening_why: "聞き取りには、聞いた言語を判定できる{{name}}も使います。相手がどの言語で話しても字幕にするためです。"
         step_server: "同梱の音声認識サーバーを使う"
         step_engine: "音声認識エンジンをspeech.cppにする"
         state_waiting: "待機中"

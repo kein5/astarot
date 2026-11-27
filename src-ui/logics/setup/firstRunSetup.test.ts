@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { recognitionState, recommendedAsr, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
+import { recognitionState, recommendedAsr, recommendedListening, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
     setupSuggested, setupWork, hasSetupWork } from "./firstRunSetup.ts";
 import type { RunView, SetupCatalog, SetupEntry } from "./firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
@@ -138,4 +138,55 @@ test("the plan takes the recognition model chosen in the setup", () => {
     const ids = (plan: ReturnType<typeof setupPlan>) => (plan ?? []).flatMap(step => step.kind === "model" ? [step.entry.id] : []);
     assert.deepEqual(ids(setupPlan(base)), ["asr-ja", "vad"]);
     assert.deepEqual(ids(setupPlan({ ...base, asr: models[1] })), ["asr-other", "vad"]);
+});
+
+// #1242 (decided on 2026-11-27): Listening hears the other side and starts on "auto", so when the
+// model for one's own voice cannot tell the language, the setup takes Listening's own model too,
+// in the same consent: the recognizer that tells the language and is recommended for the most
+// languages. A model that tells the language serves both.
+const telling = (() => {
+    const flagged = (entry: ReturnType<typeof asr>, detects: boolean) => ({ ...entry, speech: { ...entry.speech, detects } });
+    return unchecked<NonNullable<SetupCatalog>>({
+        catalog_version: "v1",
+        models: [
+            flagged(asr("qwen-q8", ["en", "zh", "fr"], 800), true),
+            flagged(asr("qwen-q4", [], 500, false), true),
+            flagged(asr("reazon-q8", ["ja"], 660), false),
+            flagged(asr("parakeet-f16", ["uk"], 1200), true),
+            { id: "silero", target: "vad", name: "Silero", total_bytes: 1, profile: { recommended_for: [] } },
+        ],
+    });
+})();
+const ids = (plan: ReturnType<typeof setupPlan>) => (plan ?? []).map(step => step.kind === "model" ? `${step.target}:${step.entry.id}` : step.kind);
+
+test("a setup whose model cannot tell the language takes Listening's own model, in the same consent", () => {
+    const models = telling.models ?? [];
+    assert.equal(recommendedListening(telling, models[2])?.id, "qwen-q8", "the one recommended for the most languages");
+    assert.equal(recommendedListening(telling, models[0]), null, "a model that tells the language serves both");
+    assert.equal(recommendedListening(telling, null), null);
+    const ja = setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty });
+    assert.deepEqual(ids(ja), ["asr:reazon-q8", "listening:qwen-q8", "vad:silero", "server", "engine"]);
+    assert.equal(planBytes(ja), 660 + 800 + 1, "its size is in the consent");
+    assert.deepEqual(ids(setupPlan({ catalog: telling, language: "en", engine: null, server: "external", paths: empty })),
+        ["asr:qwen-q8", "vad:silero", "server", "engine"]);
+    // A model of Listening's own that is set already is kept; and none is added to a model of one's
+    // own voice that the setup does not download.
+    assert.deepEqual(ids(setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: { ...empty, listening_model: "/mine.gguf" } })),
+        ["asr:reazon-q8", "vad:silero", "server", "engine"]);
+    assert.deepEqual(ids(setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: { model: "/own.gguf", vad_model: "" } })),
+        ["vad:silero", "server", "engine"]);
+});
+
+test("Listening's own model is applied for Listening, into its own field", () => {
+    const plan = setupPlan({ catalog: telling, language: "ja", engine: null, server: "external", paths: empty });
+    assert.ok(plan);
+    const listening = plan[1];
+    assert.ok(listening.kind === "model");
+    const at = (paths: Record<string, string>, jobs: RunView["jobs"] = {}) =>
+        nextAction(plan, view({ paths: { ...empty, ...paths }, jobs, started: { "qwen-q8": null } }));
+    assert.deepEqual(at({ model: "/reazon.gguf" }, { "qwen-q8": { job_id: "j2", phase: "ready" } }),
+        { kind: "apply", entry: listening.entry, jobId: "j2", expected: { model: "" }, source: "speaker" });
+    // Its saved path ends the step; the VAD is next.
+    assert.equal(at({ model: "/reazon.gguf", listening_model: "/qwen.gguf" }).kind, "start");
+    assert.deepEqual(at({ model: "/reazon.gguf", listening_model: "/qwen.gguf" }), { kind: "start", entry: (telling.models ?? [])[4] });
 });

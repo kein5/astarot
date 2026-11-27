@@ -137,7 +137,9 @@ impl Core {
     /// Writes the paths of a verified download or a registered model into the settings
     /// (`_applyModelPaths`). For a download it runs at the manager's commit point; a refusal
     /// leaves the download ready.
-    fn apply_model_paths(&self, target: &str, id: &str, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
+    /// `listening`: a recognition model for Listening alone (#1242), written to the asr profile's
+    /// `listening_model`.
+    fn apply_model_paths(&self, target: &str, id: &str, paths: &[(String, String)], expected: &Value, listening: bool) -> Result<(), Error> {
         let path = |role: &str| paths.iter().find(|(r, _)| r == role).map(|(_, p)| p.clone());
         if target == "ocr" || target == catalog::TRANSLATION_TARGET {
             // Chat reading and the local translation find verified downloads by catalog id;
@@ -151,6 +153,9 @@ impl Core {
             return Ok(());
         }
         let rvc = target == "rvc";
+        if listening && target != "asr" {
+            return Err(Error::Code("download_request_invalid"));
+        }
         let keys: &[&str] = if rvc { &["model", "index"] } else { &["model"] };
         let shaped = expected.as_object().is_some_and(|o| o.len() == keys.len() && keys.iter().all(|k| o.get(*k).is_some_and(Value::is_string)));
         if !shaped {
@@ -171,7 +176,8 @@ impl Core {
             let Some((profile, field)) = catalog::speech_field(target) else {
                 return Err(Error::Code("download_request_invalid"));
             };
-            let running = astarot_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
+            let (field, server) = if listening { ("listening_model", "asr_listening") } else { (field, profile) };
+            let running = astarot_speech_server::settings::Profile::from_name(server).is_ok_and(|p| self.speech_servers().is_running(p));
             // Realtime recognition listening on the bundled server keeps its model in use.
             let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
             if running || recognizing || !(self.services().model_target_idle)(profile) || !self.voice_target_idle(profile) {
@@ -256,15 +262,26 @@ fn answer(result: Result<astarot_ops::json::Json, Error>, other: &str) -> Reply 
 }
 
 /// `_modelDownloadRequest`: exactly `{id, job_id}` (and `expected` to apply), both non-empty
-/// strings.
+/// strings. An apply may also name `"source": "speaker"`: a recognition model for Listening alone
+/// (#1242).
 fn request(data: &Value, apply: bool) -> Option<(&str, &str)> {
     let fields = data.as_object()?;
     let required: &[&str] = if apply { &["id", "job_id", "expected"] } else { &["id", "job_id"] };
-    if fields.len() != required.len() || !required.iter().all(|k| fields.contains_key(*k)) {
+    let listening = apply && listening_source(data)?;
+    if fields.len() != required.len() + usize::from(listening) || !required.iter().all(|k| fields.contains_key(*k)) {
         return None;
     }
     let text = |key: &str| fields[key].as_str().filter(|s| !s.is_empty());
     Some((text("id")?, text("job_id")?))
+}
+
+/// Whether an apply names Listening (`"source": "speaker"`); `None` for another source or value.
+fn listening_source(data: &Value) -> Option<bool> {
+    match data.get("source") {
+        None => Some(false),
+        Some(Value::String(source)) if source == "speaker" => Some(true),
+        Some(_) => None,
+    }
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
@@ -294,7 +311,8 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/apply_model_download", OPEN, |core, data| {
         let Some((id, job_id)) = request(data, true) else { return failure("download_request_invalid") };
         let expected = &data["expected"];
-        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, &entry.id, paths, expected));
+        let listening = listening_source(data) == Some(true);
+        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, &entry.id, paths, expected, listening));
         answer(result, "download_apply_failed")
     });
     // Models the user registers under a name (#403). The routes carry "user_model" so the
@@ -313,7 +331,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         let id = data.as_object().filter(|o| o.len() == 2 && o.contains_key("expected")).and_then(|o| o.get("id")).and_then(Value::as_str).filter(|s| !s.is_empty());
         let Some(id) = id else { return failure("user_model_invalid") };
         let ops = core.ops();
-        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, id, &paths, &data["expected"]));
+        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, id, &paths, &data["expected"], false));
         match result {
             Ok(()) => ok(ops.user_models.state()),
             Err(Error::Code(code)) => failure(code),

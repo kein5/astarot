@@ -217,6 +217,11 @@ pub fn speech_model(id: &str) -> Json {
                     .with("type", file.kind.as_str())
                     .with("default", file.kind == model.kind)
                     .with("languages", words(&model.languages))
+                    // A recognizer of several languages tells which one it hears: its language
+                    // option defaults to "auto" among them, as the server's `/v1/models` says once
+                    // it runs (`detects` in astarot_transcription's speechcpp, #1242). One of a
+                    // single language does not.
+                    .with("detects", model.languages.len() > 1)
                     .with("start", words(&model.start))
                     .with("version", snapshot().version.as_str())
                     .into();
@@ -228,7 +233,25 @@ pub fn speech_model(id: &str) -> Json {
 
 #[cfg(test)]
 mod tests {
-    use super::type_slug;
+    use super::{asr_models, speech_model, type_slug};
+    use crate::json::Json;
+
+    // #1242: the catalog says which recognizers tell the language they hear, from speech.cpp's own
+    // languages: Qwen3-ASR and Parakeet TDT v3 do, ReazonSpeech v2 and the Japanese-only ones do not.
+    #[test]
+    fn a_recognizer_of_several_languages_is_marked_as_telling_the_language() {
+        let detects = |name: &str| {
+            let row = asr_models().into_iter().find(|row| speech_model(&row.id).get("name").and_then(|n| n.as_str()) == Some(name));
+            let row = row.unwrap_or_else(|| panic!("{name} is offered"));
+            match speech_model(&row.id).get("detects") {
+                Some(Json::Bool(detects)) => Some(*detects),
+                _ => None,
+            }
+        };
+        for (name, expected) in [("qwen3-asr-0.6b", true), ("parakeet-tdt-0.6b-v3", true), ("reazonspeech-v2", false), ("haas-ja-v1.0", false)] {
+            assert_eq!(detects(name), Some(expected), "{name}");
+        }
+    }
 
     #[test]
     fn a_quantization_type_becomes_its_short_slug() {

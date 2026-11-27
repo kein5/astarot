@@ -411,6 +411,34 @@ fn an_asr_apply_sets_only_the_recognizer_and_keeps_the_vad() {
     ui.stop();
 }
 
+// #1242: a recognition model applied for Listening (`"source": "speaker"`) goes to the asr
+// profile's `listening_model`, checked against that field, and leaves Mic input's model alone. Only
+// a recognition model is applied for Listening, and Listening is the only other source.
+#[test]
+fn a_recognizer_applied_for_listening_sets_its_own_model_and_keeps_mic_inputs() {
+    let world = World::default();
+    let saved = json!({ "SPEECH_SERVER_SETTINGS": { "version": 1, "profiles": { "asr": { "model": "/ja.gguf", "vad_model": "/vad.gguf" } } } });
+    let ui = world.start_with(Some(saved));
+    let job = download(&ui, "asr-x");
+    let for_listening = |expected: Value, source: Value| {
+        ui.request("/run/apply_model_download", Some(json!({ "id": "asr-x", "job_id": job["job_id"], "expected": expected, "source": source })))
+    };
+    // expected names the replaced field, listening_model, not Mic input's model.
+    assert_eq!(failure(&for_listening(json!({ "model": "/ja.gguf" }), json!("speaker"))), (409, "settings_changed"));
+    assert_eq!(failure(&for_listening(json!({ "model": "" }), json!("mic"))), (400, "download_request_invalid"));
+    world.set_busy(&["asr"]);
+    assert_eq!(failure(&for_listening(json!({ "model": "" }), json!("speaker"))), (409, "model_target_busy"));
+    world.set_busy(&[]);
+    assert_eq!(for_listening(json!({ "model": "" }), json!("speaker"))["status"], 200);
+    let asr = speech_settings(&ui)["profiles"]["asr"].clone();
+    assert_eq!((asr["model"].clone(), asr["listening_model"].clone()), (json!("/ja.gguf"), job["paths"]["model"].clone()));
+
+    let vad = download(&ui, "vad-x");
+    let answer = ui.request("/run/apply_model_download", Some(json!({ "id": "vad-x", "job_id": vad["job_id"], "expected": { "model": "/vad.gguf" }, "source": "speaker" })));
+    assert_eq!(failure(&answer), (400, "download_request_invalid"), "only a recognizer is Listening's");
+    ui.stop();
+}
+
 #[test]
 fn a_vad_apply_sets_only_the_asr_vad_path_and_checks_that_field() {
     let world = World::default();
