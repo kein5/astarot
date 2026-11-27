@@ -126,7 +126,8 @@ test("an unavailable engine's reason describes the group and the engine for scre
     assert.ok(button);
     assert.equal(button.props.children, "main_page.feature_settings.open_page");
     button.props.onClick();
-    assert.deepEqual([closed, opened], [[false], [{ page: "translation" }]], "the list closes and the settings open on the translation page");
+    assert.deepEqual([closed, opened], [[false], [{ page: "translation", target: "select_translation_engine" }]],
+        "the list closes and the settings open at the translation page's engine choice");
 
     const all_available = render(engines.map(engine => ({ ...engine, is_available: true })));
     assert.equal(text(all_available, "main_page.translator_selector.unavailable_reason"), null);

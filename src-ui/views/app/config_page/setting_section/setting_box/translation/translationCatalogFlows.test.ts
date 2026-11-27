@@ -13,8 +13,6 @@ import { catalogAtom } from "../../../../../../logics/translation/translationCat
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { ApiItem, EngineItem, TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
 import type { PendingCatalogChange } from "../../../../../../logics/translation/useTranslationCatalog.ts";
-import * as translatorLabelModule from "../../../../../../logics/main/translatorLabel.ts";
-import { translator_status } from "../../../../../../logics/ui_configs.ts";
 
 const REGISTER = "/run/register_translation_catalog_entry";
 
@@ -22,6 +20,8 @@ const REGISTER = "/run/register_translation_catalog_entry";
 interface CatalogHook {
     catalog: TranslationCatalog | null;
     error: string | null;
+    // The group of the change a refusal answered (#1266): the group that says it.
+    errorGroup?: unknown;
     pending: PendingCatalogChange | null;
     send: (endpoint: string, data?: unknown) => void;
 }
@@ -59,7 +59,6 @@ const loadSection = async (runtime: HookRuntime, t?: Translate) => {
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => new Set(shippedEngine.map(item => item.weight)) },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": { endpointNotices: () => ({ description: "", warning: null }) },
-        "../../../../../../logics/main/translatorLabel.ts": translatorLabelModule, "../../../../../../logics/ui_configs.ts": { translator_status },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
@@ -72,12 +71,13 @@ const loadSection = async (runtime: HookRuntime, t?: Translate) => {
     });
 };
 
-// The section, and one of its groups drawn from it.
+// The two groups as the page draws them, each in its system's part (#1266 ★17), and one of them.
 async function section(context: TestContext, t?: Translate) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
     const module = await loadSection(runtime, t);
-    const tree = runtime.render(module.TranslationCatalogSection);
+    const trees = (["engine", "api"] as const).map(group => runtime.render(module.TranslationCatalogGroup, { group }));
+    const tree = unchecked<TreeNode>({ type: "page", props: { children: trees } });
     const group = (id: "engine" | "api") => {
         const node = findIn(tree, node => componentName(node) === "CatalogGroup" && node.props.group === id, `the ${id} group`);
         runtime.remount();
@@ -154,29 +154,26 @@ const answer = (draw: () => TreeNode, group: "engine" | "api", error: string | n
 test("each group says when nothing was added, and keeps the entries the app ships folded with what they are", async context => {
     reset(catalogWith());
     const { runtime, group } = await section(context);
-    assert.deepEqual(sent, [["/get/data/translation_catalog", undefined]], "the section asks for the catalog when it opens");
-    for (const id of ["engine", "api"] as const) {
-        const drawn = group(id);
-        assert.ok(textOf(drawn).includes("translation_catalog.none_added"), id);
-        // A bar of the app's one fold, named by its summary.
-        const fold = findIn(drawn, node => node.type === "fold" && node.props.summary === "translation_catalog.shipped_title", `${id}: the fold`);
-        const cards = nodesIn(fold).filter(node => componentName(node) === "ShippedCard").map(node => { runtime.remount(); return drawWith(runtime, node); });
-        assert.equal(cards.length, 2, id);
-        // The fold's title says they are the app's; the cards carry no mark that repeats it (#1266 T-6).
-        for (const shipped of cards) assert.ok(!textOf(shipped).includes("translation_catalog.badge.builtin"), id);
-    }
+    // The page asks for the catalog once for both groups (Translation.tsx): a group asks nothing itself.
+    assert.deepEqual(sent, []);
+    for (const id of ["engine", "api"] as const) assert.ok(textOf(group(id)).includes("translation_catalog.none_added"), id);
+    // The models the app ships: a bar of the app's one fold, named by its summary.
+    const fold = findIn(group("engine"), node => node.type === "fold" && node.props.summary === "translation_catalog.shipped_title", "the models' fold");
+    const cards = nodesIn(fold).filter(node => componentName(node) === "ShippedCard").map(node => { runtime.remount(); return drawWith(runtime, node); });
+    assert.equal(cards.length, 2);
+    // The fold's title says they are the app's; the cards carry no mark that repeats it (#1266 T-6).
+    for (const shipped of cards) assert.ok(!textOf(shipped).includes("translation_catalog.badge.builtin"));
+    // The APIs the app ships are the providers of the page's API part, with their keys: no fold of
+    // them here (#1266 T-8).
+    assert.equal(find(group("api"), node => node.type === "fold" && node.props.summary === "translation_catalog.shipped_title"), null);
+    assert.equal(find(group("api"), node => componentName(node) === "ShippedCard"), null);
     const shipped = (id: string) => {
-        const drawn = group(shippedEngine.some(item => item.id === id) ? "engine" : "api");
-        const node = findIn(drawn, node => componentName(node) === "ShippedCard" && node.props.item.id === id, id);
+        const node = findIn(group("engine"), node => componentName(node) === "ShippedCard" && node.props.item.id === id, id);
         runtime.remount();
         return drawWith(runtime, node);
     };
     assert.ok(textOf(shipped("nllb-200-distilled-600M-ct2-int8")).includes("translation_catalog.badge.non_commercial"));
     assert.ok(!textOf(shipped("m2m100_418M-ct2-int8")).includes("translation_catalog.badge.non_commercial"));
-    assert.ok(textOf(shipped("Ollama")).includes("translation_catalog.kind.local_server"));
-    assert.ok(textOf(shipped("DeepL_API")).includes("translation_catalog.kind.cloud"));
-    // Named as the translator list names it, not by its id (#1266, C-3).
-    assert.ok(textOf(shipped("DeepL_API")).includes("DeepL API") && !textOf(shipped("DeepL_API")).includes("DeepL_API"));
 });
 
 test("an engine entry is not sent without a name; Enter sends it once, cleaned, and the form empties after the answer", async context => {
@@ -388,13 +385,17 @@ test("choosing the translation model makes the catalog read again which model is
     assert.equal(asked(), before + 1);
 });
 
-test("on the translation page the catalog is a section of its own after More settings, not inside it (#597)", () => {
+// #1266 ★17: the catalog's groups are in their systems' parts, before 「詳細設定」, never inside it
+// (#597): the models with the model on this PC, the APIs the user added after the providers.
+test("on the translation page each group of the catalog is in its system's part, before More settings", () => {
     const page = readFileSync(new URL("./Translation.tsx", import.meta.url), "utf8");
+    const at = (text: string) => { const index = page.indexOf(text); assert.ok(index > 0, text); return index; };
     // The catalog is drawn by its container, which gives its built-in cards the model list's choice (#1228).
-    const advanced = page.indexOf("</AdvancedSection>"), catalog = page.indexOf("<TranslationCatalog_Container />");
-    assert.ok(advanced > 0 && catalog > advanced, "the catalog comes after the More settings fold");
-    assert.equal(page.indexOf("<TranslationCatalog_Container />", catalog + 1), -1, "the catalog is drawn once");
-    assert.equal((page.match(/<TranslationCatalogSection /g) ?? []).length, 1, "the container draws the section once");
+    const order = ["<TranslationEngine_Container />", `<EngineGroup group="local">`, "<AITranslation_Container />", `<TranslationCatalog_Container group="engine" />`,
+        `<EngineGroup group="api">`, "<ExternalTranslationAPI_Container />", "<LocalLLM_Container />", `<TranslationCatalog_Container group="api" />`,
+        "<AdvancedSection", "<LLMTranslationOptions_Container />", "</AdvancedSection>"].map(at);
+    assert.deepEqual(order, [...order].sort((a, b) => a - b));
+    assert.equal((page.match(/<TranslationCatalogGroup /g) ?? []).length, 1, "the container draws its group once");
 });
 
 // The forms' fields are the kit's TextField, never spell-checked; a path, an address and a key are

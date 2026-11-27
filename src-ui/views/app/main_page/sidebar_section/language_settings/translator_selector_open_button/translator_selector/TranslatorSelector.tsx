@@ -45,7 +45,7 @@ const isNode = (target: EventTarget | null): target is Node => target !== null &
 // focus back to the button.
 // A greyed engine says by its grey that it cannot be used now; why is its description for screen
 // readers, and the way to set it up is a button under the engines that opens the translation
-// settings, not a sentence that sends the user there (#1266 T-7).
+// settings at their engine choice, not a sentence that sends the user there (#1266 T-7, ★4).
 export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines, is_selected_same_language }: TranslatorSelectorProps) => {
     const { t } = useI18n();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
@@ -158,7 +158,7 @@ export const TranslatorSelector = ({ anchorRef, selected_id, translation_engines
                 }
                 {has_unavailable && !is_selected_same_language &&
                     <Button className={styles.settings} data-translator-settings=""
-                        onClick={() => { updateIsOpenedTranslatorSelector(false); openSettings({ page: "translation" }); }}>
+                        onClick={() => { updateIsOpenedTranslatorSelector(false); openSettings({ page: "translation", target: "select_translation_engine" }); }}>
                         {t("main_page.feature_settings.open_page", { page: t("config_page.side_menu_labels.translation") })}
                     </Button>}
             </div>
