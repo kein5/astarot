@@ -572,6 +572,23 @@ fn the_settings_page_start_answers_what_the_server_lacks_before_any_session_star
     run.ui.stop();
 }
 
+// #1302: changing the captions' server stops them. A stopping session is no longer reported as
+// asked to run, and the core sends no word of its end: the UI polls while one is stopping, and
+// this is what it waits for, the session closed.
+#[test]
+fn a_settings_change_that_stops_the_captions_ends_with_them_closed() {
+    let run = start(Platform::Linux, json!({}), true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    let mut value = settings(&run.asr);
+    value["server"] = json!("bundled");
+    run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+    assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    eventually("the session closed", || run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["state"] == "closed");
+    run.ui.stop();
+}
+
 #[test]
 fn leaving_the_local_engine_stops_its_realtime_session() {
     // #394: on Windows the local engine listens through realtime recognition; choosing a cloud

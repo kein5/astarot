@@ -554,8 +554,11 @@ const POLLS: { poll: string; call: Call; every: number; busy: HookValues[]; idle
         busy: [{ useGpuCheck: { check: { phase: "running" } } }],
         idle: [{ useGpuCheck: { check: { phase: "idle" } } }] },
     { poll: "realtime recognition", call: call("useRealtimeASR.send", "/get/data/realtime_asr_state"), every: 500,
-        busy: [{ useRealtimeASR: { state: { speaker: { requested: false }, mic: { requested: true } } } }],
-        idle: [{ useRealtimeASR: { state: { speaker: { requested: false } } } }] },
+        // A stopping source is polled until it has stopped (#1302).
+        busy: [{ useRealtimeASR: { state: { speaker: { requested: false }, mic: { requested: true } } } },
+            { useRealtimeASR: { state: { speaker: { requested: false, state: "stopping" } } } }],
+        idle: [{ useRealtimeASR: { state: { speaker: { requested: false } } } },
+            { useRealtimeASR: { state: { speaker: { requested: false, state: "closed" }, mic: { requested: false, state: "failed" } } } }] },
 ];
 const fakeTimers = () => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
 
