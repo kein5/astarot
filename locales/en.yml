@@ -1579,7 +1579,7 @@ realtime:
   state_failed: "Captions stopped after an error"
   save_help: "Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
-  auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. The bundled ASR server loads one model for both inputs, so choose Qwen3-ASR if other players speak languages other than Japanese."
+  auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. If other players speak languages other than Japanese, use such a model for Listening. On the bundled ASR server, choose it under \"Listening's model\" below; Mic input keeps its own."
   follow_default_mic: "Follow the system default input"
   follow_default_speaker: "Follow the system default output"
   follow_default_help: "The system default is read when captions start and kept until they stop. ASTAROT's own virtual devices, and a virtual cable set as the default microphone, are never captured."
@@ -2215,7 +2215,7 @@ model_downloads:
     asr_requirements: "The bundled ASR server needs a VAD model too. While none is set, it is taken with a speech recognition model. A finished download does not start recognition."
     # A recognition model's review that takes the VAD with it (#1266).
     with_vad: "The bundled ASR server needs a VAD model too, so it is taken with this one."
-    asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. The bundled ASR server loads one recognition model for both Mic and Speaker."
+    asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. A model used here is Mic input's, and Listening uses it too. To give Listening another model, choose it under \"Listening's model\" in Realtime captions; the two models then run on two servers and use more memory."
     # A short plain description per catalog model (catalog row profile.summary).
     summary:
         qwen3_asr_06b: "Writes speech in 30 languages, Japanese included, and tells which language is spoken. A light model for places where players speak several languages."

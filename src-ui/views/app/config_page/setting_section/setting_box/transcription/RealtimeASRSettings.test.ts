@@ -7,6 +7,7 @@ import * as vocabularyTerms from "../../../../../../logics/transcription/vocabul
 import type { RealtimeAsrSettings } from "../../../../../../logics/transcription/useRealtimeASR.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 import * as recognitionFix from "../../../../../../logics/transcription/recognitionFix.ts";
+import { readLocale, textAt } from "../../../../../../logics/test/locales.ts";
 
 // The settings the page writes, read back as far as the tests read them: a source for each input,
 // and the vocabulary's terms when it is there.
@@ -351,5 +352,15 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     if (hints) {
         assert.ok(mark);
         assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
+    }
+});
+
+// #1299: since #1242 Listening may have a model of its own. The texts on which model the inputs use
+// lead to the row where it is chosen, in both languages, instead of saying one model serves both.
+test("the texts on the inputs' model lead to Listening's model, in both languages", () => {
+    for (const language of ["en", "ja"]) {
+        const locale = readLocale(language);
+        const row = textAt(locale, "realtime.listening_model");
+        for (const key of ["realtime.auto_help", "model_downloads.asr_choice"]) assert.ok(textAt(locale, key).includes(row), `${language} ${key}`);
     }
 });
