@@ -770,7 +770,10 @@ fn model_options_and_installed_engines_are_asked_without_speaking() {
     run.settings(json!({ "multilingual_url": server.url }));
     assert_eq!(error_code(&run.ui.request("/get/data/tts_model_options", Some(json!({ "role": "other" })))), "tts_role_invalid");
     let options = run.ui.ok("/get/data/tts_model_options", Some(json!({ "role": "multilingual", "request_id": "r-1" })));
-    assert_eq!(options["options"], json!({ "model": "qwen3-tts", "seed": { "minimum": 0, "maximum": 1000 }, "instructions": true }));
+    // The voices the model lists reach the UI, to choose from (#1266).
+    assert_eq!(options["options"], json!({ "model": "qwen3-tts", "seed": { "minimum": 0, "maximum": 1000 }, "instructions": true, "voices": [
+        { "name": "ono_anna", "language": "ja", "gender": "female", "description": "Playful Japanese female voice." },
+        { "name": "ryan", "language": "en", "gender": "male", "description": "Dynamic male voice with rhythm." }] }));
     assert_eq!((options["request_id"].as_str(), options["server"].as_str(), options["error_code"].clone()), (Some("r-1"), Some("external"), Value::Null));
     let bundled = run.settings(json!({ "multilingual_server": "bundled" }));
     assert_eq!(bundled["status"], 200);
