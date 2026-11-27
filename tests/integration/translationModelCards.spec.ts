@@ -13,10 +13,11 @@ test("a downloaded built-in model's card switches the model in use, and the card
     await app.restart();
     const page = app.page;
     await app.openSettings("Translation");
-    const catalog = page.getByRole("region", { name: "Translation catalog" });
+    // The catalog's models are in the page's part for this PC (#1266 ★17).
+    const catalog = page.getByRole("region", { name: "Model catalog" });
     const engine = catalog.locator("[data-catalog-group=engine]");
-    await engine.getByRole("heading", { name: "Models on your PC", exact: true }).click();
-    await engine.locator("summary").filter({ hasText: "Included with the app" }).click();
+    await engine.getByRole("heading", { name: "Model catalog", exact: true }).click();
+    await engine.locator("summary").filter({ hasText: /^Included with the app/ }).click();
     const card = (weight: string) => engine.locator(`[data-catalog-item="${weight}"]`);
     const use = (weight: string) => card(weight).getByRole("button", { name: /for translation on your PC$/ });
 
@@ -46,10 +47,11 @@ test("a downloaded built-in model's card switches the model in use, and the card
 test("a built-in model that is not downloaded opens its download review and starts nothing", async ({ app }) => {
     const page = app.page;
     await app.openSettings("Translation");
-    const catalog = page.getByRole("region", { name: "Translation catalog" });
+    // The catalog's models are in the page's part for this PC (#1266 ★17).
+    const catalog = page.getByRole("region", { name: "Model catalog" });
     const engine = catalog.locator("[data-catalog-group=engine]");
-    await engine.getByRole("heading", { name: "Models on your PC", exact: true }).click();
-    await engine.locator("summary").filter({ hasText: "Included with the app" }).click();
+    await engine.getByRole("heading", { name: "Model catalog", exact: true }).click();
+    await engine.locator("summary").filter({ hasText: /^Included with the app/ }).click();
     const missing = engine.locator("[data-status=not_downloaded]").first();
     await expect(missing).toBeVisible();
     await missing.getByRole("button", { name: /^Review the download of / }).click();

@@ -6,6 +6,17 @@ export const container = style({
     flexDirection: "column",
 });
 
+// One of the engines' two systems under its subheading (#1266 ★17), as on the speech recognition
+// page (Transcription.css.ts): a rule under it, the last section inside without its own.
+export const engine_group = style({
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+    paddingBottom: "1.2rem",
+    borderBottom: `.1rem solid var(--settings_rule, ${vars.vox_border})`,
+});
+globalStyle(`${engine_group} > section:last-child`, { paddingBottom: ".8rem", borderBottom: 0 });
+
 // Non-commercial license confirmation (NLLB weights): the kit's Dialog, as the model downloads'
 // consent dialogs. Its words are one part (the dialog's header), its links in the forms' link color.
 export const license_text = style({});

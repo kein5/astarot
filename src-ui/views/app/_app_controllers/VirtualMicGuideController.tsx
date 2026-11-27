@@ -7,7 +7,7 @@ import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
-import { preferredCable } from "../../../logics/voice/virtualMic.ts";
+import { preferredCable, sameOutput } from "../../../logics/voice/virtualMic.ts";
 import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle, Select, SelectOption } from "../../kit/index.ts";
 import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
@@ -77,7 +77,9 @@ export const VirtualMicGuideController = () => {
         catch { setLinkFailed(true); }
     };
     const labels: CableLabels = cable ? { playback: cable.playback_label, recording: cable.recording_label } : {};
-    const outputOnCable = cable && status?.tts_output_is_cable && status.tts_output !== null;
+    // TTS plays into the cable shown, not only into some cable: another cable chosen in the list is
+    // not the output (#1262).
+    const outputOnCable = !!cable && !!status?.tts_output_is_cable && status.tts_output !== null && sameOutput(cable.playback, status.tts_output);
 
     // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>

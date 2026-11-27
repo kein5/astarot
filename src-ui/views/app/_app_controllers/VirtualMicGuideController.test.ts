@@ -129,6 +129,28 @@ test("with a cable it shows both ends, checks with the tone and ends at VRChat's
     assert.deepEqual(s.calls.slice(-2), [["tab", "tts"], ["opened", true]]);
 });
 
+// #1262: an output saved under MME by an earlier version is cut at 31 characters. The guide
+// checked the first cable, "CABLE In 16ch", and said that was the output; the tone went there.
+test("an output saved under a name MME cut short is its cable: shown, said to be the output, and checked", async context => {
+    const sixteen = { playback: id("CABLE In 16ch (VB-Audio Virtual Cable)"), recording: id("CABLE Out 16ch (VB-Audio Virtual Cable)"),
+        playback_label: "CABLE In 16ch (VB-Audio Virtual Cable)", recording_label: "CABLE Out 16ch (VB-Audio Virtual Cable)" };
+    const s = await setup(context, { notice: false, opened: true, current: status({ cables: [sixteen, CABLE],
+        tts_output: JSON.stringify(["MME", "CABLE Input (VB-Audio Virtual C"]), tts_output_is_cable: true }) });
+    let tree = s.render();
+    assert.deepEqual(s.all(tree, "dd").map(text), [CABLE.playback_label, CABLE.recording_label]);
+    assert.ok(s.all(tree, "p").map(text).includes("virtual_mic.found.output_set"));
+    s.all(tree, kitStandIns.Button).find(button => button.props.children === "virtual_mic.test.start")?.props.onClick();
+    assert.deepEqual(s.calls.at(-1), ["check", CABLE.playback], "the tone goes where the voice goes");
+    // Another cable chosen in the list is not the output: the guide says so and offers the TTS settings.
+    const select = nodesIn(tree).find(node => node.type === kitStandIns.Select);
+    assert.ok(select);
+    select.props.onChange({ target: { value: sixteen.playback } });
+    tree = s.render();
+    assert.deepEqual(s.all(tree, "dd").map(text), [sixteen.playback_label, sixteen.recording_label]);
+    assert.ok(s.all(tree, "p").map(text).includes("virtual_mic.found.output_unset"));
+    assert.ok(s.all(tree, kitStandIns.Button).some(button => button.props.children === "virtual_mic.found.open_tts"));
+});
+
 test("while a check runs the meter follows it and the dialog cannot be put away", async context => {
     const s = await setup(context, { notice: false, opened: true, current: status({ cables: [CABLE], tts_output: CABLE.playback, tts_output_is_cable: true }),
         check: { ...IDLE, phase: "running", playback: CABLE.playback, level: 0.62 } });

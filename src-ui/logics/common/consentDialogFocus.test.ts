@@ -82,8 +82,9 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
         "../../../../../../logics/configs/fieldChecks.ts": {},
         "../_components/form_row/FormRow": { FormRow: () => null },
-        "./TranslationCatalog": { TranslationCatalogSection: () => null },
+        "./TranslationCatalog": { TranslationCatalogGroup: () => null },
         "./TranslationGpuRuntimes": { TranslationGpuRuntimes: () => null },
+        "../../../../../../logics/main/translatorLabel.ts": { LOCAL_TRANSLATION_ENGINE: "CTranslate2", translatorLabel: () => "" }, "@logics_main": {},
         "../_components/compute_device/computeDeviceOptions": { computeDeviceLabel: (device?: { device_name?: string }) => device?.device_name, needsRestart: () => false },
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };

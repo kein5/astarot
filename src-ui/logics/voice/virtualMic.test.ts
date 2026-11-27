@@ -34,13 +34,46 @@ test("levels are kept between 0 and 1, and results need their flags", () => {
     assert.equal(shapes.normalizeVirtualMicResult({ heard: true }), null);
 });
 
-test("the cable TTS already plays into is checked first, even under a cut MME name", () => {
+test("the cable TTS already plays into is checked first, under any host", () => {
     const other = { ...CABLE, playback: id("VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)"), playback_label: "VoiceMeeter Input" };
     assert.equal(shapes.preferredCable(status({ cables: [other, CABLE] })), other);
     assert.equal(shapes.preferredCable(status({ cables: [other, CABLE], tts_output: CABLE.playback, tts_output_is_cable: true })), CABLE);
+    // The same device saved under another host.
+    assert.equal(shapes.preferredCable(status({ cables: [other, CABLE], tts_output: JSON.stringify(["MME", "CABLE Input (VB-Audio Virtual Cable)"]),
+        tts_output_is_cable: true })), CABLE);
     assert.equal(shapes.preferredCable(status({ cables: [] })), null);
     assert.equal(shapes.deviceName(CABLE.playback), "CABLE Input (VB-Audio Virtual Cable)");
     assert.equal(shapes.deviceName("plain"), "plain");
+});
+
+// #1262: an output saved under MME by an earlier version is cut at 31 characters. The core says it
+// is a cable (same_output in native/audio-routing/src/naming.rs); the guide found no exact name
+// and checked the first cable, "CABLE In 16ch", telling the user that was the output.
+test("an output saved under a name MME cut short is matched to its cable, as the core matches it", () => {
+    const sixteen: VirtualMicCable = { playback: id("CABLE In 16ch (VB-Audio Virtual Cable)"), recording: id("CABLE Out 16ch (VB-Audio Virtual Cable)"),
+        playback_label: "CABLE In 16ch (VB-Audio Virtual Cable)", recording_label: "CABLE Out 16ch (VB-Audio Virtual Cable)" };
+    const saved = JSON.stringify(["MME", "CABLE Input (VB-Audio Virtual C"]);
+    assert.equal([..."CABLE Input (VB-Audio Virtual C"].length, shapes.MME_NAME_LIMIT);
+    assert.equal(shapes.preferredCable(status({ cables: [sixteen, CABLE], tts_output: saved, tts_output_is_cable: true })), CABLE);
+    // Only when the core says the output is a cable.
+    assert.equal(shapes.preferredCable(status({ cables: [sixteen, CABLE], tts_output: saved, tts_output_is_cable: false })), sixteen);
+});
+
+// The cases of the core's same_output test (native/audio-routing/src/naming.rs), which the guide
+// follows.
+test("two outputs are one device when their names are the same, or one is cut at MME's limit and the other begins with it", () => {
+    const long = "CABLE Input (VB-Audio Virtual Cable)";
+    const cut = [...long].slice(0, shapes.MME_NAME_LIMIT).join("");
+    assert.ok(shapes.sameOutput(id(long), JSON.stringify(["MME", cut])));
+    assert.ok(shapes.sameOutput(JSON.stringify(["MME", cut]), id(long)), "either way round");
+    assert.ok(shapes.sameOutput(long, long));
+    assert.ok(!shapes.sameOutput(long, "CABLE Input (VB-Audio"), "a shorter cut is not MME's");
+    assert.ok(!shapes.sameOutput("Speakers (Realtek)", "Headphones (Realtek)"));
+    assert.ok(!shapes.sameOutput(id("CABLE In 16ch (VB-Audio Virtual Cable)"), JSON.stringify(["MME", cut])));
+    // Counted by character, not by UTF-16 unit, as the core counts them.
+    const wide = "😀".repeat(40), wideCut = "😀".repeat(shapes.MME_NAME_LIMIT);
+    assert.ok(shapes.sameOutput(wide, wideCut));
+    assert.ok(!shapes.sameOutput(wide, "😀".repeat(16)), "16 emoji are 32 UTF-16 units but 16 characters");
 });
 
 async function hook(context: TestContext, sent: [string, unknown][] = []) {

@@ -537,7 +537,7 @@ config_page:
         ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
         tts: "Monitor {{monitor}} · microphone speech {{mic}}"
         transcription: "Microphone pause {{phrase}} s · Listening pause {{speaker}} s"
-        translation: "Translation APIs ready: {{api}} · local LLMs ready: {{llm}}"
+        translation: "LLM temperature {{temperature}} · instructions {{instructions}}"
         appearance: "Log text {{log}}% · opacity {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"
@@ -708,13 +708,29 @@ config_page:
         setup_not_downloaded: "not downloaded"
         setup_unavailable: "cannot be downloaded yet"
         download_unavailable: "Not available yet"
-        models_unavailable: "The included translation models cannot be downloaded yet. To translate, use an external translation API or a local LLM under \"More settings\" below."
+        models_unavailable: "The included translation models cannot be downloaded yet. To translate, use an API or a server you run under \"API (cloud or your own server)\" below."
         provider_in_use: "in use"
         provider_ready: "ready"
         provider_not_set: "not set up"
+        # The local engine's name, as the main screen's translator list names it (translatorLabel.ts).
         section_label_ai_translation: "AI translation (local)"
-        section_label_external_api: "External translation API"
-        section_label_local_llm: "Local LLM and compatible server"
+        # The page in the speech recognition page's order (#1266 ★4, ★17): the engine first, then its two systems.
+        section_label_translation_engines: "Translation engine"
+        select_translation_engine:
+            label: "Engine used for translation"
+            desc: "The same as \"Translator\" on the main screen, chosen for each language preset. An API engine can be chosen once its API key is registered or its server is reached under \"API (cloud or your own server)\" below."
+            selected: "In use for language preset {{tab}}: {{engine}}"
+            unselected: "Not chosen"
+        local_section:
+            label: "On your PC"
+            desc: "The text you translate stays on your PC. Download a model, or add a model of your own that is on your PC."
+        api_section:
+            label: "API (cloud or your own server)"
+            desc: "The text is sent to a service or to a server you run to be translated. Register an API key or reach the server, then choose the engine under \"Engine used for translation\" above."
+        # The line of "More settings": what the AI engines are asked besides the text (#392).
+        llm_temperature_default: "default"
+        llm_instructions_set: "set"
+        llm_instructions_unset: "none"
         llm_privacy_lead: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation."
         llm_privacy_desc: "The messages are what you said in chat or into the microphone and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
         # Shown while the translation-models folder of earlier versions holds a folder (#597).
@@ -1255,6 +1271,10 @@ config_page:
                 label: "Talk AI"
                 lead: "Settings gain a \"Talk AI\" page. Your voice and screen are sent only once you start a conversation there and agree."
                 desc: "Talk with an AI by voice while showing it your screen. The AI is an outside service: you need an OpenAI Realtime API key or a vLLM-Omni server you run yourself. This feature is still being tested."
+                # The row to the page it adds, while it is on (#1266 K-4).
+                page:
+                    label: "Talk AI page"
+                    desc: "The page added under \"Voice and reading\" in the menu, where you choose whom to talk with and start a conversation."
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "Show the VR UI"
@@ -2480,15 +2500,14 @@ translation_catalog:
     # A group's bar: how many entries it has, the user's and the app's.
     group_readout_one: "{{count}} entry"
     group_readout_other: "{{count}} entries"
-    title: "Translation catalog"
-    intro: "What translates comes in two groups: models that run on your PC and APIs the app calls. You can add your own to each group. Adding only remembers the entry; nothing is downloaded or switched."
     loading: "Loading the translation catalog."
+    # Each group under its system's part of the translation page (#1266 ★17).
     group:
-        engine: "Models on your PC"
-        api: "APIs"
+        engine: "Model catalog"
+        api: "APIs you added"
     group_help:
-        engine: "Translation models that an inference engine runs on your PC. Add a model you have by its folder."
-        api: "Translation services the app calls over the network, including servers on your PC or your local network. Add one by its address, model and key."
+        engine: "The translation models included with the app and the ones you added. An inference engine runs them on your PC. Add a model you have by its folder. Adding only remembers the entry; nothing is downloaded or switched."
+        api: "Add a translation API the app does not include by its address, model and key, including a server on your PC or your local network. Adding only remembers the entry; nothing is switched."
     none_added: "No items added by you yet. Add one under \"{{add}}\" below."
     shipped_title: "Included with the app ({{count}})"
     # llama.cpp's server for translation LLMs such as TranslateGemma (ADR-015).
@@ -3075,7 +3094,7 @@ talk_ai:
     locked: "During a conversation, the service and the screen settings cannot be changed. End the conversation to change them."
     providers:
         title: "Who you talk with"
-        intro: "Choose whom to talk with. API connects to an internet service with your API key. Local connects to a server you run on your PC or in your LAN."
+        intro: "Choose whom to talk with. Local connects to a server you run on your PC or in your LAN. API connects to an internet service with your API key."
         loading: "Loading the list of services…"
         group:
             api: "API (cloud)"
@@ -3092,8 +3111,6 @@ talk_ai:
         in_use: "In use"
         ready: "Ready"
         not_set: "No API key"
-    state_help:
-        not_set: "Enter it under \"OpenAI API key\" below to use it."
     fact:
         destination: "Address"
         input: "Takes"
@@ -3112,7 +3129,6 @@ talk_ai:
         none: "Not entered yet"
         stored: "Kept in the system's credential store"
         memory: "Kept until the app closes (the system's credential store did not take it)"
-        save: "Save"
         remove: "Remove key"
         placeholder: "Paste the API key"
         placeholder_replace: "Replace with a new key"
