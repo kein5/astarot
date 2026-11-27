@@ -11,6 +11,10 @@ import { store } from "@store";
 store.is_vr_panel = true;
 
 import { VrApp } from "./VrApp";
+import { startWithSavedTheme } from "../../logics/theme/startWithSavedTheme.ts";
+
+// The saved theme from the first paint (#1259): in place before the first render.
+startWithSavedTheme();
 
 const root = document.getElementById("root");
 if (root) {

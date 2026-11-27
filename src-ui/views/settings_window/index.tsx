@@ -11,6 +11,10 @@ import { store } from "@store";
 store.appWindow = getCurrentWindow();
 
 import { SettingsWindowApp } from "./SettingsWindowApp";
+import { startWithSavedTheme } from "../../logics/theme/startWithSavedTheme.ts";
+
+// The saved theme from the first paint (#1259): in place before the first render.
+startWithSavedTheme();
 
 const root = document.getElementById("root");
 if (root) {

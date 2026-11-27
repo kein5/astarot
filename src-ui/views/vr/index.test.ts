@@ -11,15 +11,17 @@ import type { TreeNode } from "../../logics/test/hookHarness.ts";
 const VrApp = () => null;
 
 async function start() {
-    const store: { is_vr_panel?: boolean } = {}, roots: unknown[] = [], drawn: TreeNode[] = [];
+    const store: { is_vr_panel?: boolean } = {}, roots: unknown[] = [], drawn: TreeNode[] = [], steps: string[] = [];
     await loadModule(new URL("./index.tsx", import.meta.url), hooks(), {
-        "react-dom/client": { createRoot: (element: unknown) => { roots.push(element); return { render: (tree: TreeNode) => { drawn.push(tree); } }; } },
+        "react-dom/client": { createRoot: (element: unknown) => { roots.push(element); return { render: (tree: TreeNode) => { steps.push("render"); drawn.push(tree); } }; } },
+        // The saved theme from the first paint (#1259).
+        "../../logics/theme/startWithSavedTheme.ts": { startWithSavedTheme: () => { steps.push("theme"); } },
         "@root/locales/config.ts": {},
         "../app/_index_css/root.css": {},
         "@store": { store },
         "./VrApp": { VrApp },
     });
-    return { store, roots, drawn };
+    return { store, roots, drawn, steps };
 }
 
 test("the page marks the store as the VR panel's and draws the panel in strict mode into #root", async context => {
@@ -32,6 +34,8 @@ test("the page marks the store as the VR panel's and draws the panel in strict m
     const [tree] = page.drawn;
     assert.equal(tree.type, StrictMode);
     assert.equal(tree.props.children.type, VrApp);
+    // The saved theme is in place before the first render (#1259).
+    assert.deepEqual(page.steps, ["theme", "render"]);
 });
 
 test("without #root the page draws nothing", async context => {

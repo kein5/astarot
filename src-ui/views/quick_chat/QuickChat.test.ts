@@ -12,7 +12,7 @@ import type { QuickChatBridge } from './QuickChat.tsx';
 // A callback the window registers; calling it before that stops with a TypeError.
 const notYet = async (_event?: unknown): Promise<void> => { throw new TypeError('the window has not registered this callback'); };
 
-async function setup(testContext: TestContext) {
+async function setup(testContext: TestContext, startup?: ThemeSetting | null) {
     const runtime = hooks(), properties = new Map<string, string>(), removals: string[] = [], submissions: unknown[] = [];
     const callbacks: { open: (event?: unknown) => unknown; context: (event?: unknown) => unknown } = { open: notYet, context: notYet };
     let context: { language: string; enter_to_send: boolean; clear_on_send: boolean; ui_scaling: number; font_family: string; theme?: ThemeSetting | null } = {
@@ -43,6 +43,8 @@ async function setup(testContext: TestContext) {
         '../../logics/quickChat/bridge': { quickChatBridge: bridge },
         '../../logics/common/chatboxLength': chatboxLength,
         '../../logics/theme/themes.ts': themes,
+        // The theme the shell gave the page (#1259); none in a browser.
+        '../../logics/theme/startupTheme.ts': { startupTheme: () => startup },
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
         setRef(tree, {});
@@ -156,6 +158,19 @@ test('Quick Chat follows the selected preset and custom theme, and resets to the
     assert.equal(subject.properties.get('font-size'), '93.75%');
     assert.equal(subject.properties.get('--font_family'), '"Noto Sans JP"');
     subject.runtime.unmount(); await flush();
+});
+
+// #1259: the window starts in the theme the shell gave it, and keeps it until the main window's
+// answer carries the theme, which it then follows.
+test('Quick Chat keeps the shell\'s theme until the main window sends one', async t => {
+    const midnight = { preset: 'midnight', custom: { base: '#14203a', accent: '#6ea8fe' } };
+    const subject = await setup(t, midnight);
+    assert.equal(subject.properties.get('--vox_canvas'), themes.deriveTokens(midnight.custom)['--vox_canvas']);
+    subject.setContext({ theme: { preset: 'forest', custom: midnight.custom } });
+    await subject.callbacks.context();
+    subject.render();
+    const forest = themes.deriveTokens(themes.PRESETS.find(preset => preset.id === 'forest')?.colors ?? themes.PRESETS[0].colors);
+    assert.equal(subject.properties.get('--vox_canvas'), forest['--vox_canvas']);
 });
 
 test('main publishes saved appearance on initial configuration and later changes', async () => {

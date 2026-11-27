@@ -13,6 +13,7 @@ mod path_picker;
 mod settings_window;
 mod quick_chat;
 mod single_instance;
+mod startup_theme;
 mod vr_panel_state;
 mod webview_environment;
 mod window_placement;
