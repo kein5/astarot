@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
 import { useRecognitionFix } from "../../../logics/transcription/useRecognitionFix";
-import { detectingAsr, firstLanguage, languageSettingId, withLanguage } from "../../../logics/transcription/recognitionFix";
+import { detectingAsr, firstLanguage, languageSettingId, retriesServer, serverSettingId, withLanguage } from "../../../logics/transcription/recognitionFix";
 import type { RecognitionFix } from "../../../logics/transcription/recognitionFix";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useSpeechServers } from "../../../logics/voice/useSpeechServers";
@@ -31,6 +31,9 @@ const MODELS_SETTING_ID = "speechcpp_section";
 //   turned on again; or, on the bundled server, a model that tells the language by itself, through
 //   the catalog's own review (size, license, consent). Once it is downloaded it is applied as the
 //   recognition model, which the bundled server gives the switches, and the switch is turned on.
+// - the bundled server (#1308 N-14): its failure in the switch's words, with another try for a
+//   server that was busy, slow or gone, and the server's settings for one whose model, device or
+//   driver failed.
 // Either way, "Open the setting" leads to the exact setting instead.
 export const RecognitionFixController = () => {
     const { t, i18n } = useI18n();
@@ -147,6 +150,7 @@ export const RecognitionFixController = () => {
                 <DialogTitle>{t("recognition_fix.title", { name })}</DialogTitle>
                 {fix.kind === "models" ? <p>{t("recognition_fix.models_body")}</p>
                     : fix.kind === "share" ? <p>{t("recognition_fix.share_body")}</p>
+                    : fix.kind === "server" ? <p>{t(`realtime_toggle.${fix.reason}`)}</p>
                     : <p>{t(fix.auto ? "recognition_fix.language_auto_body" : "recognition_fix.language_body")}</p>}
             </DialogHeader>
             {fix.kind === "language" && fix.languages.length > 0 && <div data-recognition-fix-language>
@@ -170,8 +174,12 @@ export const RecognitionFixController = () => {
             </section>}
             <DialogFooter>
                 <Button autoFocus onClick={cancel}>{t("recognition_fix.close")}</Button>
-                <Button onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source) : MODELS_SETTING_ID)}>
+                {/* For a server whose model, device or driver failed, the setting is the fix itself. */}
+                <Button tone={fix.kind === "server" && !retriesServer(fix) ? "primary" : undefined}
+                    onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source)
+                        : fix.kind === "server" ? serverSettingId(fix.reason) : MODELS_SETTING_ID)}>
                     {t("recognition_fix.open_setting")}</Button>
+                {retriesServer(fix) && <Button tone="primary" onClick={() => { cancel(); turnOn(fix); }}>{t("recognition_fix.turn_on_again")}</Button>}
                 {fix.kind === "models" && <Button tone="primary" onClick={() => { cancel(); openSetup(); }}>{t("recognition_fix.get_models")}</Button>}
                 {fix.kind === "share" && <Button tone="primary" disabled={!speech || !asr} onClick={share}>{t("recognition_fix.use_shared", { model: micName })}</Button>}
             </DialogFooter>

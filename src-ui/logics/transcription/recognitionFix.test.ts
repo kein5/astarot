@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { detectingAsr, firstLanguage, languageSettingId, recognitionFixOf, withLanguage } from "./recognitionFix.ts";
+import { detectingAsr, firstLanguage, languageSettingId, recognitionFixOf, retriesServer, serverSettingId, withLanguage } from "./recognitionFix.ts";
 import type { SetupCatalog } from "../setup/firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -25,7 +25,7 @@ test("a language the model does not take offers the model's languages", () => {
 });
 
 test("other refusals and other switches keep their notice", () => {
-    for (const reason of ["speech_server_autostart_off", "speech_server_not_ready", "realtime_model_required", "realtime_endpoint_required", "generic"]) {
+    for (const reason of ["realtime_model_required", "realtime_endpoint_required", "realtime_capture_failed", "generic"]) {
         assert.equal(recognitionFixOf(RECEIVE, { reason }), null, reason);
     }
     // #1242: Listening's own model that does not fit beside Mic input's is offered one model for both.
@@ -60,4 +60,23 @@ test("choosing a language changes only that source's", () => {
     assert.deepEqual(withLanguage(settings, "speaker", "ja"), { server: "bundled", mic: { language: "ja", endpoint: null }, speaker: { language: "ja", endpoint: null } });
     assert.equal(settings.speaker.language, "auto", "the saved settings are not changed in place");
     assert.deepEqual([languageSettingId("mic"), languageSettingId("speaker")], ["realtime_mic_language", "realtime_speaker_language"]);
+});
+
+// #1308 N-14: a bundled server that did not start, or stopped, is fixed where the switch is, as the
+// other refusals are: tried again when it was busy, slow or gone, or in its settings otherwise.
+test("a bundled server's failure is offered its fix: another try, or its settings", () => {
+    const fix = (reason: string) => recognitionFixOf(SEND, { reason });
+    for (const reason of ["speech_server_busy", "speech_server_start_timeout", "speech_server_exited", "speech_server_not_ready"]) {
+        const found = fix(reason);
+        assert.deepEqual([found?.kind, found?.reason, found && retriesServer(found), serverSettingId(reason)], ["server", reason, true, "speechcpp_section"], reason);
+    }
+    for (const reason of ["speech_server_start_failed", "speech_server_device_failed", "speech_server_vulkan_missing", "speech_server_out_of_memory", "speech_server_model_invalid"]) {
+        const found = fix(reason);
+        assert.deepEqual([found?.kind, found && retriesServer(found), serverSettingId(reason)], ["server", false, "speechcpp_section"], reason);
+    }
+    // A server a switch may not start: whether it may is set beside the server's choice.
+    const off = fix("speech_server_autostart_off");
+    assert.deepEqual([off?.kind, off && retriesServer(off), serverSettingId("speech_server_autostart_off")], ["server", false, "asr_server"]);
+    const models = fix("realtime_asr_model_missing");
+    assert.equal(models && retriesServer(models), false, "only a server's failure is tried again");
 });
