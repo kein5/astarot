@@ -267,6 +267,8 @@ The bundled speech.cpp is only the Vulkan build in `_internal/build/speechcpp` o
 
 The bundled ASR server always loads the recognition model and the VAD model, and loads the diarization model only when the settings have a path for it. The startup check compares the contents of `/v1/models` with the settings. If a diarization model was specified but the server does not have it, or none was specified but the server has one, startup fails with `speech_server_model_tasks`.
 
+The voices of a TTS server come from `/v1/models` as well: `speech.voices` of its synthesis model (name, language, gender and description), or, when the model does not list them, the `choices` of its `voice` option. A voice file the server was started with is one of them. `/get/data/tts_model_options` returns them in `options.voices`, at most 128, and leaves out a row without a name of 1 to 64 characters (#1266). An empty list means the server did not say.
+
 The bundled ASR server also matches the identifier of each launch with the capture generation of the microphone and of the speaker. Only a capture that uses the run that ended is stopped, and the same exit notification is not processed twice. A notification from an old run does not stop a new capture. When a capture stopped because of a crash, the cause is reported as before.
 
 Turning the TTS switch off stops only the bundled server that this switch started. A server started from the settings screen and the independent RVC switch are kept.
@@ -713,6 +715,8 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 同梱のspeech.cppは、Windowsでは`_internal/build/speechcpp`のVulkan版だけ、Linuxでは同じ場所のVulkan版と`_internal/build/speechcpp-cpu`のCPU版の2つである。起動のたびに、設定の推論デバイスでどちらを使うかを決める。`cpu`はCPU版（Windowsでは同じVulkan版を`--device cpu`で）、`gpu`とGPUの名前はVulkan版、`auto`はVulkan版の`speech devices --json`が動いて計算に使えるGPUを示せばVulkan版、そうでなければCPU版を使う。Vulkan版が起動しなかった（`libvulkan.so.1`がない）ために`auto`をCPU版で動かしたときは、`/get/data/speech_server_state`のそのプロファイルに`notice: "speech_server_cpu_fallback"`を付ける。`/get/data/speech_server_devices`は、GPUの行（`devices`）に加えて、CPUを何で動かすか（`cpu_build`: `separate`、`shared`、`missing`）とGPUの選択肢が起動できるか（`gpu_build`: `ready`、`unavailable`、`missing`）を返す。細かいところは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の「決まったこと」にある。
 
 同梱ASRサーバーは認識モデルとVADモデルを必ず読み込み、設定に話者分離モデルのパスがあるときだけそれも読み込む。起動の確認では`/v1/models`の内容を設定と照合する。話者分離モデルを指定したのにサーバーがそれを持たないとき、指定していないのに持つときは、`speech_server_model_tasks`で起動を失敗にする。
+
+読み上げのサーバーの声も`/v1/models`から読む。合成モデルの`speech.voices`（名前、言語、性別、説明）を使い、モデルが一覧を持たないときは`voice`オプションの`choices`を使う。サーバーを起動したときに渡した声ファイルも声の1つになる。`/get/data/tts_model_options`は`options.voices`に最大128件を返し、1〜64文字の名前のない行は外す（#1266）。空の一覧は、サーバーが声を示さなかったことを表す。
 
 同梱ASRサーバーも、起動ごとの識別子とマイク・スピーカーそれぞれの収録世代を照合する。終了した実行を使う収録だけを停止し、同じ終了通知を重ねて処理しない。古い実行の通知で新しい収録を止めない。異常終了で停止した場合は、従来どおり原因を通知する。
 

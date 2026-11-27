@@ -370,5 +370,6 @@ fn ambiguous_or_invalid_capability_is_not_treated_as_supported() {
 fn model_options_are_read() {
     let server = PcmServer::start(catalog(card(true, true, MAX)).0);
     let options = SpeechCppTts::new(&server.url).unwrap().get_model_options(None).unwrap();
-    assert_eq!(serde_json::to_value(options).unwrap(), json!({"model": "tts-test", "seed": {"minimum": 0, "maximum": MAX}, "instructions": true}));
+    // The card lists no voices: none, and the voice is typed as before (#1266).
+    assert_eq!(serde_json::to_value(options).unwrap(), json!({"model": "tts-test", "seed": {"minimum": 0, "maximum": MAX}, "instructions": true, "voices": []}));
 }

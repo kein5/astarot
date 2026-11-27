@@ -21,12 +21,59 @@ pub struct SeedRange {
     pub maximum: u64,
 }
 
-/// What the one synthesis model on a server accepts besides text and voice.
+/// One voice the synthesis model speaks with, as speech.cpp lists it in `speech.voices`: its
+/// name (what `voice` takes), and its language, gender and description, empty when not given.
+/// A voice file the server was started with (`--add-voice`) is one of them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Voice {
+    pub name: String,
+    pub language: String,
+    pub gender: String,
+    pub description: String,
+}
+
+/// What the one synthesis model on a server accepts besides text, and the voices it takes
+/// (#1266: the voice is chosen from them). No voices: the server did not say.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ModelOptions {
     pub model: String,
     pub seed: Option<SeedRange>,
     pub instructions: bool,
+    pub voices: Vec<Voice>,
+}
+
+/// The most voices read from one model.
+const MAX_VOICES: usize = 128;
+
+/// A short text of a voice: a string of at most `limit` characters without control characters.
+fn voice_text(value: Option<&Value>, limit: usize) -> Option<String> {
+    let text = value?.as_str()?;
+    (text.chars().count() <= limit && !text.chars().any(char::is_control)).then(|| text.to_owned())
+}
+
+/// The voices of a synthesis model: `speech.voices` when it lists them, else the names the
+/// `voice` option allows (`choices`). A row that is not a voice is left out, and the list does
+/// not fail the options: without it the voice is typed as before.
+fn voices(speech: &serde_json::Map<String, Value>, options: &[Value]) -> Vec<Voice> {
+    let named = |name: Option<String>| name.filter(|name| (1..=64).contains(&name.chars().count()));
+    let mut result: Vec<Voice> = Vec::new();
+    if let Some(rows) = speech.get("voices").and_then(Value::as_array) {
+        for row in rows.iter().filter_map(Value::as_object) {
+            let Some(name) = named(voice_text(row.get("name"), 64)) else { continue };
+            let text = |key: &str| voice_text(row.get(key), 256).unwrap_or_default();
+            result.push(Voice { name, language: text("language"), gender: text("gender"), description: text("description") });
+        }
+    } else if let Some(choices) = options.iter().filter_map(Value::as_object).find(|option| option.get("name").and_then(Value::as_str) == Some("voice"))
+        .and_then(|option| option.get("choices")).and_then(Value::as_array)
+    {
+        for name in choices.iter().filter_map(|choice| named(voice_text(Some(choice), 64))) {
+            result.push(Voice { name, language: String::new(), gender: String::new(), description: String::new() });
+        }
+    }
+    let mut seen = std::collections::HashSet::new();
+    result.retain(|voice| seen.insert(voice.name.clone()));
+    result.truncate(MAX_VOICES);
+    result
 }
 
 /// The integer value of a JSON number written as an integer, saturated to i128.
@@ -67,7 +114,7 @@ pub fn parse_options(document: &Value) -> Result<ModelOptions, &'static str> {
         let (Some(id), Some(options)) = (id, options) else {
             return Err("invalid_options");
         };
-        let mut result = ModelOptions { model: id.to_owned(), seed: None, instructions: false };
+        let mut result = ModelOptions { model: id.to_owned(), seed: None, instructions: false, voices: voices(speech, options) };
         let mut seen = std::collections::HashSet::new();
         for option in options {
             let option = option.as_object().ok_or("invalid_option")?;
@@ -137,6 +184,41 @@ mod tests {
         assert_eq!(parse_options(&card(json!([{"name": "seed", "type": "int", "minimum": 5, "maximum": 4}]))), Err("invalid_seed_range"));
         // A seed of another type is not a seed option.
         assert_eq!(parse_options(&card(json!([{"name": "seed", "type": "string"}]))).unwrap().seed, None);
+    }
+
+    #[test]
+    fn reads_the_voices_the_model_lists_or_its_voice_choices() {
+        // As speech.cpp 0.9.0 lists Qwen3-TTS CustomVoice's (one shortened).
+        let listed = json!({"data": [{"id": "qwen", "speech": {"task": "synthesis",
+            "voices": [{"name": "ono_anna", "language": "ja", "gender": "female", "description": "Playful Japanese female voice."},
+                {"name": "ryan", "language": "en", "gender": "male", "description": "Dynamic male voice with rhythm."}],
+            "options": [{"name": "voice", "type": "string", "required": true, "choices": ["ono_anna", "ryan"]}]}}]});
+        let options = parse_options(&listed).unwrap();
+        assert_eq!(options.voices.iter().map(|voice| (voice.name.as_str(), voice.language.as_str())).collect::<Vec<_>>(), [("ono_anna", "ja"), ("ryan", "en")]);
+        assert_eq!(options.voices[0].description, "Playful Japanese female voice.");
+        // Irodori lists its one voice; a voice file added at start is listed as well.
+        let irodori = json!({"data": [{"id": "irodori", "speech": {"task": "synthesis",
+            "voices": [{"name": "none", "language": "", "gender": "", "description": "speaks without a reference recording"}, {"name": "custom"}],
+            "options": []}}]});
+        assert_eq!(parse_options(&irodori).unwrap().voices.iter().map(|voice| voice.name.as_str()).collect::<Vec<_>>(), ["none", "custom"]);
+        // No list: the names the voice option allows.
+        let choices = card(json!([{"name": "voice", "type": "string", "choices": ["a", "b", "a"]}]));
+        assert_eq!(parse_options(&choices).unwrap().voices.iter().map(|voice| voice.name.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        // Neither: no voices, and the other options are read as before.
+        let none = parse_options(&card(json!([{"name": "instructions", "type": "string"}]))).unwrap();
+        assert_eq!((none.voices.len(), none.instructions), (0, true));
+    }
+
+    #[test]
+    fn a_row_that_is_not_a_voice_is_left_out_and_the_list_is_bounded() {
+        let rows = json!([{"name": ""}, {"name": "x".repeat(65)}, {"name": "bad\nname"}, {"name": 1}, 2, {"name": "ok", "language": 3, "description": "d".repeat(257)},
+            {"name": "ok"}]);
+        let document = json!({"data": [{"id": "m", "speech": {"task": "synthesis", "voices": rows, "options": []}}]});
+        let options = parse_options(&document).unwrap();
+        assert_eq!(options.voices, [Voice { name: "ok".into(), language: String::new(), gender: String::new(), description: String::new() }]);
+        let many: Vec<Value> = (0..200).map(|i| json!({"name": format!("v{i}")})).collect();
+        let document = json!({"data": [{"id": "m", "speech": {"task": "synthesis", "voices": many, "options": []}}]});
+        assert_eq!(parse_options(&document).unwrap().voices.len(), MAX_VOICES);
     }
 
     #[test]
