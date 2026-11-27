@@ -123,7 +123,7 @@ The app never switches from the engine you chose to another one on its own. Swit
 
 Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use an API engine.
 
-"Bundled server" and "External server" under "ASR server" in "Realtime captions" (in "More settings") are both speech.cpp servers. The external server is a speech.cpp server you start yourself on your PC. Either way, audio stays on your PC.
+"Bundled server" and "External server" under "ASR server", first in "On your PC (speech.cpp)", are both speech.cpp servers. The external server is a speech.cpp server you start yourself on your PC. Either way, audio stays on your PC.
 
 On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
 

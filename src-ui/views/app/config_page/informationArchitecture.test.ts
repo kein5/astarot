@@ -303,8 +303,9 @@ test("speech recognition shows its engine and the engine's two systems in sight;
     const { outside, fold } = pageParts(source, "Transcription");
     // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
     // with its key), as the translation catalog splits translation (#413). The APIs left
-    // 「詳細設定」; the realtime captions stayed, since they are set once.
-    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container"]);
+    // 「詳細設定」; the realtime captions stayed, since they are set once. speech.cpp's part starts
+    // with which server it uses (#1266), which left the captions' form.
+    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "AsrServer", "SpeechServers", "EngineGroup", "CloudTranscription_Container"]);
     assert.deepEqual(fold, ["Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
     assert.deepEqual([...source.matchAll(/<EngineGroup group="(\w+)">/g)].map(match => match[1]), ["speechcpp", "api"]);
     // The search finds both groups by their names, and leads to their headings.

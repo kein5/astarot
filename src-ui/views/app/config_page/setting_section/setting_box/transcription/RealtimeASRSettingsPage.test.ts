@@ -45,7 +45,10 @@ function closeWithTest(context: TestContext, runtime: HookRuntime) {
     context.onTestFinished(() => { for (const page of opened) page.unmount(); });
 }
 
-async function captionsForm(context: TestContext, given: Partial<Asr> = {}, options: { hints?: boolean; servers?: Record<string, unknown>; answer?: unknown } = {}) {
+// part: the captions' form in 「詳細設定」, or the server choice first in the page's speech.cpp part
+// (AsrServer, #1266), which edits the same settings.
+async function captionsForm(context: TestContext, given: Partial<Asr> = {},
+    options: { hints?: boolean; servers?: Record<string, unknown>; answer?: unknown; part?: "captions" | "server" } = {}) {
     const runtime = hooks(), sent: unknown[][] = [];
     closeWithTest(context, runtime);
     // The settings draft guards leaving a page with edits through the window.
@@ -82,9 +85,23 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
         "./VocabularyFiles.tsx": { VocabularyFiles: "vocabulary-files" },
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
     });
-    const draw = () => runtime.render(module.RealtimeASRSettings);
-    // The first drawing makes the draft from the saved settings; the second shows it.
-    const open = () => { draw(); return draw(); };
+    const server = await loadModule<typeof import("./AsrServer.tsx")>(new URL("./AsrServer.tsx", import.meta.url), runtime, { ...ui,
+        "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ ...asr, send: hook.send, updateError: hook.updateError }) },
+        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
+        "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" },
+    });
+    // The first drawing makes the draft from the saved settings (the server part draws nothing
+    // before it); the second shows it, and every drawing after it.
+    let opened = false;
+    const draw = () => {
+        const tree = runtime.render(options.part === "server" ? server.AsrServer : module.RealtimeASRSettings);
+        if (opened) assert.ok(tree);
+        return tree as NonNullable<typeof tree>;
+    };
+    const open = () => { draw(); opened = true; return draw(); };
     return { runtime, asr, speech, hook, sent, draw, open };
 }
 
@@ -154,12 +171,15 @@ test("the models are asked for when there is an address, and again when the serv
     assert.equal(asked(), 6);
 });
 
-test("the form names its part, says what the captions are and which server they use, and what a change stops", async context => {
+test("the form names its part, says what the captions are, and what a change stops", async context => {
     const f = await captionsForm(context);
     let tree = f.open();
     assert.deepEqual([tree.type, tree.props["data-setting-id"], tree.props["aria-label"], tree.props["data-unsaved"]], ["section", "realtime_asr", "realtime.title", undefined]);
     const label = findIn(tree, node => node.type === "section-label").props;
-    assert.deepEqual([label.sub, label.label, label.desc], [true, "realtime.title", "realtime.scope\nrealtime.server_help"]);
+    assert.deepEqual([label.sub, label.label, label.desc], [true, "realtime.title", "realtime.scope"]);
+    // The server is chosen first in the page's speech.cpp part (AsrServer, #1266), not here.
+    assert.equal(find(tree, node => node.props?.["aria-label"] === "speech_servers.asr_selection"), null);
+    assert.equal(find(tree, node => node.props?.["aria-label"] === "realtime.url"), null);
     selectNamed(tree, "realtime.model").props.onChange({ target: { value: "qwen" } });
     tree = f.draw();
     // The row marks went with the save bar (#1111): a choice saves at once.
@@ -167,16 +187,19 @@ test("the form names its part, says what the captions are and which server they 
     assert.deepEqual(ofType(tree, "description").map(node => node.props.text).at(-1), "realtime.save_help");
 });
 
+// The server choice, first in the page's speech.cpp part under the engine choice (#1266): its own
+// section, named for the settings search, each field a settings row with its label.
 test("an external server needs its address; the bundled one asks whether a main switch may start it", async context => {
-    const f = await captionsForm(context, { settings: { ...settings, server: undefined } });
+    const f = await captionsForm(context, { settings: { ...settings, server: undefined } }, { part: "server" });
     let tree = f.open();
-    const server = selectNamed(tree, "realtime.title".replace("realtime.title", "speech_servers.asr_selection"));
-    assert.deepEqual([server.props.value, optionsOf(server)], ["external", [["external", "speech_servers.external"], ["bundled", "speech_servers.bundled"]]]);
-    assert.equal([findIn(tree, node => node.type === "label" && find(node, inner => inner.props?.["aria-label"] === "speech_servers.asr_selection") !== null).props.children].flat()[0],
-        "speech_servers.asr_selection");
+    assert.deepEqual([tree.type, tree.props["data-setting-id"], tree.props["aria-label"]], ["section", "asr_server", "speech_servers.asr_selection"]);
+    const server = selectNamed(tree, "speech_servers.asr_selection");
+    assert.deepEqual([server.props.value, optionsOf(server)], ["external", [["bundled", "speech_servers.bundled"], ["external", "speech_servers.external"]]]);
+    const row = (name: string) => findIn(tree, node => node.type === "form-row" && find(node, inner => inner.props?.["aria-label"] === name) !== null).props;
+    assert.deepEqual([row("speech_servers.asr_selection").label, row("speech_servers.asr_selection").description], ["speech_servers.asr_selection", "realtime.server_help"]);
     const url = findIn(tree, node => node.type === "input" && node.props["aria-label"] === "realtime.url");
     assert.deepEqual([url.props.value, url.props.readOnly], ["http://asr.local", false]);
-    assert.equal([findIn(tree, node => node.type === "label" && find(node, inner => inner.props?.["aria-label"] === "realtime.url") !== null).props.children].flat()[0], "realtime.url");
+    assert.equal(row("realtime.url").label, "realtime.url");
     url.props.onChange({ target: { value: "http://other" } });
     assert.equal(findIn(f.draw(), node => node.type === "input" && node.props["aria-label"] === "realtime.url").props.value, "http://other");
     assert.equal(find(tree, node => node.type === "hint-check"), null);

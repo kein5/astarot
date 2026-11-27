@@ -11,7 +11,6 @@ import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyFiles } from "./VocabularyFiles.tsx";
 import { VocabularyList } from "./VocabularyList.tsx";
 import type { TFunction } from "i18next";
@@ -88,25 +87,14 @@ export const RealtimeASRSettings = () => {
     });
     const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
     const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
-    // On a page that keeps descriptions out of sight (#614) what the captions are and which server
-    // they use is the heading's hint, and each field's words are its label's. What to do before
+    // On a page that keeps descriptions out of sight (#614) what the captions are is the heading's
+    // hint, and each field's words are its label's. What to do before
     // Start (save) and every state stay in sight.
     return <section data-setting-id="realtime_asr" className={styles.container} aria-label={t("realtime.title")}>
-        <SectionLabelComponent sub label={t("realtime.title")} desc={`${t("realtime.scope")}\n${t("realtime.server_help")}`} />
+        <SectionLabelComponent sub label={t("realtime.title")} desc={t("realtime.scope")} />
         {draft && <form aria-busy={saving} ref={form.group} onBlur={form.leave} onKeyDown={form.escape}
             onSubmit={event => { event.preventDefault(); form.commit(); }}>
-            <label>{t("speech_servers.asr_selection")}<select aria-label={t("speech_servers.asr_selection")} value={draft.server || "external"}
-                onChange={event => setDraft({ ...draft, server: event.target.value })}>
-                {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
-            </select></label>
-            {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
-            {draft.server === "bundled" && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
-                description={t("realtime.start_server_help")} checked={draft.start_server !== false}
-                onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
-            {/* The address is typed: it saves when focus leaves the form, or on Enter. */}
-            {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
-                onChange={event => form.setDraft({ ...draft, base_url: event.target.value })}
-                onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); form.commit(); } }} /></label>}
+            {/* The server these captions use is chosen first in the page's speech.cpp part (AsrServer, #1266). */}
             {/* The model list's refresh sits under the list, in the control column (#473). */}
             <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
                 actions={<button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>}>

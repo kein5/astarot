@@ -29,6 +29,7 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
         "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
     });
     return runtime.render(SpeechServers, { profiles: ["japanese", "asr"], ...props });
@@ -92,6 +93,7 @@ async function server({ state = {}, pending = {}, dirty = false, saving = false,
         "../_components/path_field/PathField": { PathField: "path-field" },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model" },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../../../../../../logics/common/pathExample": { pathExample: (name: string) => name },
     });
     const tree = runtime.render(SpeechServers, { profiles: ["japanese", "asr"] });
@@ -118,6 +120,26 @@ test("a server's paths are path fields that pick GGUF files, and they wait while
     // A save that waits leaves the fields usable, so focus stays where it was (#1111).
     const saving = await server({ saving: true, state: { japanese: { state: "stopped" }, asr: { state: "stopped" } } });
     assert.ok(saving.fields.every(field => field.props.disabled === false));
+});
+
+// #1266 (decided on 2026-11-27): in each server group the default models' download comes first,
+// and the paths of a model of one's own follow in a closed fold, with the guide to them.
+test("each server group offers the default models first and keeps the paths of one's own in a closed fold", async () => {
+    const s = await server({ state: { japanese: { state: "stopped", generation: 1 }, asr: { state: "stopped", generation: 2 } } });
+    const groups = all(s.tree, node => node.type === "fieldset");
+    assert.equal(groups.length, 2);
+    for (const [group, name] of groups.map((group, i) => [group, ["japanese", "asr"][i]] as const)) {
+        const parts = [group.props.children].flat(2).filter(Boolean).map((child: { type: unknown }) => child.type);
+        assert.ok(parts.indexOf("downloads") >= 0 && parts.indexOf("downloads") < parts.indexOf("fold"), name);
+        const fold = all(group, node => node.type === "fold")[0];
+        assert.deepEqual([fold.props.summary, fold.props.size, fold.props.open, fold.props["data-own-model"]], ["speech_servers.own_model", "link", undefined, name]);
+        assert.equal(all(fold, node => node.type === "custom-model").length, 1, "the guide to one's own model");
+        assert.deepEqual(all(fold, node => node.type === "path-field").map(field => field.props.label),
+            name === "asr" ? ["speech_servers.model", "speech_servers.vad_model", "speech_servers.diarization_model"] : ["speech_servers.model", "speech_servers.voice_file"]);
+    }
+    // No path field and no guide outside the folds.
+    assert.equal(all(s.tree, node => node.type === "path-field").length, 5);
+    assert.equal(all(s.tree, node => node.type === "custom-model").length, 2);
 });
 
 test("start, stop and reload are the kit's primary, quiet and plain buttons and wait as before", async () => {

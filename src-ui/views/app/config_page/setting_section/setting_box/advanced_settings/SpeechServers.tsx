@@ -9,6 +9,7 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import { FormRow } from "../_components/form_row/FormRow";
 import { HintCheck } from "../_components/hint/HintCheck";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
+import { Fold } from "../_components/fold/Fold";
 import { PathField as PathEntry } from "../_components/path_field/PathField";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import type { SpeechProfile, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
@@ -96,8 +97,6 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
     const summary = profiles.map(name => `${t(`speech_servers.${name}`)}: ${t(configured(name) ? "speech_servers.model_set" : "speech_servers.model_unset")} · ${stateText(name)}`).join(" / ");
     return <section className={embedded ? undefined : styles.container} aria-label={t("speech_servers.title")}>
         <SetupSection title={t("speech_servers.setup_title")} desc={t("speech_servers.help")} status={summary} attention={attention} needed={needed}>
-        {/* How to use a model file of your own instead of the default one. */}
-        <CustomModelLink section={tts ? "tts" : "asr"} />
         {tts && <HardwareReadout reserve={reserve} setReserve={setReserve} />}
         {draft && <form {...form.groupProps} aria-busy={saving} onSubmit={event => { event.preventDefault(); form.commit(); }}>
             {profiles.map(name => {
@@ -118,14 +117,11 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                 const deviceHelp = [devices.length > 0 && t("speech_servers.device_help"),
                     (builds.cpu_build === "separate" || builds.cpu_build === "shared") && t(`speech_servers.cpu_build_${builds.cpu_build}`)]
                     .filter(Boolean).join("\n");
-                // One server is a group with its subheading, not a frame inside the fold (#473).
+                // One server is a group with its subheading, not a frame inside the fold (#473). The
+                // default models' download comes first; the paths of a model of one's own follow in
+                // a closed fold with the guide to them (decided on 2026-11-27, #1266).
                 return <fieldset key={name} className={styles.group}>
                     <legend>{t(`speech_servers.${name}`)}</legend>
-                    {input("model")}{input(name === "asr" ? "vad_model" : "voice_file")}
-                    {/* Optional: with it the server also tells who speaks in the game audio captions. */}
-                    {name === "asr" && <FormRow label={t("speech_servers.diarization_model")} description={t("speech_servers.diarization_help")}>
-                        {pathField("diarization_model")}
-                    </FormRow>}
                     {/* Other unsaved edits survive an apply; only an edited model path conflicts. */}
                     {/* The asr profile also takes a VAD file and a diarization file; "expected" names the field each target replaces. */}
                     <ModelDownloads targets={name === "asr" ? ["asr", "vad", "diarization"] : [name]} deviceMode={saved[name].device}
@@ -136,6 +132,15 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                         expected={name === "asr" ? { asr: { model: saved.asr.model }, vad: { model: saved.asr.vad_model },
                                 diarization: { model: saved.asr.diarization_model } }
                             : { [name]: { model: saved[name].model } }} />
+                    <Fold size="link" className={styles.more} summary={t("speech_servers.own_model")} data-own-model={name}>
+                        {/* How to use a model file of your own instead of the default one. */}
+                        <CustomModelLink section={tts ? "tts" : "asr"} />
+                        {input("model")}{input(name === "asr" ? "vad_model" : "voice_file")}
+                        {/* Optional: with it the server also tells who speaks in the Listening captions. */}
+                        {name === "asr" && <FormRow label={t("speech_servers.diarization_model")} description={t("speech_servers.diarization_help")}>
+                            {pathField("diarization_model")}
+                        </FormRow>}
+                    </Fold>
                     <FormRow label={t("speech_servers.device")} description={deviceHelp || undefined}>
                         <select aria-label={t("speech_servers.device")} value={row.device} disabled={locked}
                             onChange={event => field(name, "device", event.target.value)}>

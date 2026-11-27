@@ -7,6 +7,7 @@ import * as styles from "./Transcription.css.ts";
 import { Badge } from "../../../../../kit/index.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { AsrApiEntries } from "./AsrApiEntries";
+import { AsrServer } from "./AsrServer";
 import { genNumObjArray } from "@utils";
 import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
@@ -52,11 +53,13 @@ export const Transcription = () => {
             {/* Which engine listens comes first: it decides what else on this page applies.
                 Then the two systems it chooses from, as the translation catalog splits them
                 (#413, #414): speech.cpp on your PC, with its models (the catalog's and your own)
-                and its server, and the APIs, one fold per provider with its key. The word filter,
-                how speech is cut into messages and the realtime captions' server are set once, in
+                and its server, and the APIs, one fold per provider with its key. The speech.cpp part
+                starts with which server it uses (#1266), under the engine choice. The word filter,
+                how speech is cut into messages and the realtime captions are set once, in
                 「詳細設定」 (#554), whose line shows the pauses that end a message. */}
             <TranscriptionEngine_Container />
             <EngineGroup group="speechcpp">
+                <AsrServer />
                 <SpeechServers profiles={["asr"]} needed={asrModelsNeeded} />
             </EngineGroup>
             <EngineGroup group="api">
