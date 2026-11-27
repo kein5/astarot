@@ -787,12 +787,13 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     assert!(waited >= Duration::from_millis(1900) && waited < Duration::from_secs(5), "{waited:?}");
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
 
-    // One that never delivers is given 5 s from the open.
+    // One that never delivers is given 5 s from the open. It never started, which is told apart
+    // from a device that went away (#1300).
     let mark = run.ui.lines().len();
     let opened = std::time::Instant::now();
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
-    assert_eq!(failed["result"]["details"]["reason"], "realtime_capture_failed");
+    assert_eq!(failed["result"]["details"]["reason"], "asr_capture_start_timeout");
     assert!(opened.elapsed() >= Duration::from_millis(4900), "{:?}", opened.elapsed());
 
     // The speaker's loopback delivers nothing while nothing plays: that is not a failure.
@@ -801,6 +802,28 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     std::thread::sleep(Duration::from_secs(3));
     assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["requested"], true);
     run.ui.stop();
+}
+
+// #1300: Windows holds a microphone's open until its permission question is answered, and refuses
+// the microphone when the question was left unanswered. The switch says so by the capture's own
+// codes, whose words name the question and the privacy setting, not as a device that went away.
+#[test]
+fn a_microphone_windows_holds_or_refuses_is_told_as_such() {
+    // The reason Mic input's switch gives when its microphone's open fails with `code`.
+    let reason = |code: &str| {
+        let run = start(Platform::Linux, json!({}), true);
+        run.capture.refuse_with("alsa.mic", code);
+        let mark = run.ui.lines().len();
+        assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+        let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+        assert_eq!(error_code(&failed), "TRANSCRIPTION_SEND_NOT_READY", "{failed}");
+        run.ui.stop();
+        failed["result"]["details"]["reason"].as_str().unwrap_or_default().to_string()
+    };
+    assert_eq!(reason("asr_capture_start_timeout"), "asr_capture_start_timeout");
+    assert_eq!(reason("asr_capture_stream_create_failed"), "asr_capture_stream_create_failed");
+    // Another failure to open is still a capture that stopped.
+    assert_eq!(reason("asr_capture_endpoint_missing"), "realtime_capture_failed");
 }
 
 #[test]

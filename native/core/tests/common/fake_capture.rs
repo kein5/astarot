@@ -31,8 +31,8 @@ struct Inner {
     script: [Mutex<VecDeque<Sound>>; 2],
     /// Device rate and channels of each source.
     format: Mutex<[(u32, u16); 2]>,
-    /// Targets that refuse to open (endpoint IDs or endpoint names).
-    refused: Mutex<Vec<String>>,
+    /// Targets that refuse to open (endpoint IDs or endpoint names), with the code of each refusal.
+    refused: Mutex<Vec<(String, String)>>,
     /// What was opened, in order: (source, endpoint id or name).
     opened: Mutex<Vec<(Source, String)>>,
     running: [AtomicUsize; 2],
@@ -82,7 +82,13 @@ impl FakeCapture {
     }
 
     pub fn refuse(&self, target: &str) {
-        self.0.refused.lock().unwrap().push(target.to_string());
+        self.refuse_with(target, "asr_capture_stream_create_failed");
+    }
+
+    /// `target` refuses to open with `code`, as a WASAPI open that waited too long for Windows'
+    /// microphone question does with `asr_capture_start_timeout`.
+    pub fn refuse_with(&self, target: &str, code: &str) {
+        self.0.refused.lock().unwrap().push((target.to_string(), code.to_string()));
     }
 
     pub fn opened(&self) -> Vec<(Source, String)> {
@@ -146,8 +152,8 @@ impl CapturePlatform for FakeCapture {
             Target::Device(device) => device.endpoint_id.clone().unwrap_or_else(|| device.name.clone()),
             Target::Endpoint(endpoint) => endpoint.name.clone(),
         };
-        if self.0.refused.lock().unwrap().contains(&name) {
-            return Err("asr_capture_stream_create_failed".into());
+        if let Some((_, code)) = self.0.refused.lock().unwrap().iter().find(|(target, _)| *target == name) {
+            return Err(code.clone());
         }
         self.0.opened.lock().unwrap().push((source, name));
         self.0.fail[index(source)].store(false, Ordering::SeqCst);

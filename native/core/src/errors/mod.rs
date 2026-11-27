@@ -199,7 +199,10 @@ pub fn reported_failure_code(area: &str, code: &str) -> Option<&'static str> {
             Some("voice_conversion_failed_other"),
         ),
         "realtime" => (
-            &["realtime_session_failed", "realtime_capture_failed", "realtime_capture_stop_failed", "realtime_asr_timeout"],
+            &[
+                "realtime_session_failed", "realtime_capture_failed", "realtime_capture_stop_failed", "realtime_asr_timeout",
+                "asr_capture_start_timeout", "asr_capture_stream_create_failed",
+            ],
             Some("realtime_failed_other"),
         ),
         "tts" => (

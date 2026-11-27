@@ -43,6 +43,25 @@ const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
 const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
 const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// The code for a microphone that never started delivering (#1300): an open that did not finish in
+/// time (the capture's own code), or one that opened and delivered nothing. The screen tells it as
+/// no audio arriving, with Windows' microphone question as a possible cause. It is not a device
+/// that went away (`realtime_capture_failed`).
+const NEVER_STARTED: &str = "asr_capture_start_timeout";
+
+/// The code a failed open is told by (#1300). Windows holds a microphone's open until its
+/// permission question is answered, and refuses the microphone when the question was left
+/// unanswered or another of its questions is open (docs/voice-stack/local-setup-windows.md): the
+/// first ends in [`NEVER_STARTED`], the second in `asr_capture_stream_create_failed`, and the screen
+/// has words for both. Any other failure stays `realtime_capture_failed`.
+fn open_failure(code: &str) -> &'static str {
+    match code {
+        NEVER_STARTED => NEVER_STARTED,
+        "asr_capture_stream_create_failed" => "asr_capture_stream_create_failed",
+        _ => "realtime_capture_failed",
+    }
+}
+
 /// What a session asks of the server (`SessionOptions`), and what the server listed for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
@@ -604,7 +623,7 @@ impl Session {
         self.inner
             .platform
             .open(self.inner.source, &Target::Endpoint(self.inner.endpoint.clone()), CAPTURE_OPEN_TIMEOUT, on_audio, on_error)
-            .map_err(|_| Failure::Session("realtime_capture_failed"))
+            .map_err(|code| Failure::Session(open_failure(&code)))
     }
 
     fn stream(
@@ -650,12 +669,12 @@ impl Session {
                 if let Some((_, heard)) = frames.last() {
                     last_audio = Some(*heard);
                 } else if self.inner.source == Source::Mic {
-                    let silent = match last_audio {
-                        Some(heard) => heard.elapsed() >= STALL_TIMEOUT,
-                        None => opened.elapsed() >= FIRST_AUDIO_TIMEOUT,
-                    };
-                    if silent {
-                        return Err(Failure::Session("realtime_capture_failed"));
+                    // A microphone that stopped delivering went away or changed; one that never
+                    // delivered did not start (#1300).
+                    match last_audio {
+                        Some(heard) if heard.elapsed() >= STALL_TIMEOUT => return Err(Failure::Session("realtime_capture_failed")),
+                        None if opened.elapsed() >= FIRST_AUDIO_TIMEOUT => return Err(Failure::Session(NEVER_STARTED)),
+                        _ => {}
                     }
                 }
                 for (frame, heard) in frames {
@@ -741,6 +760,18 @@ fn final_waited(diagnostics: &crate::diagnostics::Diagnostics, update: &Update, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // #1300: an open Windows held for its microphone question, and a microphone it refused, are
+    // told by the capture's own codes, which the screen words as such; anything else stays a
+    // capture that stopped.
+    #[test]
+    fn a_failed_open_is_told_by_the_captures_own_code() {
+        assert_eq!(open_failure("asr_capture_start_timeout"), "asr_capture_start_timeout");
+        assert_eq!(open_failure("asr_capture_stream_create_failed"), "asr_capture_stream_create_failed");
+        for code in ["asr_capture_endpoint_missing", "asr_capture_failed", "anything"] {
+            assert_eq!(open_failure(code), "realtime_capture_failed", "{code}");
+        }
+    }
 
     #[test]
     fn base64_matches_the_standard() {
