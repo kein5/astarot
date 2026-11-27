@@ -33,8 +33,9 @@ import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
 export type DownloadBlock = false | "busy" | "edited";
 // The saved paths each target's Apply replaces, as the page passes them (an RVC model has an index too).
 export type ExpectedPaths = Readonly<Partial<Record<string, { readonly model?: string; readonly index?: string }>>>;
-// A file under review: its catalog row, the catalog version the user saw and whether it is on disk already.
-type SelectedModel = ModelCatalogRow & { catalog_version: string; downloaded: boolean };
+// A file under review: its catalog row and the catalog version the user saw. Only a download is
+// reviewed: a model already on the PC is used from its card (#1263).
+type SelectedModel = ModelCatalogRow & { catalog_version: string };
 // The restrictions the dialog has words for, as names to compare with any kind.
 const RESTRICTION_KINDS: readonly string[] = RESTRICTIONS;
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -202,8 +203,10 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // usable: the catalog ids of the models that hold no path and the app can use (the translation's
 // that count as downloaded in the core). On the PC, such a model is ready, and its card offers no
 // check or preparation (#947).
-// onStart: told the catalog id of each download the user starts here, for a caller that goes on
-// once that model is there (the switch that asked for the translation model, #1015).
+// onStart: told the catalog id of each download the user starts here, and of each model on the PC
+// the user chooses to use, for a caller that goes on once that model is there (the switch that
+// asked for the translation model, #1015). Such a caller applies what is ready itself (the
+// recognition fix); without one, a model chosen to use is applied here once its files are checked.
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -231,6 +234,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const restrictionId = useId();
     const [linkError, setLinkError] = useState<string | null>(null);
     const [choices, setChoices] = useState<Readonly<Record<string, string>>>({}), [ownReserve, setReserve] = useState('vr');
+    // The models on the PC the user chose to use (#1263), with the job each had before: once its
+    // check is ready, it is applied, with no review in between.
+    const [using, setUsing] = useState<Readonly<Record<string, string | null>>>({});
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
@@ -278,6 +284,30 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const chosenLayout = useCatalogLayout();
     const layout = only ? "list" : chosenLayout;
     const acknowledge = (kind: string, checked: boolean) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
+    // A model already on the PC is used from its card (#1263): its files are checked, never
+    // downloaded, and no review or consent comes in between; the consent was given when it was
+    // downloaded. A caller that goes on once the model is there applies it itself.
+    const use = (entry: ModelCatalogRow, version: string) => {
+        if (!onStart) setUsing(previous => ({ ...previous, [entry.id]: state.jobs[entry.id]?.job_id ?? null }));
+        send("/run/check_model_download", { id: entry.id, catalog_version: version });
+        onStart?.(entry.id);
+    };
+    // A checked model is applied once its check is ready; a check that failed says why on its card.
+    // A ready check that cannot be applied now (the field was edited, a server runs) stays ready,
+    // with its Apply button and the reason, as a finished download does.
+    useEffect(() => {
+        for (const [id, before] of Object.entries(using)) {
+            const job = state.jobs[id];
+            if (!job || job.job_id === before || activePhases.includes(job.phase)) continue;
+            const entry = catalog?.models.find(model => model.id === id);
+            const savedPaths = entry ? expected?.[entry.target] : undefined;
+            if (job.phase === "ready" && savedPaths && !blocked) {
+                if (pending) continue;
+                send("/run/apply_model_download", { id, job_id: job.job_id, expected: savedPaths });
+            }
+            setUsing(({ [id]: _done, ...rest }) => rest);
+        }
+    }, [using, state.jobs, catalog, expected, blocked, pending, send]);
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
     const card = (target: string, family: CatalogFamily<ModelCatalogRow>, version: string) => {
@@ -361,7 +391,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // Only after the user picks another file; the file in use shown first is not a choice.
         const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
             <p>{t('model_downloads.manual_choice')}</p>;
-        const prepareHint = downloaded && !prepared && !job && <p>{t("model_catalog.prepare_hint")}</p>;
+        // A check of the files on the PC found them changed: getting them again is a download, reviewed.
+        const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
+        const useHint = downloaded && !prepared && !job && <p>{t("model_catalog.use_hint")}</p>;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
             summary={t(measured !== null ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
@@ -371,14 +403,23 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             {jobView(current, true)}
             {others.map(entry => jobView(entry, false))}
             <div className={styles.actions}>
-                {!prepared && <button type="button" disabled={busy} onClick={() => {
-                    setConsent(false);
-                    setAcknowledged([]);
-                    setSelected({ ...current, catalog_version: version, downloaded });
-                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>}
+                {!prepared && (downloaded && !changed
+                    // On the PC: used at once, with its files checked (#1263). Its Apply needs the
+                    // saved paths and an unchanged field, as a download's does.
+                    ? <button type="button" className="primary" data-use-model={current.id}
+                        disabled={busy || (!onStart && (!!blocked || !expected?.[current.target]))}
+                        onClick={() => use(current, version)}>{t("model_catalog.use")}</button>
+                    : <button type="button" disabled={busy} onClick={() => {
+                        setConsent(false);
+                        setAcknowledged([]);
+                        setSelected({ ...current, catalog_version: version });
+                    }}>{t("model_downloads.review")}</button>)}
                 {/* The TTS models: a short sentence on the monitor output only; the RVC models: that sentence converted (#415). */}
                 <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />
             </div>
+            {/* Why Use waits, as a ready download's Apply says it. */}
+            {!prepared && downloaded && !changed && !onStart && blocked && !job &&
+                <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
         </>;
         const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
@@ -407,14 +448,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 ? <CatalogFacts layout="grid" summary={variantLabel(current) !== current.name
                     ? t("model_catalog.layout.facts_of", { file: variantLabel(current) }) : undefined}>
                     {warning && <WarningNote warning={warning} />}
-                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{prepareHint}
+                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{useHint}
                     {auditionNote}
                     {guidanceFold}
                 </CatalogFacts>
                 : <CardContent>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</CardContent>}
             <CardFooter>
                 {run}
-                {!grid && prepareHint}
+                {!grid && useHint}
                 {!grid && auditionNote}
                 {!grid && guidanceFold}
             </CardFooter>
@@ -482,14 +523,13 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <p>{selected.name} · {selected.provider}</p>
                 <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
                 {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
-                {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
                 {selectedWarning && <WarningNote warning={selectedWarning} />}
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
                 {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
                 {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
                 {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
                 {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
-                {!selected.downloaded && <p>{t("model_downloads.connection_notice")}</p>}
+                <p>{t("model_downloads.connection_notice")}</p>
                 <p>{t("model_downloads.no_start")}</p>
                 <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
                 <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
@@ -508,7 +548,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
                     send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id); close();
-                }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</Button>
+                }}>{t("model_downloads.start")}</Button>
             </DialogFooter>
         </Dialog>}
         {error && <p role="alert">{t([`user_models.errors.${error}`, `model_downloads.errors.${error}`, "model_downloads.errors.download_failed"])}</p>}

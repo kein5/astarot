@@ -28,7 +28,9 @@ const CHUNK: usize = 1024 * 1024;
 /// The phases of a job that still owns the root or its files.
 pub const ACTIVE: [&str; 4] = ["queued", "downloading", "verifying", "cancelling"];
 /// Failure codes a job reports as they are; anything else is `download_failed`.
-const KNOWN: [&str; 8] = ["insufficient_space", "size_mismatch", "hash_mismatch", "unsafe_destination", "destination_exists", "download_url_rejected", "download_http_error", "download_busy"];
+const KNOWN: [&str; 10] = ["insufficient_space", "size_mismatch", "hash_mismatch", "unsafe_destination", "destination_exists", "download_url_rejected", "download_http_error", "download_busy",
+    // A check of the files on the PC (`Downloads::check`, #1263): they changed, or went.
+    "model_files_changed", "model_not_downloaded"];
 
 type FreeSpace = dyn Fn(&Path) -> io::Result<u64> + Send + Sync;
 
@@ -317,6 +319,36 @@ impl Downloads {
         if restrictions.iter().any(|kind| !acknowledged.contains(kind)) {
             return Err(Error::Code("model_download_restriction_unacknowledged"));
         }
+        self.begin(entry, true)
+    }
+
+    /// Checks an entry whose files are on the PC (#1263): their sizes and SHA-256, as a download
+    /// checks files it finds published, and nothing more. It never reaches the network, and files
+    /// that do not match are left as they are: the job fails with `model_files_changed`, and
+    /// getting them again is a download, which asks for the consent. The request is exactly
+    /// `{id, catalog_version}`: nothing is acquired, so no consent is asked; it was given when the
+    /// files were downloaded. A checked job is ready, and applied as a downloaded one is.
+    ///
+    /// Errors: `download_request_invalid`, `catalog_changed`, `model_not_downloaded` (a file is
+    /// missing or not of its size), `downloads_closed`, `download_busy`. A refused request writes
+    /// nothing.
+    pub fn check(&self, request: &serde_json::Value) -> Result<Json, Error> {
+        const REQUIRED: [&str; 2] = ["id", "catalog_version"];
+        let fields = request.as_object().filter(|o| o.len() == REQUIRED.len() && REQUIRED.iter().all(|k| o.contains_key(*k)));
+        let Some(fields) = fields else { return Err(Error::Code("download_request_invalid")) };
+        let entry = match (fields["id"].as_str(), fields["catalog_version"].as_str()) {
+            (Some(id), Some(CATALOG_VERSION)) => self.inner.entries.iter().find(|e| e.id == id),
+            _ => None,
+        };
+        let Some(entry) = entry.cloned() else { return Err(Error::Code("catalog_changed")) };
+        if self.inner.present(&entry).is_none() {
+            return Err(Error::Code("model_not_downloaded"));
+        }
+        self.begin(entry, false)
+    }
+
+    /// Starts the job of an entry: a download when `fetch`, else a check of its files on the PC.
+    fn begin(&self, entry: Model, fetch: bool) -> Result<Json, Error> {
         let mut state = self.inner.state.lock().unwrap();
         if state.closed || self.inner.closing.load(Ordering::SeqCst) {
             return Err(Error::Code("downloads_closed"));
@@ -346,7 +378,7 @@ impl Downloads {
         let finished = done.clone();
         let started = self.spawn_worker(move || {
             let previous = handed.lock().unwrap().take();
-            inner.run(entry, job_id, cancel, previous);
+            inner.run(entry, job_id, cancel, previous, fetch);
             finished.set();
         });
         match started {
@@ -576,14 +608,14 @@ impl Inner {
         file.sync_all()
     }
 
-    fn run(&self, entry: Model, job_id: String, cancel: Arc<AtomicBool>, previous: Option<Worker>) {
+    fn run(&self, entry: Model, job_id: String, cancel: Arc<AtomicBool>, previous: Option<Worker>, fetch: bool) {
         // A finished job is reported before its worker releases the root lease.
         if let Some(previous) = previous {
             let _ = previous.handle.join();
         }
         let mut staging = None;
         let mut lease = RootLease::new(&self.root);
-        let outcome = self.download(&entry, &job_id, &cancel, &mut staging, &mut lease);
+        let outcome = self.download(&entry, &job_id, &cancel, &mut staging, &mut lease, fetch);
         let cancelled = cancel.load(Ordering::SeqCst);
         let mut terminal: Option<(&'static str, Option<&'static str>)> = match outcome {
             Ok(()) => None,
@@ -614,18 +646,26 @@ impl Inner {
         }
     }
 
-    fn download(&self, entry: &Model, job_id: &str, cancel: &AtomicBool, staging: &mut Option<PathBuf>, lease: &mut RootLease) -> Result<(), Stop> {
+    /// The job of an entry. `fetch` false: a check of the files on the PC, which never downloads
+    /// and leaves files that do not match as they are (`Downloads::check`).
+    fn download(&self, entry: &Model, job_id: &str, cancel: &AtomicBool, staging: &mut Option<PathBuf>, lease: &mut RootLease, fetch: bool) -> Result<(), Stop> {
         directory(&self.root.join(&entry.id))?;
         lease.acquire()?;
         recover_owned(&self.root, &self.entries, &[])?;
         let destination = self.destination(entry);
         let mut published = fs::symlink_metadata(&destination).is_ok();
+        // Gone since the check was asked for.
+        if !fetch && !published {
+            return Err(Error::Code("model_not_downloaded").into());
+        }
         if published {
             directory(&destination)?;
             self.set_phase(job_id, &entry.id, "verifying");
             let checked = entry.artifacts.iter().try_for_each(|artifact| self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel));
             match checked {
                 Ok(()) => {}
+                // A check only says so: getting them again is a download, with its consent.
+                Err(Stop::Failed(error)) if is_damage(&error) && !fetch => return Err(Error::Code("model_files_changed").into()),
                 // Files this app published that are now damaged or missing are moved out of the
                 // way and downloaded again; anything it does not recognize stays, and fails.
                 Err(Stop::Failed(error)) if is_damage(&error) => {

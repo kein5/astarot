@@ -89,6 +89,7 @@ export const featureResyncReads: Readonly<Record<string, string>> = {
     "/set/data/speech_server_settings": "/get/data/speech_server_settings",
     "/set/data/realtime_asr_settings": "/get/data/realtime_asr_settings",
     "/run/start_model_download": "/get/data/model_download_state",
+    "/run/check_model_download": "/get/data/model_download_state",
     "/run/cancel_model_download": "/get/data/model_download_state",
     "/run/apply_model_download": "/get/data/model_download_state",
     "/run/refresh_model_download_hardware": "/get/data/model_download_hardware",

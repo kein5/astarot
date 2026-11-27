@@ -146,7 +146,7 @@ The confirmation dialog for translation downloads (the catalog's `translation`, 
 `downloaded` (`{id: {role: path}}`) was added to the response of `/get/data/model_download_state`. It returns the models whose save location `<id>/<revision>/` holds all of the catalog's files, each a regular file with the pinned size.
 
 - Only the size is checked; SHA-256 is not computed, because the state is polled every 750 milliseconds during a download. SHA-256 is checked, as before, when preparing for use and when applying.
-- A downloaded model with no job is used through "Check the files and get ready to use". This opens the same confirmation dialog, and the check starts after consent. The backend only checks the files already there and does not use the network (the existing behavior of `start`). If the check passes, the state becomes "Verified, not applied", and as before "Apply model path" puts the model into the settings.
+- A downloaded model with no job is used through "Use this model" on its card, with no confirmation dialog in between (#1263): nothing is acquired. The card sends `/run/check_model_download`, which only checks the files already there (size and SHA-256), never uses the network and asks no consent. If the check passes, the card applies the model at once, as "Apply model path" does after a download. If the files do not match, they are left as they are, the job fails with `model_files_changed`, and the card offers the download's review, with its consent, to get them again. Until #1263 this went through the confirmation dialog and its consent, then "Apply model path".
 
 #### External speech synthesis engines
 
@@ -463,7 +463,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 `/get/data/model_download_state`の応答に`downloaded`（`{id: {role: path}}`）を足した。保存先の`<id>/<revision>/`にカタログのファイルがすべてあり、どれも通常のファイルで、容量が固定値と同じものを返す。
 
 - 確かめるのは容量だけで、SHA-256は計算しない。取得中は状態を750ミリ秒ごとに問い合わせるためである。SHA-256は、従来どおり使う準備と適用のときに照合する。
-- 取得済みでジョブのないモデルは、「ファイルを確かめて使う準備をする」から使う。同じ確認画面を開き、同意してから開始する。バックエンドは既にあるファイルを照合するだけで、通信はしない（`start`の既存の動き）。照合に通ると「検証済み・未適用」になり、従来どおり「モデルパスを適用」で設定に入る。
+- 取得済みでジョブのないモデルは、カードの「このモデルを使う」から使い、確認画面を挟まない（#1263）。何も取得しないためである。カードは`/run/check_model_download`を送る。既にあるファイルの容量とSHA-256を照合するだけで、通信はせず、同意も求めない。照合に通ると、ダウンロードのあとの「モデルパスを適用」と同じく、カードがすぐに適用する。ファイルが一致しなければそのまま残し、ジョブは`model_files_changed`で失敗する。カードは取得の確認（同意つき）を出し、もう一度ダウンロードできるようにする。#1263より前は、確認画面と同意を経てから「モデルパスを適用」していた。
 
 #### 外部の音声合成エンジン
 

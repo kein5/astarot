@@ -1242,6 +1242,11 @@
       "immediate": false
     },
     {
+      "endpoint": "/run/check_model_download",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/cancel_model_download",
       "wait_for_init": false,
       "immediate": false

@@ -2182,6 +2182,9 @@ model_downloads:
         model_target_busy: "モデルパスの適用前に対象サーバーまたは音声入力を停止してください。"
         download_not_ready: "モデルの取得・検証がまだ完了していません。"
         catalog_changed: "モデル一覧が変更されています。取得内容の確認をやり直してください。"
+        # A check of a model already on the PC (#1263).
+        model_files_changed: "お使いのPCにあるこのモデルのファイルが一覧と一致しないため、適用しませんでした。取得内容を確認して、もう一度ダウンロードしてください。"
+        model_not_downloaded: "このモデルはお使いのPCにありません。取得内容を確認してダウンロードしてください。"
         consent_required: "利用条件を確認し、明示的に同意してから取得してください。"
         model_download_restriction_unacknowledged: "このモデルのライセンスには利用の制限があります。取得内容の確認をもう一度開き、その制限のチェックも入れてください。"
         stale_job: "この取得要求は古くなっています。状態を再確認してください。"
@@ -2307,10 +2310,9 @@ model_catalog:
         in_use: "使用中"
         working: "取得中"
         ready: "検証済み・未適用"
-    prepare: "ファイルを確かめて使う準備をする"
-    prepare_hint: "取得済みです。使うには、ファイルを確かめてからモデルパスを適用します。"
-    prepare_notice: "このファイルは取得済みです。ダウンロードはせず、容量とSHA-256を照合します。"
-    prepare_start: "同意して照合"
+    # A model already on the PC is used from its card, with no review in between (#1263).
+    use: "このモデルを使う"
+    use_hint: "お使いのPCに取得済みです。使うときはファイルを確かめて適用し、何もダウンロードしません。"
     engine:
         terms_notice: "エンジンと声（音声ライブラリ）の利用条件は、それぞれの公式サイトの規約に従います。声によってはクレジットの表記が必要です。使う前に規約を確認してください。"
         languages: "日本語"

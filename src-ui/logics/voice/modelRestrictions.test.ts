@@ -91,15 +91,15 @@ async function dialog(context: TestContext, entry: object, state: object = { job
 test("a translation model on the PC that the app can use offers no check or preparation", async context => {
     const buttonWords = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(node => node.props.children);
     const words = (tree: unknown) => nodesIn(tree).flatMap(node => [node.props?.children].flat()).filter(child => typeof child === "string");
-    const offersNothing = (tree: unknown) => !buttonWords(tree).some(word => word === "model_catalog.prepare" || word === "model_downloads.review")
-        && !words(tree).includes("model_catalog.prepare_hint");
+    const offersNothing = (tree: unknown) => !buttonWords(tree).some(word => word === "model_catalog.use" || word === "model_downloads.review")
+        && !words(tree).includes("model_catalog.use_hint");
     const applied = await dialog(context, nllb, { jobs: { [nllb.id]: { job_id: "j1", phase: "applied", paths: {} } } }, false, [nllb.id]);
     assert.ok(offersNothing(applied.render()), "applied in this run");
     const restarted = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, [nllb.id]);
     assert.ok(offersNothing(restarted.render()), "found after a restart");
-    // Its files there by their sizes but not usable (a damaged file): its check, as before.
+    // Its files there by their sizes but not usable (a damaged file): using it checks them (#1263).
     const damaged = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, []);
-    assert.ok(buttonWords(damaged.render()).includes("model_catalog.prepare"));
+    assert.ok(buttonWords(damaged.render()).includes("model_catalog.use"));
     // Not on the PC: the review, as before.
     const missing = await dialog(context, nllb, { jobs: {} }, false);
     assert.ok(buttonWords(missing.render()).includes("model_downloads.review"));

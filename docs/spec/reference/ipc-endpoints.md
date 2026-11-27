@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（509件: 削除 13、取得 226、実行 53、有効化 44、無効化 46、設定 127）
+## 要求（510件: 削除 13、取得 226、実行 54、有効化 44、無効化 46、設定 127）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -264,6 +264,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/refresh_model_download_hardware` | 実行 | 可 | useModelDownloads.updateHardware |  |
 | `/get/data/model_download_state` | 取得 | 可 | useModelDownloads.updateState |  |
 | `/run/start_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
+| `/run/check_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/run/cancel_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/run/apply_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/get/data/user_models` | 取得 | 可 | useModelDownloads.updateUserModels | ログで伏せる |
