@@ -1246,6 +1246,10 @@ config_page:
                 label: "おしゃべりAI"
                 lead: "設定に「おしゃべりAI」のページが加わります。声や画面を送るのは、そのページで対話を始めて同意したときだけです。"
                 desc: "画面を見せながら、AIと声で話します。対話の相手は外部のサービスで、OpenAI RealtimeのAPIキーか、自分で動かすvLLM-Omniのサーバーが要ります。試験中の機能です。"
+                # The row to the page it adds, while it is on (#1266 K-4).
+                page:
+                    label: "おしゃべりAIのページ"
+                    desc: "メニューの「声と読み取り」に加わるページです。対話の相手を選んで、対話を始めます。"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"

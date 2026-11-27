@@ -1246,6 +1246,10 @@ config_page:
                 label: "Talk AI"
                 lead: "Settings gain a \"Talk AI\" page. Your voice and screen are sent only once you start a conversation there and agree."
                 desc: "Talk with an AI by voice while showing it your screen. The AI is an outside service: you need an OpenAI Realtime API key or a vLLM-Omni server you run yourself. This feature is still being tested."
+                # The row to the page it adds, while it is on (#1266 K-4).
+                page:
+                    label: "Talk AI page"
+                    desc: "The page added under \"Voice and reading\" in the menu, where you choose whom to talk with and start a conversation."
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "Show the VR UI"
