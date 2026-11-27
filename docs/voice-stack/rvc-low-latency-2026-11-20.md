@@ -30,6 +30,24 @@ The 2 items that remained were decided as follows (2026-11-21).
 - The output rule (decision item 5) stays as the current rule (start playing once the 100 ms buffer is full). Tightening the margin removes only part of the difference, and avoiding audio dropouts in the middle of a conversation took priority. The implementation does not change. The material is in [Output rule difference on VB-Cable](#output-rule-difference-on-vb-cable-material-for-decision-item-5).
 - A recorded length is measured again when the user selects "Automatic" again in "Advanced". The remembered length is then not used, and the next time conversion starts, the GPU is measured again for that combination of voice model and GPU. No new button is added.
 
+Decision item 6 (the crossfade cap) was decided as follows (2026-11-27, #928).
+
+- The crossfade is capped at 20 ms. A 10 ms cap is not acceptable. In the worker's GPU layout (CUDA and DirectML), the crossfade is half the block, up to 20 ms. For an 80 ms block, the delay from the crossfade and the search goes from 50 ms to 30 ms, and the `latency_ms` in `ready`, which also includes the sample-rate conversions, goes from 52 ms to 32 ms. Blocks of 40 ms or less do not change, because half the block is already 20 ms or less.
+- A 20 ms block keeps a crossfade of 10 ms (half the block), the length that sounded choppy in the check below. 20 ms is not among the automatic candidates (40 ms and up), so it is used only when the user chooses it in "Advanced".
+
+The decision rests on a listening check. Japanese text read by Windows speech synthesis (Microsoft Haruka Desktop, 18.8 seconds) was converted with Saisho Utane from the catalog (RVC v2, 48 kHz, no index, no transposition). The conversion used the worker's layout (10 ms search, 2 s of left context, input high-pass) and changed only the crossfade. The six converted files were compared by ear ([samples](https://github.com/kein5/astarot/issues/928#issuecomment-7064024933), [result](https://github.com/kein5/astarot/issues/928#issuecomment-7208151039)). Whether the joins broke up depended on the length of the crossfade, not on the size of the block: every 10 ms crossfade sounded choppy, and every crossfade of 20 ms or more sounded fine.
+
+| Block | Crossfade | Result |
+|---|---|---|
+| 20 ms | 10 ms (half the block) | Choppy at the joins, hard to listen to |
+| 40 ms | 10 ms | Choppy at the joins, hard to listen to |
+| 40 ms | 20 ms (half the block) | No problem heard |
+| 80 ms | 10 ms | Choppy at the joins, hard to listen to |
+| 80 ms | 20 ms | No problem heard |
+| 80 ms | 40 ms (half the block, the layout before this decision) | No problem heard |
+
+The blocks were converted back to back, not at real-time pace. The files therefore contain only the sound of the joins, not dropouts from blocks that are converted too late.
+
 ## Summary of the results
 
 - We measured the delay on the Windows path end to end (laptop, Steam Streaming virtual devices, synthesized sound). The p50 from the onset of the input sound to the onset of the converted voice was 222 to 240 ms with CUDA at 80 ms blocks, and 176 to 187 ms with DirectML at 60 ms.
@@ -200,6 +218,8 @@ With DirectML at 80 ms on the laptop, the times of the three graphs (HuBERT, RMV
 
 At present the crossfade is phase-aligned (SOLA, with sine-squared weights), half the block long, with a 10 ms search. The output lags by the length of the crossfade and the search, which is 50 ms for an 80 ms block. A cap on the crossfade (for example 20 ms) would save 10 to 40 ms for blocks of 60 to 120 ms. Whether the audio breaks up with a short crossfade and short blocks has to be checked by ear. In particular, the pitch (RMVPE) looks only at the block plus 50 ms, so it may become unsteady with short blocks. Sound quality was not measured this time.
 
+> **Addendum** (2026-11-27, #928): After a listening check, the crossfade was capped at 20 ms. See [Decisions](#decisions-2026-11-20).
+
 ## Decision items
 
 1. Scope of automatic tuning: only Option A (choose at startup), or Option B (adjust during conversion) as well. The recommendation is to add Option A first, and decide on Option B after measuring the round trip with VRChat running.
@@ -270,6 +290,24 @@ python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>
 
 - 出力の規則（判断項目5）は、いまの規則（100 ms のバッファがいっぱいになってから再生する）のままにします。余裕を詰めても縮むのは差の一部だけで、会話の途中で音が落ちるのを避けることを優先しました。実装は変えません。材料は[VB-Cable での出力の規則の差](#vb-cable-での出力の規則の差判断項目5の材料)にあります。
 - 記録した長さの測り直しは、利用者が「高度な設定」で「自動」を選び直したときに行います。そのとき覚えた長さは使わず、次に変換を始めるときに、その声のモデルと GPU の組み合わせで GPU を測り直します。新しいボタンは足しません。
+
+判断項目6（クロスフェードの上限）は、次のとおり決まりました（2026-11-27、#928）。
+
+- クロスフェードの上限を 20 ms にします。10 ms の上限は採りません。worker の GPU の並び（CUDA と DirectML）では、クロスフェードをブロックの半分にし、20 ms を超えないようにします。80 ms のブロックでは、クロスフェードと探索の分の遅れが 50 ms から 30 ms になります。標本化周波数の変換も含む `ready` の `latency_ms` は、52 ms から 32 ms になります。40 ms 以下のブロックは変わりません。ブロックの半分がもともと 20 ms 以下だからです。
+- 20 ms のブロックは、クロスフェードがブロックの半分の 10 ms のままです。下の聴き比べで途切れて聞こえた長さです。20 ms は自動の候補（40 ms から）に入っていないので、利用者が「高度な設定」で選んだときだけ使われます。
+
+決定の根拠は聴き比べです。Windows の音声合成（Microsoft Haruka Desktop）で読ませた日本語（18.8 秒）を、カタログの Saisho Utane（RVC v2、48 kHz、インデックスなし、ピッチ変更 0）で変換しました。変換は worker と同じ並び（探索 10 ms、左の文脈 2 秒、入力のハイパスあり）で行い、クロスフェードだけを変えました。変換した6ファイルを聴き比べています（[音声の用意](https://github.com/kein5/astarot/issues/928#issuecomment-7064024933)、[結果](https://github.com/kein5/astarot/issues/928#issuecomment-7208151039)）。つなぎ目が途切れるかは、ブロックの大きさではなくクロスフェードの長さで決まっていました。10 ms のものは全部途切れて聞こえ、20 ms 以上は問題ありませんでした。
+
+| ブロック | クロスフェード | 結果 |
+|---|---|---|
+| 20 ms | 10 ms（ブロックの半分） | つなぎ目が途切れて聞きづらい |
+| 40 ms | 10 ms | つなぎ目が途切れて聞きづらい |
+| 40 ms | 20 ms（ブロックの半分） | 問題なし |
+| 80 ms | 10 ms | つなぎ目が途切れて聞きづらい |
+| 80 ms | 20 ms | 問題なし |
+| 80 ms | 40 ms（ブロックの半分。この決定の前の形） | 問題なし |
+
+ブロックは続けて変換し、実際の速さには合わせていません。そのため、聞こえるのはつなぎ目の音だけで、変換が間に合わないブロックによる途切れは入っていません。
 
 ## 結果の要約
 
@@ -440,6 +478,8 @@ Steam Streaming のデバイスで測った差は 6〜18 ms でした。10 ms �
 ### クロスフェード
 
 いまは位相を合わせたクロスフェード（SOLA、sin の2乗の重み）で、長さはブロックの半分、探索は 10 ms です。クロスフェードと探索の長さだけ出力が遅れるので、80 ms のブロックでは 50 ms になります。クロスフェードに上限（たとえば 20 ms）を設けると、60〜120 ms のブロックで 10〜40 ms 縮みます。短いクロスフェードと短いブロックで音が途切れないかは、聞いて確かめる必要があります。とくに音の高さ（RMVPE）は、ブロックに 50 ms を足した長さしか見ないので、短いブロックで揺れやすくなるおそれがあります。音質は今回測っていません。
+
+> **追記**（2026-11-27、#928）：聴き比べのあと、クロスフェードの上限は 20 ms に決まりました。[決まったこと](#決まったこと2026-11-20)にあります。
 
 ## 判断項目
 
