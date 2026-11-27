@@ -304,6 +304,48 @@ FunctionEnd
 Var DropListLanguages
 Var SelectedLangage
 Var DialogChooseLanguage
+; The UI language the app asked for (/UILANG=, set in .onInit). Declared above the page that reads
+; it: makensis reads a variable named above its Var line as plain text, and the page then always
+; preselected English, /UILANG=ja too (#1261).
+Var UILang
+; The UI language the settings in $INSTDIR are set to: "ja", "en", or "" (ReadSavedUiLanguage).
+Var SavedUiLanguage
+
+; Sets $SavedUiLanguage from $INSTDIR\config.json: the language of the install this run goes over
+; (#1261). The file is not parsed as JSON (see the note where installer_language.txt is written):
+; the app writes one key a line, `    "UI_LANGUAGE": "ja",`, so the key's line is found as text and
+; its value read from it. Only ASCII is compared, so the code page FileRead reads in does not
+; matter. "" without the file or without the key, or for a language the app no longer has.
+Function ReadSavedUiLanguage
+  Push $0
+  Push $1
+  Push $2
+  StrCpy $SavedUiLanguage ""
+  ClearErrors
+  FileOpen $0 "$INSTDIR\config.json" r
+  ${IfNot} ${Errors}
+    saved_language_line:
+      ClearErrors
+      FileRead $0 $1
+      IfErrors saved_language_done
+      ${StrLoc} $2 $1 '"UI_LANGUAGE"' ">"
+      StrCmp $2 "" saved_language_line
+      ${StrLoc} $2 $1 '"ja"' ">"
+      ${If} $2 != ""
+        StrCpy $SavedUiLanguage "ja"
+      ${Else}
+        ${StrLoc} $2 $1 '"en"' ">"
+        ${IfThen} $2 != "" ${|} StrCpy $SavedUiLanguage "en" ${|}
+      ${EndIf}
+    saved_language_done:
+    FileClose $0
+  ${EndIf}
+  ClearErrors
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
 Page custom PageChooseLanguage PageLeaveChooseLanguage
 Function PageChooseLanguage
     ; An update leaves the app's language setting alone.
@@ -323,8 +365,14 @@ Function PageChooseLanguage
     ${NSD_CB_AddString} $DropListLanguages "日本語"
 
     ; Preselect based on /UILANG= (passed from the app when launched from
-    ; within VRCT). Falls back to English on first-time installs, and for
-    ; Korean and Chinese, which were UI languages until 0.1.0.
+    ; within VRCT). Run by hand, there is none: the language the settings this
+    ; run installs over are in, so that clicking through keeps it (#1261).
+    ; Falls back to English on first-time installs, and for Korean and
+    ; Chinese, which were UI languages until 0.1.0.
+    ${If} $UILang == ""
+        Call ReadSavedUiLanguage
+        StrCpy $UILang $SavedUiLanguage
+    ${EndIf}
     ${If} $UILang == "ja"
         ${NSD_CB_SelectString} $DropListLanguages "日本語"
         StrCpy $SelectedLangage "ja"
@@ -654,7 +702,6 @@ FunctionEnd
 !macroend
 
 Var PassiveMode
-Var UILang
 Var SelectedChannel
 ; The handle of INSTALLERMUTEX. It stays open until this run ends, when Windows closes it; a run
 ; that stops unexpectedly leaves nothing behind that blocks the next one.

@@ -39,9 +39,9 @@ class InstalledVersionTests(unittest.TestCase):
 class NsisVariableTests(unittest.TestCase):
     def test_variables_are_declared_before_they_are_read(self):
         # makensis reads a variable named above its Var line as plain text (warning 6000) and
-        # builds anyway, so a check such as ${If} $TargetVersion != "" is always true.
-        # UILang: the language page reads it above its declaration, which predates this test.
-        known = {"UILang"}
+        # builds anyway, so a check such as ${If} $TargetVersion != "" is always true. The
+        # language page read UILang so and always preselected English (#1261).
+        known: set[str] = set()
         lines = code_lines()
         declared = {}
         for number, line in lines:
