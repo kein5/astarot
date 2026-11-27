@@ -1674,7 +1674,7 @@ realtime_toggle:
   speech_server_out_of_memory: "Not enough memory to load the ASR model. Stop other GPU applications or select CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
   realtime_asr_models_do_not_fit: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Turn Mic input off, or use one model for both in Settings → Speech recognition (ASR) → Models and servers, then turn this on again."
   speech_server_start_timeout: "The ASR model took too long to load. Choose another inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
-  speech_server_not_ready: "The ASR server is not running. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or select the bundled server in Settings → Speech recognition (ASR) → Realtime captions, then turn this on again."
+  speech_server_not_ready: "The bundled ASR server is not running. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
   speech_server_autostart_off: "The bundled ASR server is stopped. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, or turn on \"Start the bundled ASR server when a switch is turned on\" on the same page, then turn this on again."
   realtime_models_unavailable: "The ASR server did not answer. If you use an external server, make sure it is running and that \"ASR server URL\" in Settings → Speech recognition (ASR) is correct."
   realtime_model_required: "No ASR model is selected. In Settings → Speech recognition (ASR) → Realtime captions, select one."

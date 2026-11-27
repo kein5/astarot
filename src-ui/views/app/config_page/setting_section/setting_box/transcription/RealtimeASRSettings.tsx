@@ -126,8 +126,10 @@ export const RealtimeASRSettings = () => {
         {draft && <form aria-busy={saving} ref={form.group} onBlur={form.leave} onKeyDown={form.escape}
             onSubmit={event => { event.preventDefault(); form.commit(); }}>
             {/* The server these captions use is chosen first in the page's speech.cpp part (AsrServer, #1266). */}
-            {/* The model list's refresh sits under the list, in the control column (#473). */}
-            <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
+            {/* The model a server of one's own serves (#1308 ★4, decided on 2026-11-28): the bundled
+                server loads the model its settings name, so the field and the list's failure are not
+                shown for it. The model list's refresh sits under the list, in the control column (#473). */}
+            {!bundled && <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
                 actions={<button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>}>
                 <select aria-label={t("realtime.model")} value={draft.model}
                     onChange={event => setDraft({ ...draft, model: event.target.value })}>
@@ -135,8 +137,8 @@ export const RealtimeASRSettings = () => {
                     {draft.model && !selectedModel && <option value={draft.model}>{draft.model} ({t("realtime.unavailable")})</option>}
                     {knownModels.map(row => <option key={row.id} value={row.id}>{row.id}</option>)}
                 </select>
-            </FormRow>
-            {models.error_code && <Failure code={models.error_code} t={t} />}
+            </FormRow>}
+            {!bundled && models.error_code && <Failure code={models.error_code} t={t} />}
             <FormRow label={t("realtime.silence")} description={t("realtime.silence_help")}>
                 <select aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
                     onChange={event => updateSilence(event.target.value)}>

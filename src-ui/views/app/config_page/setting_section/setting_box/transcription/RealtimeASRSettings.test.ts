@@ -343,7 +343,8 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     assert.equal(heading.props.sub, true);
     assert.equal(heading.props.desc, "realtime.scope");
     const row = (label: string) => findIn(tree, node => node.type === "form-row" && node.props.label === label).props;
-    assert.equal(row("realtime.model").description, "realtime.auto_help");
+    // The ASR model is an external server's: not shown for the bundled one (#1308 ★4).
+    assert.equal(find(tree, node => node.type === "form-row" && node.props.label === "realtime.model"), null);
     assert.equal(row("realtime.silence").description, "realtime.silence_help");
     // Following the system's default says what that does; the game audio says which output to pick.
     assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
