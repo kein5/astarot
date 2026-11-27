@@ -2305,7 +2305,7 @@ model_catalog:
         slow: "runs on a CPU, seconds behind"
         practical: "runs on a CPU"
         impractical: "too slow on a CPU"
-        unverified: "not tried on a CPU"
+        unverified: "not known yet whether it works on a CPU"
     gpu:
         recommended: "GPU recommended"
         not_needed: "no GPU needed"

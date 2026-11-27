@@ -396,7 +396,8 @@ test("the facts list the languages, the size, the hardware, the memory a transla
     assert.deepEqual(facts(full), [
         ["model_catalog.languages", "Japanese and English"],
         ["model_catalog.size", "2.00 GiB"],
-        ["model_catalog.hardware", `model_catalog.tier.heavy · model_catalog.memory {"memory":"3.00 GiB","device":"RTX 4070"} · model_catalog.cpu.slow · model_catalog.gpu.recommended`],
+        // How heavy and how it runs; the measured memory and where are the term's hint (#1266, A-6).
+        ["model_catalog.hardware", "model_catalog.tier.heavy · model_catalog.cpu.slow · model_catalog.gpu.recommended"],
         ["model_catalog.terms", "Maker · Apache-2.0"],
     ]);
     assert.deepEqual(facts(full, { part: "key" }).map(row => row[0]), ["model_catalog.size", "model_catalog.hardware"]);
@@ -577,6 +578,22 @@ test("a download in any phase keeps every review closed until it ends", async co
         const p = await catalogPage(context, { catalog: catalogOf(rows), state: { observation_id: "1", jobs: { b: { job_id: "j", phase } } } });
         assert.equal(buttonNamed(cardNamed(p.draw(), "A"), "model_downloads.review").props.disabled, busy, phase);
     }
+});
+
+// #1266 (A-6): the memory speech.cpp measured for a file, and on what, is the hardware term's hint on
+// a page that keeps descriptions out of sight, and the card's fold elsewhere, never the value.
+test("a file's measured memory and where it was measured go to the hardware's hint or the card's fold", async context => {
+    const profile = { languages: ["ja"], tier: "medium", memory_bytes: 3 * GiB, memory_measured_on: "RTX 4070", cpu: "slow", gpu: "recommended", summary: "x", recommended_for: [] };
+    const memory = `model_catalog.memory {"memory":"3.00 GiB","device":"RTX 4070"}`;
+    const hinted = await catalogPage(context, { catalog: catalogOf([model("m", { name: "M", profile })]) }, { hints: true });
+    const facts = named(cardNamed(hinted.draw(), "M"), "ModelFacts").map(node => node.props.guidance);
+    assert.ok(facts.some(lines => JSON.stringify(lines) === JSON.stringify([memory])), "the hint's line");
+    const plain = await catalogPage(context, { catalog: catalogOf([model("m", { name: "M", profile })]) });
+    const fold = findIn(cardNamed(plain.draw(), "M"), node => node.type === "fold");
+    assert.deepEqual([fold.props.summary, ...texts(fold, "p")], ["model_downloads.guidance_summary", memory]);
+    // Without a figure, no line and no fold.
+    const none = await catalogPage(context, { catalog: catalogOf([model("m", { name: "M", profile: { ...profile, memory_bytes: null } })]) });
+    assert.equal(find(cardNamed(none.draw(), "M"), node => node.type === "fold"), null);
 });
 
 test("a model's guidance lines say the measured memory, where it was checked and what the check covered", async context => {
