@@ -118,7 +118,8 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
 // What a user compares before choosing (the catalog row's `profile`, docs/voice-stack/model-downloads.md):
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
-// guidance: the measured memory and where it was checked, as the hardware term's hint (#614).
+// guidance: the measured memory and where it was checked, as the hardware term's hint (#614): the
+// value says only how heavy the model is and how it runs (#1266, A-6).
 // part: the whole table, or a grid card's two parts of it: "key", the size and the hardware (and a
 // translation model's memory), on the card; "rest", the languages and the terms, in its fold.
 type FactsPart = "all" | "key" | "rest";
@@ -129,7 +130,6 @@ const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: Model
     const supported = profile?.languages ?? entry.speech?.languages ?? [];
     const hardware = profile && [
         profile.tier && t(`model_catalog.tier.${profile.tier}`),
-        isNumber(profile.memory_bytes) && t("model_catalog.memory", { memory: gib(profile.memory_bytes), device: profile.memory_measured_on }),
         t(`model_catalog.cpu.${profile.cpu}`, { defaultValue: "" }),
         t(`model_catalog.gpu.${profile.gpu}`, { defaultValue: "" }),
     ].filter(Boolean).join(" · ");
@@ -354,7 +354,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // figure says where it was checked alone (showsValidation, #566).
         const record = current.guidance;
         const measured = isNumber(record?.reference_memory_bytes) ? record.reference_memory_bytes : null;
-        const guidance = record && showsValidation(current) ? [
+        // The memory speech.cpp measured for the file, and on what, goes with them, out of the
+        // hardware's value (DESIGN.md "Components", #1266 A-6).
+        const profileMemory = current.profile && isNumber(current.profile.memory_bytes) ? t("model_catalog.memory",
+            { memory: gib(current.profile.memory_bytes), device: current.profile.memory_measured_on }) : null;
+        const checks = record && showsValidation(current) ? [
             // A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit.
             measured !== null && `${t(`model_downloads.tier_${record.tier}`)} · ${t([`model_downloads.memory_reference_${record.tier}`, 'model_downloads.memory_reference'])}: ${memory(measured)}`,
             // A check that names no device (the voice changer's) says what it covered in its scope.
@@ -362,7 +366,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 && `${t([`model_downloads.validation_${record.validation.state}_${record.tier}`, `model_downloads.validation_${record.validation.state}`])} ${record.validation.device ?? ''}`.trim(),
             record.validation.scope && t(`model_downloads.scope_${record.validation.scope}`),
             measured !== null && hint.device && hint.device.description !== record.validation.device && t('model_downloads.gpu_unverified'),
-        ].filter((line): line is string => typeof line === "string") : null;
+        ].filter((line): line is string => typeof line === "string") : [];
+        const guidance = profileMemory || checks.length ? [...(profileMemory ? [profileMemory] : []), ...checks] : null;
         // The hint needs the hardware row, which a row with a profile has.
         const guidanceHint = hints && !!guidance && !!current.profile;
         const grid = layout === "grid";
@@ -395,7 +400,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
         const useHint = downloaded && !prepared && !job && <p>{t("model_catalog.use_hint")}</p>;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
-            summary={t(measured !== null ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
+            summary={t(measured !== null || profileMemory ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
         </Fold>;
         // What runs comes first, with its own actions; the card's actions follow, as before.

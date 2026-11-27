@@ -2297,7 +2297,7 @@ model_catalog:
         slow: "CPUでも動くが数秒遅れる"
         practical: "CPUで動く"
         impractical: "CPUでは実用的に動かない"
-        unverified: "CPUでの動作は未確認"
+        unverified: "CPUで使えるかはまだわかりません"
     gpu:
         recommended: "GPU推奨"
         not_needed: "GPU不要"
