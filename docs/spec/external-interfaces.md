@@ -253,7 +253,7 @@ Each message keeps the generation from when it was accepted, and if the settings
 
 | Counterpart | Startup | Communication |
 |---|---|---|
-| Bundled speech.cpp (TTS, ASR) | `build/speechcpp/speech serve …` (`build/speechcpp-cpu` for the Linux CPU build). The core starts it directly, and on Linux the child process ends when the thread that started it ends (`PR_SET_PDEATHSIG` in `native/speech-server/src/child.rs`). The profiles are `japanese`, `multilingual` and `asr` | A port on `127.0.0.1` assigned by the OS. Readiness is checked with `GET /health` and `GET /v1/models`. The startup wait is 120 seconds |
+| Bundled speech.cpp (TTS, ASR) | `build/speechcpp/speech serve …` (`build/speechcpp-cpu` for the Linux CPU build). The core starts it directly, and on Linux the child process ends when the thread that started it ends (`PR_SET_PDEATHSIG` in `native/speech-server/src/child.rs`). The profiles are `japanese`, `multilingual` and `asr`. The `asr` profile also keeps a recognition model of Listening's own (`listening_model`, #1242); while it is empty, Listening uses Mic input's `model` from the same server | A port on `127.0.0.1` assigned by the OS. Readiness is checked with `GET /health` and `GET /v1/models`. The startup wait is 120 seconds |
 | External speech.cpp | Started by the user | Only loopback `http` is accepted |
 | Text to speech | — | `POST /v1/audio/speech` with `{input, voice, language, response_format: "pcm", seed?, instructions?}`. The response is `audio/pcm`. Up to 4000 characters |
 | Speech recognition (REST) | — | `POST /v1/audio/transcriptions` |
@@ -702,7 +702,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 | 相手 | 起動 | 通信 |
 |---|---|---|
-| 同梱のspeech.cpp（TTS、ASR） | `build/speechcpp/speech serve …`（LinuxのCPU版は`build/speechcpp-cpu`）。中核が直接起動し、Linuxでは起動したスレッドが終わると子プロセスも終わる（`native/speech-server/src/child.rs`の`PR_SET_PDEATHSIG`）。プロファイルは`japanese`、`multilingual`、`asr` | OSが割り当てた`127.0.0.1`のポート。`GET /health`、`GET /v1/models`で準備を確かめる。起動の待ち時間は120秒 |
+| 同梱のspeech.cpp（TTS、ASR） | `build/speechcpp/speech serve …`（LinuxのCPU版は`build/speechcpp-cpu`）。中核が直接起動し、Linuxでは起動したスレッドが終わると子プロセスも終わる（`native/speech-server/src/child.rs`の`PR_SET_PDEATHSIG`）。プロファイルは`japanese`、`multilingual`、`asr`。`asr`プロファイルは、聞き取りだけの認識モデル（`listening_model`、#1242）も持つ。空の間は、聞き取りは同じサーバーでマイク入力の`model`を使う | OSが割り当てた`127.0.0.1`のポート。`GET /health`、`GET /v1/models`で準備を確かめる。起動の待ち時間は120秒 |
 | 外部のspeech.cpp | 利用者が起動する | ループバックの`http`だけを受け付ける |
 | 読み上げ | — | `POST /v1/audio/speech`に`{input, voice, language, response_format: "pcm", seed?, instructions?}`。応答は`audio/pcm`。4000文字まで |
 | 音声認識（REST） | — | `POST /v1/audio/transcriptions` |

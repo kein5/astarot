@@ -4590,6 +4590,7 @@
             "model": "",
             "vad_model": "",
             "diarization_model": "",
+            "listening_model": "",
             "voice_file": "",
             "device": "auto",
             "low_latency": false
@@ -4598,6 +4599,7 @@
             "model": "",
             "vad_model": "",
             "diarization_model": "",
+            "listening_model": "",
             "voice_file": "",
             "device": "auto",
             "low_latency": false
@@ -4606,6 +4608,7 @@
             "model": "",
             "vad_model": "",
             "diarization_model": "",
+            "listening_model": "",
             "voice_file": "",
             "device": "auto",
             "low_latency": false

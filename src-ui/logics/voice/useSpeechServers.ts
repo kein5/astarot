@@ -17,6 +17,9 @@ export interface SpeechServerProfileSettings extends AsrProfile {
     readonly model: string;
     readonly vad_model: string;
     readonly diarization_model: string;
+    // Listening's own recognition model (#1242), in the asr profile: empty, Listening uses `model`.
+    // Absent from a core before it.
+    readonly listening_model?: string;
     readonly voice_file: string;
     readonly device: string;
     readonly low_latency: boolean;

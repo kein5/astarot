@@ -35,12 +35,15 @@ impl Profile {
     }
 }
 
-/// One profile's choices. `diarization_model` is optional and for `asr` only.
+/// One profile's choices. `diarization_model` is optional and for `asr` only. So is
+/// `listening_model`, the recognition model of Listening (the speaker source, #1242): empty, Listening
+/// takes `model`, the one Mic input takes, from the same server, as settings saved before it did.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileSettings {
     pub model: String,
     pub vad_model: String,
     pub diarization_model: String,
+    pub listening_model: String,
     pub voice_file: String,
     pub device: String,
     pub low_latency: bool,
@@ -52,6 +55,7 @@ impl Default for ProfileSettings {
             model: String::new(),
             vad_model: String::new(),
             diarization_model: String::new(),
+            listening_model: String::new(),
             voice_file: String::new(),
             device: "auto".into(),
             low_latency: false,
@@ -62,6 +66,19 @@ impl Default for ProfileSettings {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Settings {
     profiles: [ProfileSettings; 3],
+}
+
+impl ProfileSettings {
+    /// The recognition model of Listening: its own, or Mic input's when it has none (#1242).
+    pub fn listening_model(&self) -> &str {
+        if self.listening_model.is_empty() { &self.model } else { &self.listening_model }
+    }
+
+    /// Whether Listening has a recognition model of its own, another file than Mic input's, which a
+    /// second server loads (#1242). The same file, or none of its own, is one server for both.
+    pub fn listening_apart(&self) -> bool {
+        !self.listening_model.is_empty() && self.listening_model != self.model
+    }
 }
 
 impl Settings {
@@ -78,6 +95,7 @@ impl Settings {
             item.insert("model".into(), row.model.clone().into());
             item.insert("vad_model".into(), row.vad_model.clone().into());
             item.insert("diarization_model".into(), row.diarization_model.clone().into());
+            item.insert("listening_model".into(), row.listening_model.clone().into());
             item.insert("voice_file".into(), row.voice_file.clone().into());
             item.insert("device".into(), row.device.clone().into());
             item.insert("low_latency".into(), row.low_latency.into());
@@ -104,7 +122,7 @@ pub fn is_named_gpu(device: &str) -> bool {
         .is_some_and(|digits| (1..=2).contains(&digits.len()) && digits.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
-const KEYS: [&str; 6] = ["model", "vad_model", "diarization_model", "voice_file", "device", "low_latency"];
+const KEYS: [&str; 7] = ["model", "vad_model", "diarization_model", "listening_model", "voice_file", "device", "low_latency"];
 
 fn text(row: &Map<String, Value>, key: &str, default: &str) -> Result<String, Code> {
     match row.get(key) {
@@ -156,6 +174,7 @@ pub fn normalize_settings(value: &Value) -> Result<Settings, Code> {
             model: text(row, "model", "")?,
             vad_model: text(row, "vad_model", "")?,
             diarization_model: text(row, "diarization_model", "")?,
+            listening_model: text(row, "listening_model", "")?,
             voice_file: text(row, "voice_file", "")?,
             device: text(row, "device", "auto")?,
             low_latency,
@@ -163,7 +182,7 @@ pub fn normalize_settings(value: &Value) -> Result<Settings, Code> {
         let misplaced = if profile == Profile::Asr {
             !item.voice_file.is_empty()
         } else {
-            !item.vad_model.is_empty() || !item.diarization_model.is_empty()
+            !item.vad_model.is_empty() || !item.diarization_model.is_empty() || !item.listening_model.is_empty()
         };
         if (low_latency && profile != Profile::Japanese) || !device_allowed(&item.device) || misplaced {
             return Err(invalid);
