@@ -29,18 +29,28 @@ export const back_label = style({
 });
 
 // Every setting saves by itself (#1111): where the save bar was, the page says its changes apply
-// at once.
+// at once. Its box is the controls' height whether its words take one line or two: the muted
+// badge widens the mute button beside it, and the bar and the page under it do not move when it
+// does (#912, #1266 R-4).
 export const applies_now = style({
     flex: 1,
     minWidth: 0,
     display: "flex",
     alignItems: "center",
-    minHeight: "4rem",
+    height: "4rem",
     margin: 0,
-    padding: ".4rem 1.4rem",
+    padding: "0 1.4rem",
     overflowWrap: "anywhere",
     fontSize: "1.3rem",
+    lineHeight: 1.35,
     color: vars.dark_400_color,
+});
+// The words, two lines at most within the box.
+export const applies_now_text = style({
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+    overflow: "hidden",
 });
 // A queue count and the muted badge may wrap, leaving search usable.
 const stopActionsNarrow = { margin: "1.6rem 1.6rem .8rem 0", maxWidth: "24rem", justifySelf: "end" } as const;

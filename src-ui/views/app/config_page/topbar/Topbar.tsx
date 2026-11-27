@@ -14,7 +14,7 @@ export const AppliesNow = () => {
     const { t } = useI18n();
     const { currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
     if (currentSelectedConfigTabId.data === "about_vrct") return null;
-    return <p className={styles.applies_now}>{t("voice_ui.applies_now")}</p>;
+    return <p className={styles.applies_now}><span className={styles.applies_now_text}>{t("voice_ui.applies_now")}</span></p>;
 };
 
 export const Topbar = () => {
