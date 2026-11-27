@@ -37,6 +37,8 @@ Turn on "Translation" on the left of the main screen. Until the translation mode
 
 - "Open setup" on the first screen lets you choose the speech recognition, translation and text to speech models for each feature and download them in one go.
   - With the screen in Japanese, your own voice uses a Japanese speech recognition model (ReazonSpeech v2), and Listening gets a model that tells the language it hears (Qwen3-ASR 0.6B) too, so that it captions the other side in any language.
+  - When the uses chosen under "Used for" show only Mic input or only Listening, setup takes one model that tells the language (Qwen3-ASR 0.6B), so one model is enough.
+  - A model already on your PC is checked and used, not downloaded.
 - For the translation model alone, the icon beside the Translation switch ("Review the translation model download") downloads it too.
 
 Either way, check the license and size and agree before the download. When it finishes, turn on "Translation".

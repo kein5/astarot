@@ -3024,6 +3024,11 @@ first_run_setup:
         recognition_cloud: "A cloud engine is selected. Register its key in Settings → Speech recognition (ASR)."
         recognition_own_server: "Set to use a speech.cpp server of your own."
         recognition_needs_setup: "Needs setting up."
+        # #1308 N-3: which input in use has no recognition model, or that the VAD is missing.
+        recognition_missing_mic_speaker: "Mic input and Listening have no speech recognition model yet."
+        recognition_missing_mic: "Mic input has no speech recognition model yet."
+        recognition_missing_speaker: "Listening has no speech recognition model yet."
+        recognition_missing_vad: "The voice activity detection (VAD) model is not set yet."
         recognition_unknown: "Checking…"
     translation:
         heading: "Prepare translation"
@@ -3053,12 +3058,16 @@ first_run_setup:
         what: "When it is ready, speech recognition switches to this model."
         loading: "Loading the model list…"
         models: "Models to download"
+        # #1308 S-6: models on the PC already are checked and used, not downloaded.
+        models_on_pc: "Models on your PC, used without downloading"
         model_provider: "Provider: {{provider}}"
         model_card: "Model card and license"
         no_download: "Nothing needs downloading. Only the server and engine settings will be switched."
         progress: "Setup progress"
         step_model: "Download {{name}} and put it in the settings"
         step_listening_model: "Download {{name}} for Listening and put it in the settings"
+        step_model_on_pc: "Check {{name}}, which is on your PC, and put it in the settings"
+        step_listening_model_on_pc: "Check {{name}}, which is on your PC, and put it in the settings for Listening"
         # #1242: Listening hears the other side, whose language is not known.
         listening_why: "Listening uses {{name}} too, which tells the language it hears, so that it captions the other side in any language."
         step_server: "Use the bundled speech recognition server"
@@ -3071,6 +3080,10 @@ first_run_setup:
         state_stopped: "Stopped."
         kept: "Your settings are as they were. Fix the cause and press Try again: steps already done are skipped."
         finished: "Speech recognition is ready."
+        # #1308, ★13's rest: the switch to turn on for the inputs in use.
+        turn_on_both: "Turn Mic input and Listening on from the main screen."
+        turn_on_mic: "Turn Mic input on from the main screen."
+        turn_on_speaker: "Turn Listening on from the main screen."
         skipped: "Speech recognition is not used."
 
 # Experimental companion form (tray, captions, control panel); Issue #355.
