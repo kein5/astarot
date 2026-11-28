@@ -491,6 +491,9 @@ pub struct Translation<'a> {
     pub temperature: Option<f64>,
     /// What the user adds to the AI providers' system prompt (#392); empty adds nothing.
     pub instructions: &'a str,
+    /// The labels of the voices that spoke `text` (#1034), where the game audio's voices were told
+    /// apart; empty otherwise. Only the AI providers read it.
+    pub speakers: &'a [String],
 }
 
 // ------------------------------------------------------------------------- leaf helpers

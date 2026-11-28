@@ -94,7 +94,7 @@ pub trait ChatCompletions: Api {
     /// `POST {base}/responses` for a model that has only the Responses API.
     fn chat(transport: &Transport, access: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = access.chosen_model()?;
-        let system = prompt::system_prompt(Self::PLAMO_PROMPT, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions);
+        let system = prompt::system_prompt(Self::PLAMO_PROMPT, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions, t.speakers);
         if responses_only(model) {
             // These are reasoning models, which take no temperature.
             return Self::respond(transport, access, model, &system, t.text);

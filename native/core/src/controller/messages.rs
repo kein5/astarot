@@ -759,7 +759,7 @@ impl Core {
         let mut translate_ms = 0;
         if snapshot.translation_enabled {
             let translate_started = Instant::now();
-            let result = self.translate_message(spec, &snapshot, message);
+            let result = self.translate_message(spec, &snapshot, message, voices);
             translate_ms = translate_started.elapsed().as_millis();
             if !current() || result.is_err() {
                 // Slow translation is kept even when the message goes no further.
@@ -1035,7 +1035,7 @@ impl Core {
         if !current() {
             return None;
         }
-        self.add_history(spec.kind, message, &snapshot);
+        self.add_history(spec.kind, message, voices, &snapshot);
 
         if !failures.is_empty() {
             payload.insert("output_failures".into(), Value::Array(failures));
@@ -1081,11 +1081,13 @@ impl Core {
 
     /// The translations of a message to every destination (`getInputTranslate`,
     /// `getOutputTranslate`), in slot order; several targets at the same time.
+    /// `voices`: who spoke the message (#1034), for the AI providers.
     fn translate_message(
         &self,
         spec: &Spec,
         snapshot: &Snapshot,
         message: &str,
+        voices: Option<&Voices>,
     ) -> Result<Vec<super::translation::Translated>, String> {
         let targets: Vec<(String, String)> = if spec.multi_target {
             snapshot
@@ -1113,6 +1115,7 @@ impl Core {
                 language,
                 country,
                 message,
+                voices,
                 snapshot.history_generation,
             )
         };

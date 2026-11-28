@@ -708,3 +708,99 @@ fn the_conversation_log_moves_and_falls_back_when_the_destination_disappears() {
     assert_eq!(run.ui.ok("/get/data/path_logs", None), json!({ "path": default, "error_code": "log_directory_missing" }));
     run.ui.stop();
 }
+
+#[test]
+fn the_chat_providers_hear_which_voice_said_what() {
+    // #1034: a caption of the game audio whose voices were told apart carries their labels into
+    // the AI translation's context, and its own voices; a name the user gave a voice is never sent.
+    use astarot_transcription::capture::Source as Capture;
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use std::sync::atomic::Ordering;
+    use std::time::Instant;
+    let wait = |what: &str, ok: &dyn Fn() -> bool| {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !ok() {
+            assert!(Instant::now() < deadline, "{what}");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+
+    let asr = FakeAsr::start();
+    asr.behaviour.realtime_after.store(0, Ordering::SeqCst);
+    *asr.behaviour.text.lock().unwrap() = "広場で会おう".into();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Capture::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Capture::Speaker, Some("alsa.out"));
+    let fake = FakeProviders::start();
+    let key = format!("gsk{}", "q".repeat(40));
+    fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    let services = Services {
+        translation_transport: http::loopback_only(),
+        translation_endpoints: Endpoints::all_at(&fake.url()),
+        local_translation: Arc::new(|_| Arc::new(NoModel) as Arc<dyn LocalTranslation>),
+        transcription_capture: capture.factory(),
+        secret_store: common::shared_vault().system_source(),
+        ..Services::default()
+    };
+    // The game audio is heard in Japanese and translated into the user's English.
+    let language = |language: &str, country: &str, enable: bool| json!({ "language": language, "country": country, "enable": enable });
+    let english = language("English", "United States", true);
+    let targets = json!({
+        "1": language("Japanese", "Japan", true),
+        "2": language("Korean", "South Korea", false),
+        "3": language("Chinese Simplified", "China", false),
+    });
+    let saved = json!({
+        "SELECTED_YOUR_LANGUAGES": { "1": { "1": english }, "2": { "1": english }, "3": { "1": english } },
+        "SELECTED_TARGET_LANGUAGES": { "1": targets, "2": targets, "3": targets },
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the session is configured", &|| !asr.diarization.lock().unwrap().is_empty());
+    let system = |count: usize| {
+        wait("the translation asked", &|| fake.seen_under("/groq/v1/chat").len() >= count);
+        let sent = fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+    // The first caption: no history yet, but its own voices.
+    asr.behaviour.realtime_announce.store(1, Ordering::SeqCst);
+    capture.hear(Capture::Speaker, &[speech(2000)]);
+    let first = system(1);
+    assert!(first.contains("The text to translate was spoken by voice A, B.\n"), "{first}");
+    assert!(first.contains("it is not a name"), "{first}");
+    let namespace = ui.wait_from(mark, "the final", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "final")
+        ["result"]["namespace"].as_str().unwrap().to_string();
+    // A name for voice A: the user's, never sent.
+    ui.ok("/set/data/speaker_names", Some(json!({ "namespace": namespace, "names": { "A": "ミカ" } })));
+    // The second caption has the first in its history, with the labels.
+    asr.behaviour.realtime_announce.store(1, Ordering::SeqCst);
+    capture.hear(Capture::Speaker, &[speech(2000)]);
+    let second = system(2);
+    assert!(second.contains("][speaker][voice A, B] 広場で会おう\n"), "{second}");
+    assert!(!second.contains("ミカ"), "a name the user gave reached the provider");
+    ui.ok("/set/disable/transcription_receive", None);
+    ui.stop();
+}

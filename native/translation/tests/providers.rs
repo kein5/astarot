@@ -19,11 +19,11 @@ fn languages() -> Vec<String> {
 
 /// A machine translation: codes, no prompt.
 fn plain<'a>(text: &'a str, source: &'a str, target: &'a str) -> Translation<'a> {
-    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "" }
+    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "", speakers: &[] }
 }
 
 fn ask<'a>(text: &'a str, supported: &'a [String], history: &'a [HistoryItem]) -> Translation<'a> {
-    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[], temperature: None, instructions: "" }
+    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[], temperature: None, instructions: "", speakers: &[] }
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn deepl_checks_the_key_and_translates_with_upper_case_codes() {
     assert_eq!(check.body["target_lang"], "EN-US");
 
     let ask_deepl =
-        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "" };
+        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "", speakers: &[] };
     assert_eq!(
         DeepL::translate(&net(), &Access::at(base).key("good:fx"), &ask_deepl).unwrap(),
         "deepl-free:EN-US:こんにちは"
@@ -93,7 +93,7 @@ fn plamo_sends_its_prompt_and_the_history() {
     fake.key("/plamo/v1", "plamo-key").models("/plamo/v1", &["plamo-2.0-prime"]);
     assert_eq!(Plamo::list(&net(), &Access::at(&endpoints.plamo).key("plamo-key")).unwrap(), ["plamo-2.0-prime"]);
     let supported = languages();
-    let history = vec![HistoryItem { source: "mic".into(), text: "前の話".into(), time: "09:05".into() }];
+    let history = vec![HistoryItem { source: "mic".into(), text: "前の話".into(), time: "09:05".into(), speakers: Vec::new() }];
     let translated = Plamo::translate(
         &net(),
         &Access::at(&endpoints.plamo).key("plamo-key").model("plamo-2.0-prime"),

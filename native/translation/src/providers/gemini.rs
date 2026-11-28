@@ -79,7 +79,7 @@ impl Api for Gemini {
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = a.chosen_model()?;
         let url = join(a.base, &format!("/v1beta/models/{}:generateContent", super::percent(model)));
-        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions);
+        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions, t.speakers);
         let body = json!({
             "contents": [{ "parts": [{ "text": t.text }], "role": "user" }],
             "systemInstruction": { "parts": [{ "text": system }] },

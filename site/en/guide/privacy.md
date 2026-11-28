@@ -35,7 +35,7 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Feature | Sent to | What is sent |
 |---|---|---|
 | Machine translation APIs (DeepL, Google Cloud, Papago) | The service you choose | The text to translate |
-| LLM translation engines (OpenAI, Gemini, Groq, OpenRouter, Plamo, OpenAI-compatible, LM Studio, Ollama) | The service or server you choose | The text to translate, plus up to five recent messages: what you said in chat or into the microphone, and what the speaker transcription heard from others. Each comes with the time it was said (hours and minutes) |
+| LLM translation engines (OpenAI, Gemini, Groq, OpenRouter, Plamo, OpenAI-compatible, LM Studio, Ollama) | The service or server you choose | The text to translate, plus up to five recent messages: what you said in chat or into the microphone, and what the speaker transcription heard from others. Each comes with the time it was said (hours and minutes). When the game audio's voices are told apart, the letters of the voices that spoke ("A", "B" and so on) come too, but not the names you gave them |
 | Checking translation and speech recognition engines | Services whose API key you saved | The API key and a request for the model list. At start only to the engines you have selected; to other engines when you select them. No conversation |
 | Cloud speech recognition (Groq Whisper, OpenAI Whisper, Deepgram, a custom Whisper server) | The service or server you choose | The audio of each utterance |
 | Model downloads | Hugging Face | The download request |
