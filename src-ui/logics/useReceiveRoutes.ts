@@ -27,6 +27,7 @@ import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } f
 import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
 import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
+import { takeInlineRefusal } from "./configs/fieldErrors.ts";
 import { voiceErrorText } from "./voice/voiceErrorText.ts";
 import { isSettingsWindow, noticesHere } from "./common/settingsWindow.ts";
 import { withNotices } from "./common/noticeScope.ts";
@@ -549,6 +550,10 @@ export const useReceiveRoutes = () => {
         if (!pendingRequestRecovery.acceptResponse(endpoint)) return;
         pendingRequestRecovery.receive(parsed_data, asyncStdoutToPython);
         settingsWriteResponses.receive(parsed_data);
+        // A field that says the refusal of its own save waits for this answer (fieldErrors.ts). Any
+        // answer that is not a success ends that wait here, whatever its status, so it never
+        // outlives the save and keeps a later notice back (#1324); the field ends it on a success.
+        const saidInline = status !== 200 && takeInlineRefusal(endpoint);
         if (endpoint === "/run/send_message_box" && [400, 404, 423, 500].includes(status)) {
             failSentMessageLog(fieldOf(result, "data") ?? result);
         }
@@ -780,6 +785,7 @@ export const useReceiveRoutes = () => {
                     data: fieldOf(result, "data"),
                     endpoint: parsed_data.endpoint,
                     result: parsed_data.result,
+                    saidInline,
                 });
                 break;
             }

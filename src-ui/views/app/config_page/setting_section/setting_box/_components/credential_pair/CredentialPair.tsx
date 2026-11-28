@@ -6,7 +6,7 @@ import type { DraftState, DraftWriteValue } from "../../../../../../../logics/vo
 import { endpointDescription, endpointNotices } from "../../../../../../../logics/common/endpointPrivacy";
 import { AuthKeyContainer, EntryWithSaveButtonContainer } from "../../_templates/Templates";
 import { useHintDescriptions } from "../hint/Hint";
-import { awaitInlineAnswer, refusalKeys, settleInlineAnswer } from "../../../../../../../logics/configs/fieldErrors.ts";
+import { awaitInlineAnswer, refusalKeys } from "../../../../../../../logics/configs/fieldErrors.ts";
 import * as styles from "./CredentialPair.css.ts";
 
 // The endpoint and its key, saved together.
@@ -69,10 +69,10 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
             data = value.auth_key || undefined;
         }
         // The refusal of this save is said under the pair, not as a notice too (fieldErrors.ts).
-        awaitInlineAnswer(endpoint);
+        const settle = awaitInlineAnswer(endpoint);
         const response = await asyncStdoutToPython(endpoint, data);
         const reply = typeof response === "object" && response !== null ? response : null;
-        if (!(reply?.status && reply.status !== 200)) settleInlineAnswer(endpoint);
+        if (!(reply?.status && reply.status !== 200)) settle();
         if (reply?.status !== 200) {
             updateError((isAnswer(reply?.result) ? reply.result.error_code : undefined) || "save_unconfirmed");
             return response;

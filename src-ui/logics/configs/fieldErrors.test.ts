@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
-import { awaitInlineAnswer, errorCodeOf, refusalKeys, saveSaidInline, settleInlineAnswer, takeInlineRefusal } from "./fieldErrors.ts";
+import { readFileSync } from "node:fs";
+import { test, vi } from "vitest";
+import { INLINE_ANSWER_WAIT_MS, awaitInlineAnswer, errorCodeOf, refusalKeys, saveSaidInline, takeInlineRefusal } from "./fieldErrors.ts";
 
 // #1111: only the refusal of a field's own save is said under the field instead of as a notice.
 test("a refusal is taken once for each save a field waits for, and never otherwise", () => {
@@ -11,10 +12,46 @@ test("a refusal is taken once for each save a field waits for, and never otherwi
     assert.equal(takeInlineRefusal(endpoint), true);
     assert.equal(takeInlineRefusal(endpoint), true);
     assert.equal(takeInlineRefusal(endpoint), false);
-    awaitInlineAnswer(endpoint);
-    settleInlineAnswer(endpoint);
+    const settle = awaitInlineAnswer(endpoint);
+    settle();
     assert.equal(takeInlineRefusal(endpoint), false, "an accepted save leaves nothing to take");
     assert.equal(takeInlineRefusal(undefined), false);
+});
+
+// #1324: a wait belongs to one save. Ending it twice, or after its refusal was taken, leaves
+// another save's wait alone.
+test("each save's wait ends once, and only its own", () => {
+    const endpoint = "/set/data/ollama_url";
+    const first = awaitInlineAnswer(endpoint);
+    awaitInlineAnswer(endpoint);
+    first();
+    first();
+    assert.equal(takeInlineRefusal(endpoint), true, "the second save still waits");
+    assert.equal(takeInlineRefusal(endpoint), false);
+    const refused = awaitInlineAnswer(endpoint);
+    assert.equal(takeInlineRefusal(endpoint), true);
+    awaitInlineAnswer(endpoint);
+    refused();
+    assert.equal(takeInlineRefusal(endpoint), true, "the late end of a refused save leaves the next one waiting");
+});
+
+// #1324: a save that is never answered stops waiting when the field gives up on it, so it cannot
+// keep a later notice back.
+test("a wait runs out after the time a field waits for its save", context => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    context.onTestFinished(() => { vi.useRealTimers(); });
+    const endpoint = "/set/data/osc_port";
+    awaitInlineAnswer(endpoint);
+    vi.advanceTimersByTime(INLINE_ANSWER_WAIT_MS - 1);
+    assert.equal(takeInlineRefusal(endpoint), true, "still waiting just before the time runs out");
+    awaitInlineAnswer(endpoint);
+    vi.advanceTimersByTime(INLINE_ANSWER_WAIT_MS);
+    assert.equal(takeInlineRefusal(endpoint), false, "no longer waiting once it has");
+    // The fields give up on a save after the same time: a text field and a form's draft.
+    for (const file of ["./config_page_setter/useSettingsLogics.ts", "../voice/useSettingsDraft.tsx"]) {
+        const gives_up = /setTimeout\(\(\) => \{[^\n]*(?:save_failed|save_unconfirmed)[^\n]*\}, (\d+)\)/.exec(readFileSync(new URL(file, import.meta.url), "utf8"));
+        assert.equal(Number(gives_up?.[1]), INLINE_ANSWER_WAIT_MS, file);
+    }
 });
 
 test("a refusal is said in its code's words, or as could not be saved", () => {

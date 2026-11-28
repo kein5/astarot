@@ -143,7 +143,7 @@ export const loadBridgeRoutes = async (
     const recognitionFix = await loadModule<typeof import("../transcription/useRecognitionFix.ts")>(new URL("../transcription/useRecognitionFix.ts", import.meta.url), runtime);
     const recognitionFixes = await loadModule<typeof import("../transcription/recognitionFix.ts")>(new URL("../transcription/recognitionFix.ts", import.meta.url), runtime,
         { "../setup/firstRunSetup.ts": await import("../setup/firstRunSetup.ts") });
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
@@ -212,6 +212,7 @@ export const loadBridgeRoutes = async (
         "./common/initializationFields.ts": initialization,
         "./common/sidecarExitExpectation.ts": exitExpectation,
         "./common/settingsWriteResponses.ts": settingsResponses,
+        "./configs/fieldErrors.ts": fieldErrors,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
     return { ...subject, notices, reads, routeTable: routes.ROUTE_META_LIST, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),

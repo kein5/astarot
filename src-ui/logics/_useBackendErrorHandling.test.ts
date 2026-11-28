@@ -132,6 +132,33 @@ test("a field that waits for its own save says the refusal itself; otherwise the
     assert.equal(s.notices.length, before + 1, "a refusal no field waits for keeps its notice");
 });
 
+// #1324: every answer that is not a success ends the wait of a field that says its own refusal,
+// whatever its status and whether or not the error handling reads it, so a later refusal on the
+// same endpoint that no field waits for still raises its notice. A success is the field's to end.
+test("an answer of any status but success ends a field's wait, so a later refusal keeps its notice", async () => {
+    const fieldErrors = await import("./configs/fieldErrors.ts");
+    const s = await loadBridgeRoutes();
+    const endpoint = "/set/data/lmstudio_url";
+    const refused = () => s.receiveRoutes({ status: 400, endpoint, result: {
+        error_code: "CONNECTION_LMSTUDIO_URL_INVALID", message: "The URL is invalid", data: "http://127.0.0.1:1234/v1",
+    } });
+    for (const status of [403, 404, 423, 500]) {
+        fieldErrors.awaitInlineAnswer(endpoint);
+        s.receiveRoutes({ status, endpoint, result: { message: "not done" } });
+        const before = s.notices.length;
+        refused();
+        assert.equal(s.notices.length, before + 1, `a refusal after a ${status} keeps its notice`);
+    }
+    // A refused log folder is put back before the error handling, which never reads it.
+    fieldErrors.awaitInlineAnswer("/set/data/path_logs");
+    s.receiveRoutes({ status: 400, endpoint: "/set/data/path_logs", result: { path: "C:/logs", error_code: "PATH_LOGS_NOT_WRITABLE" } });
+    assert.equal(fieldErrors.takeInlineRefusal("/set/data/path_logs"), false, "the early answer ended the wait too");
+    const settle = fieldErrors.awaitInlineAnswer(endpoint);
+    s.receiveRoutes({ status: 200, endpoint, result: "http://127.0.0.1:1234/v1" });
+    assert.equal(fieldErrors.takeInlineRefusal(endpoint), true, "a success leaves the wait to the field");
+    settle();
+});
+
 test("other backend notifications still resolve their message when received", async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "en", resources: {

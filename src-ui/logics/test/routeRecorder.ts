@@ -5,6 +5,7 @@ import { createPendingRequestRecovery, featureResyncReads } from "../common/pend
 import * as initialization from "../common/initializationFields.ts";
 import * as exitExpectation from "../common/sidecarExitExpectation.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 import type { ExitExpectingSession } from "../common/sidecarExitExpectation.ts";
 
@@ -119,6 +120,7 @@ export const loadRecordedRoutes = async (options: RecorderOptions = {}) => {
         "./common/initializationFields.ts": initialization,
         "./common/sidecarExitExpectation.ts": exitExpectation,
         "./common/settingsWriteResponses.ts": { settingsWriteResponses: writes },
+        "./configs/fieldErrors.ts": fieldErrors,
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "./main/languageMutations": {
             receiveLanguageMutation: record("languageMutations.receiveLanguageMutation"),
