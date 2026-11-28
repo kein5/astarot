@@ -27,6 +27,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 | `Badge` | A short word with square corners that says a state; `tone`, `variant` (outline, solid, tint, dashed) and `mark` (check, ring, alert) only repeat the words (D-29, #1204) | — |
 | `InlineConfirm` and its parts `InlineConfirmTrigger`, `InlineConfirmContent`, `InlineConfirmDescription`, `InlineConfirmCancel` and `InlineConfirmAction` | A delete confirmation inside the row it is about. Back takes the focus when it opens, and after Back the focus returns to the trigger. Its owner decides whether it is open (#1189) | The kit's `Button`, in parts named after AlertDialog's |
 | `ChoiceCard` | One choice of a group, drawn as a card: what it shows over its name. The choice in use has the accent frame and a check after its name. The screen gives it its width (#1177) | The native `<input type="radio">` inside a `<label>`. The cards with the same `name` are one group, so the arrow keys move the choice |
+| `useAppear`, and the motion of `Dialog` and `Popover` | How the kit's surfaces come and go (#1378). A dialog fades in and rises into its place with its dimming, and closes at once. A popover comes from its button and goes back toward it, and takes no presses while it goes. A page that a screen shows itself, such as the settings window's pages, fades in through `useAppear`. With reduced motion they only fade. The screens take their motion from the kit and do not import Motion | [Motion](https://motion.dev/)'s `animate()` (`motion/mini`, on the Web Animations API), in `motion.ts` |
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
 
@@ -129,6 +130,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | `Badge` | 状態を示す、角の四角い短い言葉。`tone`、`variant`（outline、solid、tint、dashed）、`mark`（check、ring、alert）は言葉を繰り返すだけ（D-29、#1204） | — |
 | `InlineConfirm` と、そのパーツの `InlineConfirmTrigger`、`InlineConfirmContent`、`InlineConfirmDescription`、`InlineConfirmCancel`、`InlineConfirmAction` | 行の中に出す削除の確認。開くと「戻る」がフォーカスを受け、「戻る」のあとは開いたボタンにフォーカスを戻す。開くかどうかは持ち主が決める（#1189） | kit の `Button`。パーツの名前は AlertDialog に合わせた |
 | `ChoiceCard` | まとまりの中の 1 つの選択肢をカードとして描く。見せるものの下に名前。使っている選択肢には、アクセントの色の枠と、名前の後のチェック。幅は画面が決める（#1177） | `<label>` の中のネイティブの `<input type="radio">`。`name` が同じカードが 1 つのまとまりになり、矢印キーで選択が動く |
+| `useAppear` と、`Dialog` と `Popover` の動き | キットの面の出入り（#1378）。ダイアログは背景を暗くする層と一緒にフェードインしながら定位置へ上がり、閉じるときはすぐに閉じる。ポップオーバーはボタンから出てきてボタンの方へ戻り、戻っていく間は押せない。設定のウィンドウのページのように画面が自分で出すページは、`useAppear` でフェードインする。動きを減らす設定ではフェードだけにする。画面はキットから動きを受け取り、Motion を import しない | [Motion](https://motion.dev/) の `animate()`（`motion/mini`。Web Animations API の上で動く）。`motion.ts` にある |
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 

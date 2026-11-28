@@ -259,6 +259,7 @@ Words: English headings, labels and options use sentence case; only names and ac
 
 Motion uses the tokens in `variables.css`: `--vox_motion_fast` (120 ms), `--vox_motion` (220 ms), `--vox_ease`, and `--vox_ease_settle`, which overshoots by at most 2%. It shows where something comes from, that it worked, or for a moment where to act next, never decoration:
 
+- What opens over the page comes and goes through the kit's motion (`src-ui/views/kit/motion.ts`, on [Motion](https://motion.dev/); #1378), so a screen does not animate it on its own and does not import Motion. A modal dialog fades in (`--vox_motion_fast`) and rises 0.8rem into its place (`--vox_motion`) while its dimming fades in. It closes at once, so the focus goes back as it did before. A popover fades in from 0.4rem toward its button, on the side it opens on, and goes back the same way, quicker; while it goes, it takes no presses. The settings window's pages fade in where they are when they are first drawn, under the title bar the window opened with; the window closes at once. Only the motion is new: what takes the focus, how a surface closes and what screen readers meet stay as they were. With reduced motion nothing moves: these surfaces only fade, and opacity is the only thing that changes.
 - On engines that can style a select's list (WebView2), the forms' native selects open their list from the field and let it settle, with its first rows following one another, and still open below the field when it fits; WebKitGTK keeps its system list. The kit's `Select`, which the settings rows use (D-14), opens the system's list on both engines.
 - Work that ends in success (a model download, a runtime setup, a server start) has a mark before its readout's words: an arc that spins while it runs, then a lilac disc with a check that draws itself if it finished while the page was open.
 - A path field that takes files can have a drop place above it (`FileDropZone`). It wakes while files are dragged over the window, lifts under the pointer, and on a drop fills the fields and says what went where. The fields stay the way to type a path, and a drop saves at once.
@@ -283,7 +284,7 @@ What does not change: the styles are written in vanilla-extract, and Tailwind is
 - shadcn/ui's color tokens (`primary`, `muted`, `accent`, `border`, `input`, `ring` and the rest) stand for ASTAROT tokens; no shadcn color value is used. The app has only the dark scheme, so where shadcn/ui gives a `dark:` value, that value is the one read.
 - A length is taken at its pixel size. Tailwind's rem is 16px and the app's is 10px, so `h-9` (36px) is `3.6rem` and `px-3` (12px) is `1.2rem`. A radius or a text size then moves to the nearest step of this file (`rounded`, `typography`).
 - A part that passes a ref takes it as one of the props, as shadcn/ui writes for React 19; `forwardRef` is not used. Radix comes from its own `@radix-ui/react-*` package, as the app already has it.
-- shadcn/ui's enter and exit animations (`animate-in`, `fade-in`, `zoom-in`) become keyframes on the motion tokens (`--vox_motion` and the rest), off under reduced motion.
+- shadcn/ui's enter and exit animations (`animate-in`, `fade-in`, `zoom-in`, `slide-in-from-*`) are played by the kit's motion (`src-ui/views/kit/motion.ts`) on the motion tokens, as a fade and a short slide; under reduced motion only the fade stays.
 - A Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`.
 
 Where a shadcn component and a rule in this file differ, such as the button looks (#474), the 40px field or the focus ring, the rule here stays until it is changed on purpose. Components are compared with shadcn/ui one by one before any of them is changed (`docs/design/components/shadcn-alignment.md`), and a difference that needs a decision is decided there, not by the translation.
@@ -473,6 +474,7 @@ VRのウィンドウの中では、どの部品も吹き出しを開きません
 
 動きは`variables.css`のトークンを使います。`--vox_motion_fast`（120 ms）、`--vox_motion`（220 ms）、`--vox_ease`、最大2%行き過ぎる`--vox_ease_settle`です。動きは何かがどこから来たか、うまくいったこと、または少しの間だけ次に操作する場所を示すためのもので、飾りには使いません。
 
+- ページの上に開くものは、キットの動き（`src-ui/views/kit/motion.ts`。[Motion](https://motion.dev/)を使います。#1378）で出入りします。画面がそれぞれに動かしたり、Motionをimportしたりはしません。モーダルダイアログは、フェードインしながら（`--vox_motion_fast`）0.8rem下から定位置へ上がり（`--vox_motion`）、背景を暗くする層も一緒にフェードインします。閉じるときはすぐに閉じるので、フォーカスはこれまでどおりに戻ります。ポップオーバーは、開く側でボタンの方へ0.4remずれたところからフェードインし、閉じるときは同じ向きへ少し速く戻ります。戻っていく間は押せません。設定のウィンドウのページは、最初に描かれたときに、ウィンドウが開いたときからあるタイトルバーの下で、その場でフェードインします。ウィンドウはすぐに閉じます。新しくなるのは動きだけです。何がフォーカスを受けるか、どう閉じるか、スクリーンリーダーに何が示されるかは変わりません。動きを減らす設定では何も動かしません。これらは不透明度だけを変えて出入りします。
 - selectの一覧にスタイルを付けられるエンジン（WebView2）では、フォームのネイティブのselectの一覧は入力欄から下りてきて止まり、最初の数行が順に続きます。収まるときはこれまでどおり入力欄の下に開きます。WebKitGTKはシステムの一覧のままです。設定の行が使う kit の `Select`（D-14）は、どちらのエンジンでもシステムの一覧を開きます。
 - 成功で終わる作業（モデルのダウンロード、実行環境の準備、サーバーの開始）は、読み出しの言葉の前に印を置きます。動いている間は回る弧で、終わるとチェックの付いたライラックの円になります。ページを開いている間に終わったときは、チェックが描かれていきます。
 - ファイルを受け取るパスの入力欄は、その上にドロップする場所（`FileDropZone`）を持てます。この場所はファイルをウィンドウの上にドラッグしている間は受け付ける見た目になり、ポインターの下で浮き上がります。ドロップすると入力欄を埋めて、どれがどこに入ったかを伝えます。パスを打つ方法は入力欄のままで、ドロップするとすぐに保存します。
@@ -497,7 +499,7 @@ shadcn/uiが1つの部品を、元にするライブラリを変えて複数用�
 - shadcn/uiの色のトークン（`primary`、`muted`、`accent`、`border`、`input`、`ring`など）は、ASTAROTのトークンを指すものとして読みます。shadcnの色の値は使いません。アプリには暗い配色しかないので、shadcn/uiが`dark:`の値を持つときは、その値を読みます。
 - 長さはピクセルの大きさで取ります。Tailwindのremは16px、アプリのremは10pxなので、`h-9`（36px）は`3.6rem`、`px-3`（12px）は`1.2rem`です。角丸と文字の大きさは、そのあとでこのファイルのいちばん近い段（`rounded`、`typography`）へ移します。
 - refを渡すパーツは、shadcn/uiがReact 19向けに書くとおり、refをpropsの1つとして受け取ります。`forwardRef`は使いません。Radixは、アプリがすでにそうしているとおり、それぞれの`@radix-ui/react-*`のパッケージから取ります。
-- shadcn/uiの出入りのアニメーション（`animate-in`、`fade-in`、`zoom-in`）は、動きのトークン（`--vox_motion`など）を使うkeyframesにし、動きを減らす設定では止めます。
+- shadcn/uiの出入りのアニメーション（`animate-in`、`fade-in`、`zoom-in`、`slide-in-from-*`）は、キットの動き（`src-ui/views/kit/motion.ts`）が動きのトークンを使い、フェードと短いスライドとして再生します。動きを減らす設定では、フェードだけを残します。
 - 実行時に`<style>`を足すRadixのパーツには、`docs/development.md`にあるCSPの手順が要ります。
 
 ボタンの見た目（#474）、40pxの入力欄、フォーカスの輪のように、shadcnの部品とこのファイルの決まりが違うときは、意図して変えるまでこのファイルの決まりを残します。部品はどれかを変える前に1つずつshadcn/uiと比べ（`docs/design/components/shadcn-alignment.md`）、判断の要る違いは書き換えの作業ではなくそこで決めます。
