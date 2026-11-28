@@ -61,6 +61,7 @@ async function settingsWindow(values: Record<string, unknown> = {}, { ready = tr
         "@store": { useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: settingsWindowOpen } }),
             useStore_MicVolume: hook(), useStore_SelectableFontFamilyList: hook(), useStore_SpeakerVolume: hook(), useStore_VrCustomTranslationModelNames: () => ({ currentVrCustomTranslationModelNames: ok({}) }) },
         "@ui_configs": { ui_configs },
+        "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => app },
         "./VrWindow": { VrWindow: "window" },
         "./VrHandIcon": { VrHandIcon: "hand" },
         "./VrSettingsRows": { Disclosure: "disclosure", Picker: "picker", SectionLabel: "section-label", SegmentRow: "segment-row",
@@ -161,7 +162,7 @@ test("the window is the settings: it names itself so and cannot be covered", asy
 
 // #1371: in the app the main window opens the settings window, never the settings page, so rows
 // that waited for the page stayed disabled however long the window was open.
-test("in the app the rows wait for the settings window, then work", async () => {
+test("in the app the rows wait for the settings window, then work, and no strip says the functions are paused", async () => {
     const w = await settingsWindow({}, { app: true, ready: false });
     assert.deepEqual(waiting(w.tree), [true, true, true]);
     for (const state of [false, null, "true"]) {
@@ -171,6 +172,9 @@ test("in the app the rows wait for the settings window, then work", async () => 
     w.setReady(true);
     const opened = w.render();
     assert.deepEqual(waiting(opened), [false, false, false]);
+    // Nothing pauses while the settings window is open (#1236): the strip that said so is not drawn.
+    assert.equal(bannerOf(opened), null);
+    assert.ok(!textOf(opened).includes("vr_panel.paused_while_settings"));
     // A category is pressed and shown.
     w.show("vrchat");
     assert.deepEqual(w.categoryButtons().filter(button => button.props["aria-pressed"]).map(button => button.key), ["vrchat"]);

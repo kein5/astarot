@@ -1478,6 +1478,8 @@ vr_panel:
     mic_threshold: "マイクの入力感度"
     speaker_threshold: "スピーカーの入力感度"
     automatic: "自動"
+    # #1371: VR設定の窓で、設定がメインのウィンドウのページになるとき (ブラウザー) だけ出す。ページは翻訳と文字起こしを止める。
+    # アプリの設定のウィンドウは何も止めないので (#1236)、アプリでは出さない
     paused_while_settings: "設定中は翻訳と文字起こしを止めています。閉じると再開します。"
     overlay_small_log: "字幕（一行）"
     overlay_large_log: "字幕（複数行）"

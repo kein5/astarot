@@ -8,6 +8,7 @@ import { useIsOpenedConfigPage, useIsOscAvailable, useVolume } from "@logics_com
 import { useAppearance, useDevice, useOcr, useOthers, useTranscription, useTranslation, useVr } from "@logics_configs";
 import { useStore_IsOpenedSettingsWindow, useStore_MicVolume, useStore_SelectableFontFamilyList, useStore_SpeakerVolume, useStore_VrCustomTranslationModelNames } from "@store";
 import { ui_configs } from "@ui_configs";
+import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
 
 import HmdSvg from "@images/mui_head_mounted_device.svg?react";
 import ConfigurationSvg from "@images/configuration.svg?react";
@@ -129,6 +130,8 @@ export const VrSettingsWindow = ({ onClose }: { onClose: () => void }) => {
     // the settings window (IsOpenedSettingsWindow): since #1236 the main window opens it, and never
     // its settings page. In a browser it is the settings page, which has paused the main functions by then.
     const is_ready = currentIsOpenedSettingsWindow.data === true || currentIsOpenedConfigPage.data === true;
+    // The strip says the functions are paused only where they are: where the settings are a page.
+    const pauses_main_functions = !settingsHaveAWindow();
     const openPicker: OpenPicker = (title, options, selected_id, onPick, languageKind) => {
         savedScroll.current = listRef.current?.scrollTop ?? 0;
         setPicker({ title, options, selected_id, onPick, languageKind });
@@ -145,10 +148,10 @@ export const VrSettingsWindow = ({ onClose }: { onClose: () => void }) => {
     return (
         <VrWindow Icon={ConfigurationSvg} title={t("vr_panel.window_settings")} onClose={onClose} close_label={t("vr_panel.settings.close")} is_lockable={false}>
             <div className={styles.window_body}>
-                <p className={styles.banner}>
+                {pauses_main_functions && <p className={styles.banner}>
                     <WarningSvg className={styles.banner_icon} aria-hidden="true" />
                     {t("vr_panel.paused_while_settings")}
-                </p>
+                </p>}
                 <fieldset className={clsx(styles.body, { [styles.is_waiting]: !is_ready })} disabled={!is_ready} aria-label={t("vr_panel.window_settings")} aria-busy={!is_ready}>
                     <div className={styles.side}>
                         {CATEGORIES.map(({ id, Icon }) => (

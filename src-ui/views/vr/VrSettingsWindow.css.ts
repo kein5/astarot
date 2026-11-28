@@ -74,7 +74,7 @@ globalStyle(`${window_body} button:focus-visible`, {
 });
 globalStyle(`${window_body} [hidden]`, { display: "none !important" });
 
-// 設定中はメイン機能を止めていることを常に見せる
+// Where the settings are a page that pauses the main functions (a browser), the strip says so all the time.
 globalStyle(banner, {
     flexShrink: 0,
     display: "flex",
