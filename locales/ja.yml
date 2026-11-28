@@ -1435,7 +1435,8 @@ vr_panel:
         translation_model: "翻訳モデルが未取得です。PCの設定「翻訳」で取得してください。"
         translation_unavailable: "この翻訳モデルはまだ取得できません。ほかの翻訳エンジンを選んでください。"
         translation_downloading: "翻訳モデルを取得中です。終わるとオンにできます。"
-        asr_models: "認識モデルがありません。PCの設定「音声認識（ASR）」で取得してください。"
+        # #1314 (V-5): the desktop's switch opens the first-run setup, which prepares the models (#1225).
+        asr_models: "PCのメイン画面でこのスイッチを押すと、モデルを準備できます。"
         ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
         ocr_language: "この言語は未対応です。PCの設定「チャット読み取り（OCR）」で変えてください。"
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
@@ -1458,6 +1459,9 @@ vr_panel:
         functions_group: "機能のオン／オフ"
         windows_group: "ウィンドウ"
         controls_group: "ログの操作"
+        # #1314 (V-3): a switch's state in the tooltip, in the UI's words.
+        state_on: "オン"
+        state_off: "オフ"
         config_open: "設定中"
         busy_help: "反映が終わるまでお待ちください"
         enable: "押すとオンにします"

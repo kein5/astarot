@@ -134,13 +134,13 @@ test("the launcher's buttons fit inside its band, which is the launcher region's
 test("each switch is named for its function, with a tooltip that says what pressing does", async context => {
     const view = await launcher(context, { statuses: { transcription_send: { state: "ok", data: true } } });
     assert.deepEqual(view.functions.map(tipOf), [
-        { label: "main_page.translation", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.translate", state: "OFF",
+        { label: "main_page.translation", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.translate", state: "vr_panel.tooltip.state_off",
             help: "vr_panel.tooltip.enable", force: false },
-        { label: "main_page.transcription_send", pressed: true, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.microphone", state: "ON",
+        { label: "main_page.transcription_send", pressed: true, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.microphone", state: "vr_panel.tooltip.state_on",
             help: "vr_panel.tooltip.disable", force: false },
-        { label: "main_page.transcription_receive", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.listen", state: "OFF",
+        { label: "main_page.transcription_receive", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.listen", state: "vr_panel.tooltip.state_off",
             help: "vr_panel.tooltip.enable", force: false },
-        { label: "main_page.ocr", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.chat_detect", state: "OFF",
+        { label: "main_page.ocr", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.chat_detect", state: "vr_panel.tooltip.state_off",
             help: "vr_panel.tooltip.enable", force: false },
     ]);
     assert.deepEqual(view.functions.map(button => classesOf(button).includes("is_on")), [false, true, false, false]);
@@ -151,14 +151,14 @@ test("each switch is named for its function, with a tooltip that says what press
     assert.deepEqual(view.calls, [["translation"], ["transcription_send"], ["transcription_receive"], ["ocr"]]);
     // Only true is on.
     const odd = await launcher(context, { statuses: { translation: { state: "ok", data: "true" } } });
-    assert.deepEqual([odd.functions[0].props.tipState, odd.functions[0].props["aria-pressed"]], ["OFF", false]);
+    assert.deepEqual([odd.functions[0].props.tipState, odd.functions[0].props["aria-pressed"]], ["vr_panel.tooltip.state_off", false]);
 });
 
 test("a switch that is changing says so, is marked, and cannot be pressed again", async context => {
     const view = await launcher(context, { statuses: { translation: { state: "pending", data: true } } });
     const [translation, microphone] = view.functions;
     assert.deepEqual(tipOf(translation), { label: "main_page.translation", pressed: true, disabled: true, busy: true, title: "vr_panel.tooltip.translate",
-        state: "ON · vr_panel.settings.changing_short", help: "vr_panel.tooltip.busy_help", force: false });
+        state: "vr_panel.tooltip.state_on · vr_panel.settings.changing_short", help: "vr_panel.tooltip.busy_help", force: false });
     assert.ok(classesOf(translation).includes("is_pending"));
     assert.equal(classesOf(translation).includes("is_disabled"), false);
     assert.equal(classesOf(microphone).includes("is_pending"), false);
@@ -180,7 +180,7 @@ test("while the settings page is open, every switch is locked, says why, and is 
     assert.deepEqual(view.calls, []);
     // The lock mark is the same for all, a block or a wait under it does not show.
     assert.equal(new Set(view.functions.map(markOf)).size, 1);
-    assert.deepEqual([view.functions[3].props["aria-busy"], view.functions[3].props.tipState], [true, "OFF · vr_panel.tooltip.config_open"]);
+    assert.deepEqual([view.functions[3].props["aria-busy"], view.functions[3].props.tipState], [true, "vr_panel.tooltip.state_off · vr_panel.tooltip.config_open"]);
 });
 
 // #1300 (decided on 2026-11-28): while Mic input's microphone waits to open, as Windows' question on
@@ -192,7 +192,7 @@ test("while Mic input's microphone waits to open, its button says Windows may be
     const view = await launcher(context, { micWaiting: true, statuses: { transcription_send: { state: "ok", data: true } } });
     const [translation, microphone] = view.functions;
     assert.deepEqual(tipOf(microphone), { label: "main_page.transcription_send", pressed: true, disabled: undefined, busy: undefined,
-        title: "vr_panel.tooltip.microphone", state: "ON", help: "vr_panel.mic_wait.windows", force: true });
+        title: "vr_panel.tooltip.microphone", state: "vr_panel.tooltip.state_on", help: "vr_panel.mic_wait.windows", force: true });
     const linux = await launcher(context, { micWaiting: true, system: "linux", statuses: { transcription_send: { state: "ok", data: true } } });
     assert.deepEqual([linux.functions[1].props.tipHelp, linux.functions[1].props.tipForce], ["vr_panel.mic_wait.linux", true]);
     assert.ok(markOf(microphone), "marked as waiting");
@@ -211,7 +211,7 @@ test("the lock, the wait and the missing setup each have a mark of their own", a
     assert.ok(marks.every(mark => typeof mark === "string" && /^M\d/.test(mark)), marks.join("\n"));
     assert.equal(new Set(marks).size, 3);
     // A blocked switch that is not changing says only that it is blocked.
-    assert.equal(blocked.functions[0].props.tipState, "OFF · vr_panel.switch_blocked.state");
+    assert.equal(blocked.functions[0].props.tipState, "vr_panel.tooltip.state_off · vr_panel.switch_blocked.state");
     assert.deepEqual([blocked.functions[0].props["aria-busy"], pending.functions[0].props["aria-busy"]], [undefined, true]);
 });
 

@@ -1435,7 +1435,8 @@ vr_panel:
         translation_model: "No translation model yet. Download it in PC settings → Translation."
         translation_unavailable: "This translation model cannot be downloaded yet. Pick another translator."
         translation_downloading: "The translation model is downloading. Turn it on when it is done."
-        asr_models: "No speech recognition models. Download them in PC settings → ASR."
+        # #1314 (V-5): the desktop's switch opens the first-run setup, which prepares the models (#1225).
+        asr_models: "Press this switch on the PC's main screen to prepare the models."
         ocr_models: "No chat reading models yet. Download them in PC settings → OCR."
         ocr_language: "Chat reading does not support this language. Change it in PC settings → OCR."
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
@@ -1458,6 +1459,9 @@ vr_panel:
         functions_group: "Functions"
         windows_group: "Windows"
         controls_group: "Log controls"
+        # #1314 (V-3): a switch's state in the tooltip, in the UI's words.
+        state_on: "On"
+        state_off: "Off"
         config_open: "Settings open"
         busy_help: "Please wait for the change to apply"
         enable: "Press to turn on"

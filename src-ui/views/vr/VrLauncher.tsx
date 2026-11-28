@@ -115,7 +115,8 @@ const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked, wa
     const is_pending = state.state === "pending";
     const is_blocked = !is_locked && !!block;
     const is_waiting = !is_locked && !is_blocked && waiting;
-    const status = [state.data === true ? "ON" : "OFF", is_locked ? t("vr_panel.tooltip.config_open") :
+    // The state in the UI's words (#1314, V-3): Japanese says オン／オフ, as everywhere else (#476).
+    const status = [state.data === true ? t("vr_panel.tooltip.state_on") : t("vr_panel.tooltip.state_off"), is_locked ? t("vr_panel.tooltip.config_open") :
         is_blocked ? t("vr_panel.switch_blocked.state") : is_pending ? t("vr_panel.settings.changing_short") : ""]
         .filter(Boolean).join(" · ");
     const mark = is_locked ? "locked" : is_blocked ? "blocked" : is_pending || is_waiting ? "pending" : null;
