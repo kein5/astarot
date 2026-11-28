@@ -129,12 +129,12 @@ const STEAMVR_UNREGISTER: &str = "--steamvr-unregister";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    if std::env::args_os().nth(1).is_some_and(|argument| argument == STEAMVR_UNREGISTER) {
-        std::process::exit(astarot_core::controller::steamvr::unregister_this_install() as i32);
-    }
     // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
     // variable when chat reading or translation first loads it; the RVC worker inherits it.
     unsafe { astarot_core::shipped_libraries::disable_onnx_runtime_telemetry() };
+    if std::env::args_os().nth(1).is_some_and(|argument| argument == STEAMVR_UNREGISTER) {
+        std::process::exit(astarot_core::controller::steamvr::unregister_this_install() as i32);
+    }
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]
     let vr_panel = vr_panel_surface::prepare();
