@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { keyframes, style } from "@vanilla-extract/css";
 import { vars } from "../../../../theme/vars.css.ts";
 import { loader as loaderRule } from "../../../../common_css/mixins.ts";
 import { focusRing } from "../../../../kit/shared.css.ts";
@@ -13,6 +13,27 @@ export const in_row = style({});
 export const is_open = style({});
 
 const PENDING_LABEL_COLOR = vars.dark_500_color;
+
+// The first-run setup leads to a switch by the part to press (#955): a ring of a Lilac gradient
+// round its toggle, which blinks three times in 4.8 seconds, so it stops by itself within five
+// (WCAG 2.2.2), then stays until the switch is turned on. Under reduced motion it stays without
+// blinking. Only the ring is painted (a mask): the kit's switch inside keeps its own look, so it
+// still reads as off.
+const leadBlink = keyframes({ "50%": { opacity: .3 } });
+const LEAD_FRAME = "linear-gradient(#000 0 0) content-box";
+const leadRing = {
+    content: '""',
+    position: "absolute",
+    background: `linear-gradient(90deg, ${vars.primary_200_color}, ${vars.primary_600_color})`,
+    WebkitMask: `${LEAD_FRAME}, linear-gradient(#000 0 0)`,
+    WebkitMaskComposite: "xor",
+    mask: `${LEAD_FRAME} exclude, linear-gradient(#000 0 0)`,
+    pointerEvents: "none",
+    animation: `${leadBlink} 1.6s ease-in-out 3`,
+} as const;
+const stillUnderReducedMotion = (selector: string) => ({
+    "(prefers-reduced-motion: reduce)": { selectors: { [selector]: { animation: "none" } } },
+});
 
 export const container = style({
     display: "flex",
@@ -73,13 +94,11 @@ export const switch_container = style([
                 paddingRight: ".6rem",
             },
             [`&.${in_row}:not(:hover):not(:active)`]: { backgroundColor: "transparent" },
-            // The icon rail's switch the first-run setup leads to (#955), framed as the wide rail's row is.
-            "&[data-lead]": {
-                boxShadow: `inset 0 0 0 .1rem ${vars.primary_600_color}`,
-                backgroundColor: vars.vox_highlight_tint,
-                borderRadius: vars.vox_radius,
-            },
+            // The icon rail has no toggle in sight: the icon, which is pressed there, carries the
+            // ring (#955), a circle round it in the middle of the row.
+            "&[data-lead]::before": { ...leadRing, inset: 0, margin: "auto", width: "3.4rem", height: "3.4rem", padding: ".25rem", borderRadius: "50%" },
         },
+        "@media": stillUnderReducedMotion("&[data-lead]::before"),
     },
 ]);
 
@@ -92,12 +111,6 @@ export const switch_row = style({
     selectors: {
         [`&.${is_active}`]: { backgroundColor: vars.vox_highlight_tint },
         [`&.${is_unavailable}`]: { backgroundColor: vars.dark_925_color },
-        // The first-run setup leads here (#955): the lilac frame and tint of its lead on the first screen
-        // (#940), until the switch is turned on.
-        "&[data-lead]": {
-            boxShadow: `inset 0 0 0 .1rem ${vars.primary_600_color}`,
-            backgroundColor: vars.vox_highlight_tint,
-        },
     },
 });
 
@@ -205,13 +218,20 @@ export const loader = style(loaderRule({ size: "2rem", lineWidth: "0.2rem", posi
 // that its reason is heard, so the slot draws the kit's ring again around it at full strength. In
 // the icon rail the slot is visually hidden and the row shows the focus.
 export const switch_slot = style({
+    position: "relative",
     display: "flex",
     flex: "none",
     alignItems: "center",
     borderRadius: "999rem",
     selectors: {
         '&:has(> [data-slot="switch"][data-disabled]:focus-visible)': focusRing,
+        // The toggle the first-run setup leads to (#955): the ring is .25rem outside the switch, inside
+        // the row's padding, and reaches under the switch's .1rem edge, so no seam shows between them.
+        "&[data-lead]::before": { ...leadRing, inset: "-.25rem", padding: ".35rem", borderRadius: "999rem" },
+        // Under keyboard focus the focus ring is drawn alone, so the two rings do not merge into one.
+        '&[data-lead]:has(> [data-slot="switch"]:focus-visible)::before': { display: "none" },
     },
+    "@media": stillUnderReducedMotion("&[data-lead]::before"),
 });
 
 // Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). The button

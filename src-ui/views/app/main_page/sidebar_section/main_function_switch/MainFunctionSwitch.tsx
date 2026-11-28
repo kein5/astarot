@@ -288,7 +288,7 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
         <div className={clsx(styles.switch_row, {
             [styles.is_active]: active,
             [styles.is_unavailable]: unavailable || !!props.blockedReason,
-        })} data-lead={props.lead || undefined}>
+        })}>
             {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
             <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
                 <Button size="icon-xs" className={styles.settings_button} data-feature-settings={props.switch_id}
@@ -325,7 +325,8 @@ type SwitchContainerProps = {
     unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
-    // The first-run setup leads here (#955): the switch stands out until it is turned on.
+    // The first-run setup leads here (#955): until it is turned on, a ring round the toggle, or in
+    // the icon rail, where the toggle is hidden, round the icon (data-lead).
     lead?: boolean;
     // A greyed switch's press: opens why it cannot be turned on yet and the step that fixes it.
     onBlockedPress?: () => void;
@@ -368,7 +369,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
 
     return (
         <Tooltip bare placement="right" title={tooltip}>
-            <label htmlFor={switchId} className={getClassNames(styles.switch_container)} data-lead={(lead && !inRow) || undefined}>
+            <label htmlFor={switchId} className={getClassNames(styles.switch_container)} data-lead={(lead && currentIsMainPageCompactMode.data) || undefined}>
                 <div className={styles.label_wrapper} aria-hidden="true">
                     {!inRow && <SvgComponent className={getClassNames(styles.switch_svg)} />}
                     <p className={getClassNames(styles.switch_label)}>
@@ -381,7 +382,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                     {children}
                 </div>
 
-                <span className={currentIsMainPageCompactMode.data ? styles.visually_hidden : styles.switch_slot}>
+                <span className={currentIsMainPageCompactMode.data ? styles.visually_hidden : styles.switch_slot}
+                    data-lead={(lead && !currentIsMainPageCompactMode.data) || undefined}>
                     <Switch
                         id={switchId}
                         checked={active}
