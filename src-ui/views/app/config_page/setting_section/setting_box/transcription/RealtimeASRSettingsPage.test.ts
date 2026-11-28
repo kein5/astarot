@@ -198,7 +198,7 @@ test("the form names its part, says what the captions are, and what a change sto
 
 // The server choice, first in the page's speech.cpp part under the engine choice (#1266): its own
 // section, named for the settings search, each field a settings row with its label.
-test("an external server needs its address; the bundled one asks whether a main switch may start it", async context => {
+test("an external server needs its address; the bundled one asks nothing more", async context => {
     const f = await captionsForm(context, { settings: { ...settings, server: undefined } }, { part: "server" });
     let tree = f.open();
     assert.deepEqual([tree.type, tree.props["data-setting-id"], tree.props["aria-label"]], ["section", "asr_server", "speech_servers.asr_selection"]);
@@ -216,13 +216,10 @@ test("an external server needs its address; the bundled one asks whether a main 
     tree = f.draw();
     assert.equal(selectNamed(tree, "speech_servers.asr_selection").props.value, "bundled");
     assert.equal(find(tree, node => node.props?.["aria-label"] === "realtime.url"), null);
-    const start = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([start.label, start.description, start.checked], ["realtime.start_server", "realtime.start_server_help", true]);
-    // A choice stays usable while a save waits, so focus stays on it (#1111).
-    assert.equal(start.disabled, undefined);
-    start.onChange({ target: { checked: false } });
-    assert.equal(findIn(f.draw(), node => node.type === "hint-check").props.checked, false);
-    // The server saves at once with the address typed so far; the start switch waits for its answer.
+    // The main switches always start the bundled servers they need (#1396, decided on 2026-11-28):
+    // no choice about it is offered.
+    assert.equal(find(tree, node => node.type === "hint-check"), null);
+    // The server saves at once with the address typed so far.
     assert.deepEqual(saves(f).map(value => [fieldOf(value, "server"), fieldOf(value, "base_url")]), [["bundled", "http://other"]]);
 });
 
@@ -368,6 +365,23 @@ test("Start waits for a saved form, a device, a model, a language it reads and a
     buttonNamed(mic, "realtime.stop_mic").props.onClick();
     buttonNamed(fieldsetOf(tree, "speaker"), "realtime.stop_speaker").props.onClick();
     assert.deepEqual(f.sent.slice(-3), [["/run/start_realtime_asr", { source: "mic" }], ["/run/stop_realtime_asr", { source: "mic" }], ["/run/stop_realtime_asr", { source: "speaker" }]]);
+});
+
+// #1396 ★3 (decided on 2026-11-28): with the bundled server, the main window's and the tray's
+// switches are the one way to start captions, and they start the servers they need. Each input
+// then has no start and no stop of its own here; its state and failure stay in sight. A server of
+// one's own keeps both, as above.
+test("each input's start and stop are a server of one's own's; with the bundled server only the state stays", async context => {
+    const words = ["start", "stop"].flatMap(action => ["mic", "speaker"].map(source => `realtime.${action}_${source}`));
+    const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(textOf).filter(text => words.includes(text));
+    const external = await captionsForm(context);
+    assert.deepEqual(buttons(external.open()).sort(), [...words].sort());
+    const bundled = await captionsForm(context, { settings: { ...settings, server: "bundled" }, state: { mic: { state: "ready", requested: true }, speaker: { state: "failed", error_code: "realtime_session_failed" } } });
+    const tree = bundled.open();
+    assert.deepEqual(buttons(tree), []);
+    assert.deepEqual(["mic", "speaker"].map(source => textOf(findIn(fieldsetOf(tree, source), node => node.type === "readout"))),
+        ["realtime.state_ready", "realtime.state_failed"]);
+    assert.deepEqual(failures(fieldsetOf(tree, "speaker")).length, 1, "the failure stays under its input");
 });
 
 test("each source's state is read out with the tone of that state", async context => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { SAME, catalogLanguages, listeningApply, listeningChoice, listeningRow, recognitionServerRuns, sourceApply, sourceOutcome, sourcesByPath } from "./listeningModel.ts";
+import { SAME, catalogLanguages, listeningApart, listeningApply, listeningChoice, listeningRow, recognitionServerRuns, sourceApply, sourceOutcome, sourcesByPath } from "./listeningModel.ts";
 import type { ModelCatalogRow, ModelDownloadCatalog } from "../voice/useModelDownloads";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -23,6 +23,18 @@ test("Listening's choice lists the recognition models on the PC and tells whethe
     assert.deepEqual(Object.values(listeningChoice(catalog, downloaded, { model: "/m/reazon.gguf", listening_model: "/own.gguf" })).slice(0, 3), [true, "/own.gguf", null]);
     assert.equal(listeningChoice(null, undefined, null).choices.length, 0);
     assert.equal(SAME, "");
+});
+
+// #1396: whether the ASR + VAD row also runs Listening's own server, as the core's listening_apart
+// reads the saved settings: a file of its own, another than Mic input's. A core before #1242 sends
+// no listening_model.
+test("Listening has a model of its own only with another file than Mic input's", () => {
+    assert.equal(listeningApart({ model: "/m/mic.gguf", listening_model: "/m/listen.gguf" }), true);
+    assert.equal(listeningApart({ model: "", listening_model: "/m/listen.gguf" }), true);
+    for (const asr of [{ model: "/m/mic.gguf", listening_model: "" }, { model: "/m/mic.gguf", listening_model: "/m/mic.gguf" },
+        { model: "/m/mic.gguf" }, null, undefined]) {
+        assert.equal(listeningApart(asr), false, JSON.stringify(asr));
+    }
 });
 
 test("Listening's own model's languages come from the catalog, auto first when it tells the language", () => {

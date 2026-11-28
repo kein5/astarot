@@ -242,11 +242,12 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
         Some(Value::String(s)) if s == "external" || s == "bundled" => s,
         Some(_) => return Err("realtime_server_invalid"),
     };
-    let start_server = match object.get("start_server") {
-        None => true,
-        Some(Value::Bool(b)) => *b,
-        Some(_) => return Err(INVALID),
-    };
+    // Saved by the versions before #1396, when a setting chose whether a switch started the
+    // bundled server. The switches always start the servers they need now (decided on 2026-11-28):
+    // the value is read for its shape, then left out.
+    if object.get("start_server").is_some_and(|value| !value.is_boolean()) {
+        return Err(INVALID);
+    }
     let base_url = match object.get("base_url") {
         None => "http://127.0.0.1:8080",
         Some(Value::String(s)) => s,
@@ -256,7 +257,6 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     let mut result = Map::new();
     result.insert("version".into(), 1.into());
     result.insert("server".into(), server.into());
-    result.insert("start_server".into(), start_server.into());
     result.insert("base_url".into(), base_url.into());
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
@@ -766,6 +766,8 @@ mod tests {
                     Ok(settings) => {
                         prop_assert!(!bad_silence && !bad_language);
                         prop_assert_eq!(normalize_realtime(&settings), Ok(settings.clone()));
+                        // The switches always start the bundled servers (#1396): a saved choice is left out.
+                        prop_assert!(settings.get("start_server").is_none());
                         prop_assert_eq!(&settings["mic"]["language"], &json!(mic_language));
                         prop_assert_eq!(&settings["speaker"]["language"], &json!("auto"));
                         prop_assert_eq!(settings.get("silence_duration_ms").and_then(Value::as_u64), silence);

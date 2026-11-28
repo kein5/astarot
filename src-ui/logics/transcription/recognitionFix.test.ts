@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { detectingAsr, firstLanguage, languageSettingId, recognitionFixOf, retriesServer, serverSettingId, withLanguage } from "./recognitionFix.ts";
+import { detectingAsr, firstLanguage, languageSettingId, recognitionFixOf, retriesServer, withLanguage } from "./recognitionFix.ts";
 import type { SetupCatalog } from "../setup/firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -68,15 +68,15 @@ test("a bundled server's failure is offered its fix: another try, or its setting
     const fix = (reason: string) => recognitionFixOf(SEND, { reason });
     for (const reason of ["speech_server_busy", "speech_server_start_timeout", "speech_server_exited", "speech_server_not_ready"]) {
         const found = fix(reason);
-        assert.deepEqual([found?.kind, found?.reason, found && retriesServer(found), serverSettingId(reason)], ["server", reason, true, "speechcpp_section"], reason);
+        assert.deepEqual([found?.kind, found?.reason, found && retriesServer(found)], ["server", reason, true], reason);
     }
     for (const reason of ["speech_server_start_failed", "speech_server_device_failed", "speech_server_vulkan_missing", "speech_server_out_of_memory", "speech_server_model_invalid"]) {
         const found = fix(reason);
-        assert.deepEqual([found?.kind, found && retriesServer(found), serverSettingId(reason)], ["server", false, "speechcpp_section"], reason);
+        assert.deepEqual([found?.kind, found && retriesServer(found)], ["server", false], reason);
     }
-    // A server a switch may not start: whether it may is set beside the server's choice.
-    const off = fix("speech_server_autostart_off");
-    assert.deepEqual([off?.kind, off && retriesServer(off), serverSettingId("speech_server_autostart_off")], ["server", false, "asr_server"]);
+    // A switch always starts its server (#1396, decided on 2026-11-28): no refusal says a switch may
+    // not start it, and an old core's reason for that keeps its notice.
+    assert.equal(fix("speech_server_autostart_off"), null);
     const models = fix("realtime_asr_model_missing");
     assert.equal(models && retriesServer(models), false, "only a server's failure is tried again");
     // #1314 (M-3): a missing or broken bundle is its own kind; installing again fixes it, not a try.

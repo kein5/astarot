@@ -669,11 +669,14 @@ fn a_switch_says_what_is_missing() {
     set(&run, &|s| s["server"] = json!("bundled"));
     // Stopped, and the server needs its model files first.
     assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    // A choice not to start the server, saved by an earlier version, is left out (#1396): the
+    // switch starts it all the same, and needs its model files first.
     set(&run, &|s| {
         s["server"] = json!("bundled");
         s["start_server"] = json!(false);
     });
-    assert_eq!(not_ready(&run), "speech_server_autostart_off");
+    assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    assert!(run.ui.ok("/get/data/realtime_asr_settings", None).get("start_server").is_none());
     run.capture.set_default(Source::Mic, None);
     set(&run, &|_| {});
     assert_eq!(not_ready(&run), "realtime_default_endpoint_missing");

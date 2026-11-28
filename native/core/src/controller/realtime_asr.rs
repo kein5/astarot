@@ -343,16 +343,14 @@ impl Core {
     }
 
     /// The speech.cpp server the recorder's VAD uses: the bundled one of its source (`profile`,
-    /// #1242), which a recording starts when the realtime settings let a switch start it
-    /// (`start_server`, decision 84) and waits for, or the external one of the settings. Called
-    /// where the VAD opens its session, not on the recording's thread.
+    /// #1242), which a recording starts and waits for (decision 84; always since #1396), or the
+    /// external one of the settings. Called where the VAD opens its session, not on the
+    /// recording's thread.
     fn vad_server_url(&self, profile: Profile) -> Result<String, String> {
         let settings = self.vad_server_settings();
         let base = if settings["server"] == "bundled" {
             let ready = self.speech_servers().state()[profile.name()]["state"] == "ready";
-            if !ready && settings["start_server"] != false
-                && let Some(code) = self.ensure_asr_server(profile, true, &|| !self.realtime().state().closed)
-            {
+            if !ready && let Some(code) = self.ensure_asr_server(profile, &|| !self.realtime().state().closed) {
                 return Err(code);
             }
             self.speech_servers().hub().binding(profile).map_err(|_| "speech_server_not_ready".to_string())?
@@ -725,15 +723,16 @@ impl Core {
         !state.closed && state.generation[index(source)] == expected
     }
 
-    /// `_awaitAsrServer`: starts the bundled server of the source's switch (`profile`) when allowed
-    /// and waits until it is ready.
-    fn await_asr_server(&self, source: Source, profile: Profile, expected: u64, start: bool) -> Option<String> {
-        self.ensure_asr_server(profile, start, &|| self.realtime_start_current(source, expected))
+    /// `_awaitAsrServer`: starts the bundled server of the source's switch (`profile`) and waits
+    /// until it is ready.
+    fn await_asr_server(&self, source: Source, profile: Profile, expected: u64) -> Option<String> {
+        self.ensure_asr_server(profile, &|| self.realtime_start_current(source, expected))
     }
 
-    /// Starts the bundled ASR server `profile` when `start` allows it and waits until it is ready,
+    /// Starts the bundled ASR server `profile` when it is not up and waits until it is ready,
     /// while `current` holds (else `realtime_stale_start`). A server it starts is owned as a
-    /// switch's ([`Core::release_asr_server`]).
+    /// switch's ([`Core::release_asr_server`]): the switches start and stop the servers they need,
+    /// and nothing turns that off (#1396, decided on 2026-11-28).
     ///
     /// Listening's own server (#1242) that fails for memory while Mic input's runs is refused with
     /// `realtime_asr_models_do_not_fit` (decided on 2026-11-27): the two models do not fit
@@ -742,7 +741,7 @@ impl Core {
     /// A start is stale too once the run is shutting down (#1340): Mic input's switch waits here
     /// holding the talk lock, which [`Core::shutdown`] takes before it closes realtime
     /// recognition, so the wait must not outlast the shutdown's start.
-    fn ensure_asr_server(&self, profile: Profile, start: bool, current: &dyn Fn() -> bool) -> Option<String> {
+    fn ensure_asr_server(&self, profile: Profile, current: &dyn Fn() -> bool) -> Option<String> {
         let current = || current() && !self.shutdown_requested();
         if !current() {
             return Some("realtime_stale_start".into());
@@ -754,9 +753,6 @@ impl Core {
         }
         let mut run = row["generation"].as_u64().unwrap_or(0);
         let up = matches!(row["state"].as_str(), Some("ready" | "preparing"));
-        if !up && !start {
-            return Some("speech_server_autostart_off".into());
-        }
         if !up {
             // Listening's own model is there whenever its server is the one to start.
             let settings = &self.config().get("SPEECH_SERVER_SETTINGS")["profiles"]["asr"];
@@ -858,7 +854,7 @@ impl Core {
         let profile = self.recognition_profile(source);
         let base_url = if bundled {
             if starter == Starter::Switch
-                && let Some(code) = self.await_asr_server(source, profile, expected, settings["start_server"] != false)
+                && let Some(code) = self.await_asr_server(source, profile, expected)
             {
                 return Err(code.into());
             }

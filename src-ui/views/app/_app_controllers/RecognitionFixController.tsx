@@ -6,7 +6,7 @@ import { useI18n } from "@useI18n";
 import { useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
 import { useRecognitionFix } from "../../../logics/transcription/useRecognitionFix";
-import { detectingAsr, firstLanguage, languageSettingId, retriesServer, serverSettingId, withLanguage } from "../../../logics/transcription/recognitionFix";
+import { detectingAsr, firstLanguage, languageSettingId, retriesServer, withLanguage } from "../../../logics/transcription/recognitionFix";
 import type { RecognitionFix } from "../../../logics/transcription/recognitionFix";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useSpeechServers } from "../../../logics/voice/useSpeechServers";
@@ -191,8 +191,7 @@ export const RecognitionFixController = () => {
                 {fix.kind === "bundle" && <Button tone="primary" onClick={openInstallGuide}>{t("recognition_fix.open_install_guide")}</Button>}
                 {/* For a server whose model, device or driver failed, the setting is the fix itself. */}
                 {fix.kind !== "bundle" && <Button tone={fix.kind === "server" && !retriesServer(fix) ? "primary" : undefined}
-                    onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source)
-                        : fix.kind === "server" ? serverSettingId(fix.reason) : MODELS_SETTING_ID)}>
+                    onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source) : MODELS_SETTING_ID)}>
                     {t("recognition_fix.open_setting")}</Button>}
                 {retriesServer(fix) && <Button tone="primary" onClick={() => { cancel(); turnOn(fix); }}>{t("recognition_fix.turn_on_again")}</Button>}
                 {fix.kind === "models" && <Button tone="primary" onClick={() => { cancel(); openSetup(); }}>{t("recognition_fix.get_models")}</Button>}

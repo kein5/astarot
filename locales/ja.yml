@@ -669,7 +669,7 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。同梱サーバーは録音を始めるときに自動で起動します。"
         speaker_device:
             label: "スピーカー（デバイス）"
         speaker_dynamic_energy_threshold:
@@ -679,7 +679,7 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。同梱サーバーは録音を始めるときに自動で起動します。"
         desc_vad_unavailable: "認識モデルとSilero VADを読み込んだ音声認識サーバー（speech.cpp）が要ります。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで両方を取得して適用してください。それまで音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
@@ -1599,10 +1599,8 @@ vr_panel:
 
 realtime:
   title: "リアルタイム字幕"
-  scope: "字幕ログと、有効にした大きいオーバーレイに表示します。再起動後は停止した状態になります。メイン画面のマイクと聞き取りのスイッチでこの字幕を開始・停止します。Windowsでは、音声認識のエンジンに「ローカル（speech.cpp）」を選んでいるときだけスイッチがこの字幕を使います。ほかのエンジンでは、スイッチは従来の録音を使い、この字幕は下の開始ボタンで動かします。字幕を開始すると同じ入力のレベルメーターを停止します。"
+  scope: "字幕ログと、有効にした大きいオーバーレイに表示します。再起動後は停止した状態になります。メイン画面のマイクと聞き取りのスイッチでこの字幕を開始・停止します。Windowsでは、音声認識のエンジンに「ローカル（speech.cpp）」を選んでいるときだけスイッチがこの字幕を使います。ほかのエンジンでは、スイッチは従来の録音を使い、外部サーバーのときはこの字幕を下の開始ボタンで動かします。字幕を開始すると同じ入力のレベルメーターを停止します。"
   server_help: "ASRモデルとSilero VADを読み込んだローカルのspeech.cppサーバーに接続します。"
-  start_server: "スイッチを入れたときに同梱ASRサーバーを起動する"
-  start_server_help: "オフにすると、同梱ASRサーバーは「モデルとサーバー」の起動ボタンでだけ起動します。サーバーが止まっているときにスイッチを入れると、起動するよう案内します。"
   url: "ASRサーバーURL"
   model: "ASRモデル"
   select_model: "ASRモデルを選択"
@@ -1720,7 +1718,7 @@ source_models:
   mic: "マイク入力のモデル"
   help: "お使いのPCにある音声認識モデルから選びます。ほかのモデルは、下の「モデルとサーバー」のカタログで取得します。"
   none_on_pc: "お使いのPCには、まだ音声認識モデルがありません。"
-  running: "ASRサーバーが動いている間はモデルを変えられません。先に「モデルとサーバー」で止めてください。"
+  running: "ASRサーバーが動いている間はモデルを変えられません。マイク入力と聞き取りをオフにすると止まります。"
   unset: "未設定"
 
 realtime_toggle:
@@ -1748,8 +1746,7 @@ realtime_toggle:
   speech_server_vulkan_missing: "GPUドライバーのVulkanライブラリ（vulkan-1.dll）が見つかりません。GPUドライバーを入れるか更新してからもう一度オンにしてください。"
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選び、もう一度オンにしてください。"
   speech_server_start_timeout: "ASRモデルの読み込みに時間がかかりすぎました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選び、もう一度オンにしてください。"
-  speech_server_not_ready: "同梱ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動してから、もう一度オンにしてください。"
-  speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、同じページの「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにしてから、もう一度オンにしてください。"
+  speech_server_not_ready: "同梱ASRサーバーが動いていません。もう一度オンにすると起動します。"
   realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR）の「ASRサーバーURL」が正しいことを確認してください。"
   realtime_model_required: "ASRモデルが選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデルを選んでください。"
   realtime_model_unavailable: "選んだASRモデルがサーバーに読み込まれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデル一覧を更新し、使えるモデルを選んでください。"
@@ -1784,7 +1781,7 @@ recognition_fix:
   share_body: "聞き取りの音声認識モデルが、マイク入力のモデルと一緒にはGPUのメモリに収まりません。聞き取りにもマイク入力のモデルを使うか、マイク入力をオフにしてから聞き取りをもう一度オンにしてください。"
   use_shared: "聞き取りにも{{model}}を使ってオンにする"
   mic_model: "マイク入力のモデル"
-  server_running: "新しいモデルは取得しましたが、同梱ASRサーバーが動いている間は設定できません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADでASRサーバーを停止し、そこでモデルを適用してください。"
+  server_running: "新しいモデルは取得しましたが、同梱ASRサーバーが動いている間は設定できません。マイク入力と聞き取りをオフにしてから、設定 → 音声認識（ASR）の「マイク入力のモデル」か「聞き取りのモデル」で選んでください。"
 
 speech_servers:
     # The closed fold of a server group with the paths of a model of one's own (#1266).
@@ -1793,7 +1790,7 @@ speech_servers:
     model_set: "モデル設定済み"
     model_unset: "モデル未設定"
     title: "同梱speech.cppサーバー"
-    help: "利用許諾のあるGGUFモデルを指定するか、既定モデルを取得します。保存してもモデルは読み込まれず、サーバーは必要なときに起動します。ASRにはVADモデルも必要です。声ファイルは声名「custom」で使えます。TTSサーバーを止めると読み上げ待ちは消え、ASRを止めると字幕が終わります。アプリを再起動するとすべて停止します。"
+    help: "利用許諾のあるGGUFモデルを指定するか、既定モデルを取得します。保存してもモデルは読み込まれず、サーバーは機能が使うときに起動します。ASRにはVADモデルも必要です。声ファイルは声名「custom」で使えます。TTSサーバーを止めると読み上げ待ちは消えます。アプリを再起動するとすべて停止します。"
     japanese: "日本語TTS"
     multilingual: "多言語TTS"
     asr: "ASR + VAD"
@@ -1830,6 +1827,9 @@ speech_servers:
     state_failed: "失敗"
     state_pending: "応答を確認中"
     state_unknown: "状態未確認"
+    # Each server's state when the ASR + VAD row runs two: Mic input's, and Listening's own (#1396).
+    state_of_asr: "マイク入力: {{state}}"
+    state_of_asr_listening: "聞き取り: {{state}}"
     external: "外部サーバー"
     bundled: "同梱サーバー"
     japanese_selection: "日本語のサーバー"

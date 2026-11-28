@@ -29,12 +29,19 @@ export interface ListeningChoice {
     choices: readonly ModelCatalogRow[];
 }
 
+// Whether Listening has a model of its own, another file than Mic input's, which a second server
+// (`asr_listening`) runs (#1242). As the core's `listening_apart` reads the saved settings.
+export const listeningApart = (asr: AsrProfile): boolean => {
+    const path = asr?.listening_model ?? "";
+    return path !== "" && path !== (asr?.model ?? "");
+};
+
 export const listeningChoice = (catalog: ModelDownloadCatalog | null | undefined, downloaded: Downloaded, asr: AsrProfile): ListeningChoice => {
     const pathOf = (row: ModelCatalogRow) => downloaded?.[row.id]?.model ?? "";
     const choices = (catalog?.models ?? []).filter(row => row.target === "asr" && pathOf(row) !== "");
     const path = asr?.listening_model ?? "", micPath = asr?.model ?? "";
     const find = (file: string) => file ? choices.find(row => pathOf(row) === file) ?? null : null;
-    return { apart: path !== "" && path !== micPath, path, current: find(path), mic: find(micPath), choices };
+    return { apart: listeningApart(asr), path, current: find(path), mic: find(micPath), choices };
 };
 
 // The catalog's entry of the model Listening uses (#1298): its own, or Mic input's when it shares

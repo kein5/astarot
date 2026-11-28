@@ -213,6 +213,28 @@ test("speech servers preserve rows and pending objects while retaining generatio
     subscription.unsubscribe();
 });
 
+// #1396: Listening's own recognition server is a row of the state as the others are. The settings
+// page shows it, a start or stop of it waits for its answer, and the backend's end fails it too.
+test("speech servers keep Listening's own server, its requests and its end", async () => {
+    const { render } = await setup("./useSpeechServers.ts", (module: ServersModule) => module.useSpeechServers);
+    render().updateState({ asr: { generation: 1, state: "ready" }, asr_listening: { generation: 4, state: "stopped" } });
+    assert.deepEqual(render().state.asr_listening, { generation: 4, state: "stopped" });
+    await render().send("/run/start_speech_server", { profile: "asr_listening", generation: 4 });
+    assert.deepEqual(render().pending, { asr_listening: { generation: 4 } }, "the request waits on the row's generation");
+    render().updateState({ asr_listening: { generation: 5, state: "ready" } });
+    assert.deepEqual([render().pending, render().state.asr_listening?.state], [{}, "ready"]);
+    // An older run's answer does not overwrite the newer one.
+    render().updateState({ asr_listening: { generation: 4, state: "stopped" } });
+    assert.equal(render().state.asr_listening?.state, "ready");
+    // A stop waits for its answer too; a read of the state does not.
+    await render().send("/get/data/speech_server_state");
+    assert.deepEqual(render().pending, {});
+    await render().send("/run/stop_speech_server", { profile: "asr_listening" });
+    assert.deepEqual(render().pending, { asr_listening: { generation: 5 } });
+    render().backendStopped();
+    assert.deepEqual([render().state.asr?.state, render().state.asr_listening?.state], ["failed", "failed"]);
+});
+
 test("speech server devices keep what the CPU and GPU choices run on, and nothing unknown", async () => {
     const { render } = await setup("./useSpeechServers.ts", (module: ServersModule) => module.useSpeechServers);
     assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
