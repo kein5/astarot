@@ -481,6 +481,7 @@ impl Core {
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();
+        self.close_local_translation();
         self.close_model_downloads();
         self.stop_audio_devices();
         self.stop_ocr();
@@ -554,4 +555,105 @@ pub fn error(code: &'static str, data: Value) -> Reply {
 
 pub fn ok_true() -> Reply {
     ok(json!(true))
+}
+
+/// What [`Core::shutdown`] does with each field of [`Core`] (#1341). The stop is a list written
+/// by hand, and a server left off it runs on until the last `Arc<Core>` goes (the routed
+/// llama.cpp server did). A field added to `Core` fails the test below until it is named here,
+/// with the steps of `shutdown` that stop what it runs or why it runs nothing that outlives the
+/// run.
+#[cfg(test)]
+mod shutdown_duties {
+    enum Duty {
+        /// The calls on `self` in `shutdown` (`close_voice`, `config.save_now`).
+        Stops(&'static [&'static str]),
+        /// Why nothing of it runs on after the run.
+        Nothing(&'static str),
+    }
+    use Duty::{Nothing, Stops};
+
+    const DUTIES: &[(&str, Duty)] = &[
+        ("config", Stops(&["config.save_now"])),
+        ("log", Nothing("each line is written as it comes")),
+        ("output", Nothing("the host's: each line goes out as it is answered")),
+        ("services", Nothing("what the parts are made with")),
+        ("watchdog", Nothing("Core::close stops it, after the shutdown")),
+        ("shutdown_requested", Nothing("the shutdown's own flag")),
+        ("shut_down", Nothing("the shutdown's own guard")),
+        ("language_lock", Nothing("a lock")),
+        ("credential_lock", Nothing("a lock")),
+        ("vr_window_lock", Nothing("a lock")),
+        ("translation_available", Nothing("a value")),
+        ("speech", Stops(&["close_speech_servers"])),
+        ("ops", Stops(&["close_model_downloads", "stop_telemetry"])),
+        ("adapters", Stops(&["stop_adapters"])),
+        // The local model's server; the providers are asked request by request.
+        ("translation", Stops(&["close_local_translation"])),
+        ("messages", Stops(&["stop_conversation_log"])),
+        ("audio", Stops(&["stop_audio_devices"])),
+        ("vr", Stops(&["stop_overlay"])),
+        ("ocr", Stops(&["stop_ocr"])),
+        ("transcription", Stops(&["stop_transcription"])),
+        ("voice", Stops(&["close_voice"])),
+        ("gpu_memory", Nothing("each reading is one run of its own thread, which ends by itself")),
+        ("gpu_check", Stops(&["close_gpu_check"])),
+        ("update_checks", Nothing("a counter; the checks read shutdown_requested before they report")),
+        ("talk_ai", Stops(&["stop_talk_ai"])),
+    ];
+
+    /// Calls in `shutdown` that stop no field: its own bookkeeping.
+    const BOOKKEEPING: &[&str] = &["shutdown_requested.store", "step"];
+
+    const SOURCE: &str = include_str!("mod.rs");
+
+    /// The fields of `Core`, read from this file.
+    fn fields() -> Vec<&'static str> {
+        let body = SOURCE.split_once("\npub struct Core {\n").expect("pub struct Core").1;
+        let body = body.split_once("\n}\n").expect("the end of Core").0;
+        body.lines()
+            .filter_map(|line| line.strip_prefix("    ").filter(|rest| !rest.starts_with(' ')))
+            .map(|line| line.trim_start_matches("pub(crate) ").trim_start_matches("pub "))
+            .filter_map(|line| line.split_once(':').map(|(name, _)| name))
+            .filter(|name| !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
+            .collect()
+    }
+
+    /// The calls on `self` in the body of `shutdown`, in order.
+    fn steps() -> Vec<&'static str> {
+        let body = SOURCE.split_once("    pub fn shutdown(&self) {\n").expect("Core::shutdown").1;
+        let body = body.split_once("\n    }\n").expect("the end of Core::shutdown").0;
+        body.lines()
+            .filter_map(|line| line.trim().strip_prefix("self."))
+            .filter_map(|call| call.split_once('(').map(|(name, _)| name))
+            .collect()
+    }
+
+    #[test]
+    fn every_field_of_the_core_is_stopped_at_shutdown_or_says_why_not() {
+        let (fields, steps) = (fields(), steps());
+        let named: Vec<&str> = DUTIES.iter().map(|(field, _)| *field).collect();
+        for field in &fields {
+            assert!(
+                named.contains(field),
+                "Core::{field} is not in DUTIES: name the steps of Core::shutdown that stop what it runs, or why it runs nothing"
+            );
+        }
+        for field in &named {
+            assert!(fields.contains(field), "DUTIES names Core::{field}, which Core no longer has");
+        }
+        for (field, duty) in DUTIES {
+            match duty {
+                Stops(calls) => {
+                    for call in *calls {
+                        assert!(steps.contains(call), "Core::shutdown does not call self.{call}, which stops Core::{field}");
+                    }
+                }
+                Nothing(why) => assert!(!why.trim().is_empty(), "Core::{field} does not say why nothing of it runs on"),
+            }
+        }
+        for step in &steps {
+            let claimed = DUTIES.iter().any(|(_, duty)| matches!(duty, Stops(calls) if calls.contains(step)));
+            assert!(claimed || BOOKKEEPING.contains(step), "Core::shutdown calls self.{step}, which no field in DUTIES names");
+        }
+    }
 }
