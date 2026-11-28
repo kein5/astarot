@@ -9,6 +9,8 @@ import { leavesKit } from "./formSelectors.ts";
 export const container = style({});
 export const fields = style({});
 export const group = style({});
+// Everything of a group but its legend, in one box (SpeechServers.tsx, #1403).
+export const group_content = style({});
 // A part of the text-to-speech page under its subheading (#1266 ★17): the speech.cpp models on this
 // PC, or the external servers and engines; laid out as the forms' sections are.
 export const part = style({});
@@ -79,6 +81,9 @@ globalStyle(inForm(`fieldset.${group}`), { border: 0, padding: 0, margin: "1.2re
 globalStyle(inForm("legend", "h3", "h4"), { fontSize: "1.5rem", fontWeight: 600, lineHeight: 1.4, color: vars.vox_secondary_text, textWrap: "balance" });
 globalStyle(inForm("legend"), { padding: "0 .4rem", maxWidth: "100%" });
 globalStyle(inForm(`fieldset.${group} > legend`), { padding: 0, marginBottom: ".8rem" });
+// The box holds what the group holds with the group's own grid and gap. It is no container, so what
+// is in it is measured against the group, as it was without the box.
+globalStyle(group_content, { display: "grid", gap: "1.2rem", minWidth: 0 });
 // Direct section children sit in a 16px grid gap: +8 above and -8 below give 24/8.
 globalStyle(`${container} > h3, ${container} > h4`, { margin: ".8rem 0 -.8rem" });
 globalStyle(inForm("h3", "h4"), { marginTop: ".8rem" });

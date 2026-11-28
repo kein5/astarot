@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
+import { Children } from "react";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, kitStandIns, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
+// The elements straight inside a node, as React keeps them (no false or null).
+const childrenOf = (node: TreeNode) => Children.toArray(node.props.children).map(child => treeNode(child)).filter(child => child !== null);
+// The box under a server group's legend, which holds everything else of the group (#1403).
+const boxOf = (group: TreeNode) => {
+    const box = childrenOf(group).find(node => node.props.className === "group_content");
+    assert.ok(box, "the group holds a box under its legend");
+    return box;
+};
 
 // #614: the speech.cpp servers' descriptions go to the parts that show them as hints on a reviewed
 // page (the fold's title, a row's label, the checkbox's name); the readouts and warnings stay.
@@ -140,7 +149,7 @@ test("each server group offers the default models first and keeps the paths of o
     const groups = all(s.tree, node => node.type === "fieldset");
     assert.equal(groups.length, 2);
     for (const [group, name] of groups.map((group, i) => [group, ["japanese", "asr"][i]] as const)) {
-        const parts = [group.props.children].flat(2).filter(Boolean).map((child: { type: unknown }) => child.type);
+        const parts = Children.toArray(boxOf(group).props.children).map(child => treeNode(child)?.type);
         assert.ok(parts.indexOf("downloads") >= 0 && parts.indexOf("downloads") < parts.indexOf("fold"), name);
         const fold = all(group, node => node.type === "fold")[0];
         assert.deepEqual([fold.props.summary, fold.props.size, fold.props.open, fold.props["data-own-model"]], ["speech_servers.own_model", "link", undefined, name]);
@@ -237,6 +246,29 @@ test("the state of the ASR + VAD row shows each recognition server it runs", asy
         ["speech_servers.state_ready", "speech_servers.low_latency_ready", "speech_servers.notices.speech_server_cpu_fallback"]);
     assert.deepEqual(all(japanese, node => node.props?.role === "alert").map(node => node.props.children), ["speech_servers.low_latency_failed"]);
     assert.equal(standby.attention, true);
+});
+
+// #1403: what a server group holds comes and goes with its servers (Listening's own server, a
+// failure, the low-latency standby's failure), always inside the one box under the legend.
+// Chromium dropped the layout of the catalog in the group when Listening's state was added straight
+// into the <fieldset> (tests/integration/speechServerCatalog.spec.ts).
+test("a server group holds its legend and one box, whatever its servers do", async () => {
+    const stopped = { japanese: { state: "stopped", generation: 7 }, asr: { state: "stopped", generation: 8 } };
+    const cases = [
+        await server({ state: stopped }),
+        await server({ state: { ...stopped, asr_listening: { state: "stopped", generation: 3 } }, listening: "l.gguf" }),
+        await server({ state: { japanese: { state: "ready", generation: 7, low_latency: { state: "ready", error_code: "speech_server_low_latency_failed" } },
+            asr: { state: "failed", generation: 8, error_code: "speech_server_out_of_memory" },
+            asr_listening: { state: "failed", generation: 3, error_code: "speech_server_out_of_memory" } }, listening: "l.gguf" }),
+    ];
+    for (const [index, { tree }] of cases.entries()) {
+        const groups = all(tree, node => node.type === "fieldset");
+        assert.equal(groups.length, 2);
+        for (const group of groups) {
+            assert.deepEqual(childrenOf(group).map(node => node.type), ["legend", "div"], `case ${index}`);
+            assert.ok(all(boxOf(group), node => node.type === "readout").length > 0, "the readouts are in the box");
+        }
+    }
 });
 
 // #1396 (decided on 2026-11-28): the main switches start and stop the speech recognition servers,

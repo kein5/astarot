@@ -143,74 +143,83 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                 // a closed fold with the guide to them (decided on 2026-11-27, #1266).
                 return <fieldset key={name} className={styles.group}>
                     <legend>{t(`speech_servers.${name}`)}</legend>
-                    {/* Other unsaved edits survive an apply; only an edited model path conflicts. */}
-                    {/* The asr profile also takes a VAD file and a diarization file; "expected" names the field each target replaces. */}
-                    <ModelDownloads targets={name === "asr" ? ["asr", "vad", "diarization"] : [name]} deviceMode={saved[name].device}
-                        reserve={name === "asr" ? undefined : reserve}
-                        blocked={busy ? "busy" : row.model !== saved[name].model ||
-                            (name === "asr" && (row.vad_model !== saved.asr.vad_model ||
-                                row.diarization_model !== saved.asr.diarization_model)) ? "edited" : false}
-                        expected={name === "asr" ? { asr: { model: saved.asr.model }, vad: { model: saved.asr.vad_model },
-                                diarization: { model: saved.asr.diarization_model } }
-                            : { [name]: { model: saved[name].model } }}
-                        // A recognition model is chosen for each input (#1308 ★1): above the catalog
-                        // (SourceModels), and from its card, which downloads it, says which inputs use
-                        // it and chooses it for an input with the fields' check and apply.
-                        chooseIn={name === "asr" ? ["asr"] : undefined} usedBy={name === "asr" ? sourcesByPath(saved.asr) : undefined}
-                        inputs={name === "asr" ? { paths: { mic: saved.asr.model, speaker: saved.asr.listening_model ?? "" },
-                            running: recognitionServerRuns(state) } : undefined} />
-                    <Fold size="link" className={styles.more} summary={t("speech_servers.own_model")} data-own-model={name}>
-                        {/* How to use a model file of your own instead of the default one. */}
-                        <CustomModelLink section={tts ? "tts" : "asr"} />
-                        {input("model")}{input(name === "asr" ? "vad_model" : "voice_file")}
-                        {/* Optional: with it the server also tells who speaks in the Listening captions. */}
-                        {name === "asr" && <FormRow label={t("speech_servers.diarization_model")} description={t("speech_servers.diarization_help")}>
-                            {pathField("diarization_model")}
-                        </FormRow>}
-                    </Fold>
-                    <FormRow label={t("speech_servers.device")} description={deviceHelp || undefined}>
-                        <select aria-label={t("speech_servers.device")} value={row.device} disabled={locked}
-                            onChange={event => field(name, "device", event.target.value)}>
-                            {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
-                            {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
-                        </select>
-                    </FormRow>
-                    {/* The Vulkan build is bundled but does not start here (Linux without libvulkan.so.1).
-                        The GPU choices stay selectable, so a saved one never changes silently. */}
-                    {builds.gpu_build === "unavailable" && <EnvReadout tone="warning"><p>{t("speech_servers.gpu_build_unavailable")}</p></EnvReadout>}
-                    {/* A checkbox in a form carries its name beside it, as on the other voice pages (#473). */}
-                    {name === "japanese" && <HintCheck className={styles.checkLabel} label={t("speech_servers.low_latency")}
-                        description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
-                        checked={!!row.low_latency} disabled={locked} onChange={event => field(name, "low_latency", event.target.checked)} />}
-                    {/* The server's buttons sit in the control column, under its fields (#473). The speech
-                        recognition servers have none: the main switches start and stop them (#1396, decided on
-                        2026-11-28), and a server that hangs is started again by turning its switch off and on. */}
-                    {!recognizes && <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy ||
-                        !row.model.trim() || owner?.error_code === "speech_server_cleanup_unconfirmed"}
-                        onClick={() => send("/run/start_speech_server", { profile: name, generation: owner?.generation })}>{t("speech_servers.start")}</Button>
-                    {/* Nothing to stop while the server is stopped (#473). A start still on its way can be stopped. */}
-                    <Button tone="quiet" disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
-                        onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>}
-                    {/* One readout for each server of the row, each with its own state and, under it, its
-                        own failure (#1396). */}
-                    {servers.map(server => {
-                        const run = state[server];
-                        return <Fragment key={server}>
-                            <EnvReadout tone={serverTone(run, pending[server])} progress={serverProgress(run, pending[server])}>
-                                <p>{serverState(name, server)}</p>
-                                {run?.low_latency && <p>{t(`speech_servers.low_latency_${run.low_latency.state}`)}</p>}
-                                {/* Runs other than asked: "auto" on the CPU build after the Vulkan build did not start. */}
-                                {run?.notice && <p>{t(`speech_servers.notices.${run.notice}`, { defaultValue: "" })}</p>}
-                            </EnvReadout>
-                            {!!run?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
-                            {/* The message says what to do; the code stays for reports. */}
-                            {/* In the screen's words, never the raw code (#1266); a code without words says itself.
-                                A speech recognition server's failure is said in its switch's words, which turn the
-                                switch on again, since nothing here starts it (#1396). */}
-                            {run?.error_code && <p role="alert">{t([...(recognizes ? [`realtime_toggle.${run.error_code}`] : []),
-                                `speech_servers.errors.${run.error_code}`], { defaultValue: "" }) || run.error_code}</p>}
-                        </Fragment>;
-                    })}
+                    {/* Everything but the legend is in one box (#1403). Chromium, and so WebView2 on
+                        Windows, stops laying out a size container's content (the catalog below is one)
+                        when an element is added straight into a <fieldset> in the same frame as an
+                        option of a select in that container changes its text. Listening's server state
+                        was added so as its model's card turned "In use", and the catalog stayed empty
+                        until its fold was closed and opened again. Inside the box, what comes and goes
+                        with the servers' states never touches the fieldset itself. */}
+                    <div className={styles.group_content}>
+                        {/* Other unsaved edits survive an apply; only an edited model path conflicts. */}
+                        {/* The asr profile also takes a VAD file and a diarization file; "expected" names the field each target replaces. */}
+                        <ModelDownloads targets={name === "asr" ? ["asr", "vad", "diarization"] : [name]} deviceMode={saved[name].device}
+                            reserve={name === "asr" ? undefined : reserve}
+                            blocked={busy ? "busy" : row.model !== saved[name].model ||
+                                (name === "asr" && (row.vad_model !== saved.asr.vad_model ||
+                                    row.diarization_model !== saved.asr.diarization_model)) ? "edited" : false}
+                            expected={name === "asr" ? { asr: { model: saved.asr.model }, vad: { model: saved.asr.vad_model },
+                                    diarization: { model: saved.asr.diarization_model } }
+                                : { [name]: { model: saved[name].model } }}
+                            // A recognition model is chosen for each input (#1308 ★1): above the catalog
+                            // (SourceModels), and from its card, which downloads it, says which inputs use
+                            // it and chooses it for an input with the fields' check and apply.
+                            chooseIn={name === "asr" ? ["asr"] : undefined} usedBy={name === "asr" ? sourcesByPath(saved.asr) : undefined}
+                            inputs={name === "asr" ? { paths: { mic: saved.asr.model, speaker: saved.asr.listening_model ?? "" },
+                                running: recognitionServerRuns(state) } : undefined} />
+                        <Fold size="link" className={styles.more} summary={t("speech_servers.own_model")} data-own-model={name}>
+                            {/* How to use a model file of your own instead of the default one. */}
+                            <CustomModelLink section={tts ? "tts" : "asr"} />
+                            {input("model")}{input(name === "asr" ? "vad_model" : "voice_file")}
+                            {/* Optional: with it the server also tells who speaks in the Listening captions. */}
+                            {name === "asr" && <FormRow label={t("speech_servers.diarization_model")} description={t("speech_servers.diarization_help")}>
+                                {pathField("diarization_model")}
+                            </FormRow>}
+                        </Fold>
+                        <FormRow label={t("speech_servers.device")} description={deviceHelp || undefined}>
+                            <select aria-label={t("speech_servers.device")} value={row.device} disabled={locked}
+                                onChange={event => field(name, "device", event.target.value)}>
+                                {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
+                                {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
+                            </select>
+                        </FormRow>
+                        {/* The Vulkan build is bundled but does not start here (Linux without libvulkan.so.1).
+                            The GPU choices stay selectable, so a saved one never changes silently. */}
+                        {builds.gpu_build === "unavailable" && <EnvReadout tone="warning"><p>{t("speech_servers.gpu_build_unavailable")}</p></EnvReadout>}
+                        {/* A checkbox in a form carries its name beside it, as on the other voice pages (#473). */}
+                        {name === "japanese" && <HintCheck className={styles.checkLabel} label={t("speech_servers.low_latency")}
+                            description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
+                            checked={!!row.low_latency} disabled={locked} onChange={event => field(name, "low_latency", event.target.checked)} />}
+                        {/* The server's buttons sit in the control column, under its fields (#473). The speech
+                            recognition servers have none: the main switches start and stop them (#1396, decided on
+                            2026-11-28), and a server that hangs is started again by turning its switch off and on. */}
+                        {!recognizes && <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy ||
+                            !row.model.trim() || owner?.error_code === "speech_server_cleanup_unconfirmed"}
+                            onClick={() => send("/run/start_speech_server", { profile: name, generation: owner?.generation })}>{t("speech_servers.start")}</Button>
+                        {/* Nothing to stop while the server is stopped (#473). A start still on its way can be stopped. */}
+                        <Button tone="quiet" disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
+                            onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>}
+                        {/* One readout for each server of the row, each with its own state and, under it, its
+                            own failure (#1396). */}
+                        {servers.map(server => {
+                            const run = state[server];
+                            return <Fragment key={server}>
+                                <EnvReadout tone={serverTone(run, pending[server])} progress={serverProgress(run, pending[server])}>
+                                    <p>{serverState(name, server)}</p>
+                                    {run?.low_latency && <p>{t(`speech_servers.low_latency_${run.low_latency.state}`)}</p>}
+                                    {/* Runs other than asked: "auto" on the CPU build after the Vulkan build did not start. */}
+                                    {run?.notice && <p>{t(`speech_servers.notices.${run.notice}`, { defaultValue: "" })}</p>}
+                                </EnvReadout>
+                                {!!run?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
+                                {/* The message says what to do; the code stays for reports. */}
+                                {/* In the screen's words, never the raw code (#1266); a code without words says itself.
+                                    A speech recognition server's failure is said in its switch's words, which turn the
+                                    switch on again, since nothing here starts it (#1396). */}
+                                {run?.error_code && <p role="alert">{t([...(recognizes ? [`realtime_toggle.${run.error_code}`] : []),
+                                    `speech_servers.errors.${run.error_code}`], { defaultValue: "" }) || run.error_code}</p>}
+                            </Fragment>;
+                        })}
+                    </div>
                 </fieldset>;
             })}
         </form>}
