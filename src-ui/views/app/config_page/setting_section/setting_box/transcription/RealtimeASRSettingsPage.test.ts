@@ -367,6 +367,23 @@ test("Start waits for a saved form, a device, a model, a language it reads and a
     assert.deepEqual(f.sent.slice(-3), [["/run/start_realtime_asr", { source: "mic" }], ["/run/stop_realtime_asr", { source: "mic" }], ["/run/stop_realtime_asr", { source: "speaker" }]]);
 });
 
+// #1396 ★3 (decided on 2026-11-28): with the bundled server, the main window's and the tray's
+// switches are the one way to start captions, and they start the servers they need. Each input
+// then has no start and no stop of its own here; its state and failure stay in sight. A server of
+// one's own keeps both, as above.
+test("each input's start and stop are a server of one's own's; with the bundled server only the state stays", async context => {
+    const words = ["start", "stop"].flatMap(action => ["mic", "speaker"].map(source => `realtime.${action}_${source}`));
+    const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(textOf).filter(text => words.includes(text));
+    const external = await captionsForm(context);
+    assert.deepEqual(buttons(external.open()).sort(), [...words].sort());
+    const bundled = await captionsForm(context, { settings: { ...settings, server: "bundled" }, state: { mic: { state: "ready", requested: true }, speaker: { state: "failed", error_code: "realtime_session_failed" } } });
+    const tree = bundled.open();
+    assert.deepEqual(buttons(tree), []);
+    assert.deepEqual(["mic", "speaker"].map(source => textOf(findIn(fieldsetOf(tree, source), node => node.type === "readout"))),
+        ["realtime.state_ready", "realtime.state_failed"]);
+    assert.deepEqual(failures(fieldsetOf(tree, "speaker")).length, 1, "the failure stays under its input");
+});
+
 test("each source's state is read out with the tone of that state", async context => {
     const cases: [Record<string, unknown> | undefined, string, string][] = [[{ state: "ready" }, "active", "realtime.state_ready"], [{ state: "failed" }, "failed", "realtime.state_failed"],
         [{ state: "starting" }, "warning", "realtime.state_starting"], [{ state: "stopping" }, "warning", "realtime.state_stopping"],

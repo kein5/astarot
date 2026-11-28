@@ -153,8 +153,6 @@ export const RealtimeASRSettings = () => {
                 // server's list.
                 const fromCatalog = bundled ? catalogLanguages(source === "speaker" ? listeningRow(listening) : listening.mic) : null;
                 const languages = fromCatalog ?? [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
-                // Listening's own model runs on its own server, which the listed models do not tell of.
-                const own = source === "speaker" && bundled && listening.apart && !!fromCatalog;
                 const owner = state[source];
                 const failure = endpoints[source]?.error_code || owner?.error_code;
                 // Which output to choose for the game audio, and what following the system's default does.
@@ -178,10 +176,15 @@ export const RealtimeASRSettings = () => {
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}
                     </select></label>
-                    <button type="button" disabled={saving || dirty || !selected || !(own || selectedModel) || !languages.includes(draft[source].language) ||
-                        !owner || owner.requested || !!endpoints[source]?.error_code}
-                        onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
-                    <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>
+                    {/* A start and a stop of its own for a server of one's own only: with the bundled server, the
+                        main window's and the tray's switches are the one way to start captions, and they start the
+                        servers they need (#1396 ★3, decided on 2026-11-28). The state stays in sight either way. */}
+                    {!bundled && <>
+                        <button type="button" disabled={saving || dirty || !selected || !selectedModel || !languages.includes(draft[source].language) ||
+                            !owner || owner.requested || !!endpoints[source]?.error_code}
+                            onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
+                        <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>
+                    </>}
                     <EnvReadout tone={owner?.state === "ready" ? "active" : owner?.state === "failed" ? "failed" :
                         ["starting", "stopping"].includes(owner?.state ?? "") ? "warning" : "neutral"}>
                         <p>{t(`realtime.state_${owner?.state ?? "unknown"}`)}</p>

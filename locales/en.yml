@@ -1599,7 +1599,7 @@ vr_panel:
 
 realtime:
   title: "Realtime captions"
-  scope: "Captions appear in the message log and the large overlay when enabled. Captions stay off after restart. The main screen's microphone and speaker switches start and stop these captions. On Windows the switches use them only while \"Local (speech.cpp)\" is the speech recognition engine; with other engines the switches use the classic recorder and these captions run from the Start button below. Starting captions stops the level meter for that input."
+  scope: "Captions appear in the message log and the large overlay when enabled. Captions stay off after restart. The main screen's microphone and speaker switches start and stop these captions. On Windows the switches use them only while \"Local (speech.cpp)\" is the speech recognition engine; with other engines the switches use the classic recorder and, with an external server, these captions run from the Start button below. Starting captions stops the level meter for that input."
   server_help: "Connect to a local speech.cpp server with an ASR model and Silero VAD already loaded."
   url: "ASR server URL"
   model: "ASR model"
