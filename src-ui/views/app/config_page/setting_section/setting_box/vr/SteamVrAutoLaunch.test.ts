@@ -10,6 +10,8 @@ import * as view from "../../../../../../logics/configs/steamVrAutoLaunch.ts";
 
 async function setup(context: TestContext, answer: unknown, open = true) {
     const runtime = hooks(), asked: string[] = [], toggled: string[] = [];
+    // Whether the settings are open; a test opens and closes them between renders.
+    const page = { open };
     const { SteamVrAutoLaunch } = await loadModule<typeof import("./SteamVrAutoLaunch.tsx")>(new URL("./SteamVrAutoLaunch.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@logics_configs": { useVr: () => ({
@@ -17,15 +19,16 @@ async function setup(context: TestContext, answer: unknown, open = true) {
             getSteamVrAutoLaunch: () => asked.push("get"),
             toggleSteamVrAutoLaunch: () => toggled.push("toggle"),
         }) },
-        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
+        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: page.open } }) },
         "../_components": { SectionLabelComponent: "section" },
         "../_templates/Templates": { SwitchContainer: "switch" },
         "../../../../../../logics/configs/steamVrAutoLaunch.ts": view,
     });
     context.onTestFinished(() => runtime.unmount());
-    const tree = runtime.render(SteamVrAutoLaunch, {});
+    const draw = () => runtime.render(SteamVrAutoLaunch, {});
+    const tree = draw();
     await flush();
-    return { tree, asked, toggled };
+    return { tree, asked, toggled, page, draw };
 }
 
 test("the row asks SteamVR when the settings open and shows SteamVR's flag under its own heading", async context => {
@@ -54,4 +57,16 @@ test("a build SteamVR cannot start draws nothing, and a closed settings page ask
     assert.equal(unsupported.tree, null);
     const closed = await setup(context, null, false);
     assert.deepEqual(closed.asked, []);
+});
+
+test("the row asks SteamVR again each time the settings open, as SteamVR's own settings may have changed it", async context => {
+    const s = await setup(context, { available: true, enabled: false }, false);
+    s.page.open = true;
+    s.draw(); await flush();
+    assert.deepEqual(s.asked, ["get"]);
+    s.page.open = false;
+    s.draw(); await flush();
+    s.page.open = true;
+    s.draw(); await flush();
+    assert.deepEqual(s.asked, ["get", "get"]);
 });

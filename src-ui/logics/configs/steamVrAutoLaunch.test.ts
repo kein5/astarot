@@ -24,5 +24,6 @@ test("without SteamVR the row says how to change it; a build SteamVR cannot star
         assert.deepEqual(steamVrSwitchView({ state: "ok", data: { available: false, reason, enabled: null } }),
             { shown: true, variable: { state: "ok", data: false }, available: false, note: `config_page.vr.steamvr_auto_launch.${reason}` });
     }
-    assert.equal(steamVrSwitchView({ state: "ok", data: { available: false, reason: "unsupported", enabled: null } }).shown, false);
+    assert.deepEqual(steamVrSwitchView({ state: "ok", data: { available: false, reason: "unsupported", enabled: null } }),
+        { shown: false, variable: { state: "ok", data: false }, available: false, note: null });
 });
