@@ -31,6 +31,14 @@ class RustCoverageTableTests(unittest.TestCase):
     def test_a_crate_without_code_counts_as_no_percentage(self):
         self.assertEqual(subject.percent({"covered": 0, "count": 0}), "—")
 
+    def test_aggregate_sums_measured_crates_only(self):
+        total = subject.aggregate({
+            "native/ops": measured((90, 100), (9, 10), (45, 50)),
+            "native/audio-routing": {"error": "not measured (build or run failed)"},
+            "native/tts": measured((30, 100), (1, 10), (5, 50)),
+        })
+        self.assertEqual(total["lines"], {"covered": 120, "count": 200})
+
     def test_every_crate_of_the_development_cli_is_measured(self):
         # The same list check --scope rust tests, with the two crates CI added for #871.
         self.assertIn("native/ocr-runtime", subject.NATIVE_CRATES)

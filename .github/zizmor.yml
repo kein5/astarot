@@ -6,6 +6,10 @@ rules:
       # nothing and reads only the measured JSON. tests/voice/test_security_regressions.py
       # pins its trigger, permissions and the steps that get the Bencher key (#738).
       - pipeline-latency.yml
+      # workflow_run on purpose: it runs develop's copy after voice-tests.yml completes on
+      # develop pushes, checks out develop only, and reads only JSON/XML badge artifacts.
+      # tests/voice/test_security_regressions.py pins its trigger, permissions and conditions.
+      - publish-badges.yml
   self-repository:
     # Suggests GitHub's "$/" form for this repository's own actions. actionlint 1.7.12 does not
     # know it, and tests/voice/test_security_regressions.py reads "./" as this repository's code.

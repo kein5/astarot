@@ -5,13 +5,21 @@
   </picture>
 </h1>
 
-<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。LicenseとPlatformだけは固定で、
-     LICENSEと配布物に合わせる。README.mdと同じにする。 -->
+<!-- バッジは値をGitHub（Actions、Releases、リポジトリ、`publish-badges.yml`が更新する`badges`ブランチ、または節目計測の`docs/testing/badges/`）から読む。LicenseとPlatformだけは固定で、
+     LICENSEと配布物に合わせる。README.mdと同じにする。
+     画面側のミューテーション率（docs/testing/badges/mutation-ui.json）とE2Eテスト（docs/testing/badges/tests-e2e.json）は初回計測がそろうまで掲載しない（docs/testing/overview.md参照）。 -->
 <p align="center">
   <a href="https://github.com/kein5/astarot/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のWindowsビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/github-code-scanning/codeql"><img alt="CodeQLの解析（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+</p>
+<p align="center">
+  <a href="/docs/testing/overview.md"><img alt="単体テストの状態（develop）" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Ftests-unit.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="結合テストの状態（develop）" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Ftests-integration.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="画面側の行カバレッジ（develop）" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Fcoverage-ui.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="Rustの行カバレッジ（develop）" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Fcoverage-rust.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="Rust中核ファイル固定一覧のミューテーション率" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fdocs%2Ftesting%2Fbadges%2Fmutation-rust.json"></a>
 </p>
 <p align="center">
   <a href="https://github.com/kein5/astarot/releases/latest"><img alt="最新の正式版" src="https://img.shields.io/github/v/release/kein5/astarot?label=release"></a>

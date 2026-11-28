@@ -49,22 +49,31 @@ def percent(part: dict) -> str:
     return f"{100 * part['covered'] / part['count']:.1f}%" if part["count"] else "—"
 
 
+def aggregate(results: dict[str, dict]) -> dict[str, dict[str, int]]:
+    total = {kind: {"covered": 0, "count": 0} for kind in KINDS}
+    for result in results.values():
+        if "error" in result:
+            continue
+        totals = result["totals"]
+        for kind in KINDS:
+            total[kind]["covered"] += totals[kind]["covered"]
+            total[kind]["count"] += totals[kind]["count"]
+    return total
+
+
 def table(results: dict[str, dict]) -> str:
     """A Markdown table of `crate -> measure()`, with the total of the measured crates."""
     lines = ["| Crate | Lines | Functions | Regions | Lines not run | Note |", "|---|---:|---:|---:|---:|---|"]
-    total = {kind: {"covered": 0, "count": 0} for kind in KINDS}
     for crate, result in results.items():
         name = f"`{crate.removeprefix('native/')}`"
         if "error" in result:
             lines.append(f"| {name} | — | — | — | — | {result['error']} |")
             continue
         totals = result["totals"]
-        for kind in KINDS:
-            total[kind]["covered"] += totals[kind]["covered"]
-            total[kind]["count"] += totals[kind]["count"]
         missed = totals["lines"]["count"] - totals["lines"]["covered"]
         note = "a test failed" if result["tests_failed"] else ""
         lines.append(f"| {name} | {percent(totals['lines'])} | {percent(totals['functions'])} | {percent(totals['regions'])} | {missed} | {note} |")
+    total = aggregate(results)
     missed = total["lines"]["count"] - total["lines"]["covered"]
     lines.append(f"| Total | {percent(total['lines'])} | {percent(total['functions'])} | {percent(total['regions'])} | {missed} | |")
     return "\n".join(lines) + "\n"
@@ -74,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--crate", action="append", help="a crate folder (native/<name>); default: every crate")
     parser.add_argument("--summary", type=Path, help="also append the table to this file (GITHUB_STEP_SUMMARY)")
+    parser.add_argument("--json", type=Path, help="also write the measured totals as JSON")
     args = parser.parse_args(argv)
     crates = args.crate or list(NATIVE_CRATES)
     unknown = [crate for crate in crates if not (ROOT / crate / "Cargo.toml").is_file()]
@@ -89,6 +99,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary:
         with args.summary.open("a", encoding="utf-8") as summary:
             summary.write(text)
+    if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"crates": results, "total": aggregate(results)}
+        args.json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0
 
 
