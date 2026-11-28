@@ -1154,6 +1154,30 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "clipboard",
     },
+    {
+        // Whether SteamVR can start this build (#1384): the Windows package's manifest is beside
+        // the executable. It is in the start-up's answers, so the VR page knows from its first
+        // draw whether it has the switch's row, and nothing moves when SteamVR answers (#912).
+        Category: "Vr",
+        Base_Name: "SteamVrAutoLaunchSupported",
+        default_value: false,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "steamvr_auto_launch_supported",
+    },
+    {
+        // SteamVR starting ASTAROT with itself (#1384). SteamVR keeps the flag, and its own startup
+        // settings change it too: each answer is what SteamVR holds now, or why nothing can be
+        // shown ({ available, reason, enabled }). The VR page asks when it opens; the core tells
+        // when SteamVR comes or goes. The switch says whether it is on by `enabled`.
+        Category: "Vr",
+        Base_Name: "SteamVrAutoLaunch",
+        default_value: null,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        add_endpoint_run_array: ["from_backend"],
+        base_endpoint_name: "steamvr_auto_launch",
+    },
 
     // Others
     {

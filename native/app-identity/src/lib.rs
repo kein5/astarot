@@ -292,6 +292,17 @@ pub mod env {
 
 pub mod appimage;
 
+/// How SteamVR knows the app (#1384): the application manifest the Windows package ships beside
+/// the executable, and the application key in it. SteamVR keeps its auto-launch flag under the
+/// key, so the key never changes once a version ships it. There was no manifest before ASTAROT,
+/// so there is no old spelling to read.
+pub mod steamvr {
+    /// The application key (`app_key`): the app ID ([`super::APP_ID`]).
+    pub const APP_KEY: &str = super::APP_ID.current();
+    /// The manifest's file name, beside the executable (`<EXECUTABLE>.vrmanifest`).
+    pub const MANIFEST: &str = "astarot.vrmanifest";
+}
+
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
 /// the same version, so these change together with no migration (`VRCTVRP1` and `VRCTSCR1` up to
 /// 0.5.x; eight bytes, so `ASTR` rather than `ASTAROT`).
@@ -379,6 +390,14 @@ mod tests {
             assert_eq!(legacy, astarot, "{what}");
         }
         assert_eq!(APP_ID.astarot, "io.github.kein5.astarot");
+    }
+
+    #[test]
+    fn steamvr_knows_the_app_by_its_id_and_its_executable() {
+        assert_eq!(steamvr::APP_KEY, "io.github.kein5.astarot");
+        // `k_unMaxApplicationKeyLength` is 128 with its NUL; SteamVR matches keys as written.
+        assert!(steamvr::APP_KEY.len() < 128 && steamvr::APP_KEY == steamvr::APP_KEY.to_ascii_lowercase());
+        assert_eq!(steamvr::MANIFEST, format!("{}.vrmanifest", EXECUTABLE.current()));
     }
 
     #[test]

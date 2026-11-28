@@ -25,6 +25,7 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-12 | A change to the screens does not turn on the microphone, download a model, send a message or change the audio route on its own | `AGENTS.md`, "User actions and consent" | Manual |
 | CT-13 | Hotkeys are not assigned by default. They are turned off while keys are being recorded: while the settings page is open in a browser, and while the settings window shows the Hotkeys page (#1236) | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs` (carrying over existing assignments), manual |
 | CT-14 | Data goes to a cloud service only when the user has registered a key and chosen that engine | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.ts`, manual |
+| CT-15 | ASTAROT never starts SteamVR, and SteamVR starts ASTAROT with itself only after the user turned "Start with SteamVR" on, here or in SteamVR's own settings. Registering the install with SteamVR leaves the auto-launch flag as SteamVR has it (#1384) | [Issue #1384](https://github.com/kein5/astarot/issues/1384), [SteamVR's list of applications](external-interfaces.md#steamvrs-list-of-applications) | `native/core/tests/steamvr_auto_launch.rs`, the tests of `native/vr-overlay/src/registration.rs`; manual on a real SteamVR |
 
 ## Stop and independent controls
 
@@ -81,6 +82,7 @@ Promises that must not change, and the tests that check them. New features and c
 | CT-12 | 画面の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きない | `AGENTS.md`「ユーザーの操作と同意」 | 手動 |
 | CT-13 | ホットキーは既定で割り当てない。キーを記録している間は無効にする。ブラウザーで設定のページを開いている間と、設定のウィンドウがホットキーのページを出している間である（#1236） | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs`（既存の割り当ての引き継ぎ）、手動 |
 | CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.ts`、手動 |
+| CT-15 | ASTAROTはSteamVRを起動しない。SteamVRがASTAROTを一緒に起動するのは、利用者がここかSteamVR自身の設定で「SteamVRと一緒に起動する」をオンにしたあとだけ。SteamVRへの登録では、自動起動の印をSteamVRが持つ値のまま変えない（#1384） | [Issue #1384](https://github.com/kein5/astarot/issues/1384)、[SteamVRのアプリの一覧](external-interfaces.md#steamvrのアプリの一覧) | `native/core/tests/steamvr_auto_launch.rs`、`native/vr-overlay/src/registration.rs`の試験。実機のSteamVRで手動 |
 
 ## 停止と独立した制御
 

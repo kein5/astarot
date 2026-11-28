@@ -25,6 +25,7 @@ mod routes;
 mod settings;
 mod speakers;
 pub mod speech;
+pub mod steamvr;
 mod telemetry;
 mod terms;
 pub mod translation;
@@ -156,6 +157,9 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("secret_store_failed", "/run/secret_store_failed"),
     ("talk_ai_status", "/run/talk_ai_status"),
     ("enable_osc_query", "/run/enable_osc_query"),
+    // The core's own (#1384): what SteamVR holds of starting ASTAROT with itself, when SteamVR
+    // comes or goes.
+    ("steamvr_auto_launch", "/run/steamvr_auto_launch"),
 ];
 
 pub fn run_endpoint(name: &str) -> &'static str {
@@ -226,8 +230,14 @@ pub struct Services {
     pub vr_panel_surface: Option<Arc<dyn astarot_vr_overlay::surface::PanelSurface>>,
     /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
     pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<astarot_vr_overlay::fonts::FontLibrary> + Send + Sync>,
-    /// How often the overlay looks for SteamVR while it does not run (10 seconds).
+    /// How often the overlay looks for SteamVR while it does not run (10 seconds), and the
+    /// watch of SteamVR's auto-launch looks whether it runs ([`steamvr`]).
     pub steamvr_poll: Duration,
+    /// This install as SteamVR starts it: the executable with the manifest the Windows package
+    /// ships beside it ([`steamvr::this_install`]). `None` where there is none (the Linux
+    /// packages, a development build): the VR page says SteamVR cannot start this build. Tests
+    /// give a folder of their own.
+    pub steamvr_install: Option<astarot_vr_overlay::registration::Install>,
     /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
     pub ocr: Arc<dyn ocr::OcrPlatform>,
     /// Opens the source selected for a Talk AI session on a screen worker.
@@ -297,6 +307,7 @@ impl Default for Services {
             vr_panel_surface: Some(astarot_vr_overlay::surface::platform()),
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
+            steamvr_install: steamvr::this_install(),
             ocr: ocr::real_platform(),
             talk_screen: Arc::new(talk_ai::open_native_screen),
             talk_cloud_url: talk_ai::OPENAI_URL,
@@ -339,6 +350,8 @@ pub struct Core {
     audio: Arc<audio_devices::AudioDevices>,
     /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
+    /// SteamVR's auto-launch of ASTAROT: the watch and its lock ([`steamvr`]).
+    steamvr: steamvr::SteamVr,
     /// Chat reading's pipeline and switch.
     ocr: Arc<ocr::Ocr>,
     /// Speech recognition: the recorders and realtime recognition ([`transcription`]).
@@ -391,6 +404,7 @@ impl Core {
             messages: messages::Messages::default(),
             audio,
             vr: std::sync::OnceLock::new(),
+            steamvr: steamvr::SteamVr::default(),
             ocr: Arc::default(),
             transcription,
             voice: std::sync::OnceLock::new(),
@@ -488,6 +502,7 @@ impl Core {
         self.stop_adapters();
         self.stop_conversation_log();
         self.stop_overlay();
+        self.stop_steamvr_watch();
         self.config.save_now();
         self.stop_telemetry();
     }
@@ -592,6 +607,7 @@ mod shutdown_duties {
         ("messages", Stops(&["stop_conversation_log"])),
         ("audio", Stops(&["stop_audio_devices"])),
         ("vr", Stops(&["stop_overlay"])),
+        ("steamvr", Stops(&["stop_steamvr_watch"])),
         ("ocr", Stops(&["stop_ocr"])),
         ("transcription", Stops(&["stop_transcription"])),
         ("voice", Stops(&["close_voice"])),

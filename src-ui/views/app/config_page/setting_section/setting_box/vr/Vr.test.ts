@@ -28,6 +28,7 @@ async function setup(context: TestContext) {
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
+        "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
     });
@@ -100,6 +101,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
         "@useI18n": { useI18n: () => ({ t: words[language] }) },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
+        "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
@@ -200,6 +202,7 @@ test("sample text button stays disabled with a hint while both caption overlays 
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
+        "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },

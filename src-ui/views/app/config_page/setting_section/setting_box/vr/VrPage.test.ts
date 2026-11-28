@@ -51,6 +51,7 @@ async function vrPage(context: TestContext, options: PageOptions = {}) {
         "@utils": { randomIntMinMax: (min: number, max: number) => { picks.push([min, max]); return 2; } },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop-caption" },
         "./OverlayFontFamily": { OverlayFontFamily: "overlay-font" },
+        "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
         "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
     });
     // Draws one of the module's components with the runtime given (a new one unless given).

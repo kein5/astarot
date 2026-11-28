@@ -1,0 +1,21 @@
+{
+  "source": "builtin",
+  "applications": [
+    {
+      "app_key": "io.github.kein5.astarot",
+      "launch_type": "binary",
+      "binary_path_windows": "astarot.exe",
+      "is_dashboard_overlay": true,
+      "strings": {
+        "en_us": {
+          "name": "ASTAROT",
+          "description": "Speech recognition, read-aloud, voice conversion and translated chat for VRChat"
+        },
+        "ja_jp": {
+          "name": "ASTAROT",
+          "description": "VRChat向けの音声認識、読み上げ、声質変換、翻訳チャット"
+        }
+      }
+    }
+  ]
+}

@@ -1957,6 +1957,26 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/steamvr_auto_launch_supported",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/steamvr_auto_launch",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/steamvr_auto_launch",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/steamvr_auto_launch",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/set/data/speaker_names",
       "wait_for_init": false,
       "immediate": false
@@ -2916,6 +2936,10 @@
     {
       "name": "enable_osc_query",
       "endpoint": "/run/enable_osc_query"
+    },
+    {
+      "name": "steamvr_auto_launch",
+      "endpoint": "/run/steamvr_auto_launch"
     }
   ],
   "sensitive_markers": [
@@ -2945,6 +2969,20 @@
       "code": "OVERLAY_VR_PANEL_UNSUPPORTED",
       "category": "general",
       "message": "The VR UI is not available in this environment. Subtitle overlays are not affected.",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "STEAMVR_AUTO_LAUNCH_UNAVAILABLE",
+      "category": "general",
+      "message": "Starting with SteamVR can be changed only while SteamVR is running, in the installed app.",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "STEAMVR_AUTO_LAUNCH_FAILED",
+      "category": "general",
+      "message": "SteamVR did not accept the change to starting with SteamVR. The switch shows what SteamVR holds now.",
       "severity": "error",
       "user_action_required": false
     },

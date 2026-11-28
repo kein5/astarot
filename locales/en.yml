@@ -263,6 +263,8 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
+    STEAMVR_AUTO_LAUNCH_UNAVAILABLE: "Starting with SteamVR can be changed only while SteamVR is running."
+    STEAMVR_AUTO_LAUNCH_FAILED: "SteamVR did not accept the change. The switch shows the setting SteamVR has now."
     OVERLAY_FONT_NOT_FOUND: "That font is not installed on your PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
@@ -1029,6 +1031,12 @@ config_page:
         right_hand: "Right hand"
         overlay_show_only_translated_messages:
             label: "Show only translated messages"
+        section_label_steamvr: "SteamVR"
+        steamvr_auto_launch:
+            label: "Start with SteamVR"
+            desc: "When SteamVR starts, it starts ASTAROT too. SteamVR keeps this setting, so a change in SteamVR's own startup settings shows here as well."
+            steamvr_not_running: "Start SteamVR to change this."
+            steamvr_unreachable: "SteamVR did not answer. Try again once it has finished starting."
         section_label_desktop_overlay: "Desktop caption overlay"
         desktop_overlay:
             label: "Show captions on the desktop"

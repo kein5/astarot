@@ -25,7 +25,7 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
         # under its name up to 0.6.x (ADR-014, 2.5); the new one neither.
         self.assertEqual((scenarios.APP, scenarios.OLD_APP), ("astarot.exe", "vrct-vox.exe"))
         for version, top in (("old", {scenarios.OLD_APP, scenarios.SIDECAR, "_internal"}),
-                             ("new", {scenarios.APP, "_internal"})):
+                             ("new", {scenarios.APP, scenarios.STEAMVR_MANIFEST, "_internal"})):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
                 self.assertEqual({name.split("/")[0] for name in archive.namelist()}, top)
                 self.assertIsNone(archive.testzip())

@@ -115,6 +115,7 @@ for (const language of ["en", "ja"]) {
             "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
             "./OverlayFontFamily": { OverlayFontFamily: "font" },
+            "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
             "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: settings }, currentOverlayLargeLogSettings: {} }) },
             "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         });

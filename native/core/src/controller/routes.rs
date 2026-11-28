@@ -490,6 +490,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::talk_ai::add,
     super::ocr::add,
     super::overlay::add,
+    super::steamvr::add,
     super::speakers::add,
     super::files::add,
     super::gpu_check::add,

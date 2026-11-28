@@ -7,12 +7,14 @@
 - 既定メッセージ: 中核が返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。
 - UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。
 
-## コード（113件）
+## コード（115件）
 
 | コード | 分類 | 既定メッセージ | 重大度 | 利用者の対処 | UIの個別処理 |
 |---|---|---|---|---|---|
 | `OVERLAY_RUNTIME_FAILED` | general | The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then enable it again. | error | 要 | あり |
 | `OVERLAY_VR_PANEL_UNSUPPORTED` | general | The VR UI is not available in this environment. Subtitle overlays are not affected. | error |  | あり |
+| `STEAMVR_AUTO_LAUNCH_UNAVAILABLE` | general | Starting with SteamVR can be changed only while SteamVR is running, in the installed app. | warning | 要 | あり |
+| `STEAMVR_AUTO_LAUNCH_FAILED` | general | SteamVR did not accept the change to starting with SteamVR. The switch shows what SteamVR holds now. | error |  | あり |
 | `MESSAGE_OUTPUT_FAILED` | general | One message output failed; other outputs continued. Resending may duplicate delivery. | warning |  | あり |
 | `DEVICE_NO_MIC` | device | No mic device detected | error | 要 | あり |
 | `DEVICE_NO_SPEAKER` | device | No speaker device detected | error | 要 | あり |

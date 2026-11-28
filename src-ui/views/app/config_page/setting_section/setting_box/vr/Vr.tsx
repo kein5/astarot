@@ -31,6 +31,7 @@ import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
 import { DesktopCaptionOverlay } from "./DesktopCaptionOverlay";
 import { OverlayFontFamily } from "./OverlayFontFamily";
+import { SteamVrAutoLaunch } from "./SteamVrAutoLaunch";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import type { AtomState } from "@store";
 import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
@@ -102,6 +103,8 @@ export const Vr = () => {
                 />
             </div>
             <DesktopCaptionOverlay part="enable" />
+            {/* SteamVR starts ASTAROT with itself (#1384); only where SteamVR can start this build. */}
+            <SteamVrAutoLaunch />
             <AdvancedSection status={t("config_page.advanced_status.vr", {
                 only: onOff(currentOverlayShowOnlyTranslatedMessages), typing: onOff(currentVoiceTypingMode) })}>
             {/* The settings search leads here for the overlay's position, rotation, size and timing. */}

@@ -6,6 +6,8 @@ use super::{Category, CodeInfo, Severity};
 pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OVERLAY_RUNTIME_FAILED", category: Category::General, message: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then enable it again.", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "OVERLAY_VR_PANEL_UNSUPPORTED", category: Category::General, message: "The VR UI is not available in this environment. Subtitle overlays are not affected.", severity: Severity::Error, user_action_required: false, reported: true },
+    CodeInfo { code: "STEAMVR_AUTO_LAUNCH_UNAVAILABLE", category: Category::General, message: "Starting with SteamVR can be changed only while SteamVR is running, in the installed app.", severity: Severity::Warning, user_action_required: true, reported: false },
+    CodeInfo { code: "STEAMVR_AUTO_LAUNCH_FAILED", category: Category::General, message: "SteamVR did not accept the change to starting with SteamVR. The switch shows what SteamVR holds now.", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "MESSAGE_OUTPUT_FAILED", category: Category::General, message: "One message output failed; other outputs continued. Resending may duplicate delivery.", severity: Severity::Warning, user_action_required: false, reported: true },
     CodeInfo { code: "DEVICE_NO_MIC", category: Category::Device, message: "No mic device detected", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "DEVICE_NO_SPEAKER", category: Category::Device, message: "No speaker device detected", severity: Severity::Error, user_action_required: true, reported: true },

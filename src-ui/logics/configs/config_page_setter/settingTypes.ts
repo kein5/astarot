@@ -81,6 +81,16 @@ export interface OverlayDesktopPlacement {
     y: number | null;
 }
 
+// Why SteamVR's auto-launch of ASTAROT cannot be shown or changed now (#1384;
+// native/core/src/controller/steamvr.rs): this build ships no SteamVR manifest (the Linux packages, a
+// development build), SteamVR does not run, or it runs but did not answer.
+export type SteamVrAutoLaunchReason = "unsupported" | "steamvr_not_running" | "steamvr_unreachable";
+
+// The core's answer: SteamVR's flag, or why there is none to show.
+export type SteamVrAutoLaunch =
+    | { available: true; enabled: boolean }
+    | { available: false; reason: SteamVrAutoLaunchReason; enabled: null };
+
 // Effective conversation log directory and last fallback error code (#1096, #1118).
 export interface LogDirectoryState {
     path: string;
@@ -228,6 +238,10 @@ export interface SettingValues {
     OverlayVrTooltip: boolean;
     OverlayVrPanelOpacity: number;
     VoiceTypingMode: boolean;
+    // Whether SteamVR can start this build at all (#1384): known from the start-up's answers.
+    SteamVrAutoLaunchSupported: boolean;
+    // What SteamVR holds of starting ASTAROT with itself (#1384); null until asked.
+    SteamVrAutoLaunch: SteamVrAutoLaunch | null;
 
     // Others
     EnableAutoClearMessageInputBox: boolean;

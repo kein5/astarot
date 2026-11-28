@@ -8,7 +8,8 @@
 //! [`src-python/models/openvr_session.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py
 
 use crate::math::{Mat34, Mat4, Vec3};
-use crate::runtime::{ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};
+use crate::runtime::{ApplicationError, ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 struct Slot {
@@ -145,6 +146,21 @@ impl Session for SharedSession {
     fn tip_offset(&mut self, device: Device) -> Option<Mat4> {
         self.with(|s| s.tip_offset(device))
     }
+    fn add_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        self.with(|s| s.add_application_manifest(manifest))
+    }
+    fn remove_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        self.with(|s| s.remove_application_manifest(manifest))
+    }
+    fn application_binary(&mut self, key: &str) -> Result<Option<String>, ApplicationError> {
+        self.with(|s| s.application_binary(key))
+    }
+    fn set_auto_launch(&mut self, key: &str, on: bool) -> Result<(), ApplicationError> {
+        self.with(|s| s.set_auto_launch(key, on))
+    }
+    fn auto_launch(&mut self, key: &str) -> Result<bool, ApplicationError> {
+        self.with(|s| s.auto_launch(key))
+    }
 }
 
 #[cfg(test)]
@@ -198,6 +214,37 @@ mod tests {
         let mut session = shared.connect().unwrap();
         assert_eq!(session.scene_application().unwrap(), Some(app));
         assert_eq!(fake.with(|s| s.scene_reads), 1);
+    }
+
+    #[test]
+    fn the_list_of_applications_comes_through_the_shared_connection() {
+        // The core registers ASTAROT with SteamVR over the connection the overlays use (#1384).
+        let dir = std::env::temp_dir().join(format!("astarot-shared-applications-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let manifest = dir.join("astarot.vrmanifest");
+        let app = r#"{"applications": [{"app_key": "io.github.kein5.astarot", "binary_path_windows": "astarot.exe"}]}"#;
+        std::fs::write(&manifest, app).unwrap();
+        let fake = FakeVr::running();
+        let shared = SharedVr::new(Arc::new(fake.clone()));
+        let mut session = shared.connect().unwrap();
+        let key = "io.github.kein5.astarot";
+        assert_eq!(session.application_binary(key), Ok(None));
+        session.add_application_manifest(&manifest).unwrap();
+        let binary = dir.join("astarot.exe").to_string_lossy().into_owned();
+        assert_eq!(session.application_binary(key), Ok(Some(binary)));
+        assert_eq!(session.auto_launch(key), Ok(false));
+        session.set_auto_launch(key, true).unwrap();
+        assert_eq!(session.auto_launch(key), Ok(true));
+        session.remove_application_manifest(&manifest).unwrap();
+        assert_eq!(session.application_binary(key), Ok(None));
+        // A refusal of SteamVR reaches the holder as it came.
+        fake.with(|s| s.refuse_applications = Some(105));
+        assert_eq!(session.set_auto_launch(key, false), Err(ApplicationError(105)));
+        assert_eq!(session.add_application_manifest(&manifest), Err(ApplicationError(105)));
+        assert_eq!(session.remove_application_manifest(&manifest), Err(ApplicationError(105)));
+        assert_eq!(fake.with(|s| s.connects), 1, "one connection for every call");
+        drop(session);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
