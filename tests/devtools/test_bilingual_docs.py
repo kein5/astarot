@@ -223,6 +223,14 @@ class FixtureTests(unittest.TestCase):
         self.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: " + "a" * 1025 + "\n---\n\n" + GOOD)
         self.assertFinds("the description has 1025 characters; the limit is 1024")
 
+    def test_a_skill_description_avoids_yaml_syntax_unless_quoted(self):
+        self.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: Steps after a change: which.\n---\n\n" + GOOD)
+        self.assertFinds("skills/demo/SKILL.md:3: the description holds ': ' or ' #'")
+        self.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: Steps for #1367 and #12.\n---\n\n" + GOOD)
+        self.assertFinds("the description holds ': ' or ' #'")
+        self.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: \"Steps after a change: which.\"\n---\n\n" + GOOD)
+        self.assertEqual(self.findings(), [])
+
     def test_a_folded_skill_description_is_read_whole(self):
         self.write("skills/demo/SKILL.md", "---\nname: demo\ndescription: >\n  Steps.\n  手順。\n---\n\n" + GOOD)
         self.assertEqual(self.findings(), [])

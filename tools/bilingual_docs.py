@@ -27,8 +27,9 @@ A bilingual file takes this form (the docs skill, section 3):
   one to one, in the same order: the same level, the same section number when the English
   heading starts with one (1., 3.1, D., P-01), the same inline code and the same emoji. The
   English headings contain no kana;
-- for a converted skill, a description in its front matter that does not start in Japanese
-  and stays within the 1,024 characters of the Agent Skills format.
+- for a converted skill, a description in its front matter that does not start in Japanese,
+  stays within the 1,024 characters of the Agent Skills format and, when it is not quoted,
+  holds no ": " or " #" (YAML would read them as syntax).
 
 What it cannot check: whether the two versions say the same thing. A machine cannot judge that
 two sentences in different languages mean the same, so the check stops at the structure. The
@@ -226,6 +227,11 @@ def check_skill_description(path: str, lines: list[str], end: int, errors: list[
         if text in (">", ">-", "|", "|-"):  # a block scalar: the indented lines that follow
             text = " ".join(next_line.strip() for next_line in
                             takewhile(lambda next_line: next_line.startswith((" ", "\t")), body[index + 1:]))
+        elif text[:1] not in ("'", '"') and (": " in text or " #" in text):
+            # In a plain YAML scalar ": " starts a mapping and " #" a comment, so a strict parser
+            # stops there or rejects the front matter.
+            errors.append(f"{path}:{index + 2}: the description holds ': ' or ' #', which YAML reads as "
+                          f"syntax; reword it or quote the whole value")
         text = text.strip("'\"")
         if len(text) > DESCRIPTION_LIMIT:
             errors.append(f"{path}:{index + 2}: the description has {len(text)} characters; the limit is "
