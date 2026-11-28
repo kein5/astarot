@@ -25,6 +25,7 @@ import type { GpuMemory } from "./flow/gpuMemory.ts";
 import type { IoFlow, Trace } from "./flow/ioFlow.ts";
 import type { LanguageMutationState } from "./main/languageMutationCoordinator.ts";
 import type { SwitchBlocks } from "./main/switchBlocks.ts";
+import type { VrVoiceControls } from "./voice/voiceActions.ts";
 import type { MessageLogRow } from "./transcription/realtimeCaptionState.ts";
 import type { SpeakerNames } from "./common/speakerNames.ts";
 
@@ -316,6 +317,11 @@ export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks }
 // (MicCaptureWaitController) and the VR panel's launcher says it, as the question cannot be seen
 // from inside a headset.
 export const { atomInstance: Atom_MicCaptureWaiting, useHook: useStore_MicCaptureWaiting } = createAtomWithHook(false, "MicCaptureWaiting", { is_state_ok: true });
+// The text to speech switch and the stop as the main window shows them (#1314, V-4), for the VR
+// panel's launcher. The main window works them out (VrVoiceControlsController); the launcher's
+// presses come back as vr-panel-voice and run the main window's own switch and stop.
+export const { atomInstance: Atom_VrVoiceControls, useHook: useStore_VrVoiceControls } = createAtomWithHook(
+    initial<VrVoiceControls>({ tts: { on: false, pending: false }, stop: { offered: false, phase: "idle" } }), "VrVoiceControls", { is_state_ok: true });
 export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook(initial<MainFunctionsStateMemory>({
     transcription_send: false,
     transcription_receive: false,

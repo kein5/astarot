@@ -41,7 +41,8 @@ function estimatedLines(text: string, columns = WIDTH): number {
 const HELP_PATHS = [
     "vr_panel.mic_wait.windows", "vr_panel.mic_wait.linux", "vr_panel.locked_by_config_page",
     ...["busy_help", "enable", "disable", "holding_help", "click_recall", "log_open_help", "log_close_help",
-        "close_view", "open_view", "choose_anchor", "recall_help", "lock_help", "unlock_help", "font_help", "opacity_help"]
+        "close_view", "open_view", "choose_anchor", "recall_help", "lock_help", "unlock_help", "font_help", "opacity_help",
+        "stop_help", "stop_idle_help"]
         .map(key => `vr_panel.tooltip.${key}`),
 ];
 
