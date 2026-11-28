@@ -91,12 +91,15 @@ export function Combobox({
         if (list && current !== undefined) keepInSight(list, list.querySelector<HTMLElement>("[data-slot='command-item'][aria-selected='true']"));
     }, [list, current]);
 
-    // Each opening starts from the value, with no search.
+    // Each opening starts from the value, with no search. The search is forgotten as the panel
+    // opens, not as it closes: the panel fades out as it was (the kit's Popover, #1378), and does
+    // not fill with every choice while it goes.
     const openChange = (next: boolean) => {
         if (next && (busy || disabled)) return;
         setOpen(next);
+        if (!next) return;
         setQuery("");
-        if (next) setActive(startingOption(everyOption, value));
+        setActive(startingOption(everyOption, value));
     };
 
     // While the value waits, a choice waits too and the list stays open.

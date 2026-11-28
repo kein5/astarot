@@ -18,6 +18,10 @@ export const content = recipe({
         color: vars.dark_basic_text_color,
         boxShadow: vars.vox_shadow_overlay,
         outline: "none",
+        selectors: {
+            // While its exit plays (Popover.tsx), presses go to what is under it, as once it is gone.
+            "&[data-leaving]": { pointerEvents: "none" },
+        },
     },
     variants: {
         inset: {

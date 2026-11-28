@@ -831,6 +831,10 @@
     "reason": "With no origin the main screen falls back to your language, the origin it starts with.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:94:27 'your' -> ''"
   },
+  "gmnndhkq1x": {
+    "reason": "The first drawing brings the state in step with open either way: started closed while open is true, it is set to open with the same key (it was not leaving), so the content is drawn and nothing leaves.",
+    "where": "src-ui/views/kit/motion.ts:150:63 open === true -> false"
+  },
   "gtvqcj99lt": {
     "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
     "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
@@ -922,6 +926,10 @@
   "n0p7w6fey0": {
     "reason": "A missing value only reaches the 24-character test as a short string, and the placeholder is 17 characters, also short.",
     "where": "src-ui/views/vr/VrSettingsRows.tsx:69:37 \"\" -> \"Stryker was here!\""
+  },
+  "n995ej7mm4": {
+    "reason": "left reads nothing from the drawing (it changes the state through an updater), so any list of dependencies that never changes keeps the same function, as the empty one does.",
+    "where": "src-ui/views/kit/motion.ts:162:8 [] -> [\"Stryker was here!\"]"
   },
   "nbcbao9eva": {
     "reason": "Each meter is drawn only for its own source (SliderAndMeter picks it by the same id), so the other half of the label's condition is never taken.",

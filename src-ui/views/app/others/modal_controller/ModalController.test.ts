@@ -3,7 +3,7 @@ import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, kitStandIns, loadModule, find, stubGlobals, eventTarget, unchecked, setRef } from "../../../../logics/test/hookHarness.ts";
 
-async function fixture(context: TestContext) {
+async function fixture(context: TestContext, kit: Record<string, unknown> = kitStandIns) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
     let opened = "update_software";
     const control = (name: string) => ({ isConnected: true, disabled: false, tabIndex: 0,
@@ -20,6 +20,7 @@ async function fixture(context: TestContext) {
                 updateOpenedQuickSetting: (value: string) => { changes.push([value, modal.open]); opened = value; } }),
         },
         "@setting_box": { Updater: "update-settings" },
+        "../../../kit/index.ts": kit,
     });
     const modal = { open: false, opens: 0, showModal() { this.open = true; this.opens++; },
         close() { this.open = false; } };
@@ -51,6 +52,22 @@ test("quick settings uses a named native modal with initial close focus", async 
     assert.equal(tree.props.className, "container");
     s.render();
     assert.equal(s.modal.opens, 1, "ordinary rerenders do not reopen the dialog");
+});
+
+// #1378: shown, it comes in as the kit's dialogs do, through the kit; the dialog the kit moves is
+// the one the consent hook shows and closes.
+test("quick settings asks the kit for a dialog's entrance while it is open", async context => {
+    const asked: [unknown, boolean, string][] = [];
+    const s = await fixture(context, { ...kitStandIns, useAppear: (ref: unknown, shown: boolean, surface: string) => { asked.push([ref, shown, surface]); } });
+    const tree = s.render();
+    assert.ok(tree);
+    const [ref, shown, surface] = asked[0];
+    assert.equal(Reflect.get(Object(ref), "current"), s.modal, "the <dialog> it draws");
+    assert.deepEqual([shown, surface], [true, "dialog"]);
+    s.setOpened("");
+    asked.length = 0;
+    assert.equal(s.render(), null);
+    assert.deepEqual(asked.map(([, open, kind]) => [open, kind]), [[false, "dialog"]], "asked on every drawing, closed too");
 });
 
 for (const action of ["close button", "backdrop", "Escape"]) {

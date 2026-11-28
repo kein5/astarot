@@ -215,9 +215,12 @@ test("typing keeps what it finds and starts on the first of it; a search that ke
     // The search emptied: back on the value.
     draw().slot("command-input").props.onChange({ target: { value: "" } });
     assert.equal(draw().active, "Groq_API");
-    // Closing forgets the search.
+    // Closing forgets the search, once the panel opens again: while it leaves (the kit's Popover
+    // fades it out, #1378), it keeps what it showed.
     draw().slot("command-input").props.onChange({ target: { value: "deep" } });
     draw().tree.props.onOpenChange(false);
+    drawn = draw();
+    assert.deepEqual([drawn.tree.props.open, drawn.slot("command-input").props.value, drawn.items.length], [false, "deep", 1]);
     open(draw());
     drawn = draw();
     assert.deepEqual([drawn.slot("command-input").props.value, drawn.items.length, drawn.active], ["", 6, "Groq_API"]);

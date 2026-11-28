@@ -260,6 +260,7 @@ npm run test:coverage    # coverage (HTML and json-summary in build/coverage/ui)
 - When you move an existing `.js` file to `.ts`, rewrite every reference in the same commit: the imports in views, the loading in tests, and the paths that Python tests or tools point to.
 - `src-ui/views/app/_index_css/variables.css` is the source of truth for the values of the design tokens. From vanilla-extract, `vars` in `src-ui/views/theme/vars.css.ts` refers to the same variables. When you add a token, write it in both (`vars.test.ts` detects any mismatch).
 - Radix UI is used for behavior and accessibility; the look comes from vanilla-extract. When you add a Radix component, check whether it inserts a `<style>` element at runtime. The CSP allows inserted styles by hash, and `contentSecurityPolicy.test.ts` counts them. Radix's Popover brings react-remove-scroll's `<style>`, which it inserts only when the popover is modal; the app's popovers are never modal, so the test counts that one apart and checks that no popover is made modal.
+- Animation comes from [Motion](https://motion.dev/) (`motion`), through the kit only (#1378): `src-ui/views/kit/motion.ts` imports it, and the screens take their motion from the kit's parts and `useAppear` (`kit.test.ts` stops any other import). It uses `motion/mini`, which runs on the Web Animations API and inserts no `<style>`. Motion's React components are not used yet; `AnimatePresence` with `mode="popLayout"` would insert a `<style>` at runtime, which the CSP test would count. The reduced-motion rule lives in `motion.ts` too: with reduced motion, only opacity changes.
 
 ### UI lint and formatting (Biome)
 
@@ -472,7 +473,7 @@ python tools/bilingual_docs.py --check
 - It reads the root `*.md` and the Markdown in `docs/` and `skills/`. Each file has the English version, a `---` line and the Japanese version under `# <title>（日本語版）`, in that order, and a link from under the English title to the Japanese title.
 - Below the two titles, the headings pair off one to one in the same order. Each pair has the same level, the same section number when the English heading starts with one, the same inline code and the same emoji. The English headings contain no kana. For a skill, the description in the front matter starts in English and stays within 1,024 characters.
 - It cannot check whether the two versions say the same thing. A pattern cannot tell whether two sentences in different languages mean the same, so the check stops at the structure. The rule (change the English first, and the Japanese in the same pull request) and review cover the meaning. Read the two versions side by side before you open a pull request.
-- The files outside the common form are listed in the tool with their reasons: legal texts and the code of conduct (`EXEMPT`), the generated lists in `docs/spec/reference/` (`EXEMPT`), the community files whose Japanese version sits one level down (`SHIFTED`), `README.md` and its Japanese version in `docs/readmes/` (`PAIRS`), the skills not converted yet (`PENDING_SKILLS`, until each one's pull request for #1367) and any section that exists only in Japanese until its English version is written (`JAPANESE_ONLY_SECTIONS`). When the file behind an entry changes, as when a skill is converted, the check fails until the entry is removed.
+- The files outside the common form are listed in the tool with their reasons: legal texts and the code of conduct (`EXEMPT`), the generated lists in `docs/spec/reference/` (`EXEMPT`), the community files whose Japanese version sits one level down (`SHIFTED`), `README.md` and its Japanese version in `docs/readmes/` (`PAIRS`), any skill written in Japanese only while it waits for conversion (`PENDING_SKILLS`) and any section that exists only in Japanese until its English version is written (`JAPANESE_ONLY_SECTIONS`). When the file behind an entry changes, as when a skill is converted, the check fails until the entry is removed.
 - The UI text in `locales/` has its own check ([Checking UI text and translations](#checking-ui-text-and-translations)).
 
 ## Testing VR handling without VR hardware
@@ -838,6 +839,7 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。RadixのPopoverはreact-remove-scrollの `<style>` を連れてきますが、差し込むのはモーダルのときだけです。アプリのポップオーバーはモーダルにしないので、試験はそれを別に数え、モーダルにしたポップオーバーがないことを確かめます。
+- アニメーションは[Motion](https://motion.dev/)（`motion`）で付け、キットを通してだけ使います（#1378）。importするのは `src-ui/views/kit/motion.ts` だけで、画面はキットの部品と `useAppear` から動きを受け取ります（ほかのimportは `kit.test.ts` が止めます）。使うのは `motion/mini` で、Web Animations APIの上で動き、`<style>` を差し込みません。MotionのReactの部品はまだ使っていません。`mode="popLayout"` の `AnimatePresence` は実行時に `<style>` を差し込むので、CSPの試験に数えられます。動きを減らす設定の決まりも `motion.ts` に置いています。動きを減らす設定では、不透明度だけを変えます。
 
 ### UIのlintと整形（Biome）
 
@@ -1050,7 +1052,7 @@ python tools/bilingual_docs.py --check
 - 読むのは、ルートの `*.md` と、`docs/` と `skills/` の Markdown です。どのファイルも、英語版、`---` の行、`# <題>（日本語版）` で始まる日本語版の順に並び、英語版の題の下から日本語版の題へリンクします。
 - 2つの題より下の見出しは、同じ順に1つずつ対になります。対の見出しは、階層が同じで、英語の見出しが番号で始まればその番号が同じで、インラインのコードと絵文字も同じです。英語版の見出しには仮名を使いません。スキルは、front matter の description を英語で始め、1,024 文字に収めます。
 - 2つの版が同じことを言っているかは確かめられません。言語の違う2つの文が同じ意味かを形で判断することはできないので、検査は構成までです。意味は、決まり（まず英語を変え、日本語を同じPRで合わせる）とレビューで担います。PRを出す前に、2つの版を読み比べます。
-- 共通の形の外にあるファイルは、理由と一緒に道具の中に挙げてあります。法的な文書と行動規範（`EXEMPT`）、`docs/spec/reference/` の生成する一覧（`EXEMPT`）、日本語版を1段下げて置くコミュニティのファイル（`SHIFTED`）、`README.md` と `docs/readmes/` の日本語版（`PAIRS`）、まだ変換していないスキル（`PENDING_SKILLS`。#1367 のスキルごとのPRまで）、英語版を書くまでのあいだ日本語版にだけある節（`JAPANESE_ONLY_SECTIONS`）です。スキルを変換したときのように、項目の元のファイルが変わると、項目を消すまで検査が失敗します。
+- 共通の形の外にあるファイルは、理由と一緒に道具の中に挙げてあります。法的な文書と行動規範（`EXEMPT`）、`docs/spec/reference/` の生成する一覧（`EXEMPT`）、日本語版を1段下げて置くコミュニティのファイル（`SHIFTED`）、`README.md` と `docs/readmes/` の日本語版（`PAIRS`）、変換を待つあいだ日本語だけで書いてあるスキル（`PENDING_SKILLS`）、英語版を書くまでのあいだ日本語版にだけある節（`JAPANESE_ONLY_SECTIONS`）です。スキルを変換したときのように、項目の元のファイルが変わると、項目を消すまで検査が失敗します。
 - 画面の文言（`locales/`）には専用の検査があります（[UIの文言と翻訳の検査](#uiの文言と翻訳の検査)）。
 
 ## VRの機器なしでVRの処理を試す
