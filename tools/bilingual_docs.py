@@ -80,7 +80,6 @@ PAIRS = {"README.md": "docs/readmes/README.ja.md"}
 # removes its line. A blank line separates the lines, so that pull requests made side by side do
 # not conflict when each removes its own.
 PENDING_SKILLS = (
-    "skills/adr/SKILL.md",
 
     "skills/ci-triage/SKILL.md",
 
