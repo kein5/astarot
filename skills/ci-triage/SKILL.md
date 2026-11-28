@@ -1,9 +1,93 @@
 ---
 name: ci-triage
-description: PRやdevelopのCIチェックが失敗・警告になったときに、本物の退行か、ランナー側のばらつきか、既知のフレーキーかを根拠付きで切り分ける手順。PRのチェック失敗の調査、Bencher Reportの警告やアラートの読み方、既知のフレーキーテストの判定とIssue #1073への記録、失敗ジョブの再実行単位の選定、cancelledやDependabotステータスとの区別に使う。Use when triaging failing or warning CI checks on a pull request or develop branch, reading Bencher Report alerts, classifying flaky tests for Issue #1073, or choosing how to rerun failed jobs. PRの作成からマージ手順全体はpull-requestスキルを使う。
+description: "Steps for telling, with evidence, whether a CI check that failed or warned on a pull request or on develop is a real regression, variation on the runner's side or a known flaky test. Use when investigating failed checks on a pull request, reading Bencher Report warnings and alerts, judging known flaky tests and recording them in Issue #1073, choosing the unit for rerunning failed jobs, or telling cancelled runs and Dependabot statuses apart from results. For the whole flow from creating a pull request to merging it, use the pull-request skill. PRやdevelopのCIチェックが失敗・警告になったときに、本物の退行か、ランナー側のばらつきか、既知のフレーキーかを根拠付きで切り分ける手順。PRのチェック失敗の調査、Bencher Reportの警告やアラートの読み方、既知のフレーキーテストの判定とIssue #1073への記録、失敗ジョブの再実行単位の選定、cancelledやDependabotステータスとの区別に使う。PRの作成からマージ手順全体はpull-requestスキルを使う。"
 ---
 
-# CIの失敗の切り分け
+# Triaging CI failures
+
+[日本語版](#ciの失敗の切り分け日本語版)
+
+These are the steps for when a check on a pull request or on `develop` turns red or shows a warning. Do not jump to "the runner acting up" or to "a real regression". Separate the cause using the scope of the change and the logs, and leave the evidence. The authoritative source for a pull request's merge conditions is [skills/pull-request/SKILL.md](../pull-request/SKILL.md).
+
+## 1. First see how the scope of the change relates to the failed check
+
+First, check whether the failed check is in an area related to the changes in this pull request.
+
+1. Check the list of files the pull request changes (`gh pr view <number> --json files` or `git diff --name-only <base>...HEAD`).
+2. Read the end of the failed job's log and its first error line, and find which test, tool or step it stopped at.
+3. Tentatively sort how the changed files relate to the failure into one of these three.
+   - **Directly related to the change**: a check of the code, settings, workflows, documents or dependencies you changed fails. Move on to reproducing it locally and fixing it, as a real regression or a configuration mistake.
+   - **Looks unrelated to the change**: for example, you changed only documents or CI settings, yet an unrelated Rust or Playwright timing test or an external benchmark fails. In the following sections, confirm with evidence whether the cause is the Bencher Report, a flaky test or the runner.
+   - **Cannot tell**: you cannot rule out an indirect effect (a dependency update, a change to a shared utility and so on). Do not decide that it is a regression or a flaky test. Gather the evidence and escalate to a maintainer.
+
+When you judge a failure unrelated, do not stop at "I did not change it". Always show the list of changed files and the key points of the failure log with it.
+
+## 2. Tell `cancelled` and Dependabot statuses apart from pass and fail
+
+Not every red mark or status other than completed is a CI failure.
+
+- **`cancelled` is not a failure**: it comes from the automatic cancellation by concurrency control when you push to the pull request again, or from a manual cancellation. Check the result of the run on the latest commit (HEAD).
+- **Dependabot statuses are separate from whether CI passed**: do not confuse the state of Dependabot's dependency alerts or automatic update pull requests with whether the tests and builds passed. On the other hand, the `dependency-review` job is a required check. If it fails, check its log for newly introduced vulnerabilities or license problems.
+
+## 3. What the Bencher Report is and how to read its warnings
+
+`Bencher Report (astarot)` is an **external performance report** that [docs/voice-stack/pipeline-latency-tracking.md](../../docs/voice-stack/pipeline-latency-tracking.md) and `.github/workflows/pipeline-latency.yml` send, and it is **not a required check** (an alert does not fail CI itself and does not block a merge).
+
+When the Bencher Report shows `failure` or a warning, check these three points in order.
+
+1. **Whether the pull request touches performance code**: what is measured is the audio pipeline latency of `native/core` (`core: final to chatbox` and `core: final to audible speech`, measured on a debug build with fake servers). For a pull request that does not touch the audio pipeline or the core's processing, a change in the numbers is less likely to be a performance regression.
+2. **Which testbed measured it**: GitHub-hosted runners such as `ubuntu-latest` and `windows-latest` vary a lot with the load on their virtual machines, and single spikes happen.
+3. **Whether a threshold is set**: by the decision of 2026-11-21 (#738), a threshold (t-test, over the latest 64 results at most and 10 at least) is set only for `latency-p50`. `latency-p95` is only recorded and shown in graphs, with no threshold, so the Bencher Report itself prints `WARNING: No Threshold found!`. This is the designed behavior, not a fault.
+
+### Example (pull request #1079, 2026-11-24)
+
+Pull request #1079 changed only the README shields, a CI workflow and the test overview document, and did not touch the code in `native/core` at all. Even so, `latency-p50` of `core: final to audible speech` on the `windows-latest` testbed came to `17.30 ms` (baseline `8.16 ms`, upper limit `16.19 ms`), and an alert was raised (a warning with no threshold also appeared for `latency-p95`). After checking the three points above (no performance code touched, a hosted runner and no p95 threshold by design), it was judged to be variation on the runner's side.
+
+Conversely, when a `latency-p50` alert recurs on a pull request that changed the audio pipeline or thread and queue control, do not blame the runner. Measure `pipeline_latency` locally and check whether there is a regression.
+
+## 4. Known flaky tests and how to connect them to Issue #1073
+
+There is a group of tests that fail now and then on heavily loaded runners because of fixed-time waits or timing races (the timing tests of `core-integration` on the Rust side, and `layoutStability.spec.ts`, `messagePipeline.spec.ts`, `buttonFeedback.test.ts` and others on the TS side). The weekly summary (`.github/workflows/ci-failures.yml`, `tools/ci_failures.py`) also tracks the number of "failed, then passed on rerun" cases.
+
+- **Do not stop at whether a rerun passes**: if you let a failure go with "it passed on a rerun, so it was congestion", you miss real regressions and flaky tests left unattended.
+- **Record it in Issue #1073 when it repeats**: when the same test fails now and then across several pull requests or before and after a rerun, leave the following in Issue #1073 (the flow for detecting and handling flaky tests). Then lead it to a root fix by its owner (the Rust side or the TS side), or to quarantine with the reason written down.
+  - The name of the failed test and of its job
+  - The job URL of the failed run, and the job URL of the rerun if it passed
+  - The date and the pull request (or the `develop` commit)
+  - The key points of the error message (the timeout value or the difference from the expected value)
+
+## 5. Units of rerun and when to use each
+
+When you rerun, choose the unit to suit the situation.
+
+| Unit | When to use it | Examples |
+|---|---|---|
+| Only the failed jobs (or only one job) | When an independent single job failed because of a runner problem or as a flaky candidate. You can verify without redoing the other jobs that passed | `gh run rerun <run-id> --failed`, `gh run rerun <run-id> --job <job-id>` |
+| The whole workflow run | When you need to rebuild from an earlier job that hands over artifacts, or when you want the whole workflow consistent again | `gh run rerun <run-id>` |
+
+- **A run in progress cannot be rerun**: a rerun command is not accepted for a run that is `queued` or `in_progress`. Wait for it to finish before you decide, or, if it is an old run and you have already pushed a new commit, stop it with `gh run cancel <run-id>`.
+- Do not rerun again and again until it turns green. Even when it passes on one rerun, record that it failed and the name of the test.
+
+## 6. How to leave the triage result
+
+Do not keep the conclusion in your head or only on your local terminal. Always leave it, with its evidence, on the pull request or the related issue (Issue #1073 for a flaky test).
+
+```markdown
+### CI triage record
+
+- Check: <workflow name / job name> (run URL)
+- Conclusion: real regression / runner variation / known flaky candidate (added to #1073) / needs checking (escalated to a maintainer)
+- Relation to the scope of the change: <how the changed files relate to where it failed>
+- Logs checked: <key points such as the first error line, numbers and the testbed>
+- Rerun result: <unit (failed jobs only / whole run), result, job URL if it passed; if not run, say so>
+- Next step: <a fix commit, a record in #1073, a request to a maintainer to check and so on>
+```
+
+When you cannot decide, do not state "flaky" or "unrelated" on a guess. Gather the evidence above and escalate to a maintainer.
+
+---
+
+# CIの失敗の切り分け（日本語版）
 
 PRや `develop` のチェックが赤や警告になったとき、安易に「ランナーの気まぐれ」とも「本物の退行」とも決めつけず、変更範囲とログから原因を切り分けて根拠を残す手順です。PRのマージ条件の正本は [skills/pull-request/SKILL.md](../pull-request/SKILL.md) にあります。
 

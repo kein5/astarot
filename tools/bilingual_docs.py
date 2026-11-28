@@ -82,7 +82,6 @@ PAIRS = {"README.md": "docs/readmes/README.ja.md"}
 PENDING_SKILLS = (
     "skills/adr/SKILL.md",
 
-    "skills/ci-triage/SKILL.md",
 
     "skills/e2e/SKILL.md",
 
