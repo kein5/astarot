@@ -485,6 +485,8 @@ config_page:
         original_heading: "Original VRCT"
         original_desc: "ASTAROT is built on VRCT. Thanks to the VRCT developers, contributors and everyone who supported it."
         vrchat_disclaimer: "ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc."
+        # #1266: the fold with the notice's English original, under its wording in another UI language.
+        vrchat_disclaimer_original: "English original"
     search:
         placeholder: "Search settings..."
         label: "Search settings"
