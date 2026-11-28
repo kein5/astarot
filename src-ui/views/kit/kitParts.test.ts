@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { Ref } from "react";
-import { draw, hooks, loadModule, findIn, nodesIn, unchecked } from "../../logics/test/hookHarness.ts";
+import { draw, hooks, loadModule, findIn, nodesIn, setRef, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 
 // The kit's parts drawn with the code they run (kit.test.ts reads their sources and styles): what
@@ -150,25 +150,185 @@ test("a toggle is Radix's root with the kit's look; a group and its items are Ra
     assert.deepEqual([item.type, item.props["data-slot"], item.props.className, item.props.value], ["toggle-group-item", "toggle-group-item", "groupItem", "grid"]);
 });
 
-test("a popover's content is Radix's, 4px from its trigger, in a portal unless told otherwise", async () => {
-    const { runtime, module } = await kit<typeof import("./Popover.tsx")>("./Popover.tsx", {
-        "@radix-ui/react-popover": { Root: "popover-root", Trigger: "popover-trigger", Anchor: "popover-anchor", Portal: "popover-portal", Content: "popover-content" },
+// The popover as the kit draws it: Radix's parts by name, the kit's motion (motion.ts) with its
+// presence as it is and its animations recorded, and the root's open state as the content reads it.
+async function popover(open: { current: boolean | null }) {
+    const runtime = hooks(), played: string[] = [];
+    const radix = { Root: "popover-root", Trigger: "popover-trigger", Anchor: "popover-anchor", Portal: "popover-portal", Content: "popover-content" };
+    const motion = await loadModule<typeof import("./motion.ts")>(new URL("./motion.ts", import.meta.url), runtime, { "motion/mini": { animate: () => ({}) } });
+    const exits: (() => void)[] = [];
+    const stand = {
+        ...motion,
+        appear: (element: { name: string }, surface: string, side: string) => {
+            played.push(`appear ${element.name} ${surface} ${side}`);
+            return { finish: () => {}, stop: () => {}, finished: Promise.resolve() };
+        },
+        disappear: (element: { name: string }, surface: string, side: string) => {
+            played.push(`disappear ${element.name} ${surface} ${side}`);
+            return { finish: () => {}, stop: () => { played.push(`stop ${element.name}`); },
+                finished: new Promise<void>(resolve => { exits.push(resolve); }) };
+        },
+    };
+    const module = await loadModule<typeof import("./Popover.tsx")>(new URL("./Popover.tsx", import.meta.url), runtime, {
+        "@radix-ui/react-popover": radix,
         "./Popover.css.ts": styleModule(["content"]),
+        "./motion.ts": stand,
+        react: { ...runtime.api, useContext: () => open.current },
     });
+    return { runtime, module, played, exits };
+}
+
+// A panel as Radix draws it: where it placed it (data-side), and a name for the test.
+const panelElement = (name: string, side: string | null = null) => ({ name, getAttribute: (attribute: string) => attribute === "data-side" ? side : null });
+
+test("a popover's content is Radix's, 4px from its trigger, in a portal unless told otherwise", async () => {
+    const { runtime, module } = await popover({ current: true });
     const trigger = runtime.render(module.PopoverTrigger, { children: "Quick settings" });
     assert.deepEqual([trigger.type, trigger.props["data-slot"]], ["popover-trigger", "popover-trigger"]);
     const anchor = runtime.render(module.PopoverAnchor, {});
     assert.deepEqual([anchor.type, anchor.props["data-slot"]], ["popover-anchor", "popover-anchor"]);
-    const root = runtime.render(module.Popover, { open: true, children: "parts" });
-    assert.deepEqual([root.type, root.props.open], ["popover-root", true]);
     const portalled = runtime.render(module.PopoverContent, { children: "rows", className: "own" });
+    assert.ok(portalled, "drawn while open");
     assert.equal(portalled.type, "popover-portal");
     const panel = findIn(portalled, node => node.type === "popover-content", "the content");
     assert.deepEqual([panel.props["data-slot"], panel.props.className, panel.props.align, panel.props.sideOffset, panel.props.children],
         ["popover-content", "content inset=undefined own", "center", 4, "rows"]);
-    const inline = runtime.render(module.PopoverContent, { portal: false, inset: "tight", align: "end", sideOffset: 0 });
+    const inline = findIn(runtime.render(module.PopoverContent, { portal: false, inset: "tight", align: "end", sideOffset: 0 }),
+        node => node.type === "popover-content", "the content without its portal");
     assert.deepEqual([inline.type, inline.props.className, inline.props.align, inline.props.sideOffset, inline.props.portal],
         ["popover-content", "content inset=tight", "end", 0, undefined]);
+});
+
+test("the popover's root is open as its owner says, or as it was last asked", async () => {
+    const { runtime, module } = await popover({ current: null });
+    const asked: boolean[] = [];
+    const radixRoot = (tree: TreeNode) => findIn(tree, node => node.type === "popover-root", "Radix's root");
+    // Its owner's: Radix is told the same, and the owner hears each request.
+    const owned = runtime.render(module.Popover, { open: true, onOpenChange: (next: boolean) => asked.push(next), children: "parts" });
+    assert.equal(owned.props.value, true, "the content reads it");
+    assert.deepEqual([radixRoot(owned).props.open, radixRoot(owned).props.children], [true, "parts"]);
+    radixRoot(owned).props.onOpenChange(false);
+    assert.deepEqual(asked, [false]);
+    assert.equal(radixRoot(runtime.render(module.Popover, { open: true, onOpenChange: () => {}, children: "parts" })).props.open, true,
+        "the owner decides");
+    runtime.remount();
+    // Its own: as it was opened with, then as it was last asked.
+    const own = runtime.render(module.Popover, { defaultOpen: true, children: "parts" });
+    assert.deepEqual([own.props.value, radixRoot(own).props.open], [true, true]);
+    radixRoot(own).props.onOpenChange(false);
+    const closed = runtime.render(module.Popover, { defaultOpen: true, children: "parts" });
+    assert.deepEqual([closed.props.value, radixRoot(closed).props.open], [false, false]);
+    runtime.remount();
+    assert.equal(runtime.render(module.Popover, { children: "parts" }).props.value, false, "closed unless asked");
+    // The owner's newest handler hears the request.
+    runtime.remount();
+    const heard: string[] = [];
+    runtime.render(module.Popover, { open: false, onOpenChange: () => heard.push("first"), children: "parts" });
+    const later = runtime.render(module.Popover, { open: false, onOpenChange: () => heard.push("second"), children: "parts" });
+    radixRoot(later).props.onOpenChange(true);
+    assert.deepEqual(heard, ["second"]);
+});
+
+test("a popover's content moves from the side Radix placed it on, or the side it asked for", async () => {
+    for (const [placed, asked, expected] of [["top", undefined, "top"], ["right", undefined, "right"], ["bottom", "left", "bottom"],
+        ["left", undefined, "left"], [null, "right", "right"], ["center", undefined, "bottom"]] as const) {
+        const { runtime, module, played } = await popover({ current: true });
+        runtime.render(module.PopoverContent, { portal: false, side: asked }, tree => {
+            setRef(findIn(tree, node => node.type === "popover-content"), panelElement("panel", placed));
+        });
+        assert.deepEqual(played, [`appear panel popover ${expected}`], `placed ${String(placed)}, asked ${String(asked)}`);
+        runtime.unmount();
+    }
+});
+
+test("a popover's content that Radix never drew leaves at once", async () => {
+    const open = { current: true as boolean | null };
+    const { runtime, module, played } = await popover(open);
+    runtime.render(module.PopoverContent, { portal: false });
+    open.current = false;
+    const leaving = runtime.render(module.PopoverContent, { portal: false });
+    assert.ok(leaving, "drawn while its leaving starts");
+    assert.equal(runtime.render(module.PopoverContent, { portal: false }), null);
+    assert.deepEqual(played, [], "nothing to move");
+    runtime.unmount();
+});
+
+test("a popover's exit started again (its side changed as it left) ends with the new one, not the one before", async () => {
+    const open = { current: true as boolean | null };
+    const { runtime, module, played, exits } = await popover(open);
+    const panel = panelElement("panel");
+    const drawPanel = (side: "top" | "left") => runtime.render(module.PopoverContent, { portal: false, side }, tree => {
+        if (tree) setRef(findIn(tree, node => node.type === "popover-content"), panel);
+    });
+    drawPanel("top");
+    open.current = false;
+    drawPanel("top");
+    drawPanel("left");
+    assert.deepEqual(played, ["appear panel popover top", "disappear panel popover top", "stop panel", "disappear panel popover left"]);
+    exits[0]();
+    await Promise.resolve();
+    assert.ok(drawPanel("left"), "the first exit, stopped, ends nothing");
+    exits[1]();
+    await Promise.resolve();
+    assert.equal(drawPanel("left"), null);
+    runtime.unmount();
+});
+
+// #1378: the content comes from its button and goes back toward it. It stays drawn while it
+// leaves, and Radix keeps it (forceMount) until then: Radix gives the focus back once it is gone.
+test("a popover's content comes in when drawn, stays drawn while it leaves, and is drawn anew when opened again as it leaves", async () => {
+    const open = { current: true as boolean | null };
+    const { runtime, module, played, exits } = await popover(open);
+    const content = (tree: TreeNode | null) => findIn(tree, node => node.type === "popover-content", "the content");
+    const drawPanel = (props: Record<string, unknown> = {}, element: unknown = null) => runtime.render(module.PopoverContent, { portal: false, ...props },
+        tree => { if (element && tree) setRef(content(tree), element); });
+    const first = panelElement("first", "left");
+    const drawn = drawPanel({}, first);
+    assert.deepEqual([content(drawn).props.forceMount, content(drawn).props["data-leaving"], content(drawn).key], [true, undefined, "0"]);
+    assert.deepEqual(played, ["appear first popover left"], "from the side Radix placed it on");
+    drawPanel({}, first);
+    assert.deepEqual(played, ["appear first popover left"], "drawn again, it does not come in again");
+    // Closed: still drawn, taking no presses, while it fades toward its button.
+    open.current = false;
+    const leaving = drawPanel({}, first);
+    assert.deepEqual([content(leaving).props.forceMount, content(leaving).props["data-leaving"]], [true, ""]);
+    assert.deepEqual(played.slice(1), ["disappear first popover left"]);
+    exits[0]();
+    await Promise.resolve();
+    assert.equal(drawPanel(), null, "gone once it has left");
+    // Opened again, and closed and opened again before it left: drawn anew, under a new key.
+    open.current = true;
+    const second = panelElement("second");
+    drawPanel({}, second);
+    open.current = false;
+    drawPanel({}, second);
+    open.current = true;
+    const again = drawPanel({}, panelElement("third"));
+    assert.deepEqual([content(again).key, content(again).props["data-leaving"]], ["1", undefined]);
+    assert.deepEqual(played.slice(2), ["appear second popover bottom", "disappear second popover bottom", "appear third popover bottom", "stop second"]);
+    exits[1]();
+    await Promise.resolve();
+    assert.ok(drawPanel(), "the exit that was cut short does not take the new one away");
+    runtime.unmount();
+});
+
+test("a popover's content under a Radix root of the caller's own is shown and hidden by Radix, and gives the caller its ref", async () => {
+    const { runtime, module, played } = await popover({ current: null });
+    const seen: unknown[] = [];
+    const objectRef: { current: HTMLDivElement | null } = { current: null };
+    const element = unchecked<HTMLDivElement>(panelElement("own"));
+    const portalled = runtime.render(module.PopoverContent, { ref: (node: unknown) => { seen.push(node); }, side: "top" }, tree => {
+        setRef(findIn(tree, node => node.type === "popover-content"), element);
+    });
+    assert.equal(findIn(portalled, node => node.type === "popover-portal").props.forceMount, undefined);
+    assert.equal(findIn(portalled, node => node.type === "popover-content").props.forceMount, undefined);
+    assert.deepEqual(seen, [element]);
+    assert.deepEqual(played, ["appear own popover top"], "from the side it asked for until Radix says where it placed it");
+    runtime.render(module.PopoverContent, { ref: objectRef, side: "top" }, tree => {
+        setRef(findIn(tree, node => node.type === "popover-content"), element);
+    });
+    assert.equal(objectRef.current, element);
+    runtime.unmount();
 });
 
 test("an item list is a <ul> of <li> rows that ask for their look, and say it as shadcn/ui's Item does", async () => {

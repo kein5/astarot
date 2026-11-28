@@ -331,3 +331,7 @@ test("only the kit imports Motion", () => {
     assert.deepEqual(importing, ["views/kit/motion.ts"]);
     assert.match(read("motion.ts"), /import \{ animate \} from "motion\/mini";/);
 });
+
+test("a popover that leaves takes no presses: they reach what is under it", () => {
+    assert.match(read("Popover.css.ts"), /"&\[data-leaving\]": \{ pointerEvents: "none" \}/);
+});
