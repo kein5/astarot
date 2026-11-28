@@ -1,0 +1,164 @@
+# The component map of the ASTAROT ecosystem: the components inside ASTAROT and the
+# repositories kept outside it. This file is the only place where the map's names and
+# roles are edited. tools/component_map.py makes docs/component-map.md from it:
+#
+#     python tools/component_map.py --write   # or: mise run component-map
+#     python tools/component_map.py --check   # exit 1 when the page is out of date
+#
+# The code names come from the naming record, Issue #689. List only what exists now:
+# no candidates and no reserved names.
+#
+# [system] is the ASTAROT repository itself. Its id can be used in a relation.
+#
+# Each [[component]] has:
+#   id          node id in the diagram and in relations (lower case, digits, "_")
+#   name        display name (the code name)
+#   kind        "internal" (inside ASTAROT) or "external" (a repository of its own)
+#   role        technical role, in English. The diagram shows this text
+#   role_ja     the same role in Japanese, for the Japanese version of the page
+#   path        internal only: the folder in this repository. A Cargo package that no
+#               entry names is reported as a warning
+#   repository  external only: "owner/name" on GitHub
+#   status      optional note on the state, in English
+#   status_ja   the same note in Japanese (given together with status)
+#
+# Internal components are drawn in rows of three, in the order listed here.
+#
+# Each [[relation]] has:
+#   from, to    ids of components or of the system
+#   line        "solid" or "dashed"
+#   label       optional text on the line, in English
+#   label_ja    the same text in Japanese (given together with label)
+
+[system]
+id = "astarot"
+name = "ASTAROT"
+repository = "kein5/astarot"
+
+[[component]]
+id = "ayperos"
+name = "Ayperos"
+kind = "internal"
+role = "core"
+role_ja = "中核"
+path = "native/core"
+
+[[component]]
+id = "sargatanas"
+name = "Sargatanas"
+kind = "internal"
+role = "speech-server"
+role_ja = "推論のサーバー"
+path = "native/speech-server"
+
+[[component]]
+id = "loray"
+name = "Loray"
+kind = "internal"
+role = "transcription"
+role_ja = "音声認識"
+path = "native/transcription"
+
+[[component]]
+id = "hael"
+name = "Hael"
+kind = "internal"
+role = "translation"
+role_ja = "翻訳"
+path = "native/translation"
+
+[[component]]
+id = "humots"
+name = "Humots"
+kind = "internal"
+role = "OCR"
+role_ja = "文字認識（OCR）"
+path = "native/ocr-runtime"
+
+[[component]]
+id = "forau"
+name = "Forau"
+kind = "internal"
+role = "TTS"
+role_ja = "読み上げ（TTS）"
+path = "native/tts"
+
+[[component]]
+id = "nuberus"
+name = "Nuberus"
+kind = "internal"
+role = "vr-overlay"
+role_ja = "VRのオーバーレイ"
+path = "native/vr-overlay"
+
+[[component]]
+id = "nebiros"
+name = "Nebiros"
+kind = "internal"
+role = "ops"
+role_ja = "運用（ops）"
+path = "native/ops"
+
+[[component]]
+id = "segal_kit"
+name = "Segal"
+kind = "internal"
+role = "UI design system (kit)"
+role_ja = "UIのデザインシステム（kit）"
+path = "src-ui/views/kit"
+
+[[component]]
+id = "sergulath"
+name = "SERGULATH"
+kind = "external"
+role = "SteamVR verification toolkit"
+role_ja = "SteamVRの検証の道具一式"
+repository = "kein5/sergulath"
+
+[[component]]
+id = "aglasis"
+name = "AGLASIS"
+kind = "external"
+role = "Discord-to-Issue skill"
+role_ja = "DiscordからIssueを作るスキル"
+repository = "kein5/aglasis"
+
+[[component]]
+id = "segal_repository"
+name = "SEGAL"
+kind = "external"
+role = "future home of the UI kit"
+role_ja = "UIのkitの移り先"
+repository = "kein5/segal"
+
+[[component]]
+id = "trimasel"
+name = "TRIMASEL"
+kind = "external"
+role = "VR keyboard"
+role_ja = "VRのキーボード"
+repository = "kein5/trimasel"
+status = "design phase"
+status_ja = "設計の段階"
+
+[[relation]]
+from = "astarot"
+to = "sergulath"
+line = "solid"
+
+[[relation]]
+from = "astarot"
+to = "aglasis"
+line = "solid"
+
+[[relation]]
+from = "astarot"
+to = "trimasel"
+line = "solid"
+
+[[relation]]
+from = "segal_kit"
+to = "segal_repository"
+line = "dashed"
+label = "planned move"
+label_ja = "移す予定"
