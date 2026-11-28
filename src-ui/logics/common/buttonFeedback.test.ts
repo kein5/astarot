@@ -251,6 +251,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
+        "./BlockedSwitchDialog": { BlockedSwitchDialog: "blocked-switch-dialog" },
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: [], settle() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },

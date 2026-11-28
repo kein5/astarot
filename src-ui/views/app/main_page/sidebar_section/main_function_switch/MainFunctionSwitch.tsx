@@ -34,6 +34,8 @@ import {
 } from "@logics_main";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
 import { Button, Switch } from "../../../../kit/index.ts";
+import { BlockedSwitchDialog } from "./BlockedSwitchDialog";
+import type { SwitchBlock } from "../../../../../logics/main/switchBlocks";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -154,6 +156,8 @@ export const MainFunctionSwitch = () => {
     const picked = pickedPresets(currentUsagePresets.data);
     const [showOthers, setShowOthers] = useState(false);
     const { leads, settle } = useSetupLeads();
+    // A greyed switch that is pressed opens why and the step that fixes it (#1314, M-1).
+    const [blockedPress, setBlockedPress] = useState<{ name: string; block: SwitchBlock } | null>(null);
     const inSight = (item: SwitchItem) => isSwitchShown(picked, item.switch_id,
         item.currentState?.data === true || item.currentState?.state === "pending" || leads.includes(item.switch_id));
     const hiddenCount = switch_items.filter(item => !inSight(item)).length;
@@ -191,10 +195,16 @@ export const MainFunctionSwitch = () => {
                     SvgComponent={item.SvgComponent}
                     settingsLabel={settingsLabel(destination, t)}
                     openSettings={() => prepare(destination)}
+                    onBlockedPress={block ? () => setBlockedPress({ name: item.label, block }) : undefined}
                     lead={leads.includes(item.switch_id) && item.currentState.data !== true}
                 />;
             }), ...(hiddenCount > 0 ? [<MoreFeaturesButton key="more_features" count={hiddenCount} expanded={showOthers}
-                onToggle={() => setShowOthers(value => !value)} />] : [])]}
+                onToggle={() => setShowOthers(value => !value)} />] : []),
+            // Only while it is open: the kit's dialog draws over the window, wherever it sits in the list.
+            ...(blockedPress ? [<BlockedSwitchDialog key="blocked_switch_dialog" name={blockedPress.name}
+                reason={t(`main_page.switch_blocked.${blockedPress.block.reason}`)}
+                fixLabel={blockedPress.block.action ? settingsLabel(blockedPress.block.action, t) : null}
+                onFix={() => prepare(blockedPress.block.action)} onClose={() => setBlockedPress(null)} />] : [])]}
         </div>
     );
 };
@@ -278,8 +288,9 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
 };
 
 // blockedReason: why the switch cannot be turned on yet and where to provide it. The switch is
-// then disabled and says so in its tooltip and to screen readers; it keeps its place in the
-// tab order so that the reason can be heard.
+// then greyed and says so in its tooltip and to screen readers; it keeps its place in the tab
+// order so that the reason can be heard. Pressed, it opens the reason with the step that fixes it
+// (onBlockedPress, #1314 M-1); without that, it does nothing.
 // starting: the engine has not sent the switch's state yet; the switch is a placeholder.
 // unavailableText: why no switch can be used (the engine is gone). The rail says it once at its
 // head (EngineReadout); the switch adds no line for it, and keeps it in its name and tooltip.
@@ -301,6 +312,8 @@ type SwitchContainerProps = {
     inRow?: boolean;
     // The first-run setup leads here (#955): the switch stands out until it is turned on.
     lead?: boolean;
+    // A greyed switch's press: opens why it cannot be turned on yet and the step that fixes it.
+    onBlockedPress?: () => void;
 };
 
 // The row is the label of the kit's switch at its end (D-19, decided on 2026-11-25): pressing
@@ -308,7 +321,7 @@ type SwitchContainerProps = {
 // the row's words are read only as that name, not once more beside it: they are aria-hidden, as
 // they were inside the row that was the switch. The icon rail has no room for the switch: there it
 // is visually hidden, still focused and pressed through the row, whose ring shows its focus.
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false }: SwitchContainerProps) => {
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const switchId = `main_switch_${switch_id}`;
     const reasonId = `${switchId}_reason`;
@@ -324,6 +337,10 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     // the icon rail. A state the wide rail prints under the name is not repeated in a bubble (Tooltip).
     const tooltip = blockedTitle ?? (unavailableTitle || null) ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined);
     const blocked = greyed || disabled || (!cancellable && pending);
+    // A switch held off for a missing setup answers its press with why and the fix (#1314, M-1); a
+    // switch that cannot be used for another reason (the engine is gone, a change on its way) does not.
+    const explains = !!blockedReason && !unavailable && !!onBlockedPress;
+    const press = () => { if (explains) onBlockedPress?.(); else if (!blocked) toggleFunction(); };
 
     const getClassNames = (baseClass: string | undefined) => clsx(baseClass, {
         [styles.is_compact_mode]: currentIsMainPageCompactMode.data,
@@ -354,18 +371,19 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                         id={switchId}
                         checked={active}
                         aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel}
-                        aria-busy={pending} aria-disabled={blocked}
+                        aria-busy={pending} aria-disabled={blocked && !explains}
+                        aria-haspopup={explains ? "dialog" : undefined}
                         aria-describedby={blockedReason ? reasonId : undefined}
                         // Greyed out as the kit draws a switch that cannot be used, still in the tab order.
                         data-disabled={greyed ? "" : undefined}
                         // While the engine starts, a flat block of the switch's size (MainPage.css.ts).
                         data-skeleton={starting ? "" : undefined}
                         // A press anywhere on the row reaches the switch through its label: one press, one toggle.
-                        onClick={() => { if (!blocked) toggleFunction(); }}
+                        onClick={press}
                         onKeyDown={event => {
                             if (event.key === " " || event.key === "Enter") {
                                 event.preventDefault();
-                                if (!event.repeat && !blocked) toggleFunction();
+                                if (!event.repeat) press();
                             }
                         }}
                     />

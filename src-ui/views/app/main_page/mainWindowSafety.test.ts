@@ -85,6 +85,7 @@ const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSet
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
+        "./BlockedSwitchDialog": { BlockedSwitchDialog: "blocked-switch-dialog" },
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: (action: string) => setup.prepared?.push(action) }) },
         "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: setup.leads ?? [], settle: (id: string) => setup.settled?.push(id) }) },
         "../../startupContext": { useIsStartingUp: () => starting },
@@ -307,7 +308,7 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
     }
 });
 
-test("a switch whose setup is missing is disabled, says why, and its icon leads to the setup", async () => {
+test("a switch whose setup is missing is greyed, says why, and its icon leads to the setup", async () => {
     const b = await loadBridgeStore(), sent: string[] = [], prepared: string[] = [];
     b.stores.store.backend_subprocess = runningChild();
     b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
@@ -326,7 +327,9 @@ test("a switch whose setup is missing is disabled, says why, and its icon leads 
         assert.equal(props.blockedReason, `main_page.switch_blocked.${setup.blocks[id].reason}`);
         const drawn = s.SwitchContainer(props);
         const control = switchOf(drawn), before = s.requests.length + sent.length;
-        assert.equal(control.props["aria-disabled"], true);
+        // Pressing it opens why with the step that fixes it (#1314, M-1), so it is not announced as
+        // disabled; it says it opens a dialog.
+        assert.deepEqual([control.props["aria-disabled"], control.props["aria-haspopup"]], [false, "dialog"]);
         // The reason is the tooltip, beside the rail; no title attribute is left on the switch.
         assert.equal(drawn.props.title, props.blockedReason);
         assert.equal(drawn.props.placement, "right");
@@ -337,13 +340,32 @@ test("a switch whose setup is missing is disabled, says why, and its icon leads 
         const reason = find(inTooltip(drawn), node => node.props.id === `main_switch_${id}_reason`);
         assert.ok(reason);
         assert.deepEqual([reason.props.className, reason.props.children], ["visually_hidden", props.blockedReason]);
-        // Still in the tab order (not disabled), so the reason can be heard; pressing does nothing.
+        // Still in the tab order (not disabled) and greyed; pressing it turns nothing on.
         assert.equal(control.props.disabled, undefined);
         assert.equal(control.props["data-disabled"], "");
         control.props.onClick();
         control.props.onKeyDown({ key: "Enter", preventDefault() {} });
         assert.equal(s.requests.length + sent.length, before);
     }
+    // #1314 (M-1): the press opens the reason with the step the switch's icon takes.
+    const dialogOf = () => (b.runtime.render(s.MainFunctionSwitch).props.children as TreeNode[]).find(node => node.type === "blocked-switch-dialog") ?? null;
+    // The presses above opened it; the last one is still open.
+    assert.equal(dialogOf()?.props.reason, "main_page.switch_blocked.translation_downloading");
+    dialogOf()?.props.onClose();
+    assert.equal(dialogOf(), null);
+    for (const [id, step] of [["translation", "main_page.feature_settings.translation_model"], ["ocr", "main_page.feature_settings.open_page"],
+        ["tts", "main_page.feature_settings.open_page"], ["transcription_send", null]] as const) {
+        const rendered: TreeNode[] = b.runtime.render(s.MainFunctionSwitch).props.children;
+        switchOf(s.SwitchContainer(rendered[at(id)].props)).props.onClick();
+        const dialog = dialogOf();
+        assert.ok(dialog, id);
+        assert.deepEqual([dialog.props.name, dialog.props.reason, dialog.props.fixLabel],
+            [rendered[at(id)].props.switchLabel, `main_page.switch_blocked.${setup.blocks[id].reason}`, step], id);
+        dialog.props.onFix();
+        dialog.props.onClose();
+        assert.equal(dialogOf(), null, id);
+    }
+    assert.deepEqual(prepared.splice(0), ["translation", "ocr_models", "tts", null]);
     // No button is added under a switch: one row per feature, whatever is missing.
     assert.equal(rows.length, 6);
     // The way to the setup is the icon beside the switch; waiting sends it to the usual page.

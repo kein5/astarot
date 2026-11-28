@@ -399,6 +399,10 @@ main_page:
         rvc_model: "変換に使うモデルと実行環境が設定されていません。設定の「ボイスチェンジャー（RVC）」→「モデルと実行環境」で設定してください。"
         rvc_output_device: "変換した声の出力先が選ばれていません。設定の「テキスト読み上げ（TTS）」で「出力デバイス」を選んでください。"
         rvc_route: "音声経路が「管理対象の仮想マイク」になっていません。設定の「デバイス」→「音声経路」で選んでください。"
+    # #1314 (M-1): a greyed switch that is pressed opens why, with the step that fixes it.
+    switch_blocked_dialog:
+        title: "{{name}}をまだオンにできません"
+        close: "閉じる"
 
     language_settings: "言語設定"
     language_pair: "{{from}} → {{to}}"
