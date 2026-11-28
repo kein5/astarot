@@ -245,6 +245,22 @@ The settings are `talk_ai_screen_interval_ms` (250 to 10000 ms, default 1000), `
 
 In the UI (stage 6), the settings have a "Talk AI" page only while the experimental feature `talk_ai` is on (#969, decision 2). Every start asks for consent on a confirmation screen that shows the destination, what is sent and where the answer plays; playing the answer into the virtual microphone takes a consent of its own that others hear it. After `phase: "ready"`, a band at the top of the window, over both the main page and the settings, says that the voice is being sent, and `/set/enable/talk_ai_audio` is sent after the band is drawn. Screen sharing likewise asks for consent on its own confirmation screen, and `/set/enable/talk_ai_screen` is sent after the band also shows the screen. While a conversation is open, the destination and the screen settings cannot be changed, because the core stops the conversation when they change. While a conversation is open, the UI asks for `/get/data/talk_ai_status` every second.
 
+### Config file and conversation log locations
+
+`/get/data/path_config` returns the absolute path of the settings file as a string. `/get/data/path_logs` returns the conversation log folder in effect, in the form `{ "path": "...", "error_code": null }`. Both are included in the initialization response.
+
+`/set/data/path_logs` takes the absolute path of an existing folder that can be written to, as a string. `null` goes back to the default folder. On success it returns the same form as the get. When the input cannot be accepted, it goes back to the default folder and returns the HTTP-equivalent status 400 with `{ "path": "...", "error_code": "..." }`.
+
+| Error code | Reason and action shown at the input field |
+|---|---|
+| `log_directory_invalid` | Give the path of a folder, or go back to the default folder. |
+| `log_directory_not_absolute` | Give the absolute path of a folder. |
+| `log_directory_missing` | Give a folder that exists. |
+| `log_directory_not_directory` | Change the path of a file to the path of a folder. |
+| `log_directory_unwritable` | Give a folder that can be written to. |
+
+When a saved folder can no longer be used, it also goes back to the default folder. A get returns the path in effect and the latest error code. Writing the conversation log and opening its folder use the same folder. After the folder changes, new messages are written to the new folder.
+
 ---
 
 # IPCプロトコル（UIとサイドカー）（日本語版）

@@ -19,7 +19,8 @@ async function setup(hints = false, narrow = false) {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
     const { DropdownMenu, MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks());
-    const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
+    const { SettingCombobox } = await loadModule<typeof import("../_components/setting_combobox/SettingCombobox.tsx")>(new URL(base + "setting_combobox/SettingCombobox.tsx", import.meta.url), hooks());
+    const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu, SettingCombobox,
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter",
         HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check", SettingSwitch: "switch" };
@@ -38,7 +39,7 @@ async function setup(hints = false, narrow = false) {
     return { runtime, template, components, render };
 }
 
-for (const name of ["Switch", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
+for (const name of ["Switch", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton", "Combobox"]) {
     test(`${name} template connects description and warning IDs without changing its label`, async () => {
         const s = await setup();
         const props = { label: "Setting", desc: "Help", add_warnings: [{ label: "Unavailable" }], "aria-describedby": "existing-help" };
@@ -155,6 +156,45 @@ test("FormRow preserves a field's error relation while adding its description", 
 
 // K-02 (decided on 2026-11-25): a setting turned on and off is the settings' switch, at the row's
 // end like the other single controls, and the row keeps it there in a narrow window.
+// #1369: a choice among many as the kit's searchable dropdown, given the props a grouped radio row
+// takes, so a page swaps one for the other as it is.
+test("a searchable choice's row takes the grouped radio row's props and gives the kit's Combobox its choices", async () => {
+    const s = await setup();
+    const groups = [{ id: "local", label: "On your PC", options: [{ id: "a", label: "Engine A" }] },
+        { id: "api", label: "API", options: [{ id: "b", label: "Engine B" }, { id: "c", label: "Engine C", disabled: true, keywords: ["see"] }] }];
+    const chosen: string[] = [];
+    const selectFunction = (id: string) => { chosen.push(id); };
+    const props = { label: "Translation engine", desc: "Choose one", name: "engine", groups, selectFunction, placeholder: "Not chosen",
+        search_label: "Search engines", search_placeholder: "Filter by name", empty_text: "No matching engines",
+        checked_variable: { state: "ok", data: "b" } };
+    const row = s.render("ComboboxContainer", props);
+    assert.deepEqual([row.props.control_align, row.props.setting_id], ["end", "engine"], "at the row's end; the settings search finds it by its name");
+    const label = row.props.children[0], control = row.props.children[1];
+    assert.equal(control.type, s.components.SettingCombobox);
+    const field = draw(control);
+    assert.equal(field.props.className, "container", "as compact as the row's select fields");
+    const combobox = findIn(field, node => node.type === kitStandIns.Combobox, "the kit's Combobox").props;
+    assert.deepEqual([combobox.value, combobox.onValueChange, combobox.options, combobox.busy, combobox.align], ["b", selectFunction, undefined, false, "end"]);
+    assert.deepEqual(combobox.groups, [
+        { id: "local", label: "On your PC", options: [{ value: "a", label: "Engine A", disabled: undefined, keywords: undefined }] },
+        { id: "api", label: "API", options: [{ value: "b", label: "Engine B", disabled: undefined, keywords: undefined },
+            { value: "c", label: "Engine C", disabled: true, keywords: ["see"] }] },
+    ]);
+    assert.deepEqual([combobox.placeholder, combobox.searchLabel, combobox.searchPlaceholder, combobox.emptyText],
+        ["Not chosen", "Search engines", "Filter by name", "No matching engines"]);
+    assert.deepEqual([combobox["aria-labelledby"], combobox["aria-describedby"]], [label.props.label_id, label.props.description_id]);
+    combobox.onValueChange("a");
+    assert.deepEqual(chosen, ["a"]);
+    // A choice that waits on the engine; a value that is not a choice's id; a list with no groups.
+    const waiting = (data: unknown, state: string, extra: object = {}) =>
+        findIn(draw(s.render("ComboboxContainer", { ...props, ...extra, checked_variable: { state, data } }).props.children[1]),
+            node => node.type === kitStandIns.Combobox).props;
+    assert.deepEqual([waiting("b", "pending").busy, waiting(2, "ok").value, waiting(null, "ok").value], [true, undefined, undefined]);
+    const flat = waiting("x", "ok", { groups: undefined, options: [{ id: "x", label: "Only one" }] });
+    assert.deepEqual([flat.groups, flat.options], [undefined, [{ value: "x", label: "Only one", disabled: undefined, keywords: undefined }]]);
+    assert.deepEqual(waiting("x", "ok", { groups: undefined }).options, [], "no options yet");
+});
+
 test("an on/off setting's row draws the settings' switch at its end, named by the row's label", async () => {
     const s = await setup();
     const toggleFunction = () => {};

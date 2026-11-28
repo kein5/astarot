@@ -1,9 +1,111 @@
 ---
 name: adr
-description: ASTAROTの設計判断の記録（ADR、docs/adr）を書く、読む、更新する、置き換える手順。設計の選択が決まったとき（「AとBどっちにする？」→「Bで」）、ある案をやめると決めたとき、変更がADRと食い違うとき、「ADRにして」「決めたことを記録して」と頼まれたとき、ADRのstatus・validity・implementation_statusを直すとき、ADRを置き換える（supersede）ときに使う。Use when recording, reading, updating or superseding an architecture decision record in docs/adr. 1つのコードの理由（コメント）、機能の仕様（docs/spec）、作業の手順（スキル）、すべての作業の決まり（AGENTS.md）には使わない。
+description: Steps for writing, reading, updating and superseding ASTAROT's architecture decision records (ADRs, docs/adr). Use when a design choice has been made ("A or B?" → "B"), when you decide to drop an option, when a change disagrees with an ADR, when asked to "make this an ADR" or "record what we decided", when fixing an ADR's status, validity or implementation_status, or when superseding an ADR. Not for the reason behind one piece of code (a comment), a feature's spec (docs/spec), work steps (a skill) or the rules for all work (AGENTS.md). ASTAROTの設計判断の記録（ADR、docs/adr）を書く、読む、更新する、置き換える手順。設計の選択が決まったとき（「AとBどっちにする？」→「Bで」）、ある案をやめると決めたとき、変更がADRと食い違うとき、「ADRにして」「決めたことを記録して」と頼まれたとき、ADRのstatus・validity・implementation_statusを直すとき、ADRを置き換える（supersede）ときに使う。1つのコードの理由（コメント）、機能の仕様（docs/spec）、作業の手順（スキル）、すべての作業の決まり（AGENTS.md）には使わない。
 ---
 
-# 設計判断の記録（ADR）
+# Design decision records (ADRs)
+
+[日本語版](#設計判断の記録adr日本語版)
+
+An ADR records the reasons for a decision that reading the code does not reveal. It says what was decided, which other options there were and why they were not taken. The authoritative copies are in `docs/adr/` only, and the index is `docs/adr/README.md`. The authority on the meanings of the fields and values is "Fields and values" in the index, and this skill covers only the steps.
+
+ADRs are published. Do not write people's names, who was in charge or details of the development environment. Write who decided by role, as in `Decision owners: the repository maintainers`.
+
+## 1. Decide whether it needs an ADR
+
+Write an ADR when all three of the following hold.
+
+- The decision is hard to reverse. Reversing it changes the formats of settings or files, the IPC and OSC contracts, storage locations or identifiers, the release package, how licenses are handled or the behavior of several features.
+- Someone who does not know the reason would want to change it. This covers decisions where a person who reads only the code would likely think another form is better.
+- It is a choice that was actually made. There were other options, and they were compared.
+
+A decision not to do something is also an ADR (ADR-009 decides not to bundle a virtual microphone driver). Write what does not meet the conditions in these places.
+
+| Content | Where to write it |
+|---|---|
+| The reason for one piece of code, a library's quirks | A comment in that code |
+| How a feature behaves, the IPC and OSC contracts, data formats | `docs/spec/` |
+| The look and operation of screens | `DESIGN.md` |
+| The product's purpose and the features it must keep | `PRODUCT.md` |
+| Work steps | A skill (`skills/`) |
+| Rules that all work follows | `AGENTS.md` |
+| Records of research and verification, implementation plans | Issues, pull requests, the records in `docs/voice-stack/` |
+
+When a decision made in the conversation meets the conditions, say that you will write it as an ADR, then write it. Put a decision made before the implementation in a pull request with only the ADR, and a decision made together with the implementation in the same pull request as the implementation.
+
+## 2. Write a new ADR
+
+1. Look up the last number in the index's list and use the next one. Numbers are never reused. If a parallel branch takes the same number, `--check` stops it, so change the number on the side that is not merged yet.
+2. Copy `docs/adr/TEMPLATE.md` to create `docs/adr/adr-NNN-<short English name>.md`. For the name, join English words that tell what was decided with hyphens (`adr-013-secret-store.md`). Do not rename the file after it is merged.
+3. Make the heading `# ADR-NNN: <the decision in one sentence>`, and delete the quote on how to use the template.
+4. Fill in the front matter.
+   - Set `date` and `implementation_checked` to the day you write it.
+   - `era` is the setup at the time of writing. For an ADR written now, it is `rust-core`.
+   - Set `status` to `proposed`. When the maintainers decide to adopt it, set `accepted`, and write the date of the decision and where it was made (such as the record of the decision in an issue) in the Status line of the body.
+   - Set `validity` to `current`.
+   - Keep `implementation_status` at `pending` or `unknown` until you have checked the implementation. Do not set `implemented` just because you set `accepted`.
+   - In `evidence`, list this ADR's own path and the files that support the values.
+   - Set any value you have not checked to `unknown`, and do not fill it in with a guess.
+5. Write the body in the template's sections (Context, Decision, Alternatives considered, Consequences, Verification / Acceptance criteria, Revisit triggers, Open questions). For the rules of the text (where references go, facts and evidence, how fine-grained a decision is, writing), follow the [ADR authoring guideline](../../docs/adr/authoring.md).
+6. Regenerate the index table with `python tools/adr_catalog.py --write` (`mise run adr`), and add one paragraph to "Summary of each ADR" in the index.
+7. Run `python tools/dev.py check` and confirm that `adr_catalog.py --check` in `tooling` passes. It checks for duplicate numbers, the fields and values, the `evidence` paths, links and a stale index.
+
+## 3. Keep one decision per file, and keep it short
+
+- Write only one decision in a file. If there are two or more decisions, split them into separate ADRs.
+- Write only what the code does not tell. Do not write lists of files, implementation steps, how pull requests are split, copies of APIs or the course of research. Put those in issues, pull requests, `docs/spec/` and `docs/voice-stack/`, and link to them from the ADR.
+- Under the alternatives considered, list only the options that were actually compared. Do not list an option that was only named in a conversation. For why an option was not taken, give reasons that still hold.
+- Write the premises at the time of writing (version, OS, backend layout) in the body. This lets later readers tell which period the decision belongs to.
+- Give measured values with the conditions of the measurement (model, OS, kind of GPU, date).
+- Summarize what can be summarized, to keep it short. Of the background and how the options were considered, keep only the facts that are reasons for the decision.
+- If it grows long, check whether two decisions are mixed in, or whether it contains steps or records.
+
+## 4. Update the state
+
+The body is a record of the time of writing, so do not rewrite it. Show what changed later in the front matter and in a dated note added at the top of the body. For the form of the note, see the "Status note" in ADR-003.
+
+`status` and `validity` are separate axes. `status` says whether the decision was adopted, and `validity` says whether the decision still holds. ADR-003 has `validity: replaced` while it stays at `status: accepted`.
+
+| What changed | What to update |
+|---|---|
+| The implementation moved forward, or you checked the implementation | `implementation_status`, `implementation_checked` (the day you checked), `evidence` (the files you checked). For `partial`, write what remains in `implementation_note` |
+| The principle of the decision holds, but how it is implemented (language, process layout, APIs and so on) changed | `validity: implementation_changed` and `validity_note` |
+| The maintainers decided to adopt, reject or deprecate it | Set `status` to `accepted`, `rejected` or `deprecated`, and add a note at the top of the body |
+| A later ADR replaced the decision | The steps in 5 |
+
+Change `status` only when the maintainers have decided so. After a change, regenerate the index with `python tools/adr_catalog.py --write`.
+
+## 5. Replace a decision (supersede)
+
+To change a decision, write a new ADR and do not rewrite the old one. Put the new ADR and the old ADR's front matter and note in the same pull request.
+
+1. Write the new ADR by the steps in 2. In `Related` and in the context of the body, write the old ADR it replaces, and what changes and why.
+2. Update the old ADR's front matter.
+   - Set `validity: replaced`.
+   - Under `superseded_by:`, write the new ADR in the form `  - ADR-NNN`.
+   - In `validity_note`, write what changed and what the new ADR took over.
+   - Set `status: superseded` only when the maintainers have decided to replace the old decision. When a later ADR has only taken over the decision in practice, do not change `status` (ADR-003 is an example).
+3. Add a dated note at the top of the old ADR's body, and link it to the new ADR. Do not rewrite the body below the note.
+4. Regenerate the index with `python tools/adr_catalog.py --write`. `--check` checks how `superseded_by` is written and that the ADRs it names exist.
+5. If `AGENTS.md`, `docs/spec/` or a skill cites the old ADR as its basis, point it to the new ADR in the same pull request.
+
+How to write a replacement of only part of a decision has not been decided yet. In that case, write it in "Decisions needed" in the pull request, and have the maintainers decide.
+
+## 6. Read ADRs
+
+- Before you change behavior, look for the related ADRs in the index's list. When you read one, look at the era (時代, `era`) and the validity (有効性, `validity`) first.
+- If `validity` is `replaced`, read the ADR in `superseded_by`.
+- An ADR with `status: proposed` is not an adopted decision.
+- An ADR with `era: python-sidecar` may describe the implementation by Python module names or `src-python/` paths. `src-python/` was removed in 0.6.0, so read those paths at a 0.5.x tag. Look up the current implementation in the mapping table in the README of each crate in `native/`.
+- When a change disagrees with an ADR that has `status: accepted` and a `validity` of `current` or `implementation_changed`, tell the maintainers which decision of which ADR it disagrees with before you go on. When you go on in a pull request, write it in "Decisions needed" in the description.
+
+## 7. Fixes that do not change a decision
+
+Put changes that do not change the substance of a decision, such as moving files, correcting the front matter or fixing links, in a separate pull request from changes that do.
+
+---
+
+# 設計判断の記録（ADR）（日本語版）
 
 ADRはコードを読んでも分からない判断の理由を残す記録です。何を決めたか、ほかにどの案があり、なぜ採らなかったかを書きます。正本は`docs/adr/`だけにあり、索引は`docs/adr/README.md`です。項目と値の意味は索引の「項目と値」が正本で、このスキルには手順だけを書きます。
 

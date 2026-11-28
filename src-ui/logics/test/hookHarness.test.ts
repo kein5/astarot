@@ -70,6 +70,12 @@ test("the kit's stand-in keeps the kit's defaults", () => {
         "data-slot": "toggle", "data-tone": "warning", "data-size": "regular" });
     assert.deepEqual(kitStandIns.ToggleGroup({}).props, { role: "group", "data-slot": "toggle-group" });
     assert.deepEqual(kitStandIns.ToggleGroupItem({ value: "a" }).props, { type: "button", "data-slot": "toggle-group-item", value: "a" });
+    // The searchable choice: its button, a combobox usable and not waiting by default.
+    assert.match(kit("Combobox.tsx"), /busy = false, disabled = false,/);
+    assert.match(kit("Combobox.tsx"), /<button type="button" id=\{id\} data-slot="combobox-trigger" role="combobox" aria-expanded=\{open\}/);
+    const searchable = kitStandIns.Combobox({ value: "a" });
+    assert.equal(searchable.type, "button");
+    assert.deepEqual(searchable.props, { type: "button", role: "combobox", "data-slot": "combobox-trigger", busy: false, disabled: false, value: "a" });
     // The popover: the root draws its parts; the content keeps what it is given, without the kit's own props.
     assert.equal(kitStandIns.Popover({ children: "parts" }), "parts");
     assert.deepEqual(kitStandIns.PopoverContent({ portal: false, inset: "tight", id: "panel" }).props, { "data-slot": "popover-content", id: "panel" });

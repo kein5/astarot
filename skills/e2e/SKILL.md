@@ -1,9 +1,165 @@
 ---
 name: e2e
-description: ASTAROTの実アプリE2Eテスト（tools/native_acceptance.py）とSERGULATH実機スイート（Windows PC＋Steam Frame）の実行手順と結果報告のしかた。ベータ公開後の実機確認、安定版リリース前の確認、ネイティブGUI・SteamVRオーバーレイ・インストーラー更新経路の変更後に実機E2Eを走らせるとき、結果をIssueやテスト概要・E2Eシールドへ反映するときに使う。Use when running ASTAROT's native GUI acceptance tests or the SERGULATH real-machine E2E suite, posting E2E results, or updating the test overview and E2E badge after a milestone check. CIで自動実行するtests/integration（Playwright＋実コア）やtests/installerだけの修正、通常のunit・integrationチェック（python tools/dev.py check）には使わない。
+description: How to run ASTAROT's real-app E2E tests (tools/native_acceptance.py) and the SERGULATH real-machine suite (Windows PC + Steam Frame) and report the results. Use when running them after a beta is published, before a stable release or after changing the native GUI, the SteamVR overlay or the installer's update path, and when posting E2E results to issues or updating the test overview and the E2E badge. Not for changes only to tests/integration (Playwright and the real core) or tests/installer, which CI runs, or for the usual unit and integration checks (python tools/dev.py check). ASTAROTの実アプリE2Eテスト（tools/native_acceptance.py）とSERGULATH実機スイート（Windows PC＋Steam Frame）の実行手順と結果報告のしかた。ベータ公開後の実機確認、安定版リリース前の確認、ネイティブGUI・SteamVRオーバーレイ・インストーラー更新経路の変更後に実機E2Eを走らせるとき、結果をIssueやテスト概要・E2Eシールドへ反映するときに使う。CIで自動実行するtests/integration（Playwright＋実コア）やtests/installerだけの修正、通常のunit・integrationチェック（python tools/dev.py check）には使わない。
 ---
 
-# E2Eテストの実行と結果の報告
+# Running E2E tests and reporting the results
+
+[日本語版](#e2eテストの実行と結果の報告日本語版)
+
+This skill gathers the steps for running the E2E tests on the real app and on real machines, which the usual `python tools/dev.py check` does not include, reporting the results in one format and carrying them into the test overview and the badge.
+
+It covers these two E2E tests.
+
+1. **The real-app acceptance tests** (`tools/native_acceptance.py`): a suite that starts a real build (an AppImage or a built binary) on a Linux desktop and checks it
+2. **The SERGULATH real-machine suite** (`kein5/sergulath`): a suite that checks how ASTAROT works on real machines, the VR overlay, a 30-minute soak and the update scenarios on a Windows PC and a Steam Frame (and a virtual HMD and virtual controllers)
+
+The authoritative detailed steps are in each test's own documents. This skill does not copy the details of the steps, so that they are not maintained in two places.
+
+- The authoritative source for the real-app acceptance tests: [docs/voice-stack/linux-build-pipeline.md](../../docs/voice-stack/linux-build-pipeline.md), [docs/voice-stack/release-candidates.md](../../docs/voice-stack/release-candidates.md), `python tools/native_acceptance.py --help`
+- The authoritative source for the SERGULATH real-machine suite: `README.md`, `docs/README.ja.md`, `docs/checks/e2e-suite.md` and `docs/checks/soak-and-upgrade.md` in the SERGULATH repository
+
+The E2E tests that CI runs automatically (the tests in `tests/integration/` that use Playwright and the real core, and the Windows installer update scenarios in `tests/installer/`) are handled by `voice-tests.yml` and `installer-update-tests.yml`, and are not part of this skill's steps.
+
+## 1. When to run (how this connects to the release steps)
+
+Run the tests at the milestones below, together with the release steps ([skills/release/SKILL.md](../release/SKILL.md) and [docs/voice-stack/release-candidates.md](../../docs/voice-stack/release-candidates.md)).
+
+| Occasion | What to run | Purpose |
+|---|---|---|
+| Real-machine check after a beta is published | The SERGULATH real-machine suite (including `--slow`), and `native_acceptance.py` when needed | Check the published beta on a real PC and headset, and find the defects and check the carry-over across updates before moving up to the stable version |
+| Check before a stable or hotfix version is published | `native_acceptance.py`, the SERGULATH real-machine suite | Check the files the release candidate build puts in place and how it works on real machines |
+| Large changes to the related paths | The affected groups or cases (`--only`) | Check changes to the native GUI, Quick Chat, the VR overlay, the PipeWire virtual microphone route or the installer's updates in the real app |
+
+## 2. Prerequisites and preparation
+
+Check the following before you run. Do not pass an item whose prerequisites are missing on a guess; record it as skipped or unsupported.
+
+### Common checks
+
+- **Identify the version and build under test**: write down the version of the app you check (for example `0.7.0-beta.1`), the SHA of the commit it was built from and the name of the package file you used (an AppImage, an installer, a ZIP, a debug build or the like).
+- **Make sure no one else is using the machine**: check that no other session or person is operating the same real machine at the same time. Do not run while there is a conflict.
+- **Protect user data**: use an isolated settings folder for the test, so that the existing settings, API keys and downloaded models are not overwritten.
+
+### Real-app acceptance tests (Linux)
+
+- When the display sleeps, drawing stops and tests fail for the wrong reason, so run under `tools/display_power_guard.py` (`native_acceptance.py` itself starts each group through `display_power_guard.py`).
+- Each group needs the following. A group whose prerequisites are not all in place is skipped automatically.
+  - `appimage`: runs only when you give the packaged build with `--appimage`
+  - `ui`: the real app can start in a desktop environment
+  - `vrchat`: the `--vrchat` option and the OCR models (`ASTAROT_TEST_OCR_MODELS`, by default `~/.cache/vrct-vox-chatbox-lab/models`)
+  - `vrchat-voice`: the prerequisites of `vrchat`, plus a managed virtual microphone already set up on the PC (`astarot.managed.source`) and `pw-record`
+  - `quick_chat`: a KDE desktop, `xdotool` and `xprop`
+
+### SERGULATH real-machine suite (Windows PC + Steam Frame)
+
+The authoritative list of prerequisites is `docs/checks/e2e-suite.md` in the SERGULATH repository. Check the following before you start.
+
+- The version of ASTAROT under test is installed on the Windows PC (`sergulath suite run` stops the default ASTAROT only while it runs, starts its own instance in the isolated folder `records/suite/app` and puts the original back when it ends).
+- SteamVR and the Steam Frame are connected. Even with the headset lying on the desk, the cases that need it worn or need hand input run with the virtual HMD (`hmd`) and the virtual controllers.
+- The virtual controller driver is built (if it is not, run `sergulath driver build`).
+- To run the cases that look at the Frame side (E20, E23), an SSH connection to the Steam Frame (`sergulath frame`) works.
+
+## 3. Running the tests
+
+This section does not copy the individual steps from the authoritative documents; it shows only the commands to start from. When the arguments or the list of cases change, follow the authoritative documents.
+
+### 3.1 Real-app acceptance tests (`tools/native_acceptance.py`)
+
+1. Check the build under test (`--appimage` or `--app`) and the options (for every option, see `python tools/native_acceptance.py --help`). Add `--vrchat` only when you include the round trip through VRChat, and use `--only <group name>` to check particular groups again (you can give more than one). Use `--output` to choose where the records go.
+
+   ```sh
+   python tools/native_acceptance.py --appimage <path to the AppImage>
+   python tools/native_acceptance.py --app <path to the built binary> --only ui
+   python tools/native_acceptance.py --appimage <path to the AppImage> --vrchat --output <directory for the records>
+   ```
+
+2. Write down the exit code and each group's JUnit XML and standard output, and keep the numbers passed, failed and skipped, and the reasons for skipping.
+
+### 3.2 SERGULATH real-machine suite
+
+Run it at the root of the SERGULATH repository (the paths in the case definitions are relative to the repository root).
+
+1. Check the current list of cases, whether each one can run and, for those that are unsupported, why.
+
+   ```sh
+   sergulath suite list --cases suites/astarot-e2e.toml
+   ```
+
+2. Run the suite and save the records in a record folder. At the milestones after a beta is published and before a stable version, include `--slow` too (it includes the 30-minute soak and others). To check a single case again, use `--only <case ID>`.
+
+   ```sh
+   sergulath suite run --cases suites/astarot-e2e.toml --record records/suite/<timestamp or version>
+   sergulath suite run --cases suites/astarot-e2e.toml --slow --record records/suite/<timestamp or version>-slow
+   sergulath suite run --cases suites/astarot-e2e.toml --only E16
+   ```
+
+3. Teardown runs even after a failure or an interruption, but if the process crashes partway and leaves the virtual HMD or the VR view behind, restore them with the recovery commands in the authoritative document (`docs/checks/e2e-suite.md`).
+
+   ```sh
+   sergulath hmd off
+   sergulath view close
+   sergulath app stop
+   sergulath app start
+   ```
+
+## 4. Form of the results post
+
+Leave the results where you were told to report them (the release's check issue, the related pull request, or a report to the maintainer), in the structure below. When you write in a public issue or pull request, do not include personal names that identify the PC's owner, or secrets specific to the environment.
+
+### Status classification (aligned with SERGULATH's rules)
+
+- **Pass (`pass`)**: a case or group that passed as expected
+- **Fail (`fail`)**: a case or group where the app behaved differently from what was expected
+- **Error (`error`)**: a case or group that stopped while setting up its prerequisites or starting the surrounding tools
+- **Unsupported (`unsupported`)**: a case that is not yet automated or supported in the environment. Always give the reason; it does not count toward the failures
+- **Manual (`manual`)**: a case that needs a person to act, such as someone wearing the headset to look. Do not mark it as passed while it has not been done; set it apart as an item for the maintainer to check
+- **Skipped (`skipped`)**: a case or group that was not run because `--slow` was not given or a prerequisite of the environment was missing. Give the reason
+
+The whole suite passes when there are 0 `fail` and 0 `error` results (`unsupported`, `manual` and `skipped` do not count as failures).
+
+### Template for the post
+
+```markdown
+## E2E test results (<version under test> / <suite name>)
+
+- Run at: YYYY-MM-DD HH:MM JST
+- Build under test: ASTAROT <version> (commit `<short SHA>` / package file `<file name>`)
+- Environment: <OS and version, headset or desktop environment (without information that identifies a person)>
+- Command: `<the command you actually ran>`
+- Totals: Pass X / Fail Y / Error Z / Unsupported U / Manual M / Skipped S
+
+| Case / group | Result | Notes and reasons |
+|---|---|---|
+| <ID or group name> | Pass / Fail / Error / Unsupported / Manual / Skipped | <measured values, reason for skipping, reason it is unsupported> |
+
+### Narrowing down failures and errors, and the next steps
+
+- <case>: <whether it looks like a product defect (fail) or a setup cause (error), the logs and record paths you checked, the result of running it alone again (--only), the number of the issue you opened or refer to>
+```
+
+### Next steps after a failure or an error
+
+1. Tell `error` results apart from `fail` results, and preserve the logs, screenshots and JSON output in the record folder.
+2. Run only the failed cases once more with `--only`, and check whether the failure reproduces (whether it is constant or transient).
+3. For a `fail` that reproduces, open an issue with the likely causes and the key lines of the log (add to the existing issue if there is one), and follow it with a pull request that fixes it.
+4. When you cannot decide, and for `manual` items that need a person to wear the headset and check, gather the facts not yet verified and the evidence and take them to the maintainer.
+
+## 5. Connecting to the test overview, the E2E badge and the verification records
+
+When you finish the E2E tests at a milestone, do not stop at posting the results; bring them into the records in the repository and into the badge.
+
+- **The test overview and the E2E badge** (`docs/testing/overview.md` and `docs/testing/badges/`)
+  - The E2E badge's JSON goes in `docs/testing/badges/` in the repository, not in the `badges` branch that CI updates automatically, and is updated by hand at milestones so that its history can be followed.
+  - Once the results of a milestone's real-machine E2E tests are in (from the first SERGULATH check after `0.7.0-beta.1` was published onward), update the JSON for the E2E badge (pass or fail and the date of the last check) and the date of the last check, the counts and the record links in `docs/testing/overview.md` in a pull request.
+  - Every value on the badge (passed, failed, the date checked) must be backed by a link to the record of an actual run. Do not count guesses or items that were not run as passed.
+- **Records of supported environments after a stable or hotfix version is published**
+  - To update the real-machine verification records in [docs/voice-stack/platform-verification.md](../../docs/voice-stack/platform-verification.md) and `site/en/guide/support.md` and `site/ja/guide/support.md`, follow "Update the support matrix after publishing" in [docs/voice-stack/release-candidates.md](../../docs/voice-stack/release-candidates.md).
+  - Use the URL of the issue or pull request comment where you posted the E2E results as the supporting link in the verification records.
+
+---
+
+# E2Eテストの実行と結果の報告（日本語版）
 
 このスキルは、通常の `python tools/dev.py check` には含まれない実アプリ・実機のE2Eテストを実行し、結果を同じ書式で報告してテスト概要とシールドへつなぐ手順をまとめます。
 
