@@ -90,7 +90,6 @@ PENDING_SKILLS = (
 
     "skills/release/SKILL.md",
 
-    "skills/release-notes/SKILL.md",
 
     "skills/testing/SKILL.md",
 )
