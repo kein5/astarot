@@ -70,12 +70,16 @@ export const config_svg = style({
 });
 
 // Hidden things leave the tab order. In a panel lower than its settings, they scroll.
+// The slider's end marks are centred on its ends, so half of "200" hangs past the track: the
+// padding keeps them inside the panel, which would otherwise scroll sideways and cut them
+// (#1314, M-8).
 export const settings = style({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     width: "100%",
     minHeight: 0,
+    paddingInline: "1.6rem",
     overflowY: "auto",
     visibility: "hidden",
     selectors: {

@@ -3,6 +3,7 @@ import { test } from "vitest";
 import { componentName, componentOf, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../../logics/common/languageNames.ts";
+import * as logFontSize from "../../../../../../logics/main/logFontSize.ts";
 import { ui_configs } from "../../../../../../logics/ui_configs.ts";
 import { settingTarget } from "../../../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 
@@ -26,6 +27,7 @@ async function appearancePage(values: Record<string, unknown> = {}, options: { l
     const module = await loadModule<typeof import("./Appearance.tsx")>(new URL("./Appearance.tsx", import.meta.url), hooks(), {
         "@useI18n": { useI18n: () => ({ t, i18n: { language: options.language ?? "en" } }) },
         "../../../../../../logics/common/languageNames.ts": languageNames,
+        "../../../../../../logics/main/logFontSize.ts": logFontSize,
         "@ui_configs": { ui_configs },
         "@store": { useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: ok(options.fonts ?? { "Yu Gothic UI": "Yu Gothic UI", Meiryo: "Meiryo" }) }) },
         "@logics_common": { useWindow: () => ({ asyncUpdateBreakPoint: breakPoint }) },

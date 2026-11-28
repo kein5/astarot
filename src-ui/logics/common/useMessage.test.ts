@@ -198,6 +198,7 @@ async function composer(subject: Subject, autoClear = false) {
         "@logics_main": { useMessageLogScroll: () => ({ scrollToBottom() {} }) },
         "../../../../../../logics/common/chatboxLength": chatboxLength,
         "./ChatboxLengthWarning": { CHATBOX_LENGTH_WARNING_ID: "length-warning" },
+        "../log_font_buttons/LogFontButtons": { LogFontButtons: "log-font-buttons" },
     });
     const render = () => runtime.render(MessageInputBox.type);
     const field = () => {
