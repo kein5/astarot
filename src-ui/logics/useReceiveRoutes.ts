@@ -392,6 +392,9 @@ const TRANSCRIPTION_CATALOG_USE = "/run/use_transcription_catalog_entry";
 const TRANSCRIPTION_CATALOG_READS = ["/get/data/custom_whisper_url", "/get/data/custom_whisper_auth_key",
     "/get/data/selectable_custom_whisper_model_list", "/get/data/selected_custom_whisper_model",
     "/get/data/selectable_transcription_engines"];
+// The answers after which the translation catalog's built-in models are in use or usable otherwise:
+// the model in use was set, or a downloaded model was counted as on the PC.
+const TRANSLATION_WEIGHT_CHANGES = ["/set/data/selected_ctranslate2_weight_type", "/run/downloaded_ctranslate2_weight"];
 const TRANSLATION_CATALOG_READS = ["/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/selected_ctranslate2_weight_type",
     "/get/data/openai_compatible_url", "/get/data/openai_compatible_auth_key",
     "/get/data/selectable_openai_compatible_model_list", "/get/data/selected_openai_compatible_model"];
@@ -594,9 +597,12 @@ export const useReceiveRoutes = () => {
         if (status === 200 && TRANSLATION_CATALOG_CHANGES.includes(endpoint)) {
             for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
         }
-        // The translation model in use changed, from the model list or a catalog card: the
-        // catalog's cards say which one is in use, so they are read again (#1228).
-        if (status === 200 && endpoint === "/set/data/selected_ctranslate2_weight_type") sendTranslationCatalog("/get/data/translation_catalog");
+        // The translation model in use changed, from the model list or a catalog card, or a model
+        // came to be on the PC (a download of the model catalog, which the core applied and
+        // counts as downloaded): the catalog's cards say which one is in use and which can be used,
+        // so they are read again (#1228). Without the second, a model downloaded from its card
+        // stayed "Not downloaded" there, and pressing the card opened its review again.
+        if (status === 200 && TRANSLATION_WEIGHT_CHANGES.includes(endpoint)) sendTranslationCatalog("/get/data/translation_catalog");
         if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(errorCodeOf(result) || "download_failed", endpoint);
             return;

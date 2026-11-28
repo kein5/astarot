@@ -4,7 +4,7 @@ import { useTranscription } from "@logics_configs";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
-import { SAME, listeningChoice, sourceApply } from "../../../../../../logics/transcription/listeningModel";
+import { SAME, listeningChoice, recognitionServerRuns, sourceOutcome } from "../../../../../../logics/transcription/listeningModel";
 import type { SourceAsk } from "../../../../../../logics/transcription/listeningModel";
 import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
 import { familyLabel } from "../../../../../../logics/voice/modelCatalog";
@@ -13,15 +13,14 @@ import { FormRow } from "../_components/form_row/FormRow";
 
 // No recognition model set for Mic input.
 const UNSET = "";
-// A server that runs keeps its model: a model is applied while its server is stopped.
-const RUNNING: readonly string[] = ["preparing", "ready", "stopping"];
 const ENGINE = "SpeechCpp";
 
 // Which recognition model each input uses on the bundled server (#1308 ★1, decided on 2026-11-28):
 // Mic input's and Listening's side by side in the speech.cpp part, each chosen among the recognition
-// models on the PC. The catalog under 「モデルとサーバー」 only downloads them and shows which input
-// uses each. A choice is checked (#1263) and applied for its input alone (#1242): Listening's own
-// model never changes Mic input's.
+// models on the PC. The catalog under 「モデルとサーバー」 downloads them, shows which input uses each,
+// and chooses one for an input from its card with the same check and apply as here. A choice is
+// checked (#1263) and applied for its input alone (#1242): Listening's own model never changes Mic
+// input's.
 //
 // Taking a recognition model here selects speech.cpp as the engine when none is selected yet (#1308
 // ★3), as the first-run setup does: the main screen then stops saying speech recognition is not
@@ -36,12 +35,14 @@ export const SourceModels = () => {
     const asr = speech?.profiles?.asr;
     const choice = listeningChoice(catalog, downloads.downloaded, asr);
     const [asked, setAsked] = useState<SourceAsk | null>(null);
-    const apply = sourceApply(asked, downloads.jobs, { mic: asr?.model ?? "", speaker: choice.path });
+    // The check's end: its apply once it is ready, or nothing once it failed or was stopped (the
+    // catalog's card says why), so the fields do not wait for good.
+    const outcome = sourceOutcome(asked, downloads.jobs, { mic: asr?.model ?? "", speaker: choice.path });
     useEffect(() => {
-        if (!apply) return;
+        if (!outcome) return;
         setAsked(null);
-        sendDownload("/run/apply_model_download", apply);
-    }, [apply?.job_id]);
+        if (outcome !== "ended") sendDownload("/run/apply_model_download", outcome);
+    }, [outcome === "ended" ? "ended" : outcome?.job_id]);
     useEffect(() => {
         if (!bundled) return;
         if (!catalog) sendDownload("/get/data/model_download_catalog");
@@ -60,8 +61,7 @@ export const SourceModels = () => {
     }, [set, !!asr]);
     if (!bundled || !asr) return null;
     // Mic input's server, and Listening's own while it runs (#1290), which the state also lists.
-    const rows: Readonly<Record<string, { readonly state?: string } | undefined>> = servers;
-    const running = ["asr", "asr_listening"].some(name => RUNNING.includes(rows[name]?.state ?? ""));
+    const running = recognitionServerRuns(servers);
     const busy = running || !!asked;
     const choose = (source: CaptionSource, value: string) => {
         if (source === "speaker" && value === SAME) {
