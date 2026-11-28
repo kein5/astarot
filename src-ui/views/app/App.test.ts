@@ -5,7 +5,7 @@ import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController", "RecognitionFixController",
-    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "MicCaptureWaitController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
+    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "MicCaptureWaitController", "VrVoiceControlsController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController", "TalkAiController", "TalkAiIndicator"].map(name => [name, named(name)]));
 
 const load = async (phase: string, windowed = false) => {
@@ -20,6 +20,7 @@ const load = async (phase: string, windowed = false) => {
         "./_app_controllers/FirstRunSetupController": { FirstRunSetupController: parts.FirstRunSetupController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
         "./_app_controllers/MicCaptureWaitController": { MicCaptureWaitController: parts.MicCaptureWaitController },
+        "./_app_controllers/VrVoiceControlsController": { VrVoiceControlsController: parts.VrVoiceControlsController },
         "./_app_controllers/SettingsWindowController": {},
         "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => windowed },
         "./_app_controllers/TalkAiController": { TalkAiController: parts.TalkAiController },
@@ -63,6 +64,8 @@ test("from the first frame the main page and title bar are drawn, locked until t
             parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController,
             // What says that Mic input's microphone waits to open (#1300).
             parts.MicCaptureWaitController,
+            // What the VR panel's launcher shows of text to speech and its stop (#1314).
+            parts.VrVoiceControlsController,
             // Talk AI's band over both pages, and what keeps its status current (#388).
             parts.TalkAiController, parts.TalkAiIndicator]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         const geometry = find(inner, node => node.type === parts.WindowGeometryController);

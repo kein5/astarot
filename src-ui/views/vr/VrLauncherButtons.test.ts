@@ -15,7 +15,7 @@ import { LAUNCHER_BUTTON, LAUNCHER_PADDING, launcherContentWidth } from "./launc
 type Status = { state: string; data: unknown };
 type Block = { reason: string; action: string };
 interface Options {
-    windows?: { log: boolean; popup: "language" | "settings" | "io_flow" | null };
+    windows?: { log: boolean; popup: "language" | "settings" | "io_flow" | "windows" | null };
     intro?: string;
     outOfView?: unknown;
     configOpen?: boolean;
@@ -24,14 +24,18 @@ interface Options {
     // Mic input's microphone waits to open (#1300), on this system (#1314).
     micWaiting?: boolean;
     system?: "windows" | "linux";
+    // The text to speech switch and the stop, as the main window shows them (#1314).
+    voice?: { tts: { on: boolean; pending: boolean }; stop: { offered: boolean; phase: "idle" | "stopping" | "stopped" } };
 }
+
+const NO_VOICE = { tts: { on: false, pending: false }, stop: { offered: false, phase: "idle" as const } };
 
 // The launchers a test draws, unmounted together before the globals go back: their clean-up stops
 // listening on them.
 const drawnByTest = new WeakMap<TestContext, { unmount: () => void }[]>();
 
 async function launcher(context: TestContext, { windows = { log: false, popup: null }, intro = "idle", outOfView = false, configOpen = false,
-    statuses = {}, blocks = {}, micWaiting = false, system = "windows" }: Options = {}) {
+    statuses = {}, blocks = {}, micWaiting = false, system = "windows", voice = NO_VOICE }: Options = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks();
     let drawn = drawnByTest.get(context);
@@ -64,7 +68,10 @@ async function launcher(context: TestContext, { windows = { log: false, popup: n
             toggleOcrCapture: record("ocr"), currentOcrCaptureStatus: status("ocr"),
         }) },
         "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }),
-            useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: micWaiting } }) },
+            useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: micWaiting } }),
+            useStore_VrVoiceControls: () => ({ currentVrVoiceControls: { data: voice } }) },
+        "../../logics/common/vrPanelSend": { sendToMain: async (...args: unknown[]) => { calls.push(["sendToMain", ...args]); } },
+        "./VrLauncherIcons": { StopSvg: "stop-svg", WindowsSvg: "windows-svg" },
         "../../logics/main/switchBlocks": switchBlocks,
         "../../logics/transcription/micCaptureWait": { micWaitSystem: () => system },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: record("send") }) },
@@ -78,6 +85,7 @@ async function launcher(context: TestContext, { windows = { log: false, popup: n
     const windowButtons = group("vr_panel.tooltip.windows_group");
     return { runtime, tree, calls, added, removed,
         functions: group("vr_panel.tooltip.functions_group").map(node => draw(node)),
+        stop: draw(findIn(tree, node => node.props["aria-label"] === "vr_panel.tooltip.stop_group", "stop").props.children),
         windowNodes: windowButtons,
         windowButton: (index: number) => { runtime.remount(); return drawWith(runtime, windowButtons[index]); },
         // The same window button drawn again, keeping its state.
@@ -118,14 +126,16 @@ test("the intro shows ASTAROT's mark and logo while it plays, and the launcher w
 // outputs window's, had been added to a band sized for seven).
 test("the launcher's buttons fit inside its band, which is the launcher region's width", async context => {
     const view = await launcher(context);
-    const groups = [view.functions.length, view.windowNodes.length];
-    assert.deepEqual(groups, [4, 4]);
+    // Five switches and the stop with no divider between them, then the log and the windows' button (#1314).
+    const groups = [view.functions.length, 1, view.windowNodes.length];
+    assert.deepEqual(groups, [5, 1, 2]);
     const layout = JSON.parse(readFileSync(new URL("./vr_layout.json", import.meta.url), "utf8"));
     const band: number = layout.regions.launcher[2];
     const rust = readFileSync(new URL("../../../native/vr-overlay/src/layout.rs", import.meta.url), "utf8");
     assert.match(rust, new RegExp(`pub const LAUNCHER_WIDTH_PX: u32 = ${band};`));
-    assert.ok(launcherContentWidth(groups) <= band, `${launcherContentWidth(groups)} px of buttons in a ${band} px band`);
+    assert.ok(launcherContentWidth(groups, 1) <= band, `${launcherContentWidth(groups, 1)} px of buttons in a ${band} px band`);
     // One more button would not fit: the band has no room to hide a mistake in.
+    assert.ok(launcherContentWidth([5, 1, 3], 1) > band);
     assert.ok(launcherContentWidth([4, 5]) > band);
     // The buttons fit the band's height with its padding.
     assert.ok(LAUNCHER_BUTTON.height + 2 * LAUNCHER_PADDING <= layout.regions.launcher[3]);
@@ -142,13 +152,16 @@ test("each switch is named for its function, with a tooltip that says what press
             help: "vr_panel.tooltip.enable", force: false },
         { label: "main_page.ocr", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.chat_detect", state: "vr_panel.tooltip.state_off",
             help: "vr_panel.tooltip.enable", force: false },
+        { label: "main_page.tts", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.tooltip.tts", state: "vr_panel.tooltip.state_off",
+            help: "vr_panel.tooltip.enable", force: false },
     ]);
-    assert.deepEqual(view.functions.map(button => classesOf(button).includes("is_on")), [false, true, false, false]);
-    assert.deepEqual(view.functions.map(markOf), [null, null, null, null]);
+    assert.deepEqual(view.functions.map(button => classesOf(button).includes("is_on")), [false, true, false, false, false]);
+    assert.deepEqual(view.functions.map(markOf), [null, null, null, null, null]);
     assert.ok(view.functions.every(button => findIn(button, node => typeof node.type === "function").props["aria-hidden"] === "true"));
-    assert.equal(new Set(view.functions.map(button => findIn(button, node => typeof node.type === "function").type)).size, 4, "each has its own icon");
+    assert.equal(new Set(view.functions.map(button => findIn(button, node => typeof node.type === "function").type)).size, 5, "each has its own icon");
     for (const button of view.functions) button.props.onClick();
-    assert.deepEqual(view.calls, [["translation"], ["transcription_send"], ["transcription_receive"], ["ocr"]]);
+    // Text to speech asks the main window to press its own switch (#1314).
+    assert.deepEqual(view.calls, [["translation"], ["transcription_send"], ["transcription_receive"], ["ocr"], ["sendToMain", "vr-panel-voice", "toggle_tts"]]);
     // Only true is on.
     const odd = await launcher(context, { statuses: { translation: { state: "ok", data: "true" } } });
     assert.deepEqual([odd.functions[0].props.tipState, odd.functions[0].props["aria-pressed"]], ["vr_panel.tooltip.state_off", false]);
@@ -247,31 +260,75 @@ test("a log that is open but out of sight is recalled, not closed, and says so",
     }
 });
 
-test("the language, inputs and outputs, and settings buttons open and close their windows", async context => {
-    for (const [index, popup, label] of [[1, "language", "vr_panel.window_language"], [2, "io_flow", "io_flow.vr_window"], [3, "settings", "vr_panel.window_settings"]] as const) {
-        const closed = await launcher(context);
-        const button = closed.windowButton(index);
-        assert.deepEqual(tipOf(button), { label, pressed: false, disabled: undefined, busy: undefined, title: label, state: "vr_panel.tooltip.hidden",
-            help: "vr_panel.tooltip.open_view", force: false });
-        button.props.onClick();
-        assert.deepEqual(closed.calls, [["togglePopup", popup]]);
+// #1314 (V-4): the language, inputs and outputs, and VR settings windows share one button, which
+// opens their list; while one of them (or the list) is open, the button closes it.
+test("the windows' button opens their list, and closes whichever of them is open", async context => {
+    const closed = await launcher(context);
+    assert.equal(closed.windowNodes.length, 2);
+    const button = closed.windowButton(1);
+    assert.deepEqual(tipOf(button), { label: "vr_panel.window_more", pressed: false, disabled: undefined, busy: undefined, title: "vr_panel.window_more",
+        state: "vr_panel.tooltip.hidden", help: "vr_panel.tooltip.open_view", force: false });
+    button.props.onClick();
+    assert.deepEqual(closed.calls, [["togglePopup", "windows"]]);
+    for (const popup of ["windows", "language", "io_flow", "settings"] as const) {
         const open = await launcher(context, { windows: { log: false, popup } });
-        const shown = open.windowButton(index);
+        const shown = open.windowButton(1);
         assert.deepEqual([shown.props["aria-pressed"], shown.props.tipState, shown.props.tipHelp, classesOf(shown).includes("is_on")],
             [true, "vr_panel.tooltip.open", "vr_panel.tooltip.close_view", true], popup);
-        // The others are not open.
-        for (const other of [1, 2, 3].filter(i => i !== index)) assert.equal(open.windowButton(other).props["aria-pressed"], false, `${popup} ${other}`);
+        shown.props.onClick();
+        assert.deepEqual(open.calls, [["togglePopup", popup]], popup);
+    }
+});
+
+// #1314 (V-4): the stop of the main window's top bar, on the launcher. It is offered while
+// something is read aloud, answers its press, and is never locked.
+test("the stop asks the main window to stop while something is read aloud, and says when there is nothing", async context => {
+    const idle = await launcher(context);
+    assert.deepEqual(tipOf(idle.stop), { label: "voice_ui.topbar_stop", pressed: undefined, disabled: true, busy: undefined, title: "voice_ui.topbar_stop",
+        state: "vr_panel.tooltip.stop_idle", help: "vr_panel.tooltip.stop_idle_help", force: undefined });
+    assert.ok(classesOf(idle.stop).includes("stop_button") && classesOf(idle.stop).includes("is_idle"));
+    idle.stop.props.onClick();
+    assert.deepEqual(idle.calls, []);
+    const reading = await launcher(context, { voice: { tts: { on: true, pending: false }, stop: { offered: true, phase: "idle" } } });
+    assert.deepEqual([reading.stop.props["aria-disabled"], reading.stop.props.tipState, reading.stop.props.tipHelp], [undefined, "", "vr_panel.tooltip.stop_help"]);
+    assert.equal(classesOf(reading.stop).includes("is_idle"), false);
+    reading.stop.props.onClick();
+    assert.deepEqual(reading.calls, [["sendToMain", "vr-panel-voice", "stop"]]);
+    for (const [phase, words] of [["stopping", "voice_ui.topbar_stopping"], ["stopped", "voice_ui.topbar_stopped"]] as const) {
+        const answered = await launcher(context, { voice: { tts: { on: true, pending: false }, stop: { offered: true, phase } } });
+        assert.deepEqual([answered.stop.props.tipState, answered.stop.props["aria-disabled"]], [words, true], phase);
+        answered.stop.props.onClick();
+        assert.deepEqual(answered.calls, [], phase);
+    }
+    // The settings page locks the switches, not the stop.
+    const locked = await launcher(context, { configOpen: true, voice: { tts: { on: true, pending: false }, stop: { offered: true, phase: "idle" } } });
+    locked.stop.props.onClick();
+    assert.deepEqual(locked.calls, [["sendToMain", "vr-panel-voice", "stop"]]);
+});
+
+test("the text to speech switch shows the main window's switch, and its missing setup", async context => {
+    const on = await launcher(context, { voice: { tts: { on: true, pending: false }, stop: { offered: false, phase: "idle" } } });
+    assert.deepEqual([on.functions[4].props["aria-pressed"], on.functions[4].props.tipState], [true, "vr_panel.tooltip.state_on"]);
+    const pending = await launcher(context, { voice: { tts: { on: false, pending: true }, stop: { offered: false, phase: "idle" } } });
+    assert.deepEqual([pending.functions[4].props["aria-busy"], pending.functions[4].props.tipHelp], [true, "vr_panel.tooltip.busy_help"]);
+    pending.functions[4].props.onClick();
+    assert.deepEqual(pending.calls, []);
+    for (const reason of ["tts_source", "tts_model"]) {
+        const blocked = await launcher(context, { blocks: { tts: { reason, action: "tts" } } });
+        assert.deepEqual([blocked.functions[4].props.tipHelp, blocked.functions[4].props.tipForce], [`vr_panel.switch_blocked.${reason}`, true]);
+        blocked.functions[4].props.onClick();
+        assert.deepEqual(blocked.calls, [], reason);
     }
 });
 
 test("a long press on a temporary window's button does not hold: only the log's button has one", async context => {
     const view = await launcher(context);
-    const language = view.windowButton(1);
-    language.props.onMouseDown({ button: 0 });
+    const windows = view.windowButton(1);
+    windows.props.onMouseDown({ button: 0 });
     assert.equal(view.again(1).props.tipState, "vr_panel.tooltip.hidden");
     vi.advanceTimersByTime(1000);
     view.again(1).props.onClick();
-    assert.deepEqual(view.calls, [["togglePopup", "language"]]);
+    assert.deepEqual(view.calls, [["togglePopup", "windows"]]);
 });
 
 test("while the log's button is held, it says so; once the hold has fired, it stops saying so", async context => {

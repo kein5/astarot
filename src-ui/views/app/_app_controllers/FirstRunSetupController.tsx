@@ -374,7 +374,8 @@ export const FirstRunSetupController = () => {
                 prepared; the others can stay off. Nothing is turned on here. */}
             {finished && <NextSteps features={features} />}
             <DialogFooter>
-                <Button onClick={() => finish(false)}>{t("first_run_setup.later")}</Button>
+                {/* Once everything is settled there is nothing left for later: only Done (#1314, M-11). */}
+                {!finished && <Button onClick={() => finish(false)}>{t("first_run_setup.later")}</Button>}
                 {finished && <Button tone="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</Button>}
                 {/* Ending the suggestion: the kit's quiet Button, on its own line under the two (decided on 2026-11-25).
                     Where the setup opens again is in its bubble (#1266). */}

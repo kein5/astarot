@@ -7,6 +7,7 @@ import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideCon
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
 import { MicCaptureWaitController } from "./_app_controllers/MicCaptureWaitController";
+import { VrVoiceControlsController } from "./_app_controllers/VrVoiceControlsController";
 import { SettingsWindowController } from "./_app_controllers/SettingsWindowController";
 import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
 import { TalkAiController } from "./_app_controllers/TalkAiController";
@@ -113,6 +114,7 @@ const Contents = ({ locked }: { locked: boolean }) => {
                 {!locked && <>
                     <SwitchBlocksController />
                     <MicCaptureWaitController />
+                    <VrVoiceControlsController />
                     {!settingsHaveAWindow() && <ConfigPage />}
                 </>}
                 <MainPage focusFallback={mainPage} locked={locked} />
