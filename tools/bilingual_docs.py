@@ -86,7 +86,6 @@ PENDING_SKILLS = (
 
     "skills/e2e/SKILL.md",
 
-    "skills/jp-writing/SKILL.md",
 
     "skills/pull-request/SKILL.md",
 
