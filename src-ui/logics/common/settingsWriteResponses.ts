@@ -1,7 +1,11 @@
 import { pendingRequestRecovery } from "./pendingRequestRecovery.ts";
 import type { BackendResponse } from "./pendingRequestRecovery.ts";
 
-const endpoints = new Set([
+// The settings writes that answer with their own response, which the write waits for. A field
+// that saves by itself names one of these as its endpoint (useSaveButtonLogic): the type refuses
+// any other, since a write left out of here is never matched with its answer and its field says
+// the save failed five seconds later (#1323).
+const SET_NAMES = [
     "voice_settings", "direct_voice_settings", "speech_server_settings", "realtime_asr_settings", "hotkeys",
     "openai_compatible_auth_key_and_url", "custom_whisper_auth_key_and_url",
     "overlay_small_log_settings", "overlay_large_log_settings",
@@ -10,19 +14,27 @@ const endpoints = new Set([
     "obs_browser_source_port", "obs_browser_source_max_messages", "obs_browser_source_display_duration",
     "obs_browser_source_fadeout_duration", "obs_browser_source_font_size", "obs_browser_source_font_color",
     "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color", "rvc_block_ms",
-    "path_logs",
-].map(name => `/set/data/${name}`).concat([
+    "path_logs", "llm_translation_temperature", "llm_translation_instructions", "talk_ai_local_url",
+] as const;
+const RUN_ENDPOINTS = [
     // A new connection key: the button says it is done only when the backend says so.
     "/run/regenerate_websocket_auth_token",
     // The dictionary written out (#792): the button says the file's name, or that it failed.
     "/run/export_vocabulary",
-]));
-const textEndpoints = new Set([
+] as const;
+// The keys and addresses, which are set and deleted.
+const TEXT_NAMES = [
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
     "lmstudio_url", "openai_compatible_url", "openai_compatible_auth_key", "ollama_url",
     "google_cloud_auth_key", "papago_client_id", "papago_auth_key",
     "groq_whisper_auth_key", "openai_whisper_auth_key", "custom_whisper_url", "custom_whisper_auth_key", "deepgram_auth_key",
-].flatMap(name => [`/set/data/${name}`, `/delete/data/${name}`]));
+] as const;
+
+export type AwaitedSettingsWrite = `/set/data/${(typeof SET_NAMES)[number]}` | (typeof RUN_ENDPOINTS)[number]
+    | `/${"set" | "delete"}/data/${(typeof TEXT_NAMES)[number]}`;
+
+const endpoints = new Set<string>([...SET_NAMES.map(name => `/set/data/${name}`), ...RUN_ENDPOINTS]);
+const textEndpoints = new Set<string>(TEXT_NAMES.flatMap(name => [`/set/data/${name}`, `/delete/data/${name}`]));
 
 // One setting write waiting for its reply. response settles with the reply, or false
 // when the write failed or the session stopped.

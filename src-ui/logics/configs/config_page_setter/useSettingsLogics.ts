@@ -9,6 +9,7 @@ import type { DeviceOption } from "@utils";
 import type { SaveState } from "../../voice/useSettingsDraft.tsx";
 import { awaitInlineAnswer, errorCodeOf, refusalKeys, settleInlineAnswer } from "../fieldErrors.ts";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
+import type { AwaitedSettingsWrite } from "../../common/settingsWriteResponses.ts";
 import type { ConfigFunctions, CustomWeightStatus, DownloadedWeights, SettingResponseTransform, SettingRunDirection,
     WeightDownloadProgress, WeightDownloaded, WeightTypeStatus } from "./settingTypes.ts";
 
@@ -448,9 +449,10 @@ export interface SaveButtonLogicOptions {
     // saved value and puts it back; only Enter on the empty field deletes it (or clears it).
     // Taken as true when the field has a deleteFunction.
     credential?: boolean;
-    // The set endpoint `setFunction` sends to. With it, a refusal of the field's own save is said
-    // under the field only, not as a notice too.
-    endpoint?: string;
+    // The set endpoint `setFunction` sends to: a refusal of the field's own save is said under the
+    // field only, not as a notice too. It is one whose answer the write waits for
+    // (settingsWriteResponses.ts); without that answer the field would say the save failed (#1323).
+    endpoint?: AwaitedSettingsWrite;
 }
 
 export const useSaveButtonLogic = ({
