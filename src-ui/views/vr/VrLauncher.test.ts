@@ -161,7 +161,7 @@ test("a VR switch whose setup is missing is greyed out, says why, and does nothi
     assert.match(ocr.props.className, /is_disabled/);
     assert.match(ocr.props.className, /is_blocked/);
     assert.equal(ocr.props["aria-disabled"], true);
-    assert.equal(ocr.props.tipState, "OFF · vr_panel.switch_blocked.state");
+    assert.equal(ocr.props.tipState, "vr_panel.tooltip.state_off · vr_panel.switch_blocked.state");
     assert.equal(ocr.props.tipHelp, "vr_panel.switch_blocked.ocr_models");
     assert.equal(ocr.props.tipForce, true); // readable even with the tooltips turned off
     ocr.props.onClick();
