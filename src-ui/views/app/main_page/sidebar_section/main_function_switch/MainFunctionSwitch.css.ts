@@ -160,7 +160,10 @@ export const switch_label_abbr = style({
 
 // A state of the switch's own, such as the TTS server starting. Why no switch can be used (the
 // engine is gone) is not a line here: the rail says it once at its head (EngineReadout).
+// The switch's state in words, on a line of its own under its name (#1314, M-5): beside the name it
+// squeezed a short name onto two lines.
 export const switch_status = style({
+    flexBasis: "100%",
     fontSize: "1.2rem",
     color: PENDING_LABEL_COLOR,
     selectors: {

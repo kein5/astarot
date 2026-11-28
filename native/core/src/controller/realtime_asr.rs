@@ -30,8 +30,8 @@ use astarot_translation::http::Cancel;
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
 const ASR_SERVER_WAIT: Duration = Duration::from_secs(120 + 5);
-const ASR_START_FAILURES: [&str; 4] =
-    ["speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_vulkan_missing", "speech_server_device_failed"];
+const ASR_START_FAILURES: [&str; 5] = ["speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_vulkan_missing",
+    "speech_server_device_failed", astarot_speech_server::codes::BUNDLE];
 
 /// How long realtime recognition waits ([`super::Services::realtime_limits`]). The app keeps
 /// [`RealtimeLimits::default`], Python's values; tests shorten them (decision 81 in
@@ -768,7 +768,13 @@ impl Core {
             run = row["generation"].as_u64().unwrap_or(0);
             if !matches!(row["state"].as_str(), Some("ready" | "preparing")) {
                 if let Err(code) = self.speech_servers().hub().start(profile, options, run) {
-                    return Some(if code == astarot_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+                    // A missing or broken bundle keeps its own code (#1314, M-3): its fix is to install
+                    // the app again, not the model or the device the general failure points to.
+                    return Some(match code {
+                        astarot_speech_server::codes::BUSY => "speech_server_busy",
+                        astarot_speech_server::codes::BUNDLE => astarot_speech_server::codes::BUNDLE,
+                        _ => "speech_server_start_failed",
+                    }.into());
                 }
                 run += 1;
                 toggle.asr_owned[server_slot(profile)] = Some(run);

@@ -10,6 +10,7 @@ import { loadBridgeStore } from "../../../logics/test/bridgeHarness.ts";
 import { chunkArray } from "../../../logics/utils.ts";
 import * as routeState from "../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../logics/voice/rvcStartOptions.ts";
+import * as captionState from "../../../logics/transcription/realtimeCaptionState.ts";
 import { voiceActions, voiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
@@ -68,6 +69,8 @@ const runningChild = () => unchecked<NonNullable<BridgeStore["stores"]["store"][
 // Test data: a t of the test's own, which answers the key or records what it is asked.
 const translate = (t: (key: string, options?: { page?: string }) => string) => unchecked<TFunction>(t);
 
+// The caption sessions the switches read their status from (#1314): none by default.
+const realtimeState: Record<string, unknown> = {};
 const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSetup = { blocks: {}, compact: false }, starting = false) => {
     const requests: string[] = [];
     const main = await loadModule<typeof import("../../../logics/main/useMainFunction.ts")>(new URL("../../../logics/main/useMainFunction.ts", import.meta.url), b.runtime, {
@@ -79,6 +82,8 @@ const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSet
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady },
         "../../../../../logics/common/useNotificationStatus": { useNotificationStatus: () => ({ showNotification_Error() {} }) },
         "../../../../../logics/voice/useVoice": { useVoice: () => voice },
+        "../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ state: realtimeState }) },
+        "../../../../../logics/transcription/realtimeCaptionState": captionState,
         "../../../../../logics/voice/voiceActions.ts": { voiceActions, voiceSwitchStates },
         "../../../../../logics/voice/routeState": routeState,
         "../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
@@ -383,6 +388,28 @@ test("a switch whose setup is missing is greyed, says why, and its icon leads to
     assert.equal(free.blockedReason, null);
     assert.equal(switchOf(s.SwitchContainer(free)).props["aria-disabled"], false);
     assert.equal(switchOf(s.SwitchContainer(free)).props["data-disabled"], undefined);
+});
+
+// #1314 (M-5): the strip above the log is gone; the caption switches say under their names that
+// their captions start, or stopped on an error.
+test("the caption switches say when their captions start and when they stopped on an error", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = runningChild();
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: { tts_generation: 1 }, directState: {}, send() {} });
+    const status = () => {
+        const rows: TreeNode[] = b.runtime.render(s.MainFunctionSwitch).props.children;
+        return Object.fromEntries(rows.filter(node => /^transcription_/.test(node.props.switch_id)).map(node => [node.props.switch_id, node.props.statusText]));
+    };
+    assert.deepEqual(status(), { transcription_send: null, transcription_receive: null });
+    realtimeState.mic = { generation: 1, state: "starting" };
+    realtimeState.speaker = { generation: 1, state: "failed" };
+    assert.deepEqual(status(), { transcription_send: "realtime.state_starting", transcription_receive: "realtime.switch_failed" });
+    realtimeState.mic = { generation: 1, state: "ready" };
+    realtimeState.speaker = { generation: 2, state: "idle" };
+    assert.deepEqual(status(), { transcription_send: null, transcription_receive: null });
+    delete realtimeState.mic;
+    delete realtimeState.speaker;
 });
 
 test("a switch that is on stays usable when its setup goes missing, so it can be turned off", async () => {

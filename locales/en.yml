@@ -1601,6 +1601,8 @@ realtime:
   state_stopping: "Stopping captions"
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
+  # #1314 (M-5): under the caption switch's name, which has room for one short line.
+  switch_failed: "Stopped on an error"
   # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
   # #1314 (M-4): only Windows asks there. On Linux the device, or another app holding it, keeps it closed.
   mic_wait:
@@ -1704,6 +1706,8 @@ realtime_toggle:
   speech_server_busy: "The ASR server is still stopping. Wait a moment, then turn this on again."
   speech_server_start_failed: "The bundled ASR server could not start. Check its model files and inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
   speech_server_exited: "The bundled ASR server stopped unexpectedly. Check its model files and inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
+  # #1314 (M-3): kept through the switch's start, so the words say what fixes it.
+  speech_bundle_missing_or_invalid: "The bundled speech recognition server (speech.cpp) is missing or damaged. Install ASTAROT again, then turn this on again."
   realtime_platform_unsupported: "Realtime captions are not available on this system."
   speech_server_vulkan_missing: "The GPU driver's Vulkan library (vulkan-1.dll) was not found. Install or update your GPU driver, then turn this on again."
   speech_server_device_failed: "The selected inference device could not run the model. Update your GPU driver, or choose another inference device or CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
@@ -1738,6 +1742,9 @@ recognition_fix:
   # #1308 N-14: a bundled server that was busy, slow or gone is tried again.
   turn_on_again: "Turn on again"
   close: "Close"
+  # #1314 (M-3): the bundled speech.cpp is missing or fails its check; installing the app again fixes it.
+  bundle_body: "The bundled speech recognition server (speech.cpp) is missing or damaged, so it cannot start. Installing ASTAROT again puts it back."
+  open_install_guide: "Open how to install again"
   model_ready: "The new speech recognition model is set."
   # #1242: Listening's own model does not fit beside Mic input's; one model for both.
   share_body: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Listening can use Mic input's model too, or you can turn Mic input off and turn Listening on again."
