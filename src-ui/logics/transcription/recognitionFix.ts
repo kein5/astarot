@@ -14,6 +14,9 @@
 // - "server": the bundled speech recognition server did not start, or stopped (#1308 N-14). Its words
 //   say why. A server that was busy, slow or gone is tried again; one whose model, device or driver
 //   failed is fixed in its settings, which the dialog opens.
+// - "bundle": the bundled speech.cpp is missing or fails its check (#1314, M-3), as when it was not
+//   installed whole or something took it away. Nothing in the settings fixes it: the dialog says so
+//   and opens the user guide's steps to install the app again.
 //
 // Nothing here downloads: a download starts only from a review that shows its size, after consent.
 
@@ -22,7 +25,7 @@ import type { TranscriptionEndpoint } from "./useTranscriptionConsent";
 import { detectingRecognizer } from "../setup/firstRunSetup.ts";
 import type { SetupCatalog, SetupEntry } from "../setup/firstRunSetup.ts";
 
-export type RecognitionFixKind = "models" | "language" | "share" | "server";
+export type RecognitionFixKind = "models" | "language" | "share" | "server" | "bundle";
 
 export interface RecognitionFix {
     endpoint: TranscriptionEndpoint;
@@ -44,6 +47,8 @@ const LANGUAGE_REASONS: readonly string[] = ["realtime_language_auto_unsupported
 const SERVER_REASONS: readonly string[] = ["speech_server_start_failed", "speech_server_exited", "speech_server_device_failed",
     "speech_server_vulkan_missing", "speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_model_invalid",
     "speech_server_autostart_off", "speech_server_not_ready", "speech_server_busy"];
+// The bundled speech.cpp is missing or fails its check (#1314, M-3).
+const BUNDLE_REASON = "speech_bundle_missing_or_invalid";
 const RETRY_REASONS: readonly string[] = ["speech_server_busy", "speech_server_start_timeout", "speech_server_exited", "speech_server_not_ready"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -60,6 +65,7 @@ export const recognitionFixOf = (endpoint: string, details: unknown): Recognitio
     const switchEndpoint = endpoint as TranscriptionEndpoint;
     if (MODEL_REASONS.includes(reason)) return { endpoint: switchEndpoint, source, kind: "models", reason, languages: [], auto: false };
     if (reason === "realtime_asr_models_do_not_fit") return { endpoint: switchEndpoint, source, kind: "share", reason, languages: [], auto: false };
+    if (reason === BUNDLE_REASON) return { endpoint: switchEndpoint, source, kind: "bundle", reason, languages: [], auto: false };
     if (SERVER_REASONS.includes(reason)) return { endpoint: switchEndpoint, source, kind: "server", reason, languages: [], auto: false };
     if (!LANGUAGE_REASONS.includes(reason)) return null;
     const listed = isRecord(details) && Array.isArray(details.languages) ? details.languages : [];

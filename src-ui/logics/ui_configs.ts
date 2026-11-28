@@ -155,6 +155,8 @@ export const papago_auth_key_url = "https://www.ncloud.com/product/aiService/pap
 export const vrct_document_home_url = "https://kein5.github.io/astarot";
 export const vrct_document_url_chunk_faq = "guide/troubleshooting";
 export const vrct_document_url_chunk_ui_guide = "guide/first-setup";
+// Installing again, where a damaged or missing part of the app is fixed (#1314).
+export const vrct_document_url_chunk_install = "guide/install";
 // Each model setting links to its own section: #tts, #asr, #whisper-server, #rvc, #seed-vc, #translation.
 export const vrct_document_url_chunk_custom_models = "guide/custom-models";
 
@@ -179,6 +181,7 @@ export const generateLocalizedDocumentUrl = (lang_code = "en") => {
         vrct_document_home_url: `${vrct_document_home_url}/${lang_path}`,
         vrct_document_faq_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_faq}`,
         vrct_document_ui_guide_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_ui_guide}`,
+        vrct_document_install_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_install}`,
         vrct_document_custom_models_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_custom_models}`,
     };
 };

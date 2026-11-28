@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { generateLocalizedDocumentUrl } from "@ui_configs";
 import { useI18n } from "@useI18n";
 import { useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
@@ -47,13 +50,16 @@ export const RecognitionFixController = () => {
     const openSettings = useOpenSettings();
     const { dialog, close } = useConsentDialog(!!request);
     const [language, setLanguage] = useState("");
+    // The user guide's steps to install the app again, for a missing or broken bundle (#1314, M-3);
+    // where the browser cannot be opened, the address is shown instead.
+    const [linkFailed, setLinkFailed] = useState(false);
     // The language chosen here, until the saved settings come back with it.
     const chosen = useRef<{ fix: RecognitionFix; language: string } | null>(null);
     const turnOn = (fix: RecognitionFix) => (fix.source === "mic" ? setTranscriptionSend : setTranscriptionReceive)(true);
 
     useEffect(() => () => { setRequest(null); }, [setRequest]);
     // A new refusal offers its own first language.
-    useEffect(() => { if (request) setLanguage(firstLanguage(request.languages, i18n.language)); }, [request]);
+    useEffect(() => { if (request) { setLanguage(firstLanguage(request.languages, i18n.language)); setLinkFailed(false); } }, [request]);
     const offersModel = !!request && request.auto && realtime?.server === "bundled";
     useEffect(() => { if (offersModel && !catalog) sendDownload("/get/data/model_download_catalog"); }, [offersModel, !!catalog]);
 
@@ -120,6 +126,11 @@ export const RecognitionFixController = () => {
         openSettings({ page: "transcription", target: settingId });
     };
     const name = t(fix.source === "mic" ? "main_page.transcription_send" : "main_page.transcription_receive");
+    const installUrl = generateLocalizedDocumentUrl(i18n.language).vrct_document_install_url;
+    const openInstallGuide = async () => {
+        if (!isTauri()) { setLinkFailed(true); return; }
+        try { await openUrl(installUrl); setLinkFailed(false); } catch { setLinkFailed(true); }
+    };
     const names = createLanguageNames(i18n.language);
     const chooseLanguage = () => {
         if (!realtime || !language) return;
@@ -151,6 +162,7 @@ export const RecognitionFixController = () => {
                 {fix.kind === "models" ? <p>{t("recognition_fix.models_body")}</p>
                     : fix.kind === "share" ? <p>{t("recognition_fix.share_body")}</p>
                     : fix.kind === "server" ? <p>{t(`realtime_toggle.${fix.reason}`)}</p>
+                    : fix.kind === "bundle" ? <p>{t("recognition_fix.bundle_body")}</p>
                     : <p>{t(fix.auto ? "recognition_fix.language_auto_body" : "recognition_fix.language_body")}</p>}
             </DialogHeader>
             {fix.kind === "language" && fix.languages.length > 0 && <div data-recognition-fix-language>
@@ -172,13 +184,16 @@ export const RecognitionFixController = () => {
                 <ModelDownloads targets={["asr"]} only={[detecting.id]} expected={{ asr: { model: saved } }}
                     onStart={id => setWaiting({ fix, model: id, before: downloads.jobs[id]?.job_id ?? null, expected: saved })} />
             </section>}
+            {fix.kind === "bundle" && linkFailed && <p role="alert">{t("model_downloads.link_error")} <code>{installUrl}</code></p>}
             <DialogFooter>
                 <Button autoFocus onClick={cancel}>{t("recognition_fix.close")}</Button>
+                {/* A missing or broken bundle is not fixed in the settings: only installing again fixes it. */}
+                {fix.kind === "bundle" && <Button tone="primary" onClick={openInstallGuide}>{t("recognition_fix.open_install_guide")}</Button>}
                 {/* For a server whose model, device or driver failed, the setting is the fix itself. */}
-                <Button tone={fix.kind === "server" && !retriesServer(fix) ? "primary" : undefined}
+                {fix.kind !== "bundle" && <Button tone={fix.kind === "server" && !retriesServer(fix) ? "primary" : undefined}
                     onClick={() => openSetting(fix.kind === "language" ? languageSettingId(fix.source)
                         : fix.kind === "server" ? serverSettingId(fix.reason) : MODELS_SETTING_ID)}>
-                    {t("recognition_fix.open_setting")}</Button>
+                    {t("recognition_fix.open_setting")}</Button>}
                 {retriesServer(fix) && <Button tone="primary" onClick={() => { cancel(); turnOn(fix); }}>{t("recognition_fix.turn_on_again")}</Button>}
                 {fix.kind === "models" && <Button tone="primary" onClick={() => { cancel(); openSetup(); }}>{t("recognition_fix.get_models")}</Button>}
                 {fix.kind === "share" && <Button tone="primary" disabled={!speech || !asr} onClick={share}>{t("recognition_fix.use_shared", { model: micName })}</Button>}
