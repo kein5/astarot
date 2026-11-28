@@ -81,7 +81,6 @@ PAIRS = {"README.md": "docs/readmes/README.ja.md"}
 # not conflict when each removes its own.
 PENDING_SKILLS = (
 
-    "skills/ci-triage/SKILL.md",
 
 
 
