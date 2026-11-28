@@ -468,7 +468,7 @@
   "locales/en.yml": {
     "en-british|colour": 1,
     "en-click|click": 1,
-    "en-click|Click": 3,
+    "en-click|Click": 2,
     "en-click|Clicks": 1,
     "en-contraction|Can't": 8,
     "en-contraction|doesn't": 1,
@@ -486,7 +486,7 @@
     "ja-dash|—": 2,
     "ja-exclamation|！": 1,
     "ja-halfwidth-paren|信(": 1,
-    "ja-kana-words|他の": 9,
+    "ja-kana-words|他の": 8,
     "ja-kana-words|及び": 2,
     "ja-latin-spacing|s で": 1,
     "ja-latin-spacing|は 0": 1,
