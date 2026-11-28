@@ -221,6 +221,22 @@ Only for writes to `selected_your_languages`, `selected_target_languages`, `sele
 - When a response cannot be turned into JSON, 500 is sent to the UI, and only the response's shape without values (the sequence of types) is written to `process.log`.
 - Logs mask values such as API keys (`SENSITIVE_ENDPOINT_MARKERS`). Conversation text is not written to `process.log`. The IPC on stdout itself is not masked.
 
+### Config file and conversation log locations
+
+`/get/data/path_config` returns the absolute path of the settings file as a string. `/get/data/path_logs` returns the conversation log folder in effect, in the form `{ "path": "...", "error_code": null }`. Both are included in the initialization response.
+
+`/set/data/path_logs` takes the absolute path of an existing folder that can be written to, as a string. `null` goes back to the default folder. On success it returns the same form as the get. When the input cannot be accepted, it goes back to the default folder and returns the HTTP-equivalent status 400 with `{ "path": "...", "error_code": "..." }`.
+
+| Error code | Reason and action shown at the input field |
+|---|---|
+| `log_directory_invalid` | Give the path of a folder, or go back to the default folder. |
+| `log_directory_not_absolute` | Give the absolute path of a folder. |
+| `log_directory_missing` | Give a folder that exists. |
+| `log_directory_not_directory` | Change the path of a file to the path of a folder. |
+| `log_directory_unwritable` | Give a folder that can be written to. |
+
+When a saved folder can no longer be used, it also goes back to the default folder. A get returns the path in effect and the latest error code. Writing the conversation log and opening its folder use the same folder. After the folder changes, new messages are written to the new folder.
+
 ## Talk AI
 
 `/get/data/talk_ai_catalog` returns `id`, `name`, `vision`, `cloud` and `destination` for each destination. The initial choice is `openai`. The destination of OpenAI Realtime is fixed; the destination of `vllm_omni` can be changed with `/set/data/talk_ai_local_url`. Destinations are limited to the loopback and the LAN. A LAN connection over TLS takes a local IP address.
@@ -244,22 +260,6 @@ The settings are `talk_ai_screen_interval_ms` (250 to 10000 ms, default 1000), `
 `/get/data/talk_ai_status` returns the capture source as `screen_source` and the JPEG sending state as `sending_screen`. `/set/disable/talk_ai_screen` stops the sharing whose `session_id` matches; it also discards the pictures waiting to be sent, so it ends the conversation. When capture fails, the conversation ends and a fixed error code is returned.
 
 In the UI (stage 6), the settings have a "Talk AI" page only while the experimental feature `talk_ai` is on (#969, decision 2). Every start asks for consent on a confirmation screen that shows the destination, what is sent and where the answer plays; playing the answer into the virtual microphone takes a consent of its own that others hear it. After `phase: "ready"`, a band at the top of the window, over both the main page and the settings, says that the voice is being sent, and `/set/enable/talk_ai_audio` is sent after the band is drawn. Screen sharing likewise asks for consent on its own confirmation screen, and `/set/enable/talk_ai_screen` is sent after the band also shows the screen. While a conversation is open, the destination and the screen settings cannot be changed, because the core stops the conversation when they change. While a conversation is open, the UI asks for `/get/data/talk_ai_status` every second.
-
-### Config file and conversation log locations
-
-`/get/data/path_config` returns the absolute path of the settings file as a string. `/get/data/path_logs` returns the conversation log folder in effect, in the form `{ "path": "...", "error_code": null }`. Both are included in the initialization response.
-
-`/set/data/path_logs` takes the absolute path of an existing folder that can be written to, as a string. `null` goes back to the default folder. On success it returns the same form as the get. When the input cannot be accepted, it goes back to the default folder and returns the HTTP-equivalent status 400 with `{ "path": "...", "error_code": "..." }`.
-
-| Error code | Reason and action shown at the input field |
-|---|---|
-| `log_directory_invalid` | Give the path of a folder, or go back to the default folder. |
-| `log_directory_not_absolute` | Give the absolute path of a folder. |
-| `log_directory_missing` | Give a folder that exists. |
-| `log_directory_not_directory` | Change the path of a file to the path of a folder. |
-| `log_directory_unwritable` | Give a folder that can be written to. |
-
-When a saved folder can no longer be used, it also goes back to the default folder. A get returns the path in effect and the latest error code. Writing the conversation log and opening its folder use the same folder. After the folder changes, new messages are written to the new folder.
 
 ---
 
@@ -484,6 +484,22 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 - 応答をJSONにできなかったときは、500をUIへ送り、`process.log`には値を除いた形（型の並び）だけを書く。
 - ログではAPIキーなどの値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。会話の本文は`process.log`に書かない。stdoutのIPCそのものは伏せない。
 
+### 設定ファイルと会話ログの保存先
+
+`/get/data/path_config` は設定ファイルの絶対パスを文字列で返す。`/get/data/path_logs` は有効な会話ログの保存先を `{ "path": "...", "error_code": null }` の形で返す。両方を初期化の応答に含める。
+
+`/set/data/path_logs` は既存の書き込み可能なフォルダーの絶対パスを文字列で受け取る。`null` で既定の保存先に戻す。成功時は取得と同じ形を返す。入力を受け付けられない場合は既定の保存先に戻し、HTTP相当の状態400と `{ "path": "...", "error_code": "..." }` を返す。
+
+| エラーコード | 入力欄に示す理由と対処 |
+|---|---|
+| `log_directory_invalid` | フォルダーのパスを指定するか、既定の保存先に戻す。 |
+| `log_directory_not_absolute` | フォルダーの絶対パスを指定する。 |
+| `log_directory_missing` | 存在するフォルダーを指定する。 |
+| `log_directory_not_directory` | ファイルのパスをフォルダーのパスに直す。 |
+| `log_directory_unwritable` | 書き込み可能なフォルダーを指定する。 |
+
+保存済みのフォルダーが使用できなくなった場合も、既定の保存先へ戻す。取得時は有効なパスと直近のエラーコードを返す。会話ログの書き出しとフォルダーを開く操作は同じ保存先を使う。保存先を変えたあと、新しいメッセージを新しい保存先に書く。
+
 ## おしゃべりAI
 
 `/get/data/talk_ai_catalog` は、接続先ごとに `id`、`name`、`vision`、`cloud`、`destination` を返す。初期選択は `openai`。OpenAI Realtime の送信先は固定し、`vllm_omni` の接続先は `/set/data/talk_ai_local_url` で変更できる。接続先はループバックかLANに限る。TLSを使うLAN接続にはローカルIPアドレスを指定する。
@@ -507,19 +523,3 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 `/get/data/talk_ai_status` は取り込み元を `screen_source`、JPEGの送信状態を `sending_screen` で返す。`/set/disable/talk_ai_screen` は `session_id` が一致する共有を止め、送信待ちの画像も破棄するため対話を終了する。取り込みが失敗したときは対話を終了し、固定のエラーコードを返す。
 
 画面（段階6）では、実験的機能 `talk_ai` がオンの間だけ、設定に「おしゃべりAI」のページを出す（#969 の決まったこと 2）。対話を始めるたびに、接続先、送るもの、応答の声の出し先を示す確認の画面で同意を取る。応答の声を仮想マイクへ流すときは、周りにも聞こえることへの同意を別に取る。`phase: "ready"` を受けたら、ウィンドウの上（メインの画面と設定の両方の上）に、声を送っていることを示す帯を出し、帯を描いたあとで `/set/enable/talk_ai_audio` を送る。画面共有も別の確認の画面で同意を取り、帯に画面を足して描いたあとで `/set/enable/talk_ai_screen` を送る。対話の間は、接続先と画面の送り方の設定を変えられないようにする。変えると中核が対話を止めるためである。対話が開いている間は、`/get/data/talk_ai_status` を1秒ごとに問い合わせる。
-
-### 設定ファイルと会話ログの保存先
-
-`/get/data/path_config` は設定ファイルの絶対パスを文字列で返す。`/get/data/path_logs` は有効な会話ログの保存先を `{ "path": "...", "error_code": null }` の形で返す。両方を初期化の応答に含める。
-
-`/set/data/path_logs` は既存の書き込み可能なフォルダーの絶対パスを文字列で受け取る。`null` で既定の保存先に戻す。成功時は取得と同じ形を返す。入力を受け付けられない場合は既定の保存先に戻し、HTTP相当の状態400と `{ "path": "...", "error_code": "..." }` を返す。
-
-| エラーコード | 入力欄に示す理由と対処 |
-|---|---|
-| `log_directory_invalid` | フォルダーのパスを指定するか、既定の保存先に戻す。 |
-| `log_directory_not_absolute` | フォルダーの絶対パスを指定する。 |
-| `log_directory_missing` | 存在するフォルダーを指定する。 |
-| `log_directory_not_directory` | ファイルのパスをフォルダーのパスに直す。 |
-| `log_directory_unwritable` | 書き込み可能なフォルダーを指定する。 |
-
-保存済みのフォルダーが使用できなくなった場合も、既定の保存先へ戻す。取得時は有効なパスと直近のエラーコードを返す。会話ログの書き出しとフォルダーを開く操作は同じ保存先を使う。保存先を変えたあと、新しいメッセージを新しい保存先に書く。
