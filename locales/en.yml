@@ -538,7 +538,7 @@ config_page:
             connected: "Connected"
             disconnected: "Disconnected"
         compute_device:
-            desc: "The accuracy and speed of each processing type may vary depending on your machine specs, and the compatibility with calculation methods may differ from the displayed order. Please use this as a general guideline."
+            desc: "The processing types are listed from faster and less accurate to slower and more accurate. On some PCs a type runs better or worse than its place in the list suggests, so treat the order as a rough guide."
             label_device: "Processing device"
             label_type: "Processing type"
             type_template_auto: "Automatic"
