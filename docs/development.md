@@ -169,7 +169,7 @@ python tools/dev.py check --scope integration
 
 | Scope | What it covers |
 | --- | --- |
-| `tooling` | Tests `tests/devtools` with the standard library's unittest |
+| `tooling` | Tests `tests/devtools` with the standard library's unittest. This includes the [check of the bilingual documents](#checking-bilingual-documents) (`tools/bilingual_docs.py`) |
 | `node` | Runs the `.test.js` / `.test.mjs` / `.test.ts` files under `src-ui` and the tests of `tools/i18n_gate` and `tools/writing_gate` with Vitest (`vitest.config.js`). Starts the Vitest in `node_modules` directly with Node and fetches nothing. If Vitest is not installed, it points to `setup --scope ui` and stops. Then runs the [UI text check](#checking-ui-text-and-translations) (`tools/i18n_gate/check.mjs`) and the [prose check](#checking-prose-docswriting) (`tools/writing_gate/check.mjs`) |
 | `lint` | Checks `LINT_PATHS` in `tools/dev.py` (`tests/voice`, `tests/devtools` and the audio, distribution and development tools) with Ruff. No automatic fixes. The voice CI runs the same scope |
 | `voice` | The contract tests without models, run with `tests/voice/pytest.ini`, and the two standalone tests in `tests/platform` |
@@ -458,6 +458,20 @@ node tools/writing_gate/check.mjs --file <file>        # check text outside the 
 - The violations that existed when the check started are recorded in `tools/writing_gate/baseline.json` as counts per file, rule and word. The check fails when a count goes up. It also fails when a count goes down, until you rewrite the baseline with `--update-baseline`, so that fixed forms do not come back. Existing violations are fixed area by area, one pull request per area (decision of 2026-11-23).
 - The rules that need a person's judgment are not checked: the role of the document, whether the conclusion comes first, the direction of the argument, whether revision changed the meaning, and the like. Check them with the final section of each guideline ("書いたあとの確認" in the Japanese one, "Checklist" in the English one), and write in the "Verification" section of the pull request description that you went through them and what came out (the pull-request skill).
 
+## Checking bilingual documents
+
+The English version of each document is authoritative, and the Japanese version is made from it ([AGENTS.md, "English and Japanese"](../AGENTS.md#english-and-japanese)). `tools/bilingual_docs.py` checks the part of this rule that a machine can check: the structure. It runs in `check --scope tooling` through `tests/devtools/test_bilingual_docs.py`, so the light checks and CI run it too. On failure it shows the file, the line and what differs.
+
+```sh
+python tools/bilingual_docs.py --check
+```
+
+- It reads the root `*.md` and the Markdown in `docs/` and `skills/`. Each file has the English version, a `---` line and the Japanese version under `# <title>（日本語版）`, in that order, and a link from under the English title to the Japanese title.
+- Below the two titles, the headings pair off one to one in the same order. Each pair has the same level, the same section number when the English heading starts with one, the same inline code and the same emoji. The English headings contain no kana. For a skill, the description in the front matter starts in English and stays within 1,024 characters.
+- It cannot check whether the two versions say the same thing. A pattern cannot tell whether two sentences in different languages mean the same, so the check stops at the structure. The rule (change the English first, and the Japanese in the same pull request) and review cover the meaning. Read the two versions side by side before you open a pull request.
+- The files outside the common form are listed in the tool with their reasons: legal texts and the code of conduct (`EXEMPT`), the generated lists in `docs/spec/reference/` (`EXEMPT`), the community files whose Japanese version sits one level down (`SHIFTED`), `README.md` and its Japanese version in `docs/readmes/` (`PAIRS`), the skills not converted yet (`PENDING_SKILLS`, until each one's pull request for #1367) and the sections that exist only in Japanese so far (`JAPANESE_ONLY_SECTIONS`). When the file behind an entry changes, as when a skill is converted, the check fails until the entry is removed.
+- The UI text in `locales/` has its own check ([Checking UI text and translations](#checking-ui-text-and-translations)).
+
 ## Testing VR handling without VR hardware
 
 From 0.5.0, the Rust core handles the VR overlays (`native/vr-overlay`, `native/openvr-client`). The core's tests use a fake SteamVR (`runtime::fake::FakeVr` in `native/vr-overlay`). It holds controller poses and buttons, and answers where the laser hits from the positions of the overlays that have been placed. The tests are `native/vr-overlay/tests/interaction.rs` and `native/core/tests/vr_overlay.rs`, and they are part of `check --scope rust`. Details are in [the crate's README](../native/vr-overlay/README.md).
@@ -730,7 +744,7 @@ python tools/dev.py check --scope integration
 
 | スコープ | 内容 |
 | --- | --- |
-| `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
+| `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証。[2か国語の文書の検査](#2か国語の文書の検査)（`tools/bilingual_docs.py`）もここに含まれる |
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate`、`tools/writing_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）と[文章の検査](#文章の検査docswriting)（`tools/writing_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験2件 |
@@ -1018,6 +1032,20 @@ node tools/writing_gate/check.mjs --file <ファイル>     # PRの本文や報�
 
 - 検査を始めたときにあった違反は `tools/writing_gate/baseline.json` に、ファイルと決まりと語ごとの件数で記録してあります。件数が増えると失敗します。減ったときも、直した形が戻らないように、`--update-baseline` で基準を書き直すまで失敗します。既存の違反は、場所ごとに別のPRで直していきます（2026-11-23 の決定）。
 - 文書の立場、結論が先にあるか、論の向き、推敲で意味を変えていないかのように、人が判断する決まりは検査しません。ガイドラインの最後の確認の節（「書いたあとの確認」「Checklist」）で確かめ、PRの本文の「確認したこと」に、通したことと結果を書きます（pull-requestスキル）。
+
+## 2か国語の文書の検査
+
+各文書は英語版を正本とし、日本語版は英語版から作ります（[AGENTS.md の「英語と日本語」](../AGENTS.md#英語と日本語)）。この決まりのうち機械で確かめられる構成の部分を、`tools/bilingual_docs.py` が検査します。`tests/devtools/test_bilingual_docs.py` を通して `check --scope tooling` に含まれるので、軽量チェックとCIでも動きます。失敗するとファイルと行と、食い違った所を表示します。
+
+```sh
+python tools/bilingual_docs.py --check
+```
+
+- 読むのは、ルートの `*.md` と、`docs/` と `skills/` の Markdown です。どのファイルも、英語版、`---` の行、`# <題>（日本語版）` で始まる日本語版の順に並び、英語版の題の下から日本語版の題へリンクします。
+- 2つの題より下の見出しは、同じ順に1つずつ対になります。対の見出しは、階層が同じで、英語の見出しが番号で始まればその番号が同じで、インラインのコードと絵文字も同じです。英語版の見出しには仮名を使いません。スキルは、front matter の description を英語で始め、1,024 文字に収めます。
+- 2つの版が同じことを言っているかは確かめられません。言語の違う2つの文が同じ意味かを形で判断することはできないので、検査は構成までです。意味は、決まり（まず英語を変え、日本語を同じPRで合わせる）とレビューで担います。PRを出す前に、2つの版を読み比べます。
+- 共通の形の外にあるファイルは、理由と一緒に道具の中に挙げてあります。法的な文書と行動規範（`EXEMPT`）、`docs/spec/reference/` の生成する一覧（`EXEMPT`）、日本語版を1段下げて置くコミュニティのファイル（`SHIFTED`）、`README.md` と `docs/readmes/` の日本語版（`PAIRS`）、まだ変換していないスキル（`PENDING_SKILLS`。#1367 のスキルごとのPRまで）、いまは日本語版にだけある節（`JAPANESE_ONLY_SECTIONS`）です。スキルを変換したときのように、項目の元のファイルが変わると、項目を消すまで検査が失敗します。
+- 画面の文言（`locales/`）には専用の検査があります（[UIの文言と翻訳の検査](#uiの文言と翻訳の検査)）。
 
 ## VRの機器なしでVRの処理を試す
 

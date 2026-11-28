@@ -35,7 +35,15 @@ Reading only what is relevant is enough. You do not need to read everything ever
 | Linux builds, AppImage, GUI tests on a real machine | `docs/voice-stack/linux-build-pipeline.md`, `docs/voice-stack/appimage.md` |
 | Design decisions (ADRs) | `docs/adr/README.md` (the index, what the fields mean, how to write a new ADR) and each ADR. Check an ADR's state in the front matter at its top. |
 
-Issue bodies that agents (sessions) write take the same split form as pull request bodies (the `pull-request` skill): every section in English first, then a `---` line, then the same sections in Japanese. Where the two differ, the English is right. Comments that agents write, such as records of decisions, take the same form. Issues and comments that people write may be in English or Japanese; they need not carry both. Reports that outside users file from the issue templates may also stay in one language, as before.
+## English and Japanese
+
+For every document and every piece of agent reference material in this repository, the English version is authoritative and the Japanese version is derived from it. This covers the root `*.md`, `docs/` (the writing guidelines in `docs/writing/` included), `skills/`, and the issue, pull request and comment bodies that agents write. Where the two versions differ, the English prevails.
+
+- Make a change in the English version first. The Japanese version follows in the same pull request. A pull request that changes only the Japanese version is acceptable only as a translation fix that brings the Japanese in line with the English.
+- A document keeps both versions in one file: the English version with a link to the Japanese version under its title, then a `---` line, then the Japanese version under `# <title>（日本語版）`. Section 3 of the `docs` skill describes the form.
+- `python tools/bilingual_docs.py --check`, which runs in `check --scope tooling` and in CI, checks that each bilingual file has both versions and that their headings match, in the same order. It cannot tell whether the two versions say the same thing. The rule above and review cover that.
+- Issue bodies that agents (sessions) write take the same split form as pull request bodies (the `pull-request` skill): every section in English first, then a `---` line, then the same sections in Japanese. Comments that agents write, such as records of decisions, take the same form. Issues and comments that people write may be in English or Japanese; they need not carry both. Reports that outside users file from the issue templates may also stay in one language, as before.
+- `NOTICE.md` and other legal texts stay in English only. The user guide (`site/`) keeps a page for each language, and the UI text in `locales/` has its own check (`tools/i18n_gate`).
 
 ## Entry points for development and verification
 
@@ -175,7 +183,15 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
 | 設計判断（ADR） | `docs/adr/README.md`（索引、項目の意味、新しい ADR の書き方）と各 ADR。状態は冒頭の front matter で確かめる |
 
-エージェント（セッション）が書く Issue の本文は、PR の本文（`pull-request` スキル）と同じ分割形で書きます。前半に英語ですべての節を書き、`---` の区切り線のあとに、同じ内容を日本語ですべての節に書きます。食い違うときは英語が正です。判断の記録など、エージェントが書くコメントも同じ形で書きます。人が書く Issue とコメントは、英語でも日本語でも構いません（2か国語は求めません）。外部の利用者が Issue のテンプレートから出す報告も、今までどおり片方の言語で構いません。
+## 英語と日本語
+
+このリポジトリのすべての文書とエージェントの参考情報は、英語版を正本とし、日本語版は英語版から作る副産物とします。対象は、ルートの `*.md`、`docs/`（`docs/writing/` の文章のガイドラインを含む）、`skills/`、エージェントが書く Issue、PR、コメントの本文です。2つの版が食い違うときは、英語版が優先します。
+
+- 変更は、まず英語版に入れます。日本語版は同じ PR で英語版に合わせます。日本語版だけを変える PR は、日本語を英語に合わせる翻訳の修正のときに限ります。
+- 文書は1つのファイルに両方の版を載せます。英語版の題の下に日本語版へのリンクを置き、`---` の行のあとに `# <題>（日本語版）` で日本語版を続けます。形は `docs` スキルの 3 にあります。
+- `python tools/bilingual_docs.py --check` が、2か国語のファイルに両方の版があることと、見出しが同じ順に一致することを確かめます。`check --scope tooling` と CI で動きます。2つの版が同じことを言っているかは確かめられません。そこは上の決まりとレビューで担います。
+- エージェント（セッション）が書く Issue の本文は、PR の本文（`pull-request` スキル）と同じ分割形で書きます。前半に英語ですべての節を書き、`---` の区切り線のあとに、同じ内容を日本語ですべての節に書きます。判断の記録など、エージェントが書くコメントも同じ形で書きます。人が書く Issue とコメントは、英語でも日本語でも構いません（2か国語は求めません）。外部の利用者が Issue のテンプレートから出す報告も、今までどおり片方の言語で構いません。
+- `NOTICE.md` などの法的な文書は、英語のみのままです。利用者ガイド（`site/`）は言語ごとのページのままで、画面の文言（`locales/`）には専用の検査（`tools/i18n_gate`）があります。
 
 ## 開発と検証の入口
 
