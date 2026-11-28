@@ -193,4 +193,7 @@ test("the kit's stand-in keeps the kit's defaults", () => {
         assert.equal(drawn.type, element, name);
         assert.deepEqual(drawn.props, { "data-slot": slot, className: "place", children: "words" }, name);
     }
+    // The entrance a screen asks for (#1378) moves nothing in a test.
+    assert.match(kit("index.ts"), /export \{ useAppear, type MotionSurface \} from "\.\/motion\.ts";/);
+    assert.equal(kitStandIns.useAppear(), undefined);
 });

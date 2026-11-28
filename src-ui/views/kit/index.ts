@@ -18,3 +18,5 @@ export { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmC
     type InlineConfirmContentProps, type InlineConfirmProps } from "./InlineConfirm.tsx";
 export { Textarea, type TextareaProps } from "./Textarea.tsx";
 export { ChoiceCard, type ChoiceCardProps } from "./ChoiceCard.tsx";
+// How a surface that a screen shows itself comes in (#1378).
+export { useAppear, type MotionSurface } from "./motion.ts";

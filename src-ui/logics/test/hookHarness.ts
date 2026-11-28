@@ -251,6 +251,10 @@ export const kitStandIns = {
     DialogTitle: (props: Record<string, unknown>) => jsx.jsx("h2", { "data-slot": "dialog-title", ...props }),
     DialogDescription: (props: Record<string, unknown>) => jsx.jsx("p", { "data-slot": "dialog-description", ...props }),
     DialogFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-footer", ...props }),
+    // The kit's entrance of a surface a screen shows itself: nothing moves without a page, and it
+    // keeps no hook of its own, so a screen's own hooks keep their places. A test that reads which
+    // surface a screen asks for hands in its own.
+    useAppear: () => undefined,
 };
 
 // A module as the harness builds it: a function of require and exports (harnessModules.ts).

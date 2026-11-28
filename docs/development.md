@@ -257,6 +257,7 @@ npm run test:coverage    # coverage (HTML and json-summary in build/coverage/ui)
 - When you move an existing `.js` file to `.ts`, rewrite every reference in the same commit: the imports in views, the loading in tests, and the paths that Python tests or tools point to.
 - `src-ui/views/app/_index_css/variables.css` is the source of truth for the values of the design tokens. From vanilla-extract, `vars` in `src-ui/views/theme/vars.css.ts` refers to the same variables. When you add a token, write it in both (`vars.test.ts` detects any mismatch).
 - Radix UI is used for behavior and accessibility; the look comes from vanilla-extract. When you add a Radix component, check whether it inserts a `<style>` element at runtime. The CSP allows inserted styles by hash, and `contentSecurityPolicy.test.ts` counts them. Radix's Popover brings react-remove-scroll's `<style>`, which it inserts only when the popover is modal; the app's popovers are never modal, so the test counts that one apart and checks that no popover is made modal.
+- Animation comes from [Motion](https://motion.dev/) (`motion`), through the kit only (#1378): `src-ui/views/kit/motion.ts` imports it, and the screens take their motion from the kit's parts and `useAppear` (`kit.test.ts` stops any other import). It uses `motion/mini`, which runs on the Web Animations API and inserts no `<style>`. Motion's React components are not used yet; `AnimatePresence` with `mode="popLayout"` would insert a `<style>` at runtime, which the CSP test would count. The reduced-motion rule lives in `motion.ts` too: with reduced motion, only opacity changes.
 
 ### UI lint and formatting (Biome)
 
@@ -818,6 +819,7 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。RadixのPopoverはreact-remove-scrollの `<style>` を連れてきますが、差し込むのはモーダルのときだけです。アプリのポップオーバーはモーダルにしないので、試験はそれを別に数え、モーダルにしたポップオーバーがないことを確かめます。
+- アニメーションは[Motion](https://motion.dev/)（`motion`）で付け、キットを通してだけ使います（#1378）。importするのは `src-ui/views/kit/motion.ts` だけで、画面はキットの部品と `useAppear` から動きを受け取ります（ほかのimportは `kit.test.ts` が止めます）。使うのは `motion/mini` で、Web Animations APIの上で動き、`<style>` を差し込みません。MotionのReactの部品はまだ使っていません。`mode="popLayout"` の `AnimatePresence` は実行時に `<style>` を差し込むので、CSPの試験に数えられます。動きを減らす設定の決まりも `motion.ts` に置いています。動きを減らす設定では、不透明度だけを変えます。
 
 ### UIのlintと整形（Biome）
 
