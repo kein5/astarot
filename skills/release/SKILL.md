@@ -1,9 +1,159 @@
 ---
 name: release
-description: ASTAROTの版を出す手順。ベータ期間の変更凍結、release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_name・実機・テレメトリの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合、問題が見つかったときの配信停止を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノート、配信停止を頼まれたときに使う。Use when preparing, drafting, publishing, halting or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
+description: Steps for releasing an ASTAROT version. Covers the beta change freeze, the release/X.Y.Z branch, version bump, CHANGELOG, release notes (docs/release-notes), candidate builds, the draft from "Prepare verified ASTAROT release draft", checks before publishing (tag_name, real PCs, telemetry), publishing, checks after it (latest, the Worker's latest.json, asset count), the support matrix and verification records, merging main back into develop and stopping delivery. Use when asked to prepare, draft, publish, check or halt a release (beta, stable or hotfix), bump a version or write release notes. Not for ordinary pull requests (pull-request skill). ASTAROTの版を出す手順。ベータ期間の変更凍結、release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_name・実機・テレメトリの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合、問題が見つかったときの配信停止を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノート、配信停止を頼まれたときに使う。通常のPRはpull-requestスキル。
 ---
 
-# 版を出す
+# Releasing a version
+
+[日本語版](#版を出す日本語版)
+
+Versions are published on GitHub Releases. A workflow makes the draft, and the maintainer publishes it after checking the draft.
+
+- Do not create tags by hand, and do not push them. Do not use `cog bump` either. GitHub creates the tag when the draft is published.
+- Do not delete or move published releases and tags.
+- `docs/voice-stack/release-candidates.md` is authoritative for the overall diagram and the detailed description of each stage.
+
+| Kind | Branch | Version | GitHub Releases |
+|---|---|---|---|
+| Beta | `develop` | `X.Y.Z-beta.N` | A pre-release. Not made the latest |
+| Stable release | `release/X.Y.Z` cut from `develop` | `X.Y.Z` | Made the latest |
+| Hotfix | `release/X.Y.Z` cut from `main` | `X.Y.Z` | Made the latest |
+
+Follow the steps in this order.
+
+1. The release branch (freeze changes to develop during the beta period)
+2. Building the candidates
+3. The draft
+4. Checks before publishing (tag_name, real PCs and, for a stable release, the beta period's telemetry)
+5. Publishing
+6. Checks after publishing (make_latest, releases/latest, the Worker's latest.json and the asset count)
+7. Updating the support matrix and the verification records (stable releases and hotfixes)
+8. Merging main back into develop
+
+## 1. The release branch
+
+Cut a stable release from `origin/develop` and a hotfix from `origin/main`. The steps for bringing fixes into a hotfix are in section 8 of the pull-request skill ("Hotfixes").
+
+```sh
+git fetch origin --tags
+git worktree add ../<repository-name>-release-<version> -b release/X.Y.Z origin/develop
+```
+
+1. Set `version` in `package.json` to `X.Y.Z`, and apply it to each file with `npm run update-version`.
+2. Write this version's section in `CHANGELOG.md` with `npm run changelog`. Read the section, and fix lines that are hard to understand in the file. In the frame of the same section added to the Japanese version, translate the summaries and notes into Japanese and delete the comment at the start of the frame.
+3. Make 1 and 2 one commit, `chore(release): version X.Y.Z`.
+4. Create the scaffold of `docs/release-notes/X.Y.Z.md` with `python tools/changelog.py scaffold-notes` (`mise run changelog:notes`), and rewrite it with the steps of the release-notes skill (see 9). Commit it as `docs(release): add the X.Y.Z release notes`.
+5. Open a pull request into main (`gh pr create --base main`). In its description, write the changes it includes, what you checked and what needs a decision.
+6. Merge the pull request into main with a merge commit after the maintainer has reviewed it. The `CHANGELOG.md` section links to the commits on `release/X.Y.Z`, so do not use squash or rebase.
+
+For a stable release, run the full mutation testing (the whole UI side and the list of the main Rust crates) before merging the pull request into main, and comment the results on the issue that keeps the record (for now, #550). The commands and the rough times are in "When to run mutation testing" in `docs/development.md`. Do not run it for a beta.
+
+If you add commits after the version bump, rewrite the section with `python tools/changelog.py write --force`. Before rewriting, compare it with the output of `python tools/changelog.py print`. The Japanese section is not rewritten, so translate the lines of the added commits and add them by hand.
+
+For a beta, do not cut `release/`. On a branch from develop, set `package.json` to `X.Y.Z-beta.N`, run `npm run update-version` and bring in `chore(release): version X.Y.Z-beta.N` through a pull request into develop. Do not write a beta in `CHANGELOG.md` or in `docs/release-notes/`. Its changes go in the pre-release notes.
+
+From the time the first beta of a version (`X.Y.Z-beta.1`) is published as a pre-release until the stable release (`X.Y.Z`) is published and the pull request in 8 that merges `main` back into `develop` is merged, the only changes that may be merged into `develop` are fixes for problems found in the betas. Open pull requests for new features and unrelated changes, let them wait, and merge them after the stable release ("Change freeze during the beta period" in `release-candidates.md`).
+
+## 2. Building the candidates
+
+For a stable release, merging the pull request into main starts "Start ASTAROT release draft" (`release-draft-auto.yml`). It builds the Linux and Windows candidates from the merge commit and goes straight on to the draft in 3. Its progress appears in that job's Summary.
+
+```sh
+gh run list --workflow release-draft-auto.yml --limit 3
+gh run watch <run-id>
+```
+
+- The workflows that build the candidates are `build-linux.yml` for Linux and `release.yml` for Windows. Build both from the same commit. Candidates are kept for 7 days.
+- If the automatic run stops, fix the cause, then run the same workflow by hand on `main` (`gh workflow run release-draft-auto.yml --ref main`). Candidates that succeeded are used as they are.
+- For a beta, run the same workflow by hand on `develop` (`gh workflow run release-draft-auto.yml --ref develop`).
+
+## 3. The draft
+
+"Prepare verified ASTAROT release draft" (`prepare-release.yml`) makes the draft. The automatic flow in 2 calls it, so you do not usually run it by hand. The workflow checks the candidates' origin, commit, version, SHA-256 and build provenance, adds the updater signatures and `latest.json`, and then makes the draft for `v<version>`. A stable release is made with `--latest`, and a beta with `--prerelease --latest=false`.
+
+When you run it by hand, pass the run IDs of the candidates built from the same commit on the same branch.
+
+```sh
+gh workflow run prepare-release.yml --ref main -f linux_run=<run-id> -f windows_run=<run-id>
+```
+
+When the draft is ready, note its id and contents.
+
+```sh
+gh api 'repos/{owner}/{repo}/releases?per_page=10' \
+  --jq '.[] | select(.draft) | {id, tag_name, target_commitish, name, assets: (.assets | length)}'
+```
+
+## 4. Before publishing
+
+1. Replace the body with the notes: `docs/release-notes/X.Y.Z.md` for a stable release, and for a beta, the notes written with the steps of the release-notes skill (see 9).
+
+   ```sh
+   gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F body=@docs/release-notes/X.Y.Z.md
+   ```
+
+2. PATCH the draft with `tag_name` and `target_commitish` stated explicitly, then read it back to check. The commands and the values to check are in "Rewrite the tag name just before publishing" in `release-candidates.md`. If a tag with the same name already exists, stop and tell the maintainer.
+3. Finish the checks on real PCs. For Windows, follow "Start the Windows package before publishing" in `release-candidates.md`, and for Linux, "Check on a Linux desktop before publishing". Each section also gives the scope to check (the OS for Windows, the package formats and desktops for Linux, and VR). Write what you could not check under `## 🐞 Known issues` (`## 🐞 既知の問題`) in the release notes. Note what you checked and what you did not, together with the version, the OS and its version, and the package format (they are used in 7).
+4. For a stable release, compare the errors during the beta period (`X.Y.Z-beta.N`) with the previous stable release, using the `app_started` and `error` events of ASTAROT's own telemetry system (`vrct-vox-telemetry`). Check that there is no notable rise in the rate of `error` against `app_started`, in the breakdown by `error_code` or in the skew by `os` and `os_version` (the detailed steps are in "Check the beta period's telemetry before publishing" in `release-candidates.md`). If there is a notable rise or a new error with no explanation, hold the release, and check again with the next beta, which fixes the cause. A hotfix has no beta period before it, so check the trend after publishing instead.
+5. Report that the release is ready to publish, and wait for the maintainer's review.
+
+## 5. Publishing
+
+The maintainer publishes. When you are asked to publish, publish with a PATCH that states `make_latest` explicitly as a string (`"true"` for a stable release, `"false"` for a beta). The command is at the end of "Rewrite the tag name just before publishing" in `release-candidates.md`.
+
+## 6. After publishing
+
+Check the four points in "Check after publishing" in `release-candidates.md`.
+
+1. The tag's commit is the same as the commit the candidates were built from
+2. `releases/latest` is `vX.Y.Z` for a stable release, and stays at the previous stable release for a beta (the result of `make_latest`)
+3. For a stable release, the update-check Worker's `latest.json` returns `X.Y.Z`
+4. The number and names of the assets match the list of the candidates (the expected count is "(the sum of the `assets` counts of the two candidates) + (the number of Windows ZIP assets) + 5")
+
+If anything differs, fix it or tell the maintainer.
+
+## 7. Update the support matrix and the verification records
+
+After publishing a stable release or a hotfix version, update the user-facing support matrix (`site/ja/guide/support.md` and `site/en/guide/support.md`) and the evidence behind it, `docs/voice-stack/platform-verification.md`, to match the published version (#516). The steps are in "Update the support matrix after publishing" in `release-candidates.md`.
+
+1. Cut a branch such as `docs/support-matrix-X.Y.Z` from develop.
+2. Add the results of the real-PC checks you noted in step 3 of 4 to the evidence list, and update the version and date at the top of the Japanese and English tables, the rows of package formats and the real-PC columns. Do not mark a cell that has only an earlier version's record as checked on this version.
+3. Run `python tools/dev.py check --scope voice` (`tests/voice/test_support_matrix.py`) and the build of `site/`.
+4. Open a pull request into develop. The site is published from develop, so merge it after the version is published.
+
+For a beta, do not change the tables. When you check a beta on a real PC, add it only to the real-PC records in the evidence list.
+
+## 8. Merge main back into develop
+
+When a stable release is published, "Open ASTAROT back-merge pull request" (`release-back-merge.yml`) opens a pull request from `chore/merge-main-back-X.Y.Z` into develop. Its title is `chore(release): merge main (X.Y.Z) back into develop`. It does not open one for a beta.
+
+1. This pull request is opened with the Actions token, so its checks do not start automatically. Close the pull request once and reopen it (`gh pr close <number> && gh pr reopen <number>`).
+2. If it conflicts, resolve the conflict on that branch. If you had already moved develop's version on to the next `-beta.N`, keep develop's side for the version lines.
+3. Check the conditions in section 6 of the pull-request skill ("CI and the conditions for merging"), and merge with a merge commit.
+4. Move develop on to the next `-beta.N` (the beta steps in 1).
+
+If the pull request did not open, a person opens it from the link in the job's Summary. If the repository settings do not allow Actions to create pull requests, the job stops after creating the branch.
+
+## 9. Release notes
+
+Write the release notes for both stable releases and betas with the steps of the [release-notes skill](../release-notes/SKILL.md). It covers how to collect the pull requests in the range, how to check the facts, how to put together the English and Japanese versions, revising, the checks and putting the notes into the draft. `docs/release-notes/README.md` is authoritative for the format.
+
+- For a stable release, write `docs/release-notes/<version>.md` on the release branch (step 4 of 1) and use it as the body of the GitHub release.
+- For a beta, write the notes neither in `docs/release-notes/` nor in `CHANGELOG.md`, and use them only as the body of the pre-release. A beta's notes also carry both the English and the Japanese versions (decision of 2026-11-25).
+- If the notes disagree with `CHANGELOG.md`, fix `CHANGELOG.md` first, then fix the notes.
+
+## 10. Stopping delivery when a problem is found
+
+When a serious bug is found in a published version, do not delete the published release and tag. Instead, stop delivery to users who have not updated by pointing it back at the previous version. Do not downgrade automatically; release the fix as a new patch version (`X.Y.(Z+1)`) (roll forward). "Stop delivery when a problem is found" in `release-candidates.md` is authoritative for the commands and the detailed cautions.
+
+1. PATCH `make_latest=true` onto the release of the last safe stable version (`v<previous>`), and point `releases/latest`, the stable Worker's `/latest.json` and the official site's download back at the previous version.
+2. To stop delivery on the beta channel as well, replace `beta/latest.json` on the `updater-channels` branch with the previous version's `latest.json` and push (`update-channels.yml` does not point it back automatically).
+3. At the top of the faulty version's release notes, add what the problem is, that delivery is stopped, and guidance for users who already updated.
+4. After the fix is in `develop`, publish a new patch version with the hotfix steps (`release/X.Y.(Z+1)` from `main`).
+
+---
+
+# 版を出す（日本語版）
 
 版はGitHub Releasesで公開します。下書きはワークフローが作り、公開は保守担当者が下書きを確かめてから行います。
 

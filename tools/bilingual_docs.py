@@ -92,7 +92,6 @@ PENDING_SKILLS = (
 
     "skills/real-machine-check/SKILL.md",
 
-    "skills/release/SKILL.md",
 
     "skills/release-notes/SKILL.md",
 
