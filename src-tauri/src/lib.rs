@@ -430,7 +430,7 @@ async fn get_font_list() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{startup_log_path, BROWSER_ARGS};
+    use super::{startup_log_path, BROWSER_ARGS, STEAMVR_UNREGISTER};
     use std::path::Path;
 
     #[test]
