@@ -21,7 +21,7 @@ pub const RATE: u32 = 48000;
 ///
 /// A whole number of the owner's 20 ms capture parts (`process::PART`) from 20 ms to 200 ms
 /// (`BLOCK_MS`), so that the parts fill a block exactly and the RVC worker's stream, which
-/// counts in 10 ms frames, has a block and a crossfade of at least one frame each.
+/// counts in 10 ms frames, has a block at least as long as its 20 ms crossfade on a GPU.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Block {
     ms: u32,
