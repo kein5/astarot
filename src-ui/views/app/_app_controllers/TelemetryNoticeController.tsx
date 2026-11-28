@@ -57,7 +57,7 @@ export const TelemetryNoticeController = () => {
             </DialogHeader>
             <TelemetryContents />
             <DialogFooter>
-                {/* Neither answer takes the first focus: the dialog opens with it on "See what is sent" above. */}
+                {/* Neither answer takes the first focus: the dialog opens with it on "See what gets sent" above. */}
                 <Button disabled={answered} onClick={() => answer(true)}>{t("telemetry_notice.send")}</Button>
                 <Button disabled={answered} onClick={() => answer(false)}>{t("telemetry_notice.dont_send")}</Button>
             </DialogFooter>

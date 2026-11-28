@@ -2818,10 +2818,10 @@ telemetry_notice:
     dont_send: "Don't send"
     later: "Decide later"
 telemetry_contents:
-    show: "See what is sent"
+    show: "See what gets sent"
     loading: "Checking what would be sent…"
     unavailable: "Could not get what would be sent."
-    intro: "This is what your PC sends. It is sent once a day as the note that the app started. The time will be the moment it is sent."
+    intro: "This is what your PC would send. It is sent once a day as the note that the app started. The time will be the moment it is sent."
     error_note: "When an error happens, the same is sent with the error code added, once a day for each code."
     destination: "Sent to: {{endpoint}}"
     receiver_note: "The receiver also records when the event arrived and the country it came from."
