@@ -1356,8 +1356,9 @@ def delete_app_data_scenario(installer, work):
         directory = work / "uninstall keeps app data"
         run_install(installer, directory, "new", work / "temp-uninstall-keeps", True)
         add_app_data(directory, mine)
+        # The SteamVR manifest is part of the app (#1384): it goes with the binary.
         data = {k: v for k, v in snapshot(directory).items()
-                if not k.startswith("_internal") and k not in (APP, "uninstall.exe", "installer_language.txt")}
+                if not k.startswith("_internal") and k not in (APP, STEAMVR_MANIFEST, "uninstall.exe", "installer_language.txt")}
         run_uninstall(directory)
         left = after_uninstall(directory)
         assert left == data, "An uninstall without the box changed app data: " + tree_difference(left, data)
