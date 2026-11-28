@@ -725,6 +725,10 @@ The policy is now to bring the design, appearance and structure of components cl
 | Not referenced | shadcn.io. A separate site built on top of shadcn/ui, whose free components have no license name |
 | Release packages | The kit is not yet used on any screen, and its sample page (`kit-lab.html`) is not in the build. `NOTICE.md` goes into the release packages as `licenses/VRCT/NOTICE.md` (`tools/app_resources.py`), so even when the screen components are aligned, the notice in this section of `NOTICE.md` is enough |
 
+## JPEG conversion of the Talk AI screen (#388)
+
+The core uses the JPEG feature of `image` 0.25.10 (MIT or Apache-2.0) to convert the screen to JPEG. `tools/rust_licenses.py` collects the license texts of `image` and the crates it depends on for the Windows and Linux packages.
+
 ---
 
 # 配布境界と原典（日本語版）
