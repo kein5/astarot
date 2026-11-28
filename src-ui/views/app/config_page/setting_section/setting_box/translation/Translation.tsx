@@ -32,7 +32,7 @@ import * as styles from "./Translation.css.ts";
 
 import {
     DownloadModelsContainer,
-    RadioButtonContainer,
+    ComboboxContainer,
     AuthKeyContainer,
     EntryWithSaveButtonContainer,
     DropdownMenuContainer,
@@ -120,6 +120,8 @@ export const Translation = () => {
 // (#1266 ★4): one choice, its options under the two systems' names, in the order the page shows
 // them below. An engine the core cannot use now (no key, no server) is greyed; the one in use
 // stays chosen. While the language settings are busy, a choice waits, as on the main screen.
+// It is a dropdown found by typing (#1369, decided on 2026-11-28), not a list of radios, so the
+// model and its device come right after it.
 const TranslationEngine_Container = () => {
     const { t } = useI18n();
     const { currentTranslationEngines, currentSelectedTranslationEngines, currentSelectedPresetTabNumber,
@@ -133,6 +135,7 @@ const TranslationEngine_Container = () => {
     };
     const noteId = useId();
     const name = engines.find(item => item.id === selected);
+    const inUse = name ? translatorLabel(name, t) : selected || t("config_page.translation.select_translation_engine.unselected");
     const choose = (id: string) => {
         if (!canChangeLanguageSettings()) return;
         if (id !== selected) setSelectedTranslationEngines(id);
@@ -140,16 +143,20 @@ const TranslationEngine_Container = () => {
     return (
         <div>
             <SectionLabelComponent label={t("config_page.translation.section_label_translation_engines")} />
-            <RadioButtonContainer
+            <ComboboxContainer
                 label={t("config_page.translation.select_translation_engine.label")}
                 desc={t("config_page.translation.select_translation_engine.desc")}
                 // The engine in use is a value, not a description: it stays under the label (#614).
-                note={<span role="status">{t("config_page.translation.select_translation_engine.selected", {
-                    tab, engine: name ? translatorLabel(name, t) : selected || t("config_page.translation.select_translation_engine.unselected") })}</span>}
+                note={<span role="status">{t("config_page.translation.select_translation_engine.selected", { tab, engine: inUse })}</span>}
                 note_id={noteId}
                 aria-describedby={noteId}
                 selectFunction={choose}
                 name="select_translation_engine"
+                // An engine the lists below do not hold, or none, is said on the button as in the note.
+                placeholder={inUse}
+                search_label={t("config_page.translation.select_translation_engine.search_label")}
+                search_placeholder={t("config_page.translation.select_translation_engine.search_placeholder")}
+                empty_text={t("config_page.translation.select_translation_engine.no_results")}
                 groups={[
                     { id: "local", label: t("config_page.translation.local_section.label"), options: option(LOCAL_TRANSLATION_ENGINE) },
                     { id: "api", label: t("config_page.translation.api_section.label"),

@@ -744,6 +744,9 @@ config_page:
             desc: "メイン画面の「翻訳エンジン」と同じで、言語設定ごとに選びます。APIのエンジンは、下の「API（クラウドや自分のサーバー）」でAPIキーを登録するかサーバーにつなぐと選べます。"
             selected: "言語設定{{tab}}で使用中: {{engine}}"
             unselected: "未選択"
+            search_label: "翻訳エンジンを検索"
+            search_placeholder: "名前で絞り込む"
+            no_results: "一致するエンジンがありません"
         local_section:
             label: "お使いのPCで動かす"
             desc: "翻訳する文はお使いのPCの外に出ません。モデルを取得するか、お使いのPCにある自分のモデルを追加して使います。"

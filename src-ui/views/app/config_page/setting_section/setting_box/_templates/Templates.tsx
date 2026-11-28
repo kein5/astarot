@@ -20,6 +20,7 @@ import {
     MessageFormat,
     ConnectionCheckButton,
     SettingSwitch,
+    SettingCombobox,
 } from "../_components";
 import type { LabelComponentProps } from "../_components/label_component/LabelComponent";
 import type { DropdownMenuProps, MultiDropdownEntry } from "../_components/dropdown_menu/DropdownMenu";
@@ -34,6 +35,7 @@ import type { DownloadModelsProps } from "../_components/download_models/Downloa
 import type { MessageFormatProps } from "../_components/message_format/MessageFormat";
 import type { ConnectionCheckButtonProps } from "../_components/connection_check_button/ConnectionCheckButton";
 import type { SettingSwitchProps } from "../_components/setting_switch/SettingSwitch";
+import type { SettingComboboxProps } from "../_components/setting_combobox/SettingCombobox";
 import { useI18n } from "@useI18n";
 
 // What a row of the settings takes besides its control's own props: the label column, where the
@@ -269,6 +271,14 @@ export type RadioButtonContainerProps<O extends RadioOption = RadioOption> = Tem
 
 export const RadioButtonContainer = <O extends RadioOption>(props: RadioButtonContainerProps<O>) => (
     <CommonContainer Component={RadioButton} {...props} control_align="end" />
+);
+
+// A choice among many, found by typing (#1369): the kit's Combobox at the row's right end, as
+// compact as the row's select fields. It takes RadioButtonContainer's props.
+export type ComboboxContainerProps = TemplateRowProps & SettingComboboxProps;
+
+export const ComboboxContainer = (props: ComboboxContainerProps) => (
+    <CommonContainer Component={SettingCombobox} {...props} control_align="end" />
 );
 
 // The key's page opens from the link under the label (webpage_url).
