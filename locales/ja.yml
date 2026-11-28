@@ -1830,6 +1830,9 @@ speech_servers:
     state_failed: "失敗"
     state_pending: "応答を確認中"
     state_unknown: "状態未確認"
+    # Each server's state when the ASR + VAD row runs two: Mic input's, and Listening's own (#1396).
+    state_of_asr: "マイク入力: {{state}}"
+    state_of_asr_listening: "聞き取り: {{state}}"
     external: "外部サーバー"
     bundled: "同梱サーバー"
     japanese_selection: "日本語のサーバー"

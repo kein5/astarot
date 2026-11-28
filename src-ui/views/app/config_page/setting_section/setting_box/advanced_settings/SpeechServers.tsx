@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
@@ -12,8 +12,8 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { Fold } from "../_components/fold/Fold";
 import { PathField as PathEntry } from "../_components/path_field/PathField";
 import { pathExample } from "../../../../../../logics/common/pathExample";
-import type { SpeechProfile, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
-import { sourcesByPath } from "../../../../../../logics/transcription/listeningModel";
+import type { SpeechProfile, SpeechServerName, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
+import { listeningApart, sourcesByPath } from "../../../../../../logics/transcription/listeningModel";
 import { Button } from "../../../../../kit/index.ts";
 
 // The path fields of a profile.
@@ -31,6 +31,8 @@ const serverProgress = (owner: SpeechServerRow | undefined, pending: unknown) =>
     owner?.state === "preparing" || (pending && owner?.state !== "stopping" && owner?.state !== "failed") ? "working" : undefined;
 const serverTone = (owner: SpeechServerRow | undefined, pending: unknown) => pending || owner?.state === "preparing" || owner?.state === "stopping" ? "warning" :
     owner?.error_code || owner?.state === "failed" ? "failed" : owner?.state === "ready" ? "active" : "neutral";
+// A server that runs, or is on its way to or from running, keeps the settings it started with.
+const RUNNING: readonly string[] = ["preparing", "ready", "stopping"];
 
 // The saved settings the form was drafted from. A draft exists only once they have arrived;
 // without them the page stops with a TypeError, as reading their fields did before.
@@ -72,7 +74,21 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
     }, [saving, pendingKey, updateError]);
     const field = (name: SpeechProfile, key: keyof SpeechServerProfileSettings, value: string | boolean) => setDraft(previous => previous && ({ ...previous,
         profiles: { ...previous.profiles, [name]: { ...previous.profiles[name], [key]: value } } }));
-    const stateText = (name: SpeechProfile) => t(`speech_servers.state_${pending[name] ? "pending" : state[name]?.state ?? "unknown"}`);
+    const stateText = (name: SpeechServerName) => t(`speech_servers.state_${pending[name] ? "pending" : state[name]?.state ?? "unknown"}`);
+    // The servers a settings row runs (#1396, decided on 2026-11-28). The asr row runs Mic input's
+    // server, and Listening's own while Listening has a model of its own in the saved settings
+    // (#1242). Listening's server that still runs or is asked for is shown after its model was
+    // taken away.
+    const wanted = (name: SpeechProfile): SpeechServerName[] =>
+        name === "asr" && listeningApart(settings?.profiles?.asr) ? ["asr", "asr_listening"] : [name];
+    const active = (server: SpeechServerName) => !!pending[server] || RUNNING.includes(state[server]?.state ?? "");
+    const shown = (name: SpeechProfile): SpeechServerName[] => {
+        const servers = wanted(name);
+        return name === "asr" && !servers.includes("asr_listening") && active("asr_listening") ? [...servers, "asr_listening"] : servers;
+    };
+    // With two servers in a row, each state says whose server it is: Mic input's or Listening's.
+    const serverState = (name: SpeechProfile, server: SpeechServerName) =>
+        shown(name).length > 1 ? t(`speech_servers.state_of_${server}`, { state: stateText(server) }) : stateText(server);
     // Only the CPU and separate GPUs are choices; "auto" and "gpu" never pick an integrated GPU either.
     const separate = devices.filter(row => row.kind === "gpu");
     // "GPU" means a separate GPU, so it is offered only when one is listed, or when the list
@@ -94,17 +110,21 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
     };
     // Held open while a server reports an error to fix in here; open at first while the page's
     // feature still needs a model set here (needed).
-    const attention = profiles.some(name => !!state[name]?.error_code || !!state[name]?.low_latency?.error_code);
-    const summary = profiles.map(name => `${t(`speech_servers.${name}`)}: ${t(configured(name) ? "speech_servers.model_set" : "speech_servers.model_unset")} · ${stateText(name)}`).join(" / ");
+    const attention = profiles.some(name => shown(name).some(server => !!state[server]?.error_code || !!state[server]?.low_latency?.error_code));
+    // Every server of a row is in its line (#1396): Listening's own server is not hidden behind Mic input's state.
+    const summary = profiles.map(name => `${t(`speech_servers.${name}`)}: ${t(configured(name) ? "speech_servers.model_set" : "speech_servers.model_unset")} · ${
+        shown(name).map(server => serverState(name, server)).join(" · ")}`).join(" / ");
     return <section className={embedded ? undefined : styles.container} aria-label={t("speech_servers.title")}>
         <SetupSection title={t("speech_servers.setup_title")} desc={t("speech_servers.help")} status={summary} attention={attention} needed={needed}>
         {tts && <HardwareReadout reserve={reserve} setReserve={setReserve} />}
         {draft && <form {...form.groupProps} aria-busy={saving} onSubmit={event => { event.preventDefault(); form.commit(); }}>
             {profiles.map(name => {
                 const row = draft.profiles[name], owner = state[name], saved = savedSettings(settings).profiles;
-                // A server that runs or prepares keeps its settings. A save that waits does not turn
-                // the fields off, so focus stays where it was; a download waits for it (busy).
-                const locked = !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
+                const servers = shown(name);
+                // A server that runs or prepares keeps its settings; Listening's own runs the asr row's
+                // too. A save that waits does not turn the fields off, so focus stays where it was; a
+                // download waits for it (busy).
+                const locked = !owner || servers.some(active);
                 const busy = saving || locked;
                 // The kit's TextField, a path in the monospaced font (#476), beside the button that
                 // picks a GGUF file (#1231).
@@ -166,16 +186,23 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                     {/* Nothing to stop while the server is stopped (#473). A start still on its way can be stopped. */}
                     <Button tone="quiet" disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
                         onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>
-                    <EnvReadout tone={serverTone(owner, pending[name])} progress={serverProgress(owner, pending[name])}>
-                        <p>{stateText(name)}</p>
-                        {owner?.low_latency && <p>{t(`speech_servers.low_latency_${owner.low_latency.state}`)}</p>}
-                        {/* Runs other than asked: "auto" on the CPU build after the Vulkan build did not start. */}
-                        {owner?.notice && <p>{t(`speech_servers.notices.${owner.notice}`, { defaultValue: "" })}</p>}
-                    </EnvReadout>
-                    {!!owner?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
-                    {/* The message says what to do; the code stays for reports. */}
-                    {/* In the screen's words, never the raw code (#1266); a code without words says itself. */}
-                    {owner?.error_code && <p role="alert">{t(`speech_servers.errors.${owner.error_code}`, { defaultValue: "" }) || owner.error_code}</p>}
+                    {/* One readout for each server of the row, each with its own state and, under it, its
+                        own failure (#1396). */}
+                    {servers.map(server => {
+                        const run = state[server];
+                        return <Fragment key={server}>
+                            <EnvReadout tone={serverTone(run, pending[server])} progress={serverProgress(run, pending[server])}>
+                                <p>{serverState(name, server)}</p>
+                                {run?.low_latency && <p>{t(`speech_servers.low_latency_${run.low_latency.state}`)}</p>}
+                                {/* Runs other than asked: "auto" on the CPU build after the Vulkan build did not start. */}
+                                {run?.notice && <p>{t(`speech_servers.notices.${run.notice}`, { defaultValue: "" })}</p>}
+                            </EnvReadout>
+                            {!!run?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
+                            {/* The message says what to do; the code stays for reports. */}
+                            {/* In the screen's words, never the raw code (#1266); a code without words says itself. */}
+                            {run?.error_code && <p role="alert">{t(`speech_servers.errors.${run.error_code}`, { defaultValue: "" }) || run.error_code}</p>}
+                        </Fragment>;
+                    })}
                 </fieldset>;
             })}
         </form>}
