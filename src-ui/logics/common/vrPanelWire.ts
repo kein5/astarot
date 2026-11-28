@@ -165,6 +165,8 @@ export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
     "SwitchBlocks",
     // Whether Mic input's microphone is waiting to open, perhaps on Windows' question (#1300).
     "MicCaptureWaiting",
+    // The text to speech switch and the stop, as the main window shows them (#1314, V-4).
+    "VrVoiceControls",
     // The empty log's setup list (main window only) opens a settings page; the shared view reads it.
     "SelectedConfigTabId",
     // The language window.

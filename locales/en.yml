@@ -1420,6 +1420,8 @@ vr_panel:
     window_log: "Log"
     window_language: "Language"
     window_settings: "VR settings"
+    # #1314 (V-4): the launcher's button that lists the language, inputs and outputs, and VR settings windows.
+    window_more: "More windows"
     recall_log: "Recall"
     anchor_playspace: "World"
     anchor_left_hand: "Left"
@@ -1443,6 +1445,9 @@ vr_panel:
         asr_models: "Press this switch on the PC's main screen to prepare the models."
         ocr_models: "No chat reading models yet. Download them in PC settings → OCR."
         ocr_language: "Chat reading does not support this language. Change it in PC settings → OCR."
+        # #1314 (V-4): the launcher's text to speech switch.
+        tts_source: "Nothing is chosen to read aloud. Choose it in PC settings → TTS."
+        tts_model: "No text to speech model. Download one in PC settings → TTS."
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
     # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).
     mic_wait:
@@ -1460,6 +1465,12 @@ vr_panel:
         microphone: "Mic input"
         listen: "Listening"
         chat_detect: "Chat reading (OCR)"
+        # #1314 (V-4): the text to speech switch and the stop.
+        tts: "Text to speech (TTS)"
+        stop_group: "Stop"
+        stop_idle: "Nothing to stop"
+        stop_help: "Press to stop the speech and empty its queue"
+        stop_idle_help: "You can press it while speech is read aloud"
         functions_group: "Functions"
         windows_group: "Windows"
         controls_group: "Log controls"

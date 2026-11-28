@@ -42,8 +42,8 @@
 //! How it converts there:
 //!
 //! - **GPU** (CUDA or DirectML): every packet is converted before it is answered, as the
-//!   external runtime did (one stream block per packet, 2 s of context), with a crossfade of
-//!   half the block up to 20 ms.
+//!   external runtime did (one stream block per packet, 2 s of context), with a 20 ms
+//!   crossfade at every block length.
 //! - **CPU**: the CPU cannot convert such short blocks in real time, so the worker converts
 //!   0.5 s blocks on a thread of its own and answers each packet at once from what that
 //!   thread has finished, at a fixed delay that leaves a whole block's time for each
@@ -111,20 +111,21 @@ impl Packets {
         self.frames() / 3
     }
 
-    /// GPU: one stream block per packet in 10 ms frames, a crossfade of half of it but at most
-    /// [`GPU_CROSSFADE_LIMIT`], searched over 10 ms, and 2 s of context.
+    /// GPU: one stream block per packet in 10 ms frames, a crossfade of [`GPU_CROSSFADE`] whatever
+    /// the block, searched over 10 ms, and 2 s of context.
     fn gpu_layout(self) -> Layout {
-        let block = self.ms as usize / 10;
-        Layout { block, crossfade: (block / 2).clamp(1, GPU_CROSSFADE_LIMIT), search: 1, extra: 200 }
+        Layout { block: self.ms as usize / 10, crossfade: GPU_CROSSFADE, search: 1, extra: 200 }
     }
 }
 
-/// GPU: the longest crossfade, in 10 ms frames (20 ms). The output comes later by the crossfade
-/// and the search: at 80 ms, half the block (40 ms) and the search came to 50 ms, and this
-/// comes to 30 ms. In a listening check of a synthesized voice converted with 20, 40 and 80 ms
-/// blocks (#928, 2026-11-27), every 10 ms crossfade broke up at the joins and every one of 20 ms
-/// or longer sounded fine (docs/voice-stack/rvc-low-latency-2026-11-20.md).
-const GPU_CROSSFADE_LIMIT: usize = 2;
+/// GPU: the crossfade at every packet length, in 10 ms frames (20 ms). In a listening check of a
+/// synthesized voice converted with 20, 40 and 80 ms blocks (#928, 2026-11-27), every 10 ms
+/// crossfade broke up at the joins and every one of 20 ms or longer sounded fine. A longer one
+/// only delays the output, which comes later by the crossfade and the search: at 80 ms, half the
+/// block (40 ms) and the search came to 50 ms, and this comes to 30 ms. A 20 ms packet is as long
+/// as the crossfade, the most a `Layout` accepts; until 2026-11-28 (#928) it had half the block,
+/// 10 ms (docs/voice-stack/rvc-low-latency-2026-11-20.md).
+const GPU_CROSSFADE: usize = 2;
 
 /// CPU: the only layout of the Phase 2 measurements in which every block of a CPU took
 /// less time than it lasts (0.5 s blocks, 2.5 s of context; README, "Streaming").
@@ -1290,7 +1291,8 @@ mod tests {
         // 80 ms: the external runtime's layout but for the crossfade, 20 ms instead of 40 ms.
         assert_eq!(Packets::of(80).unwrap().gpu_layout(), Layout { block: 8, crossfade: 2, search: 1, extra: 200 });
         assert_eq!(Packets::of(40).unwrap().gpu_layout(), Layout { block: 4, crossfade: 2, search: 1, extra: 200 });
-        assert_eq!(Packets::of(20).unwrap().gpu_layout(), Layout { block: 2, crossfade: 1, search: 1, extra: 200 });
+        // 20 ms: the crossfade is as long as the block.
+        assert_eq!(Packets::of(20).unwrap().gpu_layout(), Layout { block: 2, crossfade: 2, search: 1, extra: 200 });
         for ms in [20, 40, 80, 200] {
             let packets = Packets::of(ms).unwrap();
             // A packet's 16 kHz input is exactly one stream block.
@@ -1302,21 +1304,18 @@ mod tests {
     }
 
     #[test]
-    fn the_gpu_crossfade_is_half_the_block_up_to_20_ms() {
-        // (packet, crossfade, crossfade and search, `latency_ms` of `ready` at 48 kHz), in ms.
-        // Below 40 ms, half the block is shorter than the limit and stays.
-        let expected = [(20, 10, 20, 22), (40, 20, 30, 32), (60, 20, 30, 32), (80, 20, 30, 32), (120, 20, 30, 32), (200, 20, 30, 32)];
-        for (ms, crossfade, behind, latency) in expected {
-            let profile = Profile::of(Device::Cuda, Packets::of(ms).unwrap());
-            assert_eq!(profile.layout.crossfade * 10, crossfade, "{ms} ms");
-            // The stream's own delay is the block plus the crossfade and the search.
-            assert_eq!((profile.layout.latency() * 1000.0).round() as u32, ms + behind, "{ms} ms");
-            assert_eq!(profile.latency_ms(48_000), latency, "{ms} ms");
-            assert_eq!(Profile::of(Device::DirectMl, Packets::of(ms).unwrap()).layout, profile.layout, "{ms} ms");
-        }
+    fn the_gpu_crossfade_is_20_ms_at_every_packet_length() {
         for ms in (20..=200).step_by(20) {
-            let layout = Packets::of(ms).unwrap().gpu_layout();
-            assert!((1..=GPU_CROSSFADE_LIMIT).contains(&layout.crossfade) && 2 * layout.crossfade <= layout.block, "{ms} ms");
+            let profile = Profile::of(Device::Cuda, Packets::of(ms).unwrap());
+            assert_eq!(profile.layout.crossfade * 10, 20, "{ms} ms");
+            // Never longer than the block, which a `Layout` refuses: at 20 ms it is the block.
+            assert!(profile.layout.crossfade <= profile.layout.block, "{ms} ms");
+            // The stream's own delay is the block plus the crossfade and the search (30 ms).
+            assert_eq!((profile.layout.latency() * 1000.0).round() as u32, ms + 30, "{ms} ms");
+            // `latency_ms` of `ready` at 48 kHz adds the two rate conversions; at 20 ms it was 22 ms
+            // with the 10 ms crossfade of half the block.
+            assert_eq!(profile.latency_ms(48_000), 32, "{ms} ms");
+            assert_eq!(Profile::of(Device::DirectMl, Packets::of(ms).unwrap()).layout, profile.layout, "{ms} ms");
         }
     }
 

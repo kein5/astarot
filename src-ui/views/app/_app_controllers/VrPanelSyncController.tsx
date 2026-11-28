@@ -19,6 +19,7 @@ import { vrCustomTranslationModelNamesAtom } from "../../../logics/translation/t
 import type { LanguageMutationRequest } from "../../../logics/main/languageMutationCoordinator.ts";
 import { useOpenSettings } from "../../../logics/common/useOpenSettings.ts";
 import { closeSettingsWindow, settingsHaveAWindow } from "../../../logics/common/settingsWindow.ts";
+import { runVrVoiceAction } from "../../../logics/voice/voiceActions.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
 // - VRパネルが読むatomの値だけを一方向に同期する (vrPanelWire.vrPanelStateNames。SEC-03)。
@@ -198,6 +199,14 @@ export const VrPanelSyncController = () => {
                 else setIsOpenedConfigPage(false);
             }
         });
+        // The launcher's text to speech switch and stop (#1314, V-4) press the main window's own, with
+        // today's state and the same checks and notices. The switch waits while the settings page
+        // pauses the main features, as the launcher's other switches do; the stop always works.
+        const unlistenVoice = listen<unknown>("vr-panel-voice", ({ payload }) => {
+            if (disposed) return;
+            if (payload === "toggle_tts" && isOpenedConfigPageRef.current === true) return;
+            runVrVoiceAction(payload);
+        });
         // VRパネルが先に起動していた場合に備えて、こちらからも一度送る
         emitState(entries, true);
 
@@ -209,6 +218,7 @@ export const VrPanelSyncController = () => {
             unlistenReady.then(f => f());
             unlistenStdout.then(f => f());
             unlistenConfigPage.then(f => f());
+            unlistenVoice.then(f => f());
         };
     }, [is_vr_panel_enabled]);
 

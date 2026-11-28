@@ -489,15 +489,18 @@ astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   #
   `vc_directml_unavailable`). Missing or broken libraries are `vc_runtime_incomplete`. The
   setup probes the DirectML runtime with `--device auto` on DirectML (exit 3 and a warning
   when no GPU can be used through it).
-- **GPU layout** (CUDA and DirectML): one stream block per packet, a crossfade of half the block
-  up to 20 ms, a 10 ms search for it, 2 s of context, every packet converted before it is
+- **GPU layout** (CUDA and DirectML): one stream block per packet, a 20 ms crossfade at every
+  block length, a 10 ms search for it, 2 s of context, every packet converted before it is
   answered. At 80 ms this is `Layout { block: 8, crossfade: 2, search: 1, extra: 200 }`: the
   external runtime's profile with a 20 ms crossfade instead of 40 ms, which brings the added
-  delay (crossfade, search and the two rate conversions) from 52 ms to 32 ms. At 40 ms it is
-  `Layout { block: 4, crossfade: 2, search: 1, extra: 200 }` with the same 32 ms, and at 20 ms
-  the crossfade is 10 ms (22 ms). The cap comes from a listening check: every 10 ms crossfade
-  broke up at the joins, and every one of 20 ms or more sounded fine
-  ([decisions](../../docs/voice-stack/rvc-low-latency-2026-11-20.md#decisions-2026-11-20), 2026-11-27, #928).
+  delay (crossfade, search and the two rate conversions) from 52 ms to 32 ms. Every block
+  length adds the same 32 ms: at 40 ms the layout is `Layout { block: 4, crossfade: 2, search:
+  1, extra: 200 }`, and at 20 ms the crossfade is as long as the block (`Layout { block: 2,
+  crossfade: 2, search: 1, extra: 200 }`; 22 ms with the 10 ms crossfade it had before). The
+  length comes from a listening check: every 10 ms crossfade broke up at the joins, and every
+  one of 20 ms or more sounded fine
+  ([decisions](../../docs/voice-stack/rvc-low-latency-2026-11-20.md#decisions-2026-11-20), 2026-11-27
+  and 2026-11-28, #928).
   The 2026-11-18 measurements of `rvc-stream` ([pipeline latency](../../docs/voice-stack/pipeline-latency-2026-11-18.md),
   "声の変換") converted a 40 ms block in about 11 ms on average, but a few blocks per run
   took 55 to 72 ms and came too late.

@@ -31,3 +31,36 @@ export const voiceSwitchStates = {
         return () => { stateListeners.delete(listener); };
     },
 };
+
+// The top bar's stop as the main window shows it (StopActions.tsx publishes it on every render):
+// whether there is something to stop, and how a press is being answered (stopVoice.ts).
+export type VoiceStopState = { readonly offered: boolean; readonly phase: "idle" | "stopping" | "stopped" };
+const NO_STOP: VoiceStopState = Object.freeze({ offered: false, phase: "idle" });
+let currentStop: VoiceStopState = NO_STOP;
+const stopListeners = new Set<() => void>();
+
+export const voiceStopState = {
+    get: (): VoiceStopState => currentStop,
+    publish: (next: VoiceStopState): void => {
+        if (next.offered === currentStop.offered && next.phase === currentStop.phase) return;
+        currentStop = Object.freeze({ offered: next.offered, phase: next.phase });
+        for (const listener of stopListeners) listener();
+    },
+    subscribe: (listener: () => void): (() => void) => {
+        stopListeners.add(listener);
+        return () => { stopListeners.delete(listener); };
+    },
+};
+
+// What the VR panel's launcher shows of the text to speech switch and the stop (#1314, V-4).
+export type VrVoiceControls = { readonly tts: VoiceSwitchState; readonly stop: VoiceStopState };
+export const NO_VR_VOICE_CONTROLS: VrVoiceControls = Object.freeze({ tts: OFF, stop: NO_STOP });
+
+// What the launcher's buttons ask for (vr-panel-voice): the same switch and stop as the main window's,
+// with today's state; nothing else.
+export type VrVoiceAction = "toggle_tts" | "stop";
+export const runVrVoiceAction = (action: unknown): boolean => {
+    if (action === "toggle_tts") { voiceActions.toggleTts?.(); return true; }
+    if (action === "stop") { voiceActions.stop?.(); return true; }
+    return false;
+};

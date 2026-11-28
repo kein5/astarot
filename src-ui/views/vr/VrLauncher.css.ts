@@ -19,6 +19,8 @@ export const state_mark = style({});
 export const is_pending = style({});
 export const is_disabled = style({});
 export const is_blocked = style({});
+export const stop_button = style({});
+export const is_idle = style({});
 export const is_intro_pending = style({});
 export const is_intro_playing = style({});
 export const intro_icon = style({});
@@ -31,7 +33,7 @@ globalStyle(container, { position: "relative", isolation: "isolate", width: "100
 globalStyle(`${container}::before`, { content: '""', position: "absolute", zIndex: -1, top: 0, bottom: 0, left: 0, right: 0, borderRadius: "24px", background: vars.dark_888_color, boxShadow: `inset 0 0 0 4px ${vars.dark_750_color}` });
 globalStyle(group, { display: "flex", gap: px(LAUNCHER_GAP) });
 globalStyle(divider, { flexShrink: 0, width: px(LAUNCHER_DIVIDER.width), height: px(LAUNCHER_DIVIDER.height), margin: `0 ${px(LAUNCHER_DIVIDER.margin)}`, borderRadius: "2px", background: vars.dark_650_color });
-// 文字は出さない (名前は指したときの吹き出しで出す)。8つとも同じ大きさで、帯の幅に収める (launcherSizes.ts、#1248)
+// 文字は出さない (名前は指したときの吹き出しで出す)。8つとも同じ大きさで、帯の幅に収める (launcherSizes.ts、#1248、#1314)
 globalStyle(button, { position: "relative", flexShrink: 0, width: px(LAUNCHER_BUTTON.width), height: px(LAUNCHER_BUTTON.height), padding: "6px" });
 globalStyle(`${button}:not([aria-pressed="true"])`, { background: vars.dark_850_color, color: vars.dark_400_color });
 globalStyle(`${button}:focus-visible`, { outline: `3px solid ${vars.primary_100_color}`, outlineOffset: "-3px" });
@@ -45,6 +47,10 @@ globalStyle(`${state_mark} svg`, { width: "100%", height: "100%", fill: "none", 
 globalStyle(`${is_pending} ${state_mark}`, { color: vars.primary_100_color });
 // 前提が足りないスイッチ: 押せない灰色 (is_disabled) に、注意の印を付ける
 globalStyle(`${is_blocked} ${state_mark}`, { color: vars.warning_color });
+// The stop (#1314, V-4): red words on a quiet body, as the top bar's stop (DESIGN.md), and drawn at
+// half strength while there is nothing to stop.
+globalStyle(`${button}.${stop_button}`, { color: vars.vox_state_failed });
+globalStyle(`${button}.${stop_button}.${is_idle}`, { opacity: 0.5, cursor: "default" });
 
 // ---- 起動演出: VR UI をONにして最初に出したとき ----
 // 1. 頭の正面に VRCT のアイコンが大きく現れる  2. 手首へ吸い寄せられて小さくなる
@@ -79,12 +85,13 @@ globalStyle(is_intro_pending, { opacity: 0 });
 globalStyle(`${is_intro_playing}::before`, { animation: `${introFrame} 4.2s both` });
 globalStyle(`${is_intro_playing} ${button}, ${is_intro_playing} ${divider}`, { opacity: 0, animation: `${introRise} 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both` });
 globalStyle(`${is_intro_playing} ${divider}`, { animationDelay: "3.3s" });
-// 機能4つ → 画面4つの順に 65ms ずつずらす
-for (let i = 1; i <= 4; i++) {
+// 機能5つ → 停止 → 画面2つの順に 65ms ずつずらす (#1314 で8つの並びが変わった)
+for (let i = 1; i <= 5; i++) {
     globalStyle(`${is_intro_playing} ${group}:first-of-type > :nth-child(${i})`, { animationDelay: seconds(3.05 + (i - 1) * 0.065) });
 }
-for (let i = 1; i <= 4; i++) {
-    globalStyle(`${is_intro_playing} ${group}:last-of-type > :nth-child(${i})`, { animationDelay: seconds(3.05 + (i + 3) * 0.065) });
+globalStyle(`${is_intro_playing} ${group}:nth-of-type(2) > :nth-child(1)`, { animationDelay: seconds(3.05 + 5 * 0.065) });
+for (let i = 1; i <= 2; i++) {
+    globalStyle(`${is_intro_playing} ${group}:last-of-type > :nth-child(${i})`, { animationDelay: seconds(3.05 + (i + 5) * 0.065) });
 }
 globalStyle(intro_icon, { position: "absolute", zIndex: 1, left: "50%", top: "50%", translate: "-50% -50%", pointerEvents: "none", opacity: 0, height: "112px", animation: `${introIcon} 2.2s 0.13s both` });
 globalStyle(intro_logo, { position: "absolute", zIndex: 1, left: "50%", top: "50%", width: "264px", aspectRatio: "1474 / 300", translate: "-50% -50%", pointerEvents: "none", background: "var(--intro-logo) center / contain no-repeat", opacity: 0, animation: `${introLogo} 1.6s ${seconds(INTRO_LAND + 0.13)} both` });

@@ -28,7 +28,7 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
     const state = { enabled: true, configOpen: false, settingsWindowOpen: false, mic: true };
     const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
-        emitted: unknown[][] = [], notices: unknown[][] = [], settingsWindow: unknown[][] = [];
+        emitted: unknown[][] = [], notices: unknown[][] = [], settingsWindow: unknown[][] = [], voice: unknown[] = [];
     let memory: MainFunctionsMemory = { translation: false, transcription_send: false, transcription_receive: false };
     const common = {
         useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: state.configOpen },
@@ -66,6 +66,7 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
         "../../../logics/common/windowFailures.ts": windowFailures,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
+        "../../../logics/voice/voiceActions.ts": { runVrVoiceAction: (action: unknown) => { voice.push(action); return true; } },
         ...(windowed ? {
             "../../../logics/common/useOpenSettings.ts": { useOpenSettings: () => (place: unknown, options: unknown) => settingsWindow.push(["open", place, options]) },
             "../../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => true,
@@ -93,7 +94,7 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
     };
     const config = (value: boolean) => { listener("vr-panel-config-page")({ payload: value }); render(); };
     render();
-    return { state, actions, requests, windows, pushes, emitted, notices, settingsWindow, listeners, listener, runtime, render, config };
+    return { state, actions, requests, windows, pushes, emitted, notices, settingsWindow, voice, listeners, listener, runtime, render, config };
 }
 
 // SEC-03: only the listed state goes to the VR panel, through its channel.
@@ -267,4 +268,25 @@ test("a VR panel window that cannot be opened is said once, and turning it off s
     const other = await setup(context, { openFailure: "Os { code: 1400 }" });
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(other.notices, [["common_error.window.vr_panel_open_failed", { category_id: "vr_panel_open_failed" }]]);
+});
+
+// #1314 (V-4): the launcher's text to speech switch and stop press the main window's own. Nothing goes
+// to the backend from here. The switch waits while the settings page pauses the main features, as the
+// launcher's other switches do; the stop always works.
+test("the launcher's text to speech switch and stop press the main window's own, and the stop is never held", async context => {
+    const view = await setup(context);
+    view.listener("vr-panel-voice")({ payload: "toggle_tts" });
+    view.listener("vr-panel-voice")({ payload: "stop" });
+    assert.deepEqual(view.voice, ["toggle_tts", "stop"]);
+    assert.deepEqual(view.requests, []);
+    view.state.configOpen = true;
+    view.render();
+    view.listener("vr-panel-voice")({ payload: "toggle_tts" });
+    view.listener("vr-panel-voice")({ payload: "stop" });
+    assert.deepEqual(view.voice, ["toggle_tts", "stop", "stop"]);
+    // Off, the panel's requests are not heard.
+    view.state.enabled = false;
+    view.render();
+    await Promise.resolve();
+    assert.equal(view.listeners.has("vr-panel-voice"), false);
 });

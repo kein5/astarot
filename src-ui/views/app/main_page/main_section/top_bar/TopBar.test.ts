@@ -6,7 +6,7 @@ import { hooks, loadModule, find, findIn, nodesIn, componentName, componentOf, k
 import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
+import { voiceActions, voiceStopState } from "../../../../../logics/voice/voiceActions.ts";
 import * as stopShapes from "../../../../../logics/voice/stopVoice.ts";
 import type { StopPress } from "../../../../../logics/voice/stopVoice.ts";
 import { styleOf } from "../../../../../logics/test/styleSource.ts";
@@ -299,7 +299,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
     const actions = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies(world),
     });
     const { TopBar } = await loadModule<typeof import("./TopBar.tsx")>(new URL("./TopBar.tsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -365,7 +365,7 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
     const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies(world),
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", muted_badge: "muted_badge",
         stop_status: "stop_status" };
@@ -386,6 +386,8 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     assert.equal(idle.tip.words, "voice_ui.topbar_stop_idle");
     idle.stop.props.onClick(); voiceActions.stop?.();
     assert.deepEqual(sent, []);
+    // The VR panel's launcher shows the same stop (#1314).
+    assert.deepEqual(voiceStopState.get(), { offered: false, phase: "idle" });
     // An audition or the virtual microphone's test tone is stopped too, so either offers it.
     for (const running of [{ audition: "playing" }, { check: "running" }]) {
         Object.assign(world, { audition: "idle", check: "idle" }, running);
@@ -403,6 +405,7 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     const stopping = draw();
     assert.deepEqual(words(stopping.stop), { long: "voice_ui.topbar_stopping", short: "voice_ui.topbar_stopping", tiny: "voice_ui.topbar_stop_tiny" });
     assert.deepEqual([stopping.stop.props["aria-busy"], stopping.stop.props["aria-disabled"]], [true, true]);
+    assert.deepEqual(voiceStopState.get(), { offered: true, phase: "stopping" });
     stopping.stop.props.onClick();
     assert.equal(sent.length, 1);
     const kept = find(stopping.stop, node => node.type === "stable-words");
@@ -443,7 +446,7 @@ test("the settings bar draws the same actions without the shortest words", async
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", muted_badge: "muted_badge" };
     const group = runtime.render(StopActions, { classes });
@@ -460,14 +463,21 @@ test("the settings bar draws the same actions without the shortest words", async
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
     const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
     assert.match(styleOf(css, "long"), /display: "none"/);
-    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[NARROW\]: \{ display: "inline" \} \}/);
-    assert.match(styleOf(css, "short"), /"@container": \{ \[NARROW\]: \{ display: "none" \} \}/);
+    // The stop and mute's words have their own, narrower threshold, so the default window's column
+    // (63rem) says "Stop speech", not "Stop" (#1314, M-9).
+    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[TINY_STOP\]: \{ display: "inline" \} \}/);
+    assert.match(styleOf(css, "short"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(styleOf(css, "muted_badge"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(css, /const TINY_STOP = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{TINY_STOP_COLUMN\}\)`;/);
     // The conversation column's width decides, not the window's (a wide rail leaves less room).
     const narrowColumn = /const NARROW = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{NARROW_COLUMN\}\)`;/;
     assert.match(css, narrowColumn);
     const layout = readFileSync(new URL("../../layout.ts", import.meta.url), "utf8");
     assert.match(layout, /MAIN_SECTION_CONTAINER = "main_section";/);
     assert.match(layout, /NARROW_COLUMN = "64rem";/);
+    // Narrower than the default window's column: 870px less the 240px rail is 63rem.
+    const tinyStop = /TINY_STOP_COLUMN = "(\d+)rem";/.exec(layout);
+    assert.ok(tinyStop && Number(tinyStop[1]) < 63, "the default window keeps the stop's words");
     assert.doesNotMatch(css, /max-width: 800px|data-narrow/);
     const menu = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
     assert.match(menu, narrowColumn);

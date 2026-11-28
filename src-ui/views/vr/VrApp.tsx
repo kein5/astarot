@@ -124,6 +124,8 @@ export const VrApp = () => {
     const openLog = () => setWindows(w => ({ ...w, log: true }));
     const togglePopup = (name: VrPopup) => setWindows(w => ({ ...w, popup: w.popup === name ? null : name }));
     const closePopup = () => setWindows(w => ({ ...w, popup: null }));
+    // A row of the windows menu opens its window in the menu's place (#1314, V-4).
+    const openPopup = (name: VrPopup) => setWindows(w => ({ ...w, popup: name }));
 
     return (
         <div ref={atlas} className={styles.atlas} style={{ width: atlas_width, height: atlas_height }}>
@@ -136,7 +138,7 @@ export const VrApp = () => {
             <Region layout={layout} name="panel" hidden={!windows.log}><VrLogWindow open={windows.log} onClose={toggleLog} /></Region>
             <BackgroundSwatch layout={layout} />
             <Region layout={layout} name="launcher"><VrLauncher windows={windows} toggleLog={toggleLog} openLog={openLog} togglePopup={togglePopup} /></Region>
-            <Region layout={layout} name="popup"><VrPopupWindow popup={windows.popup} onClose={closePopup} /></Region>
+            <Region layout={layout} name="popup"><VrPopupWindow popup={windows.popup} onOpen={openPopup} onClose={closePopup} /></Region>
             <Region layout={layout} name="toolbar"><VrToolbar /></Region>
             <Region layout={layout} name="tooltip"><VrTooltip atlasRef={atlas} layout={layout} /></Region>
         </div>
