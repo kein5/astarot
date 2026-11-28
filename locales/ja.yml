@@ -2886,6 +2886,9 @@ io_flow:
     latest_text: "直近「{{text}}」"
     newest: "いちばん新しい入力"
     graph: "入力から出力への図"
+    # #1314 (M-6): the devices the running captions record, above the graph.
+    devices: "字幕が使っている機器"
+    device: "{{name}}：{{device}}"
     mic_off_short: "マイクはオフ"
     speech_off_short: "読み上げない"
     conversion: "ボイスチェンジャー"

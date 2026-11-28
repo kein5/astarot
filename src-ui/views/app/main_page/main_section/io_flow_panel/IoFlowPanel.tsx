@@ -1,6 +1,8 @@
 import { useI18n } from "@useI18n";
 import { useIoFlow } from "../../../../../logics/flow/useIoFlow";
 import { useGpuMemory } from "../../../../../logics/flow/useGpuMemory";
+import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
+import { captionDevices } from "../../../../../logics/flow/ioFlow.ts";
 import { IoFlowView } from "../../../io_flow/IoFlowView";
 import { Hint } from "../../../config_page/setting_section/setting_box/_components/hint/Hint";
 import { Button } from "../../../../kit/index.ts";
@@ -15,6 +17,8 @@ export const IoFlowPanel = () => {
     const { t } = useI18n();
     const { isPanelOpen, togglePanel, currentIoFlow, currentIoTraces } = useIoFlow();
     const { currentGpuMemory } = useGpuMemory();
+    // The devices the running captions record (#1314, M-6).
+    const { state: captions } = useRealtimeASR();
     if (!isPanelOpen) return null;
     return <section id="io_flow_panel" className={styles.panel} aria-label={t("io_flow.title")}>
         <div className={styles.head}>
@@ -24,6 +28,6 @@ export const IoFlowPanel = () => {
             </div>
             <Button size="compact" onClick={togglePanel}>{t("io_flow.close")}</Button>
         </div>
-        <IoFlowView flow={currentIoFlow.data} traces={currentIoTraces.data} gpuMemory={currentGpuMemory.data} />
+        <IoFlowView flow={currentIoFlow.data} traces={currentIoTraces.data} gpuMemory={currentGpuMemory.data} devices={captionDevices(captions)} />
     </section>;
 };

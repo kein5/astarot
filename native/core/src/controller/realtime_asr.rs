@@ -59,6 +59,9 @@ struct Owner {
     id: u64,
     session: Session,
     delivery: Delivery,
+    /// The device the session records, by the name the device list shows it with (#1314, M-6):
+    /// the inputs and outputs panel says which microphone and which output the captions use.
+    device: String,
 }
 
 struct State {
@@ -442,8 +445,12 @@ impl Core {
         for source in [Source::Mic, Source::Speaker] {
             let i = index(source);
             let mut health = match &state.owners[i] {
-                Some(owner) => owner.session.health(),
-                None => json!({ "source": source.as_str(), "state": "idle", "namespace": null, "error_code": null }),
+                Some(owner) => {
+                    let mut health = owner.session.health();
+                    health["device"] = json!(owner.device);
+                    health
+                }
+                None => json!({ "source": source.as_str(), "state": "idle", "namespace": null, "error_code": null, "device": null }),
             };
             let terminal = matches!(health["state"].as_str(), Some("closed" | "failed" | "stopping"));
             health["generation"] = json!(state.generation[i]);
@@ -1088,6 +1095,11 @@ impl Core {
         }
         drop(lifecycle);
 
+        // Read once, at the start and outside the state's lock: the list names the device the way
+        // the settings show it.
+        let device = platform.endpoints(source).ok()
+            .and_then(|listed| listed.into_iter().find(|(listed, _)| listed.name == endpoint.name).map(|(_, label)| label))
+            .unwrap_or_else(|| endpoint.name.clone());
         let mut state = self.realtime().state();
         if state.closed || state.generation[i] != generation {
             return Err("realtime_stale_start".into());
@@ -1095,7 +1107,7 @@ impl Core {
         let session = Session::new(source, options, endpoint, platform);
         let delivery = self.realtime_delivery(source, generation, &session, detect, language);
         let id = self.realtime().owners.fetch_add(1, Ordering::SeqCst);
-        state.owners[i] = Some(Owner { id, session: session.clone(), delivery: delivery.clone() });
+        state.owners[i] = Some(Owner { id, session: session.clone(), delivery: delivery.clone(), device });
         drop(state);
         if session.start().is_err() || delivery.start().is_err() {
             return Err(fail_start("realtime_start_failed"));

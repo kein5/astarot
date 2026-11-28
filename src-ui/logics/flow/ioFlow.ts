@@ -177,3 +177,14 @@ export const overlayCount = (settings: OverlaySettings | null | undefined): numb
     const count = settings?.count;
     return Number.isInteger(count) && (count as number) >= 1 && (count as number) <= 3 ? count as number : 1;
 };
+
+// The devices the captions record while they run (#1314, M-6), by the name the device list shows,
+// as the core reports them with the captions' state (/get/data/realtime_asr_state). A source whose
+// captions do not run has none.
+export type CaptionDevices = { readonly mic: string | null; readonly speaker: string | null };
+type CaptionSessionLike = { state?: unknown; device?: unknown } | undefined;
+const runningDevice = (session: CaptionSessionLike): string | null =>
+    (session?.state === "starting" || session?.state === "ready") && typeof session.device === "string" && session.device.trim() !== ""
+        ? session.device : null;
+export const captionDevices = (sessions: { mic?: CaptionSessionLike; speaker?: CaptionSessionLike }): CaptionDevices =>
+    ({ mic: runningDevice(sessions.mic), speaker: runningDevice(sessions.speaker) });

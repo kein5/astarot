@@ -249,6 +249,8 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     let state = run.ui.ok("/get/data/realtime_asr_state", None);
     assert_eq!((state["mic"]["state"].clone(), state["mic"]["requested"].clone()), (json!("ready"), json!(true)));
     assert_eq!(state["speaker"]["state"], "idle");
+    // The device the captions record, by the name the device list shows it with (#1314, M-6).
+    assert_eq!((state["mic"]["device"].clone(), state["speaker"]["device"].clone()), (json!("USB Mic"), Value::Null));
 
     let mark = run.ui.lines().len();
     assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);

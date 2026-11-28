@@ -2886,6 +2886,9 @@ io_flow:
     latest_text: "Latest: “{{text}}”"
     newest: "Newest input"
     graph: "Inputs to outputs"
+    # #1314 (M-6): the devices the running captions record, above the graph.
+    devices: "Devices the captions use"
+    device: "{{name}}: {{device}}"
     mic_off_short: "Microphone off"
     speech_off_short: "Not spoken"
     conversion: "Voice changer"
