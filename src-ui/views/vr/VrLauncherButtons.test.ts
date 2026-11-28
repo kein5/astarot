@@ -21,8 +21,9 @@ interface Options {
     configOpen?: boolean;
     statuses?: Record<string, Status>;
     blocks?: Record<string, Block>;
-    // Mic input's microphone waits to open (#1300).
+    // Mic input's microphone waits to open (#1300), on this system (#1314).
     micWaiting?: boolean;
+    system?: "windows" | "linux";
 }
 
 // The launchers a test draws, unmounted together before the globals go back: their clean-up stops
@@ -30,7 +31,7 @@ interface Options {
 const drawnByTest = new WeakMap<TestContext, { unmount: () => void }[]>();
 
 async function launcher(context: TestContext, { windows = { log: false, popup: null }, intro = "idle", outOfView = false, configOpen = false,
-    statuses = {}, blocks = {}, micWaiting = false }: Options = {}) {
+    statuses = {}, blocks = {}, micWaiting = false, system = "windows" }: Options = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks();
     let drawn = drawnByTest.get(context);
@@ -65,6 +66,7 @@ async function launcher(context: TestContext, { windows = { log: false, popup: n
         "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }),
             useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: micWaiting } }) },
         "../../logics/main/switchBlocks": switchBlocks,
+        "../../logics/transcription/micCaptureWait": { micWaitSystem: () => system },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: record("send") }) },
         "@images/brand/icon-small.svg": "icon.svg",
         "@images/brand/logo.svg": "logo.svg",
@@ -184,12 +186,15 @@ test("while the settings page is open, every switch is locked, says why, and is 
 // #1300 (decided on 2026-11-28): while Mic input's microphone waits to open, as Windows' question on
 // the desktop holds it, the microphone's tooltip says so even with the tooltips off: there is nowhere
 // else in VR to read it. The switch stays as it is and can still be turned off. A lock or a missing
-// setup says its own.
+// setup says its own. The hint is the panel's own short text, which fits the VR tooltip, worded for
+// the system (#1314, V-1 and M-4; VrTooltipText.test.ts checks its length).
 test("while Mic input's microphone waits to open, its button says Windows may be asking on the desktop", async context => {
     const view = await launcher(context, { micWaiting: true, statuses: { transcription_send: { state: "ok", data: true } } });
     const [translation, microphone] = view.functions;
     assert.deepEqual(tipOf(microphone), { label: "main_page.transcription_send", pressed: true, disabled: undefined, busy: undefined,
-        title: "vr_panel.tooltip.microphone", state: "ON", help: "realtime.mic_permission_wait", force: true });
+        title: "vr_panel.tooltip.microphone", state: "ON", help: "vr_panel.mic_wait.windows", force: true });
+    const linux = await launcher(context, { micWaiting: true, system: "linux", statuses: { transcription_send: { state: "ok", data: true } } });
+    assert.deepEqual([linux.functions[1].props.tipHelp, linux.functions[1].props.tipForce], ["vr_panel.mic_wait.linux", true]);
     assert.ok(markOf(microphone), "marked as waiting");
     assert.deepEqual([translation.props.tipHelp, translation.props.tipForce], ["vr_panel.tooltip.enable", false]);
     microphone.props.onClick();

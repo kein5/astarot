@@ -1438,6 +1438,11 @@ vr_panel:
         asr_models: "認識モデルがありません。PCの設定「音声認識（ASR）」で取得してください。"
         ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
         ocr_language: "この言語は未対応です。PCの設定「チャット読み取り（OCR）」で変えてください。"
+    # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
+    # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).
+    mic_wait:
+        windows: "マイクの許可を待っています。デスクトップで許可してください。"
+        linux: "マイクが開くのを待っています。接続とほかのアプリを確かめてください。"
     log_opacity: "ログの不透明度"
     mic_threshold: "マイクの入力感度"
     speaker_threshold: "スピーカーの入力感度"
@@ -1481,7 +1486,7 @@ vr_panel:
         font_limit: "変更できる範囲は14〜28です"
         font_current: "現在: {{size}}（原文）"
         font_help: "訳文の大きさも合わせて変わります"
-        opacity_help: "ログの背景の濃さです。文字はそのまま見えます。押すごとに100 → 80 → 60 → 40% → 100%"
+        opacity_help: "背景だけが変わります。押すごとに100 → 80 → 60 → 40 → 100%"
     settings:
         processing: "処理設定"
         changing: "変更を反映中…"
@@ -1578,7 +1583,10 @@ realtime:
   state_closed: "字幕は停止中"
   state_failed: "エラーにより字幕を停止しました"
   # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
-  mic_permission_wait: "マイクがまだ開いていません。ASTAROTにマイクを使わせるかを、Windowsがデスクトップで確認しているかもしれません。そこで許可すると、字幕が始まります。"
+  # #1314 (M-4): only Windows asks there. On Linux the device, or another app holding it, keeps it closed.
+  mic_wait:
+    windows: "マイクがまだ開いていません。ASTAROTにマイクを使わせるかを、Windowsがデスクトップで確認しているかもしれません。そこで許可すると、字幕が始まります。"
+    linux: "マイクがまだ開いていません。マイクがつながっているか、ほかのアプリが使っていないかを確かめてください。開くと字幕が始まります。"
   save_help: "入力の設定を変えるとその字幕を停止し、サーバーやモデルを変えると両方の字幕を停止します。"
   auto_language: "自動判定（auto）"
   auto_help: "自動判定にはQwen3-ASRのように言語を判定できるモデルが必要です。日本語以外を話すプレイヤーがいるなら、聞き取りにそのようなモデルを使ってください。同梱ASRサーバーでは、「お使いのPCで動かす（speech.cpp）」の「聞き取りのモデル」で選べます。マイク入力のモデルは変わりません。"
