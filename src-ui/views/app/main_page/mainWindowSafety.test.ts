@@ -64,6 +64,14 @@ const switchOf = (tree: TreeNode): TreeNode => {
     assert.ok(drawn);
     return drawn;
 };
+// The words a switch's state line shows now: its own words, or the one StableWords shows of every
+// state the line keeps room for (#1364). null when the row draws no line.
+const stateLine = (row: TreeNode): { shown: unknown; kept?: unknown } | null => {
+    const line = find(row, node => node.props.role === "status");
+    if (!line) return null;
+    const words = line.props.children;
+    return words?.props?.words ? { shown: words.props.current, kept: words.props.words } : { shown: words };
+};
 // Test data: the engine's child process, only there: the switches check that one runs, nothing more.
 const runningChild = () => unchecked<NonNullable<BridgeStore["stores"]["store"]["backend_subprocess"]>>({});
 // Test data: a t of the test's own, which answers the key or records what it is asked.
@@ -90,6 +98,8 @@ const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSet
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
+        // A tag name stands in for the words that keep the room of the longest (#1364).
+        "../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
         "./BlockedSwitchDialog": { BlockedSwitchDialog: "blocked-switch-dialog" },
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: (action: string) => setup.prepared?.push(action) }) },
         "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: setup.leads ?? [], settle: (id: string) => setup.settled?.push(id) }) },
@@ -205,7 +215,7 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
         // reason in its name (above) and in its tooltip.
         assert.equal(item.props.statusText, null);
         assert.equal(find(row, node => node.props.children === "main_page.backend_disconnected"), null);
-        assert.equal(find(row, node => node.props.role === "status")?.props.children ?? null, null);
+        assert.ok([null, ""].includes(stateLine(row)?.shown as string ?? null), item.props.switch_id);
         assert.equal(drawn.props.title, "main_page.backend_disconnected");
         control.props.onClick();
         keydown(control, "Enter");
@@ -426,29 +436,31 @@ test("the caption switches say when their captions start and when they stopped o
     delete realtimeState.speaker;
 });
 
-// #1364: the caption switches keep the line under their name for their state while it is empty,
-// one line tall and right under the name, as the short name in brackets is. Neither the row nor
-// the rows under it move when "Starting captions" or "Stopped on an error" comes or goes. The other
-// switches draw no empty line.
-test("the caption switches keep the line for their state while it is empty", async () => {
+// #1364: the caption switches keep the room under their name for their state while it is empty,
+// right under the name, as the short name in brackets is: the room of the longest of their states,
+// also where it takes two lines (StableWords). Neither the row nor the rows under it move when
+// "Starting captions" or "Stopped on an error" comes or goes. The other switches draw no empty line.
+test("the caption switches keep the room for their state while it is empty", async () => {
     const b = await loadBridgeStore();
     b.stores.store.backend_subprocess = runningChild();
     b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
     const s = await loadSwitches(b, { status: { tts_generation: 1 }, directState: {}, send() {} });
     const lines = () => {
         const rows: TreeNode[] = b.runtime.render(s.MainFunctionSwitch).props.children;
-        return Object.fromEntries(rows.map(node => {
-            const line = find(inTooltip(s.SwitchContainer({ ...node.props, inRow: true })), part => part.props.role === "status");
-            return [node.props.switch_id, line ? line.props.children ?? "" : null];
-        }));
+        return Object.fromEntries(rows.map(node => [node.props.switch_id, stateLine(inTooltip(s.SwitchContainer({ ...node.props, inRow: true })))]));
     };
     const none = { translation: null, ocr: null, tts: null, rvc: null };
-    assert.deepEqual(lines(), { ...none, transcription_send: "", transcription_receive: "" });
+    // Every state the caption switches may say, in the order captionSwitchStatus names them.
+    const kept = ["realtime.state_starting", "realtime.switch_failed"];
+    assert.deepEqual(lines(), { ...none, transcription_send: { shown: "", kept }, transcription_receive: { shown: "", kept } });
+    realtimeState.mic = { generation: 1, state: "starting" };
     realtimeState.speaker = { generation: 1, state: "failed" };
-    assert.deepEqual(lines(), { ...none, transcription_send: "", transcription_receive: "realtime.switch_failed" });
+    assert.deepEqual(lines(), { ...none, transcription_send: { shown: "realtime.state_starting", kept },
+        transcription_receive: { shown: "realtime.switch_failed", kept } });
+    delete realtimeState.mic;
     delete realtimeState.speaker;
     const css = readFileSync(new URL("./sidebar_section/main_function_switch/MainFunctionSwitch.css.ts", import.meta.url), "utf8");
-    assert.match(styleOf(css, "switch_status"), /lineHeight: 1\.3,\n\s+minHeight: "1\.3em",/);
+    assert.match(styleOf(css, "switch_status"), /lineHeight: 1\.3,/);
     assert.match(styleOf(css, "label_wrapper"), /columnGap: "0\.8rem",\n\s+rowGap: 0,/);
 });
 

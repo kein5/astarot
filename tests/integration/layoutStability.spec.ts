@@ -107,6 +107,8 @@ test.describe("the main window's rail", () => {
         await page.waitForTimeout(SETTLE_MS);
         // The mark is drawn just before the language's role (LanguageSelectorOpenButton).
         const mark = (role: string) => page.getByText(role, { exact: true }).locator("xpath=preceding-sibling::*[1]");
+        // A state's words in sight: the line keeps the others hidden, for their room (StableWords).
+        const shown = (words: string) => page.getByText(words, { exact: true }).filter({ visible: true });
         await expect(mark("Your language")).toBeHidden();
         await expect(mark("Target language")).toBeHidden();
         const off = await places(page);
@@ -122,17 +124,17 @@ test.describe("the main window's rail", () => {
             }],
             ["captions starting", async () => {
                 await coreLine(page, "/get/data/realtime_asr_state", { mic: session("starting"), speaker: session("starting") });
-                await expect(page.getByText("Starting captions", { exact: true })).toHaveCount(2);
+                await expect(shown("Starting captions")).toHaveCount(2);
             }],
             ["the mic's captions running, the speaker's stopped on an error", async () => {
                 await coreLine(page, "/get/data/realtime_asr_state", { mic: session("ready"), speaker: session("failed") });
-                await expect(page.getByText("Stopped on an error", { exact: true })).toBeVisible();
-                await expect(page.getByText("Starting captions", { exact: true })).toHaveCount(0);
+                await expect(shown("Stopped on an error")).toHaveCount(1);
+                await expect(shown("Starting captions")).toHaveCount(0);
             }],
             ["Listening turned off", async () => {
                 await coreLine(page, "/set/disable/transcription_receive", false);
                 await coreLine(page, "/get/data/realtime_asr_state", { speaker: session("idle", 2) });
-                await expect(page.getByText("Stopped on an error", { exact: true })).toHaveCount(0);
+                await expect(shown("Stopped on an error")).toHaveCount(0);
                 await expect(mark("Target language")).toBeHidden();
             }],
         ];

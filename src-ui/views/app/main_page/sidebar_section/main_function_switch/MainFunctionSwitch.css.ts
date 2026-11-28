@@ -133,7 +133,8 @@ export const visually_hidden = style({
 });
 
 // The state's line (switch_status) is the only part that wraps; it sits right under the name, as
-// the short name in brackets does, so a row that keeps it is as tall as a two-line name's row.
+// the short name in brackets does, so a row that keeps one line for it is as tall as a two-line
+// name's row.
 export const label_wrapper = style({
     display: "flex",
     justifyContent: "left",
@@ -177,13 +178,12 @@ export const switch_label_abbr = style({
 // A state of the switch's own, such as the TTS server starting. Why no switch can be used (the
 // engine is gone) is not a line here: the rail says it once at its head (EngineReadout).
 // The switch's state in words, on a line of its own under its name (#1314, M-5): beside the name it
-// squeezed a short name onto two lines. A row that keeps the line keeps it one line tall while it
-// is empty (keepsStatusLine, #1364); a longer state still takes the lines it needs.
+// squeezed a short name onto two lines. A row that knows every state it may say keeps the lines the
+// longest of them needs, empty until then (statusWords, StableWords, #1364).
 export const switch_status = style({
     flexBasis: "100%",
     fontSize: "1.2rem",
     lineHeight: 1.3,
-    minHeight: "1.3em",
     color: PENDING_LABEL_COLOR,
     selectors: {
         [`&.${is_compact_mode}`]: { display: "none" },
