@@ -1,6 +1,5 @@
 //! Runs the backend core for the screens in a browser (the integration tests, ADR-017).
 //!
-//! Codename: Aglasis, a test host (#689; the table is in `docs/voice-stack/project-rename.md`).
 //! It is not the app's IPC or event delivery, which Scirlin is held for.
 //!
 //! astarot-browser-core-bridge --state <settings folder> [--port <port>]

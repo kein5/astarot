@@ -1,7 +1,7 @@
 [package]
 name = "astarot-browser-core-bridge"
 version = "0.0.0"
-description = "The integration tests' host, not part of the app: connects the screens in a browser to the backend core over a WebSocket, with stand-ins for the devices and services (tests/integration, ADR-017; codename Aglasis)"
+description = "The integration tests' host, not part of the app: connects the screens in a browser to the backend core over a WebSocket, with stand-ins for the devices and services (tests/integration, ADR-017)"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"
