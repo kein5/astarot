@@ -1,4 +1,5 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
+import { LOG_FONT_SIZE } from "../../../../../../logics/main/logFontSize.ts";
 import { useI18n } from "@useI18n";
 import * as styles from "./Appearance.css.ts";
 import { ThemeContainer } from "./ThemePicker";
@@ -131,9 +132,10 @@ export const MessageLogUiScalingContainer = () => {
             state={currentMessageLogUiScaling.state}
             variable={currentMessageLogUiScaling.data}
             setterFunction={setMessageLogUiScaling}
-            min={40}
-            max={200}
-            step={10}
+            // The same range and step as A− and A＋ beside the composer (#1314, M-8).
+            min={LOG_FONT_SIZE.min}
+            max={LOG_FONT_SIZE.max}
+            step={LOG_FONT_SIZE.step}
             show_label_values={[40, 60, 80, 100, 120, 140, 160, 180, 200]}
         />
     );

@@ -10,6 +10,7 @@ import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs, useStore_MessageInputValue } from "@store";
 import { chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
 import { CHATBOX_LENGTH_WARNING_ID } from "./ChatboxLengthWarning";
+import { LogFontButtons } from "../log_font_buttons/LogFontButtons";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import { Textarea } from "../../../../../kit/index.ts";
 import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
@@ -123,6 +124,8 @@ export const MessageInputBox = memo(function MessageInputBox() {
 
     return (
         <div className={styles.container}>
+            {/* The log's font size, in sight (#1314, M-8). */}
+            <LogFontButtons />
             {/* The composer's frame; the field inside it has none of its own (decided on 2026-11-25). */}
             <div className={styles.message_box_wrapper}>
                 <Textarea

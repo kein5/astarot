@@ -418,6 +418,14 @@ main_page:
         unavailable_reason: "Engines you cannot select do not work with these languages or your current settings."
         unavailable_hint: "Engines you cannot select do not work with these languages or your current settings. Check API keys and other setup in Settings > Translation."
 
+    # #1314 (M-8): A− and A＋ at the start of the composer; each button's name, also its tooltip.
+    log_font:
+        smaller: "Make the log font smaller"
+        larger: "Make the log font larger"
+        smaller_now: "Make the log font smaller (now {{size}}%)"
+        larger_now: "Make the log font larger (now {{size}}%)"
+        smallest: "The log font is at its smallest, {{size}}%"
+        largest: "The log font is at its largest, {{size}}%"
     message_log:
         region_label: "Message log"
         all: "All"

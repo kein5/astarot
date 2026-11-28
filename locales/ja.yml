@@ -418,6 +418,14 @@ main_page:
         unavailable_reason: "選べないエンジンは、この言語や現在の設定では使えません。"
         unavailable_hint: "選べないエンジンは、この言語や現在の設定では使えません。APIキーなどは設定の「翻訳」で確認できます。"
 
+    # #1314 (M-8): A− and A＋ at the start of the composer; each button's name, also its tooltip.
+    log_font:
+        smaller: "ログのフォントサイズを小さくする"
+        larger: "ログのフォントサイズを大きくする"
+        smaller_now: "ログのフォントサイズを小さくする（現在{{size}}%）"
+        larger_now: "ログのフォントサイズを大きくする（現在{{size}}%）"
+        smallest: "ログのフォントサイズは最小の{{size}}%です"
+        largest: "ログのフォントサイズは最大の{{size}}%です"
     message_log:
         region_label: "会話ログ"
         all: "全て"
