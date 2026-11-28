@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
 import { test, vi } from "vitest";
 import { featureResyncReads } from "./common/pendingRequestRecovery.ts";
+import * as fieldErrors from "./configs/fieldErrors.ts";
 import { expectBackendExit } from "./common/sidecarExitExpectation.ts";
 import type { ExitExpectingSession } from "./common/sidecarExitExpectation.ts";
 import { requests } from "./test/ipcReference.ts";
@@ -461,14 +462,17 @@ test("the stop's answer is told to the stop button after the voice status it car
     assert.deepEqual(callsOf(r), [call("useVoice.updateRoute", { muted: true })]);
 });
 
-test("a 400 goes to the error handling with what its result says", async () => {
+test("a 400 goes to the error handling with what its result says, and whether a field says it", async () => {
     const r = await loadRecordedRoutes();
     const result = { error_code: "DEEPL_AUTH_KEY_INVALID", message: "Invalid key", data: "old-key" };
+    // The key field waits for the answer to its own save (#1324): the first refusal is its.
+    fieldErrors.awaitInlineAnswer("/set/data/deepl_auth_key");
     r.receive("/set/data/deepl_auth_key", 400, result);
     r.receive("/set/data/deepl_auth_key", 400, { error_code: 1, message: false });
     assert.deepEqual(r.argsOf("_useBackendErrorHandling.errorHandling_Backend"), [
-        [{ error_code: "DEEPL_AUTH_KEY_INVALID", message: "Invalid key", data: "old-key", endpoint: "/set/data/deepl_auth_key", result }],
-        [{ error_code: undefined, message: undefined, data: undefined, endpoint: "/set/data/deepl_auth_key", result: { error_code: 1, message: false } }],
+        [{ error_code: "DEEPL_AUTH_KEY_INVALID", message: "Invalid key", data: "old-key", endpoint: "/set/data/deepl_auth_key", result, saidInline: true }],
+        [{ error_code: undefined, message: undefined, data: undefined, endpoint: "/set/data/deepl_auth_key", result: { error_code: 1, message: false },
+            saidInline: false }],
     ]);
     assert.throws(() => r.receive("/set/data/deepl_auth_key", 400, null), { name: "TypeError", message: /carries its error/ });
     assert.throws(() => r.receive("/set/data/deepl_auth_key", 400), { name: "TypeError", message: /carries its error/ });

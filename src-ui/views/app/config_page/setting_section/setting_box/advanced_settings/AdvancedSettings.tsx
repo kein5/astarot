@@ -17,7 +17,7 @@ import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMen
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { logDirectoryErrorKey, pickLogDirectory, validateLogDirectoryInput } from "../../../../../../logics/configs/logDestination";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
-import { awaitInlineAnswer, refusalKeys, settleInlineAnswer } from "../../../../../../logics/configs/fieldErrors.ts";
+import { awaitInlineAnswer, refusalKeys } from "../../../../../../logics/configs/fieldErrors.ts";
 import { hexColorProblem, oscAddressProblem, tlsPairProblem, websocketHostProblem, wholeNumberProblem } from "../../../../../../logics/configs/fieldChecks.ts";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
@@ -509,10 +509,10 @@ const WebsocketTlsContainer = () => {
     const label = (name: string) => t(`config_page.advanced_settings.websocket_tls_${name}.label`);
     const write = async (value: DraftWriteValue<TlsPaths>) => {
         // The refusal of this save is said under the pair, not as a notice too (fieldErrors.ts).
-        awaitInlineAnswer(TLS_ENDPOINT);
+        const settle = awaitInlineAnswer(TLS_ENDPOINT);
         const response = await setWebsocketTls(value);
         const answer = answerOf(response);
-        if (!(answer?.status && answer.status !== 200)) settleInlineAnswer(TLS_ENDPOINT);
+        if (!(answer?.status && answer.status !== 200)) settle();
         if (answer?.status !== 200) {
             const code = errorCodeOf(answer?.result);
             updateError(code || "save_unconfirmed");

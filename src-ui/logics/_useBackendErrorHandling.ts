@@ -1,4 +1,3 @@
-import { takeInlineRefusal } from "./configs/fieldErrors.ts";
 import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent";
 import { useRecognitionFix } from "./transcription/useRecognitionFix";
 import { recognitionFixOf } from "./transcription/recognitionFix";
@@ -47,6 +46,9 @@ export interface BackendErrorReport {
     data: unknown;
     endpoint: string;
     result: unknown;
+    // A field waits for this answer and says the refusal itself (fieldErrors.ts); the receiving
+    // side has already ended that wait.
+    saidInline?: boolean;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
@@ -191,11 +193,11 @@ export const _useBackendErrorHandling = () => {
         updateIsLMStudioConnected,
     } = useLLMConnection();
 
-    const errorHandling_Backend = ({error_code, message, data, endpoint, result}: BackendErrorReport) => {
+    const errorHandling_Backend = ({error_code, message, data, endpoint, result, saidInline = false}: BackendErrorReport) => {
         // A settings field that saves by itself says the refusal of its own save under the field
         // (#1111), so its notice is not shown as well. Everything else here, such as putting back
         // the kept value, runs.
-        const showNotification_Error: typeof notifyError = takeInlineRefusal(endpoint) ? () => undefined : notifyError;
+        const showNotification_Error: typeof notifyError = saidInline ? () => undefined : notifyError;
         // The sidecar's `message` is English for the log; show the UI language
         // when a translation exists for the code.
         const key = `backend_errors.${error_code}`;

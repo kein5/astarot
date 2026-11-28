@@ -7,7 +7,7 @@ import { useI18n } from "@useI18n";
 import { deviceOptionsToObject, arrayToObject, arrayToIdLabel, transformToIndexedArray } from "@utils";
 import type { DeviceOption } from "@utils";
 import type { SaveState } from "../../voice/useSettingsDraft.tsx";
-import { awaitInlineAnswer, errorCodeOf, refusalKeys, settleInlineAnswer } from "../fieldErrors.ts";
+import { awaitInlineAnswer, errorCodeOf, refusalKeys } from "../fieldErrors.ts";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
 import type { AwaitedSettingsWrite } from "../../common/settingsWriteResponses.ts";
 import type { ConfigFunctions, CustomWeightStatus, DownloadedWeights, SettingResponseTransform, SettingRunDirection,
@@ -492,13 +492,12 @@ export const useSaveButtonLogic = ({
         const empty = input_value === "" || input_value === null;
         const deleting = empty && typeof deleteFunction === "function";
         // Only the field's own set is awaited: its refusal is said under the field (fieldErrors.ts).
-        const awaited = endpoint && !deleting ? endpoint : null;
-        if (awaited) awaitInlineAnswer(awaited);
+        const settle = endpoint && !deleting ? awaitInlineAnswer(endpoint) : null;
         try {
             const response = await (deleting ? deleteFunction() : setFunction(empty ? "" : input_value));
             const reply = typeof response === "object" && response !== null ? response : null;
-            // A refusal is settled by the error handling, which then skips its notice.
-            if (awaited && !(reply?.status && reply.status !== 200)) settleInlineAnswer(awaited);
+            // An answer with another status ends the wait where it is received (fieldErrors.ts).
+            if (settle && !(reply?.status && reply.status !== 200)) settle();
             if (submitted.current !== request) return response;
             if (reply?.status === 200) {
                 setInputValue((value: unknown) => same(value, request.value) ? reply.result : value);
@@ -512,7 +511,7 @@ export const useSaveButtonLogic = ({
             }
             return response;
         } catch {
-            if (awaited) settleInlineAnswer(awaited);
+            settle?.();
             if (submitted.current === request) {
                 setSaveState("save_failed");
                 submitted.current = null;
