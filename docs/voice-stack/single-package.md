@@ -38,7 +38,7 @@ The faster-whisper engine was removed in 0.3.0 (2026-11-15, #306). The table bel
 | Working with VAD | Passes audio segmented by the app's Silero VAD | In realtime recognition, the server's Silero VAD (GGUF; `silero-vad` in the model download catalog) segments the audio | Equivalent for realtime | The VAD for cloud engine recording has not worked since it moved to the core in 0.5.0 (item 13 in core-integration; part 3-4 of #278). This is a separate problem from replacing faster-whisper |
 | Realtime recognition | Recognizes once per segment. Partial results come from resending a growing buffer | Receives partial results one after another over Realtime (WebSocket) | Equivalent or better | The latency comparison with Python is in #278 |
 | Model download | Pinned to a Hugging Face commit, with the SHA-256 of every file checked | The model download catalog pins the version, size, SHA-256 and license | Equivalent | ― |
-| How it starts | Choosing the engine is enough; the model is loaded inside the sidecar | A server in a separate process. A setting chooses whether turning on the switch starts the bundled server (`REALTIME_ASR_SETTINGS.start_server`, on by default) | Behavior changed | Item 3 of the decision of 2026-11-14 |
+| How it starts | Choosing the engine is enough; the model is loaded inside the sidecar | A server in a separate process. A setting chose whether turning on the switch starts the bundled server (`REALTIME_ASR_SETTINGS.start_server`, on by default). #1396 removed the setting: the switch always starts it | Behavior changed | Item 3 of the decision of 2026-11-14 |
 
 The features that only speech.cpp has are specifying vocabulary and telling speakers apart.
 
@@ -216,7 +216,7 @@ faster-whisper のエンジンは 0.3.0（2026-11-15、#306）で除きました
 | VAD との連携 | アプリの Silero VAD で区切った音声を渡す | リアルタイム認識ではサーバの Silero VAD（GGUF。モデル取得のカタログの `silero-vad`）が区切る | リアルタイムは同等 | クラウドのエンジンの録音の VAD は、0.5.0 で中核に移したあと動いていない（core-integration の 13。#278 の区切り 3-4）。faster-whisper の置き換えとは別の問題 |
 | リアルタイム認識 | 区切りごとに1回認識する。途中経過は伸びていくバッファを送り直して出す | Realtime（WebSocket）で途中経過を逐次受け取る | 同等以上 | Python との遅れの比較は #278 |
 | モデルの取得 | Hugging Face のコミットに固定し、全ファイルの SHA-256 を確かめる | モデル取得のカタログに版、大きさ、SHA-256、ライセンスを固定する | 同等 | ― |
-| 起動のしかた | エンジンを選ぶだけで、サイドカーの中にモデルを読み込む | 別のプロセスのサーバ。スイッチを入れたときに同梱のサーバを起動するかを設定で選べる（`REALTIME_ASR_SETTINGS.start_server`、既定はオン） | 仕様を変えた | 決定 2026-11-14 の 3 |
+| 起動のしかた | エンジンを選ぶだけで、サイドカーの中にモデルを読み込む | 別のプロセスのサーバ。スイッチを入れたときに同梱のサーバを起動するかを設定で選べた（`REALTIME_ASR_SETTINGS.start_server`、既定はオン）。#1396 で設定をなくし、スイッチが常に起動する | 仕様を変えた | 決定 2026-11-14 の 3 |
 
 speech.cpp にだけある機能は語彙の指定と話者の区別です。
 

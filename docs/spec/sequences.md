@@ -156,7 +156,7 @@ sequenceDiagram
 ```
 
 - The speaker side (Listening) follows the same flow: it recognizes in the target languages and translates into your language. It sends to VRChat only when "Send received message to VRChat" is on, and the notification is `/run/transcription_receive_speaker_message`.
-- On Linux, and on Windows with the bundled server chosen for real-time captions, the Mic input switch starts real-time speech recognition, and the results arrive as `/run/realtime_caption`. With the bundled server, each switch starts the server it uses on its own (#1242): Mic input's (`asr`), and Listening's own (`asr_listening`) while Listening has a model of its own; otherwise Listening uses `asr` too. A server a switch started stops once no source uses it. When Listening's own server does not fit in the GPU memory beside Mic input's, the Listening switch is refused with `realtime_asr_models_do_not_fit`, and nothing else changes. `/get/data/realtime_asr_models` lists the models of a source's server (`{"source": "speaker"}`, Mic input's without one).
+- On Linux, and on Windows with the bundled server chosen for real-time captions, the Mic input switch starts real-time speech recognition, and the results arrive as `/run/realtime_caption`. With the bundled server, each switch starts the server it uses on its own (#1242): Mic input's (`asr`), and Listening's own (`asr_listening`) while Listening has a model of its own; otherwise Listening uses `asr` too. A server a switch started stops once no source uses it. No setting turns this off (#1396, decided on 2026-11-28): a `start_server` that an earlier version saved is read and left out, and the settings page has no start or stop for these servers. It shows the state of each, Mic input's and Listening's own. A server that hangs is started again by turning its switch off and on. When Listening's own server does not fit in the GPU memory beside Mic input's, the Listening switch is refused with `realtime_asr_models_do_not_fit`, and nothing else changes. `/get/data/realtime_asr_models` lists the models of a source's server (`{"source": "speaker"}`, Mic input's without one).
 
 ## Text to speech and stopping
 
@@ -378,7 +378,7 @@ sequenceDiagram
 ```
 
 - スピーカー側（聞き取り）は同じ流れで、相手の言語で認識し、自分の言語へ訳す。VRChatへ送るのは「受信したメッセージをVRChatに送信する」がオンのときだけで、通知は`/run/transcription_receive_speaker_message`になる。
-- Linuxと、リアルタイム字幕で同梱サーバーを選んだWindowsでは、マイク入力のスイッチがリアルタイム音声認識を始め、結果は`/run/realtime_caption`で届く。同梱サーバーでは、それぞれのスイッチが自分の使うサーバーを単独で起動する（#1242）。マイク入力は`asr`、聞き取りは自分のモデルを持つ間は`asr_listening`で、そうでないときは聞き取りも`asr`を使う。スイッチが起動したサーバーは、使う入力がなくなると止める。聞き取りのサーバーがマイク入力のサーバーと一緒にはGPUのメモリに収まらないときは、聞き取りのスイッチを`realtime_asr_models_do_not_fit`で断り、ほかには何も変えない。`/get/data/realtime_asr_models`は、入力が使うサーバーのモデルを返す（`{"source": "speaker"}`。省略するとマイク入力）。
+- Linuxと、リアルタイム字幕で同梱サーバーを選んだWindowsでは、マイク入力のスイッチがリアルタイム音声認識を始め、結果は`/run/realtime_caption`で届く。同梱サーバーでは、それぞれのスイッチが自分の使うサーバーを単独で起動する（#1242）。マイク入力は`asr`、聞き取りは自分のモデルを持つ間は`asr_listening`で、そうでないときは聞き取りも`asr`を使う。スイッチが起動したサーバーは、使う入力がなくなると止める。これをオフにする設定はない（#1396、2026-11-28の決定）。以前の版が保存した`start_server`は読んで捨て、設定画面にもこれらのサーバーの起動と停止はない。設定画面はマイク入力のサーバーと聞き取りのサーバーのそれぞれの状態を示す。固まったサーバーは、そのスイッチを切って入れ直すと起動し直す。聞き取りのサーバーがマイク入力のサーバーと一緒にはGPUのメモリに収まらないときは、聞き取りのスイッチを`realtime_asr_models_do_not_fit`で断り、ほかには何も変えない。`/get/data/realtime_asr_models`は、入力が使うサーバーのモデルを返す（`{"source": "speaker"}`。省略するとマイク入力）。
 
 ## 読み上げと停止
 
