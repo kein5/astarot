@@ -104,7 +104,7 @@ globalStyle(body, {
     gap: "12px",
     padding: "14px 16px 16px",
 });
-// メインが設定画面を開くまで (メイン機能を止めるまで) は押せない
+// Nothing can be pressed until the desktop shows the settings (the settings window in the app, the page in a browser).
 globalStyle(`${body}.${is_waiting}`, {
     opacity: 0.55,
     pointerEvents: "none",

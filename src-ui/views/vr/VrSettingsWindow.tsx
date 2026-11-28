@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage, useIsOscAvailable, useVolume } from "@logics_common";
 import { useAppearance, useDevice, useOcr, useOthers, useTranscription, useTranslation, useVr } from "@logics_configs";
-import { useStore_MicVolume, useStore_SelectableFontFamilyList, useStore_SpeakerVolume, useStore_VrCustomTranslationModelNames } from "@store";
+import { useStore_IsOpenedSettingsWindow, useStore_MicVolume, useStore_SelectableFontFamilyList, useStore_SpeakerVolume, useStore_VrCustomTranslationModelNames } from "@store";
 import { ui_configs } from "@ui_configs";
 
 import HmdSvg from "@images/mui_head_mounted_device.svg?react";
@@ -93,12 +93,14 @@ const labelIn = (list: unknown, id: unknown): string | undefined => {
     return typeof label === "string" ? label : undefined;
 };
 
-// VR設定ウィンドウ。開いている間はデスクトップで設定画面を開いたのと同じ扱いで、
-// 翻訳と文字起こしが止まる (VrApp / VrPanelSyncController)
+// The VR settings window. Opening it opens the desktop's settings too (VrApp, VrPanelSyncController).
+// In the app they are the settings window, and nothing pauses while it is open (#1236). In a browser
+// they are a page of the main window, which pauses translation and transcription while it is open.
 export const VrSettingsWindow = ({ onClose }: { onClose: () => void }) => {
     const { t, i18n } = useI18n();
     const names = createLanguageNames(i18n.language);
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
+    const { currentIsOpenedSettingsWindow } = useStore_IsOpenedSettingsWindow();
     const [category, setCategory] = useState("device");
     // 選択肢の一覧を開いているとき: { title, options, selected_id, onPick }
     const [picker, setPicker] = useState<PickerState | null>(null);
@@ -123,8 +125,10 @@ export const VrSettingsWindow = ({ onClose }: { onClose: () => void }) => {
         }
     }, [picker, category]);
 
-    // メインが設定画面を開いてメイン機能を止めるまでは操作させない (音量の確認がマイクを奪い合わないように)
-    const is_ready = currentIsOpenedConfigPage.data === true;
+    // The rows wait until the desktop shows the settings they open with (#1371). In the app that is
+    // the settings window (IsOpenedSettingsWindow): since #1236 the main window opens it, and never
+    // its settings page. In a browser it is the settings page, which has paused the main functions by then.
+    const is_ready = currentIsOpenedSettingsWindow.data === true || currentIsOpenedConfigPage.data === true;
     const openPicker: OpenPicker = (title, options, selected_id, onPick, languageKind) => {
         savedScroll.current = listRef.current?.scrollTop ?? 0;
         setPicker({ title, options, selected_id, onPick, languageKind });

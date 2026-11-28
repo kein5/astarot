@@ -536,7 +536,8 @@ test("font selection reaches the existing appearance setter and closes the setti
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "en" },
             currentSelectedFontFamily: { state: "ok", data: "font-700" }, setSelectedFontFamily: (value: string) => picked.push(value) }), useOthers: () => ({}) },
-        "@store": { useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: {
+        "@store": { useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: false } }),
+            useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: {
             state: "ok", data: Object.fromEntries(fonts.map(option => [option.id, option.label])),
         } }) },
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
