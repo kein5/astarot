@@ -198,7 +198,7 @@ test("the form names its part, says what the captions are, and what a change sto
 
 // The server choice, first in the page's speech.cpp part under the engine choice (#1266): its own
 // section, named for the settings search, each field a settings row with its label.
-test("an external server needs its address; the bundled one asks whether a main switch may start it", async context => {
+test("an external server needs its address; the bundled one asks nothing more", async context => {
     const f = await captionsForm(context, { settings: { ...settings, server: undefined } }, { part: "server" });
     let tree = f.open();
     assert.deepEqual([tree.type, tree.props["data-setting-id"], tree.props["aria-label"]], ["section", "asr_server", "speech_servers.asr_selection"]);
@@ -216,13 +216,10 @@ test("an external server needs its address; the bundled one asks whether a main 
     tree = f.draw();
     assert.equal(selectNamed(tree, "speech_servers.asr_selection").props.value, "bundled");
     assert.equal(find(tree, node => node.props?.["aria-label"] === "realtime.url"), null);
-    const start = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([start.label, start.description, start.checked], ["realtime.start_server", "realtime.start_server_help", true]);
-    // A choice stays usable while a save waits, so focus stays on it (#1111).
-    assert.equal(start.disabled, undefined);
-    start.onChange({ target: { checked: false } });
-    assert.equal(findIn(f.draw(), node => node.type === "hint-check").props.checked, false);
-    // The server saves at once with the address typed so far; the start switch waits for its answer.
+    // The main switches always start the bundled servers they need (#1396, decided on 2026-11-28):
+    // no choice about it is offered.
+    assert.equal(find(tree, node => node.type === "hint-check"), null);
+    // The server saves at once with the address typed so far.
     assert.deepEqual(saves(f).map(value => [fieldOf(value, "server"), fieldOf(value, "base_url")]), [["bundled", "http://other"]]);
 });
 

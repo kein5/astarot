@@ -267,10 +267,12 @@ test("a server that was busy is tried again from the dialog; one whose model fai
     assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_setting", "primary"]]);
     s.click("open_setting");
     assert.deepEqual(s.events, [["close"], ["tab", "transcription"], ["config_page", true], ["reveal", { setting_id: "speechcpp_section" }]]);
+    // A server that was gone is tried again too, and its setting is the servers' (#1396: a switch
+    // always starts its server, so no setting decides whether it may).
     s.events.length = 0;
-    s.open(SEND, { reason: "speech_server_autostart_off" });
+    s.open(SEND, { reason: "speech_server_not_ready" });
     s.click("open_setting");
-    assert.deepEqual(s.events.at(-1), ["reveal", { setting_id: "asr_server" }], "whether a switch may start the server");
+    assert.deepEqual(s.events.at(-1), ["reveal", { setting_id: "speechcpp_section" }]);
 });
 
 // #1314 (M-3): a missing or broken bundle is not fixed in the settings. The dialog says so and opens

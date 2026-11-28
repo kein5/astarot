@@ -7,13 +7,13 @@ import type { DraftWriteValue } from "../../../../../../logics/voice/useSettings
 import { saveSaidInline } from "../../../../../../logics/configs/fieldErrors.ts";
 import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { FormRow } from "../_components/form_row/FormRow";
-import { HintCheck } from "../_components/hint/HintCheck";
 import { FieldProblem } from "../_components/field_problem/FieldProblem";
 
 // Which server the local speech recognition (speech.cpp) uses, first in its part of the page,
-// right under the engine choice (decided on 2026-11-27, #1266): the bundled server, with whether a
-// main switch may start it, or a server of one's own at its address. It was in 「詳細設定」 →
-// 「リアルタイム字幕」, where a user who took a model from this page did not find it.
+// right under the engine choice (decided on 2026-11-27, #1266): the bundled server, or a server of
+// one's own at its address. It was in 「詳細設定」 → 「リアルタイム字幕」, where a user who took a
+// model from this page did not find it. The main switches always start the bundled servers they
+// need (#1396, decided on 2026-11-28), so there is no choice about that here.
 //
 // It edits the realtime captions' settings (REALTIME_ASR_SETTINGS) as the captions' form in
 // 「詳細設定」 does, each with a draft of its own: a save of one is the other's newer saved value,
@@ -40,10 +40,6 @@ export const AsrServer = () => {
                     {["bundled", "external"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
                 </select>
             </FormRow>
-            {/* Whether a main switch may start the bundled server, or only its Start button (#288). */}
-            {bundled && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
-                description={t("realtime.start_server_help")} checked={draft.start_server !== false}
-                onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
             {/* The address is typed: it saves when focus leaves the form, or on Enter. */}
             {!bundled && <FormRow label={t("realtime.url")}>
                 <input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}

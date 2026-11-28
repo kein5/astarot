@@ -4599,7 +4599,6 @@
       "default": {
         "version": 1,
         "server": "bundled",
-        "start_server": true,
         "base_url": "http://127.0.0.1:8080",
         "model": "",
         "vocabulary": {

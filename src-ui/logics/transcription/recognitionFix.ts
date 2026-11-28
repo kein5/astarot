@@ -13,7 +13,8 @@
 //   The fix is one model for both: Listening uses Mic input's again.
 // - "server": the bundled speech recognition server did not start, or stopped (#1308 N-14). Its words
 //   say why. A server that was busy, slow or gone is tried again; one whose model, device or driver
-//   failed is fixed in its settings, which the dialog opens.
+//   failed is fixed in its settings, which the dialog opens. A switch always starts its server
+//   (#1396), so no refusal asks for a start.
 // - "bundle": the bundled speech.cpp is missing or fails its check (#1314, M-3), as when it was not
 //   installed whole or something took it away. Nothing in the settings fixes it: the dialog says so
 //   and opens the user guide's steps to install the app again.
@@ -46,7 +47,7 @@ const LANGUAGE_REASONS: readonly string[] = ["realtime_language_auto_unsupported
 // another try may get past.
 const SERVER_REASONS: readonly string[] = ["speech_server_start_failed", "speech_server_exited", "speech_server_device_failed",
     "speech_server_vulkan_missing", "speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_model_invalid",
-    "speech_server_autostart_off", "speech_server_not_ready", "speech_server_busy"];
+    "speech_server_not_ready", "speech_server_busy"];
 // The bundled speech.cpp is missing or fails its check (#1314, M-3).
 const BUNDLE_REASON = "speech_bundle_missing_or_invalid";
 const RETRY_REASONS: readonly string[] = ["speech_server_busy", "speech_server_start_timeout", "speech_server_exited", "speech_server_not_ready"];
@@ -92,6 +93,3 @@ export const languageSettingId = (source: CaptionSource): string => `realtime_${
 
 // Whether the switch is tried again to fix a server's failure (#1308 N-14): it was busy, slow or gone.
 export const retriesServer = (fix: RecognitionFix): boolean => fix.kind === "server" && RETRY_REASONS.includes(fix.reason);
-
-// Where a server's failure is fixed: whether a switch may start the server, or its models and device.
-export const serverSettingId = (reason: string): string => reason === "speech_server_autostart_off" ? "asr_server" : "speechcpp_section";

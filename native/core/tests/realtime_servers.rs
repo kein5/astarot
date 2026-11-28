@@ -1,7 +1,8 @@
 //! Each realtime switch on the bundled speech.cpp server it uses (#1242): Mic input's, and
 //! Listening's own while Listening has a model of its own, each started by its switch alone; and
 //! Listening refused when its model does not fit beside Mic input's (decided on 2026-11-27). A
-//! switch that still waits for its server does not hold up the end of the run (#1340).
+//! switch that still waits for its server does not hold up the end of the run (#1340). Nothing
+//! turns that off: a saved choice not to start the servers is left out (#1396).
 //!
 //! The servers are the stand-in executable (`tests/fixture/fake_speech.rs`), which leaves
 //! `MODEL.started` when a server runs that model. It does not speak the Realtime API, so a session
@@ -29,11 +30,21 @@ impl Run {
     /// Linux, where the main switches run realtime recognition, on the bundled server with Mic
     /// input's model `mic` and Listening's `listening` ("" for none of its own).
     fn start(mic: &str, listening: &str) -> Run {
-        Run::with_start_timeout(mic, listening, Duration::from_secs(10))
+        Run::with(mic, listening, Duration::from_secs(10), true)
     }
 
     /// [`Run::start`] with the servers' own start timeout.
     fn with_start_timeout(mic: &str, listening: &str, start_timeout: Duration) -> Run {
+        Run::with(mic, listening, start_timeout, true)
+    }
+
+    /// [`Run::start`] from settings an earlier version saved with "Start the bundled ASR server
+    /// when a switch is turned on" off (`start_server`), the setting #1396 removed.
+    fn saved_with_start_server_off(mic: &str, listening: &str) -> Run {
+        Run::with(mic, listening, Duration::from_secs(10), false)
+    }
+
+    fn with(mic: &str, listening: &str, start_timeout: Duration, start_server: bool) -> Run {
         let models = tempfile::tempdir().unwrap();
         let gguf = |name: &str| {
             if name.is_empty() {
@@ -50,7 +61,7 @@ impl Run {
         asr["listening_model"] = json!(gguf(listening));
         let saved = json!({
             "REALTIME_ASR_SETTINGS": {
-                "version": 1, "server": "bundled", "start_server": true, "base_url": "http://127.0.0.1:8080", "model": "",
+                "version": 1, "server": "bundled", "start_server": start_server, "base_url": "http://127.0.0.1:8080", "model": "",
                 "mic": { "language": "ja", "endpoint": null, "follow_default": true },
                 "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
                 "vocabulary": { "builtin": true, "terms": [] },
@@ -93,6 +104,11 @@ impl Run {
     }
 }
 
+/// Whether a server is down, or on its way down.
+fn down(row: &Value) -> bool {
+    matches!(row["state"].as_str(), Some("stopped" | "stopping"))
+}
+
 const MIC: &str = "/set/enable/transcription_send";
 const LISTENING: &str = "/set/enable/transcription_receive";
 
@@ -116,6 +132,29 @@ fn each_switch_starts_the_server_it_uses() {
         assert_eq!(run.state()["asr_listening"]["generation"], 0, "Listening's own server never started ({listening:?})");
         run.ui.stop();
     }
+}
+
+// #1396 (decided on 2026-11-28): the switches always start the bundled servers their feature needs
+// and stop the ones they started once no source uses them; no setting turns that off. With the
+// first-run setup's own setup (a model of Listening's own) and the choice not to start the servers
+// that an earlier version saved, Listening starts its own server and turns its switch on as far as
+// the stand-in lets it, and turning it off stops that server again.
+#[test]
+fn listening_starts_and_stops_its_own_server_whatever_an_earlier_version_saved() {
+    let run = Run::saved_with_start_server_off("asr_mic", "asr_listen");
+    assert!(run.ui.ok("/get/data/realtime_asr_settings", None).get("start_server").is_none(), "the old choice is left out");
+    let answer = run.turn_on(LISTENING);
+    let reason = answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string();
+    // The stand-in does not speak the Realtime API, so the session itself may fail; what matters is
+    // that the switch did not stop at its server.
+    assert!(!reason.starts_with("speech_server_"), "{answer}");
+    assert!(run.ran("asr_listen"), "Listening started its own server");
+    assert!(!run.ran("asr_mic"), "and not Mic input's");
+    let listening = &run.state()["asr_listening"];
+    assert!(listening["generation"].as_u64() > Some(0), "{listening}");
+    assert_eq!(run.ui.ok("/set/disable/transcription_receive", None), false);
+    common::net::eventually("Listening's server stops once nothing uses it", || down(&run.state()["asr_listening"]));
+    run.ui.stop();
 }
 
 // Decision 3 of #1242: Listening's own model that does not fit in memory beside Mic input's is

@@ -203,6 +203,23 @@ fn with_bundled_realtime_for_new_installs(want: &mut Value, input: &Value, defau
     }
 }
 
+/// The eighth intended difference (#1396, decided on 2026-11-28): the switches always start the
+/// bundled realtime servers, so the core leaves out Python's `start_server` of the realtime
+/// settings. A saved choice that differed only in it is no change.
+fn without_start_server(settings: &mut Map<String, Value>) {
+    if let Some(Value::Object(realtime)) = settings.get_mut("REALTIME_ASR_SETTINGS") {
+        realtime.shift_remove("start_server");
+    }
+}
+
+fn without_start_server_change(want: &mut Value, defaults: &Map<String, Value>) {
+    let Some(changed) = want["changed"].as_object_mut() else { return };
+    without_start_server(changed);
+    if changed.contains_key("REALTIME_ASR_SETTINGS") && changed.get("REALTIME_ASR_SETTINGS") == defaults.get("REALTIME_ASR_SETTINGS") {
+        changed.shift_remove("REALTIME_ASR_SETTINGS");
+    }
+}
+
 /// The fifth intended difference (#560): each key of the input the core does not know must be in
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
@@ -241,6 +258,7 @@ fn check_platform(name: &str, platform: Platform) {
     defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
     // Intended (#288): the notice of the move to speech.cpp went in 0.6.0, with its key.
     defaults.shift_remove("LOCAL_ASR_NOTICE_PENDING");
+    without_start_server(&mut defaults);
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
@@ -265,6 +283,7 @@ fn check_platform(name: &str, platform: Platform) {
         retire_google_engine(&mut want);
         without_local_asr_migration(&mut want, &reference["inputs"][case]);
         with_bundled_realtime_for_new_installs(&mut want, &reference["inputs"][case], &expected["defaults"]);
+        without_start_server_change(&mut want, defaults);
         let wanted_keys = moved_keys(&mut want);
         moved += wanted_keys.len();
         let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();

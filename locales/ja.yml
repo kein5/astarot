@@ -669,7 +669,7 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。同梱サーバーは録音を始めるときに自動で起動します。"
         speaker_device:
             label: "スピーカー（デバイス）"
         speaker_dynamic_energy_threshold:
@@ -679,7 +679,7 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。同梱サーバーは録音を始めるときに自動で起動します。"
         desc_vad_unavailable: "認識モデルとSilero VADを読み込んだ音声認識サーバー（speech.cpp）が要ります。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで両方を取得して適用してください。それまで音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
@@ -1601,8 +1601,6 @@ realtime:
   title: "リアルタイム字幕"
   scope: "字幕ログと、有効にした大きいオーバーレイに表示します。再起動後は停止した状態になります。メイン画面のマイクと聞き取りのスイッチでこの字幕を開始・停止します。Windowsでは、音声認識のエンジンに「ローカル（speech.cpp）」を選んでいるときだけスイッチがこの字幕を使います。ほかのエンジンでは、スイッチは従来の録音を使い、この字幕は下の開始ボタンで動かします。字幕を開始すると同じ入力のレベルメーターを停止します。"
   server_help: "ASRモデルとSilero VADを読み込んだローカルのspeech.cppサーバーに接続します。"
-  start_server: "スイッチを入れたときに同梱ASRサーバーを起動する"
-  start_server_help: "オフにすると、同梱ASRサーバーは「モデルとサーバー」の起動ボタンでだけ起動します。サーバーが止まっているときにスイッチを入れると、起動するよう案内します。"
   url: "ASRサーバーURL"
   model: "ASRモデル"
   select_model: "ASRモデルを選択"
@@ -1749,7 +1747,6 @@ realtime_toggle:
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選び、もう一度オンにしてください。"
   speech_server_start_timeout: "ASRモデルの読み込みに時間がかかりすぎました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選び、もう一度オンにしてください。"
   speech_server_not_ready: "同梱ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動してから、もう一度オンにしてください。"
-  speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、同じページの「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにしてから、もう一度オンにしてください。"
   realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR）の「ASRサーバーURL」が正しいことを確認してください。"
   realtime_model_required: "ASRモデルが選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデルを選んでください。"
   realtime_model_unavailable: "選んだASRモデルがサーバーに読み込まれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデル一覧を更新し、使えるモデルを選んでください。"
