@@ -27,6 +27,7 @@ for (const language of ["en", "ja"]) {
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
             "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
+            "../_components/fold/Fold": { Fold: "fold" },
         });
         const tree = runtime.render(AboutVrct);
         const topLinks = all(tree, node => node.type === "a" && node.props?.className === "vrct_vox_link");
@@ -58,10 +59,21 @@ for (const language of ["en", "ja"]) {
             assert.ok(image.props.alt && !image.props.alt.startsWith("config_page."), image.props.src);
             assert.ok(!String(image.props.src).includes("dev_"), image.props.src);
         }
-        const disclaimer = findIn(tree, node => node.props?.className === "vrchat_disclaimer");
-        // The trademark notice keeps its original English wording in every locale.
-        assert.equal(disclaimer.props.lang, "en");
-        assert.match(disclaimer.props.children, /not endorsed by VRChat/);
+        // The trademark notice, in the UI's language only (#1266): another language keeps the
+        // English original in a fold under it, read as English.
+        const notice = draw(findIn(tree, node => componentName(node) === "VrchatDisclaimer"));
+        const english = translation.t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" });
+        assert.match(english, /not endorsed by VRChat/);
+        if (language === "en") {
+            assert.deepEqual([notice.type, notice.props.className, notice.props.lang, notice.props.children], ["p", "vrchat_disclaimer", "en", english]);
+        } else {
+            const [shown, fold] = notice.props.children;
+            assert.equal(notice.props.className, "vrchat_disclaimer");
+            assert.deepEqual([shown.type, shown.props.lang, shown.props.children], ["p", undefined, translation.t("config_page.about_vrct.vrchat_disclaimer")]);
+            assert.notEqual(shown.props.children, english);
+            assert.deepEqual([fold.type, fold.props.size, fold.props.summary], ["fold", "link", translation.t("config_page.about_vrct.vrchat_disclaimer_original")]);
+            assert.deepEqual([fold.props.children.type, fold.props.children.props.lang, fold.props.children.props.children], ["p", "en", english]);
+        }
     });
 
     test(`${language}: color swatches identify the field and expose expansion`, async t => {
@@ -170,4 +182,22 @@ test("every picture of the About page carries the natural size of its file", asy
     for (const name of ["vrct_vox_logo", "about_vrct_logo"]) {
         assert.match(css, new RegExp(`export const ${name} = style\\(\\{[^}]*height: "auto"`), name);
     }
+});
+
+test("a UI language without its own wording of the notice shows the English one, with no fold", async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "ja", fallbackLng: "en", resources: { en: resources.en, ja: { translation: {} } } });
+    const runtime = hooks();
+    const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
+    const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
+    const { AboutVrct } = await loadModule<typeof import("./AboutVrct.tsx")>(new URL("./AboutVrct.tsx", import.meta.url), runtime, {
+        ...images, "@useI18n": { useI18n: () => ({ i18n, t: i18n.t.bind(i18n) }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "ja" } }) },
+        "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
+        "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
+        "../_components/fold/Fold": { Fold: "fold" },
+    });
+    const notice = draw(findIn(runtime.render(AboutVrct), node => componentName(node) === "VrchatDisclaimer"));
+    assert.deepEqual([notice.type, notice.props.lang], ["p", "en"]);
+    assert.match(notice.props.children, /not endorsed by VRChat/);
 });

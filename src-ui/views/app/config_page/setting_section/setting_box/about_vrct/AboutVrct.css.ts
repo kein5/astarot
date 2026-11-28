@@ -115,8 +115,7 @@ export const vrchat_disclaimer = style({
     color: vars.dark_600_color,
 });
 
-export const vrchat_disclaimer_translation = style({
-    fontSize: "1.2rem",
-    marginTop: "0.8rem",
-    color: vars.dark_600_color,
+// The fold with the English original, under the notice in the UI's language.
+export const vrchat_disclaimer_original = style({
+    marginTop: "0.4rem",
 });

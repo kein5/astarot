@@ -8,6 +8,7 @@ import { useAppearance } from "@logics_configs";
 import { useSoftwareVersion } from "@logics_common";
 
 import { astarot_discord_invite_url, upstream_vrct_document_url } from "@ui_configs";
+import { Fold } from "../_components/fold/Fold";
 
 // The official subtitle is the same in every UI language (ADR-011), so it is not translated.
 const ASTAROT_SUBTITLE = "Speech, Translation, Accessibility, Revoicing & OCR Toolkit";
@@ -26,7 +27,6 @@ const vrct_vox_links = [
 // pictures are decoded and nothing below them moves when they arrive (#912).
 export const AboutVrct = () => {
     const { t } = useI18n();
-    const { currentUiLanguage } = useAppearance();
     const { currentSoftwareVersion } = useSoftwareVersion();
     return (
         <div className={styles.container}>
@@ -60,16 +60,29 @@ export const AboutVrct = () => {
                 </div>
             </div>
 
-            <div>
-                {/* VRChat's trademark notice is always shown in its original English wording (from en.yml);
-                    lang lets screen readers read it as English. Other UI languages add their translation below it. */}
-                <p className={styles.vrchat_disclaimer} lang="en">{t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" })}</p>
-                {currentUiLanguage.data !== "en" && (
-                    <p className={styles.vrchat_disclaimer_translation}>{t("config_page.about_vrct.vrchat_disclaimer")}</p>
-                )}
-            </div>
+            <VrchatDisclaimer />
         </div>
     );
+};
+
+// VRChat's trademark notice, in the UI's language only (#1266, decided on 2026-11-28): the same
+// notice in two languages took half the page. In a language other than English, the English
+// original (from en.yml) is in a fold under it; lang lets screen readers read it as English. A
+// language without its own wording shows the English one, with no fold.
+const VrchatDisclaimer = () => {
+    const { t } = useI18n();
+    const { currentUiLanguage } = useAppearance();
+    const original = t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" });
+    const shown = t("config_page.about_vrct.vrchat_disclaimer");
+    if (currentUiLanguage.data === "en" || shown === original) {
+        return <p className={styles.vrchat_disclaimer} lang="en">{original}</p>;
+    }
+    return <div className={styles.vrchat_disclaimer}>
+        <p>{shown}</p>
+        <Fold size="link" className={styles.vrchat_disclaimer_original} summary={t("config_page.about_vrct.vrchat_disclaimer_original")}>
+            <p lang="en">{original}</p>
+        </Fold>
+    </div>;
 };
 
 import project_link_documents from "@images/about_vrct/project_link_documents.png";

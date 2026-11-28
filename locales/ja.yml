@@ -506,6 +506,8 @@ config_page:
         original_heading: "本家VRCT"
         original_desc: "ASTAROTはVRCTをもとに作られています。VRCTの開発者、貢献者、支えてくださった皆さんに感謝します。"
         vrchat_disclaimer: "（参考訳）ASTAROTとVRCTはVRChatの承認を受けたものではなく、VRChatやVRChatの制作物の制作と管理に公式に関わる人の見解や意見を表すものでもありません。VRChatとその関連する制作物はすべてVRChat Inc.の商標または登録商標です。VRChat © VRChat Inc."
+        # #1266: the fold with the notice's English original, under its wording in another UI language.
+        vrchat_disclaimer_original: "英語の原文"
     search:
         placeholder: "設定を検索..."
         label: "設定を検索"
