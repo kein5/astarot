@@ -6,6 +6,10 @@
 //! settings change it too, so the core keeps no setting of its own: each answer is what SteamVR
 //! said just now. Without SteamVR running nothing can be read or changed, and the page says so.
 //!
+//! - `/get/data/steamvr_auto_launch_supported` says whether SteamVR can start this build at all
+//!   (the manifest is beside the executable). It reaches nothing, so it is in the start-up's
+//!   answers: the page knows from the first draw whether it has a row for the switch, and nothing
+//!   moves when SteamVR's answer comes (#912).
 //! - `/get/data/steamvr_auto_launch` reads SteamVR; it changes nothing.
 //! - `/set/enable/steamvr_auto_launch` and `/set/disable/...` change the flag and answer what
 //!   SteamVR holds afterwards. Turning it on registers this install first.
@@ -306,6 +310,7 @@ pub(crate) fn this_install() -> Option<Install> {
 
 pub(crate) fn add(b: &mut Builder<'_>) {
     let _ = b.core.steamvr.core.set(Arc::downgrade(b.core));
+    b.with("/get/data/steamvr_auto_launch_supported", OPEN, |core, _| ok(json!(core.steamvr_install().is_some())));
     b.with("/get/data/steamvr_auto_launch", OPEN, |core, _| ok(core.steamvr_auto_launch()));
     for (name, on) in [("enable", true), ("disable", false)] {
         b.with(&format!("/set/{name}/steamvr_auto_launch"), OPEN, move |core, _| core.set_steamvr_auto_launch(on));

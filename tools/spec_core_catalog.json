@@ -1957,6 +1957,11 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/steamvr_auto_launch_supported",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/steamvr_auto_launch",
       "wait_for_init": false,
       "immediate": false

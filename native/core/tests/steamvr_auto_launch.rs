@@ -71,6 +71,8 @@ impl Run {
 #[test]
 fn a_build_without_the_manifest_says_steamvr_cannot_start_it() {
     let run = start(FakeVr::running(), false);
+    // Known from the start-up's answers, before the page asks SteamVR anything.
+    assert_eq!(run.ui.ready()["/get/data/steamvr_auto_launch_supported"], json!(false));
     assert_eq!(run.ui.ok("/get/data/steamvr_auto_launch", None), unavailable("unsupported"));
     let answer = run.ui.request("/set/enable/steamvr_auto_launch", None);
     assert_eq!(answer["status"], 400);
@@ -93,8 +95,10 @@ fn nothing_is_read_or_changed_while_steamvr_does_not_run() {
     }
     // The core never starts SteamVR: it connects only while SteamVR runs.
     assert_eq!(run.fake.with(|s| s.connects), 0);
-    // The start-up's settings carry no answer from SteamVR; the page asks when it opens.
+    // The start-up's settings carry no answer from SteamVR; the page asks when it opens. They say
+    // that this build can be started by SteamVR, which the page draws its row by.
     assert!(run.ui.ready().get("/get/data/steamvr_auto_launch").is_none());
+    assert_eq!(run.ui.ready()["/get/data/steamvr_auto_launch_supported"], json!(true));
     run.ui.stop();
 }
 

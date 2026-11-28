@@ -238,6 +238,8 @@ export interface SettingValues {
     OverlayVrTooltip: boolean;
     OverlayVrPanelOpacity: number;
     VoiceTypingMode: boolean;
+    // Whether SteamVR can start this build at all (#1384): known from the start-up's answers.
+    SteamVrAutoLaunchSupported: boolean;
     // What SteamVR holds of starting ASTAROT with itself (#1384); null until asked.
     SteamVrAutoLaunch: SteamVrAutoLaunch | null;
 

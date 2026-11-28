@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（513件: 削除 13、取得 227、実行 54、有効化 45、無効化 47、設定 127）
+## 要求（514件: 削除 13、取得 228、実行 54、有効化 45、無効化 47、設定 127）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -407,6 +407,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/overlay_font_family` | 取得 | 可 | useVr.updateFromBackendOverlayFontFamily |  |
 | `/set/data/overlay_font_family` | 設定 | 可 | useVr.setSuccessOverlayFontFamily |  |
 | `/get/data/overlay_font_missing_languages` | 取得 | 可 | useVr.updateFromBackendOverlayFontMissingLanguages |  |
+| `/get/data/steamvr_auto_launch_supported` | 取得 | 可 | useVr.updateFromBackendSteamVrAutoLaunchSupported |  |
 | `/get/data/steamvr_auto_launch` | 取得 | 可 | useVr.updateFromBackendSteamVrAutoLaunch |  |
 | `/set/enable/steamvr_auto_launch` | 有効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
 | `/set/disable/steamvr_auto_launch` | 無効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
