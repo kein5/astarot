@@ -46,7 +46,7 @@ This guideline gives the people who write and the people who review the same sta
 
 ## E. Writing
 
-- E-1 (MUST): The title states what was decided in one sentence (the template's existing rule). English is the authoritative version, and the Japanese version comes after it.
+- E-1 (MUST): The title states what was decided in one sentence (the template's existing rule). English is the authoritative version, and the Japanese version comes after it, as for every document ([AGENTS.md, "English and Japanese"](../../AGENTS.md#english-and-japanese)).
 
 - E-2 (MUST): An ADR is public. Do not write people's names, who was in charge or details of the development environment. Write who decided by role (a restatement of the existing rule).
 
@@ -132,7 +132,7 @@ ADR は、コードを読んでも分からない判断の理由を残す記録�
 
 ## E. 表記
 
-- E-1（MUST）: 題名は、決めたことを一文で表す（テンプレートの既存ルール）。英語を正本とし、日本語版を後ろに置く。
+- E-1（MUST）: 題名は、決めたことを一文で表す（テンプレートの既存ルール）。英語を正本とし、日本語版を後ろに置く。すべての文書と同じ決まりです（[AGENTS.md の「英語と日本語」](../../AGENTS.md#英語と日本語)）。
 
 - E-2（MUST）: ADR は公開物です。人の名前、担当者、開発環境の情報を書かない。決めた人は役割で書く（既存ルールの再確認）。
 
