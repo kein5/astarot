@@ -335,3 +335,9 @@ test("only the kit imports Motion", () => {
 test("a popover that leaves takes no presses: they reach what is under it", () => {
     assert.match(read("Popover.css.ts"), /"&\[data-leaving\]": \{ pointerEvents: "none" \}/);
 });
+
+test("the settings window's pages fade in when they are first drawn", () => {
+    const settings = readFileSync(new URL("../settings_window/SettingsWindowApp.tsx", import.meta.url), "utf8");
+    assert.match(settings, /useAppear\(pages, drawn\.current, "window"\);/);
+    assert.match(settings, /<div ref=\{pages\} className=\{styles\.pages_wrapper\} inert=\{disconnected\}>/);
+});
