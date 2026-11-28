@@ -395,11 +395,20 @@ main_page:
         ocr_models: "The chat reading models are not downloaded yet. Download them in Settings → Chat reading (OCR) → Recognition models."
         ocr_language: "Chat reading does not support the selected language. Choose another language in Settings → Chat reading (OCR)."
         tts_source: "Nothing is chosen to read aloud. In Settings → Text to speech (TTS), set Chat voice or Realtime microphone speech to something other than Off."
+        # #1314 (M-2): text to speech names everything it misses at once.
+        tts_output_device: "No output device is chosen for speech. Choose one under \"Output device\" in Settings → Text to speech (TTS)."
+        tts_missing: "Text to speech still needs {{items}}. Set them up in Settings → Text to speech (TTS)."
         tts_model: "No text to speech model yet. Download one in Settings → Text to speech (TTS) → Models and servers."
         rvc_model: "No conversion model and runtime are set. Set them in Settings → Voice changer (RVC) → Models and runtime."
         rvc_output_device: "No output is chosen for the converted voice. Choose an Output device in Settings → Text to speech (TTS)."
         rvc_route: "The audio route is not the managed virtual microphone. Choose it in Settings → Device → Audio route."
     # #1314 (M-1): a greyed switch that is pressed opens why, with the step that fixes it.
+    # #1314 (M-2): the things text to speech misses, listed in tts_missing.
+    switch_blocked_items:
+        separator: ", "
+        tts_source: "what to read aloud"
+        tts_output_device: "an output device"
+        tts_model: "a voice model"
     switch_blocked_dialog:
         title: "{{name}} cannot turn on yet"
         close: "Close"
@@ -1443,6 +1452,8 @@ vr_panel:
         asr_models: "Press this switch on the PC's main screen to prepare the models."
         ocr_models: "No chat reading models yet. Download them in PC settings → OCR."
         ocr_language: "Chat reading does not support this language. Change it in PC settings → OCR."
+        # #1314 (M-2): the launcher's text to speech switch, when its output device is the first thing missing.
+        tts_output_device: "Choose an output device in PC settings → TTS."
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
     # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).
     mic_wait:

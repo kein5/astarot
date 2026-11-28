@@ -63,8 +63,9 @@ test("speech is blocked when every voice it can read with is on the bundled serv
     const block = (values: Record<string, unknown>, servers: ReturnType<typeof profiles> | null = profiles()) =>
         switchBlocks({ voiceSettings: speech({ mode: "translated", ...values }), speechServers: servers }).tts;
     // A new install: both voices on the bundled server, no model.
-    assert.deepEqual(block({}), { reason: "tts_model", action: "tts" });
-    assert.deepEqual(block({ japanese_server: "bundled", multilingual_server: "bundled" }), { reason: "tts_model", action: "tts" });
+    // The models are on the TTS page's part for this PC (#1314, M-2).
+    assert.deepEqual(block({}), { reason: "tts_model", action: "tts_models" });
+    assert.deepEqual(block({ japanese_server: "bundled", multilingual_server: "bundled" }), { reason: "tts_model", action: "tts_models" });
     // One language with its model, a server of the user's own, or an installed engine for Japanese: it can read.
     for (const [values, servers] of [[{}, profiles("/ja.gguf")], [{}, profiles("", "/multi.gguf")], [{ japanese_server: "external" }, profiles()],
         [{ multilingual_server: "external" }, profiles()], [{ japanese_engine: "voicevox" }, profiles()]] as const)
@@ -72,6 +73,27 @@ test("speech is blocked when every voice it can read with is on the bundled serv
     // The speech servers not known yet: nothing blocks. Nothing to read: that reason first.
     assert.equal(block({}, null), undefined);
     assert.equal(switchBlocks({ voiceSettings: speech({ mode: "off" }), speechServers: profiles() }).tts?.reason, "tts_source");
+});
+
+// #1314 (M-2): text to speech names everything it misses at once, in the TTS page's order, and
+// leads to the first. One at a time, a choice the page refused for the next requirement read as if
+// it had not been made.
+test("speech names everything it misses at once, and leads to the first", () => {
+    const profiles = { profiles: { japanese: { model: "" }, multilingual: { model: "" }, asr: { model: "" } } };
+    const ready = { profiles: { japanese: { model: "/ja.gguf" }, multilingual: { model: "" }, asr: { model: "" } } };
+    const block = (values: SwitchVoiceSettings, servers: typeof profiles | null = profiles) =>
+        switchBlocks({ voiceSettings: speech(values), speechServers: servers }).tts;
+    // A new install on a route of its own: nothing to read, no output device, no voice.
+    assert.deepEqual(block({ mode: "off", routing: "direct" }),
+        { reason: "tts_source", action: "tts", missing: ["tts_source", "tts_output_device", "tts_model"] });
+    // Something to read, but no output device and no voice.
+    assert.deepEqual(block({ routing: "direct" }), { reason: "tts_output_device", action: "tts", missing: ["tts_output_device", "tts_model"] });
+    // Only the output device: its own reason, no list.
+    assert.deepEqual(block({ routing: "direct" }, ready), { reason: "tts_output_device", action: "tts" });
+    assert.equal(block({ routing: "direct", output_device: "Speakers" }, ready), undefined);
+    // The managed route needs no output device; a route not known yet says nothing about it.
+    assert.deepEqual(block({ mode: "off" }), { reason: "tts_source", action: "tts", missing: ["tts_source", "tts_model"] });
+    assert.deepEqual(block({ routing: undefined }), { reason: "tts_model", action: "tts_models" });
 });
 
 test("voice conversion needs its saved model and runtime, then its route", () => {

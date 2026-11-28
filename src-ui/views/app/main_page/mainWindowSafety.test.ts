@@ -385,6 +385,19 @@ test("a switch whose setup is missing is greyed, says why, and its icon leads to
     assert.equal(switchOf(s.SwitchContainer(free)).props["data-disabled"], undefined);
 });
 
+// #1314 (M-2): text to speech names everything it misses at once, in the tooltip and the dialog alike.
+test("a switch that misses several things names them all", async () => {
+    const b = await loadBridgeStore();
+    const s = await loadSwitches(b, { status: { tts_generation: 1 }, directState: {}, send() {} }, { compact: false, blocks: {} });
+    const t = (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key;
+    assert.equal(s.switchBlockText({ reason: "tts_source", action: "tts", missing: ["tts_source", "tts_output_device", "tts_model"] }, t as never),
+        'main_page.switch_blocked.tts_missing:{"items":"main_page.switch_blocked_items.tts_source' +
+        'main_page.switch_blocked_items.separatormain_page.switch_blocked_items.tts_output_device' +
+        'main_page.switch_blocked_items.separatormain_page.switch_blocked_items.tts_model"}');
+    assert.equal(s.switchBlockText({ reason: "tts_output_device", action: "tts" }, t as never), "main_page.switch_blocked.tts_output_device");
+    assert.equal(s.settingsLabel("tts_models", t as never), 'main_page.feature_settings.open_page:{"page":"config_page.side_menu_labels.tts"}');
+});
+
 test("a switch that is on stays usable when its setup goes missing, so it can be turned off", async () => {
     const b = await loadBridgeStore();
     b.stores.store.backend_subprocess = runningChild();

@@ -110,6 +110,10 @@ test("each action opens its place and never downloads or turns a switch on", asy
     prepare(null);
     assert.deepEqual(s.calls, [["review", false], ["tab", "ocr"], ["opened", true], "focus",
         ["tab", "transcription"], ["opened", true], "setup"]);
+    // The text to speech models: the TTS page, at its models (#1314, M-2).
+    s.calls.length = 0;
+    prepare("tts_models");
+    assert.deepEqual(s.calls.slice(0, 2), [["tab", "tts"], ["opened", true]]);
 });
 
 test("the shared atom is written only when a block changes", async () => {
