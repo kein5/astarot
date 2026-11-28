@@ -22,14 +22,16 @@ export const title_container = style({
     minHeight: "1.8rem",
 });
 
-// Shown while the side it labels is on (the mic for yours, the speaker for theirs).
+// Shown while the side it labels is on (the mic for yours, the speaker for theirs). Its place is
+// kept while it is hidden, so the role beside it stays where it is when the switch turns on (#1364).
 export const category_svg = style({
+    display: "block",
     width: "1.4rem",
     flexShrink: 0,
     color: vars.vox_state_active,
-    display: "none",
+    visibility: "hidden",
     selectors: {
-        [`&.${is_turned_on}`]: { display: "block" },
+        [`&.${is_turned_on}`]: { visibility: "visible" },
     },
 });
 

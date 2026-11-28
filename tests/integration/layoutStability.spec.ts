@@ -88,6 +88,69 @@ test("the main window does not move as it starts", async ({ app }) => {
     expect(await shiftsOf(app.page, "done")).toEqual([]);
 });
 
+/** A line to the page as the core sends it. */
+const coreLine = (page: Page, endpoint: string, result: unknown) =>
+    page.evaluate(text => window.__coreLine?.(text), JSON.stringify({ status: 200, endpoint, result }));
+
+// Turning a caption switch on moves nothing on the main window (#1364). The mark beside a language
+// that its side is on, and a caption switch's state under its name (its captions starting, or
+// stopped on an error), come where the rail has kept room for them and leave it empty when they
+// go. The core has no speech model here, so what it sends as the switches turn on and their
+// captions start or fail is played to the page as the core sends it.
+test.describe("the main window's rail", () => {
+    // Every switch in sight, as after an update.
+    test.use({ settings: { USAGE_PRESETS: ["all"] } });
+
+    test("a caption switch turning on, starting and stopping on an error moves nothing on the main window", async ({ app }) => {
+        const page = app.page;
+        const reports = await observe(page);
+        await page.waitForTimeout(SETTLE_MS);
+        // The mark is drawn just before the language's role (LanguageSelectorOpenButton).
+        const mark = (role: string) => page.getByText(role, { exact: true }).locator("xpath=preceding-sibling::*[1]");
+        // A state's words in sight: the line keeps the others hidden, for their room (StableWords).
+        const shown = (words: string) => page.getByText(words, { exact: true }).filter({ visible: true });
+        await expect(mark("Your language")).toBeHidden();
+        await expect(mark("Target language")).toBeHidden();
+        const off = await places(page);
+        // A caption session as /get/data/realtime_asr_state reports it; not asked to run, so the
+        // page does not ask the core for it again.
+        const session = (state: string, generation = 1) => ({ generation, requested: false, state });
+        const steps: [string, () => Promise<void>][] = [
+            ["turned on", async () => {
+                await coreLine(page, "/set/enable/transcription_send", true);
+                await coreLine(page, "/set/enable/transcription_receive", true);
+                await expect(mark("Your language")).toBeVisible();
+                await expect(mark("Target language")).toBeVisible();
+            }],
+            ["captions starting", async () => {
+                await coreLine(page, "/get/data/realtime_asr_state", { mic: session("starting"), speaker: session("starting") });
+                await expect(shown("Starting captions")).toHaveCount(2);
+            }],
+            ["the mic's captions running, the speaker's stopped on an error", async () => {
+                await coreLine(page, "/get/data/realtime_asr_state", { mic: session("ready"), speaker: session("failed") });
+                await expect(shown("Stopped on an error")).toHaveCount(1);
+                await expect(shown("Starting captions")).toHaveCount(0);
+            }],
+            ["Listening turned off", async () => {
+                await coreLine(page, "/set/disable/transcription_receive", false);
+                await coreLine(page, "/get/data/realtime_asr_state", { speaker: session("idle", 2) });
+                await expect(shown("Stopped on an error")).toHaveCount(0);
+                await expect(mark("Target language")).toBeHidden();
+            }],
+        ];
+        // The shifts are counted from the first step on, each under the step it came in.
+        await shiftsOf(page, steps[0][0]);
+        for (const [i, [step, run]] of steps.entries()) {
+            await run();
+            await page.waitForTimeout(150);
+            // Every step is checked against the rail with both switches off, so one run names every step that moves.
+            expect.soft(moved(off, await places(page)), `${step}: parts that moved`).toEqual([]);
+            const shifts = await shiftsOf(page, steps[i + 1]?.[0] ?? "done");
+            if (reports) expect.soft(shifts, `${step}: layout shifts`).toEqual([]);
+        }
+    });
+});
+
 /** Opens every settings page in turn, the core's answers held until the page has been seen, and
  *  checks that nothing on it moves once they come. With `unfold`, every fold of the page is opened
  *  as soon as it shows, before its answers, as a user who opens one at once sees it. A fold whose

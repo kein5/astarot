@@ -5,7 +5,7 @@ import type { AtomStatus } from "@store";
 import type { SwitchBlockAction, SwitchBlockId } from "../../../../../logics/main/switchBlocks";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
 import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
-import { captionSwitchStatus } from "../../../../../logics/transcription/realtimeCaptionState";
+import { CAPTION_SWITCH_STATUSES, captionSwitchStatus } from "../../../../../logics/transcription/realtimeCaptionState";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
@@ -35,6 +35,7 @@ import {
     useMainFunction,
 } from "@logics_main";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
+import { StableWords } from "../../../../common_components/stable_words/StableWords";
 import { Button, Switch } from "../../../../kit/index.ts";
 import { BlockedSwitchDialog } from "./BlockedSwitchDialog";
 import type { SwitchBlock } from "../../../../../logics/main/switchBlocks";
@@ -56,6 +57,9 @@ interface SwitchItem {
     cancellable?: boolean;
     disabled?: boolean;
     statusText?: string | null;
+    // Every state the switch may say under its name (the caption switches): its row keeps the room
+    // of the longest of them (#1364).
+    statusWords?: readonly string[];
 }
 
 export const MainFunctionSwitch = () => {
@@ -76,6 +80,7 @@ export const MainFunctionSwitch = () => {
     // Starting and failure of the caption switches, said under each (#1314, M-5).
     const { state: realtime } = useRealtimeASR();
     const captionStatus = (source: "mic" | "speaker") => { const key = captionSwitchStatus(realtime[source]); return key ? t(key) : null; };
+    const captionStatusWords = CAPTION_SWITCH_STATUSES.map(key => t(key));
     const { blocks, prepare } = useSwitchBlocks();
     const { showNotification_Error } = useNotificationStatus();
     // Known codes get their next step; the code stays visible for support.
@@ -131,6 +136,7 @@ export const MainFunctionSwitch = () => {
             currentState: currentTranscriptionSendStatus,
             toggleFunction: toggleTranscriptionSend,
             statusText: captionStatus("mic"),
+            statusWords: captionStatusWords,
         },
         {
             switch_id: "transcription_receive",
@@ -139,6 +145,7 @@ export const MainFunctionSwitch = () => {
             currentState: currentTranscriptionReceiveStatus,
             toggleFunction: toggleTranscriptionReceive,
             statusText: captionStatus("speaker"),
+            statusWords: captionStatusWords,
         },
         {
             switch_id: "ocr",
@@ -197,6 +204,7 @@ export const MainFunctionSwitch = () => {
                     switchLabel={item.label}
                     currentState={item.currentState}
                     statusText={ready ? item.statusText : null}
+                    statusWords={item.statusWords}
                     unavailableText={ready || starting ? null : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
@@ -322,6 +330,10 @@ type SwitchContainerProps = {
     unavailable?: boolean;
     starting?: boolean;
     statusText?: string | null;
+    // Every state statusText may be. The row keeps the room the longest of them needs under the name,
+    // empty while there is none, so that neither the row nor the rows under it move when the state
+    // comes or goes (#1364), also where the longest takes two lines.
+    statusWords?: readonly string[];
     unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
@@ -337,7 +349,7 @@ type SwitchContainerProps = {
 // the row's words are read only as that name, not once more beside it: they are aria-hidden, as
 // they were inside the row that was the switch. The icon rail has no room for the switch: there it
 // is visually hidden, still focused and pressed through the row, whose ring shows its focus.
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, statusWords, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const switchId = `main_switch_${switch_id}`;
     const reasonId = `${switchId}_reason`;
@@ -377,7 +389,9 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                         {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
                             data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                     </p>
-                    {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
+                    {(statusText || statusWords) && <span className={getClassNames(styles.switch_status)} role="status">
+                        {statusWords ? <StableWords align="start" words={statusWords} current={statusText ?? ""} /> : statusText}
+                    </span>}
                     {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
                     {children}
                 </div>

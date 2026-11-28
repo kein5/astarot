@@ -188,6 +188,8 @@ export const pruneRealtimeCaptions = (current: RealtimeCaptionLog, activeNamespa
 
 // The words a caption switch shows under its name on the main screen (#1314, M-5): while its captions
 // start, and once they stopped on an error. The strip that said the same above the log is gone: it
-// repeated the switches under other names, with a stop of its own.
-export const captionSwitchStatus = (session: RealtimeSession | undefined): "realtime.state_starting" | "realtime.switch_failed" | null =>
+// repeated the switches under other names, with a stop of its own. The switch keeps the room of the
+// longest of them (CAPTION_SWITCH_STATUSES, #1364).
+export const CAPTION_SWITCH_STATUSES = ["realtime.state_starting", "realtime.switch_failed"] as const;
+export const captionSwitchStatus = (session: RealtimeSession | undefined): typeof CAPTION_SWITCH_STATUSES[number] | null =>
     session?.state === "starting" ? "realtime.state_starting" : session?.state === "failed" ? "realtime.switch_failed" : null;
