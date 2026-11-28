@@ -45,7 +45,7 @@ test("an API entry is added, used against its server and removed, and its key is
         // Removing asks first; going back keeps it.
         await card.getByRole("button", { name: "Remove", exact: true }).click();
         const confirm = card.getByRole("group", { name: "Remove Home server" });
-        await expect(confirm).toContainText("The entry and its API key are removed from the app.");
+        await expect(confirm).toContainText("The entry and its API key will be removed from the app.");
         await confirm.getByRole("button", { name: "Back" }).click();
         await expect(card).toBeVisible();
         await card.getByRole("button", { name: "Remove", exact: true }).click();

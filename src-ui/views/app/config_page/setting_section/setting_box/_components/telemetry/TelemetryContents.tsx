@@ -10,7 +10,7 @@ import { Fold } from "../fold/Fold";
 // what was sent) is added with the answer.
 const ALWAYS = ["event", "v", "timestamp", "app_version", "os", "os_version", "locale"] as const;
 
-// "See what is sent": the usage event this PC would send now, field by field and as the
+// "See what gets sent": the usage event this PC would send now, field by field and as the
 // data itself, and (with_sent) what was sent before. The backend builds it with the call
 // that builds what it sends. It is asked for when the user opens it, not before; the fold
 // says so (data-asks-on-open), as what comes then answers the opening.
