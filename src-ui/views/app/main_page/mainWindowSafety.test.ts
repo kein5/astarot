@@ -200,11 +200,12 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
         // Greyed out as the kit draws a switch that cannot be used, still in the tab order.
         assert.deepEqual([control.props["data-disabled"], control.props.disabled], ["", undefined]);
         assert.doesNotMatch(row.props.className, /is_active/);
-        // The rail says it once at its head (EngineReadout): no line under the switch, so no row
-        // grows. The switch keeps the reason in its name (above) and in its tooltip.
+        // The rail says it once at its head (EngineReadout): no words under the switch, so no row
+        // grows; a caption switch's line for its state stays empty (#1364). The switch keeps the
+        // reason in its name (above) and in its tooltip.
         assert.equal(item.props.statusText, null);
         assert.equal(find(row, node => node.props.children === "main_page.backend_disconnected"), null);
-        assert.equal(find(row, node => node.props.role === "status"), null);
+        assert.equal(find(row, node => node.props.role === "status")?.props.children ?? null, null);
         assert.equal(drawn.props.title, "main_page.backend_disconnected");
         control.props.onClick();
         keydown(control, "Enter");
@@ -423,6 +424,32 @@ test("the caption switches say when their captions start and when they stopped o
     assert.deepEqual(status(), { transcription_send: null, transcription_receive: null });
     delete realtimeState.mic;
     delete realtimeState.speaker;
+});
+
+// #1364: the caption switches keep the line under their name for their state while it is empty,
+// one line tall and right under the name, as the short name in brackets is. Neither the row nor
+// the rows under it move when "Starting captions" or "Stopped on an error" comes or goes. The other
+// switches draw no empty line.
+test("the caption switches keep the line for their state while it is empty", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = runningChild();
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: { tts_generation: 1 }, directState: {}, send() {} });
+    const lines = () => {
+        const rows: TreeNode[] = b.runtime.render(s.MainFunctionSwitch).props.children;
+        return Object.fromEntries(rows.map(node => {
+            const line = find(inTooltip(s.SwitchContainer({ ...node.props, inRow: true })), part => part.props.role === "status");
+            return [node.props.switch_id, line ? line.props.children ?? "" : null];
+        }));
+    };
+    const none = { translation: null, ocr: null, tts: null, rvc: null };
+    assert.deepEqual(lines(), { ...none, transcription_send: "", transcription_receive: "" });
+    realtimeState.speaker = { generation: 1, state: "failed" };
+    assert.deepEqual(lines(), { ...none, transcription_send: "", transcription_receive: "realtime.switch_failed" });
+    delete realtimeState.speaker;
+    const css = readFileSync(new URL("./sidebar_section/main_function_switch/MainFunctionSwitch.css.ts", import.meta.url), "utf8");
+    assert.match(styleOf(css, "switch_status"), /lineHeight: 1\.3,\n\s+minHeight: "1\.3em",/);
+    assert.match(styleOf(css, "label_wrapper"), /columnGap: "0\.8rem",\n\s+rowGap: 0,/);
 });
 
 test("a switch that is on stays usable when its setup goes missing, so it can be turned off", async () => {

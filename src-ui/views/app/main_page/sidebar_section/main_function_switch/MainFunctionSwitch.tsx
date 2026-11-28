@@ -56,6 +56,8 @@ interface SwitchItem {
     cancellable?: boolean;
     disabled?: boolean;
     statusText?: string | null;
+    // The caption switches say their state under their name: their rows keep that line (#1364).
+    keepsStatusLine?: boolean;
 }
 
 export const MainFunctionSwitch = () => {
@@ -131,6 +133,7 @@ export const MainFunctionSwitch = () => {
             currentState: currentTranscriptionSendStatus,
             toggleFunction: toggleTranscriptionSend,
             statusText: captionStatus("mic"),
+            keepsStatusLine: true,
         },
         {
             switch_id: "transcription_receive",
@@ -139,6 +142,7 @@ export const MainFunctionSwitch = () => {
             currentState: currentTranscriptionReceiveStatus,
             toggleFunction: toggleTranscriptionReceive,
             statusText: captionStatus("speaker"),
+            keepsStatusLine: true,
         },
         {
             switch_id: "ocr",
@@ -197,6 +201,7 @@ export const MainFunctionSwitch = () => {
                     switchLabel={item.label}
                     currentState={item.currentState}
                     statusText={ready ? item.statusText : null}
+                    keepsStatusLine={item.keepsStatusLine}
                     unavailableText={ready || starting ? null : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
@@ -322,6 +327,9 @@ type SwitchContainerProps = {
     unavailable?: boolean;
     starting?: boolean;
     statusText?: string | null;
+    // A line under the name kept for statusText, empty while there is none, so that neither the
+    // row nor the rows under it move when the state comes or goes (#1364).
+    keepsStatusLine?: boolean;
     unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
@@ -337,7 +345,7 @@ type SwitchContainerProps = {
 // the row's words are read only as that name, not once more beside it: they are aria-hidden, as
 // they were inside the row that was the switch. The icon rail has no room for the switch: there it
 // is visually hidden, still focused and pressed through the row, whose ring shows its focus.
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, keepsStatusLine = false, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const switchId = `main_switch_${switch_id}`;
     const reasonId = `${switchId}_reason`;
@@ -377,7 +385,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                         {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
                             data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                     </p>
-                    {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
+                    {(statusText || keepsStatusLine) && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
                     {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
                     {children}
                 </div>
