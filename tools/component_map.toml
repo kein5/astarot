@@ -1,9 +1,10 @@
 # The component map of the ASTAROT ecosystem: the components inside ASTAROT and the
 # repositories kept outside it. This file is the only place where the map's names and
-# roles are edited. tools/component_map.py makes docs/component-map.md from it:
+# roles are edited. tools/component_map.py renders it into the two marked blocks of
+# docs/development.md (one in the English version, one in the Japanese version):
 #
 #     python tools/component_map.py --write   # or: mise run component-map
-#     python tools/component_map.py --check   # exit 1 when the page is out of date
+#     python tools/component_map.py --check   # exit 1 when a block is out of date
 #
 # The code names come from the naming record, Issue #689. List only what exists now:
 # no candidates and no reserved names.
@@ -15,7 +16,7 @@
 #   name        display name (the code name)
 #   kind        "internal" (inside ASTAROT) or "external" (a repository of its own)
 #   role        technical role, in English. The diagram shows this text
-#   role_ja     the same role in Japanese, for the Japanese version of the page
+#   role_ja     the same role in Japanese, for the Japanese version of the guide
 #   path        internal only: the folder in this repository. A Cargo package that no
 #               entry names is reported as a warning
 #   repository  external only: "owner/name" on GitHub
