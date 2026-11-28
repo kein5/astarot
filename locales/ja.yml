@@ -2476,6 +2476,13 @@ model_catalog:
         ready: "検証済み・未適用"
     # #1308 ★1: a speech recognition model is chosen for each input above its catalog.
     choose_above: "お使いのPCにあります。上の「マイク入力のモデル」か「聞き取りのモデル」で選びます。"
+    # A recognition model's card chooses it for an input too: its "Use this model" opens a menu of
+    # the two inputs (reported on 0.7.0-beta.4).
+    choose_input: "お使いのPCにあります。「このモデルを使う」を押して、マイク入力か聞き取りに使います。"
+    use_for:
+        label: "{{name}}を使う入力"
+        mic: "マイク入力に使う"
+        speaker: "聞き取りに使う"
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "このモデルを使う"
     # A card pressed anywhere names its model after its button's words, in the button's

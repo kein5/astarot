@@ -74,6 +74,8 @@ async function dialog(context: TestContext, entry: object, state: object = { job
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "./InputChoice": { InputChoice: "input-choice" },
+        "../../../../../../logics/transcription/listeningModel": await import("../transcription/listeningModel.ts"),
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
         "./catalogHeading": await loadHeading(runtime),

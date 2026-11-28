@@ -187,6 +187,27 @@ test("a catalog entry that came, went or was used asks again for the models and 
     assert.deepEqual(r.argsOf("useStdoutToPython.asyncStdoutToPython"), []);
 });
 
+// The translation catalog's cards of the built-in models say which one is in use and which can be
+// used (#1228). They are read again once the model in use was set, and once a downloaded model was
+// counted as on the PC (the core applied a download of the model catalog): before, a model downloaded
+// from its card stayed "Not downloaded" there, and pressing the card opened its review again.
+test("the translation catalog is read again once the model in use or the models on the PC changed", async () => {
+    for (const [endpoint, result] of [["/set/data/selected_ctranslate2_weight_type", "m2m100_418M-ct2-int8"],
+        ["/run/downloaded_ctranslate2_weight", { weight_type: "m2m100_418M-ct2-int8", downloaded: true }]] as const) {
+        const r = await loadRecordedRoutes();
+        r.receive(endpoint, 200, result);
+        assert.deepEqual(r.argsOf("useTranslationCatalog.send"), [["/get/data/translation_catalog"]], endpoint);
+        // A refusal changed nothing: nothing is read again.
+        const refused = await loadRecordedRoutes();
+        refused.receive(endpoint, 400, { error_code: "weight_invalid" });
+        assert.deepEqual(refused.argsOf("useTranslationCatalog.send"), [], `${endpoint} refused`);
+    }
+    // Progress of a download is not a model on the PC yet.
+    const progress = await loadRecordedRoutes();
+    progress.receive("/run/download_progress_ctranslate2_weight", 200, { weight_type: "m2m100_418M-ct2-int8", progress: 0.5 });
+    assert.deepEqual(progress.argsOf("useTranslationCatalog.send"), []);
+});
+
 test("a refused speaker name says so with a notice and goes no further", async () => {
     const r = await loadRecordedRoutes();
     r.receive("/set/data/speaker_names", 500, "Internal error");

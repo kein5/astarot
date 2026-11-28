@@ -13,7 +13,7 @@ import { Fold } from "../_components/fold/Fold";
 import { PathField as PathEntry } from "../_components/path_field/PathField";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import type { SpeechProfile, SpeechServerName, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
-import { listeningApart, sourcesByPath } from "../../../../../../logics/transcription/listeningModel";
+import { listeningApart, recognitionServerRuns, sourcesByPath } from "../../../../../../logics/transcription/listeningModel";
 import { Button } from "../../../../../kit/index.ts";
 
 // The path fields of a profile.
@@ -153,9 +153,12 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                         expected={name === "asr" ? { asr: { model: saved.asr.model }, vad: { model: saved.asr.vad_model },
                                 diarization: { model: saved.asr.diarization_model } }
                             : { [name]: { model: saved[name].model } }}
-                        // A recognition model is chosen for each input above the catalog (SourceModels,
-                        // #1308 ★1): its card downloads it and says which inputs use it.
-                        chooseIn={name === "asr" ? ["asr"] : undefined} usedBy={name === "asr" ? sourcesByPath(saved.asr) : undefined} />
+                        // A recognition model is chosen for each input (#1308 ★1): above the catalog
+                        // (SourceModels), and from its card, which downloads it, says which inputs use
+                        // it and chooses it for an input with the fields' check and apply.
+                        chooseIn={name === "asr" ? ["asr"] : undefined} usedBy={name === "asr" ? sourcesByPath(saved.asr) : undefined}
+                        inputs={name === "asr" ? { paths: { mic: saved.asr.model, speaker: saved.asr.listening_model ?? "" },
+                            running: recognitionServerRuns(state) } : undefined} />
                     <Fold size="link" className={styles.more} summary={t("speech_servers.own_model")} data-own-model={name}>
                         {/* How to use a model file of your own instead of the default one. */}
                         <CustomModelLink section={tts ? "tts" : "asr"} />

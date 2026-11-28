@@ -87,6 +87,30 @@ export const sourceApply = (asked: SourceAsk | null, jobs: Readonly<Record<strin
     return { id: apply.id, job_id: apply.job_id, expected: apply.expected };
 };
 
+// The phases of a job that has not ended yet (useModelDownloads).
+const ACTIVE: readonly string[] = ["queued", "downloading", "verifying", "cancelling"];
+
+// What a check asked for one input has come to: the apply once it is ready (sourceApply), "ended"
+// once it ended another way (its files changed, it was stopped), null while it runs or before it
+// starts. Mic input's and Listening's fields and the recognition models' cards end their wait
+// with it, so a failed check leaves neither waiting for good.
+export const sourceOutcome = (asked: SourceAsk | null, jobs: Readonly<Record<string, ModelDownloadJob | undefined>>,
+    paths: { readonly mic: string; readonly speaker: string }) => {
+    if (!asked) return null;
+    const job = jobs[asked.id];
+    if (!job?.job_id || job.job_id === asked.before || ACTIVE.includes(job.phase)) return null;
+    return sourceApply(asked, jobs, paths) ?? "ended";
+};
+
+// The states of a recognition server that keeps its model: one that prepares, runs or stops.
+const RUNNING: readonly string[] = ["preparing", "ready", "stopping"];
+
+// Whether a recognition server of the bundled speech.cpp keeps its model now: Mic input's (asr), or
+// Listening's own (asr_listening, #1290). The core refuses an apply while one does
+// (model_target_busy), so the choices of each input wait for it, in the fields and on the cards.
+export const recognitionServerRuns = (servers: Readonly<Record<string, { readonly state?: string } | undefined>>) =>
+    ["asr", "asr_listening"].some(name => RUNNING.includes(servers[name]?.state ?? ""));
+
 // Which inputs use a recognition model file, by its path (#1308 ★1): Mic input's model, and
 // Listening's own or Mic input's when Listening shares it. The catalog marks a model in use by them.
 export const sourcesByPath = (asr: AsrProfile): Readonly<Record<string, readonly CaptionSource[]>> => {

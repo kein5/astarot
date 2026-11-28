@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { SAME, catalogLanguages, listeningApart, listeningApply, listeningChoice, listeningRow, sourceApply, sourcesByPath } from "./listeningModel.ts";
+import { SAME, catalogLanguages, listeningApart, listeningApply, listeningChoice, listeningRow, recognitionServerRuns, sourceApply, sourceOutcome, sourcesByPath } from "./listeningModel.ts";
 import type { ModelCatalogRow, ModelDownloadCatalog } from "../voice/useModelDownloads";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -83,4 +83,31 @@ test("a model file is marked with the inputs that use it", () => {
     assert.deepEqual(sourcesByPath({ model: "", listening_model: "/m/qwen.gguf" }), { "/m/qwen.gguf": ["speaker"] }, "Listening's alone");
     assert.deepEqual(sourcesByPath({ model: "", listening_model: "" }), {});
     assert.deepEqual(sourcesByPath(null), {});
+});
+
+// A recognition model's card chooses it for an input too (reported on 0.7.0-beta.4), with the fields'
+// check and apply: a check ends in its apply, or in nothing once it failed or was stopped, so neither
+// the fields nor the card wait for good.
+test("a check asked for an input ends in its apply once ready, or in nothing once it ended another way", () => {
+    const paths = { mic: "/m/reazon.gguf", speaker: "" };
+    const job = (job_id: string, phase: string) => ({ "qwen-q8": { job_id, phase, received_bytes: 1, total_bytes: 1 } });
+    const asked = { id: "qwen-q8", before: "old", source: "speaker" as const };
+    assert.equal(sourceOutcome(null, job("new", "ready"), paths), null);
+    assert.equal(sourceOutcome(asked, {}, paths), null, "not started yet");
+    assert.equal(sourceOutcome(asked, job("old", "failed"), paths), null, "an earlier job is not this check");
+    for (const phase of ["queued", "verifying", "cancelling"]) assert.equal(sourceOutcome(asked, job("new", phase), paths), null, phase);
+    assert.deepEqual(sourceOutcome(asked, job("new", "ready"), paths), { id: "qwen-q8", job_id: "new", expected: { model: "" }, source: "speaker" });
+    assert.deepEqual(sourceOutcome({ ...asked, source: "mic" }, job("new", "ready"), paths), { id: "qwen-q8", job_id: "new", expected: { model: "/m/reazon.gguf" } });
+    for (const phase of ["failed", "cancelled", "applied"]) assert.equal(sourceOutcome(asked, job("new", phase), paths), "ended", phase);
+});
+
+test("the models wait while a recognition server keeps its model: Mic input's or Listening's own", () => {
+    for (const state of ["preparing", "ready", "stopping"]) {
+        assert.equal(recognitionServerRuns({ asr: { state } }), true, `asr ${state}`);
+        assert.equal(recognitionServerRuns({ asr_listening: { state } }), true, `asr_listening ${state}`);
+    }
+    assert.equal(recognitionServerRuns({ asr: { state: "stopped" }, asr_listening: { state: "failed" } }), false);
+    // A speech synthesis server keeps its own model, not a recognizer's.
+    assert.equal(recognitionServerRuns({ japanese: { state: "ready" } }), false);
+    assert.equal(recognitionServerRuns({}), false);
 });

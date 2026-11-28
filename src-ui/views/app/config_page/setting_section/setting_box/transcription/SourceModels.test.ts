@@ -123,3 +123,16 @@ test("a model that comes to be set selects speech.cpp when no engine is selected
     set.draw(); set.draw();
     assert.deepEqual(set.engines, []);
 });
+
+// The check's end is shared with the catalog's cards (listeningModel.ts sourceOutcome): a check that
+// fails applies nothing and leaves the fields free again, where they waited for good before.
+test("a check that fails applies nothing, and the fields can be chosen again", async context => {
+    const s = await fixture(context);
+    s.select(s.draw(), MIC).props.onChange({ target: { value: "qwen" } });
+    assert.equal(s.select(s.draw(), MIC).props.disabled, true, "waits for its check");
+    s.state.jobs = { qwen: { job_id: "q1", phase: "failed" } };
+    s.draw(); s.draw();
+    assert.deepEqual(s.sent.map(([endpoint]) => endpoint).filter(endpoint => String(endpoint).startsWith("/run/")),
+        ["/run/check_model_download"], "nothing applied");
+    assert.equal(s.select(s.draw(), MIC).props.disabled, false);
+});
