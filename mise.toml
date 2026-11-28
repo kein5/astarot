@@ -161,7 +161,7 @@ description = "Regenerate the ADR index table (docs/adr/README.md) from the fron
 run = "python tools/adr_catalog.py --write"
 
 [tasks.component-map]
-description = "Regenerate the component map blocks in docs/development.md from tools/component_map.toml"
+description = "Regenerate the component map (docs/spec/reference/component-map.md) from tools/component_map.toml"
 run = "python tools/component_map.py --write"
 
 [tasks."build:voice-gate"]
