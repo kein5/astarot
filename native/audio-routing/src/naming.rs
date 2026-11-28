@@ -11,6 +11,11 @@
 const CABLE_DRIVERS: [&str; 4] = ["cable", "virtual", "steam streaming", "voicemeeter"];
 /// Streams a headset's audio. Its microphone is the headset's, not a loop of its speakers.
 const HEADSET_DRIVERS: [&str; 1] = ["virtual desktop"];
+/// A cable that also brings a headset's microphone to the PC (#1399). Steam Link plays
+/// the headset's microphone, as Remote Play plays the client's, into this cable's playback
+/// end, so its recording end is the person's own voice. It is still a cable: audio that
+/// ASTAROT plays into it comes back out, and that stays refused (`carries_own_voice`).
+const HEADSET_MICROPHONE_CABLES: [&str; 1] = ["steam streaming microphone"];
 /// MME cuts device names at this many characters.
 pub const MME_NAME_LIMIT: usize = 31;
 /// PortAudio's name for the WASAPI host.
@@ -68,6 +73,15 @@ pub fn same_virtual_cable(first: &str, second: &str) -> bool {
 
 pub fn is_virtual_cable(identity: &str) -> bool {
     cable_driver(&driver(&device_name(identity)))
+}
+
+/// Whether the OS default microphone is refused before any output is known. A cable there
+/// usually carries what is played into it, often ASTAROT's own speech. A cable that brings
+/// a headset's microphone is the person's voice, so it is taken, and the check against the
+/// voice output (`carries_own_voice`) still refuses it when the voice plays into it.
+pub fn refused_as_default_microphone(identity: &str) -> bool {
+    let driver = driver(&device_name(identity));
+    cable_driver(&driver) && !HEADSET_MICROPHONE_CABLES.iter().any(|word| driver.contains(word))
 }
 
 /// Whether two names or identities are one device, whichever host lists them.
@@ -129,6 +143,50 @@ mod tests {
         assert!(!is_virtual_cable("Microphone (Virtual Desktop Audio)"));
         assert!(is_virtual_cable("CABLE Output (VB-Audio Virtual Cable)"));
         assert!(is_virtual_cable("Headset (Steam Streaming Microphone)"));
+    }
+
+    #[test]
+    fn the_default_microphone_takes_a_steam_link_headset_but_refuses_other_cables() {
+        // #1399: Steam Link brings the headset's microphone through Steam's microphone cable.
+        let headset = ["Microphone (Steam Streaming Microphone)", "Headset (Steam Streaming Microphone)", "マイク (Steam Streaming Microphone)"];
+        let cables = [
+            "CABLE Output (VB-Audio Virtual Cable)",
+            "CABLE-A Output (VB-Audio Cable A)",
+            "VoiceMeeter Output (VB-Audio VoiceMeeter VAIO)",
+            "VoiceMeeter Aux Output (VB-Audio VoiceMeeter AUX VAIO)",
+            // Steam's other cable carries the PC's own sound, not a microphone.
+            "Microphone (Steam Streaming Speakers)",
+        ];
+        let hardware = ["Microphone (Realtek Audio)", "Microphone (Virtual Desktop Audio)", "Microphone", ""];
+        for name in headset {
+            assert!(is_virtual_cable(name), "{name} stays a cable for the feedback checks");
+            assert!(!refused_as_default_microphone(name), "{name}");
+            assert!(!refused_as_default_microphone(&output_identity(WASAPI_HOST, name)), "{name}");
+        }
+        for name in cables {
+            assert!(refused_as_default_microphone(name), "{name}");
+            assert!(refused_as_default_microphone(&output_identity(WASAPI_HOST, name)), "{name}");
+        }
+        for name in hardware {
+            assert!(!refused_as_default_microphone(name), "{name}");
+        }
+        // The exception only narrows the cable rule: nothing that is not a cable is refused.
+        for name in headset.iter().chain(&cables).chain(&hardware) {
+            assert!(!refused_as_default_microphone(name) || is_virtual_cable(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn the_voice_played_into_steams_microphone_cable_is_still_feedback() {
+        let headset = "Microphone (Steam Streaming Microphone)";
+        let into_the_same_cable = output_identity(WASAPI_HOST, "Speakers (Steam Streaming Microphone)");
+        assert!(carries_own_voice(headset, &into_the_same_cable), "captions refuse it");
+        assert!(same_virtual_cable(headset, &into_the_same_cable), "voice conversion refuses it");
+        for elsewhere in ["Speakers (Steam Streaming Speakers)", "CABLE Input (VB-Audio Virtual Cable)", "Headphones (Realtek Audio)"] {
+            let output = output_identity(WASAPI_HOST, elsewhere);
+            assert!(!carries_own_voice(headset, &output), "{elsewhere}");
+            assert!(!same_virtual_cable(headset, &output), "{elsewhere}");
+        }
     }
 
     #[test]
