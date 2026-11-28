@@ -395,11 +395,20 @@ main_page:
         ocr_models: "チャット読み取りの認識モデルをまだ取得していません。設定の「チャット読み取り（OCR）」→「認識モデル」で取得してください。"
         ocr_language: "チャット読み取りは、選んでいる言語に対応していません。設定の「チャット読み取り（OCR）」で言語を変えてください。"
         tts_source: "読み上げる内容が選ばれていません。設定の「テキスト読み上げ（TTS）」で「読み上げ」か「マイクのリアルタイム字幕の読み上げ」をオフ以外にしてください。"
+        # #1314 (M-2): text to speech names everything it misses at once.
+        tts_output_device: "読み上げの出力デバイスが選ばれていません。設定の「テキスト読み上げ（TTS）」で「出力デバイス」を選んでください。"
+        tts_missing: "読み上げには{{items}}が足りません。設定の「テキスト読み上げ（TTS）」でそろえてください。"
         tts_model: "読み上げに使うモデルがまだありません。設定の「テキスト読み上げ（TTS）」の「モデルとサーバー」で取得してください。"
         rvc_model: "変換に使うモデルと実行環境が設定されていません。設定の「ボイスチェンジャー（RVC）」→「モデルと実行環境」で設定してください。"
         rvc_output_device: "変換した声の出力先が選ばれていません。設定の「テキスト読み上げ（TTS）」で「出力デバイス」を選んでください。"
         rvc_route: "音声経路が「管理対象の仮想マイク」になっていません。設定の「デバイス」→「音声経路」で選んでください。"
     # #1314 (M-1): a greyed switch that is pressed opens why, with the step that fixes it.
+    # #1314 (M-2): the things text to speech misses, listed in tts_missing.
+    switch_blocked_items:
+        separator: "、"
+        tts_source: "読み上げる内容"
+        tts_output_device: "出力デバイス"
+        tts_model: "読み上げのモデル"
     switch_blocked_dialog:
         title: "{{name}}をまだオンにできません"
         close: "閉じる"
@@ -1453,8 +1462,10 @@ vr_panel:
         asr_models: "PCのメイン画面でこのスイッチを押すと、モデルを準備できます。"
         ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
         ocr_language: "この言語は未対応です。PCの設定「チャット読み取り（OCR）」で変えてください。"
-        # #1314 (V-4): the launcher's text to speech switch.
+        # #1314 (V-4): the launcher's text to speech switch; tts_output_device (M-2) when its output
+        # device is the first thing missing.
         tts_source: "読み上げる内容を、PCの設定「テキスト読み上げ（TTS）」で選んでください。"
+        tts_output_device: "出力デバイスを、PCの設定「テキスト読み上げ（TTS）」で選んでください。"
         tts_model: "読み上げのモデルを、PCの設定「テキスト読み上げ（TTS）」で取得してください。"
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
     # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).

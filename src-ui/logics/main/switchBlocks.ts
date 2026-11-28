@@ -5,16 +5,20 @@ import { directRouteReady, usesOutputDevice } from "../voice/routeState.ts";
 export type SwitchBlockId = "translation" | "transcription_send" | "transcription_receive" | "ocr" | "tts" | "rvc";
 
 export type SwitchBlockReason = "translation_model" | "translation_unavailable" | "translation_downloading" | "asr_models"
-    | "ocr_language" | "ocr_models" | "tts_source" | "tts_model" | "rvc_model" | "rvc_output_device" | "rvc_route";
+    | "ocr_language" | "ocr_models" | "tts_source" | "tts_output_device" | "tts_model" | "rvc_model" | "rvc_output_device" | "rvc_route";
 
 // "translator" opens the translator list in the sidebar. "recognition_setup" opens the first-run
 // setup, which shows the recommended speech recognition models and their size and downloads them
 // after consent (#1225).
-export type SwitchBlockAction = "translation" | "translator" | "transcription" | "recognition_setup" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
+// "tts_models" opens the TTS page at its models (#1314, M-2).
+export type SwitchBlockAction = "translation" | "translator" | "transcription" | "recognition_setup" | "ocr" | "ocr_models" | "tts" | "tts_models" | "rvc" | "device";
 
 export interface SwitchBlock {
     reason: SwitchBlockReason;
     action: SwitchBlockAction | null;
+    // Every requirement that is missing when more than one is (#1314, M-2: text to speech); `reason`
+    // is the first of them, and `action` leads to it.
+    missing?: readonly SwitchBlockReason[];
 }
 
 export type SwitchBlocks = Partial<Record<SwitchBlockId, SwitchBlock>>;
@@ -110,13 +114,20 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, spe
         blocks.ocr = { reason: "ocr_models", action: "ocr_models" };
     }
 
-    // Nothing to read aloud: the engine refuses with tts_source_not_selected.
-    if (voiceSettings && voiceSettings.mode === "off" && voiceSettings.mic_mode === "off") {
-        blocks.tts = { reason: "tts_source", action: "tts" };
-    } else if (voiceSettings && speechServers?.profiles && !ttsVoiceReady(voiceSettings, speechServers.profiles)) {
-        // No voice to read with (#1266, TT-3): each language reads through the bundled speech.cpp
-        // server, and neither has its model. The models are downloaded on the TTS page.
-        blocks.tts = { reason: "tts_model", action: "tts" };
+    // Text to speech names everything it misses at once (#1314, M-2), in the order of the TTS page:
+    // something to read aloud (the engine refuses with tts_source_not_selected), an output device
+    // (the TTS page refuses to save without one unless the route is the managed one), and a voice
+    // to read with (#1266, TT-3: each language reads through the bundled speech.cpp server, and
+    // neither has its model). One at a time, a fix that was refused for the next one read as if it
+    // had not been made.
+    if (voiceSettings) {
+        const missing: SwitchBlockReason[] = [];
+        if (voiceSettings.mode === "off" && voiceSettings.mic_mode === "off") missing.push("tts_source");
+        if (typeof voiceSettings.routing === "string" && voiceSettings.routing !== "managed" && !String(voiceSettings.output_device ?? "").trim())
+            missing.push("tts_output_device");
+        if (speechServers?.profiles && !ttsVoiceReady(voiceSettings, speechServers.profiles)) missing.push("tts_model");
+        const [first] = missing;
+        if (first) blocks.tts = { reason: first, action: first === "tts_model" ? "tts_models" : "tts", ...(missing.length > 1 && { missing }) };
     }
 
     // The saved settings the RVC switch starts from (MainFunctionSwitch's toggleRvc). The

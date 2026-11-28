@@ -9,6 +9,9 @@ import { useModelDownloads } from "../voice/useModelDownloads";
 import { useSpeechServers } from "../voice/useSpeechServers";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
 import { OCR_MODELS_SETTING_ID } from "../ocr/useOcrSetup";
+
+// Where the TTS page shows the models of the voices on this PC (VoiceSettings.tsx, #1314).
+export const TTS_MODELS_SETTING_ID = "local_section";
 import { useOpenSettings } from "../common/useOpenSettings";
 import { useFirstRunSetup } from "../setup/useFirstRunSetup";
 
@@ -61,6 +64,7 @@ export const useSwitchBlocks = () => {
         if (action === "translation") return translationSetup.open(false);
         if (action === "recognition_setup") return openSetup();
         if (action === "translator") return translationSetup.chooseTranslator();
+        if (action === "tts_models") return openSettings({ page: "tts", target: TTS_MODELS_SETTING_ID });
         openSettings(action === "ocr_models" ? { page: "ocr", target: OCR_MODELS_SETTING_ID } : { page: action });
     };
     return { blocks: currentSwitchBlocks.data ?? {}, prepare };

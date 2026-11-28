@@ -183,7 +183,7 @@ export const MainFunctionSwitch = () => {
                 // Only a switch that is off and waits for nothing is held off (activeSwitchBlock).
                 const ready = currentIsBackendReady.data === true;
                 const block = ready ? activeSwitchBlock(blocks, item.switch_id, item.currentState) : undefined;
-                const blockedReason = block ? t(`main_page.switch_blocked.${block.reason}`) : null;
+                const blockedReason = block ? switchBlockText(block, t) : null;
                 // The icon leads to the place the switch needs now, otherwise to its settings.
                 const destination = block?.action ?? SETTINGS_DESTINATION[item.switch_id];
                 return <SwitchRow
@@ -209,7 +209,7 @@ export const MainFunctionSwitch = () => {
                 onToggle={() => setShowOthers(value => !value)} />] : []),
             // Only while it is open: the kit's dialog draws over the window, wherever it sits in the list.
             ...(blockedPress ? [<BlockedSwitchDialog key="blocked_switch_dialog" name={blockedPress.name}
-                reason={t(`main_page.switch_blocked.${blockedPress.block.reason}`)}
+                reason={switchBlockText(blockedPress.block, t)}
                 fixLabel={blockedPress.block.action ? settingsLabel(blockedPress.block.action, t) : null}
                 onFix={() => prepare(blockedPress.block.action)} onClose={() => setBlockedPress(null)} />] : [])]}
         </div>
@@ -251,12 +251,20 @@ export const SETTINGS_DESTINATION: Record<SwitchBlockId, SwitchBlockAction> = {
     rvc: "rvc",
 };
 
+// Why a switch cannot be turned on yet, in words: its reason, or everything it misses when more
+// than one thing is (#1314, M-2), named in the order the settings page shows them.
+export const switchBlockText = (block: SwitchBlock, t: TFunction): string => block.missing && block.missing.length > 1
+    // Only text to speech lists what it misses (switchBlocks.ts).
+    ? t("main_page.switch_blocked.tts_missing", {
+        items: block.missing.map(reason => t(`main_page.switch_blocked_items.${reason}`)).join(t("main_page.switch_blocked_items.separator")) })
+    : t(`main_page.switch_blocked.${block.reason}`);
+
 // The icon button's name and tooltip: what pressing it does.
 export const settingsLabel = (destination: SwitchBlockAction, t: TFunction) => {
     if (destination === "translator") return t("main_page.feature_settings.translator");
     if (destination === "translation") return t("main_page.feature_settings.translation_model");
     if (destination === "recognition_setup") return t("main_page.feature_settings.recognition_models");
-    const page = destination === "ocr_models" ? "ocr" : destination;
+    const page = destination === "ocr_models" ? "ocr" : destination === "tts_models" ? "tts" : destination;
     return t("main_page.feature_settings.open_page", { page: t(`config_page.side_menu_labels.${page}`) });
 };
 
