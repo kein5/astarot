@@ -253,6 +253,9 @@ test("nothing downloads before the consent; the run downloads, applies and switc
         "/run/start_model_download", "/run/apply_model_download", "/set/data/realtime_asr_settings", "/set/data/selected_transcription_engine"]);
     const done = s.button(tree, "first_run_setup.done");
     assert.deepEqual([done.props.tone, done.props.autoFocus], ["primary", true]);
+    // Once it is all settled there is nothing left for later: Done is the only button (#1314, M-11).
+    assert.deepEqual(s.buttons(tree).filter(node => ["first_run_setup.later", "first_run_setup.done"].includes(node.props.children))
+        .map(node => node.props.children), ["first_run_setup.done"]);
     done.props.onClick();
     assert.ok(w.calls.includes("dismiss"));
 });
