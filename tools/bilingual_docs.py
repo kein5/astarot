@@ -90,7 +90,6 @@ PENDING_SKILLS = (
 
     "skills/pull-request/SKILL.md",
 
-    "skills/real-machine-check/SKILL.md",
 
     "skills/release/SKILL.md",
 
