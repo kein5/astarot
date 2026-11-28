@@ -76,19 +76,10 @@ SHIFTED_SUFFIX = "（日本語）"
 # GitHub shows README.md at the root, so its Japanese version is a file of its own.
 PAIRS = {"README.md": "docs/readmes/README.ja.md"}
 
-# Skills still written in Japanese only, until each one's pull request for #1367 converts it and
-# removes its line. A blank line separates the lines, so that pull requests made side by side do
-# not conflict when each removes its own.
-PENDING_SKILLS = (
-
-
-
-
-
-
-
-
-)
+# Skills written in Japanese only while they wait for conversion. A converted skill that is still
+# listed fails the check, so that its line goes in the same pull request. #1367 converted every
+# skill there was on 2026-11-28.
+PENDING_SKILLS: tuple[str, ...] = ()
 
 # Sections that exist only in the Japanese version. Each is left out of the comparison until its
 # English version is written; the check fails once the heading is gone, so that the entry goes too.
