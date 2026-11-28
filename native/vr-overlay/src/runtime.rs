@@ -93,12 +93,6 @@ impl ApplicationError {
     pub const INVALID_PARAMETER: Self = Self(203);
 }
 
-impl std::fmt::Display for ApplicationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if *self == Self::UNAVAILABLE { f.write_str("IVRApplications unavailable") } else { write!(f, "VRApplicationError {}", self.0) }
-    }
-}
-
 /// SteamVR on this machine.
 pub trait Vr: Send + Sync {
     /// Whether SteamVR runs (its `vrserver` or `vrmonitor` process, #944). Cheap; polled every
