@@ -22,6 +22,8 @@ async function form(context: TestContext, models: UserModel[], hintsOn = true) {
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
         "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "./InputChoice": { InputChoice: "input-choice" },
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/hint/Hint": { useHintDescriptions: () => hintsOn },
         "./catalogLayout": { CatalogFacts: "catalog-facts" },

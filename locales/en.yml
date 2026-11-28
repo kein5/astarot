@@ -2476,6 +2476,13 @@ model_catalog:
         ready: "Verified, not applied"
     # #1308 ★1: a speech recognition model is chosen for each input above its catalog.
     choose_above: "On your PC. Choose it for Mic input or Listening under their models above."
+    # A recognition model's card chooses it for an input too: its "Use this model" opens a menu of
+    # the two inputs (reported on 0.7.0-beta.4).
+    choose_input: "On your PC. Press \"Use this model\" to use it for Mic input or Listening."
+    use_for:
+        label: "Input that uses {{name}}"
+        mic: "Use for Mic input"
+        speaker: "Use for Listening"
     # A model already on the PC is used from its card, with no review in between (#1263).
     use: "Use this model"
     # A card pressed anywhere names its model after its button's words, in the button's

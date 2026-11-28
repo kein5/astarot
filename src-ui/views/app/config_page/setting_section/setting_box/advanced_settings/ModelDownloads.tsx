@@ -22,6 +22,7 @@ import { createLanguageNames } from "../../../../../../logics/common/languageNam
 import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
+import { InputChoice } from "./InputChoice";
 import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 import { USER_MODEL_FILES, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voice/modelCatalog";
@@ -30,6 +31,8 @@ import type { HardwareWarning, TranslationDevice } from "../../../../../../logic
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
 import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
+import { sourceOutcome } from "../../../../../../logics/transcription/listeningModel";
+import type { SourceAsk } from "../../../../../../logics/transcription/listeningModel";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -215,9 +218,13 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // reviewAtOnce: with `only`, the review of that one model opens at once when its card would offer
 // it, so the one press that asked reaches the consent (#1266 T-3); onReviewDone hears how it ended,
 // started or not, for a caller that closes with it.
-// chooseIn: the targets whose model is chosen outside the catalog, for each input (the recognition
-// models, #1308 ★1): their cards download and say which inputs use them (usedBy, by file path), and
-// offer no "Use this model".
+// chooseIn: the targets whose model is chosen for each input (the recognition models, #1308 ★1):
+// their cards download and say which inputs use them (usedBy, by file path). With `inputs`, their
+// "Use this model" asks which input the model is for, and applies it for that input alone with the
+// same check and apply as Mic input's and Listening's fields above the catalog (listeningModel.ts):
+// `paths` are the saved files each input's apply is checked against, and `running` says a
+// recognition server keeps its model now, which keeps the choice waiting as it keeps the fields.
+// Without `inputs`, they offer no "Use this model".
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -236,9 +243,10 @@ export interface ModelDownloadsProps {
     onReviewDone?: (started: boolean) => void;
     chooseIn?: readonly string[];
     usedBy?: Readonly<Record<string, readonly CaptionSource[]>>;
+    inputs?: { readonly paths: { readonly mic: string; readonly speaker: string }; readonly running: boolean };
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone, chooseIn, usedBy }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone, chooseIn, usedBy, inputs }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -258,6 +266,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     // follows once that download is done; its card's progress shows on the recognition model's.
     const [following, setFollowing] = useState<Readonly<Record<string, { id: string; version: string; onPc: boolean; before: string | null }>>>({});
     const [paired, setPaired] = useState<Readonly<Record<string, string>>>({});
+    // The recognition model on the PC the user chose for an input from its card, checked before it
+    // is applied for that input, as the fields above check theirs: one at a time.
+    const [assigning, setAssigning] = useState<SourceAsk | null>(null);
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
@@ -358,6 +369,22 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             setUsing(({ [id]: _done, ...rest }) => rest);
         }
     }, [using, state.jobs, catalog, expected, blocked, pending, send]);
+    // A model chosen for an input is applied for it once its check is ready, with the saved file
+    // of that input; a check that failed or was stopped applies nothing and says why on its card.
+    const assigned = sourceOutcome(assigning, state.jobs, inputs?.paths ?? { mic: "", speaker: "" });
+    useEffect(() => {
+        if (!assigned) return;
+        setAssigning(null);
+        if (assigned !== "ended") send("/run/apply_model_download", assigned);
+    }, [assigned === "ended" ? "ended" : assigned?.job_id]);
+    const assign = (entry: ModelCatalogRow, version: string, source: CaptionSource) => {
+        setAssigning({ id: entry.id, before: state.jobs[entry.id]?.job_id ?? null, source });
+        send("/run/check_model_download", { id: entry.id, catalog_version: version });
+    };
+    // Why no input can take a model now, said in the card's menu: a recognition server keeps its
+    // model (the fields above wait for it too), or the page holds the paths it would replace.
+    const inputsWait = inputs?.running ? t("source_models.running")
+        : blocked ? t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked") : null;
     // The VAD follows the recognition model's download, one download at a time: a VAD on the PC is
     // checked, another downloaded with the consent given in the review; either is applied once
     // ready (using, above). A download that failed or was stopped takes no VAD with it.
@@ -419,7 +446,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {/* The bar spans the card under its readout; the actions share one row below. */}
                 {active && <Progress aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
                 {job.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {job.phase === "ready" && <p>{t(chosenElsewhere(entry.target) ? "model_catalog.choose_above" : "model_downloads.apply_hint")}</p>}
+                {job.phase === "ready" && <p>{t(!chosenElsewhere(entry.target) ? "model_downloads.apply_hint"
+                    : inputs ? "model_catalog.choose_input" : "model_catalog.choose_above")}</p>}
                 {(active || job.phase === "ready") && <div className={styles.actions}>
                     {active && <button type="button" disabled={job.phase === "cancelling" || !!pending?.some(request =>
                         request.endpoint !== "/run/apply_model_download" || request.id !== entry.id || request.job_id !== job.job_id)}
@@ -479,14 +507,21 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t('model_downloads.manual_choice')}</p>;
         // A check of the files on the PC found them changed: getting them again is a download, reviewed.
         const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
-        // A model chosen for each input is chosen in its input's field, not here (#1308 ★1).
+        // A model chosen for each input (#1308 ★1): in its input's field above, and, with `inputs`,
+        // from its card, for the input the user picks.
         const choosesAbove = chosenElsewhere(current.target);
+        const usedFor = sourcesOf(current);
+        // Its card chooses it for an input while it is on the PC (or checked and not applied) and
+        // an input does not use it yet: its "Use this model" opens the menu of the two inputs.
+        const choosesInput = choosesAbove && !!inputs && !changed && (downloaded || shownStatus === "ready") && usedFor.length < 2;
         const useHint = downloaded && !prepared && !job && (!choosesAbove || shownStatus === "downloaded") &&
-            <p>{t(choosesAbove ? "model_catalog.choose_above" : "model_catalog.use_hint")}</p>;
-        // The card's main action is pressed anywhere on it (#1254): a model on the PC is used, one
-        // that is not has its download reviewed. The card in use, or one being downloaded or
-        // checked, has nothing to press: its readout's Cancel or Apply is what it offers.
-        const pressable = !prepared && !["working", "ready"].includes(shownStatus) && !(choosesAbove && downloaded);
+            <p>{t(!choosesAbove ? "model_catalog.use_hint" : inputs ? "model_catalog.choose_input" : "model_catalog.choose_above")}</p>;
+        // The card's main action is pressed anywhere on it (#1254): a model on the PC is used (a
+        // recognition model, for the input chosen in its menu), one that is not has its download
+        // reviewed. The card in use, or one being downloaded or checked, has nothing to press: its
+        // readout's Cancel or Apply is what it offers. A recognition model used by one input can
+        // still be chosen for the other.
+        const pressable = choosesInput || (!prepared && !["working", "ready"].includes(shownStatus) && !(choosesAbove && downloaded && !changed));
         const press = pressable ? cardPress.press : undefined;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
             summary={t(measured !== null || profileMemory ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
@@ -503,7 +538,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 return vad && vadJob && (activePhases.includes(vadJob.phase) || vadJob.phase === "ready" || vadJob.phase === "failed") ? jobView(vad, false) : null;
             })()}
             <div className={styles.actions}>
-                {!prepared && !(choosesAbove && downloaded && !changed) && (downloaded && !changed
+                {choosesInput ? <InputChoice name={label} id={current.id} used={usedFor} waiting={inputsWait} disabled={busy}
+                    className={press} onChoose={source => assign(current, version, source)} />
+                : !prepared && !(choosesAbove && downloaded && !changed) && (downloaded && !changed
                     // On the PC: used at once, with its files checked (#1263). Its Apply needs the
                     // saved paths and an unchanged field, as a download's does.
                     ? <button type="button" className={press ? `primary ${press}` : "primary"} data-use-model={current.id}

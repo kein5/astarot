@@ -96,6 +96,8 @@ async function catalogPage(context: TestContext, given: Partial<Downloads> = {},
         "./EngineCatalog": { EngineCatalog: "engine-catalog" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "./InputChoice": { InputChoice: "input-choice" },
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
     });
     type Props = Parameters<typeof module.ModelDownloads>[0];
     let props: Props = { targets: ["asr"] };
@@ -1237,4 +1239,102 @@ test("a download taken here is applied once ready; a recognition model only whil
     const card = cardNamed(another.draw(asrProps), "asr");
     assert.ok(texts(card, "p").includes("model_catalog.choose_above"));
     assert.equal(find(card, node => textOf(node) === "model_downloads.apply" && node.type === "button"), null);
+});
+
+// Reported on 0.7.0-beta.4: a recognition model's card did nothing when pressed, its choice was only
+// in Mic input's and Listening's fields above. With `inputs`, its "Use this model" asks which input
+// the model is for (InputChoice), then checks it and applies it for that input alone, with the
+// fields' check and apply (listeningModel.ts). The fields stay.
+const forInputs = () => ({ catalog: catalogOf(["mic", "own", "other", "away"].map(id => model(id, { name: id }))),
+    state: { observation_id: "1", jobs: {} as Record<string, Job>, downloaded: { mic: { model: "/mic.gguf" }, own: { model: "/own.gguf" }, other: { model: "/other.gguf" } } } });
+const inputProps = { targets: ["asr"], expected: { asr: { model: "/mic.gguf" } }, chooseIn: ["asr"],
+    usedBy: { "/mic.gguf": ["mic"], "/own.gguf": ["speaker"] }, inputs: { paths: { mic: "/mic.gguf", speaker: "/own.gguf" }, running: false } } as const;
+const inputChoice = (card: TreeNode) => find(card, node => node.type === "input-choice");
+
+test("a recognition model's card on the PC asks which input uses it, then checks it and applies it for that input alone", async context => {
+    const p = await catalogPage(context, forInputs());
+    const tree = p.draw(inputProps);
+    const other = cardNamed(tree, "other");
+    assert.equal(other.props.className, "pressable", "pressed anywhere on its card (#1254)");
+    const choice = inputChoice(other);
+    assert.ok(choice);
+    assert.deepEqual([choice.props.id, choice.props.name, choice.props.className, choice.props.used, choice.props.waiting, choice.props.disabled],
+        ["other", "other", "press", [], null, false]);
+    assert.ok(texts(other, "p").includes("model_catalog.choose_input"));
+    // A model one input uses can still be chosen for the other; one not on the PC is downloaded.
+    assert.deepEqual(inputChoice(cardNamed(tree, "mic"))?.props.used, ["mic"]);
+    assert.equal(cardNamed(tree, "mic").props.className, "pressable");
+    assert.equal(inputChoice(cardNamed(tree, "away")), null);
+    assert.equal(cardNamed(tree, "away").props.className, "pressable");
+
+    // For Listening: checked, with no review in between, then applied with Listening's saved file.
+    choice.props.onChoose("speaker");
+    assert.deepEqual(runs(p.sent), [["/run/check_model_download", { id: "other", catalog_version: "v7" }]]);
+    assert.equal(find(p.draw(), isDialog), null, "no review");
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "verifying", received_bytes: 0, total_bytes: 1 } } };
+    p.draw();
+    assert.equal(runs(p.sent).length, 1, "nothing applied while it is checked");
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1 } } };
+    p.draw(); p.draw();
+    assert.deepEqual(runs(p.sent).slice(1), [["/run/apply_model_download", { id: "other", job_id: "c1", expected: { model: "/own.gguf" }, source: "speaker" }]], "once");
+
+    // For Mic input: checked against Mic input's saved file, with no source.
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "applied", received_bytes: 1, total_bytes: 1 } } };
+    inputChoice(cardNamed(p.draw(), "other"))?.props.onChoose("mic");
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c2", phase: "ready", received_bytes: 1, total_bytes: 1 } } };
+    p.draw(); p.draw();
+    assert.deepEqual(runs(p.sent).slice(2), [["/run/check_model_download", { id: "other", catalog_version: "v7" }],
+        ["/run/apply_model_download", { id: "other", job_id: "c2", expected: { model: "/mic.gguf" } }]]);
+});
+
+test("a recognition model both inputs use has nothing to press, and the menu says why the inputs wait", async context => {
+    const p = await catalogPage(context, forInputs());
+    const both = p.draw({ ...inputProps, usedBy: { "/mic.gguf": ["mic", "speaker"] } });
+    assert.equal(cardNamed(both, "mic").props.className, undefined, "the card in use");
+    assert.equal(inputChoice(cardNamed(both, "mic")), null);
+    // A recognition server keeps its model (the fields above wait too), or the page holds edits of the paths.
+    const waiting = (props: object) => inputChoice(cardNamed(p.draw({ ...inputProps, ...props }), "other"))?.props.waiting;
+    assert.equal(waiting({ inputs: { ...inputProps.inputs, running: true } }), "source_models.running");
+    assert.equal(waiting({ blocked: "edited" }), "model_downloads.blocked_edited");
+    assert.equal(waiting({ blocked: "busy" }), "model_downloads.blocked");
+    // A download that runs keeps the button from opening the menu, as the other catalogs' buttons wait.
+    p.downloads.state = { ...p.downloads.state, jobs: { away: { job_id: "d1", phase: "downloading", received_bytes: 1, total_bytes: 2 } } };
+    assert.equal(inputChoice(cardNamed(p.draw(inputProps), "other"))?.props.disabled, true);
+    // Without `inputs` (no caller that chooses), the card points to the fields alone, as before.
+    p.downloads.state = { ...p.downloads.state, jobs: {} };
+    const plain = cardNamed(p.draw({ ...inputProps, inputs: undefined }), "other");
+    assert.equal(inputChoice(plain), null);
+    assert.ok(texts(plain, "p").includes("model_catalog.choose_above"));
+});
+
+test("a recognition model downloaded and checked but not applied is chosen for an input from its card", async context => {
+    const p = await catalogPage(context, forInputs());
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "d1", phase: "ready", received_bytes: 1, total_bytes: 1 } } };
+    const card = cardNamed(p.draw(inputProps), "other");
+    assert.equal(card.props["data-status"], "ready");
+    assert.equal(card.props.className, "pressable");
+    assert.ok(texts(card, "p").includes("model_catalog.choose_input"));
+    assert.equal(find(card, node => node.type === "button" && textOf(node) === "model_downloads.review"), null, "no second download");
+    inputChoice(card)?.props.onChoose("mic");
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1 } } };
+    p.draw(); p.draw();
+    assert.deepEqual(runs(p.sent), [["/run/check_model_download", { id: "other", catalog_version: "v7" }],
+        ["/run/apply_model_download", { id: "other", job_id: "c1", expected: { model: "/mic.gguf" } }]]);
+});
+
+test("a check from a recognition model's card that finds the files changed applies nothing, and its card offers the review", async context => {
+    const p = await catalogPage(context, forInputs());
+    inputChoice(cardNamed(p.draw(inputProps), "other"))?.props.onChoose("speaker");
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "failed", error_code: "model_files_changed", received_bytes: 0, total_bytes: 1 } } };
+    p.draw();
+    const card = cardNamed(p.draw(), "other");
+    assert.deepEqual(runs(p.sent).map(([endpoint]) => endpoint), ["/run/check_model_download"]);
+    assert.ok(texts(card, "p").includes("model_downloads.errors.model_files_changed"));
+    assert.equal(inputChoice(card), null);
+    const review = buttonNamed(card, "model_downloads.review");
+    assert.equal(review.props.className, "press", "the review is the card's main action now");
+    // A later check of the same model is its own: the one that failed does not apply it.
+    p.downloads.state = { ...p.downloads.state, jobs: { other: { job_id: "c1", phase: "ready", received_bytes: 1, total_bytes: 1 } } };
+    p.draw(); p.draw();
+    assert.equal(runs(p.sent).length, 1);
 });

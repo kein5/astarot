@@ -155,6 +155,8 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "./EngineCatalog": { EngineCatalog: "engines" },
     "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
     "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+    "./InputChoice": { InputChoice: "input-choice" },
+    "../../../../../../logics/transcription/listeningModel": await import("../transcription/listeningModel.ts"),
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),

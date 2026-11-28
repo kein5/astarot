@@ -33,6 +33,8 @@ async function userModels(context: TestContext, models: unknown[] | null, option
         "../_components/hint/Hint": { useHintDescriptions: () => options.hints ?? false },
         "./catalogLayout": { CatalogFacts: "catalog-facts", CatalogState: "catalog-state" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "./InputChoice": { InputChoice: "input-choice" },
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
     });
     const cards = (props: Record<string, unknown>) => runtime.render(module.UserModelCards, { target: "rvc", busy: false, ...props });
     const form = (props: Record<string, unknown> = {}) => runtime.render(module.UserModelRegistration, { target: "rvc", busy: false, ...props });
