@@ -79,4 +79,8 @@ test("a bundled server's failure is offered its fix: another try, or its setting
     assert.deepEqual([off?.kind, off && retriesServer(off), serverSettingId("speech_server_autostart_off")], ["server", false, "asr_server"]);
     const models = fix("realtime_asr_model_missing");
     assert.equal(models && retriesServer(models), false, "only a server's failure is tried again");
+    // #1314 (M-3): a missing or broken bundle is its own kind; installing again fixes it, not a try.
+    const bundle = fix("speech_bundle_missing_or_invalid");
+    assert.deepEqual([bundle?.kind, bundle && retriesServer(bundle)], ["bundle", false]);
+    assert.equal(recognitionFixOf(RECEIVE, { reason: "speech_bundle_missing_or_invalid" })?.source, "speaker");
 });

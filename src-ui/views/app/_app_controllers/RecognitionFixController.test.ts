@@ -22,6 +22,9 @@ async function fixture(context: TestContext) {
         catalog: { models: [QWEN] } as unknown,
         jobs: {} as Record<string, { job_id?: string; phase?: string } | undefined>,
         error: null as string | null,
+        // In the app's window, the browser opens the user guide; in a browser, there is no app to open it.
+        tauri: true,
+        openFails: false,
     };
     const hook = await loadModule<typeof import("../../../logics/transcription/useRecognitionFix.ts")>(new URL("../../../logics/transcription/useRecognitionFix.ts", import.meta.url), runtime);
     const { RecognitionFixController } = await loadModule<typeof import("./RecognitionFixController.tsx")>(new URL("./RecognitionFixController.tsx", import.meta.url), runtime, {
@@ -52,6 +55,9 @@ async function fixture(context: TestContext) {
         "../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => `name:${code}` }) },
         "../../../logics/configs/revealSetting.ts": { revealSetting: (target: unknown) => events.push(["reveal", target]) },
         "../config_page/setting_section/setting_box/advanced_settings/ModelDownloads": { ModelDownloads: "model-downloads" },
+        "@tauri-apps/api/core": { isTauri: () => state.tauri },
+        "@tauri-apps/plugin-opener": { openUrl: async (url: string) => { events.push(["open_url", url]); if (state.openFails) throw new Error("no browser"); } },
+        "@ui_configs": { generateLocalizedDocumentUrl: (language: string) => ({ vrct_document_install_url: `guide:${language}/install` }) },
     });
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(RecognitionFixController);
@@ -236,7 +242,7 @@ test("the words exist in both languages with the same names to fill in", () => {
         const locale = readLocale(language);
         for (const key of ["title", "models_body", "get_models", "language_auto_body", "language_body", "language_label", "use_language",
             "detect_heading", "detect_body", "detect_body_listening", "open_setting", "close", "model_ready", "server_running",
-            "share_body", "use_shared", "mic_model", "turn_on_again"]) {
+            "share_body", "use_shared", "mic_model", "turn_on_again", "bundle_body", "open_install_guide"]) {
             assert.equal(typeof localeAt(locale, `recognition_fix.${key}`), "string", `${language} ${key}`);
         }
         assert.match(String(localeAt(locale, "recognition_fix.title")), /\{\{name\}\}/);
@@ -265,4 +271,27 @@ test("a server that was busy is tried again from the dialog; one whose model fai
     s.open(SEND, { reason: "speech_server_autostart_off" });
     s.click("open_setting");
     assert.deepEqual(s.events.at(-1), ["reveal", { setting_id: "asr_server" }], "whether a switch may start the server");
+});
+
+// #1314 (M-3): a missing or broken bundle is not fixed in the settings. The dialog says so and opens
+// the user guide's steps to install the app again; where the browser cannot be opened, the address
+// is shown.
+test("a missing or broken bundle says so and opens the steps to install again, not the settings", async context => {
+    const s = await fixture(context);
+    let tree = s.open(SEND, { reason: "speech_bundle_missing_or_invalid" });
+    assert.deepEqual(nodesIn(find(tree, node => node.type === kitStandIns.DialogHeader)).filter(node => node.type === "p").map(node => node.props.children),
+        ["recognition_fix.bundle_body"]);
+    assert.deepEqual(s.buttons(tree), [["recognition_fix.close", undefined], ["recognition_fix.open_install_guide", "primary"]]);
+    s.click("open_install_guide");
+    await Promise.resolve();
+    assert.deepEqual(s.events, [["open_url", "guide:ja/install"]]);
+    tree = s.render();
+    assert.equal(find(tree, node => node.props?.role === "alert"), null);
+    s.state.openFails = true;
+    s.click("open_install_guide");
+    await new Promise(resolve => setTimeout(resolve, 0));
+    tree = s.render();
+    const alert = find(tree, node => node.props?.role === "alert");
+    assert.ok(alert, "the address is shown when the browser cannot be opened");
+    assert.equal(find(alert, node => node.type === "code")?.props.children, "guide:ja/install");
 });
