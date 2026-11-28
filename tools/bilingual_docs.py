@@ -88,7 +88,6 @@ PENDING_SKILLS = (
 
     "skills/jp-writing/SKILL.md",
 
-    "skills/pull-request/SKILL.md",
 
     "skills/real-machine-check/SKILL.md",
 
