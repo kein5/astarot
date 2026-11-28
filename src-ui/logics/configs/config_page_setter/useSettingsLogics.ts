@@ -197,7 +197,10 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
             result[getExportName] = buildGet();
             result[toggleExportName] = () => {
                 if (isAction(pending)) pending();
-                const isOn = isRecord(current) && current.data;
+                // A switch whose answer is an object says whether it is on by `enabled`
+                // (SteamVrAutoLaunch).
+                const data = isRecord(current) ? current.data : undefined;
+                const isOn = isRecord(data) ? data.enabled === true : data;
                 if (isOn) {
                     asyncStdoutToPython(`/set/disable/${s.base_endpoint_name}`);
                 } else {

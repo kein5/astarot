@@ -229,6 +229,17 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(localized, { category_id: error_code });
                 asyncStdoutToPython("/get/data/overlay_vr_panel");
                 break;
+            case "STEAMVR_AUTO_LAUNCH_UNAVAILABLE":
+                // SteamVR stopped before the change reached it: the switch reads SteamVR again
+                // and says why it cannot be pressed (#1384).
+                showNotification_Warning(localized, { category_id: error_code });
+                asyncStdoutToPython("/get/data/steamvr_auto_launch");
+                break;
+            case "STEAMVR_AUTO_LAUNCH_FAILED":
+                // SteamVR refused the change: the switch shows what SteamVR holds now.
+                showNotification_Error(localized, { category_id: error_code });
+                asyncStdoutToPython("/get/data/steamvr_auto_launch");
+                break;
             case "OVERLAY_FONT_NOT_FOUND":
                 // The saved font stays; the list shows it again.
                 showNotification_Warning(localized, { category_id: error_code });

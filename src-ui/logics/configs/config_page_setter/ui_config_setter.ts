@@ -1154,6 +1154,19 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "clipboard",
     },
+    {
+        // SteamVR starting ASTAROT with itself (#1384). SteamVR keeps the flag, and its own startup
+        // settings change it too: each answer is what SteamVR holds now, or why nothing can be
+        // shown ({ available, reason, enabled }). The VR page asks when it opens; the core tells
+        // when SteamVR comes or goes. The switch says whether it is on by `enabled`.
+        Category: "Vr",
+        Base_Name: "SteamVrAutoLaunch",
+        default_value: null,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        add_endpoint_run_array: ["from_backend"],
+        base_endpoint_name: "steamvr_auto_launch",
+    },
 
     // Others
     {

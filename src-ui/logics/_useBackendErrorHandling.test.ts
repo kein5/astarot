@@ -231,6 +231,29 @@ for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system
     assert.deepEqual(s.reads, ["/get/data/overlay_vr_panel"]);
 });
 
+// #1384: SteamVR keeps the auto-launch flag. A change it did not take reads SteamVR again, so the
+// switch shows what SteamVR holds and why it cannot be pressed.
+for (const language of ["en", "ja"]) test(`${language}: a SteamVR auto-launch change that did not reach SteamVR reads SteamVR again`, async () => {
+    const translation = readLocale(language);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } } });
+    const s = await loadBridgeRoutes(undefined, i18n);
+    const errors = branchAt(translation, "backend_errors");
+    s.receiveRoutes({ status: 400, endpoint: "/set/enable/steamvr_auto_launch", result: {
+        error_code: "STEAMVR_AUTO_LAUNCH_UNAVAILABLE", data: { available: false, reason: "steamvr_not_running", enabled: null },
+        message: "Starting with SteamVR can be changed only while SteamVR is running, in the installed app.",
+    } });
+    s.receiveRoutes({ status: 400, endpoint: "/set/disable/steamvr_auto_launch", result: {
+        error_code: "STEAMVR_AUTO_LAUNCH_FAILED", data: { available: false, reason: "steamvr_unreachable", enabled: null },
+        message: "SteamVR did not accept the change to starting with SteamVR.",
+    } });
+    assert.deepEqual(s.notices, [
+        { type: "warning", key: errors.STEAMVR_AUTO_LAUNCH_UNAVAILABLE, options: { category_id: "STEAMVR_AUTO_LAUNCH_UNAVAILABLE" } },
+        { type: "error", key: errors.STEAMVR_AUTO_LAUNCH_FAILED, options: { category_id: "STEAMVR_AUTO_LAUNCH_FAILED" } },
+    ]);
+    assert.deepEqual(s.reads, ["/get/data/steamvr_auto_launch", "/get/data/steamvr_auto_launch"]);
+});
+
 // Decision 13 of #278: the VAD runs on the speech.cpp server, and details.reason names the next step.
 for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use its server says why and re-reads only a refused switch`, async () => {
     const translation = readLocale(language);

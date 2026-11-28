@@ -8,7 +8,8 @@
 //! [`src-python/models/openvr_session.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py
 
 use crate::math::{Mat34, Mat4, Vec3};
-use crate::runtime::{ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};
+use crate::runtime::{ApplicationError, ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 struct Slot {
@@ -144,6 +145,21 @@ impl Session for SharedSession {
     }
     fn tip_offset(&mut self, device: Device) -> Option<Mat4> {
         self.with(|s| s.tip_offset(device))
+    }
+    fn add_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        self.with(|s| s.add_application_manifest(manifest))
+    }
+    fn remove_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        self.with(|s| s.remove_application_manifest(manifest))
+    }
+    fn application_binary(&mut self, key: &str) -> Result<Option<String>, ApplicationError> {
+        self.with(|s| s.application_binary(key))
+    }
+    fn set_auto_launch(&mut self, key: &str, on: bool) -> Result<(), ApplicationError> {
+        self.with(|s| s.set_auto_launch(key, on))
+    }
+    fn auto_launch(&mut self, key: &str) -> Result<bool, ApplicationError> {
+        self.with(|s| s.auto_launch(key))
     }
 }
 

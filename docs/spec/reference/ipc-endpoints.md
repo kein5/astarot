@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（510件: 削除 13、取得 226、実行 54、有効化 44、無効化 46、設定 127）
+## 要求（513件: 削除 13、取得 227、実行 54、有効化 45、無効化 47、設定 127）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -407,6 +407,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/overlay_font_family` | 取得 | 可 | useVr.updateFromBackendOverlayFontFamily |  |
 | `/set/data/overlay_font_family` | 設定 | 可 | useVr.setSuccessOverlayFontFamily |  |
 | `/get/data/overlay_font_missing_languages` | 取得 | 可 | useVr.updateFromBackendOverlayFontMissingLanguages |  |
+| `/get/data/steamvr_auto_launch` | 取得 | 可 | useVr.updateFromBackendSteamVrAutoLaunch |  |
+| `/set/enable/steamvr_auto_launch` | 有効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
+| `/set/disable/steamvr_auto_launch` | 無効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
 | `/set/data/speaker_names` | 設定 | 可 | useSpeakerNames.updateNames | ログで伏せる |
 | `/get/data/path_config` | 取得 | 可 | useAdvancedSettings.updateFromBackendPathConfig |  |
 | `/run/open_filepath_config_file` | 実行 | 可 | useOpenFolder.openedFolder_ConfigFile |  |
@@ -528,7 +531,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/settings_snapshot` | 実行 | 待つ | （受け取るだけ） |  |
 
 
-## 通知（中核からUIへ、91件）
+## 通知（中核からUIへ、92件）
 
 要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。
 
@@ -625,6 +628,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
 | `talk_ai_status` | `/run/talk_ai_status` | useTalkAiSession.updateStatus |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
+| `steamvr_auto_launch` | `/run/steamvr_auto_launch` | useVr.updateFromBackendSteamVrAutoLaunch |
 
 
 ## UIに受信先がないエンドポイント（16件）
@@ -649,7 +653,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/vad_unavailable`
 
 
-## UIだけにあるルート（61件）
+## UIだけにあるルート（62件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -709,6 +713,7 @@ UIに受信先が定義されているが、中核の要求と通知にはない
 - `/set/data/show_resend_button`
 - `/set/data/speaker_automatic_threshold`
 - `/set/data/speaker_vad_filter`
+- `/set/data/steamvr_auto_launch`
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`

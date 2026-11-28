@@ -300,6 +300,20 @@ test("a switch whose value is not a record of the store reads as off", async () 
     assert.deepEqual(t.sent, [["/set/enable/flag"]]);
 });
 
+test("a switch whose answer is an object is on by its enabled field", async () => {
+    // SteamVR's auto-launch (#1384): { available, enabled } or { available: false, reason, enabled: null }.
+    for (const [data, sent] of [
+        [{ available: true, enabled: true }, "/set/disable/steamvr_auto_launch"],
+        [{ available: true, enabled: false }, "/set/enable/steamvr_auto_launch"],
+        [{ available: false, reason: "steamvr_not_running", enabled: null }, "/set/enable/steamvr_auto_launch"],
+    ] as const) {
+        const t = await loadTemplates({ SteamVrAutoLaunch: { currentSteamVrAutoLaunch: { state: "ok", data }, updateSteamVrAutoLaunch: () => {} } });
+        const settings = t.settings([{ Category: "Test", Base_Name: "SteamVrAutoLaunch", logics_template_id: "toggle_enable_disable", base_endpoint_name: "steamvr_auto_launch" }]);
+        run(settings, "toggleSteamVrAutoLaunch");
+        assert.deepEqual(t.sent, [[sent]], JSON.stringify(data));
+    }
+});
+
 test("a setting of a template the logic does not know gets only its value and its updates", async () => {
     const odd = storeOf("Odd");
     const t = await loadTemplates({ Odd: odd.fields });

@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 11] = [
+pub const INIT_EXCLUDED: [&str; 12] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -30,6 +30,8 @@ pub const INIT_EXCLUDED: [&str; 11] = [
     "/get/data/voice_audition_state",
     // Core only: the GPU check (#288); asked only on its section of the settings.
     "/get/data/gpu_check_state",
+    // Core only: asks SteamVR (#1384); the VR page asks when it opens.
+    "/get/data/steamvr_auto_launch",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
@@ -115,6 +117,7 @@ impl Core {
         }
         self.step("Init Overlay");
         self.sync_overlay_running();
+        self.start_steamvr_watch();
         self.start_adapters();
         self.start_audio_devices();
 
@@ -146,6 +149,7 @@ impl Core {
         self.step("The run was stopped during the start-up; stopping what it started");
         self.stop_conversation_log();
         self.stop_overlay();
+        self.stop_steamvr_watch();
         self.stop_adapters();
         self.stop_audio_devices();
         self.stop_telemetry();

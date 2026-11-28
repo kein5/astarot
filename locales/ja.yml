@@ -263,6 +263,8 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
     OVERLAY_VR_PANEL_UNSUPPORTED: "この環境ではVR UIを使えません。字幕オーバーレイには影響しません。"
+    STEAMVR_AUTO_LAUNCH_UNAVAILABLE: "SteamVRと一緒に起動するかどうかは、SteamVRが動いている間だけ変えられます。"
+    STEAMVR_AUTO_LAUNCH_FAILED: "SteamVRが変更を受け付けませんでした。スイッチはSteamVRのいまの設定を表示しています。"
     OVERLAY_FONT_NOT_FOUND: "その書体はお使いのPCに入っていません。字幕は前の書体のままです。"
     MESSAGE_OUTPUT_FAILED: "{{output}}にメッセージを送れませんでした。ほかの出力先には送っています。再送するとほかの出力先に同じメッセージが重ねて届くことがあります。"
     TRANSLATION_VRAM_ENABLE: "GPUのメモリが足りず、AI翻訳を開始できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
@@ -1026,6 +1028,12 @@ config_page:
         right_hand: "右手"
         overlay_show_only_translated_messages:
             label: "翻訳後のメッセージのみ表示する"
+        section_label_steamvr: "SteamVR"
+        steamvr_auto_launch:
+            label: "SteamVRと一緒に起動する"
+            desc: "SteamVRを起動したときに、ASTAROTも一緒に起動します。この設定はSteamVRが持っているので、SteamVR自身の起動の設定で変えると、ここにも反映されます。"
+            steamvr_not_running: "SteamVRを起動すると変えられます。"
+            steamvr_unreachable: "SteamVRから応答がありません。SteamVRの起動が終わってから、もう一度試してください。"
         section_label_desktop_overlay: "デスクトップの字幕オーバーレイ"
         desktop_overlay:
             label: "デスクトップに字幕を表示する"

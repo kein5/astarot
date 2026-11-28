@@ -61,9 +61,10 @@ def run(argv, *, cwd=ROOT, env=None):
 APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server', 'talk-ai',
               'transcription', 'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/vr-overlay checks its layout against the VR page's.
+# the workspace: native/vr-overlay checks its layout against the VR page's, and its SteamVR
+# registration against the manifest the Windows package ships (#1384).
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
-CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json',)
+CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json', 'src-tauri/steamvr/astarot.vrmanifest')
 
 
 def tauri_workspace(work, internal):
