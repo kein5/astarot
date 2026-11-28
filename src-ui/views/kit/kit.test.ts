@@ -344,3 +344,26 @@ test("toggles and popovers are Radix's; a popover is not modal, so no <style> is
     assert.match(toggle, /const usable = ":not\(:disabled\):not\(\[aria-disabled='true'\]\)";/);
     assert.doesNotMatch(toggle, /:hover:not\(:disabled\)/);
 });
+
+// #1378: Motion moves the kit's surfaces, and the screens take its motion from the kit. A screen
+// that imported Motion would skip the kit's reduced-motion rule (motion.ts).
+test("only the kit imports Motion", () => {
+    const sources = (directory: URL): URL[] => readdirSync(directory, { withFileTypes: true }).flatMap(entry =>
+        entry.isDirectory() ? sources(new URL(`${entry.name}/`, directory))
+            : /\.(ts|tsx|js|jsx)$/.test(entry.name) ? [new URL(entry.name, directory)] : []);
+    const root = new URL("../../", import.meta.url);
+    const importing = sources(root).filter(file => /from\s+["'](motion|framer-motion|motion-dom|motion-utils)(\/[^"']*)?["']|import\(\s*["'](motion|framer-motion)/
+        .test(readFileSync(file, "utf8"))).map(file => file.pathname.slice(root.pathname.length));
+    assert.deepEqual(importing, ["views/kit/motion.ts"]);
+    assert.match(read("motion.ts"), /import \{ animate \} from "motion\/mini";/);
+});
+
+test("a popover that leaves takes no presses: they reach what is under it", () => {
+    assert.match(read("Popover.css.ts"), /"&\[data-leaving\]": \{ pointerEvents: "none" \}/);
+});
+
+test("the settings window's pages fade in when they are first drawn", () => {
+    const settings = readFileSync(new URL("../settings_window/SettingsWindowApp.tsx", import.meta.url), "utf8");
+    assert.match(settings, /useAppear\(pages, drawn\.current, "window"\);/);
+    assert.match(settings, /<div ref=\{pages\} className=\{styles\.pages_wrapper\} inert=\{disconnected\}>/);
+});

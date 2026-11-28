@@ -31,6 +31,7 @@ import { WindowTitleBar, SnackbarController, AppErrorBoundary } from "../app/oth
 import { EnvReadout } from "../app/config_page/setting_section/setting_box/_components/env_readout/EnvReadout";
 import * as styles from "../app/App.css.ts";
 import * as windowStyles from "./SettingsWindowApp.css.ts";
+import { useAppear } from "../kit/index.ts";
 
 // The settings window (#1236). It shows the settings pages as the main window showed them before:
 // the same pages, read from the same backend run. The main window keeps what runs the app (the
@@ -63,6 +64,7 @@ export const SettingsWindowApp = () => (
 // and WebKitGTK can stop laying out a page whose style changes at its first layout (#1221).
 // When the run ends, the pages stay as they were, out of reach, under a readout that says the
 // engine is not connected, until this window joins the next run (decided on 2026-11-26).
+// The pages fade in when they are first drawn, under the title bar the window opened with (#1378).
 const Contents = () => {
     const { t } = useI18n();
     const { currentIsBackendReady } = useIsBackendReady();
@@ -74,6 +76,8 @@ const Contents = () => {
     const drawn = useRef(false);
     if (connected && layoutSettled(currentIsBreakPoint.data === true, currentUiScaling.data)) drawn.current = true;
     const disconnected = drawn.current && !connected;
+    const pages = useRef<HTMLDivElement>(null);
+    useAppear(pages, drawn.current, "window");
     return (
         <>
             <WindowGeometryController saveGeometry={drawn.current && connected} />
@@ -83,7 +87,7 @@ const Contents = () => {
                     <p data-settings-disconnected="">{t("studio.settings_disconnected")}</p>
                 </EnvReadout>
             )}
-            <div className={styles.pages_wrapper} inert={disconnected}>
+            <div ref={pages} className={styles.pages_wrapper} inert={disconnected}>
                 {drawn.current && <>
                     <ConfigPage />
                     <VirtualMicGuideController />

@@ -2,11 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
     type ComponentProps, type HTMLAttributes } from "react";
 import clsx from "clsx";
 import * as styles from "./Dialog.css.ts";
+import { appear } from "./motion.ts";
 
 // shadcn/ui's Dialog, in the parts it is written with (DESIGN.md "Components"), on the native
 // <dialog> the app's dialogs use: the browser keeps the focus in it, closes it on Esc and dims
 // the window behind it. Whether it moves to Radix Dialog is D-23 of the shadcn/ui inventory
 // (docs/design/components/shadcn-alignment.md); the parts stay the same either way.
+//
+// Shown, it fades in and rises into its place, its dimming fading in with it (motion.ts, #1378).
+// It closes at once, as before: its owners close it before they take it off the page, and give the
+// focus back then (useConsentDialog).
 
 // The ids the title and the description take, so that the dialog is named and described by them,
 // as Radix links DialogTitle and DialogDescription to DialogContent.
@@ -36,9 +41,17 @@ export function Dialog({ open, onOpenChange, stepsBack = false, className, child
     const ids = useMemo(() => ({ title: `${base}-title`, description: `${base}-description` }), [base]);
     useEffect(() => {
         const dialog = element.current;
-        if (!dialog) return;
-        if (open && !dialog.open) dialog.showModal();
-        else if (!open && dialog.open) dialog.close();
+        if (!dialog) return undefined;
+        if (!open) {
+            if (dialog.open) dialog.close();
+            return undefined;
+        }
+        if (dialog.open) return undefined;
+        dialog.showModal();
+        // The entrance plays over a dialog already shown: the focus and the dimming are as before.
+        // Closed or taken away while it plays, it jumps to its end.
+        const entrance = appear(dialog, "dialog");
+        return () => entrance.finish();
     }, [open]);
     return (
         <DialogIdsContext.Provider value={ids}>
