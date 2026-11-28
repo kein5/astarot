@@ -243,6 +243,11 @@ export const kitStandIns = {
         jsx.jsxs("label", { "data-slot": "field-label", className, children: [
             jsx.jsx("input", { "data-slot": "radio-group-item", ...input, type: "radio" }), children,
             jsx.jsx("span", { "data-slot": "field-title", children: title })] }),
+    // The kit's searchable choice (#1369): its button, a combobox named data-slot="combobox-trigger",
+    // usable and not waiting unless told; its choices, its value and what it calls back stay among
+    // its props, read by a test from the element the screen draws.
+    Combobox: ({ busy = false, disabled = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", role: "combobox", "data-slot": "combobox-trigger", busy, disabled, ...rest }),
     // The kit's dialog is a <dialog> named data-slot="dialog-content"; open and onOpenChange are the
     // owner's, read by a test from the element the screen draws, and do not reach the <dialog>.
     Dialog: ({ open: _open, onOpenChange: _onOpenChange, ...rest }: Record<string, unknown>) =>
