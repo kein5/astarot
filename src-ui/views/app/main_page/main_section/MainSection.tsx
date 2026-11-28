@@ -4,7 +4,6 @@ import * as styles from "./MainSection.css.ts";
 import { TopBar } from "./top_bar/TopBar";
 import { MessageContainer } from "./message_container/MessageContainer";
 import { LanguageSelector } from "./language_selector/LanguageSelector";
-import { RealtimeControls } from "./realtime_controls/RealtimeControls";
 import { IoFlowPanel } from "./io_flow_panel/IoFlowPanel";
 
 import { useStore_IsOpenedLanguageSelector } from "@store";
@@ -18,7 +17,6 @@ export const MainSection = () => {
     return (
         <div className={styles.container}>
             <TopBar />
-            <RealtimeControls />
             <IoFlowPanel />
             <MessageContainer />
             <HandleLanguageSelector />
