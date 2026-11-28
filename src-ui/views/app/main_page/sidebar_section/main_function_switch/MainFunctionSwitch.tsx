@@ -4,6 +4,8 @@ import type { TFunction } from "i18next";
 import type { AtomStatus } from "@store";
 import type { SwitchBlockAction, SwitchBlockId } from "../../../../../logics/main/switchBlocks";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
+import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
+import { captionSwitchStatus } from "../../../../../logics/transcription/realtimeCaptionState";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
@@ -69,6 +71,9 @@ export const MainFunctionSwitch = () => {
 
 
     const voice = useVoice();
+    // Starting and failure of the caption switches, said under each (#1314, M-5).
+    const { state: realtime } = useRealtimeASR();
+    const captionStatus = (source: "mic" | "speaker") => { const key = captionSwitchStatus(realtime[source]); return key ? t(key) : null; };
     const { blocks, prepare } = useSwitchBlocks();
     const { showNotification_Error } = useNotificationStatus();
     // Known codes get their next step; the code stays visible for support.
@@ -123,6 +128,7 @@ export const MainFunctionSwitch = () => {
             SvgComponent: MicSvg,
             currentState: currentTranscriptionSendStatus,
             toggleFunction: toggleTranscriptionSend,
+            statusText: captionStatus("mic"),
         },
         {
             switch_id: "transcription_receive",
@@ -130,6 +136,7 @@ export const MainFunctionSwitch = () => {
             SvgComponent: HeadphonesSvg,
             currentState: currentTranscriptionReceiveStatus,
             toggleFunction: toggleTranscriptionReceive,
+            statusText: captionStatus("speaker"),
         },
         {
             switch_id: "ocr",

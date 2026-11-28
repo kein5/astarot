@@ -19,7 +19,7 @@ The inventory in this document was taken from the code on `develop` (`945951d2`)
 |---|---|---|
 | Rail (`main_function_switch/MainFunctionSwitch.jsx`) | 6 switches: Translation, Mic input, Listening, Chat reading (OCR), Text to speech (TTS) and Voice changer (RVC). Beside each switch, a button that opens its settings page | A switch whose setup is incomplete, grayed out, with the reason |
 | Rail (`language_settings/`) | 3 language presets, your language, target languages (up to 3), swap, translator choice | In a narrow window, the icon rail and the language pair |
-| Top bar (`top_bar/`) | Stop speech, Mute, Help, Quick settings | The update notice, the inputs and outputs panel (`io_flow`), the realtime captions controls (`realtime_controls/`) |
+| Top bar (`top_bar/`) | Stop speech, Mute, Help, Quick settings | The update notice, the inputs and outputs panel (`io_flow`). The realtime captions controls (`realtime_controls/`) were removed: the caption switches say under their names when their captions start or stop on an error (#1314) |
 | Quick settings | Always on top, VRC mic mute sync, subtitle overlay, VRChat and OSC detection | — |
 | Conversation | Log, composer, send button | The guidance shown when it is empty and the list of missing models (`setupNeeds.ts`), the character count warning, the log display settings |
 
@@ -336,7 +336,7 @@ Stages 1 to 4 of [How to proceed](#how-to-proceed) have been implemented. Stage 
 |---|---|---|
 | サイドバー（`main_function_switch/MainFunctionSwitch.jsx`） | 6 つのスイッチ: 翻訳、マイク入力、聞き取り、チャット読み取り（OCR）、テキスト読み上げ（TTS）、ボイスチェンジャー（RVC）。各スイッチの横に、設定ページを開くボタン | 準備が足りないスイッチの灰色表示と理由 |
 | サイドバー（`language_settings/`） | 言語のプリセット 3 つ、自分の言語、相手の言語（最大 3 つ）、入れ替え、翻訳エンジンの選択 | 狭いウィンドウでは、アイコンの列と言語の組の表示 |
-| 上部バー（`top_bar/`） | 読み上げを停止、ミュート、ヘルプ、クイック設定 | アップデートの通知、入力と出力のパネル（`io_flow`）、リアルタイム字幕の操作（`realtime_controls/`） |
+| 上部バー（`top_bar/`） | 読み上げを停止、ミュート、ヘルプ、クイック設定 | アップデートの通知、入力と出力のパネル（`io_flow`）。リアルタイム字幕の操作（`realtime_controls/`）は外し、字幕のスイッチが名前の下で、開始中とエラーで止まったことを伝える（#1314） |
 | クイック設定 | 最前面固定、VRChat のマイクミュート同期、字幕オーバーレイ、VRChat と OSC の検出 | — |
 | 会話欄 | ログ、入力欄、送信ボタン | 空のときの案内と、足りないモデルの一覧（`setupNeeds.ts`）、文字数の警告、ログの表示設定 |
 

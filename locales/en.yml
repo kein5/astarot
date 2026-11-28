@@ -1597,6 +1597,8 @@ realtime:
   state_stopping: "Stopping captions"
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
+  # #1314 (M-5): under the caption switch's name, which has room for one short line.
+  switch_failed: "Stopped on an error"
   # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
   # #1314 (M-4): only Windows asks there. On Linux the device, or another app holding it, keeps it closed.
   mic_wait:

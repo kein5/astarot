@@ -1597,6 +1597,8 @@ realtime:
   state_stopping: "字幕を停止中"
   state_closed: "字幕は停止中"
   state_failed: "エラーにより字幕を停止しました"
+  # #1314 (M-5): under the caption switch's name, which has room for one short line.
+  switch_failed: "エラーで止まりました"
   # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
   # #1314 (M-4): only Windows asks there. On Linux the device, or another app holding it, keeps it closed.
   mic_wait:
