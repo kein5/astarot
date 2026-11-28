@@ -86,7 +86,6 @@ PENDING_SKILLS = (
 
 
 
-    "skills/release/SKILL.md",
 
 
 )
