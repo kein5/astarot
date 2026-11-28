@@ -1,7 +1,7 @@
 """Run the native GUI acceptance tests against a built app.
 
-    python tools/native_acceptance.py --appimage path/to/VRCT-VOX.AppImage
-    python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only ui
+    python tools/native_acceptance.py --appimage path/to/ASTAROT.AppImage
+    python tools/native_acceptance.py --app src-tauri/target/debug/astarot --only ui
     python tools/native_acceptance.py --app ... --vrchat
 
 These tests are not part of `dev.py check`: they open the real app on this desktop. Each group runs
@@ -20,7 +20,7 @@ The vrchat-voice group runs with the round trip's clients: the same send also sp
 managed route, and the group checks that the managed microphone hears it once and that a mute
 silences it while the chatbox goes on. It needs the managed route already set up on this PC (the
 app sets it up when the managed route is saved) and reads it with pw-record; without it the group
-is reported as skipped. For VRChat itself to hear the voice, choose VRCT Managed Virtual Microphone
+is reported as skipped. For VRChat itself to hear the voice, choose ASTAROT Managed Virtual Microphone
 in the speaker client.
 
 Until 0.6.0 this also fetched the models and runtimes of the voice, speech and recognition groups
@@ -48,7 +48,7 @@ def groups():
     """name -> (tests, extra environment, needs, kind). kind: "any" or "packaged"."""
     on = "1"
     return {
-        "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on, "ASTAROT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
+        "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on}, [], "packaged"),
         "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"ASTAROT_TEST_NATIVE_ROUTE": on}, [], "any"),
         "vrchat": (["test_native_vrchat_roundtrip.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
         # The same send to the chatbox and, spoken, to the managed microphone (#746). It reads the
@@ -83,7 +83,7 @@ def managed_route_present():
         graph = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10, check=True).stdout)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
-    return any(item.get("info", {}).get("props", {}).get("node.name") == "vrct.managed.source" for item in graph) or None
+    return any(item.get("info", {}).get("props", {}).get("node.name") == "astarot.managed.source" for item in graph) or None
 
 
 def plan(args, have):
@@ -166,7 +166,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     build = parser.add_mutually_exclusive_group(required=True)
     build.add_argument("--appimage", type=Path, help="a candidate or published AppImage")
-    build.add_argument("--app", type=Path, help="a development build (src-tauri/target/debug/vrct-vox)")
+    build.add_argument("--app", type=Path, help="a development build (src-tauri/target/debug/astarot)")
     parser.add_argument("--only", action="append", choices=sorted(groups()), help="run only this group (repeatable)")
     parser.add_argument("--vrchat", action="store_true", help="start two local VRChat clients and run the round trip")
     parser.add_argument("--output", type=Path, default=ROOT / "build/native-acceptance")

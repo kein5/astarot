@@ -4,7 +4,13 @@ See, as a graph, where your voice and your chat go with the current settings. Fo
 
 It only shows things. It changes no setting and no audio route.
 
-## See it on the main screen
+## What you need
+
+Open ASTAROT. To see a measured route, send a chat message or use microphone input.
+
+## Steps
+
+### See it on the main screen
 
 Press "Inputs and outputs" in the bar at the top of the main screen. A panel opens above the conversation log. Press the button again, or "Close", to close it.
 
@@ -23,7 +29,9 @@ Under the graph, a timeline for each of your voice and chat shows the latest mes
 
 While the microphone is off, the graph still shows where your voice would go once it is on. In a narrow window the graph scrolls sideways.
 
-### What the times mean
+The panel also shows the GPU memory (VRAM) in use: what ASTAROT uses, split into speech recognition and speech, the voice changer, and the rest (translation, chat reading, the screens), beside the whole GPU's use. It is read every 2 seconds, only while the panel is open.
+
+#### What the times mean
 
 | Item | Meaning |
 |---|---|
@@ -32,10 +40,11 @@ While the microphone is off, the graph still shows where your voice would go onc
 | Translation | How long translation took |
 | Handing to outputs | From the end of translation until the message was handed to the chatbox, captions and the rest |
 | Chatbox | When the message was sent to VRChat |
+| Speech synthesis | The part of the way to the first sound spent making the voice, on its own row before "Text to speech". |
 | Text to speech | When the first sound of speech was played. Through the voice changer, when it began going to the voice changer. |
 | Voice changer (guide) | The voice changer's round trip: the recent median, not this message's own time |
 
-### Where the count starts
+#### Where the count starts
 
 Times count from a point that depends on the input. The panel says which.
 
@@ -43,7 +52,7 @@ Times count from a point that depends on the input. The panel says which.
 - Realtime speech recognition counts from its final result. The app does not know when you stopped speaking, so the time from then to the final result is not included.
 - Other speech recognition counts from the start of recognition.
 
-## Show it on the desktop
+### Show it on the desktop
 
 Under Settings → "Captions and VR" → "Desktop caption overlay", turn on "Show inputs and outputs on the desktop". Where your latest inputs went, and how long each step took, appear to the left of the captions: the input, translation and the outputs, joined by arrows. It works with the captions turned off too.
 
@@ -55,13 +64,13 @@ The background is a drawing for this page.
 - While the voice changer runs, its round trip is shown as well.
 - Like the captions, you can click through it to the window underneath, and it never takes keyboard input away from that window. It works where the desktop caption overlay works.
 
-## In VR
+### In VR
 
 With the VR UI on, press "Inputs and outputs" on the wrist launcher to open its window. It shows the same graph as the main screen and the times of your newest input. VR cannot scroll, so the boxes show only names and times.
 
 ![The "Inputs and outputs" window in VR](/screenshots/en/vr-io-flow.webp)
 
-## What is kept
+### What is kept
 
 The times are used only inside the app. They are not written to a file or sent anywhere. Only the recent ones are kept, and they are gone when the app closes.
 
@@ -70,3 +79,11 @@ The times are used only inside the app. They are not written to a file or sent a
 - That the time of speech is added to its message was checked by an automated test with a test speech server.
 - Microphone speech, the voice changer and the view in VR have not been checked on real hardware yet. The VR window was checked on a test page of the same size.
 :::
+
+## Check that it works
+
+Send a message, then check the highlighted route and the latest timings under the graph.
+
+## Troubleshooting
+
+If an output has no line into it, check the reason shown under the graph.

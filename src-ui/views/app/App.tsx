@@ -1,10 +1,17 @@
 import { TranscriptionConsentController } from "./_app_controllers/TranscriptionConsentController";
+import { RecognitionFixController } from "./_app_controllers/RecognitionFixController";
 import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
+import { MicCaptureWaitController } from "./_app_controllers/MicCaptureWaitController";
+import { VrVoiceControlsController } from "./_app_controllers/VrVoiceControlsController";
+import { SettingsWindowController } from "./_app_controllers/SettingsWindowController";
+import { settingsHaveAWindow } from "../../logics/common/settingsWindow.ts";
+import { TalkAiController } from "./_app_controllers/TalkAiController";
+import { TalkAiIndicator } from "./others/talk_ai_indicator/TalkAiIndicator";
 import { useRef } from "react";
 
 import {
@@ -15,6 +22,7 @@ import {
     ConfigPageCloseTriggerController,
     UiSizeController,
     FontFamilyController,
+    ThemeController,
     TransparencyController,
     CornerRadiusController,
     VrPanelSyncController,
@@ -22,7 +30,7 @@ import {
     AppUpdateController,
 } from "./_app_controllers";
 
-import styles from "./App.module.scss";
+import * as styles from "./App.css.ts";
 
 import { MainPage } from "./main_page/MainPage";
 import { QuickChatController } from "./_app_controllers/QuickChatController";
@@ -63,10 +71,12 @@ export const App = () => {
                 <ConfigPageCloseTriggerController />
                 <UiSizeController />
                 <FontFamilyController />
+                <ThemeController />
                 <TransparencyController />
                 <CornerRadiusController />
                 <VrPanelSyncController />
                 <OcrSharedWindowController />
+                <SettingsWindowController />
                 <AppUpdateController />
 
                 {/* The main page is drawn from the first frame. Until the engine is
@@ -93,17 +103,25 @@ const Contents = ({ locked }: { locked: boolean }) => {
             <WindowGeometryController saveGeometry={!locked} />
 
             <WindowTitleBar />
+            {/* While Talk AI sends, a band over both pages says so and ends it (ADR-018). */}
+            {!locked && <TalkAiController />}
+            {!locked && currentIsSoftwareUpdating.data === false && <TalkAiIndicator />}
             {currentIsSoftwareUpdating.data === false
             ?
             <div className={styles.pages_wrapper}>
+                {/* In the app the settings have a window of their own (#1236); in a browser they are a
+                    page in this one, as before. */}
                 {!locked && <>
                     <SwitchBlocksController />
-                    <ConfigPage />
+                    <MicCaptureWaitController />
+                    <VrVoiceControlsController />
+                    {!settingsHaveAWindow() && <ConfigPage />}
                 </>}
                 <MainPage focusFallback={mainPage} locked={locked} />
                 {!locked && <>
                     <ModalController fallback={mainPage} />
                     <TranscriptionConsentController />
+                    <RecognitionFixController />
                     <TranslationSetupController />
                     <OcrSetupController />
                     <TelemetryNoticeController />

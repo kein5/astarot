@@ -101,7 +101,7 @@ pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
 
 /// `is_valid_rvc_block_ms` of a number.
 pub fn is_valid_rvc_block(ms: u32) -> bool {
-    ms == vrct_voice_conversion::worker::AUTO_BLOCK_MS || vrct_voice_conversion::protocol::Block::from_ms(ms).is_some()
+    ms == astarot_voice_conversion::worker::AUTO_BLOCK_MS || astarot_voice_conversion::protocol::Block::from_ms(ms).is_some()
 }
 
 pub fn is_valid_port(value: &Value) -> bool {
@@ -225,6 +225,33 @@ fn overlay_desktop_placement() -> Check {
         }
         let place = |v: &Value| v.as_i64().filter(|n| is_int(v) && (-100_000..=100_000).contains(n));
         Some(json!({ "x": place(x)?, "y": place(y)? }))
+    })
+}
+
+/// The app's theme (#965): the preset in use and the user's own two colours, kept while a preset
+/// is in use. The preset is checked only as an id ("custom" or a preset's): the UI knows its
+/// presets, and one it does not know (saved by a newer version) is the default there. The colours
+/// are "#rrggbb", saved in lower case.
+fn theme() -> Check {
+    validated(|value, _| {
+        let value = value.as_object()?;
+        if value.len() != 2 {
+            return None;
+        }
+        let preset = value.get("preset")?.as_str()?;
+        let id = preset.len() <= 32
+            && preset.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+            && preset.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        let custom = value.get("custom")?.as_object()?;
+        if !id || custom.len() != 2 {
+            return None;
+        }
+        let color = |name: &str| {
+            let hex = custom.get(name)?.as_str()?;
+            let digits = hex.strip_prefix('#')?;
+            (digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit())).then(|| hex.to_ascii_lowercase())
+        };
+        Some(json!({ "preset": preset, "custom": { "base": color("base")?, "accent": color("accent")? } }))
     })
 }
 
@@ -465,7 +492,7 @@ fn hotkeys() -> Check {
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
 ///
 /// [`src-python/models/experimental_features.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py
-pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion", "talk_ai"];
 
 fn experimental_features_default() -> Value {
     Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
@@ -498,9 +525,11 @@ fn experimental_features() -> Check {
 /// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
 pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
 
-/// Several presets can be picked; the menu and the switches show what any of them shows. The
-/// value is kept in the order above, each id once. An id this version does not know is left
-/// out (a later version may have one more), and a list with none it knows is refused.
+/// Several specific presets can be picked; the menu and the switches show what any of them shows.
+/// `"all"` and specific presets are mutually exclusive (#1107): a list that mixes them collapses
+/// to `["all"]` so nothing currently visible disappears unexpectedly. The value is kept in the
+/// order above, each id once. An id this version does not know is left out (a later version may
+/// have one more), and a list with none it knows is refused.
 fn usage_presets() -> Check {
     validated(|value, _| {
         let given = value.as_array()?;
@@ -508,15 +537,20 @@ fn usage_presets() -> Check {
         for item in given {
             ids.push(item.as_str()?);
         }
+        if ids.contains(&"all") {
+            return Some(json!(["all"]));
+        }
         let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
         (!picked.is_empty()).then_some(Value::Array(picked))
     })
 }
 
-fn main_window_geometry() -> Check {
-    validated(|value, ctx| {
+/// A window's place and size (`MAIN_WINDOW_GEOMETRY`, and the settings window's own since #1236):
+/// the same four whole numbers; one that is not keeps its current value.
+fn window_geometry(name: &'static str) -> Check {
+    validated(move |value, ctx| {
         let value = value.as_object()?;
-        let current = ctx.get("MAIN_WINDOW_GEOMETRY");
+        let current = ctx.get(name);
         if !same_keys(value, &current) {
             return None;
         }
@@ -543,10 +577,10 @@ fn ocr_region(value: &Value, _: &Ctx) -> bool {
 
 fn tts_settings(value: &Value, ctx: &Ctx) -> Option<Value> {
     let platform = match ctx.env.platform {
-        Platform::Windows => vrct_tts::settings::Platform::Windows,
-        Platform::Linux => vrct_tts::settings::Platform::Other,
+        Platform::Windows => astarot_tts::settings::Platform::Windows,
+        Platform::Linux => astarot_tts::settings::Platform::Other,
     };
-    let settings = vrct_tts::settings::VoiceSettings::from_value_on(value, platform).ok()?;
+    let settings = astarot_tts::settings::VoiceSettings::from_value_on(value, platform).ok()?;
     Some(settings.to_value())
 }
 
@@ -559,6 +593,7 @@ pub fn keys() -> Vec<Key> {
         readonly("PATH_DATA"),
         readonly("PATH_CONFIG"),
         readonly("PATH_LOGS"),
+        key("CONVERSATION_LOG_DIRECTORY", managed(Ty::Str, true, |_, _| true)),
         readonly("GITHUB_URL"),
         readonly("GITHUB_RELEASES_LIST_URL"),
         readonly("MIN_SUPPORTED_VERSION"),
@@ -612,7 +647,8 @@ pub fn keys() -> Vec<Key> {
         key("SHOW_RESEND_BUTTON", b()),
         key("FONT_FAMILY", plain(Ty::Str)),
         key("UI_LANGUAGE", one_of("SELECTABLE_UI_LANGUAGE_LIST")),
-        immediate("MAIN_WINDOW_GEOMETRY", main_window_geometry()),
+        immediate("MAIN_WINDOW_GEOMETRY", window_geometry("MAIN_WINDOW_GEOMETRY")),
+        immediate("SETTINGS_WINDOW_GEOMETRY", window_geometry("SETTINGS_WINDOW_GEOMETRY")),
         key("MIC_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_MIC_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -624,11 +660,18 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        key("TALK_AI_SCREEN_INTERVAL_MS", int_in(250, 10_000)),
+        key("TALK_AI_SCREEN_LONG_EDGE", int_in(256, 2048)),
+        key("TALK_AI_SCREEN_DETAIL", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("auto" | "low" | "high")))),
+        key("TALK_AI_PROVIDER", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("openai" | "vllm_omni")))),
+        key("TALK_AI_LOCAL_URL", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(crate::controller::talk_ai::valid_local_url))),
         // What the settings menu and the main switches show (#554). It changes no feature.
         immediate("USAGE_PRESETS", usage_presets()),
         // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
         // changes no model and no feature.
         key("CATALOG_LAYOUT", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("grid" | "list")))),
+        // The app's theme (#965): its colours only. It changes no feature.
+        key("THEME", theme()),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
@@ -673,7 +716,7 @@ pub fn keys() -> Vec<Key> {
         // refuses a field it does not know, and would reset the model and index with it.
         key("RVC_BLOCK_MS", managed(Ty::Int, false, |v, _| is_valid_rvc_block_ms(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
-        key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
+        key("SPEECH_SERVER_SETTINGS", validated(|v, _| astarot_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
         key("OSC_IP_ADDRESS", plain(Ty::Str)),
         key("OSC_PORT", managed(Ty::Int, false, |v, _| is_valid_port(v))),
@@ -693,7 +736,7 @@ pub fn keys() -> Vec<Key> {
         key("OVERLAY_VR_LAUNCHER_AUTO_HIDE", b()),
         key("OVERLAY_VR_TOOLTIP", b()),
         // Core only: the subtitles' font family on this system; "" is automatic (no font is bundled).
-        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || vrct_vr_overlay::fonts::valid_family_name(s)))),
+        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || astarot_vr_overlay::fonts::valid_family_name(s)))),
         key("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", b()),
         key("SEND_MESSAGE_TO_VRC", b()),
         key("SEND_RECEIVED_MESSAGE_TO_VRC", b()),
@@ -732,6 +775,9 @@ pub fn keys() -> Vec<Key> {
         key("CTRANSLATE2_LICENSE_NOTICE_SHOWN", b()),
         key("LOCAL_ASR_MIGRATION", int_in(0, super::LOCAL_ASR_MIGRATION_LATEST)),
         key("VIRTUAL_MIC_NOTICE_PENDING", b()),
+        // The Linux virtual microphone took its ASTAROT name and VRChat has to be pointed at it
+        // again (ADR-014, 2.8): set when the core retires the units of the old names.
+        key("MANAGED_ROUTE_RENAME_NOTICE_PENDING", b()),
         key("FIRST_RUN_SETUP_PENDING", b()),
         key("SELECTED_PLAMO_MODEL", in_populated("SELECTABLE_PLAMO_MODEL_LIST")),
         key("SELECTED_GEMINI_MODEL", in_populated("SELECTABLE_GEMINI_MODEL_LIST")),
@@ -780,7 +826,7 @@ pub fn keys() -> Vec<Key> {
 }
 
 fn obs_numeric(name: &'static str) -> Check {
-    use vrct_adapters::obs::settings::{NumericSetting, is_valid_numeric_setting};
+    use astarot_adapters::obs::settings::{NumericSetting, is_valid_numeric_setting};
     let setting = NumericSetting::from_name(name).expect("a known OBS setting");
     managed(Ty::Int, false, move |v, _| v.as_i64().is_some_and(|v| is_valid_numeric_setting(setting, v)))
 }
@@ -816,14 +862,17 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         "translation": { "prefix": "", "separator": "\n", "suffix": "" }, "translation_first": false,
     });
     let voice = tts_settings(&json!({}), &Ctx::empty(env)).unwrap_or_else(|| json!({}));
-    let speech = vrct_speech_server::settings::normalize_settings(&json!({})).map(|s| s.to_json()).unwrap_or_default();
-    let realtime = voice_settings::normalize_realtime(&json!({})).unwrap_or_default();
+    let speech = astarot_speech_server::settings::normalize_settings(&json!({})).map(|s| s.to_json()).unwrap_or_default();
+    // New settings recognize through the bundled server, as they speak through it (#566, #1266).
+    // A saved file keeps what it chose (`Config::migrate_realtime_server`).
+    let realtime = voice_settings::normalize_realtime(&json!({ "server": "bundled" })).unwrap_or_default();
     let entries: Vec<(&str, Value)> = vec![
         ("VERSION", json!(env.version)),
         ("PATH_LOCAL", json!(env.app_dir.to_string_lossy())),
         ("PATH_DATA", json!(env.data_dir.to_string_lossy())),
         ("PATH_CONFIG", json!(env.state_dir.join("config.json").to_string_lossy())),
         ("PATH_LOGS", json!(env.state_dir.join("logs").to_string_lossy())),
+        ("CONVERSATION_LOG_DIRECTORY", Value::Null),
         ("GITHUB_URL", json!("https://api.github.com/repos/kein5/astarot/releases/latest")),
         ("GITHUB_RELEASES_LIST_URL", json!("https://api.github.com/repos/kein5/astarot/releases")),
         ("MIN_SUPPORTED_VERSION", json!("0.1.0")),
@@ -878,6 +927,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("FONT_FAMILY", json!("Yu Gothic UI")),
         ("UI_LANGUAGE", json!("en")),
         ("MAIN_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 })),
+        ("SETTINGS_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 })),
         ("MIC_THRESHOLD", json!(300)),
         ("MIC_AUTOMATIC_THRESHOLD", json!(false)),
         ("MIC_RECORD_TIMEOUT", json!(3)),
@@ -891,9 +941,16 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        ("TALK_AI_PROVIDER", json!("openai")),
+        ("TALK_AI_SCREEN_INTERVAL_MS", json!(1000)),
+        ("TALK_AI_SCREEN_LONG_EDGE", json!(1024)),
+        ("TALK_AI_SCREEN_DETAIL", json!("auto")),
+        ("TALK_AI_LOCAL_URL", json!("ws://127.0.0.1:8000/v1/realtime")),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
         ("CATALOG_LAYOUT", json!("grid")),
+        // The default theme is the brand's Dark Plum and Lilac, also as the user's own colours.
+        ("THEME", json!({ "preset": "dark_plum", "custom": { "base": "#261633", "accent": "#a47af5" } })),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
         ("TRAY_COMPANION_WHEEL_HINT_SHOWN", json!(false)),
@@ -932,7 +989,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("RECEIVED_MESSAGE_FORMAT_PARTS", format_parts),
         ("VOICE_SETTINGS", voice),
         ("DIRECT_VOICE_SETTINGS", voice_settings::default_direct()),
-        ("RVC_BLOCK_MS", json!(vrct_voice_conversion::worker::DEFAULT_BLOCK_MS)),
+        ("RVC_BLOCK_MS", json!(astarot_voice_conversion::worker::DEFAULT_BLOCK_MS)),
         ("REALTIME_ASR_SETTINGS", realtime),
         ("SPEECH_SERVER_SETTINGS", speech),
         ("WEBSOCKET_SERVER", json!(false)),
@@ -983,6 +1040,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(false)),
         ("LOCAL_ASR_MIGRATION", json!(super::LOCAL_ASR_MIGRATION_LATEST)),
         ("VIRTUAL_MIC_NOTICE_PENDING", json!(true)),
+        ("MANAGED_ROUTE_RENAME_NOTICE_PENDING", json!(false)),
         ("FIRST_RUN_SETUP_PENDING", json!(true)),
         ("SELECTED_PLAMO_MODEL", Value::Null),
         ("SELECTED_GEMINI_MODEL", Value::Null),

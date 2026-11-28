@@ -1,4 +1,4 @@
-//! Speech synthesis for VRCT-VOX: requests to a local speech.cpp server, one
+//! Speech synthesis for ASTAROT: requests to a local speech.cpp server, one
 //! bounded speech worker, and the hand-off of streamed PCM to an output.
 //!
 //! Codename: Forau (#689; the table is in `docs/voice-stack/project-rename.md`).

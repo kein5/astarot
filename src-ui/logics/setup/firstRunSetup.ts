@@ -8,6 +8,7 @@
 // a step fails (#517). Nothing here downloads without the consent given in the dialog.
 
 import type { CatalogEntry } from "../voice/modelCatalog";
+import { isSwitchShown, pickedPresets } from "../configs/usagePresets.ts";
 
 export type SetupEntry = CatalogEntry & {
     provider?: string;
@@ -20,7 +21,7 @@ export type SetupEntry = CatalogEntry & {
 
 export type SetupCatalog = { catalog_version?: string; models?: readonly SetupEntry[] } | null | undefined;
 
-export type AsrPaths = { model?: unknown; vad_model?: unknown } | null | undefined;
+export type AsrPaths = { model?: unknown; vad_model?: unknown; listening_model?: unknown } | null | undefined;
 
 // What the recognition needs, as the setup sees it.
 // "cloud": another engine was chosen; it needs a key, not a download, and is left alone.
@@ -56,30 +57,82 @@ export const recommendedAsr = (catalog: SetupCatalog, language: unknown): SetupE
 
 export const vadEntry = (catalog: SetupCatalog): SetupEntry | null => (catalog?.models ?? []).find(entry => entry.target === "vad") ?? null;
 
+// Whether a recognition model tells the language it hears (the catalog's flag, #1242).
+export const detectsLanguage = (entry: SetupEntry | null | undefined): boolean => entry?.speech?.detects === true;
+
+// The recognizer offered where a model has to tell the language (#1242): of those that tell it, the
+// one speech.cpp recommends for the most languages, the file it fetches first.
+export const detectingRecognizer = (catalog: SetupCatalog): SetupEntry | null => {
+    const reach = (entry: SetupEntry) => entry.profile?.recommended_for?.length ?? 0;
+    const rows = (catalog?.models ?? []).filter(entry => entry.target === "asr" && detectsLanguage(entry) && entry.speech?.default !== false && reach(entry) > 0);
+    return rows.reduce<SetupEntry | null>((best, entry) => !best || reach(entry) > reach(best) ? entry : best, null);
+};
+
+// Listening's model when the one for one's own voice cannot tell the language (decided on
+// 2026-11-27, #1242): Listening hears the other side, whose language is not known, and starts on
+// "auto". A model that tells the language serves both: none then.
+export const recommendedListening = (catalog: SetupCatalog, asr: SetupEntry | null | undefined): SetupEntry | null =>
+    !asr || detectsLanguage(asr) ? null : detectingRecognizer(catalog);
+
+// The inputs whose speech the setup prepares recognition for (#1308 ★2, decided on 2026-11-28): Mic
+// input's and Listening's, as the main screen shows their switches for the chosen uses
+// (usagePresets.ts). Neither shown, or the uses not known yet, counts as both.
+export interface SetupSources {
+    readonly mic: boolean;
+    readonly speaker: boolean;
+}
+export const BOTH_SOURCES: SetupSources = Object.freeze({ mic: true, speaker: true });
+export const setupSources = (presets: unknown): SetupSources => {
+    const picked = pickedPresets(presets);
+    const mic = isSwitchShown(picked, "transcription_send"), speaker = isSwitchShown(picked, "transcription_receive");
+    return mic || speaker ? { mic, speaker } : BOTH_SOURCES;
+};
+
+// The recognition model the setup recommends for the inputs in use (#1308 ★2). Both: speech.cpp's
+// own for the screen's language, with Listening's own after it when that one cannot tell the
+// language (#1242). One alone: one model that tells the language, so that one model is enough.
+export const recommendedRecognizer = (catalog: SetupCatalog, language: unknown, sources: SetupSources = BOTH_SOURCES): SetupEntry | null =>
+    sources.mic && sources.speaker ? recommendedAsr(catalog, language) : detectingRecognizer(catalog) ?? recommendedAsr(catalog, language);
+
 // One step of the recognition setup.
+// "listening": Listening's own recognition model (#1242). onPc: the model's files are on the PC
+// already; they are checked and used, never downloaded (#1263, #1308 S-6).
 export type SetupStep =
-    | { kind: "model"; target: "asr" | "vad"; entry: SetupEntry }
+    | { kind: "model"; target: "asr" | "listening" | "vad"; entry: SetupEntry; onPc?: boolean }
     | { kind: "server" }
     | { kind: "engine" };
 
 // The steps the setup will take, decided when the dialog shows its consent: models whose path
 // is still empty, then the bundled server, then the engine. A path the user already set is kept.
-// asr: the recognition model chosen in the setup (#955); the recommended one when none is.
-export const setupPlan = ({ catalog, language, engine, server, paths, asr: chosen }:
-    { catalog: SetupCatalog; language: unknown; engine: unknown; server: unknown; paths: AsrPaths; asr?: SetupEntry | null }): SetupStep[] | null => {
-    const asr = chosen ?? recommendedAsr(catalog, language), vad = vadEntry(catalog);
+// asr: the recognition model chosen in the setup (#955); the recommended one for the inputs in use
+// when none is (#1308 ★2). When it cannot tell the language and both inputs are in use, Listening's
+// own model comes after it, in the same consent (#1242). downloaded: the models on the PC, which are
+// used without downloading (#1308 S-6).
+export const setupPlan = ({ catalog, language, engine, server, paths, asr: chosen, sources = BOTH_SOURCES, downloaded }:
+    { catalog: SetupCatalog; language: unknown; engine: unknown; server: unknown; paths: AsrPaths; asr?: SetupEntry | null;
+        sources?: SetupSources; downloaded?: Readonly<Record<string, unknown>> }): SetupStep[] | null => {
+    const asr = chosen ?? recommendedRecognizer(catalog, language, sources), vad = vadEntry(catalog);
     if (!asr || !vad || !paths) return null;
     const steps: SetupStep[] = [];
-    if (!set(paths.model)) steps.push({ kind: "model", target: "asr", entry: asr });
-    if (!set(paths.vad_model)) steps.push({ kind: "model", target: "vad", entry: vad });
+    const model = (target: "asr" | "listening" | "vad", entry: SetupEntry): SetupStep =>
+        ({ kind: "model", target, entry, ...(downloaded?.[entry.id] ? { onPc: true } : {}) });
+    if (!set(paths.model)) {
+        steps.push(model("asr", asr));
+        const listening = sources.mic && sources.speaker ? recommendedListening(catalog, asr) : null;
+        if (listening && listening.id !== asr.id && !set(paths.listening_model)) steps.push(model("listening", listening));
+    }
+    if (!set(paths.vad_model)) steps.push(model("vad", vad));
     if (server !== "bundled") steps.push({ kind: "server" });
     if (engine !== LOCAL_ENGINE) steps.push({ kind: "engine" });
     return steps;
 };
 
-// The models of a plan, for the consent: what will be downloaded and how large it is.
+// The models of a plan, for the consent: what will be downloaded and how large it is. Those on the
+// PC already are used without a download, and listed apart (onPcModels, #1308 S-6).
 export const planModels = (plan: SetupStep[] | null | undefined): SetupEntry[] =>
-    (plan ?? []).flatMap(step => step.kind === "model" ? [step.entry] : []);
+    (plan ?? []).flatMap(step => step.kind === "model" && !step.onPc ? [step.entry] : []);
+export const onPcModels = (plan: SetupStep[] | null | undefined): SetupEntry[] =>
+    (plan ?? []).flatMap(step => step.kind === "model" && step.onPc ? [step.entry] : []);
 export const planBytes = (plan: SetupStep[] | null | undefined): number =>
     planModels(plan).reduce((total, entry) => total + (Number.isFinite(entry.total_bytes) ? entry.total_bytes : 0), 0);
 
@@ -98,22 +151,28 @@ export type RunView = {
 };
 
 export type NextAction =
-    | { kind: "start"; entry: SetupEntry }
-    | { kind: "apply"; entry: SetupEntry; jobId: string; expected: { model: string } }
+    // onPc: the model's files are checked, not downloaded (#1263, #1308 S-6).
+    | { kind: "start"; entry: SetupEntry; onPc?: boolean }
+    // source: "speaker" for Listening's own model (#1242).
+    | { kind: "apply"; entry: SetupEntry; jobId: string; expected: { model: string }; source?: "speaker" }
     | { kind: "server" }
     | { kind: "engine" }
     | { kind: "wait" }
     | { kind: "failed"; step: number; code: string }
     | { kind: "done" };
 
+// The settings field a model step fills.
+const savedValue = (target: "asr" | "listening" | "vad", paths: AsrPaths): unknown =>
+    target === "asr" ? paths?.model : target === "listening" ? paths?.listening_model : paths?.vad_model;
+
 export const stepDone = (step: SetupStep, view: Pick<RunView, "engine" | "server" | "paths">): boolean => {
     if (step.kind === "server") return view.server === "bundled";
     if (step.kind === "engine") return view.engine === LOCAL_ENGINE;
-    return set(step.target === "asr" ? view.paths?.model : view.paths?.vad_model);
+    return set(savedValue(step.target, view.paths));
 };
 
-const savedPath = (target: "asr" | "vad", paths: AsrPaths): string => {
-    const value = target === "asr" ? paths?.model : paths?.vad_model;
+const savedPath = (target: "asr" | "listening" | "vad", paths: AsrPaths): string => {
+    const value = savedValue(target, paths);
     return typeof value === "string" ? value : "";
 };
 
@@ -133,14 +192,15 @@ export const nextAction = (plan: SetupStep[], view: RunView): NextAction => {
     if (job && ACTIVE.includes(job.phase ?? "")) return { kind: "wait" };
     if (job?.phase === "ready" && job.job_id) {
         return view.applied.includes(job.job_id) ? { kind: "wait" }
-            : { kind: "apply", entry, jobId: job.job_id, expected: { model: savedPath(step.target, view.paths) } };
+            : { kind: "apply", entry, jobId: job.job_id, expected: { model: savedPath(step.target, view.paths) },
+                ...(step.target === "listening" && { source: "speaker" as const }) };
     }
     if (ours && ["failed", "cancelled"].includes(job?.phase ?? "")) {
         return { kind: "failed", step: index, code: job?.error_code || (job?.phase === "cancelled" ? "cancelled" : "download_failed") };
     }
     // Asked and not answered yet, or applied and waiting for the saved path to come back.
     if (asked) return { kind: "wait" };
-    return { kind: "start", entry };
+    return { kind: "start", entry, ...(step.onPc && { onPc: true }) };
 };
 
 // The state one step shows in the dialog.
@@ -173,3 +233,17 @@ export const setupSuggested = (pending: unknown, work: SetupWork): boolean => pe
 // pending and its state for this run is not known yet, or it is open.
 export const setupComesFirst = ({ notice, settled }: { notice: unknown; settled: unknown }): boolean =>
     notice === true && settled !== true;
+
+// What the recognition's line in the setup's findings says while it needs setting up (#1308 N-3):
+// which of the inputs in use has no recognition model, or else that the VAD is missing. Listening
+// without a model of its own uses Mic input's. Null when neither applies (the engine or the server
+// is what is left): the general words then.
+export const missingRecognition = (paths: AsrPaths, sources: SetupSources = BOTH_SOURCES): "mic_speaker" | "mic" | "speaker" | "vad" | null => {
+    const mic = !set(paths?.model);
+    const speaker = mic && !set(paths?.listening_model);
+    const missing = { mic: mic && sources.mic, speaker: speaker && sources.speaker };
+    if (missing.mic && missing.speaker) return "mic_speaker";
+    if (missing.mic) return "mic";
+    if (missing.speaker) return "speaker";
+    return set(paths?.vad_model) ? null : "vad";
+};

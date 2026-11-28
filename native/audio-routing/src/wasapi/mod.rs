@@ -27,7 +27,7 @@ use crate::error::{Error, Result};
 use crate::graph::Endpoint;
 use crate::identity::Device;
 use crate::manager::{DeviceBackend, Topology, Watch};
-use crate::naming::{crc32, is_virtual_cable, output_identity, WASAPI_HOST};
+use crate::naming::{crc32, output_identity, refused_as_default_microphone, WASAPI_HOST};
 use crate::report::Reporter;
 use crate::snapshot::{DefaultMic, Host, RawLists, LOOPBACK_SUFFIX};
 use crate::sync::audio_op_lock;
@@ -361,7 +361,8 @@ pub fn enumerate_endpoints(source: &str) -> Result<Vec<EndpointRow>> {
 }
 
 /// The OS default microphone or speaker. A cable as the default microphone would
-/// transcribe or convert VRCT-VOX's own speech, so it is refused.
+/// transcribe or convert ASTAROT's own speech, so it is refused, except a cable that
+/// brings a headset's microphone (Steam Link, #1399).
 pub fn default_endpoint(source: &str) -> Result<Endpoint> {
     let missing = || Error::value("realtime_default_endpoint_missing");
     let identity = {
@@ -371,7 +372,7 @@ pub fn default_endpoint(source: &str) -> Result<Endpoint> {
         let device = unsafe { enumerator.GetDefaultAudioEndpoint(flow_of(source), eMultimedia) }.map_err(|_| missing())?;
         output_identity(WASAPI_HOST, &friendly_name(&device).map_err(|_| missing())?)
     };
-    if source == "mic" && is_virtual_cable(&identity) {
+    if source == "mic" && refused_as_default_microphone(&identity) {
         return Err(Error::value("realtime_default_endpoint_feedback"));
     }
     Ok(endpoint_for(&identity, source))

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, componentNamed, draw, drawWith } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, componentNamed, draw, drawWith, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 const base = "../_components/";
@@ -8,7 +8,7 @@ const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(t
 // The hint module (#614): `on` is whether the page keeps descriptions out of sight.
 const hintModule = (on: boolean) => ({ "../hint/Hint": { Hint: "hint", useHintDescriptions: () => on } });
 
-async function setup(hints = false) {
+async function setup(hints = false, narrow = false) {
     const runtime = hooks();
     const { LabelComponent } = await loadModule<typeof import("../_components/label_component/LabelComponent.tsx")>(new URL(base + "label_component/LabelComponent.tsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
@@ -18,16 +18,15 @@ async function setup(hints = false) {
     const { DownloadModels } = await loadModule<typeof import("../_components/download_models/DownloadModels.tsx")>(new URL(base + "download_models/DownloadModels.tsx", import.meta.url), hooks(), {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
-    const { DropdownMenu, MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks(), {
-        "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: "dropdown" },
-    });
-    const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
+    const { DropdownMenu, MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks());
+    const { SettingCombobox } = await loadModule<typeof import("../_components/setting_combobox/SettingCombobox.tsx")>(new URL(base + "setting_combobox/SettingCombobox.tsx", import.meta.url), hooks());
+    const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu, SettingCombobox,
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter",
-        HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check" };
+        HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check", SettingSwitch: "switch" };
     const templates = await loadModule(new URL("./Templates.tsx", import.meta.url), runtime, {
-        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
-        "../_components": components, "@common_components": { Checkbox: "checkbox" },
+        "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: narrow } }) },
+        "../_components": components,
     });
     // A template of Templates.tsx, named as the tests loop over them, with the props each test
     // builds: only the ones that template reads here.
@@ -40,7 +39,7 @@ async function setup(hints = false) {
     return { runtime, template, components, render };
 }
 
-for (const name of ["Checkbox", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
+for (const name of ["Switch", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton", "Combobox"]) {
     test(`${name} template connects description and warning IDs without changing its label`, async () => {
         const s = await setup();
         const props = { label: "Setting", desc: "Help", add_warnings: [{ label: "Unavailable" }], "aria-describedby": "existing-help" };
@@ -121,11 +120,14 @@ test("multi-select row has a group label and each dropdown receives the shared h
     const label = tree.props.children[0], control = tree.props.children[1], group = draw(control);
     assert.equal(group.props.role, "group");
     assert.equal(group.props["aria-labelledby"], label.props.label_id);
+    const named = [];
     for (const dropdown of all(group, node => node.type === s.components.DropdownMenu)) {
-        const atom = findIn(draw(dropdown), node => node.type === "dropdown");
-        assert.equal(atom.props["aria-describedby"], label.props.description_id);
-        assert.ok(["Device", "Type"].includes(atom.props.secondary_label));
+        // The kit's select: named by its own words, described by the row's help.
+        const select = findIn(draw(dropdown), node => node.type === kitStandIns.Select);
+        assert.equal(select.props["aria-describedby"], label.props.description_id);
+        named.push(select.props["aria-label"]);
     }
+    assert.deepEqual(named, ["Device", "Type"]);
 });
 
 for (const name of ["WordFilter", "MessageFormat"] as const) test(`${name} shares one label and description across its two rows`, async () => {
@@ -152,10 +154,66 @@ test("FormRow preserves a field's error relation while adding its description", 
     assert.equal(findIn(tree, node => node.type === "label").props.htmlFor, input.props.id);
 });
 
+// K-02 (decided on 2026-11-25): a setting turned on and off is the settings' switch, at the row's
+// end like the other single controls, and the row keeps it there in a narrow window.
+// #1369: a choice among many as the kit's searchable dropdown, given the props a grouped radio row
+// takes, so a page swaps one for the other as it is.
+test("a searchable choice's row takes the grouped radio row's props and gives the kit's Combobox its choices", async () => {
+    const s = await setup();
+    const groups = [{ id: "local", label: "On your PC", options: [{ id: "a", label: "Engine A" }] },
+        { id: "api", label: "API", options: [{ id: "b", label: "Engine B" }, { id: "c", label: "Engine C", disabled: true, keywords: ["see"] }] }];
+    const chosen: string[] = [];
+    const selectFunction = (id: string) => { chosen.push(id); };
+    const props = { label: "Translation engine", desc: "Choose one", name: "engine", groups, selectFunction, placeholder: "Not chosen",
+        search_label: "Search engines", search_placeholder: "Filter by name", empty_text: "No matching engines",
+        checked_variable: { state: "ok", data: "b" } };
+    const row = s.render("ComboboxContainer", props);
+    assert.deepEqual([row.props.control_align, row.props.setting_id], ["end", "engine"], "at the row's end; the settings search finds it by its name");
+    const label = row.props.children[0], control = row.props.children[1];
+    assert.equal(control.type, s.components.SettingCombobox);
+    const field = draw(control);
+    assert.equal(field.props.className, "container", "as compact as the row's select fields");
+    const combobox = findIn(field, node => node.type === kitStandIns.Combobox, "the kit's Combobox").props;
+    assert.deepEqual([combobox.value, combobox.onValueChange, combobox.options, combobox.busy, combobox.align], ["b", selectFunction, undefined, false, "end"]);
+    assert.deepEqual(combobox.groups, [
+        { id: "local", label: "On your PC", options: [{ value: "a", label: "Engine A", disabled: undefined, keywords: undefined }] },
+        { id: "api", label: "API", options: [{ value: "b", label: "Engine B", disabled: undefined, keywords: undefined },
+            { value: "c", label: "Engine C", disabled: true, keywords: ["see"] }] },
+    ]);
+    assert.deepEqual([combobox.placeholder, combobox.searchLabel, combobox.searchPlaceholder, combobox.emptyText],
+        ["Not chosen", "Search engines", "Filter by name", "No matching engines"]);
+    assert.deepEqual([combobox["aria-labelledby"], combobox["aria-describedby"]], [label.props.label_id, label.props.description_id]);
+    combobox.onValueChange("a");
+    assert.deepEqual(chosen, ["a"]);
+    // A choice that waits on the engine; a value that is not a choice's id; a list with no groups.
+    const waiting = (data: unknown, state: string, extra: object = {}) =>
+        findIn(draw(s.render("ComboboxContainer", { ...props, ...extra, checked_variable: { state, data } }).props.children[1]),
+            node => node.type === kitStandIns.Combobox).props;
+    assert.deepEqual([waiting("b", "pending").busy, waiting(2, "ok").value, waiting(null, "ok").value], [true, undefined, undefined]);
+    const flat = waiting("x", "ok", { groups: undefined, options: [{ id: "x", label: "Only one" }] });
+    assert.deepEqual([flat.groups, flat.options], [undefined, [{ value: "x", label: "Only one", disabled: undefined, keywords: undefined }]]);
+    assert.deepEqual(waiting("x", "ok", { groups: undefined }).options, [], "no options yet");
+});
+
+test("an on/off setting's row draws the settings' switch at its end, named by the row's label", async () => {
+    const s = await setup();
+    const toggleFunction = () => {};
+    const row = s.render("SwitchContainer", { label: "Setting", variable: { state: "ok", data: true }, toggleFunction, setting_id: "setting" });
+    assert.deepEqual([row.props.control_align, row.props.add_break_point, row.props.setting_id], ["end", false, "setting"]);
+    const control = row.props.children[1];
+    assert.equal(control.type, "switch");
+    assert.deepEqual([control.props.label, control.props.variable.data, control.props.toggleFunction], ["Setting", true, toggleFunction]);
+    // In a narrow window a row that may stack puts its field under its label; the switch's row does not.
+    const narrow = await setup(false, true);
+    const wrapper = (name: string) => drawWith(narrow.runtime, narrow.render(name, { label: "Setting", variable: { state: "ok", data: true } }));
+    assert.equal(wrapper("SwitchContainer").props.className, "container control_end");
+    assert.equal(wrapper("SliderContainer").props.className, "container is_break_point");
+});
+
 // #614: on a page that keeps descriptions out of sight, a row's description is its label's hint.
 test("with hints on, a label's description is its hint, still the control's description, unless kept", async () => {
     const s = await setup(true);
-    const tree = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    const tree = s.render("SwitchContainer", { label: "Setting", desc: "Help" });
     const label = findIn(tree, node => node.type === s.components.LabelComponent);
     const control = tree.props.children[1];
     const rendered = draw(label);
@@ -167,7 +225,7 @@ test("with hints on, a label's description is its hint, still the control's desc
     // The label's own element holds the label only: the hint is beside it, not in its name.
     assert.equal(findIn(rendered, node => node.props?.id === label.props.label_id).props.children, "Setting");
     assert.equal(findIn(rendered, node => node.props?.["data-hint-host"]).props["data-hint-host"], true);
-    const kept = s.render("CheckboxContainer", { label: "UI Language", desc: "UIの言語", keep_desc: true });
+    const kept = s.render("SwitchContainer", { label: "UI Language", desc: "UIの言語", keep_desc: true });
     const keptLabel = findIn(kept, node => node.type === s.components.LabelComponent);
     const keptRendered = draw(keptLabel);
     assert.ok(find(keptRendered, node => node.type === "description"));
@@ -182,7 +240,7 @@ test("with hints on, a label's description is its hint, still the control's desc
 test("a row's lead stays on screen under the label, its details are the hint after it, and the control is described by both", async () => {
     const s = await setup(true);
     const props = { label: "Send usage data", lead: "Sends that the app started.", desc: "What goes with it.", "aria-describedby": "state" };
-    const tree = s.render("CheckboxContainer", props);
+    const tree = s.render("SwitchContainer", props);
     const label = findIn(tree, node => node.type === s.components.LabelComponent);
     const control = tree.props.children[1];
     const rendered = draw(label);
@@ -196,15 +254,15 @@ test("a row's lead stays on screen under the label, its details are the hint aft
     assert.ok(!find(rendered, node => node.props?.["data-hint-host"]));
     assert.equal(findIn(rendered, node => node.props?.id === label.props.label_id).props.children, "Send usage data");
     // The ids hold through a second render, as the others do.
-    assert.equal(s.render("CheckboxContainer", props).props.children[1].props["aria-describedby"], control.props["aria-describedby"]);
+    assert.equal(s.render("SwitchContainer", props).props.children[1].props["aria-describedby"], control.props["aria-describedby"]);
     // On a page that shows descriptions, the sentence comes first and the details are the description.
     const shown = await setup(false);
-    const plain = draw(findIn(shown.render("CheckboxContainer", props), node => node.type === shown.components.LabelComponent));
+    const plain = draw(findIn(shown.render("SwitchContainer", props), node => node.type === shown.components.LabelComponent));
     const parts = nodesIn(plain).filter(node => node.type === "lead" || node.type === "description");
     assert.deepEqual(parts.map(node => [node.type, node.props.text, node.props.details]),
         [["lead", "Sends that the app started.", undefined], ["description", "What goes with it.", undefined]]);
     // A row without a lead is described as before.
-    const none = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    const none = s.render("SwitchContainer", { label: "Setting", desc: "Help" });
     assert.equal(none.props.children[1].props["aria-describedby"], findIn(draw(findIn(none, node => node.type === s.components.LabelComponent)), node => node.type === "hint").props.id);
 });
 
@@ -248,6 +306,10 @@ test("with hints on, a FormRow's description is its label's hint unless the row 
     const kept = runtime.render(FormRow, { label: "Audio route", description: "In use: cable", keepDescription: true, group: true, children: "button" });
     assert.ok(find(kept, node => node.type === "description"));
     assert.ok(!find(kept, node => node.type === "hint"));
+    // Current state under the label stays visible even while the row's description is its hint (#1096).
+    const withStatus = runtime.render(FormRow, { label: "Monitor", status: "Off", description: "Plays on monitor.", group: true, children: "button" });
+    assert.ok(find(withStatus, node => node.type === "hint" && node.props.text === "Plays on monitor."));
+    assert.ok(find(withStatus, node => node.type === "p" && node.props.children === "Off"));
 });
 
 test("with hints on, a setup fold's description is its title's hint and its summary's description", async () => {

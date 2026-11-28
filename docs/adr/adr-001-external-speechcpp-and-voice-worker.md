@@ -13,7 +13,25 @@ evidence:
   - native/tts/README.md
   - native/tts/src/client.rs
 ---
-# ADR 001: 外部speech.cppと独立した音声worker
+# ADR 001: External speech.cpp and an independent voice worker
+
+[日本語版](#adr-001-外部speechcppと独立した音声worker日本語版)
+
+> **Migration note** (2026-11-18, Issue #587): This document is the "ADR 001" section of the former `docs/voice-stack/decisions.md`, split out into a file of its own. The original was written on 2026-10-27 (commit `ad977081`) and did not change until the split. The body is the original text; the only thing added in the split is this note. The front matter at the top holds machine-readable fields that were added after that.
+
+Status: accepted for P1, 2026-10-27.
+
+The HTTP stream from speech.cpp is handled with the standard library. No inference library, torch or model weights are added to VRCT. Only local HTTP is used, with no proxy and no redirects.
+API basis: [speech.cpp server](https://github.com/nyosegawa/speech.cpp/blob/main/docs/server.md).
+`audio/pcm`, mono s16le and `X-Sample-Rate` are validated, and processing stops on an unsupported format.
+Playback does not wait for the whole WAV and keeps the PCM sample boundaries.
+
+Japanese goes to Irodori, other languages to Qwen3-TTS on a separate port. A language that is not set up or not supported gets silence and an error. Only the one explicitly chosen translation target is spoken; when the translation is missing, the original text is not spoken in its place.
+Requests are not resent automatically, because a resend causes double speech from partway through.
+
+---
+
+# ADR 001: 外部speech.cppと独立した音声worker（日本語版）
 
 > **移行の注記**（2026-11-18、Issue #587）：この文書は、旧 `docs/voice-stack/decisions.md` の「ADR 001」の節を、1件ずつのファイルに分けたものである。原文は 2026-10-27 に書かれ（コミット `ad977081`）、分けるまで変わっていない。本文は原文のままで、分けるときに足したのはこの注記だけである。冒頭の front matter は、その後に足した機械可読の項目である。
 

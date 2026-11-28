@@ -26,7 +26,7 @@ speech.cpp のカタログにないことだけを書きます。手で書くデ
   - `cpu`: `slow` は ASTAROT が CPU で計り、動くが数秒遅れるもの（`docs/voice-stack/model-downloads.md`、2026-11-16）。`practical` は speech.cpp 自体が CPU で動かすもの。`impractical` は CPU で計り、声が途切れるか数秒遅れて始まるもの（読み上げのモデル、i7-1255U、2026-11-16）。`unverified` はそれ以外です。
   - `gpu`: `recommended` か `not_needed` です。
   - `id`、`ids`: VAD と話者の分離の項目は `catalog.rs` で id を固定しています（`id`）。読み上げの項目も `catalog.rs` で固定し、1 つの名前の複数のファイルにそれぞれの id があります（`ids` はファイルの種類から id への表）。
-  - `recommended_for`: speech.cpp の開始の言語の代わりに使う言語です。日本語は Irodori、ほかの言語は Qwen3-TTS で読むためです（読み上げの `japanese` と `multilingual` のプロファイル）。開始の言語と同じく、speech.cpp が最初に取得するファイルにだけ付けます。
+  - `recommended_for`: speech.cpp の開始の言語の代わりに使う言語です。日本語は Irodori-TTS、ほかの言語は Qwen3-TTS で読むためです（読み上げの `japanese` と `multilingual` のプロファイル）。開始の言語と同じく、speech.cpp が最初に取得するファイルにだけ付けます。
 
 Python のバックエンド（[`src-python/models/model_downloads/speechcpp_asr.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/speechcpp_asr.py)、[`speechcpp_models.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/speechcpp_models.py)）も同じファイルを読んでいました。0.6.0 でバックエンドと一緒に消しました（#285）。
 

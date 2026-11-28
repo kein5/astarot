@@ -15,7 +15,7 @@ const component = (name: string) => {
 
 test("the whole translation page is inside HintDescriptions", () => {
     const body = component("Translation");
-    assert.match(body, /<HintDescriptions>\s*<div className=\{styles\.container\}>[\s\S]*<TranslationCatalogSection \/>\s*<\/div>\s*<\/HintDescriptions>/);
+    assert.match(body, /<HintDescriptions>\s*<div className=\{styles\.container\}>[\s\S]*<\/AdvancedSection>\s*<\/div>\s*<\/HintDescriptions>/);
 });
 
 test("a model's license and the note on a model of one's own stay under their options", () => {
@@ -35,13 +35,13 @@ test("who is charged, the retired folder and the unavailable models stay on scre
     assert.match(component("TranslationComputeDevice_Box"), /<p role="status">\{t\("config_page\.translation\.translation_compute_device\.restart_note"\)\}<\/p>/);
 });
 
-test("what an LLM engine is sent is said once, in the fold: the sentence on screen, its details as the hint", () => {
+test("what an LLM engine is sent is said once, at the head of the API part: the sentence on screen, its details as the hint", () => {
     const leads = [...page.matchAll(/<Lead text=\{t\("config_page\.translation\.llm_privacy_lead"\)\} details=\{t\("config_page\.translation\.llm_privacy_desc"\)\} \/>/g)];
     assert.equal(leads.length, 1);
     assert.equal([...page.matchAll(/llm_privacy_(lead|desc)/g)].length, 2, "nowhere else on the page");
-    // Inside 「詳細設定」, before the APIs and the local servers it is about.
-    const fold = page.split("<AdvancedSection")[1].split("</AdvancedSection>")[0];
-    assert.ok(fold.indexOf("<Lead ") > 0 && fold.indexOf("<Lead ") < fold.indexOf("<ExternalTranslationAPI_Container />"));
+    // At the head of the API part, before the services and the servers it is about (#1266 ★17).
+    const api = page.split(`<EngineGroup group="api">`)[1].split("</EngineGroup>")[0];
+    assert.ok(api.indexOf("<Lead ") > 0 && api.indexOf("<Lead ") < api.indexOf("<ExternalTranslationAPI_Container />"));
     // The form that adds an API says it the same way, read before anything is added (decided in #951).
     const catalog = read("TranslationCatalog.tsx");
     assert.equal([...catalog.matchAll(/<Lead text=\{t\("config_page\.translation\.llm_privacy_lead"\)\} details=\{t\("config_page\.translation\.llm_privacy_desc"\)\} \/>/g)].length, 1);

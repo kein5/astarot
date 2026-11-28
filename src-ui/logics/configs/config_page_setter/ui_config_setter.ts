@@ -19,6 +19,10 @@ import type { AnySettingDefinition, CategoryApi, ConfigFunctions, SettingCategor
 
 
 // Each entry's default_value is checked against its setting's type (SettingValues in settingTypes.ts).
+// It is what the page shows before the backend's first answer, and after a read at start-up that
+// failed: the core's default (tools/spec_core_catalog.json), or an empty value where the page waits
+// for the core (a device, a model, a path, a number shown only once known). settingDefaults.test.ts
+// checks it.
 // Tests and tools/spec_catalog.py read these entries as text, so keep their keys in the order written.
 export const SETTINGS_ARRAY = [
     {
@@ -119,7 +123,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "EnableAutomaticMicThreshold",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "mic_automatic_threshold",
@@ -127,7 +131,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "MicThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "mic_threshold",
@@ -182,7 +186,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "EnableAutomaticSpeakerThreshold",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "speaker_automatic_threshold",
@@ -190,7 +194,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "SpeakerThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "speaker_threshold",
@@ -224,7 +228,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Appearance",
         Base_Name: "SendMessageButtonType",
-        default_value: "primary",
+        default_value: "show",
         ui_template_id: "select",
         logics_template_id: "get_set",
         base_endpoint_name: "send_message_button_type",
@@ -239,10 +243,20 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "catalog_layout",
     },
+    // The app's theme (#965, logics/theme/themes.ts): the preset in use, or "custom", and the user's
+    // own base and accent colours. The default is the brand's Dark Plum and Lilac.
+    {
+        Category: "Appearance",
+        Base_Name: "Theme",
+        default_value: { preset: "dark_plum", custom: { base: "#261633", accent: "#a47af5" } },
+        ui_template_id: "custom",
+        logics_template_id: "get_set",
+        base_endpoint_name: "theme",
+    },
     {
         Category: "Appearance",
         Base_Name: "ShowResendButton",
-        default_value: true,
+        default_value: false,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "show_resend_button",
@@ -1140,12 +1154,36 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "clipboard",
     },
+    {
+        // Whether SteamVR can start this build (#1384): the Windows package's manifest is beside
+        // the executable. It is in the start-up's answers, so the VR page knows from its first
+        // draw whether it has the switch's row, and nothing moves when SteamVR answers (#912).
+        Category: "Vr",
+        Base_Name: "SteamVrAutoLaunchSupported",
+        default_value: false,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "steamvr_auto_launch_supported",
+    },
+    {
+        // SteamVR starting ASTAROT with itself (#1384). SteamVR keeps the flag, and its own startup
+        // settings change it too: each answer is what SteamVR holds now, or why nothing can be
+        // shown ({ available, reason, enabled }). The VR page asks when it opens; the core tells
+        // when SteamVR comes or goes. The switch says whether it is on by `enabled`.
+        Category: "Vr",
+        Base_Name: "SteamVrAutoLaunch",
+        default_value: null,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        add_endpoint_run_array: ["from_backend"],
+        base_endpoint_name: "steamvr_auto_launch",
+    },
 
     // Others
     {
         Category: "Others",
         Base_Name: "EnableAutoClearMessageInputBox",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "auto_clear_message_box",
@@ -1195,7 +1233,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Others",
         Base_Name: "EnableSendMessageToVrc",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "send_message_to_vrc",
@@ -1203,7 +1241,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Others",
         Base_Name: "EnableNotificationVrcSfx",
-        default_value: false,
+        default_value: true,
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "notification_vrc_sfx",
@@ -1257,7 +1295,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "auto_download_models",
     },
     {
-        // Usage events (the app started; an error by its code) go to VRCT-VOX's receiver unless this is off.
+        // Usage events (the app started; an error by its code) go to ASTAROT's receiver unless this is off.
         Category: "Others",
         Base_Name: "Telemetry",
         default_value: true,
@@ -1269,7 +1307,9 @@ export const SETTINGS_ARRAY = [
         // The one-time notice about usage events: {pending, enabled}. Nothing is sent while it is pending.
         Category: "Others",
         Base_Name: "TelemetryNotice",
-        default_value: { pending: false, enabled: true },
+        // What the core answers with its defaults: a notice never answered (TELEMETRY_NOTICE 0) and
+        // ENABLE_TELEMETRY on. The notice itself opens only on the core's answer (TelemetryNoticeController).
+        default_value: { pending: true, enabled: true },
         ui_template_id: "object",
         logics_template_id: "get_set",
         base_endpoint_name: "telemetry_notice",
@@ -1332,7 +1372,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "AdvancedSettings",
         Base_Name: "WebsocketPort",
-        default_value: 9001,
+        default_value: 2231,
         ui_template_id: "input",
         logics_template_id: "get_set",
         base_endpoint_name: "websocket_port",
@@ -1427,6 +1467,24 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "obs_browser_source_font_outline_color",
     },
     {
+        // Read-only absolute path to config.json (#1096, #1118).
+        Category: "AdvancedSettings",
+        Base_Name: "PathConfig",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_only",
+        base_endpoint_name: "path_config",
+    },
+    {
+        // Effective conversation log directory and last fallback error_code (#1096, #1118).
+        Category: "AdvancedSettings",
+        Base_Name: "PathLogs",
+        default_value: { path: "", error_code: null },
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "path_logs",
+    },
+    {
         // The block an RVC conversion cuts the microphone into, in ms (#531); read at Start.
         // 0: Automatic, the worker's choice (the default).
         Category: "AdvancedSettings",
@@ -1482,6 +1540,50 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "toggle",
         logics_template_id: "get_set",
         base_endpoint_name: "tray_companion_wheel_hint_shown",
+    },
+
+    // Talk AI (#388, experimental feature talk_ai). Changing one of these ends a conversation in
+    // progress (the core stops it), so the page offers them only while none runs.
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiProvider",
+        default_value: "openai",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_provider",
+    },
+    {
+        // The user's vLLM-Omni server: ws:// or wss:// on this PC or in the LAN.
+        Category: "TalkAi",
+        Base_Name: "TalkAiLocalUrl",
+        default_value: "ws://127.0.0.1:8000/v1/realtime",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_local_url",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenIntervalMs",
+        default_value: 1000,
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_interval_ms",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenLongEdge",
+        default_value: 1024,
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_long_edge",
+    },
+    {
+        Category: "TalkAi",
+        Base_Name: "TalkAiScreenDetail",
+        default_value: "auto",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "talk_ai_screen_detail",
     },
 
     // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:

@@ -9,30 +9,38 @@ import type { ModelAdvice } from "../../../../../../logics/voice/modelHardwareAd
 import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, isPrepared, variantLabel } from "../../../../../../logics/voice/modelCatalog";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
+import * as cardPress from "./catalogLayout.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "./catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "./catalogLayout";
+import { Badge, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Progress, Select, SelectOption } from "../../../../../kit/index.ts";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
+import { InputChoice } from "./InputChoice";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../../../../kit/index.ts";
 import { USER_MODEL_FILES, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
+import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
+import { sourceOutcome } from "../../../../../../logics/transcription/listeningModel";
+import type { SourceAsk } from "../../../../../../logics/transcription/listeningModel";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
 // The saved paths each target's Apply replaces, as the page passes them (an RVC model has an index too).
 export type ExpectedPaths = Readonly<Partial<Record<string, { readonly model?: string; readonly index?: string }>>>;
-// A file under review: its catalog row, the catalog version the user saw and whether it is on disk already.
-type SelectedModel = ModelCatalogRow & { catalog_version: string; downloaded: boolean };
+// A file under review: its catalog row and the catalog version the user saw. Only a download is
+// reviewed: a model already on the PC is used from its card (#1263).
+type SelectedModel = ModelCatalogRow & { catalog_version: string };
 // The restrictions the dialog has words for, as names to compare with any kind.
 const RESTRICTION_KINDS: readonly string[] = RESTRICTIONS;
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -92,10 +100,10 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
     const memory = (value: number | null) => isNumber(value) ? gib(value) : t('model_downloads.hardware_unknown');
     return <div className={styles.hardware} aria-label={t('model_downloads.hardware_title')} role="group">
         <h3>{t('model_downloads.hardware_title')}</h3>
-        <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
-            <option value="vr">{t('model_downloads.headroom_vr')}</option>
-            <option value="alone">{t('model_downloads.headroom_alone')}</option>
-        </select></label>
+        <label>{t('model_downloads.headroom')}<Select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
+            <SelectOption value="vr">{t('model_downloads.headroom_vr')}</SelectOption>
+            <SelectOption value="alone">{t('model_downloads.headroom_alone')}</SelectOption>
+        </Select></label>
         <div className={` ${styles.control_column}`}>
             <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
                 {t('model_downloads.hardware_refresh')}</button>
@@ -115,7 +123,8 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
 // What a user compares before choosing (the catalog row's `profile`, docs/voice-stack/model-downloads.md):
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
-// guidance: the measured memory and where it was checked, as the hardware term's hint (#614).
+// guidance: the measured memory and where it was checked, as the hardware term's hint (#614): the
+// value says only how heavy the model is and how it runs (#1266, A-6).
 // part: the whole table, or a grid card's two parts of it: "key", the size and the hardware (and a
 // translation model's memory), on the card; "rest", the languages and the terms, in its fold.
 type FactsPart = "all" | "key" | "rest";
@@ -126,7 +135,6 @@ const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: Model
     const supported = profile?.languages ?? entry.speech?.languages ?? [];
     const hardware = profile && [
         profile.tier && t(`model_catalog.tier.${profile.tier}`),
-        isNumber(profile.memory_bytes) && t("model_catalog.memory", { memory: gib(profile.memory_bytes), device: profile.memory_measured_on }),
         t(`model_catalog.cpu.${profile.cpu}`, { defaultValue: "" }),
         t(`model_catalog.gpu.${profile.gpu}`, { defaultValue: "" }),
     ].filter(Boolean).join(" · ");
@@ -149,9 +157,11 @@ const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: Model
 
 // A short word on the card's head for the state of the shown file; the readout below says more.
 // It ends the name's line, in the same place on every card.
-const StatusBadge = ({ status }: { status: DownloadStatus }) => {
+// A recognition model in use says by which inputs (#1308 ★1): Mic input, Listening, or both.
+const StatusBadge = ({ status, sources = [] }: { status: DownloadStatus; sources?: readonly CaptionSource[] }) => {
     const { t } = useI18n();
-    return <span className={`${styles.badge} ${styles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
+    const text = status === "in_use" && sources.length ? t(`model_catalog.status.in_use_${sources.length > 1 ? "both" : sources[0]}`) : t(`model_catalog.status.${status}`);
+    return <CatalogState state={status}>{text}</CatalogState>;
 };
 
 
@@ -159,8 +169,7 @@ const StatusBadge = ({ status }: { status: DownloadStatus }) => {
 // head, and a plain note that says why. Only guidance: nothing here stops the choice or download.
 const WarningBadge = () => {
     const { t } = useI18n();
-    return <span className={styles.badge} data-tone="hardware_warning">
-        <span className={styles.warning_mark} aria-hidden="true" />{t("model_catalog.hardware_warning.badge")}</span>;
+    return <Badge tone="warning" mark="alert">{t("model_catalog.hardware_warning.badge")}</Badge>;
 };
 const WarningNote = ({ warning }: { warning: HardwareWarning }) => {
     const { t } = useI18n();
@@ -192,7 +201,8 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 
 // Every downloadable model of one use (a target), one card per model with its file types.
 // The download, verification and apply steps are the same as before; only the choice is laid out
-// as a catalog. Nothing here starts a download or changes a setting by itself.
+// as a catalog. Nothing here starts a download by itself; a download taken here is applied once it
+// is ready (#1308 ★3), as the first-run setup's is.
 // only: the catalog ids to show, when the caller asks about one model (a translation weight's row).
 // reserve: the headroom a page with a shared HardwareReadout chose; without it the catalog asks itself.
 // engines: also list the speech engines a user installs (the Japanese TTS catalog).
@@ -201,6 +211,20 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // usable: the catalog ids of the models that hold no path and the app can use (the translation's
 // that count as downloaded in the core). On the PC, such a model is ready, and its card offers no
 // check or preparation (#947).
+// onStart: told the catalog id of each download the user starts here, and of each model on the PC
+// the user chooses to use, for a caller that goes on once that model is there (the switch that
+// asked for the translation model, #1015). Such a caller applies what is ready itself (the
+// recognition fix); without one, a model chosen to use is applied here once its files are checked.
+// reviewAtOnce: with `only`, the review of that one model opens at once when its card would offer
+// it, so the one press that asked reaches the consent (#1266 T-3); onReviewDone hears how it ended,
+// started or not, for a caller that closes with it.
+// chooseIn: the targets whose model is chosen for each input (the recognition models, #1308 ★1):
+// their cards download and say which inputs use them (usedBy, by file path). With `inputs`, their
+// "Use this model" asks which input the model is for, and applies it for that input alone with the
+// same check and apply as Mic input's and Listening's fields above the catalog (listeningModel.ts):
+// `paths` are the saved files each input's apply is checked against, and `running` says a
+// recognition server keeps its model now, which keeps the choice waiting as it keeps the fields.
+// Without `inputs`, they offer no "Use this model".
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -214,9 +238,15 @@ export interface ModelDownloadsProps {
     // What an RVC card's audition uses (#415): the RVC form's pitch and index rate, and the input
     // chosen on the page, which the user's voice is recorded from.
     audition?: RvcAudition | null;
+    onStart?: (id: string) => void;
+    reviewAtOnce?: boolean;
+    onReviewDone?: (started: boolean) => void;
+    chooseIn?: readonly string[];
+    usedBy?: Readonly<Record<string, readonly CaptionSource[]>>;
+    inputs?: { readonly paths: { readonly mic: string; readonly speaker: string }; readonly running: boolean };
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart, reviewAtOnce = false, onReviewDone, chooseIn, usedBy, inputs }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -227,6 +257,18 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const restrictionId = useId();
     const [linkError, setLinkError] = useState<string | null>(null);
     const [choices, setChoices] = useState<Readonly<Record<string, string>>>({}), [ownReserve, setReserve] = useState('vr');
+    // The models on the PC the user chose to use (#1263), with the job each had before: once its
+    // check is ready, it is applied, with no review in between.
+    const [using, setUsing] = useState<Readonly<Record<string, string | null>>>({});
+    // The VAD taken with a recognition model (#1266): by the recognition model's id, the VAD's,
+    // the catalog version the review showed, whether the VAD is on the PC already (it is then
+    // checked, not downloaded), and the recognition model's job before its download. The VAD
+    // follows once that download is done; its card's progress shows on the recognition model's.
+    const [following, setFollowing] = useState<Readonly<Record<string, { id: string; version: string; onPc: boolean; before: string | null }>>>({});
+    const [paired, setPaired] = useState<Readonly<Record<string, string>>>({});
+    // The recognition model on the PC the user chose for an input from its card, checked before it
+    // is applied for that input, as the fields above check theirs: one at a time.
+    const [assigning, setAssigning] = useState<SourceAsk | null>(null);
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
@@ -244,7 +286,16 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         return () => clearInterval(timer);
     }, [hasTTS]);
     const busy = !!pending || Object.values(state.jobs).some(job => activePhases.includes(job.phase));
-    const close = () => { closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null); };
+    // The review opened at once for the model asked about (reviewAtOnce): whether it is still open or
+    // its download was started, told to the caller when it closes.
+    const askedReview = useRef<"open" | "started" | null>(null), reviewAsked = useRef(false);
+    const close = () => {
+        closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null);
+        if (!askedReview.current) return;
+        const started = askedReview.current === "started";
+        askedReview.current = null;
+        onReviewDone?.(started);
+    };
     const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
@@ -261,12 +312,32 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const advice = Object.fromEntries(targets.map(target => [target, target === "translation" ? NO_ADVICE
         : modelAdvice(matching.filter(entry => entry.target === target), hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
     const memory = (value: number | null) => isNumber(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
-    const status = (entry: ModelCatalogRow) => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+    // A model chosen for each input is in use by the inputs whose saved file it is (#1308 ★1).
+    const chosenElsewhere = (target: string) => !!chooseIn?.includes(target);
+    const sourcesOf = (entry: ModelCatalogRow): readonly CaptionSource[] => {
+        const path = chosenElsewhere(entry.target) ? state.downloaded?.[entry.id]?.model : undefined;
+        return path ? usedBy?.[path] ?? [] : [];
+    };
+    const status = (entry: ModelCatalogRow): DownloadStatus => {
+        if (!chosenElsewhere(entry.target)) return downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+        const shown = downloadStatus(entry, state.jobs[entry.id], state.downloaded, undefined);
+        return shown === "downloaded" && sourcesOf(entry).length ? "in_use" : shown;
+    };
+    // A download taken here is applied once it is ready (#1308 ★3, decided on 2026-11-28), as the
+    // first-run setup's is. A model chosen for each input is applied so only while Mic input has none
+    // yet: a model already set is changed in its input's field, never by a download.
+    const appliesOnceReady = (entry: ModelCatalogRow) => !onStart && !(chosenElsewhere(entry.target) && String(expected?.[entry.target]?.model ?? "").trim());
     const translationMode = translationDeviceMode(translationDevice, hardware);
     const warningOf = (entry: ModelCatalogRow) => entry.target !== "translation" ? hardwareWarning(entry, hardware, { deviceMode })
         : translationMode === null ? null : hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const selectedWarning = selected && warningOf(selected);
     const selectedRestrictions = restrictionsOf(selected);
+    // The bundled speech recognition server needs a VAD model too (decided on 2026-11-27, #1266):
+    // a recognition model taken here takes the VAD with it, as the first-run setup does, while no
+    // VAD is set. A caller that goes on by itself (onStart, the recognition fix) prepares its own.
+    const vadRow = targets.includes("vad") && !onStart ? catalog?.models.find(entry => entry.target === "vad") ?? null : null;
+    const vadNeeded = !!vadRow && !String(expected?.vad?.model ?? "").trim() && status(vadRow) !== "in_use" && restrictionsOf(vadRow).length === 0;
+    const companion = selected?.target === "asr" && vadNeeded ? vadRow : null;
     // The consent and every restriction ticked: only then may the review start.
     const agreed = !!selected && canStart(selected, consent, acknowledged);
     // The cards' layout: chosen on the heading's line, except for one model asked about (the
@@ -274,6 +345,77 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const chosenLayout = useCatalogLayout();
     const layout = only ? "list" : chosenLayout;
     const acknowledge = (kind: string, checked: boolean) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
+    // A model already on the PC is used from its card (#1263): its files are checked, never
+    // downloaded, and no review or consent comes in between; the consent was given when it was
+    // downloaded. A caller that goes on once the model is there applies it itself.
+    const use = (entry: ModelCatalogRow, version: string) => {
+        if (!onStart) setUsing(previous => ({ ...previous, [entry.id]: state.jobs[entry.id]?.job_id ?? null }));
+        send("/run/check_model_download", { id: entry.id, catalog_version: version });
+        onStart?.(entry.id);
+    };
+    // A checked model is applied once its check is ready; a check that failed says why on its card.
+    // A ready check that cannot be applied now (the field was edited, a server runs) stays ready,
+    // with its Apply button and the reason, as a finished download does.
+    useEffect(() => {
+        for (const [id, before] of Object.entries(using)) {
+            const job = state.jobs[id];
+            if (!job || job.job_id === before || activePhases.includes(job.phase)) continue;
+            const entry = catalog?.models.find(model => model.id === id);
+            const savedPaths = entry ? expected?.[entry.target] : undefined;
+            if (job.phase === "ready" && savedPaths && !blocked) {
+                if (pending) continue;
+                send("/run/apply_model_download", { id, job_id: job.job_id, expected: savedPaths });
+            }
+            setUsing(({ [id]: _done, ...rest }) => rest);
+        }
+    }, [using, state.jobs, catalog, expected, blocked, pending, send]);
+    // A model chosen for an input is applied for it once its check is ready, with the saved file
+    // of that input; a check that failed or was stopped applies nothing and says why on its card.
+    const assigned = sourceOutcome(assigning, state.jobs, inputs?.paths ?? { mic: "", speaker: "" });
+    useEffect(() => {
+        if (!assigned) return;
+        setAssigning(null);
+        if (assigned !== "ended") send("/run/apply_model_download", assigned);
+    }, [assigned === "ended" ? "ended" : assigned?.job_id]);
+    const assign = (entry: ModelCatalogRow, version: string, source: CaptionSource) => {
+        setAssigning({ id: entry.id, before: state.jobs[entry.id]?.job_id ?? null, source });
+        send("/run/check_model_download", { id: entry.id, catalog_version: version });
+    };
+    // Why no input can take a model now, said in the card's menu: a recognition server keeps its
+    // model (the fields above wait for it too), or the page holds the paths it would replace.
+    const inputsWait = inputs?.running ? t("source_models.running")
+        : blocked ? t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked") : null;
+    // The VAD follows the recognition model's download, one download at a time: a VAD on the PC is
+    // checked, another downloaded with the consent given in the review; either is applied once
+    // ready (using, above). A download that failed or was stopped takes no VAD with it.
+    useEffect(() => {
+        for (const [id, next] of Object.entries(following)) {
+            const job = state.jobs[id];
+            if (!job || job.job_id === next.before || activePhases.includes(job.phase)) continue;
+            const vad = catalog?.models.find(model => model.id === next.id);
+            if (["ready", "applied"].includes(job.phase) && vad) {
+                if (pending || Object.values(state.jobs).some(other => activePhases.includes(other.phase))) continue;
+                setUsing(previous => ({ ...previous, [vad.id]: state.jobs[vad.id]?.job_id ?? null }));
+                if (next.onPc) send("/run/check_model_download", { id: vad.id, catalog_version: next.version });
+                else send("/run/start_model_download", { id: vad.id, consent: true, catalog_version: next.version });
+            }
+            setFollowing(({ [id]: _done, ...rest }) => rest);
+        }
+    }, [following, state.jobs, catalog, pending, send]);
+
+    // The model a caller asks about (reviewAtOnce, `only`): its review opens once the catalog is
+    // here, when the model is one file not on the PC, as its card's 「取得内容を確認」 would open it.
+    // A model with several files keeps its card, where the file is chosen first.
+    useEffect(() => {
+        if (!reviewAtOnce || !only || reviewAsked.current || !catalog) return;
+        reviewAsked.current = true;
+        const families = targets.flatMap(target => catalogFamilies(matching.filter(entry => entry.target === target)));
+        const row = families.length === 1 && families[0].rows.length === 1 ? families[0].rows[0] : null;
+        if (!row || ["downloaded", "in_use"].includes(status(row)) || activePhases.includes(state.jobs[row.id]?.phase)) return;
+        askedReview.current = "open";
+        setConsent(false); setAcknowledged([]);
+        setSelected({ ...row, catalog_version: catalog.catalog_version });
+    });
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
     const card = (target: string, family: CatalogFamily<ModelCatalogRow>, version: string) => {
@@ -302,14 +444,15 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     <p>{!own && `${entry.name}: `}{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${gib(job.received_bytes)} / ${gib(job.total_bytes)}`}</p>
                 </EnvReadout>
                 {/* The bar spans the card under its readout; the actions share one row below. */}
-                {active && <progress className={styles.progress} aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
+                {active && <Progress aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />}
                 {job.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {job.phase === "ready" && <p>{t("model_downloads.apply_hint")}</p>}
+                {job.phase === "ready" && <p>{t(!chosenElsewhere(entry.target) ? "model_downloads.apply_hint"
+                    : inputs ? "model_catalog.choose_input" : "model_catalog.choose_above")}</p>}
                 {(active || job.phase === "ready") && <div className={styles.actions}>
                     {active && <button type="button" disabled={job.phase === "cancelling" || !!pending?.some(request =>
                         request.endpoint !== "/run/apply_model_download" || request.id !== entry.id || request.job_id !== job.job_id)}
                         onClick={() => request("/run/cancel_model_download", entry, job)}>{t("model_downloads.cancel")}</button>}
-                    {job.phase === "ready" && <button type="button" className="primary" disabled={busy || !!blocked || !savedPaths}
+                    {job.phase === "ready" && !chosenElsewhere(entry.target) && <button type="button" className="primary" disabled={busy || !!blocked || !savedPaths}
                         onClick={() => send("/run/apply_model_download", { id: entry.id, job_id: job.job_id, expected: savedPaths })}>{t("model_downloads.apply")}</button>}
                 </div>}
                 {job.phase === "ready" && blocked && <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
@@ -320,7 +463,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // figure says where it was checked alone (showsValidation, #566).
         const record = current.guidance;
         const measured = isNumber(record?.reference_memory_bytes) ? record.reference_memory_bytes : null;
-        const guidance = record && showsValidation(current) ? [
+        // The memory speech.cpp measured for the file, and on what, goes with them, out of the
+        // hardware's value (DESIGN.md "Components", #1266 A-6).
+        const profileMemory = current.profile && isNumber(current.profile.memory_bytes) ? t("model_catalog.memory",
+            { memory: gib(current.profile.memory_bytes), device: current.profile.memory_measured_on }) : null;
+        const checks = record && showsValidation(current) ? [
             // A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit.
             measured !== null && `${t(`model_downloads.tier_${record.tier}`)} · ${t([`model_downloads.memory_reference_${record.tier}`, 'model_downloads.memory_reference'])}: ${memory(measured)}`,
             // A check that names no device (the voice changer's) says what it covered in its scope.
@@ -328,7 +475,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 && `${t([`model_downloads.validation_${record.validation.state}_${record.tier}`, `model_downloads.validation_${record.validation.state}`])} ${record.validation.device ?? ''}`.trim(),
             record.validation.scope && t(`model_downloads.scope_${record.validation.scope}`),
             measured !== null && hint.device && hint.device.description !== record.validation.device && t('model_downloads.gpu_unverified'),
-        ].filter((line): line is string => typeof line === "string") : null;
+        ].filter((line): line is string => typeof line === "string") : [];
+        const guidance = profileMemory || checks.length ? [...(profileMemory ? [profileMemory] : []), ...checks] : null;
         // The hint needs the hardware row, which a row with a profile has.
         const guidanceHint = hints && !!guidance && !!current.profile;
         const grid = layout === "grid";
@@ -341,14 +489,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // The file shown and the choice of the others.
         const file = <>
             {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
-                <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
+                <Select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
                     onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
-                    {family.rows.map(entry => <option key={entry.id} value={entry.id}>
+                    {family.rows.map(entry => <SelectOption key={entry.id} value={entry.id}>
                         {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
                             ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
                             warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-                    </option>)}
-                </select></label>}
+                    </SelectOption>)}
+                </Select></label>}
             {/* One file: its type as the first fact, in the terms' column and the values'. */}
             {family.rows.length === 1 && variantLabel(current) !== current.name &&
                 <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
@@ -357,73 +505,109 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // Only after the user picks another file; the file in use shown first is not a choice.
         const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
             <p>{t('model_downloads.manual_choice')}</p>;
-        const prepareHint = downloaded && !prepared && !job && <p>{t("model_catalog.prepare_hint")}</p>;
+        // A check of the files on the PC found them changed: getting them again is a download, reviewed.
+        const changed = job?.phase === "failed" && ["model_files_changed", "model_not_downloaded"].includes(job.error_code ?? "");
+        // A model chosen for each input (#1308 ★1): in its input's field above, and, with `inputs`,
+        // from its card, for the input the user picks.
+        const choosesAbove = chosenElsewhere(current.target);
+        const usedFor = sourcesOf(current);
+        // Its card chooses it for an input while it is on the PC (or checked and not applied) and
+        // an input does not use it yet: its "Use this model" opens the menu of the two inputs.
+        const choosesInput = choosesAbove && !!inputs && !changed && (downloaded || shownStatus === "ready") && usedFor.length < 2;
+        const useHint = downloaded && !prepared && !job && (!choosesAbove || shownStatus === "downloaded") &&
+            <p>{t(!choosesAbove ? "model_catalog.use_hint" : inputs ? "model_catalog.choose_input" : "model_catalog.choose_above")}</p>;
+        // The card's main action is pressed anywhere on it (#1254): a model on the PC is used (a
+        // recognition model, for the input chosen in its menu), one that is not has its download
+        // reviewed. The card in use, or one being downloaded or checked, has nothing to press: its
+        // readout's Cancel or Apply is what it offers. A recognition model used by one input can
+        // still be chosen for the other.
+        const pressable = choosesInput || (!prepared && !["working", "ready"].includes(shownStatus) && !(choosesAbove && downloaded && !changed));
+        const press = pressable ? cardPress.press : undefined;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
-            summary={t(measured !== null ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
+            summary={t(measured !== null || profileMemory ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
         </Fold>;
         // What runs comes first, with its own actions; the card's actions follow, as before.
         const run = <>
             {jobView(current, true)}
             {others.map(entry => jobView(entry, false))}
+            {/* The VAD taken with this model (#1266): its download and check, here where it was asked for. */}
+            {paired[current.id] && (() => {
+                const vad = catalog?.models.find(model => model.id === paired[current.id]);
+                const vadJob = vad && state.jobs[vad.id];
+                return vad && vadJob && (activePhases.includes(vadJob.phase) || vadJob.phase === "ready" || vadJob.phase === "failed") ? jobView(vad, false) : null;
+            })()}
             <div className={styles.actions}>
-                {!prepared && <button type="button" disabled={busy} onClick={() => {
-                    setConsent(false);
-                    setAcknowledged([]);
-                    setSelected({ ...current, catalog_version: version, downloaded });
-                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>}
+                {choosesInput ? <InputChoice name={label} id={current.id} used={usedFor} waiting={inputsWait} disabled={busy}
+                    className={press} onChoose={source => assign(current, version, source)} />
+                : !prepared && !(choosesAbove && downloaded && !changed) && (downloaded && !changed
+                    // On the PC: used at once, with its files checked (#1263). Its Apply needs the
+                    // saved paths and an unchanged field, as a download's does.
+                    ? <button type="button" className={press ? `primary ${press}` : "primary"} data-use-model={current.id}
+                        aria-label={t("model_catalog.use_named", { name: label })}
+                        disabled={busy || (!onStart && (!!blocked || !expected?.[current.target]))}
+                        onClick={() => use(current, version)}>{t("model_catalog.use")}</button>
+                    : <button type="button" className={press} aria-label={t("model_catalog.review_named", { name: label })} disabled={busy} onClick={() => {
+                        setConsent(false);
+                        setAcknowledged([]);
+                        setSelected({ ...current, catalog_version: version });
+                    }}>{t("model_downloads.review")}</button>)}
                 {/* The TTS models: a short sentence on the monitor output only; the RVC models: that sentence converted (#415). */}
                 <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />
             </div>
+            {/* Why Use waits, as a ready download's Apply says it. */}
+            {!prepared && downloaded && !changed && !onStart && blocked && !job && !choosesAbove &&
+                <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
         </>;
         const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
         // the file and its facts, then what runs and what can be done. In the grid a card keeps
         // what it is, its size and hardware, and what can be done; the file's choice, the
         // languages, the terms and the notes are in its fold.
-        return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
-            <div className={styles.card_intro}>
+        return <Card as="li" key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label}
+            active={shownStatus === "in_use"} data-status={shownStatus} className={pressable ? cardPress.pressable : undefined}>
+            <CardHeader>
                 {/* The name and the state on one line, so every card's state is at the same place;
                     what speaks for or against the model under it. */}
                 <div className={styles.card_head}>
-                    <strong>{label}</strong>
-                    <StatusBadge status={shownStatus} />
+                    <CardTitle>{label}</CardTitle>
+                    <StatusBadge status={shownStatus} sources={sourcesOf(current)} />
                 </div>
                 {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
-                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{recommended}</span>}
-                    {fits && <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
+                    {suggested.length > 0 && <Badge tone="accent">{recommended}</Badge>}
+                    {fits && <Badge tone="accent">{t("model_catalog.fits_memory")}</Badge>}
                     {warning && <WarningBadge />}
                 </div>}
-                {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
+                {current.profile?.summary && <CardDescription>{t(`model_downloads.summary.${current.profile.summary}`)}</CardDescription>}
                 {!grid && warning && <WarningNote warning={warning} />}
-            </div>
+            </CardHeader>
             {grid && <ModelFacts entry={current} guidance={factsGuidance} part="key" className={styles.card_key} />}
             {grid
                 ? <CatalogFacts layout="grid" summary={variantLabel(current) !== current.name
                     ? t("model_catalog.layout.facts_of", { file: variantLabel(current) }) : undefined}>
                     {warning && <WarningNote warning={warning} />}
-                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{prepareHint}
+                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{useHint}
                     {auditionNote}
                     {guidanceFold}
                 </CatalogFacts>
-                : <div className={styles.card_spec}>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</div>}
-            <div className={styles.card_foot}>
+                : <CardContent>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</CardContent>}
+            <CardFooter>
                 {run}
-                {!grid && prepareHint}
+                {!grid && useHint}
                 {!grid && auditionNote}
                 {!grid && guidanceFold}
-            </div>
-        </li>;
+            </CardFooter>
+        </Card>;
     };
 
     return <section ref={section} tabIndex={-1} className={styles.container} aria-label={t("model_downloads.title")}>
         {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")], undefined, !only && <CatalogLayoutSwitch />)}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
         {hasTTS && !shared && <>
-            <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
-                <option value="vr">{t('model_downloads.headroom_vr')}</option>
-                <option value="alone">{t('model_downloads.headroom_alone')}</option>
-            </select></label>
+            <label>{t('model_downloads.headroom')}<Select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
+                <SelectOption value="vr">{t('model_downloads.headroom_vr')}</SelectOption>
+                <SelectOption value="alone">{t('model_downloads.headroom_alone')}</SelectOption>
+            </Select></label>
             <div className={` ${styles.control_column}`}>
                 <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
                     {t('model_downloads.hardware_refresh')}</button>
@@ -470,41 +654,59 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t('model_downloads.memory_boundary')}</p>
         </Fold>}
         {engines && targets.includes("japanese") && <EngineCatalog layout={layout} />}
-        {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <div className={styles.dialog_text}>
-                <h3>{t("model_downloads.warning_title")}</h3>
-                <p>{selected.name} · {selected.provider}</p>
-                <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
+        {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
+                {/* One line per file: its name, license and size (decided on 2026-11-27, #1266). */}
+                {[selected, ...(companion ? [companion] : [])].map(model =>
+                    <p key={model.id}>{[model.name, model.license, fileSize(model.total_bytes)].filter(Boolean).join(" · ")}</p>)}
+                {companion && <p>{t("model_downloads.with_vad")}</p>}
                 {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
-                {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
                 {selectedWarning && <WarningNote warning={selectedWarning} />}
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
                 {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
-                {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
                 {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
                 {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
-                {!selected.downloaded && <p>{t("model_downloads.connection_notice")}</p>}
-                <p>{t("model_downloads.no_start")}</p>
-                <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-                <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
+                <p>{t("model_downloads.connection_notice")}</p>
+                {/* The rest is in the breakdown (#1266): who provides it, its pages, where it goes,
+                    each file's exact size, and what the download does not do. */}
+                <Fold size="link" summary={t("model_downloads.breakdown")}>
+                    {[selected, ...(companion ? [{ ...companion, catalog_version: selected.catalog_version }] : [])].map(model => <div key={model.id}>
+                        {companion && <p><strong>{model.name}</strong></p>}
+                        {model.provider && <p>{t("model_downloads.provider", { provider: model.provider })}</p>}
+                        <p>{t("model_downloads.source")}: <a href={model.source} onClick={event => openLink(event, model.source)} target="_blank" rel="noreferrer">{model.repo}</a></p>
+                        <p>{t("model_downloads.license_links")}: {model.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(model, url, i)}</a> </span>)}</p>
+                        <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{model.destination}</code></p>
+                        <ul className={styles.dialog_files}>{model.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+                    </div>)}
+                    <p>{t("model_downloads.no_start")}</p>
+                </Fold>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
-                <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
-            </div>
+            </DialogHeader>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             {/* One more checkbox per restriction, each ticked on its own (#411). */}
             {selectedRestrictions.filter(kind => RESTRICTION_KINDS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>
                 <input type="checkbox" checked={acknowledged.includes(kind)} aria-describedby={`${restrictionId}-${kind}`}
                     onChange={event => acknowledge(kind, event.target.checked)} />
                 {t(`model_downloads.restriction.${kind}.acknowledge`, { license: selected.license })}</label>)}
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" className="primary" disabled={!agreed || busy} onClick={() => {
+            <DialogFooter>
+                <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
+                <Button tone="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
-                    send("/run/start_model_download", startRequest(selected, acknowledged)); close();
-                }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
-            </div>
-        </dialog>}
+                    if (appliesOnceReady(selected)) setUsing(previous => ({ ...previous, [selected.id]: state.jobs[selected.id]?.job_id ?? null }));
+                    send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id);
+                    if (askedReview.current) askedReview.current = "started";
+                    // The VAD follows with the same consent (#1266).
+                    if (companion) {
+                        setFollowing(previous => ({ ...previous, [selected.id]: { id: companion.id, version: selected.catalog_version,
+                            onPc: status(companion) === "downloaded", before: state.jobs[selected.id]?.job_id ?? null } }));
+                        setPaired(previous => ({ ...previous, [selected.id]: companion.id }));
+                    }
+                    close();
+                }}>{t("model_downloads.start")}</Button>
+            </DialogFooter>
+        </Dialog>}
         {error && <p role="alert">{t([`user_models.errors.${error}`, `model_downloads.errors.${error}`, "model_downloads.errors.download_failed"])}</p>}
         {!catalog && <button type="button" onClick={() => send("/get/data/model_download_catalog")}>{t("voice.retry")}</button>}
     </section>;

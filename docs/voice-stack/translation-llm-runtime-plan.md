@@ -1,4 +1,164 @@
-# 翻訳の LLM の実行基盤の選定と導入の計画（2026-11-19）
+# Plan for choosing and adding a translation LLM runtime (2026-11-19)
+
+[日本語版](#翻訳の-llm-の実行基盤の選定と導入の計画2026-11-19日本語版)
+
+Researched on 2026-11-19. Status: **proposal** (decisions 1, 2, 4, 5 and 7 were made on 2026-11-19; see 8). This is stage 2 of [ADR-015](../adr/adr-015-translation-llm-runtime-exception.md) and input for Issue #412. The maintainers decide, and this plan itself does not change code, the catalog or displayed text. The progress of the stage 3 implementation of the recommended option is in the table at the end of 6, and the measurement results are in "Measurements for 3-6" in 6.
+
+This plan chooses an LLM runtime for running TranslateGemma inside the app, and summarizes the effect on the distribution's size, whether to bundle the runtime or fetch it later, and the licenses. The figures come from release information published as of 2026-11-19 (metadata returned by the GitHub, NuGet, PyPI and Hugging Face APIs), and no files were downloaded. Speed and memory were not measured (6).
+
+## 1. Premises
+
+- On 2026-11-19 the maintainers decided to run TranslateGemma on an LLM runtime, handled as an exception to ADR-012. Handling consent to the terms of the gated weights is also in scope for the implementation (Issue #412, ADR-015).
+- The default translation engine and model do not change. TranslateGemma is used only when the user selects it.
+- The app's current setup (develop as of 2026-11-19) is as follows.
+  - Speech recognition and TTS run the bundled speech.cpp server in a separate process (GGML, Vulkan). The core's `native/speech-server` handles startup, the port, the readiness check and stopping.
+  - Local translation and OCR use ONNX Runtime 1.31.0 (the CPU build is bundled).
+  - The GPU runtime for voice conversion (the GPU build of ONNX Runtime, CUDA and cuDNN) is not bundled. After the user consents, it is fetched from Hugging Face, NuGet and PyPI with its versions and SHA-256 pinned (`native/voice-conversion/src/runtime.rs`).
+
+## 2. Comparing the candidates
+
+| Item | llama.cpp (`llama-server`) | ONNX Runtime GenAI |
+|---|---|---|
+| License | MIT | MIT |
+| Version (2026-11-19) | b12529 (GitHub Release) | 0.20.0 (NuGet, PyPI) |
+| Distribution size (Windows x64) | CPU build 25.7 MB, Vulkan build 38.9 MB (ZIP). The CUDA 13.5 build is 229.0 MB, plus 426.3 MB of CUDA runtime libraries | Library 4.9 MB (Python wheel). ONNX Runtime 1.32.0 is also needed. The CUDA build's library is 9.2 MB and needs the GPU build of ONNX Runtime and CUDA |
+| Distribution size (Linux x64) | CPU build 23.9 MB, Vulkan build 36.9 MB (tar.gz). The CUDA build is 228.0 MB plus the runtime libraries | Library 7.2 MB (CUDA build 12.6 MB). ONNX Runtime 1.32.0 is also needed |
+| GPU | Vulkan (NVIDIA, AMD, Intel), CUDA and others | CUDA. The DirectML build stopped being updated at 0.14.1 (ONNX Runtime 1.23.0) |
+| Model format | GGUF (one file) | A folder of ONNX files and `genai_config.json` |
+| Size of TranslateGemma 4B | 2.49 GB at Q4_K_M, 4.13 GB at Q8_0 (sizes of third-party conversions; text only) | About 3.09 GB as int4 ONNX (size of a third-party conversion) |
+| How the app connects | An HTTP server in a separate process (`/completion`, OpenAI-compatible API). It can be managed the same way as the speech.cpp server | A C API loaded into the core's process. Rust needs its own FFI |
+| Relation to the current base | The same GGML family as speech.cpp. Vulkan device selection and GPU handling are easy to align | The same ONNX Runtime as OCR and translation, but the bundled 1.31.0 has to be raised to 1.32.0. Raising it also moves the version used by OCR, translation and voice conversion |
+
+Other Rust runtimes (mistral.rs, candle and others) were not compared this time, because it is unknown whether they run on Vulkan and how much work converting Gemma 3 takes.
+
+## 3. Recommendation: run llama.cpp's `llama-server` in a separate process
+
+The reasons are as follows.
+
+- It can be managed the same way as the speech.cpp server (a separate process, port 0, a readiness check, stopping). If the runtime crashes, it does not take the core or the audio path down with it (2.4 of ADR-015).
+- The Vulkan build can use NVIDIA, AMD and Intel GPUs and is about 13 MB larger than the CPU build. Its device selection can match speech.cpp's Vulkan device selection (`Vulkan0`, `Vulkan1`).
+- It adds no C++ build to the core. A published build is pinned and fetched.
+- ONNX Runtime GenAI needs the bundled ONNX Runtime to be upgraded, and its DirectML build for Windows is no longer updated. It would also need new FFI code in the core.
+
+## 4. Distribution: do not bundle; fetch when selected
+
+- The runtime is not put in the app's ZIP or AppImage. The distribution size does not change.
+- When the user selects TranslateGemma and consents on the download screen, the app fetches a pinned version of `llama-server`. Only the Vulkan builds for Windows and Linux x64 are offered, and the same build is used when running on the CPU only (decision 5, decided on 2026-11-19). The CUDA build (over 600 MB with its runtime libraries) is not handled at first.
+- What is fetched has its version, size and SHA-256 pinned. The source is one of the following two, which is decision 2.
+  - (a) The GitHub Release (a pinned tag of `ggml-org/llama.cpp`). Add the GitHub Release hosts to the download allowlists (`HOSTS` in `native/ops/src/downloads/transport.rs` and `SOURCE_HOSTS` of the voice conversion runtime).
+  - (b) Copy it to the project's Hugging Face repository. The current download mechanism (Hugging Face only) can stay as it is, but copying the files and adding the original license text take work.
+- Bundling the runtime (the ZIP grows by 25.7 MB with the Windows CPU build) is not recommended, because it raises everyone's download size for a feature few people use.
+
+## 5. Weights and consent to the terms
+
+### 5.1 Obtaining the weights
+
+The official weights (`google/translategemma-4b-it`) are gated and contain only 16-bit safetensors. There is no official GGUF version. Converting them to GGUF on the user's PC needs Python, and the app does not bundle Python. That leaves the following two options.
+
+| Option | What it is | Advantages | Costs |
+|---|---|---|---|
+| (A) The project converts and publishes | The maintainers pass the gate of the official weights and convert them to GGUF (such as Q4_K_M) with llama.cpp's conversion tools. They publish the result on the project's account with the Gemma terms, the Prohibited Use Policy and `NOTICE`. No gate is added | Users need no sign-in and no token. The same form as the precedent (Irodori-TTS v4 Large) | The project becomes a distributor and takes on the obligations of section 3.1 of the terms. Converting and publishing are work for the maintainers |
+| (B) Publish the conversion from (A) with a gate | Publish the same conversion as (A) behind a Hugging Face gate (acceptance of the terms) | Consent to the terms is also recorded by Hugging Face's mechanism | Users need a Hugging Face account and a token. The app needs a way to receive the token (kept in the OS credential store and attached only to requests to `huggingface.co`; ADR-013) |
+
+The recommendation is (A). Under (A), the decision's "handling consent to the terms of the gated weights" is implemented as consent on the app's download screen (5.2). If (B) is chosen, add screens and tests for receiving, storing and deleting the token to stage 3.
+
+### 5.2 Consent on the download screen
+
+- Add the kind `gemma_terms` to the "restriction acknowledgement" added in #642. For an entry whose license string includes the Gemma Terms of Use, show links to the terms and to the Prohibited Use Policy before the download, state that the terms also apply to the person using the model, and require a checkbox separate from consent. Without that checkbox, the core refuses the download.
+- Require this acknowledgement only for translation entries. Do not add it to Irodori-TTS v4 Large, which is under the same terms (decision 4, decided on 2026-11-19).
+- Fetching the runtime (`llama-server`) also asks for consent, showing the MIT license and the download size.
+
+## 6. Order of the stage 3 implementation
+
+| Step | What | Main places |
+|---|---|---|
+| 3-1 | The `gemma_terms` kind of terms acknowledgement (5.2) | `native/ops/src/downloads/catalog.rs`, `manager.rs`, `ModelDownloads.tsx`, `locales/` |
+| 3-2 | Fetching and verifying `llama-server` (pinned version, size and SHA-256, consent, source hosts) | `native/ops`, or a new module shaped like the voice conversion runtime |
+| 3-3 | Managing the `llama-server` process (startup, port 0, readiness check, stopping, a notice when it crashes). Test with a fake server | Follow the management of the speech.cpp server (`native/speech-server`) |
+| 3-4 | The translation provider. Build TranslateGemma's template text and send it to `/completion` (no system role, ISO codes for languages, no conversation context, temperature 0). Do not log the source text or the translation | `native/translation` |
+| 3-5 | The catalog. Add the runtime `llamacpp` to the translation catalog's inference-engine group and make TranslateGemma 4B a built-in entry. List the model published under (A) with its version, size and SHA-256 pinned | `translation_catalog.rs`, and `native/ops/data/translation_models.json` or new data |
+| 3-6 | Measurement (5 of ADR-015). Measure 4B's load time, maximum memory and VRAM and time per utterance, alongside VRChat, speech recognition and TTS, on Windows and Linux. Compare translation quality with NLLB-200 and M2M100 on the same sentences | Real hardware |
+| 3-7 | Records. `NOTICE.md`, the license register, the model download document, the manual | Documents |
+
+If the results of 3-6 do not meet the conditions in 5 of ADR-015, do not put the feature in the product, and revisit ADR-015.
+
+### Progress of stage 3 (2026-11-19)
+
+The stage was implemented with the recommended option (llama.cpp, (a) GitHub Release) and adjusted to the decisions of 2026-11-19 (decisions 2, 4 and 5).
+
+| Step | State | What |
+|---|---|---|
+| 3-1 | Implemented | The `gemma_terms` acknowledgement. It applies only to translation entries, not to Irodori-TTS v4 Large (decision 4) |
+| 3-2 | Implemented | `llama-server` from llama.cpp b12125 (the Vulkan builds for Windows and Linux x64 only) is fetched from the GitHub Release after consent. `github.com` and `release-assets.githubusercontent.com` were added to the source hosts (decisions 2 and 5) |
+| 3-3 | Implemented | `llama` in `native/speech-server` owns the process. Tested with a fake server |
+| 3-4 | Implemented | `translategemma` in `native/translation` builds the template text and sends it to `/completion` |
+| 3-5 | Partly | `llamacpp` was added to the translation catalog's inference-engine group, and users can add their own GGUF file. The file path goes in the entry's `file` (`translation_catalog.json` is version 2 while such an entry exists). The built-in TranslateGemma entry is not listed until the (A) conversion is published (decision 3) |
+| 3-6 | Partly | Load time, memory and VRAM, time per utterance and translation quality were measured on one Windows PC ("Measurements for 3-6" below). Measurements alongside VRChat, speech recognition and TTS, and on Linux, are not done yet |
+| 3-7 | Partly | Recorded in `NOTICE.md`, the license register, [model downloads](model-downloads.md#翻訳のカタログ413) and the spec. The manual is not done yet |
+
+### Measurements for 3-6 (2026-11-19, Windows)
+
+With approval, a third-party GGUF conversion and the pinned `llama-server` were downloaded and measured. The downloaded files were deleted after the measurement. The source texts and the translations were not recorded.
+
+- Environment: Windows 11 Home (build 26320), Intel Core i7-1255U (10 cores, 12 threads), 32 GB RAM, NVIDIA GeForce RTX 3060 Ti 8 GB (connected over Thunderbolt, driver 617.42) and Intel Iris Xe. The Vulkan build of llama.cpp b12125 (`llama-b12125-bin-win-vulkan-x64.zip`, SHA-256 `29db8012…`). `Vulkan0` is the Iris Xe and `Vulkan1` is the RTX 3060 Ti.
+- Model: `translategemma-4b-it.Q4_K_M.gguf` from [mradermacher/translategemma-4b-it-GGUF](https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/tree/d37868f759d2f817a43d28dd80cf9f982ffa62fd) @ `d37868f759d2f817a43d28dd80cf9f982ffa62fd` (2,489,909,760 bytes, SHA-256 `81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330`, text only).
+- The server started with the same arguments as the app (`--ctx-size 2048 --parallel 1`; `--device VulkanN --n-gpu-layers 999` for a GPU, `--device none --n-gpu-layers 0` for the CPU), with the same template text as the app and `/completion` at temperature 0. For comparison, NLLB-200 distilled 600M and M2M100 418M ran as the int8 ONNX conversions for `native/translate-onnx`, on the CPU through the `astarot-translate` CLI (the CPU build of ONNX Runtime 1.32.0, used the same way as `tools/translation_onnx/compare.py`).
+- Method: the load time runs from startup until `/health` returns 200. RAM is the process's peak working set (`GetProcessMemoryInfo`). VRAM is the largest increase in `nvidia-smi` usage over the level before startup (sampled every 0.25 seconds; the Iris Xe uses shared memory, so it cannot be measured). The time per utterance runs from the request to the answer, for short conversational sentences (30 in English and 30 in Japanese; the first sentence was left out as warm-up).
+- Conditions: the only other process using the GPU was Steam, and VRAM use was 4 MiB before and after the measurement. The CPU was shared with other work (builds and tests from another session, `astarot-translate`), and the CPU usage of the whole PC during the measurement was 74% to 99%. The times may come out slower than on an idle PC.
+
+| Item | TranslateGemma 4B Q4_K_M, RTX 3060 Ti | Same, Iris Xe | Same, CPU only | NLLB-200 600M int8, CPU | M2M100 418M int8, CPU |
+|---|---|---|---|---|---|
+| Load | 7.9–9.0 s | 36.2 s | 3.3–11.6 s | 9.4 s (to the first answer) | 3.7 s (to the first answer) |
+| Peak RAM | 3.2 GB (`--cache-ram 0`) | 3.5 GB | 4.2 GB | 1.4 GB | 1.1 GB |
+| VRAM increase | 2.7 GB | Cannot be measured | 0 | 0 | 0 |
+| Per utterance, en→ja (median / 90th percentile) | 234 / 292–607 ms | 1,413 / 1,643 ms | 2,131 / 2,388 ms | 746 / 973 ms | 538 / 710 ms |
+| Per utterance, ja→en (median / 90th percentile) | 211–217 / 243–347 ms | 1,437 / 1,557 ms | 2,132 / 2,334 ms | 735 / 1,106 ms | 456 / 600 ms |
+| Generation speed | 74–87 tokens/s | 14 tokens/s | 15.5 tokens/s | — | — |
+
+- The pairs of values for the RTX come from a run with the default settings and a run with `--cache-ram 0`. The CPU-only values are from a rerun with `--cache-ram 0`; the first run, when the PC was especially busy, is left out (medians of 4.9 s and 3.3 s, 90th percentile of 14.0 s). The CPU-only load time of 3.3 s was measured with the file already in the OS cache.
+- By default, `llama-server` b12125 uses up to 8 GiB of RAM for the prompt cache. Translating the 800 WMT20 sentences on the RTX grew the process's memory to 11.4 GB. With `--cache-ram 0` it stayed at 3.2 GB, and neither the translations nor the speed changed. Each sentence is translated independently, so the app starts the server with `--cache-ram 0`.
+
+Translation quality (the first 100 sentences of WMT20 in each direction, sacrebleu 2.6.0; BLEU is character-based for Japanese and Chinese and uses 13a for the others; values are BLEU / chrF):
+
+| Direction | TranslateGemma 4B Q4_K_M | NLLB-200 600M int8 | M2M100 418M int8 |
+|---|---|---|---|
+| en-ja | 31.21 / 28.36 | 27.17 / 24.34 | 30.80 / 26.53 |
+| ja-en | 17.07 / 46.88 | 11.11 / 37.88 | 10.62 / 37.48 |
+| en-zh | 33.51 / 30.58 | 22.35 / 21.31 | 28.96 / 24.90 |
+| zh-en | 22.67 / 54.41 | 20.25 / 50.43 | 18.05 / 49.77 |
+| en-de | 29.37 / 58.41 | 29.27 / 57.77 | 23.22 / 53.52 |
+| de-en | 36.91 / 63.65 | 30.95 / 55.90 | 30.82 / 57.64 |
+| en-ru | 15.41 / 46.59 | 15.97 / 45.70 | 12.89 / 41.57 |
+| ru-en | 30.87 / 62.76 | 35.66 / 63.97 | 30.04 / 60.59 |
+| Average | 27.13 / 48.95 | 24.09 / 44.66 | 23.18 / 44.00 |
+
+- TranslateGemma had the highest BLEU and chrF in 6 of the 8 directions, and in ja-en its BLEU was nearly 6 points higher. For en-ru and ru-en, NLLB-200 scored higher.
+- NLLB-200 returned no translation for 4 of the 800 sentences, which were counted as empty translations. TranslateGemma (generation limit of 512 tokens) and M2M100 had no failures.
+- Translation quality was measured only on the RTX 3060 Ti, not on the CPU or the Iris Xe.
+
+Of the conditions in 5 of ADR-015, the values with VRChat, speech recognition and TTS running at the same time and the values on Linux are still missing. On the RTX 3060 Ti one utterance took 0.2 to 0.6 seconds, and the VRAM increase was 2.7 GB. On the CPU only, one utterance takes about 2 seconds.
+
+## 7. Licenses
+
+- llama.cpp and ggml are MIT. Check the licenses of the other components in the Release archives (such as the HTTP server and JSON libraries) against the contents of the version that is fetched, and record them in `NOTICE.md` and the license register (step 3-2).
+- TranslateGemma's weights are under the Gemma Terms of Use and the Prohibited Use Policy. A conversion published under (A) comes with a copy of the terms, the Prohibited Use Policy, a `NOTICE` with the fixed sentence and a model card that states the conversion.
+- ONNX Runtime GenAI is also MIT, but choosing it would require a separate check of what upgrading ONNX Runtime does to OCR, translation and voice conversion.
+
+## 8. Decisions
+
+1. Runtime: llama.cpp (recommended) or ONNX Runtime GenAI. → Decided: llama.cpp (2026-11-19).
+2. Source of `llama-server`: (a) the GitHub Release (adding allowed hosts) or (b) a copy in the project's Hugging Face repository. → Decided: (a) the GitHub Release (2026-11-19).
+3. Form of the weights: (A) publish without a gate, with the terms attached (recommended), or (B) publish with a gate and handle tokens in the app. (Undecided)
+4. Whether to add the terms acknowledgement (`gemma_terms`) to Irodori-TTS v4 Large as well. → Decided: add it only to translation entries, not to Irodori-TTS v4 Large (2026-11-19).
+5. GPUs handled first: only the Vulkan and CPU builds (recommended), or the CUDA build as well. → Decided: offer only the Vulkan build (2026-11-19). The Vulkan build is also used when running on the CPU only.
+6. Quantization: use Q4_K_M (2.49 GB) as the base, or also offer Q8_0 (4.13 GB). To be decided by measurement (3-6). (Undecided; Q8_0 has not been measured yet)
+7. Download for measurement: whether to allow downloading a third-party GGUF conversion and `llama-server` to try them before step 3-6 (several GB). → Allowed, and measured as in "Measurements for 3-6" in 6 (2026-11-19).
+
+Decided during the implementation (decision of 2026-11-19): a `llamacpp` entry puts the GGUF file path in `file`, not in `folder`. While such an entry exists, `translation_catalog.json` is version 2, and earlier app versions that read only version 1 treat the whole file as unreadable (they do not overwrite it). Removing all `llamacpp` entries returns the file to version 1.
+
+---
+
+# 翻訳の LLM の実行基盤の選定と導入の計画（2026-11-19）（日本語版）
 
 調べた日: 2026-11-19。状態: **提案**（判断項目 1、2、4、5、7 は 2026-11-19 に決定。8 を参照）。[ADR-015](../adr/adr-015-translation-llm-runtime-exception.md) の段階 2 で、Issue #412 の材料である。決めるのは保守担当者で、この計画そのものはコード、カタログ、表示する文言を変えていない。推奨の案での段階 3 の実装の進み具合は 6 の末尾の表に、計測の結果は 6 の「3-6 の計測」にある。
 
@@ -100,9 +260,9 @@ TranslateGemma をアプリの中で動かす LLM 用の実行基盤を選び、
 
 - 環境：Windows 11 Home（ビルド 26320）、Intel Core i7-1255U（10 コア 12 スレッド）、RAM 32 GB、NVIDIA GeForce RTX 3060 Ti 8 GB（Thunderbolt 接続、ドライバー 617.42）と Intel Iris Xe。llama.cpp b12125 の Vulkan 版（`llama-b12125-bin-win-vulkan-x64.zip`、SHA-256 `29db8012…`）。`Vulkan0` が Iris Xe、`Vulkan1` が RTX 3060 Ti。
 - モデル：[mradermacher/translategemma-4b-it-GGUF](https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/tree/d37868f759d2f817a43d28dd80cf9f982ffa62fd) @ `d37868f759d2f817a43d28dd80cf9f982ffa62fd` の `translategemma-4b-it.Q4_K_M.gguf`（2,489,909,760 bytes、SHA-256 `81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330`、文章だけ）。
-- 起動はアプリと同じ引数（`--ctx-size 2048 --parallel 1`、GPU は `--device VulkanN --n-gpu-layers 999`、CPU は `--device none --n-gpu-layers 0`）と、アプリと同じテンプレートの文、温度 0 の `/completion`。比べた NLLB-200 distilled 600M と M2M100 418M は、`native/translate-onnx` の int8 の ONNX の変換を `vrct-translate` の CLI で CPU で動かした（ONNX Runtime 1.32.0 の CPU 版、`tools/translation_onnx/compare.py` と同じ使い方）。
+- 起動はアプリと同じ引数（`--ctx-size 2048 --parallel 1`、GPU は `--device VulkanN --n-gpu-layers 999`、CPU は `--device none --n-gpu-layers 0`）と、アプリと同じテンプレートの文、温度 0 の `/completion`。比べた NLLB-200 distilled 600M と M2M100 418M は、`native/translate-onnx` の int8 の ONNX の変換を `astarot-translate` の CLI で CPU で動かした（ONNX Runtime 1.32.0 の CPU 版、`tools/translation_onnx/compare.py` と同じ使い方）。
 - 計り方：読み込みの時間は起動から `/health` が 200 を返すまで。RAM はプロセスの最大のワーキングセット（`GetProcessMemoryInfo`）。VRAM は `nvidia-smi` の使用量の、起動前からの増分の最大（0.25 秒ごと。Iris Xe は共有メモリーなので測れない）。1発話の時間は、短い会話の文（英語 30、日本語 30。最初の1文は暖機として除いた）の要求から答えまで。
-- 条件：GPU を使うほかのプロセスは Steam だけで、計測の前後で VRAM は 4 MiB だった。CPU はほかの作業（別のセッションのビルドや試験、`vrct-translate`）と共有で、計測中の PC 全体の CPU 使用率は 74〜99 % だった。時間の値は静かな PC より遅く出ている可能性がある。
+- 条件：GPU を使うほかのプロセスは Steam だけで、計測の前後で VRAM は 4 MiB だった。CPU はほかの作業（別のセッションのビルドや試験、`astarot-translate`）と共有で、計測中の PC 全体の CPU 使用率は 74〜99 % だった。時間の値は静かな PC より遅く出ている可能性がある。
 
 | 項目 | TranslateGemma 4B Q4_K_M・RTX 3060 Ti | 同・Iris Xe | 同・CPU だけ | NLLB-200 600M int8・CPU | M2M100 418M int8・CPU |
 |---|---|---|---|---|---|

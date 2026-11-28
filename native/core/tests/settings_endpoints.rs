@@ -301,9 +301,9 @@ fn the_remaining_switches_and_choices() {
 
 #[test]
 fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
-    // The listed features (only tray_companion now) start off; the check itself is also tested
+    // The listed features start off; the check itself is also tested
     // with made-up ids in src/config/schema.rs.
-    let off = json!({ "tray_companion": false });
+    let off = json!({ "tray_companion": false, "talk_ai": false });
     let ui = Ui::with(Setup { saved: Some(json!({ "EXPERIMENTAL_FEATURES": { "graduated_long_ago": true } })), ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(snapshot["/get/data/experimental_features"], off, "an id no longer listed is dropped");
@@ -312,9 +312,9 @@ fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
     let answer = ui.request("/set/data/experimental_features", Some(json!("on")));
     assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
     assert_eq!(answer["result"]["data"], off);
-    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "tray_companion": true }))), json!({ "tray_companion": true }));
+    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "tray_companion": true }))), json!({ "tray_companion": true, "talk_ai": false }));
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["EXPERIMENTAL_FEATURES"], json!({ "tray_companion": true }));
+    assert_eq!(ui.saved()["EXPERIMENTAL_FEATURES"], json!({ "tray_companion": true, "talk_ai": false }));
     ui.stop();
 }
 
@@ -326,8 +326,10 @@ fn usage_presets_start_with_the_basic_one_and_keep_the_known_ids_in_order() {
     assert_eq!(snapshot["/get/data/usage_presets"], json!(["basic"]));
     let picked = json!(["nonverbal", "voice_changer"]);
     // Several can be picked; each is kept once, in the list's order, and an id this version
-    // does not know is left out.
+    // does not know is left out. "all" and specific presets are mutually exclusive (#1107).
     assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["voice_changer", "nonverbal", "nonverbal", "a_later_one"]))), picked);
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["basic", "all"]))), json!(["all"]));
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(picked.clone())), picked);
     for bad in [json!([]), json!(["a_later_one"]), json!("basic"), json!([1]), json!(null)] {
         let answer = ui.request("/set/data/usage_presets", Some(bad.clone()));
         assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
@@ -352,6 +354,10 @@ fn an_update_from_a_version_without_usage_presets_shows_every_feature() {
     let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "multilingual"] })), ..Setup::default() });
     assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["basic", "multilingual"]));
     ui.stop();
+    // A saved mix of specific presets and "all" collapses to ["all"] (#1107).
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "all"] })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["all"]));
+    ui.stop();
 }
 
 #[test]
@@ -371,6 +377,47 @@ fn the_catalogs_start_as_a_grid_and_keep_the_layout_chosen() {
     ui.stop();
     let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "CATALOG_LAYOUT": "list" })), ..Setup::default() });
     assert_eq!(ui.ready()["/get/data/catalog_layout"], json!("list"));
+    ui.stop();
+}
+
+#[test]
+fn the_theme_starts_as_dark_plum_and_keeps_the_preset_and_the_own_colours_chosen() {
+    // The app's theme (#965): the brand's Dark Plum at first, with its colours as the user's own;
+    // a preset and the user's own colours when chosen, kept for the next start. The colours are
+    // saved in lower case; the core checks the preset's form, not the UI's list of presets.
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    let default = json!({ "preset": "dark_plum", "custom": { "base": "#261633", "accent": "#a47af5" } });
+    assert_eq!(snapshot["/get/data/theme"], default);
+    let chosen = json!({ "preset": "custom", "custom": { "base": "#10272B", "accent": "#3fc8c2" } });
+    let saved = json!({ "preset": "custom", "custom": { "base": "#10272b", "accent": "#3fc8c2" } });
+    assert_eq!(ui.ok("/set/data/theme", Some(chosen)), saved);
+    assert_eq!(ui.ok("/set/data/theme", Some(json!({ "preset": "a_newer_preset_2", "custom": saved["custom"] })))["preset"],
+        "a_newer_preset_2");
+    for bad in [
+        json!("midnight"),
+        json!({ "preset": "midnight" }),
+        json!({ "preset": "Midnight", "custom": default["custom"] }),
+        json!({ "preset": "", "custom": default["custom"] }),
+        json!({ "preset": "2nd", "custom": default["custom"] }),
+        json!({ "preset": "a".repeat(33), "custom": default["custom"] }),
+        json!({ "preset": "custom", "custom": { "base": "#261633" } }),
+        json!({ "preset": "custom", "custom": { "base": "#261633", "accent": "#a47af5ff" } }),
+        json!({ "preset": "custom", "custom": { "base": "261633", "accent": "#a47af5" } }),
+        json!({ "preset": "custom", "custom": { "base": "#26163g", "accent": "#a47af5" } }),
+        json!({ "preset": "custom", "custom": { "base": "#261633", "accent": "#a47af5", "text": "#ffffff" } }),
+        json!({ "preset": "custom", "custom": default["custom"], "extra": true }),
+        json!(null),
+    ] {
+        let answer = ui.request("/set/data/theme", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/set/data/theme", Some(saved.clone()));
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["THEME"], saved);
+    ui.stop();
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "THEME": saved })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/theme"], saved);
     ui.stop();
 }
 

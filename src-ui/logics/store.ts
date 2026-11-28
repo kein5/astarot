@@ -13,7 +13,6 @@ import {
     translator_status,
 } from "@ui_configs";
 import { keepNewestVrLayout } from "./common/vrPanelTooltip";
-import { requestSettingsNavigation } from "./voice/settingsNavigation";
 
 import { pendingRequestRecovery, restorePendingValue, restoreDownloadPending, staticPendingControls } from "./common/pendingRequestRecovery.ts";
 import { updateMeterValue } from "./common/meterValue.ts";
@@ -26,6 +25,7 @@ import type { GpuMemory } from "./flow/gpuMemory.ts";
 import type { IoFlow, Trace } from "./flow/ioFlow.ts";
 import type { LanguageMutationState } from "./main/languageMutationCoordinator.ts";
 import type { SwitchBlocks } from "./main/switchBlocks.ts";
+import type { VrVoiceControls } from "./voice/voiceActions.ts";
 import type { MessageLogRow } from "./transcription/realtimeCaptionState.ts";
 import type { SpeakerNames } from "./common/speakerNames.ts";
 
@@ -72,8 +72,6 @@ export type AtomPayload<T> = T | AtomUpdater<T>;
 
 interface UpdateOptionsBase {
     remain_state?: boolean;
-    // The voice settings have been asked whether the page may change (requestSettingsNavigation).
-    voice_navigation_confirmed?: boolean;
 }
 
 // lock_state sets the state given in set_state, even over an atom whose state is locked.
@@ -172,13 +170,6 @@ export const createAtomWithHook = <T, N extends string>(initialValue: T, base_na
 
         const updateAtom = (payload: AtomPayload<T>, options: UpdateOptions = {}): void => {
             const { remain_state = false, set_state, lock_state } = options;
-
-            if (!options.voice_navigation_confirmed &&
-                ((base_name === "SelectedConfigTabId" && payload !== currentAtom.data) ||
-                 (base_name === "IsOpenedConfigPage" && payload === false))) {
-                requestSettingsNavigation(() => updateAtom(payload, { ...options, voice_navigation_confirmed: true }));
-                return;
-            }
 
             setAtom((currentValue) => {
                 let new_state: AtomStatus;
@@ -311,9 +302,26 @@ export const { atomInstance: Atom_IsOscAvailable, useHook: useStore_IsOscAvailab
 export const { atomInstance: Atom_OscUnavailableReason, useHook: useStore_OscUnavailableReason } = createAtomWithHook(initial<string | null>(null), "OscUnavailableReason");
 export const { atomInstance: Atom_ComputeMode, useHook: useStore_ComputeMode } = createAtomWithHook("cpu", "ComputeMode");
 export const { atomInstance: Atom_IsOpenedConfigPage, useHook: useStore_IsOpenedConfigPage } = createAtomWithHook(false, "IsOpenedConfigPage");
+// The main window's view of the settings window (#1236). Nothing pauses while it is open (decided on
+// 2026-11-26): the VR panel's settings follow it, and the hotkeys wait only while it shows the
+// Hotkeys page, where the keys pressed are being recorded.
+export const { atomInstance: Atom_IsOpenedSettingsWindow, useHook: useStore_IsOpenedSettingsWindow } = createAtomWithHook(false, "IsOpenedSettingsWindow");
+export const { atomInstance: Atom_IsHotkeysPageOpen, useHook: useStore_IsHotkeysPageOpen } = createAtomWithHook(false, "IsHotkeysPageOpen");
 // Why each main switch cannot be turned on yet (main/switchBlocks.ts): {switch_id: {reason, action}}.
+export const { useHook: useStore_VrCustomTranslationModelNames } = createAtomWithHook(
+    initial<Partial<Record<string, string>>>({}), "VrCustomTranslationModelNames", { is_state_ok: true });
 // The main window works it out once (SwitchBlocksController) and the VR panel reads the same value.
 export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks } = createAtomWithHook(initial<SwitchBlocks>({}), "SwitchBlocks", { is_state_ok: true });
+// Whether Mic input's microphone has taken long to open, as when Windows asks on the desktop whether
+// ASTAROT may use it (#1300, decided on 2026-11-28). The main window works it out
+// (MicCaptureWaitController) and the VR panel's launcher says it, as the question cannot be seen
+// from inside a headset.
+export const { atomInstance: Atom_MicCaptureWaiting, useHook: useStore_MicCaptureWaiting } = createAtomWithHook(false, "MicCaptureWaiting", { is_state_ok: true });
+// The text to speech switch and the stop as the main window shows them (#1314, V-4), for the VR
+// panel's launcher. The main window works them out (VrVoiceControlsController); the launcher's
+// presses come back as vr-panel-voice and run the main window's own switch and stop.
+export const { atomInstance: Atom_VrVoiceControls, useHook: useStore_VrVoiceControls } = createAtomWithHook(
+    initial<VrVoiceControls>({ tts: { on: false, pending: false }, stop: { offered: false, phase: "idle" } }), "VrVoiceControls", { is_state_ok: true });
 export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook(initial<MainFunctionsStateMemory>({
     transcription_send: false,
     transcription_receive: false,
@@ -387,7 +395,6 @@ export const { atomInstance: Atom_SoftwareVersion, useHook: useStore_SoftwareVer
 // Settings open on the first page of their menu (logics/configs/settingsMenu.ts, FIRST_SETTINGS_TAB).
 export const { atomInstance: Atom_SelectedConfigTabId, useHook: useStore_SelectedConfigTabId } = createAtomWithHook("translation", "SelectedConfigTabId");
 export const { atomInstance: Atom_SettingBoxScrollPosition, useHook: useStore_SettingBoxScrollPosition } = createAtomWithHook(0, "SettingBoxScrollPosition");
-export const { atomInstance: Atom_IsOpenedDropdownMenu, useHook: useStore_IsOpenedDropdownMenu } = createAtomWithHook("", "IsOpenedDropdownMenu");
 
 // Device
 // The meters: the backend's level, or "0" when a check stops (useVolume).

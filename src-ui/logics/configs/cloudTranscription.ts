@@ -2,11 +2,13 @@ import { openai_auth_key_url, groq_auth_key_url, deepgram_auth_key_url } from ".
 
 // The part of the generated settings' names that names the engine (GroqWhisperAuthKey, ...).
 export type CloudTranscriptionBase = "GroqWhisper" | "OpenAIWhisper" | "Deepgram" | "CustomWhisper";
+// The part of the endpoints' and locale keys' names that names the engine (groq_whisper_auth_key, ...).
+export type CloudTranscriptionKey = "groq_whisper" | "openai_whisper" | "deepgram" | "custom_whisper";
 
 export type CloudTranscriptionEngine = {
     id: string;
     base: CloudTranscriptionBase;
-    key: string;
+    key: CloudTranscriptionKey;
     webpage_url?: string;
     has_url?: boolean;
     // The user's own connection rather than a service the app provides (#414): a Whisper

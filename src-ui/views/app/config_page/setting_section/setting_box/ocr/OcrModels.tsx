@@ -4,11 +4,14 @@ import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
-import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
-import styles from "./Ocr.module.scss";
+import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
+import * as styles from "./Ocr.css.ts";
+import * as cardPress from "../advanced_settings/catalogLayout.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { Fold } from "../_components/fold/Fold";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
+import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Dialog, DialogFooter, DialogHeader, DialogTitle, Progress } from "../../../../../kit/index.ts";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
@@ -51,6 +54,15 @@ type OcrModelsProps = {
     // The page has not heard yet which models the language needs: the part's bar is drawn with
     // that in its readout, so the page does not move when the answer comes (#912).
     checking?: boolean;
+    // Chat reading cannot start without these (the language's models, not the optional detector):
+    // the part starts open while one is missing, so the missing models are the first thing seen (#1230).
+    required?: boolean;
+    // Drawn in the chat reading fix (#1241, OcrSetupController): the models in a list under their
+    // heading, without the part's fold or the layout buttons, as the speech recognition fix draws
+    // its model (ModelDownloads' only).
+    inFix?: boolean;
+    // A download was started from a card, after its review: the model's id.
+    onStart?: (id: string) => void;
 };
 
 // Chat reading downloads (PP-OCR for the current language, or the optional chatbox
@@ -62,7 +74,7 @@ type OcrModelsProps = {
 // of the part), each with its name and state, its size, its details and its download. The part
 // starts closed as the catalogs' parts do; its readout says how many are on the PC, and the chat
 // reading guide opens it on its way to a model's download (focusOcrModels).
-export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId, checking = false }: OcrModelsProps) => {
+export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId, checking = false, required = false, inFix = false, onStart }: OcrModelsProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, state, error, pending, send } = useModelDownloads();
     const catalog: OcrCatalog | null = downloadCatalog;
@@ -91,85 +103,97 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
         catch { setLinkError(url); }
     };
 
-    const layout = useCatalogLayout();
+    const chosenLayout = useCatalogLayout();
+    const layout = inFix ? "list" : chosenLayout;
     const installedOf = (entry: OcrCatalogModel) => !missing.includes(entry.id) || state.jobs[entry.id]?.phase === "ready";
     const obtained = entries.filter(installedOf).length;
     return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title} data-setting-id={settingId}>
-        <CatalogSection level={3} title={title} help={desc ? [desc] : []}
+        <CatalogSection level={3} title={title} help={desc ? [desc] : []} fold={!inFix} needed={required && !checking && missing.length > 0}
             readout={checking ? t("config_page.ocr.readiness.checking") : t("model_catalog.group_readout", { count: entries.length, obtained })}>
-            <div className={styles.layout}><CatalogLayoutSwitch /></div>
+            {!inFix && <div className={styles.layout}><CatalogLayoutSwitch /></div>}
             {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
             <CatalogList layout={layout}>
                 {entries.map(entry => {
                     const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
                     const installed = installedOf(entry);
                     const status = active ? "working" : installed ? "downloaded" : "not_downloaded";
+                    // A model not on the PC is pressed anywhere on its card to review its download,
+                    // as in the other catalogs (#1254). Nothing here is switched: what reading needs
+                    // is used once it is on the PC.
+                    const pressable = status === "not_downloaded";
                     // The size is on the card in either layout; the terms are beside it in the list, in
                     // the card's fold in the grid.
                     const size = <div><dt>{t("model_catalog.size")}</dt><dd>{megabytes(entry.total_bytes)}</dd></div>;
                     const terms = <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>;
                     // The card's parts in the order they are read (#614), as a model catalog's card:
                     // what it is and its state, its size and terms, then what runs and the download.
-                    return <li key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
-                        className={voiceStyles.card} data-status={status}>
-                        <div className={voiceStyles.card_intro}>
+                    return <Card as="li" key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
+                        data-status={status} className={pressable ? cardPress.pressable : undefined}>
+                        <CardHeader>
                             <div className={voiceStyles.card_head}>
-                                <strong>{entry.name}</strong>
-                                <span className={`${voiceStyles.badge} ${voiceStyles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>
+                                <CardTitle>{entry.name}</CardTitle>
+                                <CatalogState state={status}>{t(`model_catalog.status.${status}`)}</CatalogState>
                             </div>
                             {/* Why the page lists it: needed for the reading language, or optional. */}
-                            <div className={voiceStyles.card_badges}><span className={voiceStyles.badge}>{note}</span></div>
-                        </div>
+                            <div className={voiceStyles.card_badges}><Badge>{note}</Badge></div>
+                        </CardHeader>
                         {layout === "grid" && <dl className={`${voiceStyles.facts} ${voiceStyles.card_key}`}>{size}</dl>}
                         {layout === "grid"
                             ? <CatalogFacts layout="grid"><dl className={voiceStyles.facts}>{terms}</dl></CatalogFacts>
-                            : <dl className={`${voiceStyles.facts} ${voiceStyles.card_spec}`}>{size}{terms}</dl>}
-                        <div className={voiceStyles.card_foot}>
+                            : <CardContent><dl className={voiceStyles.facts}>{size}{terms}</dl></CardContent>}
+                        <CardFooter>
                             {job && (active || job.phase === "failed") && <EnvReadout tone={job.phase === "failed" ? "failed" : "neutral"}
                                 progress={active && job.phase !== "cancelling" ? "working" : undefined}>
                                 <p>{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${megabytes(bytesOf(job.received_bytes) ?? 0)} / ${megabytes(bytesOf(job.total_bytes) ?? 0)}`}</p>
                             </EnvReadout>}
-                            {active && job && <progress className={voiceStyles.progress} aria-label={t("model_downloads.progress")}
+                            {active && job && <Progress aria-label={t("model_downloads.progress")}
                                 value={bytesOf(job.received_bytes)} max={bytesOf(job.total_bytes)} />}
                             {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
                             {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
                             <div className={voiceStyles.actions}>
-                                {active && job && <button type="button" disabled={!!pending || job.phase === "cancelling"}
-                                    onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button>}
-                                {!installed && !active && <button type="button" disabled={busy}
+                                {active && job && <Button disabled={!!pending || job.phase === "cancelling"}
+                                    onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</Button>}
+                                {!installed && !active && <Button disabled={busy} className={pressable ? cardPress.press : undefined}
+                                    aria-label={t("model_catalog.review_named", { name: entry.name })}
                                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
-                                    {t("model_downloads.review")}</button>}
+                                    {t("model_downloads.review")}</Button>}
                             </div>
-                        </div>
-                    </li>;
+                        </CardFooter>
+                    </Card>;
                 })}
             </CatalogList>
         </CatalogSection>
-        {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <div className={voiceStyles.dialog_text}>
-                <h3>{t("model_downloads.warning_title")}</h3>
-                <p>{selected.name} · {selected.provider}</p>
-                <p>{t("model_downloads.exact_bytes", { bytes: Number(selected.total_bytes).toLocaleString("en-US") })} · {selected.license}</p>
+        {/* Named by its title, without a description, as before the kit (D-23, D-43). */}
+        {selected && <Dialog ref={dialog} open={!!selected} onOpenChange={close} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("model_downloads.warning_title")}</DialogTitle>
+                {/* One line: the model, its license and its size, as the speech models' review (#1266). */}
+                <p>{[selected.name, selected.license, megabytes(selected.total_bytes)].filter(Boolean).join(" · ")}</p>
                 <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
                 <p>{t("model_downloads.connection_notice")}</p>
-                <p>{t("model_downloads.source")}: {(selected.sources ?? [selected.source]).map(url =>
-                    <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{url.replace("https://huggingface.co/", "").replace(/\/tree\/.*/, "")}</a> </span>)}</p>
-                <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) =>
-                    <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{new URL(url).hostname === "www.apache.org" || url.endsWith("/LICENSE") ? selected.license : `${t("model_downloads.model_card")} (${i + 1})`}</a> </span>)}</p>
+                <Fold size="link" summary={t("model_downloads.breakdown")}>
+                    {selected.provider && <p>{t("model_downloads.provider", { provider: selected.provider })}</p>}
+                    <p>{t("model_downloads.source")}: {(selected.sources ?? [selected.source]).map(url =>
+                        <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{url.replace("https://huggingface.co/", "").replace(/\/tree\/.*/, "")}</a> </span>)}</p>
+                    <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) =>
+                        <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{new URL(url).hostname === "www.apache.org" || url.endsWith("/LICENSE") ? selected.license : `${t("model_downloads.model_card")} (${i + 1})`}</a> </span>)}</p>
+                    <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
+                    <ul className={voiceStyles.dialog_files}>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {t("model_downloads.exact_bytes", { bytes: Number(file.size).toLocaleString("en-US") })}</li>)}</ul>
+                </Fold>
                 {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
-                <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-                <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {t("model_downloads.exact_bytes", { bytes: Number(file.size).toLocaleString("en-US") })}</li>)}</ul>
-            </div>
+            </DialogHeader>
             <label className={voiceStyles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
-            <div className={voiceStyles.actions}>
-                <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
+            <DialogFooter>
+                <Button autoFocus onClick={close}>{t("model_downloads.back")}</Button>
                 {/* Start is the dialog's main action: blue like the voice models' (#462). */}
-                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
+                <Button tone="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
-                    send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
-                }}>{t("model_downloads.start")}</button>
-            </div>
-        </dialog>}
+                    send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version });
+                    onStart?.(selected.id);
+                    close();
+                }}>{t("model_downloads.start")}</Button>
+            </DialogFooter>
+        </Dialog>}
         {error && <p role="alert">{failure(error)}</p>}
     </section>;
 };

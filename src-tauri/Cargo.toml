@@ -1,5 +1,5 @@
 [package]
-name = "vrct-vox"
+name = "astarot"
 version = "0.0.0"
 description = "ASTAROT: speech, voice conversion and translated chat"
 authors = ["misyaguziya"]
@@ -13,8 +13,16 @@ publish = false
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "vrct_lib"
+name = "astarot_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# The executable's name, named here rather than left to the package's: the packages ship it, the
+# window class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName
+# names it for the bundles. It was `vrct-vox` up to 0.6.x (ADR-014, 2.5 and 2.6); the installer
+# replaces that one on update (native/app-identity's EXECUTABLE).
+[[bin]]
+name = "astarot"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
@@ -32,9 +40,9 @@ font-kit = "=0.14.3"
 # files and libclang are needed to build); it changes nothing on Windows. `onnx-translation`
 # is the local translation on ONNX Runtime, loaded at run time like chat reading's (nothing is
 # linked or fetched at build time; see docs/voice-stack/core-integration.md, decisions 1 and 2).
-vrct-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
+astarot-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
 # The names the app goes by outside its code (ADR-014): folders, the app ID, environment variables.
-app-identity = { path = "../native/app-identity" }
+astarot-app-identity = { path = "../native/app-identity" }
 
 [dev-dependencies]
 # Already locked through tauri-plugin-opener, which matches its URL scope with it; the tests use
@@ -59,9 +67,10 @@ semver = "=1.0.28"
 [target.'cfg(windows)'.dependencies]
 # Already locked through wry: the app makes the WebView2 environment that every window shares,
 # with WebView2's crash reports to Microsoft turned off (#564; see src/webview_environment.rs).
-# The features are a subset of the ones wry turns on.
+# The features are a subset of the ones wry turns on, and Win32_UI_Shell_Common for the file
+# dialog's kinds of file (src/path_picker.rs, #1231).
 webview2-com = "=0.39.1"
-windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com"] }
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_Shell_Common"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"

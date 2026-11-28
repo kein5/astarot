@@ -9,10 +9,11 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（144件）
+## config.jsonに保存するキー（153件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
+| `CONVERSATION_LOG_DIRECTORY` | str か null、独自の検証 | `null` | 2秒後にまとめて |
 | `ENABLE_FOREGROUND` | bool | `false` | 2秒後にまとめて |
 | `CONVERT_MESSAGE_TO_ROMAJI` | bool | `false` | 2秒後にまとめて |
 | `CONVERT_MESSAGE_TO_HIRAGANA` | bool | `false` | 2秒後にまとめて |
@@ -25,7 +26,8 @@
 | `SHOW_RESEND_BUTTON` | bool | `false` | 2秒後にまとめて |
 | `FONT_FAMILY` | str | `"Yu Gothic UI"` | 2秒後にまとめて |
 | `UI_LANGUAGE` | str（`SELECTABLE_UI_LANGUAGE_LIST`のどれか） | `"en"` | 2秒後にまとめて |
-| `MAIN_WINDOW_GEOMETRY` | 検証 `main_window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
+| `MAIN_WINDOW_GEOMETRY` | 検証 `window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
+| `SETTINGS_WINDOW_GEOMETRY` | 検証 `window_geometry` | `{"x_pos": 0, "y_pos": 0, "width": 870, "height": 654}` | 即時 |
 | `MIC_THRESHOLD` | int、独自の検証 | `300` | 2秒後にまとめて |
 | `MIC_AUTOMATIC_THRESHOLD` | bool | `false` | 2秒後にまとめて |
 | `MIC_RECORD_TIMEOUT` | 検証 `asr_timeout` | `3` | 2秒後にまとめて |
@@ -34,9 +36,15 @@
 | `MIC_AVG_LOGPROB` | number（-2.0〜0.0） | `-0.8` | 2秒後にまとめて |
 | `MIC_NO_SPEECH_PROB` | number（0.0〜1.0） | `0.6` | 2秒後にまとめて |
 | `HOTKEYS` | 検証 `hotkeys` | `{"open_quick_chat": null, "toggle_vrct_visibility": null, "toggle_translation": null, "toggle_transcription_send": null, "toggle_transcription_receive": null, "stop_voice": null, "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null}` | 即時 |
-| `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false}` | 即時 |
+| `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false, "talk_ai": false}` | 即時 |
+| `TALK_AI_SCREEN_INTERVAL_MS` | int（250〜10_000） | `1000` | 2秒後にまとめて |
+| `TALK_AI_SCREEN_LONG_EDGE` | int（256〜2048） | `1024` | 2秒後にまとめて |
+| `TALK_AI_SCREEN_DETAIL` | str、独自の検証 | `"auto"` | 2秒後にまとめて |
+| `TALK_AI_PROVIDER` | str、独自の検証 | `"openai"` | 2秒後にまとめて |
+| `TALK_AI_LOCAL_URL` | str、独自の検証 | `"ws://127.0.0.1:8000/v1/realtime"` | 2秒後にまとめて |
 | `USAGE_PRESETS` | 検証 `usage_presets` | `["basic"]` | 即時 |
 | `CATALOG_LAYOUT` | str、独自の検証 | `"grid"` | 2秒後にまとめて |
+| `THEME` | 検証 `theme` | `{"preset": "dark_plum", "custom": {"base": "#261633", "accent": "#a47af5"}}` | 2秒後にまとめて |
 | `TRAY_COMPANION_EDGE` | str（`TRAY_COMPANION_EDGE_LIST`のどれか） | `"right"` | 2秒後にまとめて |
 | `TRAY_COMPANION_MONITOR` | str、独自の検証 | `""` | 2秒後にまとめて |
 | `TRAY_COMPANION_WHEEL_HINT_SHOWN` | bool | `false` | 2秒後にまとめて |
@@ -68,8 +76,8 @@
 | `VOICE_SETTINGS` | 検証 `tts_settings` | `{"mode": "off", "mic_mode": "off", "direct_policy": "suppress", "target_slot": "1", "japanese_server": "bundled", "japanese_url": "http://127.0.0.1:8080", "japanese_voice": "none", "multilingual_url": "", "multilingual_voice": "ryan", "multilingual_server": "bundled", "japanese_seed": "", "multilingual_seed": "", "japanese_instructions": "", "multilingual_instructions": "", "output_device": "", "routing": "external", "monitor": "off", "monitor_device": "", "monitor_volume": "100", "conversion": "off", "japanese_engine": "speechcpp", "voicevox_url": "http://127.0.0.1:50021", "coeiroink_url": "http://127.0.0.1:50032", "aivis_url": "http://127.0.0.1:10101", "sharevox_url": "http://127.0.0.1:50025", "engine_voice_id": "", "engine_voice_speaker": "", "engine_voice_style": "", "coeiroink_speed": "1.0", "coeiroink_volume": "1.0", "coeiroink_pitch": "0.0", "coeiroink_intonation": "1.0", "coeiroink_pre_phoneme": "0.1", "coeiroink_post_phoneme": "0.1", "coeiroink_sampling_rate": "24000", "voicevox_speed": "1.0", "voicevox_volume": "1.0", "voicevox_pitch": "0.0", "voicevox_intonation": "1.0", "aivis_speed": "1.0", "aivis_volume": "1.0", "aivis_pitch": "0.0", "aivis_intonation": "1.0", "sharevox_speed": "1.0", "sharevox_volume": "1.0", "sharevox_pitch": "0.0", "sharevox_intonation": "1.0"}` | 2秒後にまとめて |
 | `DIRECT_VOICE_SETTINGS` | 検証 `voice_settings::load_direct` | `{"mode": "passthrough", "runtime": "", "reference": "", "engine": "rvc", "rvc_runtime": "", "rvc_model": "", "rvc_index": "", "rvc_pitch": 0, "rvc_index_rate": 0.0, "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true}` | 2秒後にまとめて |
 | `RVC_BLOCK_MS` | int、検証 `is_valid_rvc_block_ms` | `0` | 2秒後にまとめて |
-| `REALTIME_ASR_SETTINGS` | 検証 `voice_settings::normalize_realtime` | `{"version": 1, "server": "external", "start_server": true, "base_url": "http://127.0.0.1:8080", "model": "", "vocabulary": {"builtin": true, "terms": []}, "mic": {"language": "ja", "endpoint": null, "follow_default": true}, "speaker": {"language": "auto", "endpoint": null, "follow_default": true}}` | 2秒後にまとめて |
-| `SPEECH_SERVER_SETTINGS` | 検証 `vrct_speech_server::settings::normalize_settings` | `{"version": 1, "profiles": {"japanese": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "multilingual": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "asr": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}}}` | 2秒後にまとめて |
+| `REALTIME_ASR_SETTINGS` | 検証 `voice_settings::normalize_realtime` | `{"version": 1, "server": "bundled", "base_url": "http://127.0.0.1:8080", "model": "", "vocabulary": {"builtin": true, "terms": []}, "mic": {"language": "ja", "endpoint": null, "follow_default": true}, "speaker": {"language": "auto", "endpoint": null, "follow_default": true}}` | 2秒後にまとめて |
+| `SPEECH_SERVER_SETTINGS` | 検証 `astarot_speech_server::settings::normalize_settings` | `{"version": 1, "profiles": {"japanese": {"model": "", "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "multilingual": {"model": "", "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "asr": {"model": "", "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false}}}` | 2秒後にまとめて |
 | `WEBSOCKET_SERVER` | bool | `false` | 2秒後にまとめて |
 | `OSC_IP_ADDRESS` | str | `"127.0.0.1"` | 2秒後にまとめて |
 | `OSC_PORT` | int、検証 `is_valid_port` | `9000` | 2秒後にまとめて |
@@ -118,6 +126,7 @@
 | `CTRANSLATE2_LICENSE_NOTICE_SHOWN` | bool | `false` | 2秒後にまとめて |
 | `LOCAL_ASR_MIGRATION` | int（0〜super::LOCAL_ASR_MIGRATION_LATEST） | `2` | 2秒後にまとめて |
 | `VIRTUAL_MIC_NOTICE_PENDING` | bool | `true` | 2秒後にまとめて |
+| `MANAGED_ROUTE_RENAME_NOTICE_PENDING` | bool | `false` | 2秒後にまとめて |
 | `FIRST_RUN_SETUP_PENDING` | bool | `true` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str か null（`SELECTABLE_PLAMO_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str か null（`SELECTABLE_GEMINI_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
@@ -165,7 +174,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `"0.6.0"` | 読み取り専用 |
+| `VERSION` |  | `"0.7.0"` | 読み取り専用 |
 | `PATH_LOCAL` |  | `"<app>"` | 読み取り専用 |
 | `PATH_DATA` |  | `"<data>"` | 読み取り専用 |
 | `PATH_CONFIG` |  | `"<state>/config.json"` | 読み取り専用 |

@@ -1,4 +1,43 @@
-# ASTAROTの公開と上流VRCTとの関係
+# Publishing ASTAROT and its relationship with upstream VRCT
+
+[日本語版](#astarotの公開と上流vrctとの関係日本語版)
+
+For the current names, release files and identifiers, see [Names and identifiers](project-rename.md).
+
+## Current policy
+
+The repository is [kein5/astarot](https://github.com/kein5/astarot). Its repository ID is 1435087352, and its default branch is develop.
+It left GitHub's fork network on 2026-10-31, so it is not shown as "forked from misyaguziya/VRCT".
+It remains a derivative project that modified [misyaguziya/VRCT](https://github.com/misyaguziya/VRCT) under the MIT License,
+and it keeps the original [LICENSE](../../LICENSE), [NOTICE](../../NOTICE.md), copyright notices and acknowledgements to the original author.
+
+- Compatibility with upstream VRCT is not a goal. Versions are also counted from 0.1.0, separately from upstream's 3.x.
+- Contacting upstream, offering changes for upstream to take in, and opening PRs (including drafts) are not planned. They are done only when the maintainer explicitly asks for them.
+- Existing `VRCT` internal identifiers, the settings format and the IPC/OSC contracts are not replaced wholesale just because the name changed.
+- The file names of the original specifications provided and past verification records are kept as originals and history.
+
+## Publication status
+
+[`v0.1.0-beta.1`](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1) was published as a pre-release on 2026-10-31
+(commit `ba94359b` on develop). It contains the Linux tar.gz and AppImage, the Windows ZIPs (standard and CUDA) and the installer.
+Betas are built from develop, and stable releases after a `release/X.Y.Z` branch is merged into main.
+For the steps, see [Release candidates and release drafts](release-candidates.md).
+
+Our own release files do not include restricted OCR models or VC/TTS/ASR weights without permission. Check the dependencies and permissions
+for each distributed item in the [license register](licensing.md).
+
+## History
+
+- 2026-10-28: Decided to publish the work once the planned features were complete. Offering the changes for upstream to take in was kept as a hope for the future.
+  An additional instruction the same day decided that contacting upstream, offering changes and opening PRs would not happen automatically even after all features were complete, and would need the user's explicit instruction.
+- 2026-10-29: As conditions before distribution, gave priority to excluding all OCR weights, the ZIP/NSIS checks, removing uploads and telemetry to the original project, fork-specific identifiers,
+  and separating the README and the support contact. Created, locally, a record of the distribution boundary and an AUR plan (both deleted on 2026-11-16),
+  and candidate diffs for upstream (deleted on 2026-11-01). At this point there had been no contact with upstream and no PR.
+- 2026-10-31: Published `v0.1.0-beta.1`, and the repository left the fork network. Preparing proposals to upstream is on hold under the policy above.
+
+---
+
+# ASTAROTの公開と上流VRCTとの関係（日本語版）
 現在の名称・配布物・識別子は[名称と識別子](project-rename.md)を参照してください。
 
 ## 現在の方針
@@ -15,7 +54,7 @@
 
 ## 公開の状況
 
-2026-10-31に[`v0.1.0-beta.1`](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)をプレリリースとして公開した
+2026-10-31に[`v0.1.0-beta.1`](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)をプレリリースとして公開した
 （developのコミット`ba94359b`）。Linuxのtar.gzとAppImage、WindowsのZIP（標準版・CUDA版）とインストーラーを含む。
 ベータ版はdevelopから、正式版は`release/X.Y.Z`ブランチをmainへ統合してから作成する。
 手順は[配布候補とリリース下書き](release-candidates.md)を参照。

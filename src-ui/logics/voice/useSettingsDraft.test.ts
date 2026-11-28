@@ -33,7 +33,7 @@ async function setup(context: TestContext, savedFromResponse?: (result: unknown)
     stubGlobals(context, { window: eventTarget() });
     const state: { saved: Vocabulary; error: string | null } = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     // Without patch the form writes its whole draft.
     const write: DraftWrite<Vocabulary> = value => {
@@ -179,4 +179,139 @@ for (const response of [false, { status: 400 }]) test(`a rejected draft remains 
     assert.equal(s.render().saveState, "save_failed");
     s.render().discard();
     assert.equal(s.render().saveState, "saved");
+});
+
+// #1111, decided 4: a form saves by itself, so leaving the page or the app with an edit drops it
+// without asking first.
+test("a draft with an edit does not guard leaving the page or the app", async context => {
+    const runtime = hooks(), window = eventTarget();
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft },
+    });
+    const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = () => new Promise<StdoutResult>(() => {});
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
+    render();
+    render().setDraft({ ...saved, model: "new" });
+    assert.equal(render().dirty, true);
+    assert.deepEqual(window.added.filter(([type]) => type === "vrct:settings-leave" || type === "beforeunload"), []);
+});
+
+// #1111, decided 3: a group that saves by itself. A choice saves at once, focus leaving the group
+// saves it (not focus moving inside it), an edit made while a save waits is saved once that save
+// ends, a refused draft is not sent, and Escape in a text field puts the saved values back.
+test("a group that saves by itself saves a choice at once, on leaving, and after the save that waits", async context => {
+    const runtime = hooks(), sent: Vocabulary[] = [], answers: ((response: unknown) => void)[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, 
+    });
+    let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = value => {
+        assert.ok(isVocabulary(value));
+        sent.push(value);
+        return new Promise<StdoutResult>(resolve => answers.push(response => resolve(unchecked<StdoutResult>(response))));
+    };
+    const canSave = (draft: Vocabulary) => draft.model !== "";
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, canSave })); };
+    const answer = async (value: Vocabulary) => { saved = value; render(); answers.shift()?.({ status: 200, result: value }); await flush(); return render(); };
+    render();
+    // A choice: saved at once.
+    render().change(previous => previous && { ...previous, model: "new" });
+    render();
+    assert.deepEqual(sent.map(value => value.model), ["new"]);
+    // Typed while that save waits, and focus leaves: saved once the first save ends.
+    render().setDraft(previous => previous && { ...previous, vocabulary: { terms: ["VRChat"] } });
+    render().leave({ relatedTarget: null });
+    assert.equal(sent.length, 1);
+    await answer({ vocabulary: { terms: [] }, model: "new" });
+    assert.deepEqual(sent.at(-1)?.vocabulary.terms, ["VRChat"]);
+    await answer({ vocabulary: { terms: ["VRChat"] }, model: "new" });
+    // Focus moving inside the group saves nothing; leaving it saves.
+    const form = render(), inside = unchecked<EventTarget>({});
+    form.group({ contains: target => target === inside });
+    form.setDraft(previous => previous && { ...previous, vocabulary: { terms: ["Quest"] } });
+    render().leave({ relatedTarget: inside });
+    assert.equal(sent.length, 2);
+    // Escape in a checkbox does nothing; in a text field it puts the saved values back.
+    let prevented = 0;
+    render().escape({ key: "Escape", target: unchecked<EventTarget>({ tagName: "INPUT", type: "checkbox" }), preventDefault: () => { prevented++; } });
+    assert.deepEqual(render().draft?.vocabulary.terms, ["Quest"]);
+    render().escape({ key: "Escape", target: unchecked<EventTarget>({ tagName: "INPUT", type: "text" }), preventDefault: () => { prevented++; } });
+    assert.deepEqual([render().draft?.vocabulary.terms, prevented], [["VRChat"], 1]);
+    // A draft the form refuses is not sent.
+    render().setDraft(previous => previous && { ...previous, model: "" });
+    render().leave({ relatedTarget: null });
+    render().commit();
+    assert.equal(sent.length, 2);
+});
+
+// #1111: a blur that reaches two elements around the group (or the same leave twice) in one render
+// sends the draft once.
+test("leaving a group twice in one render saves once", async context => {
+    const runtime = hooks(), sent: unknown[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, 
+    });
+    const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = value => { sent.push(value); return new Promise<StdoutResult>(() => {}); };
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
+    render();
+    render().setDraft(previous => previous && { ...previous, model: "new" });
+    const form = render();
+    const outside = { currentTarget: { contains: () => false }, relatedTarget: null };
+    form.groupProps.onBlur(outside);
+    form.groupProps.onBlur(outside);
+    render();
+    assert.equal(sent.length, 1);
+});
+
+// #1111: the element around a group whose fields other parts draw. A list or a check box saves at
+// once, a slider when let go, Enter in a one-line text field saves, and typing or Enter in a
+// multi-line field does not.
+test("a group's element saves a choice at once, a slider when let go and a line on Enter", async context => {
+    const runtime = hooks(), sent: Vocabulary[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window: eventTarget() });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, 
+    });
+    let saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const answers: (() => void)[] = [];
+    const write: DraftWrite<Vocabulary> = value => {
+        assert.ok(isVocabulary(value));
+        sent.push(value);
+        return new Promise<StdoutResult>(resolve => answers.push(() => resolve(unchecked<StdoutResult>({ status: 200, result: value }))));
+    };
+    const render = () => { runtime.render(() => useSettingsDraft(saved, null, () => {}, { write }));
+        return runtime.render(() => useSettingsDraft(saved, null, () => {}, { write })); };
+    const answer = async () => { saved = sent[sent.length - 1]; render(); answers.shift()?.(); await flush(); render(); };
+    const edit = (model: string) => render().setDraft(previous => previous && { ...previous, model });
+    const target = (tagName: string, type?: string) => unchecked<EventTarget>({ tagName, type });
+    render();
+    const cases: [string, (props: ReturnType<typeof render>["groupProps"]) => void, boolean][] = [
+        ["a list", props => props.onChange({ target: target("SELECT") }), true],
+        ["a check box", props => props.onChange({ target: target("INPUT", "checkbox") }), true],
+        ["typing in a line", props => props.onChange({ target: target("INPUT", "text") }), false],
+        ["a slider moving", props => props.onChange({ target: target("INPUT", "range") }), false],
+        ["a slider let go", props => props.onPointerUp({ target: target("INPUT", "range") }), true],
+        ["a slider moved by keys", props => props.onKeyUp({ target: target("INPUT", "range") }), true],
+        ["Enter in a line", props => props.onKeyDown({ key: "Enter", target: target("INPUT", "text"), preventDefault() {} }), true],
+        ["Enter in a text area", props => props.onKeyDown({ key: "Enter", target: target("TEXTAREA"), preventDefault() {} }), false],
+    ];
+    for (const [what, act, saves] of cases) {
+        const before = sent.length;
+        edit(what);
+        act(render().groupProps);
+        render(); render();
+        assert.equal(sent.length - before, saves ? 1 : 0, what);
+        if (saves) await answer();
+        else { render().discard(); render(); }
+    }
 });

@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use vrct_audio_routing::pipewire::output::PipeWireOutput;
-use vrct_audio_routing::router::{CancelToken, Output};
+use astarot_audio_routing::pipewire::output::PipeWireOutput;
+use astarot_audio_routing::router::{CancelToken, Output};
 
 const DAEMON: &str = r#"
 context.properties = {
@@ -56,7 +56,7 @@ impl PrivateGraph {
     /// before anything connects to PipeWire, and only once per test binary: it sets environment
     /// variables.
     pub fn start(name: &str) -> PrivateGraph {
-        let managed = include_str!("../../../../config/pipewire/90-vrct-managed.conf").trim();
+        let managed = include_str!("../../../../config/pipewire/90-astarot-managed.conf").trim();
         let managed = managed.strip_prefix("context.modules = [").and_then(|m| m.strip_suffix(']')).expect("a modules fragment");
         let dir = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -191,7 +191,7 @@ pub fn tone(sink: &str) -> Arc<AtomicBool> {
 
 /// Plays a tone of `frequency` at amplitude 2048 into `sink`, held to its identity, until the
 /// returned flag is set (`Producer` of `tools/voice_b_poc.py`).
-pub fn tone_to(sink: &vrct_audio_routing::graph::Endpoint, frequency: f64) -> Arc<AtomicBool> {
+pub fn tone_to(sink: &astarot_audio_routing::graph::Endpoint, frequency: f64) -> Arc<AtomicBool> {
     play(sink.name.clone(), Some((sink.cookie, sink.serial)), frequency, 2048.0, &format!("vrct.test.tone.{frequency}"))
 }
 

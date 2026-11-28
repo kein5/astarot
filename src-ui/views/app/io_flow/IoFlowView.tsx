@@ -6,12 +6,15 @@ import { formatMs, INPUTS, latestTraces, median, timelineScale, traceTotal } fro
 import { flowNote, offGroups, timelineRows } from "../../../logics/flow/flowText.ts";
 import { buildFlowGraph } from "../../../logics/flow/flowGraph.ts";
 import { gpuRows } from "../../../logics/flow/gpuMemory.ts";
-import type { FlowInput, FlowLane, IoFlow, Trace } from "../../../logics/flow/ioFlow.ts";
+import type { CaptionDevices, FlowInput, FlowLane, IoFlow, Trace } from "../../../logics/flow/ioFlow.ts";
 import type { TimelineRow } from "../../../logics/flow/flowText.ts";
 import type { GpuMemory } from "../../../logics/flow/gpuMemory.ts";
 import { FlowGraph } from "./FlowGraph";
 import { Hint } from "../config_page/setting_section/setting_box/_components/hint/Hint";
-import styles from "./IoFlowView.module.scss";
+import * as styles from "./IoFlowView.css.ts";
+
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
 
 const HISTORY = 20;
 
@@ -25,10 +28,12 @@ type IoFlowViewProps = {
     traces: Trace[];
     // Left out in VR, which shows no GPU memory; null until the first answer.
     gpuMemory?: GpuMemory | null;
+    // The devices the running captions record (#1314, M-6); the main window's only.
+    devices?: CaptionDevices;
     compact?: boolean;
 };
 
-export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }: IoFlowViewProps) => {
+export const IoFlowView = ({ flow, traces, gpuMemory, devices, compact = false }: IoFlowViewProps) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const graph = useMemo(() => buildFlowGraph(flow, traces), [flow, traces]);
@@ -38,7 +43,13 @@ export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }: IoFlowV
     const note = flowNote(flow, t);
     const unused = INPUTS.flatMap(lane => offGroups(lanes[lane].outputs, t)
         .map(group => ({ lane, ...group })));
+    const used = devices ? ([["mic", "main_page.transcription_send"], ["speaker", "main_page.transcription_receive"]] as const)
+        .flatMap(([source, name]) => devices[source] ? [{ source, name: t(name), device: devices[source] }] : []) : [];
     return <div className={clsx(styles.view, { [styles.compact]: compact })}>
+        {/* Which microphone and which output the captions record, while they run. */}
+        {used.length > 0 && !compact && <ul className={styles.devices} aria-label={t("io_flow.devices")}>
+            {used.map(row => <li key={row.source}>{t("io_flow.device", { name: row.name, device: row.device })}</li>)}
+        </ul>}
         <div className={styles.graph_scroll}><FlowGraph graph={graph} names={names} compact={compact} /></div>
         {unused.length > 0 && !compact && <ul className={styles.unused}>
             {unused.map(group => <li key={`${group.lane}:${group.reason}`}>
@@ -128,7 +139,7 @@ export const Timeline = ({ rows, scale, className }: { rows: TimelineRow[]; scal
         {rows.map((row, index) => <div key={index} role="listitem" className={clsx(styles.row, { [styles.is_off]: row.off })}>
             <span className={styles.row_label}>{row.label}</span>
             <span className={clsx(styles.track, { [styles.no_track]: row.off })} aria-hidden="true">
-                {!row.off && <span className={clsx(styles.bar, styles[`bar_${row.kind}`])}
+                {!row.off && <span className={clsx(styles.bar, classNamed[`bar_${row.kind}`])}
                     style={{ left: `${(row.start / scale) * 100}%`, width: `${Math.max(.5, ((row.end - row.start) / scale) * 100)}%` }} />}
             </span>
             <span className={styles.row_value}>{row.value}</span>

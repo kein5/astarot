@@ -1,10 +1,11 @@
-import { memo, useRef, useState } from "react";
+import { memo, useId, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./MessageContainer.module.scss";
+import * as styles from "./MessageContainer.css.ts";
 import * as speakerStyles from "./SpeakerNames.css.ts";
 import { SpeakerNamesEditor, speakersText } from "./SpeakerNames.tsx";
 import { MessageSubMenuContainer } from "./message_sub_menu_container/MessageSubMenuContainer";
+import { Tooltip } from "../../../../../../common_components/tooltip/Tooltip";
 import { store } from "@store";
 import type { MessageActions } from "../../../../../../../logics/common/MessageActions";
 import type { SessionSpeakerNames } from "../../../../../../../logics/common/speakerNames.ts";
@@ -33,6 +34,7 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
     const [is_locked, setIsLocked] = useState(false);
     const [is_naming, setIsNaming] = useState(false);
     const who_button = useRef<HTMLButtonElement>(null);
+    const who_about_id = useId();
 
     // The resend button is there only with the actions (showResendButton), and only on a row of
     // the user's own, whose text is always there.
@@ -115,11 +117,18 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
                         [styles.not_sent]: is_not_sent, [styles.vrchat_off]: is_vrchat_off,
                     })}>{category_text}</p>}
                     {speakers_text && continues && <span className={speakerStyles.hidden}>{speakers_text}</span>}
+                    {/* What naming does is the app's tooltip, on the pointer and on keyboard focus, and the
+                        button's description, kept in the page while the tooltip is closed. */}
                     {speakers_text && !continues && (can_name
-                        ? <button ref={who_button} type="button" className={speakerStyles.who} aria-expanded={is_naming}
-                            aria-label={t("main_page.message_log.speaker_names_edit", { speakers: speakers_text })}
-                            title={t("main_page.message_log.speaker_names_tooltip")}
-                            onClick={() => setIsNaming(open => !open)}>{speakers_text}</button>
+                        ? <>
+                            <Tooltip bare title={t("main_page.message_log.speaker_names_tooltip")}>
+                                <button ref={who_button} type="button" className={speakerStyles.who} aria-expanded={is_naming}
+                                    aria-label={t("main_page.message_log.speaker_names_edit", { speakers: speakers_text })}
+                                    aria-describedby={who_about_id}
+                                    onClick={() => setIsNaming(open => !open)}>{speakers_text}</button>
+                            </Tooltip>
+                            <span id={who_about_id} hidden>{t("main_page.message_log.speaker_names_tooltip")}</span>
+                        </>
                         : <p className={clsx(styles.category, message_type_class_name)}>{speakers_text}</p>)}
                     {/* The VR atlas needs static pixels while a send is pending. Its label above shows the state. */}
                     {(is_sent_message || is_realtime) && is_pending && !store.is_vr_panel && <span className={styles.loader} aria-hidden="true"></span>}
@@ -180,7 +189,7 @@ const MessageWithTransliteration = ({ item }: { item: MessageLogText }) => {
             const ruby = hepburn ? hepburn : hira;
             if (ruby !== orig) {
                 return (
-                    <ruby key={key} className={styles.ruby}>
+                    <ruby key={key}>
                         {orig}
                         <rt>{ruby}</rt>
                     </ruby>
@@ -190,7 +199,7 @@ const MessageWithTransliteration = ({ item }: { item: MessageLogText }) => {
 
         // Nothing. Original only.
         return (
-            <span key={key} className={styles.original_only}>
+            <span key={key}>
                 {orig}
             </span>
         );

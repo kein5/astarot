@@ -13,9 +13,11 @@ import { EngineReadout } from "./engine_readout/EngineReadout";
 import { LanguageSettings } from "./language_settings/LanguageSettings";
 import { LanguageReadout } from "./language_readout/LanguageReadout";
 import { OpenSettings } from "./open_settings/OpenSettings.tsx";
+import { Button } from "../../../kit/index.ts";
 
-// The top bar's toggle (SidebarCompactModeButton) carries this attribute.
+// The top bar's toggle (SidebarCompactModeButton) and the portaled translator list carry these.
 const TOGGLE = "[data-sidebar-toggle]";
+const TRANSLATOR_POPOVER = "[data-translator-selector]";
 
 const isNode = (target: EventTarget | null): target is Node => target !== null && "nodeType" in target;
 const isElement = (target: EventTarget | null): target is Element => isNode(target) && "closest" in target;
@@ -47,6 +49,8 @@ export const SidebarSection = () => {
             if (isNode(event.target) && root.current?.contains(event.target)) return;
             // The toggle handles its own press; closing here as well would reopen the rail.
             if (isElement(event.target) && event.target.closest(TOGGLE)) return;
+            // The translator popover is portaled to the body; pressing inside it belongs to the rail.
+            if (isElement(event.target) && event.target.closest(TRANSLATOR_POPOVER)) return;
             latest.current();
         };
         const closeOnEscape = (event: KeyboardEvent) => {
@@ -62,15 +66,15 @@ export const SidebarSection = () => {
     }, [is_overlay]);
 
     return (
-        <div ref={root} className={container_class_name}>
+        <div ref={root} data-sidebar-rail="" className={container_class_name}>
             <Logo />
             {/* The top bar's toggle is under the opened rail; this one is on it. */}
             {is_overlay && <Tooltip bare placement="right" title={t("studio.close_sidebar")}>
-                <button type="button" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")} onClick={close}>
+                <Button size="icon" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")} onClick={close}>
                     <ArrowLeftSvg className={styles.closeOverlaySvg} preserveAspectRatio="none" aria-hidden="true" />
-                </button>
+                </Button>
             </Tooltip>}
-            <div className={styles.scrollContainer}>
+            <div data-sidebar-scroll="" className={styles.scrollContainer}>
                 {/* Why every switch is greyed out, once, when the engine is gone. */}
                 <EngineReadout />
                 <MainFunctionSwitch />

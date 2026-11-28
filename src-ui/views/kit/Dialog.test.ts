@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, forwardRefRender, setRef, unchecked } from "../../logics/test/hookHarness.ts";
+import type { Ref } from "react";
+import { hooks, loadModule, find, findIn, setRef, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
-import type { DialogProps } from "./Dialog.tsx";
 
 // The kit's Dialog: shadcn/ui's Dialog parts on the native <dialog> (docs/design/components/).
 const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
@@ -20,12 +20,20 @@ const fakeDialog = () => {
     return { element, calls };
 };
 
+// The kit's motion (motion.ts) as the Dialog uses it: each entrance it plays and finishes goes into
+// the dialog's own list of calls, so a test reads them in order with showModal and close.
+const entrances = (calls: string[]) => ({
+    appear: (element: { open: boolean }, surface: string) => {
+        calls.push(`appear ${surface}${element.open ? "" : " (closed)"}`);
+        return { finish: () => { calls.push("finish"); }, stop: () => {}, finished: Promise.resolve() };
+    },
+});
+
 async function dialog() {
     const runtime = hooks(), changes: boolean[] = [];
-    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime);
-    const draw = forwardRefRender(Dialog);
     const { element, calls } = fakeDialog();
-    const render = (open: boolean) => runtime.render((props: DialogProps) => draw(props, null),
+    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime, { "./motion.ts": entrances(calls) });
+    const render = (open: boolean) => runtime.render(Dialog,
         { open, onOpenChange: (next: boolean) => changes.push(next), children: "words" },
         // The test attaches the fake where React would: through the element's ref.
         tree => { setRef(findIn(tree, node => node.type === "dialog"), element); });
@@ -33,23 +41,54 @@ async function dialog() {
     return { runtime, render, content, element, calls, changes };
 }
 
-const event = () => {
+const event = (open = false) => {
     const seen = { prevented: false };
-    return { seen, value: unchecked<Event>({ preventDefault() { seen.prevented = true; } }) };
+    return { seen, value: unchecked<Event>({ preventDefault() { seen.prevented = true; }, currentTarget: { open } }) };
 };
 
 test("the dialog opens as a modal while open, and closes when open turns false", async () => {
     const { runtime, render, element, calls } = await dialog();
     render(false);
-    assert.deepEqual(calls, []);
+    assert.equal(calls.length, 0);
     render(true);
     assert.equal(element.open, true);
-    assert.deepEqual(calls, ["showModal"], "a modal: focus stays in it, Esc closes it, ::backdrop dims the window");
+    assert.deepEqual(calls.filter(call => !call.startsWith("appear") && call !== "finish"), ["showModal"],
+        "a modal: focus stays in it, Esc closes it, ::backdrop dims the window");
     render(true);
-    assert.deepEqual(calls, ["showModal"], "shown once");
+    assert.equal(calls.filter(call => call === "showModal").length, 1, "shown once");
     render(false);
-    assert.deepEqual(calls, ["showModal", "close"]);
+    assert.equal(element.open, false);
+    assert.equal(calls.at(-1), "close");
     runtime.unmount();
+});
+
+// A dialog its owner's hook showed already (useConsentDialog shows one the kit does not hold) is
+// neither shown again nor brought in again.
+test("a dialog already open is left as it is", async () => {
+    const { runtime, render, element, calls } = await dialog();
+    element.open = true;
+    render(true);
+    assert.equal(calls.length, 0);
+    runtime.unmount();
+});
+
+// #1378: the entrance plays over a dialog that is already a modal, so the focus moves into it and
+// the page behind it is out of reach as before; it closes at once.
+test("the dialog comes in once it is shown, and closes at once", async () => {
+    const { runtime, render, calls } = await dialog();
+    render(true);
+    assert.deepEqual(calls, ["showModal", "appear dialog"]);
+    render(true);
+    assert.deepEqual(calls, ["showModal", "appear dialog"], "drawn again, it does not come in again");
+    render(false);
+    assert.deepEqual(calls, ["showModal", "appear dialog", "finish", "close"], "closed while it comes in, it is at its place, then closes");
+    // Closed by its owner and shown again in one go (React's StrictMode replays the effects so):
+    // it comes in again.
+    render(true);
+    assert.deepEqual(calls.slice(4), ["showModal", "appear dialog"]);
+    calls.length = 0;
+    runtime.unmount();
+    assert.deepEqual(calls, ["finish"], "taken off the page while it comes in");
 });
 
 test("Esc and the dialog's own closing ask the owner of open, as shadcn/ui's onOpenChange", async () => {
@@ -63,6 +102,10 @@ test("Esc and the dialog's own closing ask the owner of open, as shadcn/ui's onO
     assert.deepEqual(changes, [false, false]);
     // Closed through open: nothing more to tell.
     content(render(false)).props.onClose(event().value);
+    assert.deepEqual(changes, [false, false]);
+    // Closed and shown again before the event came (React's StrictMode replays the effects that way):
+    // the dialog is open, so the owner keeps it open.
+    content(render(true)).props.onClose(event(true).value);
     assert.deepEqual(changes, [false, false]);
     runtime.unmount();
 });
@@ -78,10 +121,14 @@ test("the dialog is named and described by its title and description", async () 
     const ids = provider.props.value;
     assert.equal(dialogNode.props["aria-labelledby"], ids.title);
     assert.equal(dialogNode.props["aria-describedby"], ids.description);
+    // One id each, made from the dialog's own.
+    assert.match(ids.title, /.-title$/);
+    assert.match(ids.description, /.-description$/);
+    assert.equal(ids.title.replace(/-title$/, ""), ids.description.replace(/-description$/, ""));
     runtime.unmount();
     const parts = hooks();
     const { DialogTitle, DialogDescription, DialogHeader, DialogFooter } = await loadModule<DialogModule>(
-        new URL("./Dialog.tsx", import.meta.url), parts, { react: { ...parts.api, useContext: () => ids } });
+        new URL("./Dialog.tsx", import.meta.url), parts, { react: { ...parts.api, useContext: () => ids }, "./motion.ts": entrances([]) });
     const title = parts.render(DialogTitle, { children: "Title" });
     assert.deepEqual([title.type, title.props.id, title.props["data-slot"]], ["h2", ids.title, "dialog-title"]);
     const description = parts.render(DialogDescription, { children: "Description" });
@@ -106,4 +153,34 @@ test("the dialog has shadcn/ui's width, room and gap, and the app's corners, gro
     // DialogTitle is DESIGN.md's title role; DialogDescription is text-sm in the description colour.
     assert.match(css, /export const title = style\(\{[^}]*fontSize: "1\.8rem",\s*fontWeight: 600,/);
     assert.match(css, /export const description = style\(\{[^}]*fontSize: "1\.4rem",\s*lineHeight: 1\.6,\s*color: vars\.vox_description_text,/);
+});
+
+// #1266 T-3: the translation review steps back while its model's review is open over it.
+test("a dialog that steps back is hidden with its dimming while a dialog opened from it is open, and only then", async () => {
+    const runtime = hooks();
+    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime, { "./motion.ts": entrances([]) });
+    const classes = (props: object) => String(findIn(runtime.render(Dialog, { open: true, onOpenChange: () => {}, children: "words", ...props }),
+        node => node.type === "dialog").props.className).split(" ");
+    assert.deepEqual(classes({ stepsBack: true, className: "own" }), ["content", "stepsBack", "own"]);
+    assert.deepEqual(classes({ className: "own" }), ["content", "own"], "an opt-in: a dialog keeps its look over another by default");
+    const css = read("Dialog.css.ts");
+    assert.match(css, /export const stepsBack = style\(\{\s*selectors: \{\s*"&:has\(dialog\[open\]\)": \{ visibility: "hidden" \},\s*"&:has\(dialog\[open\]\)::backdrop": \{ background: "transparent" \},/);
+    assert.match(css, /globalStyle\(`\$\{stepsBack\}:has\(dialog\[open\]\) dialog\[open\]`, \{ visibility: "visible" \}\);/);
+    runtime.unmount();
+});
+
+test("the caller's ref gets the dialog, as a function or an object, and the newest ref wins", async () => {
+    const runtime = hooks();
+    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime, { "./motion.ts": entrances([]) });
+    const { element } = fakeDialog();
+    const seen: unknown[] = [];
+    const objectRef: { current: HTMLDialogElement | null } = { current: null };
+    const render = (ref: Ref<HTMLDialogElement>) => runtime.render(Dialog, { open: false, onOpenChange: () => {}, children: "words", ref },
+        tree => { setRef(findIn(tree, node => node.type === "dialog"), element); });
+    render((node: HTMLDialogElement | null) => { seen.push(node); });
+    assert.deepEqual(seen, [element]);
+    render(objectRef);
+    assert.equal(objectRef.current, element);
+    assert.deepEqual(seen, [element], "the earlier ref is not called again");
+    runtime.unmount();
 });

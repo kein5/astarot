@@ -94,6 +94,19 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert commands.strip() == "python3 -m tools.update_channels beta"
         assert all(step.get("with", {}).get("persist-credentials") == "false"
                    for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    elif workflow.name == "ci-failures.yml":
+        # The weekly count of CI failures (the CI audit of 2026-11-22, item 7): it reads the runs
+        # and their jobs, writes only its job summary, and runs no input of anyone's.
+        assert set(document["on"]) == {"schedule", "workflow_dispatch"}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"count"}
+        job = document["jobs"]["count"]
+        assert job["permissions"] == {"contents": "read", "actions": "read"}
+        assert "github.repository == 'kein5/astarot'" in job["if"]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert commands.strip() == "python3 -m tools.ci_failures --days 7"
+        assert all(step.get("with", {}).get("persist-credentials") == "false"
+                   for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
     elif workflow.name == "pipeline-latency.yml":
         # Issue #738: after voice-tests.yml it sends the pipeline's measured times to Bencher. It
         # runs from develop's copy of the file, never a pull request's, checks out nothing, and
@@ -101,7 +114,7 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         # measuring run's artifacts and write the Bencher check and comment, nothing else; the
         # Bencher key reaches the two sending steps, and the step that sees whether it is set.
         assert set(document["on"]) == {"workflow_run"}
-        assert document["on"]["workflow_run"] == {"workflows": ["VRCT-VOX voice contracts (no models)"], "types": ["completed"]}
+        assert document["on"]["workflow_run"] == {"workflows": ["ASTAROT voice contracts (no models)"], "types": ["completed"]}
         assert document["permissions"] == {"contents": "read"}
         assert set(document["jobs"]) == {"send"}
         job = document["jobs"]["send"]
@@ -158,12 +171,17 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
             if "uses" in step and not step["uses"].startswith("./"):
                 assert re.fullmatch(r"[\w-]+/[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
             assert "${{" not in step.get("run", ""), step.get("name", workflow.name)
-            # Repository secrets: only the updater signing step of the release draft uses any, and
-            # the Bencher key the steps of pipeline-latency.yml that send with it and the one step of
-            # bencher-measures.yml.
+            # Repository secrets: only the updater signing step of the release draft and its check of
+            # immutable releases (issue #1018) use any, and the Bencher key the steps of
+            # pipeline-latency.yml that send with it and the one step of bencher-measures.yml.
             if "secrets." in json.dumps(step):
                 assert workflow.name in ("prepare-release.yml", "pipeline-latency.yml", "bencher-measures.yml"), step.get("name")
-                if workflow.name == "prepare-release.yml":
+                if workflow.name == "prepare-release.yml" and "IMMUTABLE_RELEASES_READ_TOKEN" in json.dumps(step):
+                    # The settings token reads one setting, in a step that runs nothing else.
+                    assert step["env"] == {"GH_TOKEN": "${{ secrets.IMMUTABLE_RELEASES_READ_TOKEN }}"}
+                    assert step["run"].strip() == "python -m tools.prepare_release immutable-releases"
+                    assert "secrets." not in json.dumps({key: value for key, value in step.items() if key != "env"})
+                elif workflow.name == "prepare-release.yml":
                     assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
                 else:
                     assert set(re.findall(r"secrets\.\w+", json.dumps(step))) == {"secrets.BENCHER_API_KEY"}, step.get("name")

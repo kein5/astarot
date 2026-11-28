@@ -2,23 +2,30 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'vitest';
 import type { TestContext } from 'vitest';
-import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef } from '../../logics/test/hookHarness.ts';
+import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef, kitStandIns } from '../../logics/test/hookHarness.ts';
 import { deferred, flush } from '../../logics/test/bridgeHarness.ts';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';
+import * as themes from '../../logics/theme/themes.ts';
+import type { ThemeSetting } from '../../logics/theme/themes.ts';
 import type { QuickChatBridge } from './QuickChat.tsx';
 
 // A callback the window registers; calling it before that stops with a TypeError.
 const notYet = async (_event?: unknown): Promise<void> => { throw new TypeError('the window has not registered this callback'); };
 
-async function setup(testContext: TestContext) {
+async function setup(testContext: TestContext, startup?: ThemeSetting | null) {
     const runtime = hooks(), properties = new Map<string, string>(), removals: string[] = [], submissions: unknown[] = [];
     const callbacks: { open: (event?: unknown) => unknown; context: (event?: unknown) => unknown } = { open: notYet, context: notYet };
-    let context = { language: 'ja', enter_to_send: true, clear_on_send: true, ui_scaling: 150, font_family: 'Noto Sans JP' };
+    let context: { language: string; enter_to_send: boolean; clear_on_send: boolean; ui_scaling: number; font_family: string; theme?: ThemeSetting | null } = {
+        language: 'ja', enter_to_send: true, clear_on_send: true, ui_scaling: 150, font_family: 'Noto Sans JP', theme: null,
+    };
     let focusCount = 0, hideCount = 0, contextRead: () => Promise<unknown> = () => Promise.resolve(context);
     const field = { focus: () => focusCount++ };
     const i18n = { changeLanguage: async () => {} };
     const window = eventTarget();
-    stubGlobals(testContext, { window, document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } } });
+    stubGlobals(testContext, { window, document: { documentElement: { style: {
+        setProperty: (key: string, value: string) => properties.set(key, value),
+        removeProperty: (key: string) => properties.delete(key),
+    } } } });
     const fake = {
         context: () => contextRead(),
         onOpen: async (callback: (event?: unknown) => unknown) => { callbacks.open = callback; return () => removals.push('open'); },
@@ -35,17 +42,20 @@ async function setup(testContext: TestContext) {
         '@useI18n': { useI18n: () => ({ t: (key: string) => key, i18n }) },
         '../../logics/quickChat/bridge': { quickChatBridge: bridge },
         '../../logics/common/chatboxLength': chatboxLength,
+        '../../logics/theme/themes.ts': themes,
+        // The theme the shell gave the page (#1259); none in a browser.
+        '../../logics/theme/startupTheme.ts': { startupTheme: () => startup },
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
         setRef(tree, {});
-        setRef(findIn(tree, node => node.type === 'textarea'), field);
+        setRef(findIn(tree, node => node.type === kitStandIns.Textarea), field);
     });
     render(); await flush(); render();
     return { runtime, render, properties, callbacks, removals, bridge: fake, submissions,
         setContext: (next: Partial<typeof context>) => { context = { ...context, ...next }; },
         setRead: (read: () => Promise<unknown>) => { contextRead = read; },
         get focusCount() { return focusCount; }, get hideCount() { return hideCount; },
-        field: () => findIn(render(), node => node.type === 'textarea').props,
+        field: () => findIn(render(), node => node.type === kitStandIns.Textarea).props,
     };
 }
 
@@ -94,6 +104,7 @@ test('appearance updates preserve Quick Chat IME, repeat, pending and failed-han
     assert.equal(subject.submissions.length, 0);
     enter(); enter();
     assert.equal(subject.submissions.length, 1);
+    assert.equal(subject.field().readOnly, true, 'the draft cannot change while it is handed off');
     subject.setContext({ ui_scaling: 160 }); await subject.callbacks.context();
     subject.render().props.onKeyDown({ key: 'Escape', nativeEvent: {}, preventDefault() {} });
     assert.equal(subject.hideCount, 1);
@@ -101,49 +112,152 @@ test('appearance updates preserve Quick Chat IME, repeat, pending and failed-han
     subject.bridge.handoff.resolve(false); await flush();
     assert.equal(subject.field().value, 'こんにちは');
     assert.equal(subject.submissions.length, 1);
+    assert.equal(subject.field().readOnly, false);
     subject.runtime.unmount();
 });
 
 test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshrinking status text', async () => {
-    const css = await readFile(new URL('./QuickChat.module.scss', import.meta.url), 'utf8');
-    assert.match(css, /height: 100%;[^\n]*overflow: auto/);
-    assert.match(css, /textarea \{[^\n]*min-height: 3rem/);
-    assert.match(css, /\.actions \{\s*display: flex; flex-wrap: wrap; flex-shrink: 0/);
-    assert.match(css, /\.length_warning \{\s*display: flex; flex-wrap: wrap; flex-shrink: 0/);
-    assert.doesNotMatch(css, /https?:|@font-face/);
+    const css = await readFile(new URL('./QuickChat.css.ts', import.meta.url), 'utf8');
+    assert.match(css, /height: "100%",[^\n]*overflow: "auto"/);
+    // The field fills the window above the actions; the kit's Textarea draws it and its focus ring.
+    assert.match(css, /export const field = style\(\{ flex: 1 \}\);/);
+    assert.match(css, /:focus-visible:not\(\[data-slot\]\)`, \{ outline/);
+    assert.doesNotMatch(css, /textarea/);
+    // Send is the kit's Button; the window keeps only its place in the row.
+    assert.match(css, /export const send = style\(\{ flexShrink: 0 \}\);/);
+    assert.doesNotMatch(css, /\$\{container\} button/);
+    assert.match(css, /export const actions = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
+    assert.match(css, /export const length_warning = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
+    assert.doesNotMatch(css, /https?:|fontFace/);
+});
+
+test('Quick Chat follows the selected preset and custom theme, and resets to the default theme without stealing focus', async t => {
+    const subject = await setup(t);
+    assert.equal(subject.properties.has('--vox_canvas'), false);
+    const before = subject.focusCount;
+    subject.field().onChange({ target: { value: '下書き' } });
+    subject.setContext({ theme: { preset: 'forest', custom: { base: '#261633', accent: '#a47af5' } } });
+    await subject.callbacks.context();
+    subject.render();
+    const forest = themes.deriveTokens(themes.PRESETS.find(preset => preset.id === 'forest')?.colors ?? themes.PRESETS[0].colors);
+    assert.equal(subject.properties.get('--vox_canvas'), forest['--vox_canvas']);
+    assert.equal(subject.properties.get('--primary_600_color'), forest['--primary_600_color']);
+    assert.equal(subject.field().value, '下書き');
+    assert.equal(subject.focusCount, before);
+    // Custom colours while the window stays open.
+    subject.setContext({ theme: { preset: 'custom', custom: { base: '#10272b', accent: '#3fc8c2' } } });
+    await subject.callbacks.context();
+    subject.render();
+    const custom = themes.deriveTokens({ base: '#10272b', accent: '#3fc8c2' });
+    assert.equal(subject.properties.get('--vox_canvas'), custom['--vox_canvas']);
+    // Back to Dark Plum: theme overrides are cleared while scale and font remain.
+    subject.setContext({ theme: { preset: 'dark_plum', custom: { base: '#10272b', accent: '#3fc8c2' } } });
+    await subject.callbacks.context();
+    subject.render();
+    assert.equal(subject.properties.has('--vox_canvas'), false);
+    assert.equal(subject.properties.get('font-size'), '93.75%');
+    assert.equal(subject.properties.get('--font_family'), '"Noto Sans JP"');
+    subject.runtime.unmount(); await flush();
+});
+
+// #1259: the window starts in the theme the shell gave it, and keeps it until the main window's
+// answer carries the theme, which it then follows.
+test('Quick Chat keeps the shell\'s theme until the main window sends one', async t => {
+    const midnight = { preset: 'midnight', custom: { base: '#14203a', accent: '#6ea8fe' } };
+    const subject = await setup(t, midnight);
+    assert.equal(subject.properties.get('--vox_canvas'), themes.deriveTokens(midnight.custom)['--vox_canvas']);
+    subject.setContext({ theme: { preset: 'forest', custom: midnight.custom } });
+    await subject.callbacks.context();
+    subject.render();
+    const forest = themes.deriveTokens(themes.PRESETS.find(preset => preset.id === 'forest')?.colors ?? themes.PRESETS[0].colors);
+    assert.equal(subject.properties.get('--vox_canvas'), forest['--vox_canvas']);
 });
 
 test('main publishes saved appearance on initial configuration and later changes', async () => {
-    const runtime = hooks(), contexts: { ui_scaling: number; font_family: string }[] = [];
+    const runtime = hooks(), contexts: { ui_scaling: number; font_family: string; theme: ThemeSetting | null }[] = [];
     let scale = 150, font = 'Noto Sans JP';
+    let theme: ThemeSetting = { preset: 'midnight', custom: { base: '#261633', accent: '#a47af5' } };
     const { QuickChatController } = await loadModule<typeof import('../app/_app_controllers/QuickChatController.tsx')>(new URL('../app/_app_controllers/QuickChatController.tsx', import.meta.url), runtime, {
-        '@tauri-apps/api/core': { invoke: async (name: string, args: { context: { ui_scaling: number; font_family: string } }) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
+        '@tauri-apps/api/core': { invoke: async (name: string, args: { context: { ui_scaling: number; font_family: string; theme: ThemeSetting | null } }) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
         '@tauri-apps/api/event': { listen: async () => () => {} },
         '@useI18n': { useI18n: () => ({ i18n: { language: 'ja' } }) },
         '../../../logics/common/useMessage': { useMessage: () => ({ sendMessage() { assert.fail('configuration must not send'); } }) },
+        '../../../logics/theme/themes.ts': themes,
         '@logics_common': {
             useIsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }),
             useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: false } }),
         },
         '@logics_configs': {
-            useAppearance: () => ({ currentSendMessageButtonType: { data: 'show' }, currentUiScaling: { data: scale }, currentSelectedFontFamily: { data: font } }),
+            useAppearance: () => ({ currentSendMessageButtonType: { data: 'show' }, currentUiScaling: { data: scale }, currentSelectedFontFamily: { data: font }, currentTheme: { data: theme } }),
             useOthers: () => ({ currentEnableAutoClearMessageInputBox: { data: true } }),
         },
     });
     runtime.render(QuickChatController); await flush();
     assert.equal(contexts[0].ui_scaling, 150);
     assert.equal(contexts[0].font_family, 'Noto Sans JP');
+    assert.deepEqual(contexts[0].theme, theme);
     scale = 200; font = 'Local font';
+    theme = { preset: 'custom', custom: { base: '#15261c', accent: '#62c98c' } };
     runtime.render(QuickChatController); await flush();
     assert.equal(contexts.at(-1)?.ui_scaling, 200);
     assert.equal(contexts.at(-1)?.font_family, 'Local font');
+    assert.deepEqual(contexts.at(-1)?.theme, theme);
     runtime.unmount();
+});
+
+test("send is the kit's primary Button, which waits while the field is empty or a message is handed off", async t => {
+    const subject = await setup(t);
+    const send = () => findIn(subject.render(), node => node.type === kitStandIns.Button).props;
+    assert.deepEqual([send().tone, send().className, send().children, send().disabled], ['primary', 'send', 'quick_chat.send', true]);
+    subject.field().onChange({ target: { value: '   ' } });
+    assert.equal(send().disabled, true, 'only spaces');
+    subject.field().onChange({ target: { value: 'こんにちは' } });
+    assert.equal(send().disabled, false);
+    const before = subject.focusCount;
+    send().onClick();
+    assert.equal(subject.submissions.length, 1);
+    assert.equal(send().disabled, true, 'while the message is handed off');
+    subject.bridge.handoff.resolve(true); await flush();
+    // Sent and cleared: the field takes the focus back, and send waits for new words.
+    assert.equal(subject.field().value, '');
+    assert.equal(subject.focusCount, before + 1);
+    assert.equal(send().disabled, true);
+    subject.runtime.unmount(); await flush();
+});
+
+test('the line beside send says how Enter works, that a message is on its way, or why it was not sent', async t => {
+    const subject = await setup(t);
+    const line = () => {
+        const actions = findIn(subject.render(), node => node.props?.className === 'actions');
+        return findIn(actions, node => node.type === 'span').props;
+    };
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.hint']);
+    subject.setContext({ enter_to_send: false }); await subject.callbacks.context();
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.hint_enter_newline']);
+    subject.field().onChange({ target: { value: 'こんにちは' } });
+    findIn(subject.render(), node => node.type === kitStandIns.Button).props.onClick();
+    assert.deepEqual([line().role, line().children], ['status', 'quick_chat.sending']);
+    // Not taken by the main window: the words stay, and the line says why, as an alert.
+    subject.bridge.handoff.resolve(false); await flush();
+    assert.deepEqual([line().role, line().children], ['alert', 'quick_chat.quick_chat_not_ready']);
+    subject.runtime.unmount(); await flush();
+});
+
+test('a message longer than the chatbox shows is described by the warning under the field', async t => {
+    const subject = await setup(t);
+    assert.equal(subject.field()['aria-describedby'], undefined);
+    subject.field().onChange({ target: { value: 'あ'.repeat(chatboxLength.CHATBOX_MAX_LENGTH + 1) } });
+    const warning = findIn(subject.render(), node => node.type === 'p' && node.props.id !== undefined);
+    assert.equal(subject.field()['aria-describedby'], warning.props.id);
+    subject.runtime.unmount(); await flush();
 });
 
 test('the Quick Chat box shows the same hint as the main window composer while it is empty', async t => {
     const subject = await setup(t);
     assert.equal(subject.field().placeholder, 'studio.message_placeholder');
     assert.equal(subject.field()['aria-label'], 'quick_chat.message');
+    // The kit's Textarea, filling the window: no edge to drag, the window's height is the field's.
+    assert.deepEqual([subject.field().fill, subject.field().className], [true, 'field']);
     subject.runtime.unmount(); await flush();
 });

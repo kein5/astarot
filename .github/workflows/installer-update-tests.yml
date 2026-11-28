@@ -54,6 +54,12 @@ jobs:
         run: |
           python tests/installer/windows_update_scenarios.py --mode rename --installer "$env:INSTALLER" --port 18765
           exit $LASTEXITCODE
+      # Installs of 0.5.x in the old default folder and under the old keys (ADR-014, 2.5). It uses
+      # %LOCALAPPDATA% and the registry too, so it also runs before the scenarios that do not.
+      - name: Install folder and registry keys move to ASTAROT (ADR-014)
+        run: |
+          python tests/installer/windows_update_scenarios.py --mode move --installer "$env:INSTALLER" --port 18765
+          exit $LASTEXITCODE
       - name: Silent install, update, rollback and recovery scenarios
         run: |
           python tests/installer/windows_update_scenarios.py --mode silent --installer "$env:INSTALLER" --port 18765
@@ -61,7 +67,7 @@ jobs:
       - name: Install wizard test driver
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: python -m pip install pywinauto==0.6.9
-      - name: GUI default uninstall-before-installing failure scenario
+      - name: GUI scenarios
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           python tests/installer/windows_update_scenarios.py --mode gui --installer "$env:INSTALLER" --port 18765

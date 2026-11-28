@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import native_acceptance as subject  # noqa: E402
 
 # The plan writes paths into the environment as the OS spells them.
-IMAGE, COPY, DEV = Path("/candidates/app.AppImage"), Path("/out/candidate.AppImage"), Path("/dev/vrct-vox")
+IMAGE, COPY, DEV = Path("/candidates/app.AppImage"), Path("/out/candidate.AppImage"), Path("/dev/astarot")
 ALL = {"ocr": "/m/ocr", "--vrchat": True, "kde": True, "xdotool": "/usr/bin/xdotool",
        "managed_route": True, "pw-record": "/usr/bin/pw-record"}
 

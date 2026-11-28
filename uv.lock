@@ -11,6 +11,75 @@ supported-markers = [
 ]
 
 [[package]]
+name = "astarot"
+version = "0.7.0"
+source = { virtual = "." }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+voice-test = [
+    { name = "cryptography" },
+    { name = "numpy" },
+    { name = "openvr" },
+    { name = "pillow" },
+    { name = "psutil" },
+    { name = "pytest" },
+    { name = "python-osc" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+    { name = "tqdm" },
+]
+voice-ui-test = [
+    { name = "cryptography" },
+    { name = "numpy" },
+    { name = "openvr" },
+    { name = "pillow" },
+    { name = "playwright" },
+    { name = "psutil" },
+    { name = "pytest" },
+    { name = "python-osc" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+    { name = "tqdm" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = "==9.2.0" },
+    { name = "ruff", specifier = "==0.17.5" },
+]
+voice-test = [
+    { name = "cryptography", specifier = "==50.0.2" },
+    { name = "numpy", specifier = "==2.5.4" },
+    { name = "openvr", specifier = "==2.12.1401" },
+    { name = "pillow", specifier = "==13.0.0" },
+    { name = "psutil", specifier = "==7.2.2" },
+    { name = "pytest", specifier = "==9.2.0" },
+    { name = "python-osc", specifier = "==1.10.2" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "ruff", specifier = "==0.17.5" },
+    { name = "tqdm", specifier = "==4.70.1" },
+]
+voice-ui-test = [
+    { name = "cryptography", specifier = "==50.0.2" },
+    { name = "numpy", specifier = "==2.5.4" },
+    { name = "openvr", specifier = "==2.12.1401" },
+    { name = "pillow", specifier = "==13.0.0" },
+    { name = "playwright", specifier = "==1.65.2" },
+    { name = "psutil", specifier = "==7.2.2" },
+    { name = "pytest", specifier = "==9.2.0" },
+    { name = "python-osc", specifier = "==1.10.2" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "ruff", specifier = "==0.17.5" },
+    { name = "tqdm", specifier = "==4.70.1" },
+]
+
+[[package]]
 name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -250,73 +319,4 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl", hash = "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73", size = 80199, upload-time = "2026-09-11T07:25:14.599Z" },
-]
-
-[[package]]
-name = "vrct-vox"
-version = "0.6.0"
-source = { virtual = "." }
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-voice-test = [
-    { name = "cryptography" },
-    { name = "numpy" },
-    { name = "openvr" },
-    { name = "pillow" },
-    { name = "psutil" },
-    { name = "pytest" },
-    { name = "python-osc" },
-    { name = "pyyaml" },
-    { name = "ruff" },
-    { name = "tqdm" },
-]
-voice-ui-test = [
-    { name = "cryptography" },
-    { name = "numpy" },
-    { name = "openvr" },
-    { name = "pillow" },
-    { name = "playwright" },
-    { name = "psutil" },
-    { name = "pytest" },
-    { name = "python-osc" },
-    { name = "pyyaml" },
-    { name = "ruff" },
-    { name = "tqdm" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = "==9.2.0" },
-    { name = "ruff", specifier = "==0.17.5" },
-]
-voice-test = [
-    { name = "cryptography", specifier = "==50.0.2" },
-    { name = "numpy", specifier = "==2.5.4" },
-    { name = "openvr", specifier = "==2.12.1401" },
-    { name = "pillow", specifier = "==13.0.0" },
-    { name = "psutil", specifier = "==7.2.2" },
-    { name = "pytest", specifier = "==9.2.0" },
-    { name = "python-osc", specifier = "==1.10.2" },
-    { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "ruff", specifier = "==0.17.5" },
-    { name = "tqdm", specifier = "==4.70.1" },
-]
-voice-ui-test = [
-    { name = "cryptography", specifier = "==50.0.2" },
-    { name = "numpy", specifier = "==2.5.4" },
-    { name = "openvr", specifier = "==2.12.1401" },
-    { name = "pillow", specifier = "==13.0.0" },
-    { name = "playwright", specifier = "==1.65.2" },
-    { name = "psutil", specifier = "==7.2.2" },
-    { name = "pytest", specifier = "==9.2.0" },
-    { name = "python-osc", specifier = "==1.10.2" },
-    { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "ruff", specifier = "==0.17.5" },
-    { name = "tqdm", specifier = "==4.70.1" },
 ]

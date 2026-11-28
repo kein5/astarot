@@ -13,9 +13,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use vrct_adapters::osc::mdns::{self, DiscoveredService, Mdns, ServiceSpec};
-use vrct_adapters::osc::query::{get_json, host_info_json, Node, QueryService, OSCJSON_TYPE};
-use vrct_adapters::osc::{
+use astarot_adapters::osc::mdns::{self, DiscoveredService, Mdns, ServiceSpec};
+use astarot_adapters::osc::query::{get_json, host_info_json, Node, QueryService, OSCJSON_TYPE};
+use astarot_adapters::osc::{
     decode_packet, local_service_name, pattern_matches, query_parameter_value, uses_osc_query, vrchat_presence, Cancel,
     Discovery, OscArg, OscError, OscHandler, OscMessage, QueryFailed, Target,
 };
@@ -359,9 +359,13 @@ fn ambiguous_local_services_cannot_authorize_an_unmute() {
 
 #[test]
 fn an_unreachable_service_fails_the_query() {
-    let closed = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let port = closed.local_addr().unwrap().port();
-    drop(closed);
+    // A port this test holds without listening on it: a connection there is refused, and no other
+    // test is given the port meanwhile (#1073). A listener on port 0 that was dropped left the port
+    // free, and on Windows the stand-in VRChat of a test running beside this one got it and
+    // answered.
+    let closed = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+    closed.bind(&std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, 0)).into()).unwrap();
+    let port = closed.local_addr().unwrap().as_socket().unwrap().port();
     let discovery = fixed(vec![local_service("VRChat-Client-test", vec![Ipv4Addr::LOCALHOST], port)]);
     assert_eq!(query_parameter_value(MUTE, &discovery, &Cancel::new(), 9000), Err(QueryFailed));
 }
@@ -660,7 +664,12 @@ fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     }
     let observer = Mdns::start().unwrap();
     observer.browse(OSCJSON_TYPE);
-    let ours = || observer.discovered(OSCJSON_TYPE).iter().any(|s| s.name.starts_with("ASTAROT:"));
+    // Other tests of this process announce ASTAROT services of their own at the same time, so this
+    // handler's is told by its HTTP port, known once it is on, as on Windows (#1073).
+    let announced = || -> Vec<(String, u16)> {
+        observer.discovered(OSCJSON_TYPE).into_iter().filter(|s| s.name.starts_with("ASTAROT:")).map(|s| (s.name, s.port)).collect()
+    };
+    let ours = |http: u16| announced().into_iter().find(|(_, port)| *port == http).map(|(name, _)| name);
     let (socket, port) = udp_listener();
     let handler = OscHandler::new("127.0.0.1", port).unwrap();
     handler.set_osc_query_allowed(false).unwrap();
@@ -675,15 +684,21 @@ fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     // Setting the destination again (which restarts receiving) does not start it either.
     handler.set_osc_ip_address("127.0.0.1").unwrap();
     assert!(!handler.is_osc_query_enabled());
-    thread::sleep(Duration::from_millis(500));
-    assert!(!ours(), "announced while off");
+    let mut heard_while_off = Vec::new();
+    let off_until = Instant::now() + Duration::from_millis(500);
+    while Instant::now() < off_until {
+        heard_while_off.extend(announced());
+        thread::sleep(Duration::from_millis(50));
+    }
 
     // On: receiving, the HTTP server and the advertisement start for the destination.
     handler.set_osc_query_allowed(true).unwrap();
     assert!(handler.is_osc_query_enabled());
     let http = handler.http_port().unwrap();
     assert!(get_json(Ipv4Addr::LOCALHOST.into(), http, "/HOST_INFO").unwrap().is_some());
-    assert!(wait_until(ours, Duration::from_secs(5)), "not announced once on");
+    assert!(wait_until(|| ours(http).is_some(), Duration::from_secs(5)), "not announced once on");
+    let name = ours(http).unwrap();
+    assert!(!heard_while_off.iter().any(|(heard, _)| *heard == name), "announced while off");
     handler.set_osc_query_allowed(true).unwrap();
     assert_eq!(handler.http_port(), Some(http), "on twice changes nothing");
 
@@ -691,7 +706,7 @@ fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     handler.set_osc_query_allowed(false).unwrap();
     assert!(!handler.is_osc_query_enabled());
     assert!(get_json(Ipv4Addr::LOCALHOST.into(), http, "/HOST_INFO").is_err());
-    assert!(wait_until(|| !ours(), Duration::from_secs(5)), "still announced once off");
+    assert!(wait_until(|| ours(http).is_none(), Duration::from_secs(5)), "still announced once off");
     handler.send_typing(true).unwrap();
     assert_eq!(receive(&socket)[0].address, "/chatbox/typing");
 
@@ -735,7 +750,7 @@ fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
 fn nothing_logged_holds_the_text() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();
-    vrct_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
+    astarot_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
     let (_socket, port) = udp_listener();
     let handler = OscHandler::new("127.0.0.1", port).unwrap();
     handler.send_message("private words", true, None).unwrap();

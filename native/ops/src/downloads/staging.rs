@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use super::catalog::Model;
 use super::Error;
 use crate::json::{Json, Object};
-use app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
+use astarot_app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
 
 pub const LOCK_NAME: &str = ".download.lock";
 const MARKER: &str = "owner.json";
@@ -210,9 +210,8 @@ fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str])
 /// The children of `path` when its marker names an entry of `entries` and the staging name
 /// `name` exactly, and every child is a regular file the entry owns. `skip` otherwise.
 ///
-/// The marker's product may have either spelling (ADR-014, 2.11): this build writes the VRCT-VOX
-/// one, and a build that moved to ASTAROT takes back what an older one left, and the other way
-/// round.
+/// The marker's product may have either spelling (ADR-014, 2.11): this build writes the ASTAROT
+/// one, and takes back what a 0.5.x build left under the VRCT-VOX one.
 fn check_owned(path: &Path, name: &str, entries: &[Model], extra_files: &[&str]) -> Result<Vec<PathBuf>, Error> {
     let data = read_marker(path)?;
     let entry = data.get("id").and_then(Json::as_str).and_then(|id| entries.iter().find(|e| e.id == id)).ok_or(SKIP)?;

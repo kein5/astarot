@@ -9,10 +9,10 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_core::controller::speech::Ended;
-use vrct_speech_server::Profile;
-use vrct_speech_server::server::Launch;
+use astarot_core::controller::Services;
+use astarot_core::controller::speech::Ended;
+use astarot_speech_server::Profile;
+use astarot_speech_server::server::Launch;
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-speech-core");
 
@@ -45,7 +45,7 @@ impl Models {
 
     /// Settings with `japanese` as the Japanese model and `asr` as the recognition model.
     fn settings(&self, japanese: &str, asr: &str) -> Value {
-        let row = |model: &str| json!({ "model": model, "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+        let row = |model: &str| json!({ "model": model, "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false });
         let mut asr_row = row(&self.gguf(asr));
         asr_row["vad_model"] = json!(self.gguf("vad"));
         json!({ "version": 1, "profiles": { "japanese": row(&self.gguf(japanese)), "multilingual": row(""), "asr": asr_row } })
@@ -91,7 +91,7 @@ fn start(ui: &Ui, profile: &str, generation: &Value) -> Value {
 fn reported() -> &'static Mutex<Vec<String>> {
     static CODES: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
     CODES.get_or_init(|| {
-        vrct_core::errors::register_report_hook(Arc::new(|code| reported().lock().unwrap().push(code.to_string())));
+        astarot_core::errors::register_report_hook(Arc::new(|code| reported().lock().unwrap().push(code.to_string())));
         Mutex::new(Vec::new())
     })
 }
@@ -123,7 +123,7 @@ fn restoring_and_saving_the_settings_never_starts_a_server() {
     let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services: fake_services(), ..Setup::default() });
     let snapshot = ui.ready();
     let defaults = snapshot["/get/data/speech_server_settings"].clone();
-    assert_eq!(defaults["profiles"]["japanese"], json!({ "model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false }));
+    assert_eq!(defaults["profiles"]["japanese"], json!({ "model": "", "vad_model": "", "diarization_model": "", "listening_model": "", "voice_file": "", "device": "auto", "low_latency": false }));
     assert_eq!(ui.ok("/set/data/speech_server_settings", Some(settings.clone())), settings);
 
     // An invalid change answers 400 and leaves the settings as they were.
@@ -142,12 +142,46 @@ fn restoring_and_saving_the_settings_never_starts_a_server() {
     let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services: fake_services(), ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(snapshot["/get/data/speech_server_settings"], settings);
-    for profile in ["japanese", "multilingual", "asr"] {
+    for profile in ["japanese", "multilingual", "asr", "asr_listening"] {
         assert_eq!(snapshot["/get/data/speech_server_state"][profile]["state"], "stopped", "{profile}");
         assert_eq!(state(&ui)[profile], json!({ "state": "stopped", "base_url": null, "error_code": null, "generation": 0 }));
     }
     std::thread::sleep(Duration::from_millis(200));
     assert!(!models.launched());
+    ui.stop();
+}
+
+// #1242: Listening's recognition model is the `asr` profile's `listening_model`. A settings file saved
+// before it existed loads with none, so Listening keeps Mic input's model and nothing changes; a model
+// chosen for Listening is saved and comes back at the next start.
+#[test]
+fn settings_saved_before_listenings_own_model_load_with_none_and_a_choice_is_kept() {
+    let models = Models::new();
+    let dir = tempfile::tempdir().unwrap();
+    let mut older = models.settings("tts", "asr");
+    for profile in ["japanese", "multilingual", "asr"] {
+        older["profiles"][profile].as_object_mut().unwrap().remove("listening_model");
+    }
+    std::fs::write(dir.path().join("config.json"), json!({ "SPEECH_SERVER_SETTINGS": older }).to_string()).unwrap();
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services: fake_services(), ..Setup::default() });
+    let restored = ui.ready()["/get/data/speech_server_settings"].clone();
+    assert_eq!(restored, models.settings("tts", "asr"), "every profile has an empty listening_model");
+    assert_eq!(restored["profiles"]["asr"]["model"], json!(models.gguf("asr")));
+
+    let mut chosen = restored.clone();
+    chosen["profiles"]["asr"]["listening_model"] = json!(models.gguf("asr_listening"));
+    assert_eq!(ui.ok("/set/data/speech_server_settings", Some(chosen.clone())), chosen);
+    // Only the asr profile has a recognition model for Listening.
+    let mut misplaced = chosen.clone();
+    misplaced["profiles"]["japanese"]["listening_model"] = json!(models.gguf("asr_listening"));
+    let answer = ui.request("/set/data/speech_server_settings", Some(misplaced));
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "speech_server_settings_invalid"));
+    assert_eq!(ui.ok("/run/shutdown", None), true);
+    ui.stop();
+
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services: fake_services(), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/speech_server_settings"], chosen);
+    assert!(!models.launched(), "a setting starts nothing");
     ui.stop();
 }
 
@@ -232,6 +266,37 @@ fn a_start_prepares_then_becomes_ready_and_a_stop_invalidates_its_generation() {
     let current = state(&ui)["japanese"]["generation"].clone();
     assert_eq!(start(&ui, "japanese", &current)["status"], 200);
     wait_state(&ui, "ready restart", |s| s["japanese"]["state"] == "ready");
+    ui.stop();
+}
+
+// #1242: Listening's recognition server starts as the others do, while Listening has a model of
+// its own: it runs that model, beside Mic input's server and its model. Without one of its own,
+// Mic input's server is the one for both, and Listening's has nothing to start.
+#[test]
+fn listenings_server_starts_only_with_a_model_of_its_own() {
+    let models = Models::new();
+    let ui = Ui::with(Setup { services: fake_services(), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/speech_server_state"]["asr_listening"]["state"], "stopped");
+    let mut settings = models.settings("tts", "asr");
+    ui.ok("/set/data/speech_server_settings", Some(settings.clone()));
+    let refused = start(&ui, "asr_listening", &json!(0));
+    assert_eq!((refused["status"].clone(), error_code(&refused)), (json!(400), "speech_server_model_invalid"));
+
+    settings["profiles"]["asr"]["listening_model"] = json!(models.gguf("asr_listening"));
+    ui.ok("/set/data/speech_server_settings", Some(settings));
+    assert_eq!(start(&ui, "asr", &json!(0))["status"], 200);
+    assert_eq!(start(&ui, "asr_listening", &json!(0))["status"], 200);
+    let ready = wait_state(&ui, "both recognition servers", |s| s["asr"]["state"] == "ready" && s["asr_listening"]["state"] == "ready");
+    assert_ne!(ready["asr"]["base_url"], ready["asr_listening"]["base_url"], "two servers");
+    assert!(models.marker("asr", ".started").exists() && models.marker("asr_listening", ".started").exists(), "each runs its own model");
+
+    // Each stops on its own.
+    let stopped = ui.request("/run/stop_speech_server", Some(json!({ "profile": "asr_listening" })));
+    assert_eq!(stopped["result"]["asr"]["state"], "ready", "Mic input's server keeps running");
+    wait_state(&ui, "Listening's server stopped", |s| s["asr_listening"]["state"] == "stopped");
+    assert!(gone(&models.marker("asr_listening", ".started")));
+    assert_eq!(state(&ui)["asr"]["state"], "ready");
     ui.stop();
 }
 
@@ -378,17 +443,17 @@ fn bundled_services(dir: &Path, layout: &[(&str, &str, &[&str])]) -> Services {
     for (folder, variant, markers) in layout {
         let folder = dir.join(folder);
         std::fs::create_dir_all(&folder).unwrap();
-        let binary = folder.join(vrct_speech_server::bundle::EXECUTABLE);
+        let binary = folder.join(astarot_speech_server::bundle::EXECUTABLE);
         std::fs::copy(FAKE, &binary).unwrap();
-        std::fs::write(folder.join("bundle.json"), json!({ "schema": 1, "version": vrct_speech_server::bundle::VERSION, "variant": variant }).to_string()).unwrap();
+        std::fs::write(folder.join("bundle.json"), json!({ "schema": 1, "version": astarot_speech_server::bundle::VERSION, "variant": variant }).to_string()).unwrap();
         for marker in *markers {
             std::fs::write(folder.join(marker), b"").unwrap();
         }
-        pins.push((variant.to_string(), vrct_speech_server::bundle::file_sha256(&binary).unwrap()));
+        pins.push((variant.to_string(), astarot_speech_server::bundle::file_sha256(&binary).unwrap()));
     }
-    let pins: vrct_speech_server::bundle::Pins = pins.into();
+    let pins: astarot_speech_server::bundle::Pins = pins.into();
     // The core's own order: the Vulkan build's folder, then the CPU build's.
-    let folders: Vec<PathBuf> = vrct_core::controller::speech::BUNDLES.iter().map(|relative| dir.join(relative.trim_start_matches("build/"))).collect();
+    let folders: Vec<PathBuf> = astarot_core::controller::speech::BUNDLES.iter().map(|relative| dir.join(relative.trim_start_matches("build/"))).collect();
     Services {
         speech_server_launch: Arc::new(move |_| {
             let mut launch = Launch::bundles(folders.clone());

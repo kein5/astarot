@@ -10,7 +10,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(() => {
     return {
-        // The page entries (index.html, vr.html, quick-chat.html, caption-overlay.html) live in src-ui;
+        // The page entries (index.html, settings.html, vr.html, quick-chat.html, caption-overlay.html) live in src-ui;
         // the build still writes them to the root of dist for Tauri.
         root: path.resolve(__dirname, "src-ui"),
         plugins: [
@@ -58,6 +58,8 @@ export default defineConfig(() => {
             rollupOptions: {
                 input: {
                     main: path.resolve(__dirname, "src-ui/index.html"),
+                    // The settings window (#1236).
+                    settings: path.resolve(__dirname, "src-ui/settings.html"),
                     vr: path.resolve(__dirname, "src-ui/vr.html"),
                     quick_chat: path.resolve(__dirname, "src-ui/quick-chat.html"),
                     caption_overlay: path.resolve(__dirname, "src-ui/caption-overlay.html"),
@@ -80,7 +82,6 @@ export default defineConfig(() => {
                 "@useStdoutToPython": path.resolve(__dirname, "src-ui/logics/common/useStdoutToPython"),
 
                 "@ui_configs": path.resolve(__dirname, "src-ui/logics/ui_configs"),
-                "@scss_mixins": path.resolve(__dirname, "src-ui/views/common_css/mixins.scss"),
                 "@store": path.resolve(__dirname, "src-ui/logics/store"),
                 "@images": path.resolve(__dirname, "src-ui/views/assets"),
                 "@utils": path.resolve(__dirname, "src-ui/logics/utils"),
@@ -94,14 +95,6 @@ export default defineConfig(() => {
                     "src-ui/views/app/config_page/setting_section/setting_box/index",
                 ),
                 "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index"),
-            },
-        },
-
-        css: {
-            preprocessorOptions: {
-                scss: {
-                    api: "modern-compiler",
-                },
             },
         },
     };

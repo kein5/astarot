@@ -1,4 +1,4 @@
-//! The SteamVR overlays of VRCT-VOX (`src-python/models/overlay/`, issue #282).
+//! The SteamVR overlays of ASTAROT (`src-python/models/overlay/`, issue #282).
 //!
 //! Codename: Nuberus (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!
@@ -9,6 +9,8 @@
 //! - [`runtime`]: what the engine asks of SteamVR, with the real one in [`openvr`] (the
 //!   `openvr_api` library is loaded when SteamVR runs) and stand-ins in tests. [`shared`]
 //!   lets the overlays and the clipboard share one connection, as OpenVR has one per process.
+//! - [`registration`]: ASTAROT in SteamVR's list of applications, so that SteamVR can start it
+//!   with itself (#1384).
 //! - [`surface`]: where the VR panel's page is captured, how its size is set and how the mouse
 //!   input reaches it.
 //! - [`layout`], [`math`], [`placement`], [`pose`], [`timing`], [`tooltip`]: the arrangement of
@@ -25,6 +27,7 @@ pub mod openvr;
 pub mod placement;
 pub mod pose;
 pub mod process;
+pub mod registration;
 pub mod runtime;
 pub mod shared;
 pub mod subtitle;

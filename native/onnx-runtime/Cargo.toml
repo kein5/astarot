@@ -1,14 +1,14 @@
 [package]
-name = "vrct-onnx-runtime"
+name = "astarot-onnx-runtime"
 version = "0.0.0"
-description = "The one ONNX Runtime library and environment of a VRCT-VOX process, shared by chat reading, local translation and the RVC worker"
+description = "The one ONNX Runtime library and environment of a ASTAROT process, shared by chat reading, local translation and the RVC worker"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"
 publish = false
 
 [lib]
-name = "vrct_onnx_runtime"
+name = "astarot_onnx_runtime"
 
 [features]
 default = ["load-dynamic"]

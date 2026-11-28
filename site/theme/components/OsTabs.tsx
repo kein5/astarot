@@ -74,6 +74,7 @@ export default function OsTabs({ children }: { children?: ReactNode }) {
             }}
             id={`${base}-${tab.id}-tab`}
             type="button"
+            className={styles.tab}
             role="tab"
             aria-selected={os === tab.id}
             aria-controls={`${base}-${tab.id}`}

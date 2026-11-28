@@ -4,7 +4,7 @@
 
 For a change to how export.py stores a model (such as storing a weight once), the bundle
 it writes has to translate as the one before it did. Both bundles run through
-native/translate-onnx's vrct-translate on the CPU, over the first N sentences of each
+native/translate-onnx's astarot-translate on the CPU, over the first N sentences of each
 WMT20 direction, the same sentences compare.py takes. For each direction it reports how
 many outputs have the same target ids, the failures on each side, and BLEU and chrF of
 each side against the references.
@@ -27,7 +27,7 @@ def bundle(folder):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--cli", required=True, help="native/translate-onnx's vrct-translate, a release build")
+    parser.add_argument("--cli", required=True, help="native/translate-onnx's astarot-translate, a release build")
     parser.add_argument("--before", required=True, help="the bundle to compare against")
     parser.add_argument("--after", required=True, help="the bundle being checked")
     parser.add_argument("--sentences", type=int, default=100, help="sentences per direction")

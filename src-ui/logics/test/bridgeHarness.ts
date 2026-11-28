@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import * as legacyModelConsent from "../configs/legacyModelConsent.ts";
 import * as sharedWindow from "../configs/ocrSharedWindow.ts";
 import { atom } from "jotai/vanilla";
 import type { Atom, PrimitiveAtom, WritableAtom } from "jotai/vanilla";
@@ -18,8 +17,11 @@ import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
 import * as stopVoiceShapes from "../voice/stopVoice.ts";
 import * as gpuCheckShapes from "../support/gpuCheck.ts";
+import * as talkAiShapes from "../talk_ai/talkAi.ts";
+import * as talkViewShapes from "../talk_ai/talkView.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -42,7 +44,7 @@ export const loadBridgeStore = async (runtime: HookRuntime = hooks()) => {
         jotai,
         "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_: unknown, next: unknown) => next },
-        "./voice/settingsNavigation": { requestSettingsNavigation: (action: () => unknown) => action() },
+        
         "./common/pendingRequestRecovery.ts": recovery,
         "./common/meterValue.ts": meterValue,
         "./common/initializationFields.ts": initialization,
@@ -89,12 +91,28 @@ export function settingAtom(registry: Readonly<Record<string, unknown>>, name: s
     return target;
 }
 
+// The settings list (ui_config_setter.ts) on a bridge store, with its hooks' logic: the settings
+// the routes are made from, and the category hooks that take their answers.
+export const loadBridgeSettings = async ({ runtime, stores, jotai }: BridgeStore, common: Record<string, unknown> = stubApi()) => {
+    const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
+        "@store": stores, "@utils": utils, "@logics_common": common,
+        "../fieldErrors.ts": fieldErrors,
+    });
+    return await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
+        jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
+        "../../../views/vr/vr_layout.json": {},
+        "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
+            ctranslate2_weight_type_status: [] },
+        "./useSettingsLogics": settingsLogics,
+    });
+};
+
 export const loadBridgeRoutes = async (
     loadCommon: (subject: BridgeStore) => Promise<Record<string, unknown>> = async () => ({}),
     i18n: I18n | null = null, modelDownloads: Record<string, unknown> | null = null, overrides: BridgeOverrides = {},
 ) => {
     const subject = await loadBridgeStore();
-    const { runtime, stores, jotai } = subject;
+    const { runtime, stores } = subject;
     const notices: Notice[] = [], reads: string[] = [];
     const useI18n = () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: (key: string) => key, i18n: { exists: () => false } };
     const notification = {
@@ -109,17 +127,7 @@ export const loadBridgeRoutes = async (
         ...await loadCommon(subject),
     });
     const send = async (endpoint: string) => { reads.push(endpoint); return true; };
-    const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": stores, "@utils": utils, "@logics_common": common,
-        "../../voice/saveBar": { setSaveBarEntry: noop },
-    });
-    const settings = await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
-        jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
-        "../../../views/vr/vr_layout.json": {},
-        "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
-            ctranslate2_weight_type_status: [] },
-        "./useSettingsLogics": settingsLogics,
-    });
+    const settings = await loadBridgeSettings(subject, common);
     const configs = stubApi({ ...Object.fromEntries([...new Set(settings.SETTINGS_ARRAY.map(setting => setting.Category))]
         .map(category => [`use${category}`, settings.createCategoryHook(category)])),
         ocrStartErrorKey: (code: string) => sharedWindow.startErrorKey(code, runtime.store.get(stores.Atom_OcrSharedWindow).data),
@@ -132,16 +140,20 @@ export const loadBridgeRoutes = async (
     const transcriptionConsent = await loadModule<typeof import("../transcription/useTranscriptionConsent.ts")>(new URL("../transcription/useTranscriptionConsent.ts", import.meta.url), runtime);
     const translationSetup = await loadModule<typeof import("../translation/useTranslationSetup.ts")>(new URL("../translation/useTranslationSetup.ts", import.meta.url), runtime);
     const ocrSetup = await loadModule<typeof import("../ocr/useOcrSetup.ts")>(new URL("../ocr/useOcrSetup.ts", import.meta.url), runtime);
+    const recognitionFix = await loadModule<typeof import("../transcription/useRecognitionFix.ts")>(new URL("../transcription/useRecognitionFix.ts", import.meta.url), runtime);
+    const recognitionFixes = await loadModule<typeof import("../transcription/recognitionFix.ts")>(new URL("../transcription/recognitionFix.ts", import.meta.url), runtime,
+        { "../setup/firstRunSetup.ts": await import("../setup/firstRunSetup.ts") });
     const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./ui_configs": { ui_configs: {} }, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
-        "./configs/legacyModelConsent": legacyModelConsent,
         "./main/translatorLabel": translatorLabel,
         "./transcription/useTranscriptionConsent": transcriptionConsent,
         "./translation/useTranslationSetup": translationSetup,
         "./ocr/useOcrSetup": ocrSetup,
+        "./transcription/useRecognitionFix": recognitionFix,
+        "./transcription/recognitionFix": recognitionFixes,
     });
     const feature = (values: Record<string, unknown>) => stubApi({ send, reset: noop, backendStopped: noop, ...values });
     const voice = { useVoice: () => feature({ settings: null, status: {} }) };
@@ -176,15 +188,21 @@ export const loadBridgeRoutes = async (
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./gpuCheck.ts": gpuCheckShapes,
     });
+    // Talk AI (#388): the real hook, which keeps the conversation the routes answer.
+    const talkAi = await loadModule<typeof import("../talk_ai/useTalkAiSession.ts")>(new URL("../talk_ai/useTalkAiSession.ts", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./talkAi.ts": talkAiShapes, "./talkView.ts": talkViewShapes,
+    });
     const routes = await loadModule<typeof import("../useReceiveRoutes.ts")>(new URL("../useReceiveRoutes.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition, "./support/useGpuCheck": gpuCheck,
-        "./voice/useStopVoice": stopVoice,
+        "./voice/useStopVoice": stopVoice, "./talk_ai/useTalkAiSession": talkAi,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
+        "./transcription/useTranscriptionCatalog": { useTranscriptionCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
         "./flow/useGpuMemory": { useGpuMemory: () => feature({}) },
         "./_useBackendErrorHandling": errors,
@@ -194,6 +212,7 @@ export const loadBridgeRoutes = async (
         "./common/initializationFields.ts": initialization,
         "./common/sidecarExitExpectation.ts": exitExpectation,
         "./common/settingsWriteResponses.ts": settingsResponses,
+        "./configs/fieldErrors.ts": fieldErrors,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
     return { ...subject, notices, reads, routeTable: routes.ROUTE_META_LIST, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
@@ -201,6 +220,8 @@ export const loadBridgeRoutes = async (
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
         stopVoice: () => localRuntime.render(stopVoice.useStopVoice),
         gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
+        talkAi: () => localRuntime.render(talkAi.useTalkAiSession),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
+        recognitionFix: () => runtime.render(recognitionFix.useRecognitionFix),
         ...runtime.render(routes.useReceiveRoutes) };
 };

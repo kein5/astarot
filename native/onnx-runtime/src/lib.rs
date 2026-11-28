@@ -1,4 +1,4 @@
-//! The ONNX Runtime library and environment of a VRCT-VOX process, shared by chat reading
+//! The ONNX Runtime library and environment of a ASTAROT process, shared by chat reading
 //! (`native/ocr-runtime`), local translation (`native/translate-onnx`) and the RVC worker
 //! (`native/rvc-runtime`).
 //!
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn presence_looks_at_the_file_or_beside_the_executable_only() {
-        let dir = std::env::temp_dir().join(format!("vrct-onnx-runtime-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("astarot-onnx-runtime-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join(library_name());
         assert!(!present(&file, None));

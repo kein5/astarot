@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useId } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getStoreHook } from "@store";
 import type { AtomState, UpdateOptions } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import type { StdoutResult } from "@useStdoutToPython";
-import { useNotificationStatus } from "@logics_common";
+import { useI18n } from "@useI18n";
 import { deviceOptionsToObject, arrayToObject, arrayToIdLabel, transformToIndexedArray } from "@utils";
 import type { DeviceOption } from "@utils";
-import { setSaveBarEntry } from "../../voice/saveBar";
-import type { SaveState } from "../../voice/saveBar";
+import type { SaveState } from "../../voice/useSettingsDraft.tsx";
+import { awaitInlineAnswer, errorCodeOf, refusalKeys } from "../fieldErrors.ts";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
+import type { AwaitedSettingsWrite } from "../../common/settingsWriteResponses.ts";
 import type { ConfigFunctions, CustomWeightStatus, DownloadedWeights, SettingResponseTransform, SettingRunDirection,
     WeightDownloadProgress, WeightDownloaded, WeightTypeStatus } from "./settingTypes.ts";
 
@@ -69,7 +70,6 @@ const transformResponse = (transformName: SettingResponseTransform | null, paylo
 
 export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], Category: string): { settings: SettingFields } => {
     const { asyncStdoutToPython } = useStdoutToPython();
-    const { showNotification_SaveSuccess } = useNotificationStatus();
 
     const filtered = settingsArray.filter((s) => s.Category === Category);
     const result: SettingFields = {};
@@ -142,11 +142,11 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
 
 
         // To use a response from backend------------------------------------
+        // Every setting saves by itself without a "saved" notice (#1111).
         const buildSuccessHandler = (transformName: SettingResponseTransform | null) => {
             return (payload: unknown) => {
                 const transformed = transformResponse(transformName, payload);
                 if (updateValue) updateValue(transformed);
-                showNotification_SaveSuccess();
             };
         };
 
@@ -197,7 +197,10 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
             result[getExportName] = buildGet();
             result[toggleExportName] = () => {
                 if (isAction(pending)) pending();
-                const isOn = isRecord(current) && current.data;
+                // A switch whose answer is an object says whether it is on by `enabled`
+                // (SteamVrAutoLaunch).
+                const data = isRecord(current) ? current.data : undefined;
+                const isOn = isRecord(data) ? data.enabled === true : data;
                 if (isOn) {
                     asyncStdoutToPython(`/set/disable/${s.base_endpoint_name}`);
                 } else {
@@ -432,9 +435,9 @@ export const useSliderLogic = ({
 };
 
 
-// A text field saved from the config page top bar, like every other settings
-// form; `label` names it in the bar's list of changes. Enter still saves the
-// one field.
+// A text field that saves by itself (#1111): on Enter, or when focus leaves the field, a changed
+// value that passes `validate` is sent. Escape puts the saved value back (`revert`). No "saved"
+// notice is shown; a refusal is said under the field (`error`).
 export interface SaveButtonLogicOptions {
     // The saved value; after a save, the value the backend answered with.
     variable: unknown;
@@ -442,7 +445,17 @@ export interface SaveButtonLogicOptions {
     setFunction: (value: unknown) => Promise<StdoutResult> | StdoutResult;
     // Saves an empty field by deleting the value (credentials).
     deleteFunction?: () => Promise<StdoutResult> | StdoutResult;
-    label?: string;
+    // What is wrong with a value and what kind of value would do, said beside the field; null when
+    // the value may be saved. A value it refuses is never sent.
+    validate?: (value: string) => string | null;
+    // An API key or another credential (#1111, decided 2): leaving the field empty keeps the
+    // saved value and puts it back; only Enter on the empty field deletes it (or clears it).
+    // Taken as true when the field has a deleteFunction.
+    credential?: boolean;
+    // The set endpoint `setFunction` sends to: a refusal of the field's own save is said under the
+    // field only, not as a notice too. It is one whose answer the write waits for
+    // (settingsWriteResponses.ts); without that answer the field would say the save failed (#1323).
+    endpoint?: AwaitedSettingsWrite;
 }
 
 export const useSaveButtonLogic = ({
@@ -450,10 +463,21 @@ export const useSaveButtonLogic = ({
     state,
     setFunction,
     deleteFunction,
-    label,
+    validate,
+    credential = typeof deleteFunction === "function",
+    endpoint,
 }: SaveButtonLogicOptions) => {
+    const { t } = useI18n();
     const [input_value, setInputValue] = useState<unknown>(variable);
     const [saveState, setSaveState] = useState<SaveState>("saved");
+    // What the field says under it: a refused value, or a save that did not go through (#1111).
+    const [problem, setProblem] = useState<string | null>(null);
+    // A refused save is said in the words its code has (the notice it no longer raises), or as
+    // "could not be saved" without one.
+    const saveFailed = (result?: unknown) => {
+        const code = errorCodeOf(result);
+        setProblem(code ? t(refusalKeys(code)) : t("config_page.auto_save.save_failed"));
+    };
     const submitted = useRef<{ value: unknown } | null>(null);
     const previous = useRef<unknown>(variable);
     const same = (a: unknown, b: unknown) => String(a ?? "") === String(b ?? "");
@@ -461,6 +485,7 @@ export const useSaveButtonLogic = ({
     const onChangeFunction = (value: unknown) => {
         setInputValue(value);
         if (!submitted.current) setSaveState("unsaved");
+        setProblem(null);
     };
     const saveFunction = async (): Promise<StdoutResult | undefined> => {
         if (saveState === "saving" || state === "pending") return;
@@ -468,11 +493,15 @@ export const useSaveButtonLogic = ({
         submitted.current = request;
         setSaveState("saving");
         const empty = input_value === "" || input_value === null;
+        const deleting = empty && typeof deleteFunction === "function";
+        // Only the field's own set is awaited: its refusal is said under the field (fieldErrors.ts).
+        const settle = endpoint && !deleting ? awaitInlineAnswer(endpoint) : null;
         try {
-            const response = await (empty && typeof deleteFunction === "function"
-                ? deleteFunction() : setFunction(empty ? "" : input_value));
-            if (submitted.current !== request) return response;
+            const response = await (deleting ? deleteFunction() : setFunction(empty ? "" : input_value));
             const reply = typeof response === "object" && response !== null ? response : null;
+            // An answer with another status ends the wait where it is received (fieldErrors.ts).
+            if (settle && !(reply?.status && reply.status !== 200)) settle();
+            if (submitted.current !== request) return response;
             if (reply?.status === 200) {
                 setInputValue((value: unknown) => same(value, request.value) ? reply.result : value);
                 previous.current = reply.result;
@@ -481,15 +510,40 @@ export const useSaveButtonLogic = ({
             } else if (response === false || reply?.status) {
                 setSaveState("save_failed");
                 submitted.current = null;
+                saveFailed(reply?.result);
             }
             return response;
         } catch {
+            settle?.();
             if (submitted.current === request) {
                 setSaveState("save_failed");
                 submitted.current = null;
+                saveFailed();
             }
             return false;
         }
+    };
+    // Enter, or focus leaving the field: a changed value is checked and then saved; an unchanged
+    // one has nothing to save.
+    const commit = async (): Promise<StdoutResult | undefined> => {
+        if (saveState === "saving" || state === "pending") return;
+        if (same(input_value, variable)) {
+            setSaveState("saved");
+            setProblem(null);
+            return;
+        }
+        const refused = validate?.(String(input_value ?? "")) ?? null;
+        setProblem(refused);
+        if (refused) return;
+        return saveFunction();
+    };
+    // Focus leaving the field: as Enter, except that an emptied credential is put back, not deleted.
+    const leave = async (): Promise<StdoutResult | undefined> => {
+        if (credential && String(input_value ?? "") === "") {
+            discard();
+            return;
+        }
+        return commit();
     };
 
     useEffect(() => {
@@ -501,30 +555,19 @@ export const useSaveButtonLogic = ({
     }, [variable]);
     useEffect(() => {
         if (saveState !== "saving") return;
-        const timer = setTimeout(() => setSaveState("save_failed"), 5000);
+        const timer = setTimeout(() => { setSaveState("save_failed"); saveFailed(); }, 5000);
         return () => clearTimeout(timer);
     }, [saveState]);
     useEffect(() => () => { submitted.current = null; }, []);
 
-    const saving = saveState === "saving";
-    const dirty = !!submitted.current || saveState === "save_failed" || !same(input_value, variable);
-    const status = saving || saveState === "save_failed" ? saveState : dirty ? "unsaved" : "saved";
-    const id = useId();
     const discard = () => {
         submitted.current = null;
         setInputValue(variable);
         setSaveState("saved");
+        setProblem(null);
     };
-    const latest = useRef({ saveFunction, discard });
-    latest.current = { saveFunction, discard };
-    useEffect(() => {
-        setSaveBarEntry(id, {
-            dirty, edited: dirty, saving, saveState: status,
-            changes: dirty && label ? [label] : [], canSave: state !== "pending",
-            save: () => latest.current.saveFunction(), discard: () => latest.current.discard(),
-        });
-    }, [id, dirty, saving, status, label, state]);
-    useEffect(() => () => setSaveBarEntry(id, null), [id]);
-
-    return { variable: input_value, onChangeFunction, saveFunction };
+    // Enter calls `saveFunction` and leaving the field `leaveFunction`, which check first (commit),
+    // and Escape calls `revert`. `error` is what to say under the field.
+    // `saveState` is the field's own save: "saving" while it waits, "save_failed" when refused.
+    return { variable: input_value, onChangeFunction, saveFunction: commit, leaveFunction: leave, revert: discard, error: problem, saveState };
 };

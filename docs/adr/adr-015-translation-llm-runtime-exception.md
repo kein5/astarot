@@ -3,14 +3,126 @@ date: 2026-11-19
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-19
+implementation_status: partial
+implementation_checked: 2026-11-23
+implementation_note: 段階 3 の実装は入っている。TranslateGemma を llama.cpp のサーバー（native/speech-server/src/llama.rs）で動かし、翻訳の要求は native/translation/src/translategemma.rs、取得の項目はカタログにある。5 の検証（実機の計測、品質の比較、実行基盤を落とす試験）がそろったかは確かめていない。
 evidence:
   - docs/adr/adr-015-translation-llm-runtime-exception.md
   - docs/adr/adr-012-audio-ai-runtime-consolidation.md
   - docs/voice-stack/translategemma.md
+  - native/speech-server/src/llama.rs
+  - native/translation/src/translategemma.rs
+  - native/ops/src/downloads/translation_catalog.rs
 ---
-# ADR-015: TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外）
+# ADR-015: Run TranslateGemma translation on a runtime built for LLMs (an exception to ADR-012)
+
+[日本語版](#adr-015-translategemma-の翻訳を-llm-用の実行基盤で動かすadr-012-の例外日本語版)
+
+Status: Accepted (2026-11-19). Running decoder-only translation LLMs such as TranslateGemma on a runtime built for LLMs is an exception to ADR-012. This ADR does not decide which runtime to use (7).
+Date: 2026-11-19
+Decision owners: the repository maintainers
+Related: Issue #412, PR #643, [ADR-012](adr-012-audio-ai-runtime-consolidation.md), [Paths to using TranslateGemma for translation](../voice-stack/translategemma.md), [License register](../voice-stack/licensing.md), [Model downloads](../voice-stack/model-downloads.md), `native/translate-onnx`, `NOTICE.md`
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT (ADR-011), and its identifiers are still VRCT-VOX.
+
+> **Stage 2 note** (2026-11-19): The runtime choice and the adoption plan (a proposal) are written up in [Choosing and adopting a runtime for translation LLMs](../voice-stack/translation-llm-runtime-plan.md). It recommends running llama.cpp's `llama-server` as a separate process, not bundled, and downloaded when the user chooses it. Once a decision is made, it is added below this note. The body has not been rewritten.
+
+## 1. Context
+
+### 1.1 The division of work in ADR-012
+
+Section 2.2 of ADR-012 gave inference for local translation to ONNX Runtime. Section 2.5 said that adding ONNX translation models falls outside the exception procedure for audio AI, but that they must run on the existing ONNX Runtime. Adding a new inference runtime needs approval through an ADR for each exception, as 6.2 says.
+
+### 1.2 TranslateGemma and the current runner
+
+TranslateGemma is Google's LLM for translation, a decoder-only model based on Gemma 3 (4B, 12B, 27B). On develop as of 2026-11-19, the local translation runner (`native/translate-onnx`) reads only the encoder-decoder models M2M100 and NLLB-200 (`ARCHITECTURES` in `bundle.rs`). It lacks decoder-only generation, an LLM KV cache, 4-bit quantized arithmetic and chat templates.
+
+Issue #412 compared four ways to run it ([Paths to using TranslateGemma for translation](../voice-stack/translategemma.md)).
+
+| Path | What it is |
+|---|---|
+| (a) ONNX Runtime GenAI | A library that adds LLM generation on top of ONNX Runtime |
+| (b) A GGUF runtime (llama.cpp and others) | A runtime that runs LLMs in the GGUF format |
+| (c) Add decoder-only generation to `native/translate-onnx` | Keep the current ONNX Runtime and write LLM generation in-house |
+| (d) Connect to the user's server | Connect to Ollama and others through an API-type entry in the translation catalog. The app has no runner of its own |
+
+On 2026-11-19 the maintainers decided to run it on a runtime built for LLMs, such as (a) or (b) (the decision records in Issue #412 and PR #643). This is outside the division of work in 2.2 of ADR-012, so it is handled as an exception.
+
+### 1.3 Getting the weights
+
+The official weights are gated on Hugging Face; downloading them needs a Hugging Face account and agreement to the Gemma terms. The weights, and anything made from them, fall under the Gemma Terms of Use, and the prohibited use policy also applies to the people who use them. The app's model downloads handle only fixed downloads that need no login. The maintainers decided that handling agreement to the terms of the gated weights is also within the scope of the implementation.
+
+## 2. Decision
+
+1. **Scope of the exception**: running decoder-only translation LLMs such as TranslateGemma inside the app on a runtime built for LLMs. Other local translation (M2M100, NLLB-200 and future encoder-decoder models) keeps running on ONNX Runtime (`native/translate-onnx`) as before. The division of work for audio AI inference (ASR, TTS, VAD and others) does not change.
+2. **Reasons for the exception** (the two conditions in 2.1 of ADR-012)
+   - A technical reason that the existing runtimes cannot do it: the current runner runs only encoder-decoder models. A decoder-only LLM needs generation with a KV cache, arithmetic on 4-bit weights and assembly of chat templates. Option (c), writing these in-house on top of ONNX Runtime, would rebuild features that LLM runtimes already have. speech.cpp does not handle machine translation (a non-goal in section 5 of ADR-012), so contributing upstream is not an option either.
+   - An advantage in performance, maintenance and distribution: LLM runtimes already handle LLM quantization, GPU use and memory, and conversions of the Gemma 3 family are already available. The expectation is a smaller maintenance burden than in-house generation, and an advantage in speed and memory. This expectation is checked by measurement for the runtime chosen in the stage 2 plan (5).
+3. **Stages**: within the exception, work proceeds in this order, with a separate pull request for each stage.
+   1. This ADR and a note on ADR-012 (documents).
+   2. A plan for choosing and adopting the runtime. It states the effect on distribution size, whether to bundle the runtime or download it later, and the licenses, and is presented in Issue #412 or in a pull request.
+   3. The implementation, following the plan.
+4. **What to keep** (carried over from 2.6 of ADR-012)
+   - A translation failure or a stopped runtime must not drag down the audio route, mute, stop or other translation engines. A failure is reported as a translation failure.
+   - Do not log source text or translations. Do not add external communication that the user has not agreed to.
+   - Do not download runtimes or models without the user's consent. Pin the version, size and SHA-256 of everything that is downloaded.
+   - Record the runtime's license, and whether it may be redistributed, in `NOTICE.md` and the license register.
+   - Do not change the default translation engine or model. TranslateGemma is used only when the user chooses it.
+5. **Gated weights and terms**: before downloading, show the Gemma Terms of Use, the prohibited use policy and the fact that these conditions also apply to the people who use the model, and download only after getting the user's consent. How the weights are obtained (the official weights with the user's token, or a published conversion that comes with the terms) is decided in the stage 2 plan. If the design takes a token, keep it in the OS credential store (ADR-013), attach it only to requests to `huggingface.co`, and do not log it.
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not chosen |
+|---|---|---|
+| (c) Add decoder-only generation to `native/translate-onnx` | Stay within ADR-012 and write generation in-house on top of ONNX Runtime | It would rebuild the generation, quantization and GPU use that LLM runtimes have. The maintenance burden is large |
+| (d) Only the user's server | The app has no runner and connects to Ollama and others | Users would have to set up a server. It does not meet the request to run inside the app. The way the app currently sends LLM translation requests does not match TranslateGemma's template ((d) in [Paths](../voice-stack/translategemma.md)) |
+| Do not add TranslateGemma | Keep only encoder-decoder models such as NLLB-200 | It does not meet the aim of Issue #412, which is to give more choice in translation quality |
+
+## 4. Consequences
+
+**Gains**
+
+- A way opens to use TranslateGemma (55 languages) without a server of the user's own.
+- LLM generation is expected to need less maintenance than writing a runner in-house.
+
+**Costs and risks**
+
+- There is one more inference runtime. Distribution, version tracking, vulnerability response, per-OS builds and combinations of GPU execution providers all grow by that runtime (1.1 of ADR-012).
+- Even the 4-bit 4B model has about 3 GB of weights. It runs on the same PC as VRChat, speech recognition and TTS, so it can put pressure on memory and VRAM.
+- The redistribution conditions of the Gemma terms (section 3.1) and the prohibited use policy have to be kept both on the download screen and on the distributing side.
+
+## 5. Verification / Acceptance criteria
+
+Before the product takes this in at stage 3, confirm the following. If they cannot be confirmed, revisit this exception (6).
+
+| Aspect | What to confirm | How |
+|---|---|---|
+| Conditions in 2.1 | The chosen runtime is clearly better than in-house generation (c) in speed, memory or maintenance | The stage 2 plan gives the compared values and the measurement environment |
+| Performance | Load time of 4B, peak memory and VRAM, and time per utterance, measured while running alongside VRChat, speech recognition and TTS | Measure on real Windows and Linux machines (2.6 and 2.7 of ADR-012) |
+| Quality | Translation quality is no worse than NLLB-200 and M2M100 | Measure in line with the existing comparison (the WMT20 directions) |
+| Safety | If the runtime crashes, the audio route, mute, stop and other translation engines are not affected | A test that crashes a fake runtime |
+| Distribution and licenses | Licenses of the runtime and the model, whether they may be redistributed, pinned versions and SHA-256, records in `NOTICE.md` and the license register | The existing download rules, `tools/rust_licenses.py` and others |
+| Consent | Before downloading, the Gemma terms and the prohibited use policy are shown, and nothing is downloaded without consent | Tests of the download screen |
+
+## 6. Revisit triggers
+
+- When the chosen runtime does not meet the conditions in 5.
+- When `native/translate-onnx` or ONNX Runtime can run decoder-only LLMs fast enough.
+- When updates to the chosen runtime stop, its license changes or a serious vulnerability is found in it.
+- When the Gemma terms or the distribution conditions of TranslateGemma change.
+- When another decoder-only translation LLM is added (check whether it falls within this exception).
+
+## 7. Open questions
+
+- Which runtime to use (ONNX Runtime GenAI, llama.cpp or another). Stage 2 presents this together with the distribution size, whether to bundle or download later, the licenses and GPU handling.
+- How to obtain the weights (the user's token, a published conversion that comes with the terms, or both), and the screen for agreeing to the terms.
+- Whether to run the runtime as a separate process or build it into the core.
+- Whether to limit the size that runs inside the app to 4B.
+- Section 2.4 of ADR-012 asks an exception ADR to state the distribution size, dependencies, VRAM, owner and update policy. These depend on the runtime, so they are presented in the stage 2 plan and added to this ADR as a note.
+
+---
+
+# ADR-015: TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外）（日本語版）
 
 Status: 採用（2026-11-19）。TranslateGemma のような decoder-only の翻訳の LLM を、LLM 用の実行基盤で動かすことを ADR-012 の例外とする。どの実行基盤にするかはこの ADR では決めない（7）。
 Date: 2026-11-19

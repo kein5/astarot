@@ -28,7 +28,7 @@ const LIMIT: u64 = 10 * 1024 * 1024;
 /// recognition settings, which holds the names of people and places (#446, core only), and
 /// `speaker_names`: the names a user gives the voices that speaker diarization tells apart
 /// (#447, core only).
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 12] = [
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 13] = [
     "auth_key",
     "api_key",
     "password",
@@ -39,6 +39,7 @@ pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 12] = [
     "client_id",
     "user_model",
     "translation_catalog",
+    "transcription_catalog",
     "vocabulary",
     "speaker_names",
 ];
@@ -48,8 +49,10 @@ pub const UNLOGGED_ENDPOINTS: [&str; 4] = ["/run/vr_panel_pointer", "/run/realti
 
 /// States the UI asks for every 0.5 to 2 s (the flow panel's route map and GPU memory only
 /// while it is shown).
-pub const POLLED_ENDPOINTS: [&str; 13] = [
+pub const POLLED_ENDPOINTS: [&str; 14] = [
     "/get/data/ocr_capture_status",
+    // Every second while a Talk AI conversation is open (#388): whether the voice and screen go.
+    "/get/data/talk_ai_status",
     // Every second while a GPU check runs (#288); it carries the report once it ends.
     "/get/data/gpu_check_state",
     "/get/data/voice_status",

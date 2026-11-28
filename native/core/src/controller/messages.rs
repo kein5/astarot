@@ -27,8 +27,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
-use vrct_transcription::diagnostics::{Event as Diagnosed, Stage};
-use vrct_translation::transliteration::Tokenizer;
+use astarot_transcription::diagnostics::{Event as Diagnosed, Stage};
+use astarot_translation::transliteration::Tokenizer;
 
 // ------------------------------------------------------------------------- readings
 
@@ -42,7 +42,7 @@ pub const READINGS_DICTIONARY: &str = "build/sudachi/system.dic";
 /// Sudachi with the dictionary shipped beside the app, opened on the first message that asks
 /// for readings. Without it messages go out without readings.
 pub fn shipped_readings(env: &crate::config::Environment) -> Arc<dyn Tokenizer> {
-    Arc::new(vrct_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
+    Arc::new(astarot_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
         &env.app_dir,
         READINGS_DICTIONARY,
     )))
@@ -73,6 +73,7 @@ pub struct Spec {
     /// "SEND" or "RECEIVED" (the format parts).
     pub format: &'static str,
     pub overlay_direction: &'static str,
+    /// The pipeline draws the message on the VR small log (the other party's speech only).
     pub small_log: bool,
     pub clipboard: bool,
     pub websocket_type: &'static str,
@@ -80,7 +81,9 @@ pub struct Spec {
     /// The `run_mapping` name the result is pushed on; `None` returns it instead.
     pub push: Option<&'static str>,
     pub payload_source: Option<&'static str>,
-    pub render_overlay: bool,
+    /// The pipeline draws the message on the VR large log; realtime captions draw their own rows
+    /// there.
+    pub large_log: bool,
     /// Realtime recognition: delivery outcomes in the result.
     pub realtime: bool,
 }
@@ -103,7 +106,7 @@ pub const MIC: Spec = Spec {
     log_prefix: "[SENT]",
     push: Some("transcription_mic"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
@@ -125,18 +128,19 @@ pub const SPEAKER: Spec = Spec {
     log_prefix: "[RECEIVED]",
     push: Some("transcription_speaker"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
-/// Realtime recognition updates its own caption rows; it returns the result.
+/// Realtime recognition updates its own caption rows on the large log; it returns the result.
+/// The small log shows a final of the game audio as it shows a message, once translated (#447).
 pub const REALTIME_MIC: Spec = Spec {
     repeat_of_sent: None,
     readings_by_own_language: false,
     feature: None,
     push: None,
     websocket_type: "REALTIME_MIC",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..MIC
 };
@@ -147,7 +151,7 @@ pub const REALTIME_SPEAKER: Spec = Spec {
     chatbox: None,
     push: None,
     websocket_type: "REALTIME_SPEAKER",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..SPEAKER
 };
@@ -230,6 +234,10 @@ pub struct OverlayMessage {
     /// Only the translations are shown: the setting as the message was admitted with it, not as
     /// it is when the log is drawn.
     pub only_translated: bool,
+    /// Who spoke a realtime final of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
+    /// The realtime session the labels belong to, whose names the user gave.
+    pub session: Option<String>,
 }
 
 impl OverlayMessage {
@@ -256,18 +264,26 @@ impl OverlayMessage {
             target_languages,
             transliteration_message: self.transliteration_message.clone(),
             transliteration_translation: self.transliteration_translations.clone(),
-            // Only realtime captions name their speakers (`realtime_asr::caption_message`).
-            speakers: Vec::new(),
+            speakers: self.speakers.clone(),
+            session: self.session.clone(),
             only_translated: self.only_translated,
         }
     }
+}
+
+/// Who spoke a realtime final (#447): the session its labels belong to and the labels, in the
+/// order they spoke. Empty when the voices were not told apart.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Voices {
+    pub session: String,
+    pub speakers: Vec<String>,
 }
 
 /// What a realtime microphone final needs to become speech after its translation: the voice
 /// settings when it arrived and the final itself.
 pub(crate) struct MicVoice {
     pub snapshot: super::voice::MicVoiceSnapshot,
-    pub update: vrct_tts::message_hook::TranscriptUpdate,
+    pub update: astarot_tts::message_hook::TranscriptUpdate,
 }
 
 /// When a message reaches speech.
@@ -307,7 +323,7 @@ pub struct SpokenMessage {
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
 
 /// Runs an output of a realtime final through its delivery (`output_progress`): the action
-/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+/// gives true when what it sent went out ([`astarot_transcription::realtime::delivery::Output`]).
 pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
 
 /// The outbound hooks; unset ones do nothing.
@@ -324,6 +340,7 @@ pub struct MessageHooks {
 #[derive(Default)]
 struct ConversationLog {
     file: Option<(PathBuf, Option<File>)>,
+    destination_error: Option<&'static str>,
 }
 
 const LOG_LIMIT: u64 = 10 * 1024 * 1024;
@@ -341,9 +358,6 @@ impl ConversationLog {
     fn write(&mut self, text: &str) -> std::io::Result<bool> {
         let Some((path, file)) = self.file.as_mut() else { return Ok(false) };
         if file.is_none() {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
             *file = Some(OpenOptions::new().create(true).append(true).open(&*path)?);
         }
         let handle = file.as_mut().expect("opened above");
@@ -608,7 +622,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -624,10 +638,11 @@ impl Core {
     }
 
     /// A realtime final with what it was admitted with when it arrived (`settings_snapshot` and
-    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
+    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its
     /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
     /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
-    /// panel times the message from it (`speech_update.received_ns`).
+    /// panel times the message from it (`speech_update.received_ns`). `voices` spoke it; the
+    /// small log writes them above it (#447).
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn process_realtime(
         self: &Arc<Self>,
@@ -638,6 +653,7 @@ impl Core {
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
         received_ns: i64,
+        voices: Voices,
         output: RunOutput<'_>,
     ) -> Option<Value> {
         self.process_message_stamped(
@@ -651,6 +667,7 @@ impl Core {
             Some(admitted),
             mic_voice.as_ref(),
             Some(received_ns),
+            Some(&voices),
             Some(output),
         )
     }
@@ -670,6 +687,7 @@ impl Core {
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
         received_ns: Option<i64>,
+        voices: Option<&Voices>,
         output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
@@ -707,15 +725,29 @@ impl Core {
         }
 
         let started = Instant::now();
-        let started_ns = vrct_tts::clock::monotonic_ns();
+        let started_ns = astarot_tts::clock::monotonic_ns();
         let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms, received_ns);
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
+        let mic_original = mic_voice.filter(|mic| mic.snapshot.speaks_original());
         // The speech server gets ready while the text is translated, so that the translation's
         // speech starts sooner (#556).
-        if snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
+        if mic_original.is_none() && snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
             self.warm_speech(mic_voice.is_some(), snapshot.destinations());
+        }
+        if let Some(mic) = mic_original {
+            self.publish_mic_voice(
+                &mic.snapshot,
+                &mic.update,
+                &snapshot.tab,
+                snapshot.source_language.as_deref(),
+                &snapshot.target,
+                &[],
+                &[],
+                &[],
+                &current,
+            );
         }
         if speaks {
             self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], voice, &current, &mut failures);
@@ -872,7 +904,7 @@ impl Core {
             let outcome: Vec<_> = outcomes.clone();
             self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
         }
-        if let Some(mic_voice) = mic_voice {
+        if let Some(mic_voice) = mic_voice.filter(|mic| !mic.snapshot.speaks_original()) {
             let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
             let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
             let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
@@ -892,8 +924,8 @@ impl Core {
         if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
-            let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
-            let overlay_hook: Hook<OverlayMessage> = overlay_hook.unwrap_or_else(|| {
+            let custom = self.messages().hooks.read().unwrap().overlay.clone();
+            let hook: Hook<OverlayMessage> = custom.clone().unwrap_or_else(|| {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
@@ -903,35 +935,60 @@ impl Core {
                     }
                 })
             });
-            if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {
-                let skip = snapshot.overlay_only_translated && translations.is_empty();
-                for (log, on) in [
-                    (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
-                    (OverlayLog::Large, config.get_bool("OVERLAY_LARGE_LOG")),
-                ] {
-                    if !on || skip || !current() {
-                        continue;
-                    }
-                    let event = OverlayMessage {
-                        log,
-                        kind: spec.kind,
-                        direction: spec.overlay_direction,
-                        message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
-                        source_language: if snapshot.overlay_only_translated {
-                            None
-                        } else {
-                            snapshot.source_language.clone()
-                        },
-                        translations: translations.clone(),
-                        languages: language_payload(snapshot.destinations()),
-                        transliteration_message: readings_message.clone(),
-                        transliteration_translations: Value::Array(readings_translations.clone()),
-                        only_translated: snapshot.overlay_only_translated,
-                    };
-                    if hook(&event).is_err() {
-                        let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
-                        self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
-                    }
+            let skip = snapshot.overlay_only_translated && translations.is_empty();
+            for (log, on) in [
+                (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
+                (OverlayLog::Large, spec.large_log && config.get_bool("OVERLAY_LARGE_LOG")),
+            ] {
+                if !on || skip || !current() {
+                    continue;
+                }
+                let event = OverlayMessage {
+                    log,
+                    kind: spec.kind,
+                    direction: spec.overlay_direction,
+                    message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
+                    source_language: if snapshot.overlay_only_translated {
+                        None
+                    } else {
+                        snapshot.source_language.clone()
+                    },
+                    translations: translations.clone(),
+                    languages: language_payload(snapshot.destinations()),
+                    transliteration_message: readings_message.clone(),
+                    transliteration_translations: Value::Array(readings_translations.clone()),
+                    only_translated: snapshot.overlay_only_translated,
+                    speakers: voices.map(|v| v.speakers.clone()).unwrap_or_default(),
+                    session: voices.map(|v| v.session.clone()),
+                };
+                if spec.realtime {
+                    // A realtime final's picture is drawn on the overlay's caption thread, after its
+                    // captions, as the large log's are: a slow picture (the fonts read for the first
+                    // time take seconds on a cold PC) would otherwise keep the final here past its
+                    // expiry, and it would not be delivered (#447). It is drawn though the final was
+                    // delivered meanwhile; only the app's end stops it.
+                    let core = Arc::downgrade(self);
+                    let (custom, spec, id) = (custom.clone(), *spec, id.clone());
+                    self.draw_after_captions(Box::new(move || {
+                        let Some(core) = core.upgrade() else { return };
+                        let running = || !core.shutdown_requested();
+                        if !running() {
+                            return;
+                        }
+                        let shown = match &custom {
+                            Some(hook) => hook(&event),
+                            None => core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &running),
+                        };
+                        if shown.is_err() {
+                            let output = if event.log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                            core.output_failed(output, &spec, id.as_ref(), &running, &mut Vec::new());
+                        }
+                    }));
+                    continue;
+                }
+                if hook(&event).is_err() {
+                    let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                    self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
                 }
             }
 
@@ -969,7 +1026,7 @@ impl Core {
                 let joined =
                     if translations.is_empty() { String::new() } else { format!(" ({})", translations.join("/")) };
                 let line = format!("{} {message}{joined}", spec.log_prefix);
-                if self.messages().log.lock().unwrap().write(&line).is_err() {
+                if self.write_conversation_log(&line).is_err() {
                     self.output_failed("logger", spec, id.as_ref(), &current, &mut failures);
                 }
             }
@@ -1018,7 +1075,7 @@ impl Core {
             detail.push_str(" publication=aborted");
         }
         let event = if aborted { Diagnosed::MessageAborted } else { Diagnosed::Message };
-        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= vrct_transcription::diagnostics::SLOW_ASR_MS);
+        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= astarot_transcription::diagnostics::SLOW_ASR_MS);
         self.transcription.diagnostics.record(spec.kind, event, &stages, Some(detail), slow_asr);
     }
 
@@ -1090,7 +1147,7 @@ impl Core {
             .readings
             .get_or_init(|| (self.services().transliteration)(self.config().environment()))
             .clone();
-        match vrct_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
+        match astarot_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
             Ok(readings) => Value::Array(readings),
             Err(_) => {
                 if !self.messages().no_readings_noted.swap(true, Ordering::SeqCst) {
@@ -1193,7 +1250,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
@@ -1205,11 +1262,87 @@ impl Core {
 
     // ------------------------------------------------------------ the conversation log
 
-    /// Opens a new conversation log when the feature is on (`init`'s "Init Logger").
+    /// Resolves the destination while holding the writer lock, including when starting up.
+    fn resolve_log_directory(&self, log: &mut ConversationLog) -> PathBuf {
+        let config = self.config();
+        if let Some(path) = config.get("CONVERSATION_LOG_DIRECTORY").as_str() {
+            let path = PathBuf::from(path);
+            match check_log_directory(&path) {
+                Ok(()) => return path,
+                Err(code) => self.reset_log_directory(log, code),
+            }
+        }
+        PathBuf::from(config.get_str("PATH_LOGS"))
+    }
+
+    fn reset_log_directory(&self, log: &mut ConversationLog, code: &'static str) {
+        let _ = self.config().set("CONVERSATION_LOG_DIRECTORY", Value::Null);
+        log.destination_error = Some(code);
+        let default = self.config().get_str("PATH_LOGS");
+        if log.file.as_ref().is_some_and(|(file, _)| file.parent() != Some(Path::new(&default))) {
+            log.start(Path::new(&default));
+        }
+        self.step(code);
+    }
+
+    pub(super) fn conversation_log_directory(&self) -> PathBuf {
+        self.resolve_log_directory(&mut self.messages().log.lock().unwrap())
+    }
+
+    fn log_directory_reply(&self, data: Option<&Value>) -> Reply {
+        let mut log = self.messages().log.lock().unwrap();
+        let path = match data {
+            None => self.resolve_log_directory(&mut log),
+            Some(value) => {
+                let selected = match value {
+                    Value::Null => Ok(None),
+                    Value::String(path) => check_log_directory(Path::new(path)).map(|()| Some(path)),
+                    _ => Err("log_directory_invalid"),
+                };
+                let path = match selected {
+                    Ok(path) => {
+                        let _ = self.config().set("CONVERSATION_LOG_DIRECTORY", json!(path));
+                        log.destination_error = None;
+                        path.map_or_else(|| PathBuf::from(self.config().get_str("PATH_LOGS")), PathBuf::from)
+                    }
+                    Err(code) => {
+                        self.reset_log_directory(&mut log, code);
+                        return Reply::status(400, json!({ "path": self.config().get("PATH_LOGS"), "error_code": code }));
+                    }
+                };
+                if log.file.as_ref().is_some_and(|(file, _)| file.parent() != Some(&path)) {
+                    log.start(&path);
+                }
+                path
+            }
+        };
+        ok(json!({ "path": path, "error_code": log.destination_error }))
+    }
+
+    fn write_conversation_log(&self, line: &str) -> std::io::Result<bool> {
+        let mut log = self.messages().log.lock().unwrap();
+        let custom = !self.config().get("CONVERSATION_LOG_DIRECTORY").is_null();
+        if custom && log.file.as_ref().and_then(|(file, _)| file.parent()).is_some_and(|parent| !parent.is_dir()) {
+            self.reset_log_directory(&mut log, "log_directory_missing");
+        }
+        if self.config().get("CONVERSATION_LOG_DIRECTORY").is_null() && log.file.as_ref().is_some_and(|(_, file)| file.is_none()) {
+            std::fs::create_dir_all(self.config().get_str("PATH_LOGS"))?;
+        }
+        let result = log.write(line);
+        if result.is_err() && !self.config().get("CONVERSATION_LOG_DIRECTORY").is_null() {
+            // A failed write might have appended part of the line. Resume at the default on
+            // the next message so the line cannot be duplicated.
+            self.reset_log_directory(&mut log, "log_directory_unwritable");
+        }
+        result
+    }
+
+    /// Opens a new conversation log when the feature is on.
     pub(crate) fn start_conversation_log(&self) {
+        let mut log = self.messages().log.lock().unwrap();
         if self.config().get_bool("LOGGER_FEATURE") {
-            let directory = self.config().environment().state_dir.join("logs");
-            self.messages().log.lock().unwrap().start(&directory);
+            let directory = self.resolve_log_directory(&mut log);
+            log.start(&directory);
         }
     }
 
@@ -1219,21 +1352,52 @@ impl Core {
 
     fn set_logger(&self, on: bool) -> Reply {
         let config = self.config();
+        let mut log = self.messages().log.lock().unwrap();
         if config.get_bool("LOGGER_FEATURE") != on {
             if on {
-                let directory = config.environment().state_dir.join("logs");
-                self.messages().log.lock().unwrap().start(&directory);
+                let path = self.resolve_log_directory(&mut log);
+                log.start(&path);
             } else {
-                self.stop_conversation_log();
+                log.stop();
             }
             let _ = config.set("LOGGER_FEATURE", json!(on));
         }
         ok(config.get("LOGGER_FEATURE"))
     }
+
+}
+
+fn check_log_directory(path: &Path) -> Result<(), &'static str> {
+    if !path.is_absolute() {
+        return Err("log_directory_not_absolute");
+    }
+    match path.metadata() {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => return Err("log_directory_not_directory"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Err("log_directory_missing"),
+        Err(_) => return Err("log_directory_unwritable"),
+    }
+
+    static PROBE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    for _ in 0..16 {
+        let id = PROBE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let probe = path.join(format!(".astarot-log-check-{}-{id}", std::process::id()));
+        match OpenOptions::new().write(true).create_new(true).open(&probe) {
+            Ok(file) => {
+                drop(file);
+                return std::fs::remove_file(probe).map_err(|_| "log_directory_unwritable");
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(_) => return Err("log_directory_unwritable"),
+        }
+    }
+    Err("log_directory_unwritable")
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/send_message_box", WAIT, |core, data| core.send_message_box(data));
+    b.with("/get/data/path_logs", super::routes::OPEN, |core, _| core.log_directory_reply(None));
+    b.with("/set/data/path_logs", super::routes::OPEN, |core, data| core.log_directory_reply(Some(data)));
     b.get("/get/data/logger_feature", super::routes::OPEN, "LOGGER_FEATURE");
     b.with("/set/enable/logger_feature", super::routes::OPEN, |core, _| core.set_logger(true));
     b.with("/set/disable/logger_feature", super::routes::OPEN, |core, _| core.set_logger(false));
@@ -1275,6 +1439,10 @@ mod tests {
     fn the_specs_differ_where_python_said() {
         assert_eq!((CHAT.word_filter, CHAT.clipboard, CHAT.websocket_type), (false, false, "CHAT"));
         assert_eq!((OCR.chatbox, OCR.small_log, OCR.payload_source), (None, false, Some("ocr")));
+        // Realtime captions have their own rows on the large log; the game audio's finals go to
+        // the small log as its messages do (#447).
+        let logs = [SPEAKER, REALTIME_SPEAKER, MIC, REALTIME_MIC, CHAT, OCR].map(|spec| (spec.small_log, spec.large_log));
+        assert_eq!(logs, [(true, true), (true, false), (false, true), (false, false), (false, true), (false, true)]);
         assert_eq!((REALTIME_SPEAKER.chatbox, REALTIME_MIC.chatbox), (None, Some("SEND_MESSAGE_TO_VRC")));
         let readings = [SPEAKER, MIC, REALTIME_MIC].map(|spec| spec.readings_by_own_language);
         assert_eq!(readings, [false, true, false]);

@@ -15,9 +15,10 @@ import {
     experimentalFeatureRequest,
 } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
-import { ActionButtonContainer, CheckboxContainer, DropdownMenuContainer } from "../_templates/Templates";
+import { ActionButtonContainer, SwitchContainer, DropdownMenuContainer } from "../_templates/Templates";
 import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
 
 type Current = { state?: string; data?: unknown };
@@ -68,16 +69,17 @@ export const ExperimentalFeatures = () => {
     );
 };
 
-// The rows' general descriptions are hints here (#614). The notice that these are on trial stays
-// on screen, and so does the sentence that says the app will start differently.
+// The rows' general descriptions and the trial notice are hints here (#614, #1013). The sentence
+// that says the app will start differently stays on screen.
 export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel, channel }: ListProps) => {
     const { t } = useI18n();
     return (
         <HintDescriptions>
         <div className={styles.container}>
-            {/* Like every other page, it starts with its category heading, then the notice. */}
-            <SectionLabelComponent label={t("config_page.experimental_features.section_label")} />
-            <p className={styles.notice}>{t("config_page.experimental_features.notice")}</p>
+            {/* Like every other page, it starts with its category heading; the trial notice is
+                the heading's hint (#614, #1013). */}
+            <SectionLabelComponent label={t("config_page.experimental_features.section_label")}
+                desc={t("config_page.experimental_features.notice")} />
             {features.length === 0 && !vrPanel && !channel
                 ? <p className={styles.empty}>{t("config_page.experimental_features.empty")}</p>
                 : features.map(({ id }) => {
@@ -85,7 +87,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                     const lead = experimentalFeatureLeadKey(id);
                     return (
                         <div key={id}>
-                            <CheckboxContainer
+                            <SwitchContainer
                                 setting_id={`experimental_features.${id}`}
                                 label={t(experimentalFeatureLabelKey(id))}
                                 // The tray companion changes how the app starts, which is read before it is
@@ -97,6 +99,10 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                             />
                             {id === "tray_companion" && enabled && edge && <TrayCompanionEdge {...edge} />}
                             {id === "tray_companion" && enabled && monitor && <TrayCompanionMonitor {...monitor} />}
+                            {/* The page it adds is in another group of the menu: a row leads there
+                                (DESIGN.md "Roles in settings", #1266 K-4). */}
+                            {id === "talk_ai" && enabled && <PagePointer label={t("config_page.experimental_features.items.talk_ai.page.label")}
+                                description={t("config_page.experimental_features.items.talk_ai.page.desc")} tab="talk_ai" />}
                         </div>
                     );
                 })}
@@ -136,7 +142,7 @@ const VrPanelItem = ({ current, toggle, resetLauncher }: VrPanelProps) => {
     const key = "config_page.experimental_features.items.vr_panel";
     return (
         <div>
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="experimental_features.vr_panel"
                 label={t(`${key}.label`)}
                 desc={t(`${key}.desc`)}
@@ -156,7 +162,7 @@ const VrPanelItem = ({ current, toggle, resetLauncher }: VrPanelProps) => {
     );
 };
 
-// Where the tray companion's hexagram hides: shown under its checkbox while it is on.
+// Where the tray companion's hexagram hides: shown under its switch while it is on.
 const TrayCompanionEdge = ({ current, set }: NonNullable<ListProps["edge"]>) => {
     const { t } = useI18n();
     const key = "config_page.experimental_features.items.tray_companion.edge";

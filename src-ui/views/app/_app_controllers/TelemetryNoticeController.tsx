@@ -4,9 +4,10 @@ import { useI18n } from "@useI18n";
 import { useOthers } from "@logics_configs";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { TelemetryContents } from "../config_page/setting_section/setting_box/_components/telemetry/TelemetryContents";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
-import noticeStyles from "./TelemetryNoticeController.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import * as noticeStyles from "./TelemetryNoticeController.css.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../kit/index.ts";
 
 // Usage events are sent unless the user turns them off, but never before the user has
 // been told. This asks: why, what is sent, what is not, the event itself as this PC would
@@ -43,26 +44,26 @@ export const TelemetryNoticeController = () => {
     };
     // Not once an answer is on its way: that answer stands.
     const putAway = () => { if (!answered) setLater(true); };
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("telemetry_notice.title")}
-            onCancel={event => { event.preventDefault(); putAway(); }}>
+        <Dialog ref={dialog} open={pending} onOpenChange={putAway} aria-describedby={undefined}>
             {/* Why it is asked comes first; then what is sent, what is not, and how to change it. */}
-            <div className={noticeStyles.notice}>
-                <h3>{t("telemetry_notice.title")}</h3>
+            <DialogHeader className={noticeStyles.notice}>
+                <DialogTitle>{t("telemetry_notice.title")}</DialogTitle>
                 <p className={noticeStyles.purpose}>{t("telemetry_notice.purpose")}</p>
                 <p>{t("telemetry_notice.what")}</p>
                 <p>{t("telemetry_notice.not_sent")}</p>
                 <p>{t("telemetry_notice.change")}</p>
-            </div>
+            </DialogHeader>
             <TelemetryContents />
-            <div className={styles.actions}>
-                {/* Neither answer takes the first focus: the dialog opens with it on "See what is sent" above. */}
-                <button type="button" disabled={answered} onClick={() => answer(true)}>{t("telemetry_notice.send")}</button>
-                <button type="button" disabled={answered} onClick={() => answer(false)}>{t("telemetry_notice.dont_send")}</button>
-            </div>
-            <div className={dialogStyles.alternative}>
-                <button type="button" disabled={answered} onClick={putAway}>{t("telemetry_notice.later")}</button>
-            </div>
-        </dialog>
+            <DialogFooter>
+                {/* Neither answer takes the first focus: the dialog opens with it on "See what gets sent" above. */}
+                <Button disabled={answered} onClick={() => answer(true)}>{t("telemetry_notice.send")}</Button>
+                <Button disabled={answered} onClick={() => answer(false)}>{t("telemetry_notice.dont_send")}</Button>
+            </DialogFooter>
+            {/* The way out that is not an answer: the kit's quiet Button, on its own line under the
+                answers (decided on 2026-11-25). */}
+            <Button tone="quiet" className={dialogStyles.ownLine} disabled={answered} onClick={putAway}>{t("telemetry_notice.later")}</Button>
+        </Dialog>
     </div>;
 };

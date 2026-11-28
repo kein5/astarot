@@ -64,10 +64,10 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
         ui.wait_main_ready()
         # The page was renamed from "VR" (#554); the desktop captions' switch is in sight on it.
-        ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
-        assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked") is False
-        ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] input').click(); return true;")
-        ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked === true")
+        ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] [role=switch]')
+        assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').getAttribute('aria-checked')") == "false"
+        ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').click(); return true;")
+        ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] [role=switch]').getAttribute('aria-checked') === 'true'")
         deadline = time.monotonic() + 15
         while (found := x11_window("ASTAROT Captions")) is None or "IsViewable" not in found[1]:
             assert time.monotonic() < deadline, "the caption window did not appear"
@@ -76,11 +76,11 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
         (tmp_path / "caption-window.txt").write_text(report)
         assert "Override Redirect State: yes" in report, report
         ui.close_settings()
-        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[class*=message_box_input_area]"})
+        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[data-message-input]"})
         ui.element_command(field, "clear")
         ui.element_command(field, "value", {"text": "caption overlay check"})
-        ui.click('[class*="message_send_button"]')
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+        ui.click('[data-message-send]')
+        ui.wait("return document.querySelector('textarea[data-message-input]').value === ''")
         # The overlay page reads its lines from the native side; its own document has the text.
         windows = ui.command("GET", "/window/handles")
         main = ui.command("GET", "/window")
@@ -92,20 +92,86 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
 
 
 def test_native_settings_navigation_observes_open_and_close(tmp_path):
-    from test_native_realtime import open_captions
-    from test_native_spoken_translation import open_voice
-    from tools.private_pipewire import private_graph
+    """Settings open and close twenty times over two pages, and the main page comes back each time.
+    The pages are the speech's and the captions' (#811): the VR page's single-line switch shows on
+    every platform, where the desktop captions' switch shows only on X11."""
+    state = initial_state(tmp_path)
+    with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
+        ui.wait_main_ready()
+        for _ in range(20):
+            ui.open_voice_settings()
+            ui.close_settings()
+            ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+            ui.open_voice_page("Captions and VR", '[data-setting-id="overlay_small_log"] input')
+            ui.close_settings()
+            ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+        ui.close_app()
+
+
+MANAGED_SOURCE = "astarot.managed.source"
+
+
+def managed_microphone_muted():
+    """Whether the managed microphone is muted in the graph, as the voice gate left it.
+
+    None when the graph holds no single managed microphone with one mute value. Read with
+    pw-dump, so it is what PipeWire holds, not what the app says.
+    """
+    from tools.private_pipewire import nodes
+
+    source = nodes().get(MANAGED_SOURCE)
+    if source is None:
+        return None
+    mutes = [props["mute"] for props in source["info"].get("params", {}).get("Props", []) if "mute" in props]
+    return mutes[0] if len(mutes) == 1 else None
+
+
+def shown(text):
+    """A script that is true once a status line of the page says this text."""
+    return ("return [...document.querySelectorAll('[role=status], [role=status] p')]"
+            f".some(e => e.textContent === {json.dumps(text)})")
+
+
+@pytest.mark.skipif(os.environ.get("ASTAROT_TEST_NATIVE_ROUTE") != "1", reason="opt-in private PipeWire/WirePlumber graph")
+def test_native_managed_route_unmutes_and_is_muted_again_after_a_restart(tmp_path):
+    """The managed route of Linux through the app's window (#838).
+
+    Saved, the route starts muted. Unmute opens the voice gate, and the window says "Voice enabled
+    (confirmed)" only once the core has seen the microphone open in the graph: 0.5.2's core missed
+    that change and stayed at "Muted (confirmed)" (fixed by 03294491e). Closing the app mutes the
+    microphone again, and the next start shows the route muted.
+
+    On a private PipeWire and WirePlumber (tools/private_pipewire.py); the user's own audio is
+    not touched. Build the gate helper first: `python tools/build_voice_gate.py`.
+    """
+    from tools.private_pipewire import private_graph, wait_for
     from native_webdriver import ROOT
 
     state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
-        with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
+
+    def saved_routing():
+        return json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("routing")
+
+    with private_graph(config_fragment=ROOT / "config/pipewire/90-astarot-managed.conf"):
+        with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
             ui.wait_main_ready()
-            for _ in range(20):
-                open_voice(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
-                open_captions(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+            ui.open_route_settings()
+            # A choice saves at once (#1111).
+            ui.select("Audio route", "managed")
+            wait_for(lambda: saved_routing() == "managed")
+            ui.open_route_settings()
+            ui.wait(shown("Muted (confirmed)"))
+            assert managed_microphone_muted() is True
+            ui.click_text("button", "Unmute")
+            ui.wait(shown("Voice enabled (confirmed)"))
+            assert managed_microphone_muted() is False
+            ui.assert_rendered()
+            ui.close_app()
+        wait_for(lambda: managed_microphone_muted() is True)
+        with NativeWebDriver(tmp_path / "second", {"VRCT_CONFIG_DIR": str(state)}) as ui:
+            ui.wait_main_ready()
+            ui.open_route_settings()
+            ui.wait(shown("Muted (confirmed)"))
+            assert managed_microphone_muted() is True
+            ui.assert_rendered()
             ui.close_app()

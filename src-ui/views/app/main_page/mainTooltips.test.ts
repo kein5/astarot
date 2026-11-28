@@ -12,8 +12,7 @@ const sources = (folder: string): string[] => readdirSync(new URL(folder, import
     entry.isDirectory() ? sources(`${folder}${entry.name}/`) : /\.tsx$/.test(entry.name) ? [`${folder}${entry.name}`] : []);
 
 // The rail, both top bars' stop actions, the top bar, the composer and the title bar. The log
-// (message_container/log_box) is left out here: its two title attributes are words of the log
-// itself (speaker names, readings) and change with the log.
+// (message_container/log_box) is left out here: its readings keep their title attribute (below).
 const FOLDERS = ["./sidebar_section/", "./main_section/top_bar/", "./main_section/message_container/message_input_box/",
     "../others/stop_actions/", "../others/window_title_bar/"];
 
@@ -29,6 +28,25 @@ test("no control of the main screen keeps a title attribute", () => {
         }
     }
     assert.deepEqual(left, []);
+});
+
+test("in every screen but the VR UI, a title attribute is left only on words that take no focus", () => {
+    // D-21 of docs/design/components/shadcn-alignment.md: an element that takes focus gets the
+    // common Tooltip; the readings of a word in the log (ruby), which take no focus, keep the
+    // title. The VR UI is not replaced (H-03 of the hand-built inventory).
+    const views = (folder: string): string[] => readdirSync(new URL(folder, import.meta.url), { withFileTypes: true }).flatMap(entry =>
+        entry.isDirectory() ? entry.name === "vr" ? [] : views(`${folder}${entry.name}/`)
+            : /\.tsx$/.test(entry.name) && !/\.(test|stories)\.tsx$/.test(entry.name) ? [`${folder}${entry.name}`] : []);
+    const left: string[] = [];
+    for (const file of views("../../")) {
+        const source = read(file);
+        for (const match of source.matchAll(/\btitle=/g)) {
+            const tag = [...source.slice(0, match.index).matchAll(/<([A-Za-z][\w.]*)/g)].at(-1)?.[1] ?? "";
+            if (/^[a-z]/.test(tag)) left.push(`${file.replace(/^.*\/views\//, "").replace(/^\.\.\/\.\.\//, "")}: <${tag} title=…>`);
+        }
+    }
+    const log = "app/main_page/main_section/message_container/log_box/message_container/MessageContainer.tsx";
+    assert.deepEqual(left, [`${log}: <span title=…>`, `${log}: <ruby title=…>`]);
 });
 
 test("the icons of the rail, the top bar, the composer and the title bar are named by a tooltip", () => {

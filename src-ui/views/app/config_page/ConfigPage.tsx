@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import styles from "./ConfigPage.module.scss";
+import * as styles from "./ConfigPage.css.ts";
 
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useOcr } from "@logics_configs";
@@ -9,6 +9,7 @@ import { Topbar } from "./topbar/Topbar";
 import { SidebarSection } from "./sidebar_section/SidebarSection";
 import { SettingSection } from "./setting_section/SettingSection";
 import { SearchBar } from "./search_bar/SearchBar";
+import { relayoutFromAbove } from "./relayoutFromAbove.ts";
 
 // Element has no focus(); the tab and the button that opened the settings have it.
 const focusable = (element: Element | null | undefined): element is Element & HTMLOrSVGElement =>
@@ -44,6 +45,8 @@ export const ConfigPage = () => {
     }, []);
 
     useLayoutEffect(() => {
+        // Laid out again as it opens: WebKitGTK sometimes leaves it with its first layout (relayoutFromAbove.ts).
+        if (!isClosed) relayoutFromAbove(root.current);
         const target = !isClosed ? root.current?.querySelector('[aria-current="page"]')
             : wasOpen.current ? document.querySelector('[data-open-settings]') : null;
         if (focusable(target)) target.focus({ preventScroll: true });

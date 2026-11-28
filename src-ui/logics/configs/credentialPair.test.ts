@@ -4,13 +4,19 @@ import type { TestContext } from "vitest";
 import { hooks, loadModule, stubGlobals, eventTarget, find, fieldOf } from "../test/hookHarness.ts";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "../voice/draftRebase.ts";
-import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 import { endpointDescription, endpointNotices } from "../common/endpointPrivacy.ts";
-import type { TreeNode } from "../test/hookHarness.ts";
 import type { SettingsWriteRequest } from "../common/settingsWriteResponses.ts";
-import type { SaveBarEntry } from "../voice/saveBar.ts";
+import type { SettingsDraft } from "../voice/useSettingsDraft.tsx";
 import type { CredentialSettings } from "../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx";
+import * as fieldErrors from "./fieldErrors.ts";
+
+// The fields of the pair that differ from the saved pair.
+const changedKeys = (saved: unknown, draft: unknown): string[] => {
+    const record = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null ? { ...value } : {};
+    const before = record(saved), after = record(draft);
+    return Object.keys(after).filter(key => after[key] !== before[key]);
+};
 
 // A write the form asked for, with what it sent and the owner of its answer.
 interface SentWrite {
@@ -54,16 +60,22 @@ async function setup(context: TestContext, base: string, provider: string, secti
     context.onTestFinished(() => { runtime.unmount(); owners.stop(); });
     const window = eventTarget();
     stubGlobals(context, { window });
-    let entry: SaveBarEntry | null | undefined;
     const draft = await loadModule<typeof import("../voice/useSettingsDraft.tsx")>(new URL("../voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_: string, value: SaveBarEntry | null) => { entry = value; } },
+        "./draftRebase": { rebaseDraft }, 
     });
     const settings: CredentialSettings<string> = {
         [`current${base}URL`]: { state: "ok", data: "https://provider-a.example/v1" },
         [`current${base}AuthKey`]: { state: "ok", data: "FAKE-KEY-A" },
     };
-    const component = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, {
-        "../../../../../../../logics/voice/useSettingsDraft": draft,
+    // The pair saves by itself (#1111): the tests read its form's state where the save bar read it.
+    let form: { value: SettingsDraft<unknown>; saved: unknown; canSave: unknown } | undefined;
+    const drafts = { ...draft, useSettingsDraft: (...args: Parameters<typeof draft.useSettingsDraft>) => {
+        const value = draft.useSettingsDraft(...args);
+        form = { value, saved: args[0], canSave: args[3]?.canSave };
+        return value;
+    } };
+    const component = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../../../../../../../logics/voice/useSettingsDraft": drafts,
         "../../../../../../../logics/common/endpointPrivacy": { endpointDescription, endpointNotices },
         "../../_templates/Templates": { EntryWithSaveButtonContainer: "url", AuthKeyContainer: "key" },
         "../hint/Hint": { useHintDescriptions: () => hints },
@@ -89,18 +101,28 @@ async function setup(context: TestContext, base: string, provider: string, secti
         return node.props;
     };
     const edit = (type: string, value: unknown) => { field(type).onChangeFunction(value); render(); };
+    // Focus leaving the pair, from its key field.
+    const leave = () => { field("key").leaveFunction({ relatedTarget: null }); render(); };
+    const state = () => {
+        assert.ok(form);
+        const { value, saved, canSave } = form;
+        return { saving: value.saving, saveState: value.saveState, dirty: value.dirty, changes: changedKeys(saved, value.draft),
+            canSave: typeof canSave === "function" ? !!canSave(value.draft) : canSave !== false };
+    };
     render();
-    return { requests, owners, edit, field, render, settings, window, entry: () => entry };
+    return { requests, owners, edit, field, render, settings, window, leave, state };
 }
 
 for (const [base, provider, section] of providers) {
-    for (const enter of [false, true]) test(`${provider}: ${enter ? "Enter" : "shared Save"} submits both edited credentials once`, async context => {
+    for (const enter of [false, true]) test(`${provider}: ${enter ? "Enter" : "leaving the pair"} submits both edited credentials once`, async context => {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1");
+        // Moving from the address to the key saves nothing yet.
+        s.field("url").leaveFunction({ relatedTarget: {} }); s.render();
         s.edit("key", "FAKE-KEY-B");
-        assert.equal(s.entry()?.changes.length, 2);
+        assert.equal(s.state().changes.length, 2);
         if (enter) s.field("key").saveFunction();
-        else s.entry()?.save();
+        else s.leave();
         s.render();
         assert.equal(s.requests.length, 1);
         const request = s.requests[0];
@@ -108,13 +130,13 @@ for (const [base, provider, section] of providers) {
         assert.deepEqual(request.data, { url: "https://provider-b.example/v1", auth_key: "FAKE-KEY-B" });
         const sent = sentPair(request.data);
         s.owners.receive({ endpoint: `/get/data/${provider}_url`, status: 200, result: sent.url });
-        assert.equal(s.entry()?.saving, true);
+        assert.equal(s.state().saving, true);
         s.settings[`current${base}URL`].data = sent.url;
         s.settings[`current${base}AuthKey`].data = sent.auth_key;
         s.owners.receive({ endpoint: request.endpoint, status: 200, result: sent });
         await flush(); s.render();
-        assert.equal(s.entry()?.saveState, "saved");
-        assert.equal(s.entry()?.dirty, false);
+        assert.equal(s.state().saveState, "saved");
+        assert.equal(s.state().dirty, false);
     });
 
     for (const [field, value, suffix, data] of ([
@@ -122,23 +144,35 @@ for (const [base, provider, section] of providers) {
         ["key", "", "auth_key", undefined],
     ] satisfies [string, string, string, string | undefined][])) test(`${provider}: editing only ${field} (${value || "delete"}) preserves the single-field endpoint`, async context => {
         const s = await setup(context, base, provider, section);
-        s.edit(field, value); s.entry()?.save(); s.render();
+        // A new key saves when focus leaves the pair; an empty one is deleted only on Enter (#1111, decided 2).
+        s.edit(field, value);
+        if (value) s.leave(); else s.field("key").saveFunction();
+        s.render();
         assert.equal(s.requests.length, 1);
         assert.equal(s.requests[0].endpoint, `/${value ? "set" : "delete"}/data/${provider}_${suffix}`);
         assert.equal(s.requests[0].data, data);
+    });
+
+    test(`${provider}: leaving the pair with the key field empty keeps the saved key`, async context => {
+        const s = await setup(context, base, provider, section);
+        s.edit("key", "");
+        s.leave(); await flush(); s.render();
+        assert.equal(s.requests.length, 0);
+        assert.equal(s.field("key").variable, "FAKE-KEY-A");
+        assert.equal(s.state().dirty, false);
     });
 
     test(`${provider}: a changed URL clears the saved key and blocks every save path`, async context => {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1");
         assert.equal(s.field("key").variable, "");
-        assert.equal(s.entry()?.canSave, false);
+        assert.equal(s.state().canSave, false);
         assert.deepEqual(s.field("key").add_warnings, [{ label: "config_page.common.credential_reentry_required" }]);
-        s.field("url").saveFunction(); s.field("key").saveFunction(); s.entry()?.save();
+        s.field("url").saveFunction(); s.field("key").saveFunction(); s.leave();
         await flush(); s.render();
         assert.equal(s.requests.length, 0);
         s.edit("key", "   ");
-        assert.equal(s.entry()?.canSave, false);
+        assert.equal(s.state().canSave, false);
         s.field("key").saveFunction();
         assert.equal(s.requests.length, 0);
     });
@@ -153,7 +187,7 @@ for (const [base, provider, section] of providers) {
         assert.equal(s.field("key").variable, "");
         s.edit("url", `  ${savedURL}  `);
         assert.equal(s.field("key").variable, "FAKE-KEY-A");
-        assert.equal(s.entry()?.canSave, true);
+        assert.equal(s.state().canSave, true);
         assert.deepEqual(s.field("key").add_warnings, []);
     });
 
@@ -167,7 +201,7 @@ for (const [base, provider, section] of providers) {
             assert.equal(s.field("key").variable, value);
             s.edit("url", "https://provider-c.example/v1");
             assert.equal(s.field("key").variable, value);
-            assert.equal(s.entry()?.canSave, true);
+            assert.equal(s.state().canSave, true);
             s.field("key").saveFunction(); s.render();
             assert.equal(s.requests.length, 1);
             const request = s.requests[0];
@@ -178,13 +212,13 @@ for (const [base, provider, section] of providers) {
             s.settings[`current${base}AuthKey`].data = value;
             s.owners.receive({ endpoint: request.endpoint, status: 200, result: sent });
             await flush(); s.render();
-            assert.equal(s.entry()?.dirty, false);
+            assert.equal(s.state().dirty, false);
             s.edit("url", "https://provider-d.example/v1");
             assert.equal(s.field("key").variable, "");
         });
     }
 
-    for (const leave of [false, true]) test(`${provider}: ${leave ? "leave dialog" : "Discard"} restores both values and resets key entry`, async context => {
+    for (const leave of [false, true]) test(`${provider}: ${leave ? "leaving the page" : "Escape"} ${leave ? "asks nothing first" : "restores both values and resets key entry"}`, async context => {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1");
         assert.equal(s.field("key").variable, "");
@@ -193,31 +227,19 @@ for (const [base, provider, section] of providers) {
         s.render();
         assert.equal(s.field("key").variable, "");
         if (leave) {
-            let proceeded = false, prevented = false;
-            s.window.dispatch("vrct:settings-leave", {
-                preventDefault: () => { prevented = true; }, detail: { proceed: () => { proceeded = true; } },
-            });
-            const dialog = find(s.render(), node => node.type === "dialog");
-            assert.equal(prevented, true);
-            const keep = find(dialog, node => node.type === "button" && node.props.children === "voice_ui.keep_editing");
-            assert.ok(keep);
-            // The form's own confirmation puts its two answers in one row, as the save bar's does.
-            const row = find(dialog, node => node.props?.["data-leave-actions"] !== undefined);
-            assert.deepEqual(row?.props.children.map((answer: TreeNode) => answer.props.children), ["voice_ui.keep_editing", "voice_ui.discard_leave"]);
-            keep.props.onClick();
-            assert.equal(s.field("key").variable, "");
-            assert.equal(proceeded, false);
-            s.window.dispatch("vrct:settings-leave", { preventDefault() {}, detail: { proceed: () => { proceeded = true; } } });
-            const discard = find(s.render(), node => node.type === "button" && node.props.children === "voice_ui.discard_leave");
-            assert.ok(discard);
-            discard.props.onClick();
-            assert.equal(proceeded, true);
-        } else s.entry()?.discard();
+            // #1111, decided 4: the edit is dropped with the page, and nothing asks first.
+            let prevented = false;
+            s.window.dispatch("vrct:settings-leave", { preventDefault: () => { prevented = true; }, detail: { proceed() {} } });
+            assert.equal(prevented, false);
+            assert.ok(!find(s.render(), node => node.type === "dialog"));
+            return;
+        }
+        s.field("url").onRevert();
         s.render();
         assert.equal(s.field("url").variable, s.settings[`current${base}URL`].data);
         assert.equal(s.field("key").variable, "FAKE-KEY-A");
-        assert.equal(s.entry()?.dirty, false);
-        s.edit("key", "FAKE-KEY-B"); s.entry()?.discard(); s.render();
+        assert.equal(s.state().dirty, false);
+        s.edit("key", "FAKE-KEY-B"); s.field("key").onRevert(); s.render();
         s.edit("url", "https://provider-c.example/v1");
         assert.equal(s.field("key").variable, "");
         assert.equal(s.requests.length, 0);
@@ -225,15 +247,15 @@ for (const [base, provider, section] of providers) {
 
     test(`${provider}: deleting the saved key permits a later URL-only save`, async context => {
         const s = await setup(context, base, provider, section);
-        s.edit("key", ""); s.entry()?.save(); s.render();
+        s.edit("key", ""); s.field("key").saveFunction(); s.render();
         const deletion = s.requests[0];
         assert.equal(deletion.endpoint, `/delete/data/${provider}_auth_key`);
         s.settings[`current${base}AuthKey`].data = null;
         s.owners.receive({ endpoint: deletion.endpoint, status: 200, result: null });
         await flush(); s.render();
         s.edit("url", "https://provider-b.example/v1");
-        assert.equal(s.entry()?.canSave, true);
-        s.entry()?.save(); s.render();
+        assert.equal(s.state().canSave, true);
+        s.leave();
         assert.equal(s.requests[1].endpoint, `/set/data/${provider}_url`);
         assert.equal(s.requests[1].data, "https://provider-b.example/v1");
     });
@@ -245,25 +267,27 @@ for (const [base, provider, section] of providers) {
         s.render();
         assert.equal(s.field("key").variable, "");
         assert.equal(s.field("url").variable, "https://provider-b.example/v1");
-        assert.equal(s.entry()?.canSave, false);
-        s.entry()?.discard(); s.render();
+        assert.equal(s.state().canSave, false);
+        s.field("url").onRevert(); s.render();
         assert.equal(s.field("key").variable, "FAKE-REFRESHED-KEY");
-        assert.equal(s.entry()?.dirty, false);
+        assert.equal(s.state().dirty, false);
     });
 
     for (const failure of ["rejected", "transport"]) test(`${provider}: ${failure} pair remains editable without sending a fallback key`, async context => {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1"); s.edit("key", "FAKE-KEY-B");
-        s.entry()?.save(); s.render();
+        s.leave();
         const request = s.requests[0];
         if (failure === "transport") s.owners.fail(request.request, true);
         else s.owners.receive({ endpoint: request.endpoint, status: 400, result: { error_code: "auth_failed", data: "FAKE-KEY-A" } });
         await flush(); s.render();
         assert.equal(s.field("url").variable, "https://provider-b.example/v1");
         assert.equal(s.field("key").variable, "FAKE-KEY-B");
-        assert.equal(s.entry()?.dirty, true);
-        assert.equal(s.entry()?.saveState, "save_failed");
+        assert.equal(s.state().dirty, true);
+        assert.equal(s.state().saveState, "save_failed");
         assert.equal(s.requests.length, 1);
+        // The refusal is said under the pair (#1111).
+        assert.ok(s.field("key").error);
     });
 
     test(`${provider}: pair response updates both confirmed fields in the receive bridge`, async () => {

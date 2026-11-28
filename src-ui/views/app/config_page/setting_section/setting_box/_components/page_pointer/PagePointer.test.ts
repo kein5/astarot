@@ -37,9 +37,14 @@ test("every button that opens another settings page names that page, with what i
     }))).filter(link => !link.path.endsWith("page_pointer/PagePointer.tsx"));
     assert.ok(links.every(link => link.tab), "each one names its page as a literal tab id");
     // The route row on the TTS, RVC and VRChat pages, mute sync on Device, the VR UI on Captions
-    // and VR, and the OSC destination, the speech output and chat reading on VRChat.
+    // and VR, the OSC destination, the speech output and chat reading on VRChat, and the monitor
+    // on the voice changer's page (#614), the block length of its conversion (#1266 R-5), the
+    // realtime captions' microphone and listening on the Device page (#1266 ★3), and the Talk AI
+    // page from its experimental switch (#1266 K-4).
     assert.deepEqual(links.map(link => `${link.path.split("/").at(-1)}:${link.tab}`).sort(), [
-        "Device.tsx:vrchat", "VoiceRouteSettings.tsx:device", "Vr.tsx:experimental_features",
+        "Device.tsx:transcription", "Device.tsx:transcription", "Device.tsx:vrchat", "DirectVoiceSettings.tsx:advanced_settings",
+        "DirectVoiceSettings.tsx:tts", "ExperimentalFeatures.tsx:talk_ai", "TalkAi.tsx:tts", "VoiceRouteSettings.tsx:device",
+        "Vr.tsx:experimental_features",
         "Vrchat.tsx:advanced_settings", "Vrchat.tsx:ocr", "Vrchat.tsx:tts"]);
     for (const language of ["ja", "en"] as const) {
         const t = translator(language);

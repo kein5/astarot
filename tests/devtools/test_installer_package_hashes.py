@@ -23,7 +23,7 @@ TEMPLATE = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
 class ToolTests(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
-        self.package = self.folder / "VRCT-VOX.zip"
+        self.package = self.folder / "ASTAROT.zip"
         self.package.write_bytes(b"package")
         self.include = self.folder / "package-hashes.nsh"
 
@@ -44,7 +44,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(code, 0, output)
 
     def test_a_checksum_file_gives_the_same_hash(self):
-        sidecar = self.folder / "VRCT-VOX.zip.sha256"
+        sidecar = self.folder / "ASTAROT.zip.sha256"
         sidecar.write_text(hashlib.sha256(b"package").hexdigest(), encoding="ascii")
         self.assertEqual(self.run_tool("write", "--package", str(sidecar))[0], 0)
         self.assertEqual(self.run_tool("check", "--package", str(self.package))[0], 0)
@@ -73,7 +73,7 @@ class ToolTests(unittest.TestCase):
 
     def test_uppercase_checksum_files_are_read_in_the_installer_s_lowercase(self):
         sidecar = self.folder / "upper.sha256"
-        sidecar.write_text(hashlib.sha256(b"package").hexdigest().upper() + "  VRCT-VOX.zip\n", encoding="ascii")
+        sidecar.write_text(hashlib.sha256(b"package").hexdigest().upper() + "  ASTAROT.zip\n", encoding="ascii")
         self.assertEqual(tool.digest(sidecar), hashlib.sha256(b"package").hexdigest())
 
 
@@ -104,11 +104,25 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(TEMPLATE.count("!define SOFTWARE_DOWNLOAD_FILENAME "), 1)
         self.assertIn('StrCpy $file_name "${SOFTWARE_DOWNLOAD_FILENAME}"', TEMPLATE)
 
+    def test_the_package_is_astarot_zip_and_vrct_vox_zip_only_for_a_release_up_to_0_6(self):
+        # ADR-014, 2.10: the package's name from 0.7.0, and the one a release up to 0.6.x has.
+        self.assertIn('!define SOFTWARE_DOWNLOAD_FILENAME "ASTAROT.zip"', TEMPLATE)
+        self.assertIn('!define OLD_SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"', TEMPLATE)
+        url = TEMPLATE.index('StrCpy $cmder_dl "https://github.com/kein5/astarot/releases/download/$release_revision/$file_name"')
+        old = TEMPLATE.index('StrCpy $file_name "${OLD_SOFTWARE_DOWNLOAD_FILENAME}"')
+        self.assertLess(old, url)
+        self.assertEqual(TEMPLATE.count("${OLD_SOFTWARE_DOWNLOAD_FILENAME}"), 1)
+        chosen = TEMPLATE[TEMPLATE.rindex('StrCpy $release_revision "v$effective_version"', 0, old):old]
+        # Never for this installer's own version, which is built with the package under its new name.
+        self.assertIn('${If} $effective_version != "${VERSION}"', chosen)
+        self.assertIn('${If} $0 == "0."', chosen)
+        self.assertIn("${AndIf} $3 < 7", chosen)
+
     def test_no_checksum_file_is_deleted_when_none_was_downloaded(self):
         for line in TEMPLATE.splitlines():
             if 'Delete "$package_hash_path"' in line and "$package_hash_path !=" not in line:
                 # Only the download branch, after the path was set, deletes unconditionally.
-                self.assertGreater(TEMPLATE.index(line), TEMPLATE.index('StrCpy $package_hash_path "$TEMP\\$file_name.sha256"'))
+                self.assertGreater(TEMPLATE.index(line), TEMPLATE.index('StrCpy $package_hash_path "$download_dir\\$file_name.sha256"'))
 
     def test_the_hash_file_is_never_committed(self):
         self.assertIn("src-tauri/nsis/package-hashes.nsh", (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines())

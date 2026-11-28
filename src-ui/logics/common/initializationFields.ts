@@ -73,6 +73,10 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         usage_presets: value => Array.isArray(value) && value.every(string),
         // The model catalogs' layout: only the two the catalogs know keep a saved choice.
         catalog_layout: value => value === "grid" || value === "list",
+        // The theme: a preset id and two "#rrggbb" colours (logics/theme/themes.ts); a preset the
+        // UI does not know is kept and drawn as the default.
+        theme: value => record(value) && string(value.preset) && record(value.custom)
+            && [value.custom.base, value.custom.accent].every(color => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)),
         compute_mode: string,
         version: string,
         message_box_ratio: number,
@@ -81,10 +85,13 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         connected_lmstudio: boolean,
         connected_ollama: boolean,
         main_window_geometry: matches({ x_pos: 0, y_pos: 0, width: 0, height: 0 }),
+        settings_window_geometry: matches({ x_pos: 0, y_pos: 0, width: 0, height: 0 }),
         // Null on both until the caption window is dragged, then whole px on both. The default
         // ({x: null, y: null}) would only let the nulls through and drop a saved place.
         overlay_desktop_placement: value => record(value)
             && ((value.x === null && value.y === null) || (Number.isInteger(value.x) && Number.isInteger(value.y))),
+        // Effective conversation log folder and optional fallback error code (#1096, #1118).
+        path_logs: value => record(value) && string(value.path) && (value.error_code === null || string(value.error_code)),
     };
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
         "direct_voice_state", "direct_voice_sources", "speech_server_settings", "speech_server_state",

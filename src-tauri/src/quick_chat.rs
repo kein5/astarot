@@ -14,6 +14,34 @@ pub struct Reply {
     id: String,
     accepted: bool,
 }
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ThemeColors {
+    pub base: String,
+    pub accent: String,
+}
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ThemeSetting {
+    pub preset: String,
+    pub custom: ThemeColors,
+}
+fn is_hex_color(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 7
+        && bytes[0] == b'#'
+        && bytes[1..].iter().all(|b| b.is_ascii_hexdigit())
+}
+impl ThemeSetting {
+    pub fn is_valid(&self) -> bool {
+        !self.preset.is_empty()
+            && self.preset.len() <= 64
+            && self
+                .preset
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
+            && is_hex_color(&self.custom.base)
+            && is_hex_color(&self.custom.accent)
+    }
+}
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Context {
     ready: bool,
@@ -24,6 +52,8 @@ pub struct Context {
     ui_scaling: u16,
     #[serde(default = "default_font_family")]
     font_family: String,
+    #[serde(default)]
+    theme: Option<ThemeSetting>,
 }
 fn default_ui_scaling() -> u16 {
     100
@@ -40,6 +70,7 @@ impl Default for Context {
             clear_on_send: true,
             ui_scaling: default_ui_scaling(),
             font_family: default_font_family(),
+            theme: None,
         }
     }
 }
@@ -83,6 +114,7 @@ fn validate_context(label: &str, context: &Context) -> Result<(), String> {
         || context.font_family.trim().is_empty()
         || context.font_family.chars().count() > 256
         || context.font_family.chars().any(char::is_control)
+        || !context.theme.as_ref().is_none_or(ThemeSetting::is_valid)
     {
         return Err("quick_chat_invalid_appearance".into());
     }
@@ -322,7 +354,10 @@ pub(crate) fn native_wayland() -> bool {
 
 #[tauri::command]
 pub fn quick_chat_shortcut_platform(window: WebviewWindow) -> Result<&'static str, String> {
-    sender(window.label(), "main")?;
+    // The Hotkeys page asks, in the settings window since #1236.
+    if !crate::settings_window::main_or_settings(window.label()) {
+        return Err("quick_chat_forbidden".into());
+    }
     Ok(if native_wayland() {
         "wayland"
     } else if wayland_session() {
@@ -342,14 +377,23 @@ mod tests {
         let mut context: Context = serde_json::from_value(legacy).unwrap();
         assert_eq!(context.ui_scaling, 100);
         assert_eq!(context.font_family, "Yu Gothic UI");
+        assert_eq!(context.theme, None);
         for scale in [40, 100, 150, 200] {
             context.ui_scaling = scale;
             context.font_family = "日本語のローカルフォント \"Quoted\"".into();
+            context.theme = Some(ThemeSetting {
+                preset: "forest".into(),
+                custom: ThemeColors {
+                    base: "#15261c".into(),
+                    accent: "#62c98c".into(),
+                },
+            });
             assert!(validate_context("main", &context).is_ok());
             let copy: Context =
                 serde_json::from_value(serde_json::to_value(&context).unwrap()).unwrap();
             assert_eq!(copy.ui_scaling, scale);
             assert_eq!(copy.font_family, context.font_family);
+            assert_eq!(copy.theme, context.theme);
             assert!(!copy.clear_on_send);
         }
     }
@@ -383,6 +427,64 @@ mod tests {
             );
         }
         context.font_family = default_font_family();
+        for theme in [
+            ThemeSetting {
+                preset: "".into(),
+                custom: ThemeColors {
+                    base: "#14203a".into(),
+                    accent: "#6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "bad preset".into(),
+                custom: ThemeColors {
+                    base: "#14203a".into(),
+                    accent: "#6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "x".repeat(65),
+                custom: ThemeColors {
+                    base: "#14203a".into(),
+                    accent: "#6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "custom".into(),
+                custom: ThemeColors {
+                    base: "#123".into(),
+                    accent: "#6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "custom".into(),
+                custom: ThemeColors {
+                    base: "#14203a".into(),
+                    accent: "6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "custom".into(),
+                custom: ThemeColors {
+                    base: "#14203aff".into(),
+                    accent: "#6ea8fe".into(),
+                },
+            },
+            ThemeSetting {
+                preset: "custom".into(),
+                custom: ThemeColors {
+                    base: "#14203a".into(),
+                    accent: "#zzzzzz".into(),
+                },
+            },
+        ] {
+            context.theme = Some(theme);
+            assert_eq!(
+                validate_context("main", &context),
+                Err("quick_chat_invalid_appearance".into())
+            );
+        }
+        context.theme = None;
         context.language = "unknown".into();
         assert_eq!(
             validate_context("main", &context),

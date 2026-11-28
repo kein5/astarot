@@ -2,10 +2,12 @@ import { useEffect, useId } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
-import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import type { ModelOptions, TtsModelCapabilities, VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import type { SpeechServerRow } from "../../../../../../logics/voice/useSpeechServers";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
+import { Button, Select, SelectOption, TextField, Textarea } from "../../../../../kit/index.ts";
 
 // Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
@@ -19,6 +21,18 @@ export const validGenerationOptions = (draft: VoiceSettings) => ["japanese", "mu
 
 // One role's generation fields (seed and instructions) in the TTS draft; `field` writes one field
 // of the draft and `errorId` names the page's message about invalid options.
+// The model options of a role when they answer for the saved settings and the draft: the same
+// server and URL, and for the bundled server the same run. Otherwise none (not known yet).
+export const currentModelOptions = ({ role, saved, draft, row, owner }: { role: VoiceModelRole; saved: VoiceSettings | null | undefined;
+    draft: VoiceSettings; row: ModelOptions | undefined; owner: SpeechServerRow | undefined }): TtsModelCapabilities | null => {
+    const server = saved?.[`${role}_server`], url = saved?.[`${role}_url`];
+    const canQuery = server === "bundled" ? owner?.state === "ready" : !!url;
+    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
+        (server !== "bundled" || (row.server_generation === owner?.generation && row.base_url === owner?.base_url)) &&
+        draft[`${role}_server`] === server && draft[`${role}_url`] === url;
+    return matches ? row.options ?? null : null;
+};
+
 export interface GenerationOptionsProps {
     role: VoiceModelRole;
     draft: VoiceSettings;
@@ -44,11 +58,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         const timer = setInterval(query, 10000);
         return () => clearInterval(timer);
     }, [role, server, url, generation, phase, canQuery, send]);
-    const row = modelOptions[role];
-    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
-        (server !== "bundled" || (row.server_generation === generation && row.base_url === owner?.base_url)) &&
-        draft[`${role}_server`] === server && draft[`${role}_url`] === url;
-    const options = matches ? row.options : null;
+    const options = currentModelOptions({ role, saved: settings, draft, row: modelOptions[role], owner });
     const seedKey = `${role}_seed`, instructionKey = `${role}_instructions`;
     const seed = draft[seedKey] || "", instructions = draft[instructionKey] || "";
     const fixed = seed !== "";
@@ -58,19 +68,19 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         (BigInt(seed) < BigInt(options.seed.minimum) || BigInt(seed) > BigInt(options.seed.maximum));
     const support = (value: unknown) => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);
     return <>
-        <label>{t("voice_ui.seed_mode")}<select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
+        <label>{t("voice_ui.seed_mode")}<Select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
             onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
-            <option value="random">{t("voice_ui.seed_random")}</option><option value="fixed">{t("voice_ui.seed_fixed")}</option>
-        </select></label>
-        {fixed && <label>{t("voice_ui.seed_value")}<input type="text" inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
-            aria-invalid={invalidSeed || !!outsideSeedRange}
+            <SelectOption value="random">{t("voice_ui.seed_random")}</SelectOption><SelectOption value="fixed">{t("voice_ui.seed_fixed")}</SelectOption>
+        </Select></label>
+        {fixed && <label>{t("voice_ui.seed_value")}<TextField inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
+            invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
             onChange={e => field(seedKey, e.target.value)} /></label>}
         {/* What the field is for is the label's hint (#614); the count of its characters stays in sight
             under it, as they are typed, and is part of what the field says. */}
         <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_desc")} fold={false}
             actions={<p id={countId} className={styles.count}>{t("voice_ui.instruction_count", { count: Array.from(instructions).length })}</p>}>
-            <textarea aria-invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
+            <Textarea invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
                 placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
                 onChange={e => field(instructionKey, e.target.value)} />
         </FormRow>
@@ -80,8 +90,8 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
         {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options?.seed ?? undefined)}</p>}
         {/* In the control column, under the fields it checks (#473). */}
         <div className={`${styles.actions} ${styles.control_column}`}>
-            <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
-                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</button>
+            <Button disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
+                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</Button>
         </div>
         {/* A disabled check says what it waits for: a saved URL, or the bundled server running. */}
         {!canQuery && <p id={reasonId}>{t(server === "bundled" ? "voice_ui.check_needs_server" : "voice_ui.check_needs_url")}</p>}

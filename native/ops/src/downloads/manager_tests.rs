@@ -921,3 +921,129 @@ fn the_default_catalog_validates_and_names_each_remote() {
     assert_eq!(catalog::validate_catalog(&bad), Err("catalog_invalid"));
     let _ = transport::USER_AGENT;
 }
+
+#[test]
+fn a_download_whose_thread_cannot_start_puts_the_entry_back_and_can_be_asked_for_again() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let ready = finish(&s.manager);
+    assert_eq!(phase(&ready), "ready");
+
+    s.manager.hooks().thread_unavailable = true;
+    assert!(matches!(start(&s.manager), Err(Error::Io(_))));
+    // Not left "queued", which would answer download_busy for good: the entry's earlier job is
+    // back as it was.
+    assert_eq!(job(&s.manager), ready);
+
+    s.manager.hooks().thread_unavailable = false;
+    start(&s.manager).expect("a new request is taken");
+    assert_ne!(text(&job(&s.manager), "job_id"), text(&ready, "job_id"), "a new job");
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}
+
+#[test]
+fn a_first_download_whose_thread_cannot_start_leaves_no_job_behind() {
+    let s = setup();
+    s.manager.hooks().thread_unavailable = true;
+    assert!(matches!(start(&s.manager), Err(Error::Io(_))));
+    assert_eq!(job(&s.manager), Json::Null, "no entry was started");
+    assert!(s.opened.lock().unwrap().is_empty(), "nothing was fetched");
+
+    s.manager.hooks().thread_unavailable = false;
+    start(&s.manager).expect("the download can be asked for again");
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}
+
+// #1263: a model already on the PC is used without its acquisition's review. Its files are
+// checked, never downloaded: a download asks for the consent, a check does not.
+fn check(m: &Downloads) -> Result<Json, Error> {
+    m.check(&json!({"id": "test-model", "catalog_version": m.catalog_version()}))
+}
+
+#[test]
+fn files_on_the_pc_are_checked_without_consent_and_never_downloaded() {
+    let s = setup();
+    // Nothing on the PC: nothing to check, and nothing starts.
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    assert!(s.opened.lock().unwrap().is_empty());
+    assert_eq!(s.manager.state().get("jobs"), Some(&Json::Object(Object::new())));
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+    // On the PC: checked and ready with its paths, without the network.
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!(phase(&job), "ready");
+    assert_eq!(model_path(&job), path);
+    assert_eq!(s.opened.lock().unwrap().len(), 1, "a check downloads nothing");
+    // Of its size, other bytes: the check fails, the file is left as it is, and nothing is downloaded.
+    let changed = vec![b'x'; CONTENT.len()];
+    fs::write(&path, &changed).unwrap();
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!((phase(&job), text(&job, "error_code")), ("failed", "model_files_changed"));
+    assert_eq!(fs::read(&path).unwrap(), changed);
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+    assert!(partials(&s.root).is_empty());
+    // Of another size, or gone: not on the PC as the catalog has it, so the check is refused.
+    fs::write(&path, b"bad").unwrap();
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    fs::remove_file(&path).unwrap();
+    assert_eq!(code(check(&s.manager).unwrap_err()), "model_not_downloaded");
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn a_check_takes_exactly_the_entry_and_the_catalog_version() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    finish(&s.manager);
+    for request in [json!({"id": "test-model"}), json!({"catalog_version": CATALOG_VERSION}), json!("test-model"), json!(null),
+        // A check takes no consent: a request with one is not a check.
+        json!({"id": "test-model", "catalog_version": CATALOG_VERSION, "consent": true})] {
+        assert_eq!(code(s.manager.check(&request).unwrap_err()), "download_request_invalid", "{request}");
+    }
+    for request in [json!({"id": "other", "catalog_version": CATALOG_VERSION}), json!({"id": "test-model", "catalog_version": "old"})] {
+        assert_eq!(code(s.manager.check(&request).unwrap_err()), "catalog_changed", "{request}");
+    }
+}
+
+#[test]
+fn a_checked_model_is_applied_as_a_downloaded_one_and_its_license_was_acknowledged_when_it_came() {
+    // A non-commercial entry: its download asked for the acknowledgement, its check does not.
+    let s = setup_with(non_commercial(), None);
+    assert_eq!(code(s.manager.start(&with_acknowledged(None, true)).unwrap_err()), "model_download_restriction_unacknowledged");
+    s.manager.start(&with_acknowledged(Some(json!(["non_commercial"])), true)).unwrap();
+    let path = model_path(&finish(&s.manager));
+    check(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!(phase(&job), "ready");
+    let mut applied = Vec::new();
+    let answer = s.manager.apply("test-model", text(&job, "job_id"), |_, paths| {
+        applied.push(paths.clone());
+        Ok(())
+    }).unwrap();
+    assert_eq!(applied, [vec![("model".to_string(), path.to_string_lossy().into_owned())]]);
+    assert_eq!(phase(answer.get("jobs").unwrap().get("test-model").unwrap()), "applied");
+}
+
+// #1297, #1301: a start, a check, a cancel and an apply answer with the files on the PC, as the
+// state does. Their answer is a newer observation than the last poll, so the UI takes it in place
+// of the state it holds: without the files, its pages lost every model on the PC.
+#[test]
+fn every_answer_carries_the_files_on_the_pc() {
+    let s = setup();
+    let on_pc = |answer: &Json| answer.get("downloaded").cloned();
+    // Nothing on the PC yet: the start's answer says so too.
+    assert_eq!(on_pc(&start(&s.manager).unwrap()), Some(Json::Object(Object::new())));
+    let path = model_path(&finish(&s.manager));
+    let files = s.manager.downloaded();
+    assert_eq!(files.get("test-model").and_then(|f| f.get("model")).and_then(Json::as_str), Some(path.to_string_lossy().as_ref()));
+    let checked = check(&s.manager).unwrap();
+    assert_eq!(on_pc(&checked), Some(files.clone()));
+    let job = finish(&s.manager);
+    let applied = s.manager.apply("test-model", text(&job, "job_id"), |_, _| Ok(())).unwrap();
+    assert_eq!(on_pc(&applied), Some(files.clone()));
+    assert_eq!(on_pc(&s.manager.cancel("test-model", text(&job, "job_id")).unwrap()), Some(files.clone()));
+    assert_eq!(on_pc(&s.manager.state()), Some(files));
+}

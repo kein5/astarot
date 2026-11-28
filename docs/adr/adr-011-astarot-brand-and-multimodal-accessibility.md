@@ -5,13 +5,198 @@ era: python-sidecar
 validity: current
 validity_note: 12 節は追記案（レビュー待ち）として書かれたままで、採否の記録はない。
 implementation_status: partial
-implementation_checked: 2026-11-18
-implementation_note: アプリの表示名は ASTAROT に移した（tauri.conf.json の productName）。識別子の移行（P2）は始まっておらず、アプリ ID と実行ファイル名は vrct-vox のまま。
+implementation_checked: 2026-11-23
+implementation_note: アプリの表示名は ASTAROT に移した（tauri.conf.json の productName）。識別子の移行（P2）は ADR-014 で決め、0.6.0 から順に移している。アプリ ID と実行ファイル名は vrct-vox のまま。
 evidence:
   - src-tauri/tauri.conf.json
   - docs/voice-stack/project-rename.md
 ---
-# ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針
+# ADR-011: The ASTAROT name, a unified brand and multimodal accessibility as product policy
+
+[日本語版](#adr-011-astarot-の名称ブランド統一マルチモーダルアクセシビリティの製品方針日本語版)
+
+Status: **Accepted (product policy and brand specification). Assets regenerated. Display migration (P1): the app's display is implemented on develop; the documents and the site are in progress. Identifier migration (P2): not started.**
+Date: 2026-11-16
+Reference: `docs/brand/astarot/symbol-light.svg` (the canonical symbol, rebuilt with uniform geometry)
+Related: `PRODUCT.md`, `DESIGN.md`, `AGENTS.md`, `docs/brand/README.md`, `docs/voice-stack/project-rename.md`, `docs/adr/adr-010-frontend-stack.md`, `docs/adr/README.md`
+
+## 1. Background and purpose
+
+The current project, `kein5/VRCT-VOX`, is a desktop app that supports conversation by voice and text in VRChat and similar places. It combines speech recognition (ASR), text to speech (TTS), voice conversion (RVC and others), OCR, translation, captions and more, and in particular supports users who interact without using their voice.
+
+In the future it will expand into a **multimodal accessibility toolkit** that includes sign language translation, audio guides, haptic feedback and more. It moves from the old, voice-centered name to a name that can express the product's philosophy, and unifies the icon, the logo and the text. Migrating the existing code, features, settings and user data is a separate step.
+
+## 2. Decision: name and description
+
+- The official brand name is `ASTAROT`, written in all capitals and pronounced アスタロト ("asutaroto").
+- The official recursive acronym is **Astarot's Speech, Translation, Accessibility, Revoicing & OCR Toolkit**.
+- The official subtitle is **Speech, Translation, Accessibility, Revoicing & OCR Toolkit**. The README, the web, the app's About and the brand images use the same wording and symbols.
+- The optional tagline for communication is `Communication Beyond Voice.` It is not used as a replacement for the official subtitle.
+- The name comes from a GNU-style recursive acronym that refers to ASTAROT itself. It does call to mind Astaroth from mythology and demonology, but it does not stand for any religious or supernatural function.
+
+| Letter | Expansion | Meaning and scope |
+| --- | --- | --- |
+| A | Astarot's | Recursive self-reference |
+| S | Speech | ASR, TTS, captions, voice guidance |
+| T | Translation | Translation between languages, sign language conversion in the future |
+| A | Accessibility | Choice of input and output, help with use |
+| R | Revoicing | Voice conversion, RVC and others |
+| O | OCR | Recognition of text and visual information |
+| T | Toolkit | An extensible set of integrated tools |
+
+Design principle: do not make "getting the user to speak" the goal; let users **choose how they express themselves and how they receive**.
+
+## 3. Decision: logo, icon and typography
+
+### 3.1 Main symbol (final; the uniform version is canonical)
+
+**The canonical symbol is the shared `path` in `docs/brand/astarot/symbol-light.svg` (the uniform version).**
+On 2026-11-15 the user named the "App Icon" at the lower right of `reference-brand-guide.png` as the canonical composition and rejected the earlier icon with a different shape. The reference image shows `ASTAROT`, a ring, a hexagram made of two overlapping equilateral triangles, and a speech bubble with three dots in the center that touches the lines of the hexagram. Afterwards the symbol was rebuilt with uniform geometry while keeping this composition, and on 2026-11-16 this uniform version became canonical.
+
+- Vector technical master: the shared `path` in `symbol-light.svg`. It is not a trace of the reference image but a shape redrawn with uniform geometry. The white lines of the hexagram all have the same width (11 units), and the 6 black triangles inside are all congruent. The placement of the ring, the speech bubble and the three dots follows the composition of the reference image.
+- Precedence for the shape: the shared SVG `path` > size-specific outputs such as PNG/ICO. The reference image is used to check the composition, not as the standard for the details of the shape.
+- Must be followed strictly: do not separate the star and the speech bubble where they touch. Do not create a white halo, a gap or a separate background around the speech bubble. Do not transform the position or proportions of the ring, the hexagram, the speech bubble or the three dots independently of one another.
+- New images for the brand sheet are not the generated reference images but **derived assets drawn by combining the shared SVG silhouette above with the outline of the logotype**.
+
+1. Treat the **outer ring, the hexagram of two equilateral triangles, the central speech bubble and the three dots inside it** as one symbol. The outer ring stands for unity, the hexagram for linking different kinds of information, the speech bubble for communication, and the three dots for conversation and continuing dialogue.
+2. **Do not put an intentional gap, a white halo or a separate outline between the hexagram and the speech bubble.** The reference form is a single shape in which the speech bubble touches or overlaps the lines of the star directly.
+3. The standard logo adds no decoration (radio-wave arcs, horns, wings, planets, patterns, separate small stars, extra dots). Being simple, clear and distinguishable at small sizes comes first.
+4. The horizontal logo, the vertical logo, the app icon and the favicon are **derived from the same SVG master**, with the same composition and the same shapes of the ring, hexagram and speech bubble. Background colors and line-width corrections for small sizes are allowed.
+5. **For favicons from 16 to 48 px, optically corrected versions** may be used. Only the radius of the dots and the line width may increase. The number of points of the star, the position of the speech bubble and the relation between the ring and the star must not change.
+   - The 16 px optically corrected version is `favicon-16.svg` (added on 2026-11-18; the exception that leaves out the dots is awaiting approval). It is redrawn on a 16 px grid, with every line of the ring and the hexagram at 1 px. The 6 black triangles inside stay congruent. The body of the speech bubble fits inside the central hexagon, and only its tail may cross the lines. A speech bubble 4 px wide has no room for the three dots, so this version alone leaves them out. At 32 px and 48 px, the normal symbol is used as it is.
+6. The shared SVG of the uniform version is both the canonical version and the master for implementation, and PNG/ICO/ICNS files are derivatives. The reference PNG stays as a reference for the composition. Do not give the logo needless shadows, gradients or fine decoration. Provide a monochrome version.
+
+### 3.2 Typesetting
+
+| Use | Specification |
+| --- | --- |
+| Logotype | `ASTAROT`, **Outfit Bold (700)**, all capitals, letter spacing of about 7.26 units per gap at a cap height of 130 units (about `0.04em`) |
+| English UI and headings | Outfit Medium / SemiBold |
+| Japanese UI | Zen Kaku Gothic New as the first choice, keeping the fallbacks and the existing users' font settings |
+| Code and logs | A monospace font the user can set. The brand typeface is not forced |
+| Subtitle | Keep the official English text above word for word. On narrow screens, wrap it, or leave it out and use the icon alone |
+
+**The wordmark path is the actual Outfit Bold (700) font converted to outlines.** It is not a trace of the reference image. `wordmark-reference-outline.svg` and the horizontal and vertical logos use this outline. The typeface for the logotype and for English UI and headings changed from Space Grotesk to Outfit on 2026-11-16. What section 11 says about Space Grotesk is a record from before that change.
+How the wordmark is made, and the size requirements for setting the wordmark with the subtitle (the lockup), are in `docs/brand/astarot/typography-and-lockup.md`.
+The outline of `ASTAROT` traced from the reference image and cleaned up is kept in `wordmark-alt-traced.svg` as a separate alternative for comparison. It is not used in the logo.
+The small body text and subtitle in the PNGs may be rendered in a substitute typeface, depending on the environment.
+
+To show the subtitle and other text in Outfit, the app bundles the Outfit font files (SIL Open Font License 1.1). The bundling is done in the P1 UI work. The license is recorded in `NOTICE.md` and `licenses/outfit/`.
+If font files are embedded in assets, verify the license, the distribution and broken display separately. **Remote fonts are not loaded automatically.** Do not replace the repository's existing UI font settings on your own.
+
+### 3.3 Color tokens
+
+| Role | Color | Use |
+| --- | --- | --- |
+| Primary / Dark Plum | `#261633` | Logo text, symbol, app background |
+| Accent / Lilac | `#A47AF5` | Limited emphasis, selected states and similar |
+| Canvas / Off-White | `#FAFAFC` | Brand materials, light backgrounds |
+| Logo on dark | `#FFFFFF` or `#FAFAFC` | Inverted display on a plum background |
+
+Never express a state by color alone; combine it with text, shape and focus indicators. Evaluate the contrast of text and controls on the screens concerned. The colors are a **decision on the brand's direction**. They do not call for replacing the whole UI in the current `DESIGN.md` at once.
+
+### 3.4 Asset management
+
+Location: `docs/brand/astarot/`. The canonical symbol is the uniform version, `symbol-light.svg`. The reference images for the composition (`reference-brand-guide.png` and its crop, `reference-mark-crop.png`) were removed from the repository on 2026-11-17, after the lockup on the brand board was matched to their balance. `tools/astarot_brand_from_reference.py` builds the wordmark from Outfit Bold, sets it with the symbol from `symbol-light.svg`, and generates the SVGs of the wordmark, the horizontal and vertical logos and the brand board. With `--check`, it writes nothing and checks whether the current files match. It does not generate the symbol, icon or favicon files, or the PNGs. The fonts it uses and how to run it are written at the top of the tool. The shared path shape in `symbol-light.svg` is the SVG technical master, and `app-icon.svg`, `favicon.svg`, `symbol-dark.svg`, `logo-horizontal-light.svg`, `logo-horizontal-dark.svg`, `logo-vertical-light.svg` and `logo-vertical-dark.svg` use **the same path**. Each PNG and preview is a derivative.
+
+Only the 16 px optically corrected version, `favicon-16.svg`, does not use the shared path. `tools/astarot_favicon_small.py` draws it from geometry and also makes `favicon-16.png` and `favicon.ico`. `favicon.ico` holds this version at 16 px, and `favicon-32.png` and `favicon-48.png` at 32 px and 48 px. The manual's pages use this ICO as their favicon. The reason is that with an SVG favicon, browsers shrink the SVG for the 16 px tab as well. With `--check`, it writes nothing and checks whether the current files match.
+
+The `VRCT-VOX` icons, logos and feature glyphs that were directly under `docs/brand/`, and their generator `tools/brand_assets.py`, were not to be overwritten until the migration was approved. Because the app and the README had moved to the ASTAROT assets, these files were removed from the repository on 2026-11-18. The current list of assets and how to generate them are in `docs/brand/README.md`.
+
+## 4. Definition and boundaries of the product's features
+
+- The initial scope is conversation support centered on VRChat users. Keep the existing UX around ASR, TTS, RVC, OCR, translation and captions, and in the brand's description, group them as Speech / Translation / Revoicing / OCR / Accessibility.
+- **Accessibility is a cross-cutting requirement, not one item in the feature list.** It includes keyboard operation, visible focus, readable Japanese text, zooming in and out, reduced motion, input and output that do not use the voice, protection against mistaken operation, and ways of notification that the user can choose.
+- Future candidates (not implemented, not promised): sign language recognition and translation, audio guidance or audio description for video and UI, haptic notifications and feedback, and two-way conversion between sight, text, sound and touch. Adopting any of them needs its own requirements, user validation and design decision for each feature.
+- **Accessibility needs differ widely from person to person.** Do not make any particular sensory channel mandatory. Do not play speech automatically, turn on the microphone, capture or send video, or download models against the user's will.
+- Model licenses, the limits on redistributing OCR weights, external connections for translation and voice conversion, data protection and the user's prior consent follow the existing policies and separate ADRs.
+
+## 5. Roadmap: a staged migration
+
+| Stage | Main work | Completion condition |
+| --- | --- | --- |
+| **P0 Brand master (this ADR)** | Decide the name, philosophy, logo specification, SVG/PNG masters and placement rules | The canonical text and images are approved, and the legibility and contrast at each size are reviewed |
+| **P1 Display brand migration (the app's display is implemented; the documents and the site are in progress)** | Unify About, the README, help, the documentation, what the app visibly shows and the images on ASTAROT | An audit for mixing with the old brand, keeping the upstream attribution, UI tests and package verification |
+| **P2 Internal identifier migration (separate ADR required)** | A migration plan for the Tauri app ID, executable, settings paths, OS integration, model download information, audio routing identifiers and others | Carried out after verification of settings carry-over from (or coexistence with) old versions, of upgrade and rollback, and on Windows/Linux |
+| **P3 Foundation work (future)** | Abstract the features as loosely coupled modalities/providers, and shape the UX of converting between inputs and outputs | No regressions in the existing voice, OCR and translation features; consent, stopping and audio routes work consistently |
+| **P4 Accessibility expansion (research candidates)** | Evaluate sign language, audio guides, haptics and others one by one for need and safety | Only features that pass user testing and the checks on privacy, performance, supported devices and model rights are adopted |
+
+**No release date or completion is guaranteed for P1 to P4.** Detailed technology choices are made in later ADRs and issues. Adopting P0 is not a reason to implement P2 to P4 ahead of time.
+
+## 6. Strong constraints on the migration
+
+1. The current identifiers in `docs/voice-stack/project-rename.md` (for example `vrct-vox`, `vrct-vox-sidecar`, `io.github.kein5.vrct-vox`, `VRCT_*`, the XDG settings and data locations, virtual microphone and service names) are **not changed without a migration plan**.
+2. Rebranding work does not remove the rights notices of upstream VRCT, the MIT license or the notice duties for derivative works. It does not let the app be mistaken for the original product.
+3. Protect the backend's IPC/OSC contracts, the audio routes, mute and immediate stop, consent to model downloads, independent control of TTS and RVC, translation, captions and compatibility with existing settings.
+4. A design change must not turn on new features without permission. Visual accessibility and the legality and safety of features are verified separately.
+5. In P0, do not rewrite the adopted specifications in the existing `PRODUCT.md`, `DESIGN.md` and `docs/brand/`. When P1 starts, state the differences from the plan, and reflect them formally in `AGENTS.md` and the spec catalog too.
+6. Before public release or distribution, check for possible conflicts with third-party trademarks or similar services over the brand name, the logo, the mythological name and so on. This ADR does not replace checking for trademark permission.
+
+## 7. Alternatives and reasons for the choice
+
+- Keep `VRCT-VOX`: clear to existing users, but strongly associated with the upstream project, and the name keeps the product tied to voice as it expands beyond voice.
+- Candidates in the `Vox` family (TransVox, OmniVox, VoxBox and others): easy to read as voice products, but the overlap with existing voice-related products and brands stands out. They also say little about the intent to expand to modalities other than voice.
+- Japanese-leaning coinages such as `Shaberator`: friendly, but ASTAROT does better on consistency across languages and as a general name for a platform.
+- **ASTAROT**: easy to pronounce, a recursive acronym of 7 letters that can cover the current features and future Accessibility, and the basis for a recognizable brand built as one with the symbol. Its distinctiveness for trademarks and search still has to be checked separately.
+
+## 8. Acceptance criteria (brand master)
+
+**Image-based acceptance gate**: a person compares the uniform symbol side by side with `reference-brand-guide.png` and `reference-mark-crop.png` and confirms that the composition (the star touching the speech bubble, the ring, the three dots, the proportions) is kept. Line widths and the shape of the triangles are judged against the uniform SVG.
+
+**Mechanical checks**: confirm that the shared path is identical in every SVG. The repository has no tool yet that generates the uniform symbol. The wordmark, logos and brand board can be checked against the current files with `tools/astarot_brand_from_reference.py --check`. When checking generated files, review legibility from the minimum of 16 px up to large sizes.
+
+- `ASTAROT` is written correctly in the main images and SVGs.
+- The official subtitle matches `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` (`&amp;` in HTML/SVG becomes `&` after rendering).
+- The symbol in the normal logo, the inverted logo, the app icon and the favicon uses the same ring, the same hexagram, the same touching speech bubble and the same three dots. The exception is the 16 px optically corrected version, which leaves out the three dots (item 5 of section 3.1).
+- Evaluate by eye that the symbol is recognizable at 16/32/64/128/512 px, and that lines and dots do not touch and run together when scaled down. Apply optical correction if needed, without changing the unified motif.
+- The logotype specifies Outfit Bold (700) and is displayed with a licensed font that can be used in the actual distribution environment, or with glyphs converted to outlines.
+- Single-color versions for light and dark exist. Meaning does not depend on the accent color alone.
+- Existing users' data, settings and audio routes are not changed. Creating brand images alone does not migrate features or identifiers.
+
+## 9. Consequences and handover to the implementation work
+
+This ADR is **a decision on product policy and brand**. The identifiers of the current build stay `VRCT-VOX`, and this ADR does not mean that the product's migration to ASTAROT is complete. After the masters are registered in `docs/brand/astarot/`, create the P1 implementation issue and the P2 migration ADR separately. Using the new brand in the OSS documents and distributions goes ahead after trademarks, fonts and the licenses of images and models are checked.
+
+## 10. 2026-11-16: rebuild based on the reference image (record)
+
+The earlier delivered package, drawn with independent geometry, was rejected because the shape of its icon differed from the approved image.
+This regenerated package includes the image the user attached as `reference-brand-guide.png`, and the outlines of the main symbol and the wordmark were extracted from it. The generator code verifies that the same main symbol outline is present in every SVG. The display typeface that was checked is the outline in the reference image, and no claim is made that it is the outline of an actual font.
+
+This update is **not a commit to the repository**. If it is adopted, check the differences from the existing ADR-011 and bring it in through the usual process, such as a PR. The icons and identifiers of the old VRCT-VOX are not changed automatically.
+
+## 11. 2026-11-16: replacement with the uniform version (record)
+
+The traced version from section 10 was replaced with a set rebuilt with uniform geometry. In the traced version, the line widths and the shapes of the triangles varied. In the uniform version, every white line of the hexagram is 11 units wide, and the 6 black triangles inside are all congruent. The wordmark was replaced with the outlines of the actual Space Grotesk Bold font. The wordmark made from a trace of the reference image is kept as `wordmark-alt-traced.svg`.
+
+`reference-brand-guide.png` and `reference-mark-crop.png` were kept as references for the composition. The statement in section 10 that "no claim is made that it is the outline of an actual font" is a record about the traced version.
+
+## 12. 2026-11-16, proposed addition: bring the migration of the display name, documents, site and repository name forward to 0.5.0
+
+Status: **proposed addition (awaiting review)**. If it is adopted, remove "proposed addition", and correct the table in section 5 and section 9 to match.
+
+### Decision (proposed)
+
+- From 0.5.0, the product's display name is ASTAROT. Of P1 in section 5, the documentation, the README, the GitHub Pages site and the release notes template come into the scope of 0.5.0.
+- Changing the GitHub repository name from `kein5/VRCT-VOX` to an ASTAROT name also comes into the scope of 0.5.0. This item was not written in any stage of the table in section 5. The name changes at the 0.5.0 release. 0.4.0 ships under the current name, so the name does not change before then.
+- The text shown on the app's screens moves as part of the UI renewal work.
+- Internal identifiers (package names, executable names, where settings and data are stored, the `VRCT_*` environment variables, the app ID, the file names of release artifacts and so on) stay in P2 as before and are handled in a separate ADR. The constraint in item 1 of section 6 does not change.
+
+### Reasons (proposed)
+
+- If the display name, documents, site and repository name move at different times, users cannot tell that it is the same product. Move them together in one version.
+- The URL the updater checks for stable versions has been changed to the project's Worker URL. This URL does not contain the repository name, so changing the name does not break the update path from 0.4.x. Beta versions and the URLs of release artifacts are reached through GitHub's redirect after the rename.
+
+### Consequences (proposed)
+
+- The inventory of places where the display name appears is in [astarot-rename-inventory.md](../voice-stack/astarot-rename-inventory.md).
+- The order, effects and check items for changing the repository name are in [repository-rename.md](../voice-stack/repository-rename.md).
+- Changing the name changes the GitHub Pages URL. GitHub does not redirect the old URL. Help links in 0.4.x apps will stop opening, so decide how to handle that before changing the name.
+- After the name changes, do not create a repository named `kein5/VRCT-VOX` again. Doing so stops GitHub's redirect and breaks updates and installation for 0.4.x.
+- Following item 5 of section 6, reflect the change in `PRODUCT.md`, `DESIGN.md`, `AGENTS.md` and the spec catalog when P1 starts.
+
+---
+
+# ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針（日本語版）
 
 Status: **採用（製品方針・ブランド仕様）／素材再生成済み・表示の移行（P1）はアプリの表示を develop に実装済みで、文書とサイトは作業中・識別子の移行（P2）は未着手**
 Date: 2026-11-16

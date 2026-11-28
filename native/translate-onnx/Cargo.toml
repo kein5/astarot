@@ -1,15 +1,15 @@
 [package]
-name = "vrct-translate-onnx"
+name = "astarot-translate-onnx"
 version = "0.0.0"
-description = "Local translation for VRCT-VOX: M2M100 and NLLB-200 on ONNX Runtime, with their SentencePiece tokenizers"
+description = "Local translation for ASTAROT: M2M100 and NLLB-200 on ONNX Runtime, with their SentencePiece tokenizers"
 edition = "2024"
 publish = false
 
 [lib]
-name = "vrct_translate_onnx"
+name = "astarot_translate_onnx"
 
 [[bin]]
-name = "vrct-translate"
+name = "astarot-translate"
 path = "src/bin/translate.rs"
 
 [features]
@@ -19,7 +19,7 @@ default = ["load-dynamic"]
 # library the app ships, else `onnxruntime.dll` / `libonnxruntime.so` by name. `ort` features
 # are unified across the app, so this crate must not link ONNX Runtime there. A missing library
 # is an error value (`translation_runtime_missing`).
-load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
+load-dynamic = ["astarot-onnx-runtime/load-dynamic"]
 # Link `ort`'s prebuilt ONNX Runtime instead (fetched at build time). Only for running the
 # comparison command by hand: `--no-default-features --features download-binaries`.
 download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
@@ -30,7 +30,7 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 # `load-dynamic`): whether one is there depends on the ONNX Runtime library that is loaded.
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17", "cuda", "tensorrt", "openvino", "migraphx", "webgpu"] }
 # The process's one ONNX Runtime library and environment, shared with chat reading.
-vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
+astarot-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"

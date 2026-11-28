@@ -74,7 +74,8 @@ export const StartPythonController = () => {
     return null;
 };
 
-const useAsyncFetchFonts = () => {
+// The installed fonts the appearance settings offer; the settings window (#1236) asks too.
+export const useAsyncFetchFonts = () => {
     const { updateSelectableFontFamilyList } = useStore_SelectableFontFamilyList();
     const asyncFetchFonts = async (isCurrent: () => boolean) => {
         try {

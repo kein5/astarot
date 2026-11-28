@@ -1,4 +1,4 @@
-//! Speech recognition of VRCT-VOX (#278), the Rust replacement for
+//! Speech recognition of ASTAROT (#278), the Rust replacement for
 //! `src-python/models/transcription/`.
 //!
 //! Codename: Loray (#689; the table is in `docs/voice-stack/project-rename.md`).

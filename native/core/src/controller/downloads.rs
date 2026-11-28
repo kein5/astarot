@@ -1,9 +1,10 @@
 //! Model downloads and the hardware probe behind them ([`controller.py`]: `getModelDownload*`,
-//! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `vrct_ops::downloads`).
+//! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `astarot_ops::downloads`).
+//! A model already on the PC is checked instead of downloaded (`/run/check_model_download`, #1263).
 //!
 //! A download starts only from the user's consent to one entry of the current catalog, and for
 //! an entry with restrictions (a non-commercial license) from their separate acknowledgement
-//! too ([`vrct_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
+//! too ([`astarot_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
 //! otherwise. Applying a finished download is a separate
 //! request that writes the verified paths into the settings, and only when the settings still
 //! hold what the user saw (`expected`) and nothing runs on that target. The failures answer
@@ -20,15 +21,18 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_ops::downloads::catalog;
-use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
-use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
-use vrct_ops::downloads::user_models::{self, UserModels};
-use vrct_ops::downloads::{Downloads, Error};
-use vrct_ops::telemetry::Telemetry;
+use astarot_ops::downloads::catalog;
+use astarot_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use astarot_ops::downloads::translation_catalog::{self, TranslationCatalog};
+use astarot_ops::downloads::transcription_catalog::{self, TranscriptionCatalog};
+use astarot_ops::downloads::user_models::{self, UserModels};
+use astarot_ops::downloads::{Downloads, Error};
+use astarot_ops::telemetry::Telemetry;
 
 /// The codes answered with 409: the request may pass once the state changes.
-const CONFLICTS: [&str; 6] = ["download_busy", "downloads_closed", "stale_job", "download_not_ready", "settings_changed", "model_target_busy"];
+const CONFLICTS: [&str; 7] = ["download_busy", "downloads_closed", "stale_job", "download_not_ready", "settings_changed", "model_target_busy",
+    // A check of a model that is not on the PC: it may pass once the model is downloaded (#1263).
+    "model_not_downloaded"];
 /// How long the hardware probe may take (`HardwareProbe(timeout=3)`).
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 /// How long shutdown waits for a download, an apply or a probe (`close(timeout=2)`).
@@ -49,10 +53,10 @@ pub(crate) fn default_downloads(root: &Path) -> Result<Downloads, Error> {
 /// Vulkan build when it lists its devices on this PC, else the CPU build, so that the probe
 /// sees the devices a server can use.
 pub(crate) fn default_speech_binary(env: &Environment) -> Result<PathBuf, String> {
-    let builds = vrct_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &vrct_speech_server::bundle::pinned());
+    let builds = astarot_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &astarot_speech_server::bundle::pinned());
     builds
-        .for_listing(|binary| vrct_speech_server::devices::device_rows(binary, &None).is_some())
-        .ok_or_else(|| vrct_speech_server::codes::BUNDLE.to_string())
+        .for_listing(|binary| astarot_speech_server::devices::device_rows(binary, &None).is_some())
+        .ok_or_else(|| astarot_speech_server::codes::BUNDLE.to_string())
 }
 
 /// What the download and usage-event endpoints keep for the run.
@@ -65,6 +69,9 @@ pub(crate) struct Ops {
     /// The translation entries the user added to the translation catalog (#413). Shared with
     /// the settings, which record when the key store takes an entry's key.
     pub(super) translation_catalog: Arc<TranslationCatalog>,
+    /// The speech recognition APIs the user added (#414). Shared with the settings, which record
+    /// when the key store takes an entry's key.
+    pub(super) transcription_catalog: Arc<TranscriptionCatalog>,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -84,7 +91,7 @@ impl Ops {
         let telemetry = (services.telemetry)();
         telemetry.set_hardware_source(Arc::new(move || {
             let binary = binary().ok();
-            Some(vrct_ops::telemetry::hardware::cached(binary.as_deref(), vrct_ops::telemetry::hardware::TIMEOUT))
+            Some(astarot_ops::telemetry::hardware::cached(binary.as_deref(), astarot_ops::telemetry::hardware::TIMEOUT))
         }));
         // Every reported error code reaches the usage events (`register_error_report_hook`);
         // the telemetry itself sends nothing until it is started, and once a day per code.
@@ -92,7 +99,8 @@ impl Ops {
         let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
         let translation_catalog = Arc::new(TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME)));
-        Ops { downloads, hardware, telemetry, user_models, translation_catalog, apply_lock: Mutex::new(()), report_hook }
+        let transcription_catalog = Arc::new(TranscriptionCatalog::new(env.state_dir.join(transcription_catalog::FILE_NAME)));
+        Ops { downloads, hardware, telemetry, user_models, translation_catalog, transcription_catalog, apply_lock: Mutex::new(()), report_hook }
     }
 
     /// Takes this run's hook away: the error codes of a later run are not counted here.
@@ -129,7 +137,9 @@ impl Core {
     /// Writes the paths of a verified download or a registered model into the settings
     /// (`_applyModelPaths`). For a download it runs at the manager's commit point; a refusal
     /// leaves the download ready.
-    fn apply_model_paths(&self, target: &str, id: &str, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
+    /// `listening`: a recognition model for Listening alone (#1242), written to the asr profile's
+    /// `listening_model`.
+    fn apply_model_paths(&self, target: &str, id: &str, paths: &[(String, String)], expected: &Value, listening: bool) -> Result<(), Error> {
         let path = |role: &str| paths.iter().find(|(r, _)| r == role).map(|(_, p)| p.clone());
         if target == "ocr" || target == catalog::TRANSLATION_TARGET {
             // Chat reading and the local translation find verified downloads by catalog id;
@@ -143,6 +153,9 @@ impl Core {
             return Ok(());
         }
         let rvc = target == "rvc";
+        if listening && target != "asr" {
+            return Err(Error::Code("download_request_invalid"));
+        }
         let keys: &[&str] = if rvc { &["model", "index"] } else { &["model"] };
         let shaped = expected.as_object().is_some_and(|o| o.len() == keys.len() && keys.iter().all(|k| o.get(*k).is_some_and(Value::is_string)));
         if !shaped {
@@ -163,7 +176,8 @@ impl Core {
             let Some((profile, field)) = catalog::speech_field(target) else {
                 return Err(Error::Code("download_request_invalid"));
             };
-            let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
+            let (field, server) = if listening { ("listening_model", "asr_listening") } else { (field, profile) };
+            let running = astarot_speech_server::settings::Profile::from_name(server).is_ok_and(|p| self.speech_servers().is_running(p));
             // Realtime recognition listening on the bundled server keeps its model in use.
             let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
             if running || recognizing || !(self.services().model_target_idle)(profile) || !self.voice_target_idle(profile) {
@@ -229,7 +243,7 @@ impl Core {
     }
 }
 
-fn to_value(json: vrct_ops::json::Json) -> Value {
+fn to_value(json: astarot_ops::json::Json) -> Value {
     serde_json::to_value(json).expect("plain JSON converts")
 }
 
@@ -238,7 +252,7 @@ fn failure(code: &str) -> Reply {
     Reply::status(if CONFLICTS.contains(&code) { 409 } else { 400 }, json!({ "error_code": code }))
 }
 
-fn answer(result: Result<vrct_ops::json::Json, Error>, other: &str) -> Reply {
+fn answer(result: Result<astarot_ops::json::Json, Error>, other: &str) -> Reply {
     match result {
         Ok(state) => ok(to_value(state)),
         Err(Error::Code(code)) => failure(code),
@@ -248,25 +262,32 @@ fn answer(result: Result<vrct_ops::json::Json, Error>, other: &str) -> Reply {
 }
 
 /// `_modelDownloadRequest`: exactly `{id, job_id}` (and `expected` to apply), both non-empty
-/// strings.
+/// strings. An apply may also name `"source": "speaker"`: a recognition model for Listening alone
+/// (#1242).
 fn request(data: &Value, apply: bool) -> Option<(&str, &str)> {
     let fields = data.as_object()?;
     let required: &[&str] = if apply { &["id", "job_id", "expected"] } else { &["id", "job_id"] };
-    if fields.len() != required.len() || !required.iter().all(|k| fields.contains_key(*k)) {
+    let listening = apply && listening_source(data)?;
+    if fields.len() != required.len() + usize::from(listening) || !required.iter().all(|k| fields.contains_key(*k)) {
         return None;
     }
     let text = |key: &str| fields[key].as_str().filter(|s| !s.is_empty());
     Some((text("id")?, text("job_id")?))
 }
 
+/// Whether an apply names Listening (`"source": "speaker"`); `None` for another source or value.
+fn listening_source(data: &Value) -> Option<bool> {
+    match data.get("source") {
+        None => Some(false),
+        Some(Value::String(source)) if source == "speaker" => Some(true),
+        Some(_) => None,
+    }
+}
+
 pub(crate) fn add(b: &mut Builder<'_>) {
-    b.with("/get/data/model_download_catalog", OPEN, |core, _| {
-        let mut catalog = to_value(core.ops().downloads.catalog());
-        // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
-        // that download, which the core does not run yet: none is offered.
-        catalog["legacy_models"] = json!([]);
-        ok(catalog)
-    });
+    // The built-in CTranslate2 download and its reviews (`legacy_models`) are gone: the core
+    // retired the download in 0.5.0, and the UI's half of it went with #1015.
+    b.with("/get/data/model_download_catalog", OPEN, |core, _| ok(to_value(core.ops().downloads.catalog())));
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
     b.with("/run/refresh_model_download_hardware", OPEN, |core, data| {
         // The probe takes nothing from the UI: no binary, no options.
@@ -280,6 +301,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     });
     b.with("/get/data/model_download_state", OPEN, |core, _| ok(to_value(core.ops().downloads.state())));
     b.with("/run/start_model_download", OPEN, |core, data| answer(core.ops().downloads.start(data), "download_failed"));
+    // A model already on the PC (#1263): its files are checked, never downloaded, and no consent is
+    // asked. The job then applies as a download's does.
+    b.with("/run/check_model_download", OPEN, |core, data| answer(core.ops().downloads.check(data), "download_failed"));
     b.with("/run/cancel_model_download", OPEN, |core, data| match request(data, false) {
         Some((id, job_id)) => answer(core.ops().downloads.cancel(id, job_id), "download_failed"),
         None => failure("download_request_invalid"),
@@ -287,7 +311,8 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/apply_model_download", OPEN, |core, data| {
         let Some((id, job_id)) = request(data, true) else { return failure("download_request_invalid") };
         let expected = &data["expected"];
-        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, &entry.id, paths, expected));
+        let listening = listening_source(data) == Some(true);
+        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, &entry.id, paths, expected, listening));
         answer(result, "download_apply_failed")
     });
     // Models the user registers under a name (#403). The routes carry "user_model" so the
@@ -306,7 +331,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         let id = data.as_object().filter(|o| o.len() == 2 && o.contains_key("expected")).and_then(|o| o.get("id")).and_then(Value::as_str).filter(|s| !s.is_empty());
         let Some(id) = id else { return failure("user_model_invalid") };
         let ops = core.ops();
-        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, id, &paths, &data["expected"]));
+        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, id, &paths, &data["expected"], false));
         match result {
             Ok(()) => ok(ops.user_models.state()),
             Err(Error::Code(code)) => failure(code),

@@ -1,15 +1,20 @@
 //! A translation LLM (TranslateGemma) on llama.cpp's server as the local translation (ADR-015):
 //! the app's [`Routed`] translation over a stand-in server (`fake-llama-core`, which answers the
-//! prompt's text in upper case) set up as the runtime setup leaves it. No model, GPU or network.
+//! prompt's text in upper case) set up as the runtime setup leaves it, and its server stopped at
+//! the end of the run (#1341). No model, GPU or network.
 
+mod common;
+
+use common::{Setup, Ui};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
-use vrct_core::controller::translation_llama::{self, Routed};
-use vrct_ops::downloads::translation_catalog::{TranslationCatalog, FILE_NAME};
-use vrct_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::controller::Services;
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
+use astarot_core::controller::translation_llama::{self, Routed};
+use astarot_ops::downloads::translation_catalog::{TranslationCatalog, FILE_NAME};
+use astarot_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-llama-core");
 
@@ -155,4 +160,45 @@ fn a_model_the_server_cannot_load_is_a_load_failure() {
     let named = add(&env, &gguf(dir.path(), "ok"), "Vulkan1");
     routed.refresh();
     assert_eq!(routed.load(&setup(&named)), Err(LocalError::LoadFailed));
+}
+
+/// Whether a process runs with `model` on its command line (Linux, where `/proc` lists them).
+#[cfg(target_os = "linux")]
+fn runs(model: &Path) -> bool {
+    let model = model.to_string_lossy().into_owned();
+    std::fs::read_dir("/proc").into_iter().flatten().flatten().any(|entry| {
+        std::fs::read(entry.path().join("cmdline"))
+            .is_ok_and(|line| line.split(|byte| *byte == 0).any(|arg| arg == model.as_bytes()))
+    })
+}
+
+// #1341: the end of the run stops the server of a loaded translation LLM while the run's core is
+// still held, as the end's 30 s deadline holds it when the UI closes. Before, the server ran on
+// until the core was dropped.
+#[test]
+fn the_end_of_the_run_stops_the_server_of_a_translation_llm() {
+    let dir = tempfile::tempdir().unwrap();
+    let env = environment(dir.path());
+    set_up_server(&env);
+    let model = gguf(dir.path(), "ok");
+    let weight = add(&env, &model, "cpu");
+    let inner = Arc::new(Inner::default());
+    let routed = Arc::new(Routed::new(&env, inner.clone()));
+    let local = Arc::clone(&routed);
+    let services = Services { local_translation: Arc::new(move |_| local.clone() as Arc<dyn LocalTranslation>), ..Setup::default().services };
+    let ui = Ui::with(Setup { services, ..Setup::default() });
+    ui.ready();
+    routed.load(&setup(&weight)).unwrap();
+    assert_eq!(routed.translate("hello", "en", "ja"), Ok("HELLO".into()));
+    #[cfg(target_os = "linux")]
+    assert!(runs(&model), "the server runs the model");
+
+    assert_eq!(ui.ok("/run/shutdown", None), true);
+    assert_eq!(routed.loaded(), None, "the server stopped with the run");
+    assert_eq!(routed.placement(), None);
+    #[cfg(target_os = "linux")]
+    assert!(!runs(&model), "no process runs the model any more");
+    // The ONNX model was dropped too: once for the load, once at the end.
+    assert_eq!(*inner.calls.lock().unwrap(), ["unload", "unload"]);
+    ui.stop();
 }

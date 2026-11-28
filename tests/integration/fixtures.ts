@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BRIDGE = process.env.ASTAROT_INTEGRATION_BRIDGE ?? path.join(ROOT, "native/browser-core-bridge/target/debug",
-    process.platform === "win32" ? "vrct-browser-core-bridge.exe" : "vrct-browser-core-bridge");
+    process.platform === "win32" ? "astarot-browser-core-bridge.exe" : "astarot-browser-core-bridge");
 
 // What every test starts with: past the first-run setup, in English, sending nothing anywhere.
 const INITIAL = {
@@ -90,9 +90,9 @@ export class App {
     async open() {
         if (!this.core.url) await this.core.start();
         await this.page.goto(`/index.html?core=${encodeURIComponent(this.core.url)}`);
-        await expect(this.page.locator("textarea[class*=message_box_input_area]")).toBeVisible();
+        await expect(this.page.locator("textarea[data-message-input]")).toBeVisible();
         await expect.poll(() => this.page.evaluate(() =>
-            document.querySelector("textarea[class*=message_box_input_area]")?.closest("[aria-busy=true]") === null)).toBe(true);
+            document.querySelector("textarea[data-message-input]")?.closest("[aria-busy=true]") === null)).toBe(true);
     }
 
     /** The app quits and starts again on the same settings folder, with a new core. */

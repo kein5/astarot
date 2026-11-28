@@ -12,7 +12,70 @@ evidence:
   - native/audio-routing/src/pipewire/managed.rs
   - native/audio-routing/src/pipewire/gate.rs
 ---
-# ADR-005: 仮想マイクの寿命と保持ミュート
+# ADR-005: Virtual microphone lifetime and persistent mute
+
+[日本語版](#adr-005-仮想マイクの寿命と保持ミュート日本語版)
+
+Status: The Linux implementation for source checkouts is accepted. Temporary installation on the host and VRChat acceptance: conditional PASS.
+Acceptance of reconnection when every GUI or the daemon disappears is on hold.
+Date: 2026-10-27
+Related: [ADR-004](adr-004-audio-integration-boundaries.md)
+
+Addendum, 2026-10-30: With automatic creation,
+the same v1 route is kept by `pw-loopback` in 3 systemd user services. They are not owned as children of the GUI or the inference worker, so
+the decision not to delete the endpoint when the app exits stays. A manual daemon configuration is reused as well.
+Creation on selection is asynchronous and keeps the initial mute and the explicit resume. Re-creation at login also starts muted.
+The limits from disappearance and consumer fallback caused by an OS service failure or a daemon restart still remain.
+
+## Problem and decision
+
+With B's external inference plus OS route, tying the lifetime of the virtual microphone to the voice engine makes
+the input endpoint disappear when the engine exits. The previous synthetic-sound test confirmed that some consumers then fall back to another input.
+A TTS-only cancel also does not keep later utterances or an external VC suppressed.
+
+The PipeWire daemon configuration owns the final sink/source and the TTS/VC inputs. The source is always created muted.
+VoiceEventBus advances the generation on both mute and resume, so old utterances accepted during mute do not pass after resume either.
+VoiceRoute saves the held state with an atomic replace plus fsync, and keeps the observed value of the OS gate distinct from the requested value.
+Selecting managed, restarting the app, changing the endpoint or a control failure requires a new explicit resume.
+
+A short-lived C helper changes the OS gate using the system libpipewire. It binds, on the same connection, the proxy that matches the cookie/serial,
+checks the marker/class in node.info and only then runs set-param.
+State is observed from `pw-dump` snapshots that a shared worker fetches at intervals of no less than 0.1 seconds.
+VoiceRoute, passthrough and the Linux input device list refer to the same observation, and it is also passed to the isolated conversion process
+over a dedicated pipe, together with the observation number and the time the fetch started. The conversion audio loop does not wait for a subprocess.
+An observation is not used after a failed fetch or a worker exit, or when 1 second or more has passed since its fetch started; the existing mute/stop and error path is taken instead.
+Confirming a gate operation needs an observation whose fetch started after the operation completed. An observation update wakes the control worker,
+so a stale state is not used beyond the existing 0.1-second cycle plus up to 1 second of waiting for a fetch. The fetch process is reaped when the last user
+stops and when the sidecar exits. No custom daemon that takes in voice PCM is built.
+The usual external cable setting stays the default. On Windows, a new selection of managed is refused.
+
+## Other options and conditions that reverse the decision
+
+- Keep `pw-loopback` as a child process of TTS: simple, but rejected because the endpoint disappears when the parent or child exits.
+- Check with `pw-dump`, then run `pw-cli set-param name`: rejected because a node with the same name may be replaced between the check and the change.
+  If the CLI becomes able to operate on the same connection with identity as a condition, the native helper can be removed.
+- Handle all PCM in a custom audio daemon: not needed for this round's requirements. If a DSP shared by Linux and Windows, or a lease/watchdog that mutes automatically
+  even when the control process is killed, becomes a product requirement, this is re-evaluated together with the cost of an extra process.
+
+## Limits and verification
+
+When the daemon itself exits, the endpoint disappears. A VRCT killed with SIGKILL cannot run its mute handling, and the last
+gate state remains. Automatic stopping of an external VC is not guaranteed. The next start returns to mute.
+If an external app changes the gate directly, detection is not immediate, and silence cannot be guaranteed when the OS cannot be controlled.
+So a status 200 means the request was accepted; pending=false/ready=true and a check of the observed value are needed.
+The UI rejects stale status responses by a monotonic observation ID. A normal shutdown handles the final mute even after a late resume completes,
+and if the mute is not confirmed within at most 10 seconds, it records that. A worker exit alone is not treated as confirmation of the mute.
+
+The CLI is only for a one-off diagnostic operation while VRCT is stopped; it offers no resident monitoring.
+The only extra SDKs are the Linux system PipeWire headers and a compiler. No models or pip dependencies are added.
+The record of the measurement boundaries, the 30-run test and the unverified items (managed-route-report.md) was deleted on 2026-11-16. It remains in the git history.
+
+A later host test confirmed that VRChat's input stayed the same after the engine exited and after the real audio control process
+restarted during mute. This was one sequence with noise suppression off and a stand-in for the model; it does not resolve the SIGKILL limit above or the fallback when the daemon stops.
+
+---
+
+# ADR-005: 仮想マイクの寿命と保持ミュート（日本語版）
 
 Status: ソースcheckout向けLinux実装を採用。host一時導入とVRChat受入は条件付きPASS。
 全GUI・daemon消失時の再接続受入は保留。

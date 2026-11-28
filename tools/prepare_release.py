@@ -2,13 +2,15 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 from urllib.parse import quote
 
-from tools.release_candidate import REPOSITORY, ROOT, verify
+from tools.release_candidate import REPOSITORY, ROOT, needs_sidecar, verify
 
 WORKFLOWS = {"linux": "build-linux.yml", "windows": "release.yml"}
 # main publishes stable releases; develop publishes betas (GitHub prereleases).
@@ -90,9 +92,10 @@ def prepare(output, run_ids, commit, version, branch):
         check_run(run, platform, commit, branch)
         directory = output / platform
         artifact = (
-            "VRCT-VOX-linux-x86_64-candidate"
+            # The candidate workflows' artifacts (VRCT-VOX-… up to 0.6.x; ADR-014, 2.2).
+            "ASTAROT-linux-x86_64-candidate"
             if platform == "linux"
-            else "VRCT-VOX-windows-candidate"
+            else "ASTAROT-windows-candidate"
         )
         subprocess.run(
             [
@@ -116,10 +119,11 @@ def prepare(output, run_ids, commit, version, branch):
             if destination.exists():
                 raise ValueError("Overlapping candidate names")
             shutil.copyfile(directory / entry["name"], destination)
-            shutil.copyfile(
-                directory / (entry["name"] + ".sha256"),
-                payload / (entry["name"] + ".sha256"),
-            )
+            if needs_sidecar(platform, entry["name"]):
+                shutil.copyfile(
+                    directory / (entry["name"] + ".sha256"),
+                    payload / (entry["name"] + ".sha256"),
+                )
         shutil.copyfile(
             directory / "candidate-manifest.json",
             payload / f"candidate-{platform}.json",
@@ -156,14 +160,55 @@ def require_unused_tag(version):
                 )
 
 
-def main():
+# A fine-grained token that can only read this repository's administration settings (issue #1018).
+# Whether immutable releases are on can be read only with admin read access, which a workflow's
+# GITHUB_TOKEN cannot be given. prepare-release.yml passes this secret to the one step that checks.
+SETTINGS_TOKEN_SECRET = "IMMUTABLE_RELEASES_READ_TOKEN"
+
+
+def require_immutable_releases(run=None):
+    """Stop unless GitHub's immutable releases are on for this repository (issue #1018).
+
+    The Windows installer checks another version's package (/VERSION) only against the .sha256
+    file next to it on the same release page; immutable releases are what keep both from being
+    replaced once a release is published. The API answers 404 when the setting is off, and also
+    when the token cannot read it, so both stop here with the same message."""
+    if not os.environ.get("GH_TOKEN"):
+        raise ValueError(
+            f"GH_TOKEN is empty: give this step the {SETTINGS_TOKEN_SECRET} secret "
+            "(a fine-grained token with Administration: read on this repository)"
+        )
+    result = (run or subprocess.run)(
+        ["gh", "api", f"repos/{REPOSITORY}/immutable-releases"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        if "HTTP 404" in result.stderr:
+            raise ValueError(
+                "Immutable releases are off for this repository, or the token cannot read the "
+                f"setting ({SETTINGS_TOKEN_SECRET}); turn them on before making a draft (issue #1018)"
+            )
+        raise ValueError("Could not read whether immutable releases are on: " + result.stderr.strip())
+    state = json.loads(result.stdout)
+    if not isinstance(state, dict) or state.get("enabled") is not True:
+        raise ValueError("Immutable releases are off for this repository; turn them on before making a draft (issue #1018)")
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Its own step in prepare-release.yml, the only one that gets the settings token.
+    if argv == ["immutable-releases"]:
+        require_immutable_releases()
+        print("Immutable releases are on")
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--linux-run", required=True)
     parser.add_argument("--windows-run", required=True)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--branch", required=True, choices=sorted(CHANNELS))
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     payload = prepare(
         args.output,

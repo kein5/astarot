@@ -1,5 +1,6 @@
 import io
 import importlib.util
+import json
 import shutil
 import subprocess
 import tarfile
@@ -75,7 +76,9 @@ def test_nested_zip_preserves_ocr_context(tmp_path, container, levels):
 def test_inspection_ignores_host_ocr_directory(tmp_path, container):
     host = tmp_path / "ocr"
     host.mkdir()
-    _inspect_payload(host, container, "_internal/models/transcription/silero_vad/silero_encoder_v5.onnx", b"VAD")
+    # A file under a folder named like an OCR one, but no model: the host's own "ocr" folder is
+    # not part of the package's names. (Any model file is refused; test_model_distribution.py.)
+    _inspect_payload(host, container, "_internal/models/transcription/silero_vad/README.md", b"VAD")
 
 
 @pytest.mark.parametrize("container", ["zip", "tar"])
@@ -130,7 +133,7 @@ def test_nested_zip_depth_is_bounded(tmp_path, container):
 
 @pytest.mark.parametrize("container", ["zip", "tar"])
 def test_allowed_prefixed_nested_zip_remains_allowed(tmp_path, container):
-    payload = _zip_bytes("models/transcription/silero_vad/silero_encoder_v5.onnx", prefix=b"MZ")
+    payload = _zip_bytes("models/transcription/silero_vad/LICENSE.txt", prefix=b"MZ")
     _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
 
 
@@ -182,7 +185,7 @@ def test_pyav_and_gpl_encoders_are_rejected(tmp_path, name, reason):
     ("_internal/nvidia/cuda_nvrtc/lib/libnvrtc.so.12", "CUDA"),
     ("_internal/build/speechcpp/cudart64_12.dll", "CUDA"),
     ("_internal/onnxruntime/cublasLt64_12.dll", "CUDA"),
-    ("usr/lib/vrct-vox/_internal/libcudnn.so.9", "CUDA"),
+    ("usr/lib/astarot/_internal/libcudnn.so.9", "CUDA"),
 ])
 def test_ctranslate2_and_cuda_libraries_are_rejected(tmp_path, container, name, reason):
     with pytest.raises(ValueError, match=reason):
@@ -215,7 +218,7 @@ def test_renamed_nested_zip_is_still_inspected(tmp_path):
     with zipfile.ZipFile(payload, "w") as archive:
         archive.writestr("ocr_onnx/chatbox_yolox_tiny.onnx", b"synthetic")
     with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
-        archive.writestr("_internal/resources/data.bin", payload.getvalue())
+        archive.writestr("_internal/resources/data.dat", payload.getvalue())
     with pytest.raises(ValueError, match="OCR"):
         guard.check([tmp_path])
 
@@ -247,11 +250,16 @@ def test_guard_rejects_unreadable_zip(tmp_path):
         guard.check([broken])
 
 
-def test_non_ocr_vad_and_notices_remain_allowed(tmp_path):
+def test_non_ocr_notices_remain_allowed_and_a_vad_model_does_not(tmp_path):
     with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
-        archive.writestr("models/transcription/silero_vad/silero_encoder_v5.onnx", b"fake VAD")
+        archive.writestr("models/transcription/silero_vad/LICENSE.txt", "attribution")
         archive.writestr("ocr_onnx/LICENSE.txt", "attribution")
     guard.check([tmp_path])
+    # No model ships, the voice activity detector's neither (speech.cpp's VAD is a download).
+    with zipfile.ZipFile(tmp_path / "package.zip", "a") as archive:
+        archive.writestr("models/transcription/silero_vad/silero_encoder_v5.onnx", b"fake VAD")
+    with pytest.raises(ValueError, match="Model file"):
+        guard.check([tmp_path])
 
 
 @pytest.mark.parametrize("entry", ["ocr_onnx/chatbox_yolox_tiny.onnx", "rapidocr/models/rec.onnx", "voice/Mia2026.pth"])
@@ -324,12 +332,32 @@ def test_real_7zip_listing_does_not_mistake_zip_for_nsis(tmp_path, monkeypatch):
         guard.check_nsis([candidate])
 
 
-def _zip_builder():
+def _zip_module():
     path = Path(__file__).resolve().parents[2] / "utils/zip.py"
     spec = importlib.util.spec_from_file_location("fork_zip_builder", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.zip_files_and_directory
+    return module
+
+
+def _zip_builder():
+    return _zip_module().zip_files_and_directory
+
+
+def test_the_package_puts_the_steamvr_manifest_beside_the_app(tmp_path):
+    # SteamVR starts the binary the manifest names, relative to the manifest's folder (#1384).
+    root = Path(__file__).resolve().parents[2]
+    files = _zip_module().PACKAGE_FILES
+    manifest = root / "src-tauri/steamvr/astarot.vrmanifest"
+    assert "src-tauri/steamvr/astarot.vrmanifest" in files
+    app = tmp_path / "astarot.exe"
+    app.write_bytes(b"fake executable")
+    output = tmp_path / "fork.zip"
+    _zip_builder()(output, [app, manifest], [])
+    with zipfile.ZipFile(output) as archive:
+        assert set(archive.namelist()) == {"astarot.exe", "astarot.vrmanifest"}
+        named = json.loads(archive.read("astarot.vrmanifest"))["applications"][0]["binary_path_windows"]
+    assert named == "astarot.exe"
 
 
 def test_package_builder_refuses_missing_inputs_before_replacing_output(tmp_path):

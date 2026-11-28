@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use rvc_runtime::{audio, Chunking, Converter, Device, FeatureExtractor, FeatureIndex, NoiseMode, Options, Rmvpe, Synthesizer, VoiceModel};
+use astarot_rvc_runtime::{audio, Chunking, Converter, Device, FeatureExtractor, FeatureIndex, NoiseMode, Options, Rmvpe, Synthesizer, VoiceModel};
 
 const USAGE: &str = "\
 Usage: rvc-infer --model <voice.pth> --hubert <hubert.onnx> --rmvpe <rmvpe.onnx>
@@ -82,7 +82,7 @@ fn parse() -> Result<Arguments, String> {
     Ok(Arguments { model, hubert, rmvpe, input, output, index, device, options })
 }
 
-fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
+fn run(arguments: Arguments) -> astarot_rvc_runtime::Result<()> {
     let started = Instant::now();
     let model = VoiceModel::load(&arguments.model)?;
     let index = arguments.index.as_deref().map(FeatureIndex::load).transpose()?;
@@ -95,8 +95,8 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
     };
     let loaded = started.elapsed();
     let (samples, rate) = audio::read_wav(&arguments.input)?;
-    let input = audio::resample(&samples, rate, rvc_runtime::pipeline::INPUT_RATE);
-    let seconds = input.len() as f64 / rvc_runtime::pipeline::INPUT_RATE as f64;
+    let input = audio::resample(&samples, rate, astarot_rvc_runtime::pipeline::INPUT_RATE);
+    let seconds = input.len() as f64 / astarot_rvc_runtime::pipeline::INPUT_RATE as f64;
     let converting = Instant::now();
     let converted = converter.convert(&input, &arguments.options)?;
     let elapsed = converting.elapsed().as_secs_f64();
@@ -118,7 +118,7 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
 
 fn main() -> ExitCode {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
     let arguments = match parse() {
         Ok(arguments) => arguments,
         Err(message) => {

@@ -8,6 +8,7 @@ import { StartupContext } from "./startupContext";
 import { StartupProgress } from "./main_section/message_container/log_box/StartupProgress";
 import { VrchatHintContext } from "./vrchatHintContext";
 import { VrchatOscHint } from "../others/vrchat_presence/VrchatOscHint";
+import { settingsHaveAWindow } from "../../../logics/common/settingsWindow.ts";
 
 // While the engine starts (locked), the page keeps its real layout but takes no
 // input: inert removes it from focus, pointer and the accessibility tree, and
@@ -24,7 +25,8 @@ type MainPageProps = {
 
 export const MainPage = ({ focusFallback, locked = false }: MainPageProps) => {
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
-    const hidden = currentIsOpenedConfigPage.data === true;
+    // The settings page covers it; the settings window (#1236) is beside it, and it stays.
+    const hidden = currentIsOpenedConfigPage.data === true && !settingsHaveAWindow();
 
     return (
         <div ref={focusFallback} tabIndex={-1} inert={hidden || locked} aria-hidden={hidden}

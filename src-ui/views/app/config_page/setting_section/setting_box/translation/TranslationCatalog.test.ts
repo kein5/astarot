@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, drawWith, find, findIn, hooks, loadModule, nodesIn, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, drawWith, find, findIn, hooks, loadModule, nodesIn, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
@@ -28,13 +28,13 @@ let listed: ReadonlySet<string> = new Set(["shipped"]);
 
 // The catalog's groups and cards, each drawn on its own. hints: whether the page shows
 // descriptions as hints (HintDescriptions).
-async function catalog(context: TestContext, hints = false, layout = "list") {
+async function catalog(context: TestContext, hints = false, layout = "list", actions?: import("./TranslationCatalog.tsx").WeightActions) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
     const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
         new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
     const module = await loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
-        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, pending: null, send: () => {} }) },
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, errorGroup: null, pending: null, send: () => {} }) },
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
@@ -42,33 +42,55 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
         "../_components/lead/Lead": { Lead: "lead" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
         "../advanced_settings/catalogHeading": heading,
-        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
+            CatalogState: "catalog-state" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
     const drawn = (node: TreeNode) => { runtime.remount(); return drawWith(runtime, node); };
-    const groups = nodesIn(runtime.render(module.TranslationCatalogSection)).filter(node => componentName(node) === "CatalogGroup").map(drawn);
+    // The page draws each group in its system's part (#1266 ★17): the models, then the APIs.
+    const sections = (["engine", "api"] as const).map(group => runtime.render(module.TranslationCatalogGroup, { group, ...actions }));
+    const groups = sections.flatMap(section => nodesIn(section).filter(node => componentName(node) === "CatalogGroup")).map(drawn);
     const cards = groups.flatMap(group => nodesIn(group).filter(node => ["EntryCard", "ShippedCard"].includes(componentName(node) ?? "")).map(drawn));
     const forms = groups.flatMap(group => nodesIn(group).filter(node => ["EngineForm", "ApiForm"].includes(componentName(node) ?? "")).map(drawn));
-    return { groups, forms, section: runtime.render(module.TranslationCatalogSection), cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
+    return { groups, forms, sections, cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
 }
 const classOf = (node: TreeNode | null | undefined): string => String(node?.props?.className ?? "");
 const head = (card: TreeNode) => findIn(card, node => classOf(node) === "card_head");
+// A part of a card by name: the kit's Card parts, the catalogs' state badge, or the class of a part of its own.
+const KIT_PARTS = new Map<unknown, string>([[kitStandIns.CardHeader, "CardHeader"], [kitStandIns.CardTitle, "CardTitle"],
+    [kitStandIns.CardContent, "CardContent"], [kitStandIns.CardFooter, "CardFooter"], ["catalog-state", "state"]]);
+const partOf = (node: TreeNode) => KIT_PARTS.get(node.type) ?? classOf(node);
 
 test("every card of the translation catalog ends its name's line with the state, as the model catalog's cards do", async context => {
     const { cards } = await catalog(context);
-    assert.deepEqual([...cards.keys()], ["mine", "llm", "shipped", "home", "cloud"]);
+    // The APIs the app ships are the providers of the page's API part: not listed here (#1266 T-8).
+    assert.deepEqual([...cards.keys()], ["mine", "llm", "shipped", "home"]);
     for (const [id, card] of cards) {
         const parts: (TreeNode | false | null | undefined)[] = [head(card).props.children].flat();
         const shown = parts.filter((part): part is TreeNode => typeof part === "object" && part !== null);
-        assert.equal(shown[0].type, "strong", id);
-        assert.equal(classOf(shown.at(-1)), "badge status", `${id}: the state is the last part of the head`);
-        assert.equal(shown.filter(part => classOf(part).includes("status")).length, 1, id);
+        assert.equal(partOf(shown[0]), "CardTitle", id);
+        assert.equal(partOf(shown.at(-1) ?? shown[0]), "state", `${id}: the state is the last part of the head`);
+        assert.equal(shown.filter(part => partOf(part) === "state").length, 1, id);
     }
-    // The state is on the card too, so the entry in use is told by its frame.
-    assert.deepEqual([...cards].map(([id, card]) => [id, card.props["data-status"]]),
-        [["mine", "in_use"], ["llm", "no_server"], ["shipped", "not_downloaded"], ["home", "ready"], ["cloud", "ready"]]);
+    // Each is the kit's Card, an item of the list; the entry in use is told by its frame.
+    assert.deepEqual([...cards].map(([id, card]) => [id, card.type, card.props.as, card.props.active, card.props["data-status"]]), [
+        ["mine", kitStandIns.Card, "li", true, "in_use"], ["llm", kitStandIns.Card, "li", false, "no_server"],
+        ["shipped", kitStandIns.Card, "li", false, "not_downloaded"], ["home", kitStandIns.Card, "li", false, "ready"]]);
+    // An entry the user added takes the focus the page points at and is named; a shipped one is its head alone.
+    assert.deepEqual([...cards].map(([id, card]) => [id, card.props.tabIndex, card.props.role, card.props["aria-label"]]), [
+        ["mine", -1, "group", "Mine"], ["llm", -1, "group", "LLM"], ["shipped", undefined, undefined, undefined],
+        ["home", -1, "group", "Home"]]);
+    // The "added by you" mark is on the name's line in the list, once.
+    const own = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge && badge.props.children === "translation_catalog.badge.user")
+        .map(badge => `${badge.props.tone} ${badge.props.variant}`);
+    for (const id of ["mine", "llm", "home"]) {
+        const card = cards.get(id);
+        assert.ok(card, id);
+        assert.deepEqual([own(head(card)), own(card)], [["strong dashed"], ["strong dashed"]], id);
+    }
 });
 
 test("in the grid a card's first line is its name and its state, and its marks are the line under it", async context => {
@@ -77,10 +99,33 @@ test("in the grid a card's first line is its name and its state, and its marks a
         const card = cards.get(id);
         assert.ok(card, id);
         const headLine = findIn(card, node => classOf(node) === "card_head");
-        assert.deepEqual([headLine.props.children].flat().filter(Boolean).map(node => node.type === "strong" ? "name" : classOf(node)),
-            ["name", "badge status"], id);
+        assert.deepEqual([headLine.props.children].flat().filter(Boolean).map(partOf), ["CardTitle", "state"], id);
         const marks = findIn(card, node => classOf(node) === "card_badges");
-        assert.ok(nodesIn(marks).some(node => classOf(node) === "badge"), `${id}: its kind under the name`);
+        assert.ok(nodesIn(marks).some(node => node.type === kitStandIns.Badge), `${id}: its kind under the name`);
+        // An entry the user added says so under its name in the grid, with the dashed edge, and not on the name's line.
+        const own = (node: TreeNode) => nodesIn(node).filter(badge => badge.type === kitStandIns.Badge && badge.props.children === "translation_catalog.badge.user")
+            .map(badge => `${badge.props.tone} ${badge.props.variant}`);
+        assert.deepEqual([own(headLine), own(marks)], id === "mine" ? [[], ["strong dashed"]] : [[], []], id);
+    }
+});
+
+// #1266 T-6: what the app ships carries no mark of its own, its fold's title says so. T-8: the APIs
+// the app ships are the providers of the page's API part, with their keys, not listed again here.
+test("a shipped model has no mark saying it is shipped, and the APIs the app ships are not listed again", async context => {
+    shownCatalog = unchecked<TranslationCatalog>({ ...CATALOG,
+        engine: [{ id: "free", weight: "free", origin: "builtin", name: "Free", runtime: "onnx", available: true, in_use: false }],
+        api: [{ id: "DeepL_API", origin: "builtin", name: "DeepL_API", kind: "cloud", available: false }, ...(CATALOG.api ?? [])] });
+    listed = new Set(["free"]);
+    context.onTestFinished(() => { shownCatalog = CATALOG; listed = new Set(["shipped"]); });
+    for (const layout of ["list", "grid"]) {
+        const { cards, groups } = await catalog(context, false, layout);
+        assert.deepEqual([...cards.keys()], ["free", "home"], layout);
+        assert.deepEqual(nodesIn(cards.get("free")).filter(node => node.type === kitStandIns.Badge), [], layout);
+        assert.equal(find(cards.get("free"), node => classOf(node) === "card_badges"), null, `${layout}: no empty line of marks`);
+        // The API group counts the APIs the user added only, and has no fold of the app's.
+        const api = findIn(groups[1], node => node.type === "catalog-section").props;
+        assert.equal(api.readout, "translation_catalog.group_readout");
+        assert.equal(find(groups[1], node => node.type === "fold"), null);
     }
 });
 
@@ -91,13 +136,13 @@ test("an added entry's card is what it is, its facts, then its notes and actions
         assert.ok(card, id);
         const blocks: TreeNode[] = [card.props.children].flat();
         // The facts are the catalogs' own part (catalogLayout.tsx): beside in the list, folded in the grid.
-        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : classOf(node);
-        assert.deepEqual(blocks.map(block), ["card_intro", "catalog-facts > facts card_spec", "card_foot"], id);
+        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : partOf(node);
+        assert.deepEqual(blocks.map(block), ["CardHeader", "catalog-facts > facts", "CardFooter"], id);
         const foot = blocks[2];
         assert.ok(find(foot, node => classOf(node) === "actions"), `${id}: the actions are in the foot`);
         // What keeps an entry from running is said beside the actions it explains.
         assert.equal(find(foot, node => node.props?.role === "alert") !== null, id === "llm", id);
-        assert.equal(find(blocks[1], node => node.type === "button"), null, `${id}: the facts hold no action`);
+        assert.equal(find(blocks[1], node => node.type === "button" || node.type === kitStandIns.Button), null, `${id}: the facts hold no action`);
     }
     // A shipped entry is its head alone.
     const shipped = cards.get("shipped");
@@ -105,11 +150,47 @@ test("an added entry's card is what it is, its facts, then its notes and actions
     assert.deepEqual([shipped.props.children].flat().filter(Boolean).map(classOf), ["card_head"]);
 });
 
+// #1228: a built-in model's card switches the model in use when pressed, or reviews its download
+// when it is not on the PC. Its one control is its button, whose hit area covers the card.
+test("a built-in model's card is pressed to use it, or to review its download; the card in use has nothing to press", async context => {
+    const pressed: string[][] = [];
+    const builtin = (id: string, available: boolean, in_use: boolean) =>
+        ({ id, weight: id, origin: "builtin", name: id, runtime: "onnx", non_commercial: false, available, in_use });
+    shownCatalog = unchecked<TranslationCatalog>({ ...CATALOG, engine: [builtin("m2m", true, false), builtin("nllb-600", true, true), builtin("nllb-13", false, false)] });
+    listed = new Set(["m2m", "nllb-600", "nllb-13"]);
+    context.onTestFinished(() => { shownCatalog = CATALOG; listed = new Set(["shipped"]); });
+    const { cards } = await catalog(context, false, "list", {
+        chooseWeight: weight => pressed.push(["choose", weight]), reviewWeight: weight => pressed.push(["review", weight]) });
+    const press = (id: string) => find(cards.get(id) ?? null, node => node.type === kitStandIns.Button);
+
+    const use = press("m2m");
+    assert.ok(use);
+    assert.deepEqual([use.props.children, use.props.tone, use.props["aria-label"], use.props.className],
+        ["translation_catalog.use.engine", "primary", "translation_catalog.use_named.engine", "press"]);
+    assert.equal(cards.get("m2m")?.props.className, "pressable", "the button's hit area covers the card");
+    use.props.onClick();
+    const review = press("nllb-13");
+    assert.ok(review);
+    assert.deepEqual([review.props.children, review.props.tone, review.props["aria-label"]],
+        ["model_downloads.review", undefined, "model_catalog.review_named"]);
+    review.props.onClick();
+    assert.deepEqual(pressed, [["choose", "m2m"], ["review", "nllb-13"]]);
+    // The card in use, and the built-in APIs (the translators the main screen chooses), press nothing.
+    for (const id of ["nllb-600", "cloud"]) {
+        assert.equal(press(id), null, id);
+        assert.equal(cards.get(id)?.props.className, undefined, id);
+    }
+});
+
 test("an entry's state badge names its state, so whether it is on the PC is drawn by its shape and mark", async context => {
     const { cards } = await catalog(context);
-    const state = (id: string) => findIn(cards.get(id), node => classOf(node) === "badge status").props["data-tone"];
-    // Not downloaded yet (an outline with an empty ring), can be used (filled, with a check), in use.
-    assert.deepEqual(["shipped", "cloud", "mine"].map(state), ["not_downloaded", "ready", "in_use"]);
+    // The catalogs' state badge (catalogLayout.tsx's CatalogState) draws each state's look.
+    const state = (id: string) => findIn(cards.get(id), node => node.type === "catalog-state").props;
+    // Not downloaded yet (an outline with an empty ring), can be used (a check), in use (filled, with a check),
+    // and an entry that cannot run as it is, drawn as a problem; the words name the entry's own state.
+    assert.deepEqual(["shipped", "home", "mine", "llm"].map(id => [state(id).state, state(id).children]), [
+        ["not_downloaded", "translation_catalog.state.not_downloaded"], ["ready", "translation_catalog.state.ready"],
+        ["in_use", "translation_catalog.state.in_use"], ["missing", "translation_catalog.state.no_server"]]);
 });
 
 test("each group is a part of the catalog, folded, with what it is for and how many entries it has", async context => {
@@ -119,9 +200,12 @@ test("each group is a part of the catalog, folded, with what it is for and how m
     // or a line, as the page keeps descriptions (catalogLayout.test.ts).
     const parts = groups.map(group => findIn(group, node => node.type === "catalog-section").props);
     assert.deepEqual(parts.map(part => [part.title, part.level, part["data-catalog-group"], part.help, part.readout]), [
-        ["translation_catalog.group.engine", 3, "engine", ["translation_catalog.group_help.engine"], "translation_catalog.group_readout"],
-        ["translation_catalog.group.api", 3, "api", ["translation_catalog.group_help.api"], "translation_catalog.group_readout"],
+        ["translation_catalog.group.engine", 4, "engine", ["translation_catalog.group_help.engine"], "translation_catalog.group_readout"],
+        ["translation_catalog.group.api", 4, "api", ["translation_catalog.group_help.api"], "translation_catalog.group_readout"],
     ]);
+    // Each is a part of its system's subheading on the page (#1266 ★17): a fold under an h3, so its
+    // name is an h4. The cards' layout is chosen at the top of a group with cards.
+    assert.deepEqual(groups.map(group => nodesIn(group).filter(node => node.type === "catalog-layout-switch").length), [1, 1]);
 });
 
 test("the catalog lists a built-in model as the model list does, by the download catalog's name of it (#565)", async context => {
@@ -142,27 +226,32 @@ test("the catalog lists a built-in model as the model list does, by the download
     const name = (id: string) => {
         const card = cards.get(id);
         assert.ok(card, id);
-        return findIn(head(card), node => node.type === "strong").props.children;
+        return findIn(head(card), node => node.type === kitStandIns.CardTitle).props.children;
     };
     assert.equal(name("m2m100_418M-ct2-int8"), "M2M100 418M · int8");
+    // The built-in model in use carries the active frame, as an entry the user added does.
+    const used = cards.get("m2m100_418M-ct2-int8");
+    assert.deepEqual([used?.props["data-status"], used?.props.active], ["in_use", true]);
     assert.equal(name("mine"), "Mine");
 });
 
-// #614: what the catalog holds is its heading's hint, and what to fill in is each form's title
-// hint, on a page that keeps descriptions out of sight. Whose model it is stays in view, and what an
-// API is sent is one sentence in view with its details as its hint, read before adding. Elsewhere the
-// descriptions are lines, as before.
-test("the catalog's and its forms' descriptions are hints; the warnings stay in view", async context => {
+// #614, #1112: what the catalog holds is its heading's hint, and what to fill in (including
+// provenance/terms for user-added models) is each form's title hint on a page that keeps
+// descriptions out of sight. What an API is sent stays one sentence in view with its details as
+// its hint, read before adding. Elsewhere the descriptions are lines, as before.
+test("the catalog's and its forms' descriptions are hints; the API privacy leads stay in view", async context => {
     const lines = (tree: TreeNode) => nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children)
         .filter((word): word is string => typeof word === "string");
     const hinted = await catalog(context, true);
-    const label = findIn(hinted.section, node => node.type === "section-label");
-    assert.equal(label.props.desc, "translation_catalog.intro");
-    assert.ok(!lines(hinted.section).includes("translation_catalog.intro"));
+    // No heading of the catalog's own any more: each group's part says what it is (#1266 ★17).
+    assert.ok(hinted.sections.every(section => find(section, node => node.type === "section-label") === null));
     assert.equal(hinted.forms.length, 2);
     const [engine, api] = hinted.forms;
-    assert.deepEqual([engine.props.hint, api.props.hint], ["translation_catalog.add_help.engine", "translation_catalog.add_help.api"]);
-    assert.deepEqual(lines(engine).filter(word => word.startsWith("translation_catalog.")), ["translation_catalog.terms_help"]);
+    assert.deepEqual([engine.props.hint, api.props.hint], [
+        "translation_catalog.add_help.engine\ntranslation_catalog.terms_help",
+        "translation_catalog.add_help.api",
+    ]);
+    assert.deepEqual(lines(engine).filter(word => word.startsWith("translation_catalog.")), []);
     // What an API is sent: one sentence in view and its details as its hint, as everywhere else (decided in #951).
     const lead = findIn(api, node => node.type === "lead");
     assert.deepEqual([lead.props.text, lead.props.details], ["config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
@@ -172,6 +261,7 @@ test("the catalog's and its forms' descriptions are hints; the warnings stay in 
     const [plainEngine, plainApi] = plain.forms;
     assert.deepEqual([plainEngine.props.hint, plainApi.props.hint], [undefined, undefined]);
     assert.ok(lines(plainEngine).includes("translation_catalog.add_help.engine"));
+    assert.ok(lines(plainEngine).includes("translation_catalog.terms_help"));
     assert.ok(lines(plainApi).includes("translation_catalog.add_help.api"));
 });
 
@@ -182,7 +272,44 @@ test("the API form's address says what it sends in one sentence, and warns of pl
     const api = hinted.forms[1];
     const lead = findIn(api, node => node.type === "lead" && node.props.text === "translation_catalog.url_lead");
     assert.equal(lead.props.details, "translation_catalog.url_details");
-    const url = findIn(api, node => node.type === "input" && node.props.type === "url");
+    const url = findIn(api, node => node.type === kitStandIns.TextField && node.props.type === "url");
     assert.equal(url.props["aria-describedby"], lead.props.id);
     assert.ok(!nodesIn(api).some(node => node.props?.role === "note"), "no warning for an empty address");
+});
+
+test("when a group has no user-added entries, its empty state names that group's add action (#1113)", async context => {
+    shownCatalog = unchecked<TranslationCatalog>({
+        engine: [{ id: "shipped", weight: "shipped", origin: "builtin", name: "Shipped", runtime: "onnx", available: true, in_use: false }],
+        api: [{ id: "cloud", origin: "builtin", name: "Cloud", kind: "cloud", available: true }],
+        runtimes: ["onnx"], protocols: ["openai_compatible"],
+    });
+    context.onTestFinished(() => { shownCatalog = CATALOG; });
+    const runtime = hooks();
+    context.onTestFinished(() => runtime.unmount());
+    const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
+        new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
+    const module = await loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, errorGroup: null, pending: null, send: () => {} }) },
+        "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
+        "../../../../../../logics/translation/translationCatalog": translationCatalog,
+        "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
+        "@useI18n": { useI18n: () => ({ t: (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key }) },
+        "../_components": { SectionLabelComponent: "section-label" },
+        "../_components/hint/Hint": { useHintDescriptions: () => true },
+        "../_components/fold/Fold": { Fold: "fold" },
+        "../_components/lead/Lead": { Lead: "lead" },
+        "../_components/form_row/FormRow": { FormRow: "row" }, "../_components/path_field/PathField": { PathField: "path-field" },
+        "../advanced_settings/catalogHeading": heading,
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
+            CatalogState: "catalog-state" },
+        "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
+    });
+    const groups = (["engine", "api"] as const).flatMap(group => nodesIn(runtime.render(module.TranslationCatalogGroup, { group })))
+        .filter(node => componentName(node) === "CatalogGroup")
+        .map(node => { runtime.remount(); return drawWith(runtime, node); });
+    const emptyLines = groups.map(group => findIn(group, node => node.type === "p").props.children);
+    assert.deepEqual(emptyLines, [
+        'translation_catalog.none_added:{"add":"translation_catalog.add.engine"}',
+        'translation_catalog.none_added:{"add":"translation_catalog.add.api"}',
+    ]);
 });

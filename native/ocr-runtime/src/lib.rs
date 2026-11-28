@@ -1,4 +1,4 @@
-//! Chat-bubble OCR for VRCT-VOX (issue #281): the reading engine, the bubble pipeline
+//! Chat-bubble OCR for ASTAROT (issue #281): the reading engine, the bubble pipeline
 //! and the VRChat frame capture paths, replacing `src-python/models/ocr`.
 //!
 //! Codename: Humots (#689; the table is in `docs/voice-stack/project-rename.md`).

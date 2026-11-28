@@ -386,11 +386,12 @@ test("resting on the hexagon in the middle docks out the common settings towards
     assert.deepEqual(s.calls, [["request", "edge_bottom"]]);
     const items: TreeNode[] = [];
     find(menu, node => { if (node.type === "button" && node.props["aria-pressed"] === undefined) items.push(node); return false; });
-    assert.deepEqual(items.map(node => node.props.children), ["companion.open_main", "companion.menu_panel"]);
+    assert.deepEqual(items.map(node => node.props.children), ["companion.open_main", "companion.open_settings", "companion.menu_panel"]);
     items[0].props.onClick();
     items[1].props.onClick();
+    items[2].props.onClick();
     await flush();
-    assert.deepEqual(s.calls.slice(1), [["request", "open_main"], ["panel"]]);
+    assert.deepEqual(s.calls.slice(1), [["request", "open_main"], ["request", "open_settings"], ["panel"]]);
     // Resting on a triangle afterwards trades the settings for that switch's label.
     await s.rest(s.point("main_page.ocr"));
     assert.equal(s.menu(), null);

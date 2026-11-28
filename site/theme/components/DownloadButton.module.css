@@ -9,9 +9,17 @@
   position: relative;
   display: inline-flex;
   margin: 6px;
-  border-radius: 8px;
-  background: var(--vox-button-bg);
-  color: var(--vox-button-text);
+  border-radius: var(--a-radius-control);
+  background: var(--a-primary);
+  color: var(--a-on-primary);
+}
+
+.main {
+  composes: control from "./Control.module.css";
+}
+
+.toggle {
+  composes: control from "./Control.module.css";
 }
 
 .main,
@@ -24,40 +32,37 @@
   background: none;
   font: inherit;
   font-size: 15px;
-  font-weight: 600;
   color: inherit;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color var(--vox-motion-fast) var(--vox-ease);
+  transition: background-color var(--a-motion-fast) var(--a-ease);
 }
 
 .main {
   gap: 8px;
   padding: 0 18px 0 16px;
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--a-radius-control) 0 0 var(--a-radius-control);
 }
 
 .toggle {
   justify-content: center;
   width: 44px;
   padding: 0;
-  border-left-color: rgba(237, 243, 255, 0.22);
-  border-radius: 0 8px 8px 0;
+  border-left-color: color-mix(in srgb, var(--a-on-primary) 22%, transparent);
+  border-radius: 0 var(--a-radius-control) var(--a-radius-control) 0;
 }
 
 .main:hover,
 .toggle:hover,
 .toggle[aria-expanded='true'] {
-  background: var(--vox-button-hover-bg);
+  background: var(--a-primary-hover);
   color: inherit;
 }
 
 .main:focus-visible,
 .toggle:focus-visible {
   position: relative;
-  outline: 2px solid var(--vox-focus);
-  outline-offset: 2px;
 }
 
 .icon,
@@ -72,7 +77,7 @@
 }
 
 .chevron {
-  transition: transform var(--vox-motion) var(--vox-ease);
+  transition: transform var(--a-motion) var(--a-ease);
 }
 
 .toggle[aria-expanded='true'] .chevron {
@@ -81,8 +86,8 @@
 
 .version {
   padding: 1px 7px;
-  border-radius: 5px;
-  background: rgba(13, 22, 37, 0.28);
+  border-radius: var(--a-radius-small);
+  background: color-mix(in srgb, var(--a-on-primary) 14%, transparent);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -109,12 +114,12 @@
   z-index: 30;
   width: min(380px, calc(100vw - 48px));
   padding: 6px;
-  border: 1px solid var(--vox-border);
-  border-radius: 10px;
-  background: var(--vox-surface);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-dialog);
+  background: var(--a-surface);
+  box-shadow: 0 18px 48px var(--a-shadow);
   transform-origin: top left;
-  animation: menu-in var(--vox-motion-fast) var(--vox-ease);
+  animation: menu-in var(--a-motion-fast) var(--a-ease);
 }
 
 .menu[hidden] {
@@ -146,21 +151,21 @@
   gap: 10px;
   min-height: 40px;
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: var(--a-radius-small);
   font-size: 14px;
   line-height: 20px;
   color: var(--rp-c-text-1);
   text-decoration: none;
-  transition: background-color var(--vox-motion-fast) var(--vox-ease);
+  transition: background-color var(--a-motion-fast) var(--a-ease);
 }
 
 .item:hover,
 .item:focus-visible {
-  background: var(--vox-hairline);
+  background: var(--a-border);
 }
 
 .item:focus-visible {
-  outline: 2px solid var(--vox-focus);
+  outline: 2px solid var(--a-focus);
   outline-offset: -2px;
 }
 
@@ -178,8 +183,8 @@
 .badge {
   flex-shrink: 0;
   padding: 0 7px;
-  border-radius: 5px;
-  background: var(--vox-brand-soft);
+  border-radius: var(--a-radius-small);
+  background: var(--a-primary-soft);
   font-size: 12px;
   font-weight: 600;
   line-height: 20px;
@@ -210,5 +215,5 @@
 .separator {
   height: 1px;
   margin: 6px 4px;
-  background: var(--vox-hairline);
+  background: var(--a-border);
 }

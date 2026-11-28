@@ -4,15 +4,21 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
-import styles from "./VoiceSettings.module.scss";
+import { FormRow } from "../_components/form_row/FormRow";
+import { PathField } from "../_components/path_field/PathField";
+import * as styles from "./VoiceSettings.css.ts";
+import * as cardPress from "./catalogLayout.css.ts";
+import { Badge, Card, CardFooter, CardHeader, CardTitle } from "../../../../../kit/index.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
-import { CatalogFacts } from "./catalogLayout";
+import { CatalogFacts, CatalogState } from "./catalogLayout";
 import type { CatalogLayout } from "./catalogLayout";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
+import { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent, InlineConfirmDescription, InlineConfirmTrigger }
+    from "../../../../../kit/index.ts";
 
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
 // A registered model's files are there, as a downloaded one's; a missing or changed one cannot play.
@@ -42,47 +48,57 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
         const status = userModelStatus(model, expected?.[target]);
         const roles = USER_MODEL_FILES[target] ?? [];
         const savedPaths = expected?.[target];
-        return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card} data-status={status}>
-            {/* In the grid the "your model" mark is the line under the name, so the state ends the name's line on every card. */}
-            <div className={styles.card_intro}><div className={styles.card_head}>
-                <strong>{model.name}</strong>
-                {layout === "list" && <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>}
-                <span className={`${styles.badge} ${styles.status}`} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
+        // A registered model that is not in use is pressed anywhere on its card to use it, as a
+        // downloaded one is (#1254); its audition and Remove stay pressed on their own.
+        const pressable = status === "registered" && removing !== model.id;
+        return <Card as="li" key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name}
+            active={status === "in_use"} data-status={status} className={pressable ? cardPress.pressable : undefined}>
+            {/* In the grid the "your model" mark is the line under the name, so the state ends the name's line on every card.
+                A registered model's files are there, as a downloaded one's: its state looks so. */}
+            <CardHeader><div className={styles.card_head}>
+                <CardTitle>{model.name}</CardTitle>
+                {layout === "list" && <Badge tone="strong" variant="dashed">{t("user_models.badge")}</Badge>}
+                <CatalogState state={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</CatalogState>
             </div>
-            {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("user_models.badge")}</span></div>}
-            </div>
+            {layout === "grid" && <div className={styles.card_badges}><Badge tone="strong" variant="dashed">{t("user_models.badge")}</Badge></div>}
+            </CardHeader>
             {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. In
                 the grid its size is on the card, as a model's, and its files are in the fold. */}
             {layout === "grid" && <dl className={`${styles.facts} ${styles.card_key}`}>
                 <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
             </dl>}
-            <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
+            <CatalogFacts layout={layout}><dl className={styles.facts}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>
                     <dt>{t(`user_models.file.${role}`)}</dt>
                     <dd><code style={{ overflowWrap: "anywhere" }}>{model.paths[role]}</code></dd>
                 </div>)}
                 {layout === "list" && <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>}
             </dl></CatalogFacts>
-            <div className={styles.card_foot}>
+            <CardFooter>
                 {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
                 {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}
-                {removing === model.id ? <div className={styles.actions} role="group" aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
-                    <p>{t("user_models.remove_confirm")}</p>
-                    <button type="button" autoFocus onClick={() => setRemoving(null)}>{t("model_downloads.back")}</button>
-                    <button type="button" disabled={busy} onClick={() => {
-                        setRemoving(null); send("/run/remove_user_model", { id: model.id });
-                    }}>{t("user_models.remove_do")}</button>
-                </div> : <div className={styles.actions}>
-                    {status !== "in_use" && <button type="button" className="primary"
-                        disabled={busy || !!blocked || status !== "registered" || !savedPaths}
-                        onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
-                    {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}
-                    <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />
-                    <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
-                </div>}
+                {/* Removing the registration asks first, in the card (the kit's InlineConfirm, H-07). */}
+                <InlineConfirm>
+                    {removing === model.id ? <InlineConfirmContent aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
+                        <InlineConfirmDescription>{t("user_models.remove_confirm")}</InlineConfirmDescription>
+                        <InlineConfirmCancel onClick={() => setRemoving(null)}>{t("model_downloads.back")}</InlineConfirmCancel>
+                        <InlineConfirmAction disabled={busy} onClick={() => {
+                            setRemoving(null); send("/run/remove_user_model", { id: model.id });
+                        }}>{t("user_models.remove_do")}</InlineConfirmAction>
+                    </InlineConfirmContent> : <div className={styles.actions}>
+                        {status !== "in_use" && <button type="button" className={pressable ? `primary ${cardPress.press}` : "primary"}
+                            aria-label={t("model_catalog.use_named", { name: model.name })}
+                            disabled={busy || !!blocked || status !== "registered" || !savedPaths}
+                            onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
+                        {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}
+                        <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />
+                        {/* The kit's danger Button, as the catalogs' Remove: it removes something. */}
+                        <InlineConfirmTrigger tone="danger" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</InlineConfirmTrigger>
+                    </div>}
+                </InlineConfirm>
                 {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />}
-            </div>
-        </li>;
+            </CardFooter>
+        </Card>;
     });
 };
 
@@ -151,11 +167,13 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
                         return path ? [[role, path]] : [];
                     })),
                 }))} />
-            {kinds.map(([role, suffix]) => <label key={role}>{t(`user_models.file_field.${role}`, { kind: suffix })}
-                <input type="text" value={paths[role] ?? ""} maxLength={4096} disabled={busy} spellCheck={false}
+            {/* Each file is typed, pasted or picked; the picker shows only its kind (#1231). */}
+            {kinds.map(([role, suffix]) => <FormRow key={role} label={t(`user_models.file_field.${role}`, { kind: suffix })}>
+                <PathField value={paths[role] ?? ""} maxLength={4096} disabled={busy}
+                    pick={{ kind: "file", extensions: [suffix.replace(/^\./, "")] }} label={t(`user_models.file_field.${role}`, { kind: suffix })}
                     aria-describedby={problem ? `${id}-problem` : undefined}
-                    onChange={event => setPaths(current => ({ ...current, [role]: event.target.value }))} />
-            </label>)}
+                    onChange={value => setPaths(current => ({ ...current, [role]: value }))} />
+            </FormRow>)}
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>

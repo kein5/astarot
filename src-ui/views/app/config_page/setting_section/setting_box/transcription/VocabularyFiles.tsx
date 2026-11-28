@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useI18n } from "@useI18n";
 import * as styles from "./VocabularyFiles.css.ts";
-import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
+import { Button } from "../../../../../kit/index.ts";
 import { MAX_IMPORT_BYTES, importVocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { ImportResult, Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
@@ -91,12 +91,12 @@ export const VocabularyFiles = ({ builtin, vocabulary, disabled, onVocabulary, s
     return (
         <div className={styles.files}>
             <div className={styles.actions}>
-                <button type="button" disabled={disabled || !builtin} onClick={() => input.current?.click()}>{t("realtime.vocabulary_import")}</button>
+                <Button disabled={disabled || !builtin} onClick={() => input.current?.click()}>{t("realtime.vocabulary_import")}</Button>
                 {/* The browser's own file picker, behind the button: text files only. */}
                 <input ref={input} type="file" accept=".txt,text/plain" hidden tabIndex={-1} aria-hidden="true" onChange={picked} />
-                <button type="button" disabled={disabled || exporting} onClick={() => void exportFile()}>{t("realtime.vocabulary_export")}</button>
-                {outcome?.kind === "exported" && <button type="button" className={voiceStyles.quiet}
-                    onClick={() => void send("/run/open_filepath_vocabulary_exports")}>{t("realtime.vocabulary_export_open")}</button>}
+                <Button disabled={disabled || exporting} onClick={() => void exportFile()}>{t("realtime.vocabulary_export")}</Button>
+                {outcome?.kind === "exported" && <Button tone="quiet"
+                    onClick={() => void send("/run/open_filepath_vocabulary_exports")}>{t("realtime.vocabulary_export_open")}</Button>}
             </div>
             <div role="status" className={problem ? `${styles.status} ${styles.problem}` : styles.status}>{lines.map(line => <p key={line}>{line}</p>)}</div>
         </div>

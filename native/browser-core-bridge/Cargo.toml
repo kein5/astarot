@@ -1,7 +1,7 @@
 [package]
-name = "vrct-browser-core-bridge"
+name = "astarot-browser-core-bridge"
 version = "0.0.0"
-description = "The integration tests' host, not part of the app: connects the screens in a browser to the backend core over a WebSocket, with stand-ins for the devices and services (tests/integration, ADR-017; codename Aglasis)"
+description = "The integration tests' host, not part of the app: connects the screens in a browser to the backend core over a WebSocket, with stand-ins for the devices and services (tests/integration, ADR-017)"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"
@@ -9,7 +9,7 @@ publish = false
 
 # A test tool: never part of an application build or package.
 [[bin]]
-name = "vrct-browser-core-bridge"
+name = "astarot-browser-core-bridge"
 path = "src/main.rs"
 
 [dependencies]
@@ -17,13 +17,13 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 # The core without the local translation (no model in the tests), and the crates its stand-ins
 # (native/core/tests/common) are written against.
-vrct-core = { path = "../core", default-features = false }
-vrct-adapters = { path = "../adapters" }
-vrct-audio-routing = { path = "../audio-routing", default-features = false }
-vrct-ops = { path = "../ops" }
-vrct-transcription = { path = "../transcription" }
-vrct-translation = { path = "../translation", features = ["sudachi"] }
-vrct-voice-conversion = { path = "../voice-conversion" }
+astarot-core = { path = "../core", default-features = false }
+astarot-adapters = { path = "../adapters" }
+astarot-audio-routing = { path = "../audio-routing", default-features = false }
+astarot-ops = { path = "../ops" }
+astarot-transcription = { path = "../transcription" }
+astarot-translation = { path = "../translation", features = ["sudachi"] }
+astarot-voice-conversion = { path = "../voice-conversion" }
 
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]

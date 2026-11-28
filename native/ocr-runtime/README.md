@@ -1,4 +1,4 @@
-# ocr-runtime
+# astarot-ocr-runtime
 
 Chat-bubble OCR and VRChat frame capture in Rust (issue #281): a port of
 `src-python/models/ocr` (about 3,600 lines). Recognition runs PP-OCR on ONNX Runtime
@@ -19,10 +19,10 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   (`engine::is_available()` is false), not a panic. The core uses this.
 
 Either way the library and the process's one environment come from `native/onnx-runtime`
-(`vrct-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
+(`astarot-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
 worker use too: `ort` keeps the first library a process loads and allows one environment per
 process. The binaries stop ONNX Runtime's usage reports first thing
-(`vrct_onnx_runtime::disable_telemetry_for_process`).
+(`astarot_onnx_runtime::disable_telemetry_for_process`).
 
 ## What it does
 
@@ -49,7 +49,7 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
   `IVRSystem_023`). Their functions are called by position; each position is declared
-  with its function's name (`vrct_openvr_client::fn_table!`) and checked against
+  with its function's name (`astarot_openvr_client::fn_table!`) and checked against
   pyopenvr's tables (`native/openvr-client/tests/data/pyopenvr_fn_tables.json`).
 - On Linux the mirror's OpenGL context comes from EGL (an offscreen pbuffer) instead of
   a hidden GLFW window.
@@ -66,7 +66,8 @@ implementation and report themselves as skipped until the fixtures exist; set
 `OCR_REQUIRE_REFERENCE=1` to make that a failure. The fixtures were made with the scripts
 below, which ran the Python backend's OCR (`src-python/models/ocr`); they went with it in
 0.6.0 (#285), so new fixtures can no longer be made this way. The commands and results are
-the record of how the core was checked (the scripts are in the v0.5.2 tag).
+the record of how the core was checked. The scripts are in the
+[`v0.5.2` tag](https://github.com/kein5/astarot/tree/v0.5.2/native/ocr-runtime/reference); run the commands in a checkout of that tag.
 
 ```sh
 python native/ocr-runtime/reference/setup_reference.py      # models and venv, ~/.cache/vrct-vox/ocr-reference
@@ -145,45 +146,48 @@ Two places where the reference itself is not the same on every machine:
 Inference dominates (whole frame: detection 897 ms and recognition 281 ms with `ort`'s
 build, 751 ms and 162 ms with the wheel's library); the reimplemented image steps take
 about 45 ms per frame, plus 15 ms to decode the PNG. Python's figures exclude reading the
-file. Which ONNX Runtime build ships is open (below).
+file. The packages ship the official CPU build of ONNX Runtime 1.31.0 (item 2 below).
 
 ### Not verified
 
-- Windows: the PrintWindow, D3D11 mirror and thread-priority code is checked with
-  `cargo check` and `cargo clippy --target x86_64-pc-windows-msvc` only.
+- Windows: the crate's tests run on Windows in CI (`voice-tests.yml`, `crates`), and reading a
+  fixed area of a test window was checked in 0.5.1 (`site/en/guide/support.md`). The D3D11
+  mirror has not been run against a headset.
 - The OpenVR mirror on any headset, and the Linux OpenGL path against SteamVR (the
   Python path was only checked against a fake compositor too).
 - The ScreenCast portal with the real helper (the frame file format is tested).
-- The whole pipeline reading a live VRChat window; there is no bridge to the
-  application yet.
+- The whole pipeline reading a live VRChat window. The core runs the pipeline in the
+  application (`native/core/src/controller/ocr.rs`).
 
 ## Open questions
 
-1. **Bridge to the application.** The core runs the pipeline in the application process
-   (#285); `src-python/models/ocr` went with the Python backend in 0.6.0, and with it the
+1. **Bridge to the application.** Settled: the core runs the pipeline in the application
+   process (#285); `src-python/models/ocr` went with the Python backend in 0.6.0, and with it the
    chatbox lab's `label.py`, which used the Python reader.
-2. **ONNX Runtime build.** `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
+2. **ONNX Runtime build.** Settled on 2026-11-17 (#509): the packages ship the official CPU
+   build 1.31.0 in `_internal/onnxruntime`, which the core loads (item 2 of
+   `docs/voice-stack/core-integration.md`). What led there: `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
    recognition 73 % slower than the official 1.31.1 library on this machine, and some
    scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so
    the official library gives identical results; which one ships, and where, is
    item 2 of `docs/voice-stack/core-integration.md`. The static build also failed to
-   link with MSVC 14.43 (it needs a newer C++ library), and the Windows test
-   `a_file_left_by_a_killed_helper_is_not_a_stream` relies on `/proc` and fails there.
-3. **OpenVR client library.** pyopenvr shipped `openvr_api`; something must ship it next
-   to the application (BSD-3-Clause, Valve) and be listed in `NOTICE.md`.
+   link with MSVC 14.43 (it needs a newer C++ library).
+3. **OpenVR client library.** Settled: the packages ship `libopenvr_api_64` of the OpenVR SDK
+   in `_internal/openvr` (BSD-3-Clause, Valve), listed in `NOTICE.md`.
 4. **Linux headset view.** EGL instead of GLFW for the OpenGL context: equivalent on paper,
    untested against SteamVR either way.
 5. **Notices.** The crate reimplements algorithms of OpenCV (Apache-2.0), RapidOCR
    (Apache-2.0) and Clipper (Boost Software License) and follows GEOS's operation order
-   for two formulas; `NOTICE.md` and the licence ledger need these once it ships.
-6. **CI.** As with `native/rvc-runtime`, nothing runs these tests in CI yet.
+   for two formulas. Settled: `NOTICE.md` credits them.
+6. **CI.** Settled: the `crates` job of `voice-tests.yml` runs these tests, and those of
+   `native/rvc-runtime`, on Linux and Windows.
 
 ## Provenance and licences
 
 The image operations follow the published source of OpenCV 4.10.0 (Apache-2.0), the box
 offset that of Clipper 6.4.2 as bundled by pyclipper 1.4.0 (Boost Software License 1.0),
 and the pre- and post-processing that of RapidOCR 3.9.2 (Apache-2.0), so that results
-match bit for bit; the conformance tests are the check. The Python scripts under
-`reference/` are test tooling and are not shipped. Rust dependencies: `ort` (MIT/Apache),
+match bit for bit; the conformance tests are the check. The Python scripts that were
+under `reference/` (in the [`v0.5.2` tag](https://github.com/kein5/astarot/tree/v0.5.2/native/ocr-runtime/reference)) were test tooling and were not shipped. Rust dependencies: `ort` (MIT/Apache),
 `x11rb`, `windows`, `unicode-bidi`, `caseless`, `sha2`, `png`, `serde_json`,
 `thiserror` (MIT/Apache), `libloading` (ISC).

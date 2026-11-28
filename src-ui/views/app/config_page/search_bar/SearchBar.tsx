@@ -5,7 +5,7 @@ import { useI18n } from "@useI18n";
 import { useStore_IsBreakPoint } from "@store";
 import { useConfigSearch } from "@logics_configs";
 import { Empty, EmptyDescription } from "@common_components";
-import styles from "./SearchBar.module.scss";
+import * as styles from "./SearchBar.css.ts";
 
 import SearchSvg from "@images/search.svg?react";
 import CancelSvg from "@images/cancel.svg?react";

@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, drawWith } from "../test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, findIn, drawWith, nodesIn } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import type { RadioGroup, RadioOption } from "../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -59,14 +60,16 @@ async function fixture(context: TestContext) {
     for (const name of ["Translation", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
     const common: Record<string, unknown> = {};
     for (const name of ["NotificationStatus", "Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
-        "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
+        "./ui_configs": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": consent,
         "./main/translatorLabel": translatorLabel,
         "./translation/useTranslationSetup": { useTranslationSetup: () => ({ open: noop }) },
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
+        "./transcription/useRecognitionFix": { useRecognitionFix: () => ({ open: noop }) },
+        "./transcription/recognitionFix": { recognitionFixOf: () => null },
     });
     const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
     // A 400 answer as the tests report it: no message and no result, as before.
@@ -80,7 +83,8 @@ async function fixture(context: TestContext) {
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: noop }) },
     });
     const render = () => runtime.render(TranscriptionConsentController);
-    const click = (key: string) => findIn(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
+    // The chooser is the kit's Dialog (D-23), its buttons the kit's Button.
+    const click = (key: string) => findIn(render(), node => node.type === kitStandIns.Button && node.props.children === `transcription_consent.${key}`).props.onClick();
     const acknowledge = (value: string | null) => { transcription.currentSelectedTranscriptionEngine = { data: value, state: "ok" }; render(); };
     const firstEnable = (direction: Direction) => {
         main.useMainFunction()[`toggleTranscription${direction}`]();
@@ -96,7 +100,7 @@ for (const direction of ["Send", "Receive"] as const) test(`${direction}: first 
     const s = await fixture(context);
     assert.equal(s.render(), null);
     s.firstEnable(direction);
-    assert.ok(find(s.render(), node => node.type === "dialog"));
+    assert.ok(find(s.render(), node => node.type === kitStandIns.Dialog));
     assert.equal(s.states[`Transcription${direction}`].data, false);
     assert.equal(s.states[`Transcription${direction}`].state, "ok");
     const enable = `/set/enable/transcription_${direction === "Send" ? "send" : "receive"}`;
@@ -118,7 +122,7 @@ test("Local (speech.cpp) saves the selection and continues the original enable w
     // The removed local Whisper (#288) and the retired Google web speech engine are not offered;
     // a cloud engine is chosen in the settings once its key is registered.
     const choices: unknown[] = [];
-    find(s.render(), node => { if (node.type === "button") choices.push(node.props.children); return false; });
+    find(s.render(), node => { if (node.type === kitStandIns.Button) choices.push(node.props.children); return false; });
     assert.deepEqual(choices, ["transcription_consent.cancel", "transcription_consent.settings", "transcription_consent.speechcpp"]);
     await s.click("speechcpp");
     assert.deepEqual(s.calls.at(-1), ["/set/data/selected_transcription_engine", "SpeechCpp"]);
@@ -145,9 +149,16 @@ test("Escape cancels and the initial focus target is Cancel", async context => {
     s.firstEnable("Send");
     const tree = s.render();
     assert.equal(findIn(tree, node => node.props?.autoFocus).props.children, "transcription_consent.cancel");
-    let prevented = false;
-    findIn(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
-    assert.equal(prevented, true);
+    // The kit's Dialog, shown while asked and named by its title alone, as before (D-43); the three
+    // buttons stay plain and in their order, in its footer (D-24).
+    const dialog = findIn(tree, node => node.type === kitStandIns.Dialog);
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(findIn(dialog, node => node.type === kitStandIns.DialogTitle).props.children, "transcription_consent.title");
+    assert.deepEqual(nodesIn(findIn(dialog, node => node.type === kitStandIns.DialogFooter)).filter(node => node.type === kitStandIns.Button)
+        .map(node => [node.props.children, node.props.tone]), [["transcription_consent.cancel", undefined],
+        ["transcription_consent.settings", undefined], ["transcription_consent.speechcpp", undefined]]);
+    // Escape: the kit's Dialog asks its owner to close it (Dialog.test.ts).
+    dialog.props.onOpenChange(false);
     assert.equal(s.render(), null);
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
 });
@@ -169,7 +180,7 @@ test("failed save and unrelated selection updates never enable capture", async c
     s.firstEnable("Send");
     await s.click("speechcpp");
     s.acknowledge(null);
-    assert.ok(find(s.render(), node => node.type === "dialog"));
+    assert.ok(find(s.render(), node => node.type === kitStandIns.Dialog));
     s.acknowledge("SpeechCpp");
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
 });
@@ -178,8 +189,14 @@ test("an engine that cannot start points at its settings; unmount drops any cont
     const s = await fixture(context);
     s.error({ error_code: "TRANSCRIPTION_ENGINE_UNAVAILABLE", endpoint: "/set/enable/transcription_send", data: false });
     const buttons: unknown[] = [];
-    find(s.render(), node => { if (node.type === "button") buttons.push(node.props.children); return false; });
+    const tree = s.render();
+    find(tree, node => { if (node.type === kitStandIns.Button) buttons.push(node.props.children); return false; });
     assert.deepEqual(buttons, ["transcription_consent.cancel", "transcription_consent.settings"]);
+    // The header says why, in place of the two engines; the dialog sits in the forms' section and
+    // the shared host, which takes no room of its own.
+    const header = findIn(tree, node => node.type === kitStandIns.DialogHeader);
+    assert.deepEqual(nodesIn(header).filter(node => node.type === "p").map(node => node.props.children), ["backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE"]);
+    assert.deepEqual(String(tree?.props.className).split(" ").sort(), ["container", "host"]);
     s.runtime.unmount();
     assert.equal(s.consent.useTranscriptionConsent().request, null);
     assert.deepEqual(s.calls, []);
@@ -211,7 +228,7 @@ test("settings keep the selected engine in sight under the radio row's label and
     const { TranscriptionEngine_Box } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: unknown) => options ? `${key}:${JSON.stringify(options)}` : key }) },
-        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
+        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./AsrApiEntries": {}, "./AsrServer": {}, "./SourceModels": {}, "../../../../../../logics/setup/useRecognitionState": {},
         "../_components/credential_pair/CredentialPair": {},
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
@@ -256,7 +273,7 @@ test("settings keep the selected engine in sight under the radio row's label and
     });
     const { RadioButtonContainer } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_templates/Templates.tsx")>(new URL("_templates/Templates.tsx", root), rowRuntime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
-        "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },
+        "../_components": { LabelComponent, RadioButton, SettingSwitch: "switch" },
     });
     let row: TreeNode = rowRuntime.render(RadioButtonContainer, tree.props);
     row = drawWith(rowRuntime, row);

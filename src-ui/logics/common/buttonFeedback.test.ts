@@ -13,7 +13,9 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
-import { find, findIn, held, isInitializer, isUpdater, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
+import * as settingsWindowModule from "./settingsWindow.ts";
+import * as breakPointModule from "./breakPoint.ts";
+import { find, findIn, held, isInitializer, isUpdater, kitStandIns, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
 import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
 type Deps = readonly unknown[] | undefined;
@@ -46,6 +48,9 @@ function hooks() {
             }];
         },
         useRef: <T,>(initial: T) => memo(() => ({ current: initial }), []),
+        // An id that stays the same across renders, as hookHarness.ts gives (the log row names its
+        // speaker button's description by one).
+        useId: () => memo(() => `test-${index}`, []),
         useMemo: memo, useCallback: <F,>(fn: F, deps: Deps) => memo(() => fn, deps),
         useEffect: effect, useLayoutEffect: effect,
     };
@@ -79,12 +84,14 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) }, ...imports };
     const require = (name: string): unknown => {
-        if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return icon;
         if (name in dependencies) return dependencies[name];
         // The common tooltip around a control: an element that keeps its words and its control (as hookHarness draws it).
         if (/^(\.\.?\/)+common_components\/tooltip\/Tooltip$/.test(name)) return { Tooltip: "tooltip" };
+        // The settings window's helpers (#1236), as they are outside the app: the settings open in-page.
+        if (/(^|\/)settingsWindow(\.ts)?$/.test(name)) return settingsWindowModule;
+        if (/(^|\/)breakPoint(\.ts)?$/.test(name)) return breakPointModule;
         // A TypeScript view names its relative imports with their extension.
         const base = name.replace(/\.[jt]sx?$/, "");
         if (/^\.\.?\//.test(name) && base in dependencies) return dependencies[base];
@@ -97,6 +104,8 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
 
 const button = (tree: unknown) => findIn(tree, node => node.type === "button");
 const switchNode = (tree: unknown) => findIn(tree, node => node.props?.role === "switch");
+// The kit's switch in a tree, drawn by its stand-in: the element it stands for.
+const kitSwitch = (tree: unknown) => kitStandIns.Switch(findIn(tree, node => node.type === kitStandIns.Switch).props);
 type ActionButtonModule = typeof import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx");
 type ActionButtonProps = import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx").ActionButtonProps;
 const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx";
@@ -230,58 +239,37 @@ test("an action settling after its settings page closes does not schedule succes
     assert.equal(find(runtime.render(ActionButton, props), node => node.type === props.ClickedIconComponent), null);
 });
 
-test("settings checkboxes reject pointer and keyboard repeats while retaining the confirmed value", async () => {
-    const runtime = hooks();
-    const { Checkbox } = await load<typeof import("../../views/common_components/checkbox/Checkbox.tsx")>("common_components/checkbox/Checkbox.tsx", runtime);
-    let calls = 0;
-    const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => { calls++; } };
-    const input = (tree: unknown) => findIn(tree, node => node.type === "input");
-    for (const confirmed of [false, true]) {
-        props.variable.data = confirmed;
-        const control = input(runtime.render(Checkbox, props));
-        let prevented = 0;
-        control.props.onClick({ stopPropagation() {}, preventDefault() { prevented++; } });
-        for (const key of [" ", "Enter"]) control.props.onKeyDown({ key, preventDefault() { prevented++; } });
-        control.props.onChange();
-        assert.equal(prevented, 3);
-        assert.equal(control.props.checked, confirmed);
-        assert.equal(control.props["aria-disabled"], true);
-    }
-    assert.equal(calls, 0);
-    props.variable.state = "ok";
-    input(runtime.render(Checkbox, props)).props.onChange();
-    assert.equal(calls, 1);
-    // With show_label the label is drawn beside the box and names it, instead of aria-label.
-    const labelled = runtime.render(Checkbox, { ...props, show_label: true });
-    assert.equal(input(labelled).props["aria-label"], undefined);
-    assert.ok(find(labelled, node => node.type === "span" && node.props.children === "Auto select"));
-});
-
 test("main switches block pending repeats but TTS/RVC cancellation remains available", async () => {
     const runtime = hooks();
     const { SwitchContainer } = await load<typeof import("../../views/app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx")>("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx", runtime, {
         "@store": { store: {} },
         "@logics_common": {},
         "../../../../../logics/common/useNotificationStatus": {},
+        "../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ state: {} }) },
+        "../../../../../logics/transcription/realtimeCaptionState": { captionSwitchStatus: () => null },
         "../../../../../logics/voice/useVoice": {}, "../../../../../logics/voice/voiceActions.ts": { voiceActions: {}, voiceSwitchStates: { publish: () => {} } },
         "../../../../../logics/voice/routeState": {},
         "../../../../../logics/voice/rvcStartOptions": {},
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
+        // A tag name stands in for the words that keep the room of the longest (#1364).
+        "../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
+        "./BlockedSwitchDialog": { BlockedSwitchDialog: "blocked-switch-dialog" },
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: [], settle() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
         "../../../../../logics/configs/usagePresets.ts": usagePresetsModule,
-        "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
+        "../../../../kit/index.ts": kitStandIns,
     });
     let calls = 0;
     const props: Partial<ComponentProps<typeof SwitchContainer>> = { currentState: { data: false, state: "pending" }, SvgComponent: icon, toggleFunction: () => { calls++; } };
     const press = () => {
         // Test data: only the fields the switch reads in this test.
-        const control = switchNode(runtime.render(SwitchContainer, unchecked<ComponentProps<typeof SwitchContainer>>(props)));
+        // The row is the label of the kit's switch (D-19): the switch, as the kit's stand-in draws it.
+        const control = switchNode(kitSwitch(runtime.render(SwitchContainer, unchecked<ComponentProps<typeof SwitchContainer>>(props))));
         control.props.onClick();
         control.props.onKeyDown({ key: "Enter", preventDefault() {} });
         assert.equal(control.props["aria-checked"], false);
@@ -399,9 +387,11 @@ test("composer reads history only on explicit recall and sees the latest retaine
         "@logics_main": { useMessageLogScroll: () => ({ scrollToBottom() {} }) },
         "../../../../../../logics/common/chatboxLength": chatboxLength,
         "./ChatboxLengthWarning": { CHATBOX_LENGTH_WARNING_ID: "chatbox_length_warning" },
+        "../log_font_buttons/LogFontButtons": { LogFontButtons: "log-font-buttons" },
+        "../../../../../kit/index.ts": { Textarea: kitStandIns.Textarea },
     });
     assert.equal(MessageInputBox.$$typeof, Symbol.for("react.memo"));
-    const render = () => findIn(runtime.render(MessageInputBox.type), node => node.type === "textarea");
+    const render = () => findIn(runtime.render(MessageInputBox.type), node => node.type === kitStandIns.Textarea);
     const key = (name: string, shiftKey = false) => render().props.onKeyDown({ key: name, keyCode: name === "Enter" ? 13 : 0,
         shiftKey, nativeEvent: { isComposing: composing }, preventDefault() {} });
     render();
@@ -498,6 +488,23 @@ test("while the engine starts, resizing updates the layout but does not save the
     await settle();
     assert.deepEqual(sent, [["/set/data/main_window_geometry", { x_pos: 1, y_pos: 2, width: 700, height: 500 }]]);
     runtime.unmount();
+});
+
+// In the app the settings open in their own window (#1236): the main page stays in sight and usable.
+test("beside the settings window the main page stays shown", async () => {
+    const runtime = hooks();
+    const { MainPage } = await load<typeof import("../../views/app/main_page/MainPage.tsx")>("app/main_page/MainPage.tsx", runtime, {
+        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
+        "../../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => true },
+        "./sidebar_section/SidebarSection": { SidebarSection: icon },
+        "./main_section/MainSection": { MainSection: icon },
+        "./startupContext": { StartupContext: { Provider: "startup-provider" } },
+        "./main_section/message_container/log_box/StartupProgress": { StartupProgress: icon },
+        "./vrchatHintContext": { VrchatHintContext: { Provider: "vrchat-hint-provider" } },
+        "../others/vrchat_presence/VrchatOscHint": { VrchatOscHint: icon },
+    });
+    const page = runtime.render(MainPage, { focusFallback: { current: null } });
+    assert.deepEqual([page.props["data-showing"], page.props["aria-hidden"], page.props.inert], ["main", false, false]);
 });
 
 test("opening and closing settings keeps the same MainSection type and key mounted", async () => {

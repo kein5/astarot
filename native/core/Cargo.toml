@@ -1,26 +1,28 @@
 [package]
-name = "vrct-core"
+name = "astarot-core"
 version = "0.0.0"
-description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down (codename Ayperos)"
+description = "The ASTAROT backend core: the UI request protocol, settings and their migration, start-up and shut-down (codename Ayperos)"
 edition = "2024"
 publish = false
 
 [lib]
-name = "vrct_core"
+name = "astarot_core"
 
 [features]
 default = ["onnx-translation"]
 # Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
 # development files and libclang). No effect on Windows.
-pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
+pipewire = ["astarot-audio-routing/pipewire", "astarot-transcription/pipewire"]
 # Local translation with ONNX Runtime (native/translate-onnx), loaded at run time like chat
 # reading's (docs/voice-stack/core-integration.md, decisions 1 and 2). Nothing is linked or
 # fetched at build time. Without the feature the local translation reports its model as missing.
-onnx-translation = ["dep:vrct-translate-onnx"]
+onnx-translation = ["dep:astarot-translate-onnx"]
 
 [dependencies]
+astarot-talk-ai = { path = "../talk-ai" }
+image = { version = "=0.25.10", default-features = false, features = ["jpeg"] }
 # The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
-app-identity = { path = "../app-identity" }
+astarot-app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"
 getrandom = "=0.3.4"
 # Local times in file names and the conversation log (src/local_time.rs). The newest release that
@@ -32,27 +34,27 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
 # docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
-ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
+astarot-ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
 # The one ONNX Runtime library and environment of the process, which chat reading and the local
 # translation share (shipped_libraries.rs points it at the library the packages ship).
-vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false, features = ["load-dynamic"] }
-vrct-adapters = { path = "../adapters" }
+astarot-onnx-runtime = { path = "../onnx-runtime", default-features = false, features = ["load-dynamic"] }
+astarot-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.
-vrct-audio-routing = { path = "../audio-routing", default-features = false }
+astarot-audio-routing = { path = "../audio-routing", default-features = false }
 # The OpenVR client library the packages ship (shipped_libraries.rs); the overlay depends on it too.
-vrct-openvr-client = { path = "../openvr-client" }
-vrct-ops = { path = "../ops" }
-vrct-speech-server = { path = "../speech-server" }
+astarot-openvr-client = { path = "../openvr-client" }
+astarot-ops = { path = "../ops" }
+astarot-speech-server = { path = "../speech-server" }
 # Speech recognition: the recorder, the cloud engines and realtime recognition on speech.cpp.
-vrct-transcription = { path = "../transcription" }
+astarot-transcription = { path = "../transcription" }
 # The local translation on ONNX Runtime; see the onnx-translation feature below.
-vrct-translate-onnx = { path = "../translate-onnx", optional = true, default-features = false, features = ["load-dynamic"] }
-vrct-translation = { path = "../translation", features = ["sudachi"] }
-vrct-tts = { path = "../tts" }
+astarot-translate-onnx = { path = "../translate-onnx", optional = true, default-features = false, features = ["load-dynamic"] }
+astarot-translation = { path = "../translation", features = ["sudachi"] }
+astarot-tts = { path = "../tts" }
 # Direct voice, the RVC worker's owner and its runtime setup.
-vrct-voice-conversion = { path = "../voice-conversion" }
-vrct-vr-overlay = { path = "../vr-overlay" }
+astarot-voice-conversion = { path = "../voice-conversion" }
+astarot-vr-overlay = { path = "../vr-overlay" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
@@ -97,7 +99,7 @@ tempfile = "=3.27.0"
 # A stand-in speech.cpp Realtime server for tests/realtime_asr.rs.
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 # A stand-in for every translation provider on a loopback port.
-vrct-translation = { path = "../translation", features = ["fake-server"] }
+astarot-translation = { path = "../translation", features = ["fake-server"] }
 
 # A stand-in for the speech.cpp executable that tests/speech_servers.rs starts. It is never
 # part of an application build: a dependent crate does not build this target.
@@ -116,7 +118,7 @@ test = false
 doc = false
 
 # A stand-in for llama.cpp's llama-server that tests/translation_llama.rs starts: the same file
-# as vrct-speech-server's. Never part of an application build.
+# as astarot-speech-server's. Never part of an application build.
 [[bin]]
 name = "fake-llama-core"
 path = "../speech-server/tests/fixture/fake_llama.rs"

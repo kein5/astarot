@@ -1,4 +1,4 @@
-import styles from "./TopBar.module.scss";
+import * as styles from "./TopBar.css.ts";
 
 import { SidebarCompactModeButton } from "./sidebar_compact_mode_button/SidebarCompactModeButton";
 import { RightSideComponents } from "./right_side_components/RightSideComponents";
@@ -12,7 +12,7 @@ export const TopBar = () => {
         <div className={styles.container}>
             <div className={styles.leading}>
                 <SidebarCompactModeButton />
-                <StopActions classes={styles} />
+                <StopActions classes={styles} size="compact" />
             </div>
             <RightSideComponents />
         </div>

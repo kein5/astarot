@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, drawWith, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, drawWith } from "../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
 import type { LocaleBranch } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
@@ -16,7 +16,7 @@ const read = (path: string) => readFileSync(box(path), "utf8");
 const locales: Record<string, LocaleBranch> = Object.fromEntries(["en", "ja"].map(language => [language, readLocale(language)]));
 const loadSearch = (runtime: HookRuntime) => loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
-    "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
+    "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, 
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
 });
 
@@ -66,11 +66,11 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.doesNotMatch(advanced, /DirectVoiceSettings/);
 
     const runtime = hooks();
-    const DirectVoiceSettings = () => null, AdvancedSection = () => null;
+    const DirectVoiceSettings = () => null, AdvancedSection = () => null, VcMonitorRow = () => null;
     let voice = { directState: { active: true, mode: "passthrough" }, directOwner: "passthrough" };
     const rvc = await loadModule<typeof import("./setting_section/setting_box/rvc/Rvc.tsx")>(box("rvc/Rvc.tsx"), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
+        "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings, VcMonitorRow },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
@@ -79,14 +79,18 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.equal(page.type, "hints");
     const [conversion, fold] = page.props.children;
     assert.equal(conversion.type, DirectVoiceSettings);
-    assert.equal(conversion.props.variant, "rvc");
+    // The conversion's own form leaves out the monitor's row, changed on the TTS page (#1230).
+    assert.deepEqual(conversion.props, { variant: "rvc", monitor: false });
     assert.equal(fold.type, AdvancedSection);
-    assert.equal(fold.props.children.type, DirectVoiceSettings);
-    assert.deepEqual(fold.props.children.props, { variant: "legacy", subheading: true });
+    // The fold holds that row first, then input forwarding.
+    const [monitor, forwarding] = fold.props.children;
+    assert.equal(find(monitor, node => node.type === VcMonitorRow)?.props.converted, true);
+    assert.equal(forwarding.type, DirectVoiceSettings);
+    assert.deepEqual(forwarding.props, { variant: "legacy", subheading: true });
     // The fold's line says whether the input is forwarded now.
-    assert.equal(fold.props.status, "voice.input_active");
+    assert.equal(fold.props.status, "voice.passthrough_active");
     voice = { directState: { active: true, mode: "converted" }, directOwner: "rvc" };
-    assert.equal(runtime.render(rvc.Rvc).props.children[1].props.status, "voice.input_stopped");
+    assert.equal(runtime.render(rvc.Rvc).props.children[1].props.status, "voice.passthrough_stopped");
 
     // The settings search still finds it, on the RVC page.
     const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
@@ -95,58 +99,33 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
 });
 
 // #614: the TTS page keeps its descriptions out of sight, as hints, its servers' part included.
-test("the TTS page wraps its form and its servers in the hints", async () => {
+// #1230: the servers are the form's setup, drawn before its 「詳細設定」, open while a voice the
+// bundled server makes has no model.
+test("the TTS page wraps its form and its servers in the hints; the servers are the form's setup", async () => {
     const runtime = hooks();
     const VoiceSettings = () => null, SpeechServers = () => null;
+    let voice: unknown = { japanese_engine: "speechcpp", japanese_server: "bundled", multilingual_server: "external" };
+    let profiles: unknown = { japanese: { model: "" }, multilingual: { model: "" } };
     const tts = await loadModule<typeof import("./setting_section/setting_box/tts/Tts.tsx")>(box("tts/Tts.tsx"), runtime, {
         "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
+        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: voice }) },
+        "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles } }) },
+        "../../../../../../logics/voice/ttsSetupNeeds": await import("../../../logics/voice/ttsSetupNeeds.ts"),
     });
-    const page = runtime.render(tts.Tts);
-    assert.equal(page.type, "hints");
-    const [form, servers] = page.props.children;
-    assert.equal(form.type, VoiceSettings);
-    assert.equal(servers.type, SpeechServers);
-    assert.deepEqual(servers.props.profiles, ["japanese", "multilingual"]);
-});
-
-test("a fold marks its line while a row inside it has unsaved edits", async () => {
-    // A row or a fold of the page, as far as marking reads it.
-    interface FakeElement {
-        attributes: Set<string>;
-        dataset: Record<string, string>;
-        children: FakeElement[];
-        toggleAttribute(name: string, on: boolean): void;
-        closest: () => null;
-        querySelector(selector: string): FakeElement | null;
-    }
-    const element = (attributes: Record<string, string> = {}, children: FakeElement[] = []): FakeElement => ({
-        attributes: new Set(), dataset: attributes, children,
-        toggleAttribute(name, on) { if (on) this.attributes.add(name); else this.attributes.delete(name); },
-        closest: () => null,
-        querySelector(selector) {
-            assert.equal(selector, "[data-unsaved]");
-            return this.children.find(child => child.attributes.has("data-unsaved")) ?? null;
-        },
-    });
-    const changed = element({ settingLabel: "Pitch" }), untouched = element({ settingLabel: "Threads" });
-    const open = element({}, [changed]), closed = element({}, [untouched]);
-    const root = { querySelectorAll: (selector: string) => {
-        const lists: Record<string, FakeElement[]> = { "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] };
-        return lists[selector];
-    } };
-    const runtime = hooks();
-    const section = await loadModule<typeof import("./setting_section/SettingSection.tsx")>(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
-        "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
-    });
-    // Test data: the page, with only what marking reads.
-    const page = unchecked<ParentNode>(root);
-    section.markUnsavedRows(page, new Set(["Pitch"]));
-    assert.ok(changed.attributes.has("data-unsaved"));
-    assert.ok(open.attributes.has("data-unsaved-inside"));
-    assert.ok(!closed.attributes.has("data-unsaved-inside"));
-    section.markUnsavedRows(page, new Set());
-    assert.ok(!open.attributes.has("data-unsaved-inside"));
+    const servers = () => {
+        const page = runtime.render(tts.Tts);
+        assert.equal(page.type, "hints");
+        const form = page.props.children;
+        assert.equal(form.type, VoiceSettings);
+        assert.equal(form.props.setup.type, SpeechServers);
+        return form.props.setup.props;
+    };
+    assert.deepEqual(servers(), { profiles: ["japanese", "multilingual"], needed: true, embedded: true });
+    profiles = { japanese: { model: "/models/ja.gguf" }, multilingual: { model: "" } };
+    assert.equal(servers().needed, false, "the other languages come from a server of the user's own");
+    voice = null;
+    assert.equal(servers().needed, false, "nothing is needed before the settings are known");
 });
 
 // The settings search over the real texts, in Japanese, with the page names as keys.
@@ -163,7 +142,7 @@ const searchOver = async (language: string) => {
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
         "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (name: string) => name, searchText: () => "", uiOptions: () => [] }) },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: (fn: () => void) => fn() },
+        
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
         "@root/locales/config.ts": { getResource: (lng: string) => resources[lng] },
@@ -217,7 +196,8 @@ test("IA-03: the VRChat page keeps the chatbox in sight; what is set once, and t
 
 test("the design and hotkeys pages keep a first start's settings in sight and fold the rest", () => {
     const appearance = pageParts(read("appearance/Appearance.tsx"), "Appearance");
-    assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer"]);
+    // The theme (#965) is drawn as its colours and stays in sight with the window's size.
+    assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer", "ThemeContainer"]);
     assert.deepEqual(appearance.fold, ["MessageLogUiScalingContainer", "FontFamilyContainer", "TransparencyContainer",
         "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
         "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
@@ -263,23 +243,25 @@ test("chat reading keeps what it needs to start in sight; where and how often it
 
 test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
     const source = read("advanced_settings/VoiceSettings.tsx");
-    const page = source.split("export const VoiceSettings = () => {")[1].split("\n};")[0];
+    const page = source.split("export const VoiceSettings = ({ setup }: { setup?: ReactNode } = {}) => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const fold = rest.split("</AdvancedSection>")[0];
-    for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /input\(`\$\{role\}_voice`\)/])
+    for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /voiceField\(role\)/])
         assert.match(before, part);
     for (const part of [/monitor_heading/, /<GenerationOptions /, /t\("voice\.mic_mode"\)/, /t\("voice\.conversion"\)/]) {
         assert.match(fold, part);
         assert.doesNotMatch(before, part);
     }
-    // The form saves all of it, also what is folded: the fold is inside the form.
-    assert.ok(page.indexOf("<form") < page.indexOf("<AdvancedSection") && page.indexOf("</AdvancedSection>") < page.indexOf("</form>"));
+    // The form saves all of it, also what is folded: the fold is inside a form of its own, after
+    // the page's setup (its 「モデルとサーバー」) and the route, which is changed on the Device page (#1230).
+    const setup = page.indexOf("{setup}"), route = page.indexOf("<VoiceRouteSummary />"), folded = page.indexOf("<AdvancedSection");
+    assert.ok(page.indexOf("</form>") < setup && setup < route && route < folded, "the setup, then the route, then the fold");
+    assert.ok(page.lastIndexOf("<form", folded) > route && page.indexOf("</AdvancedSection>") < page.lastIndexOf("</form>"));
 });
 
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
     const runtime = hooks();
     const fold = await loadModule<typeof import("./setting_section/setting_box/_components/advanced_section/AdvancedSection.tsx")>(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
-        "../setup_section/SetupSection.module.scss": {},
         "../fold/Fold": { Fold: "fold" },
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });
@@ -296,15 +278,17 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
     assert.equal(tree.props.open, false, "the user can close it again");
 });
 
-test("translation keeps its local model and its catalog in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
+test("translation keeps the engine and both of its systems in sight, as the speech recognition page; the APIs and servers it draws are its lists", () => {
     const source = read("translation/Translation.tsx");
     const { outside, fold } = pageParts(source, "Translation");
-    // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
-    assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
-    assert.ok(source.indexOf("<TranslationCatalogSection />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
-    // What an LLM engine is sent leads the fold, once for the APIs and the local servers (#614);
-    // what they are all asked besides the text closes it, once for both (#392).
-    assert.deepEqual(fold, ["Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "LLMTranslationOptions_Container"]);
+    // #1266 ★4, ★17: the engine first, then on this PC (the model and its device, the catalog's
+    // models) and the APIs (what they are sent, the services, the servers of one's own, the APIs one
+    // added). The catalog's groups are in their parts, never in the fold (#597); their container
+    // gives the built-in cards the model list's choice (#1228).
+    assert.deepEqual(outside, ["TranslationEngine_Container", "EngineGroup", "AITranslation_Container", "TranslationCatalog_Container",
+        "EngineGroup", "Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "TranslationCatalog_Container"]);
+    // What they are all asked besides the text is set once, in 「詳細設定」 (#392).
+    assert.deepEqual(fold, ["LLMTranslationOptions_Container"]);
     const providers = (name: string) => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
     const list = (name: string) => {
         const match = source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`));
@@ -320,8 +304,9 @@ test("speech recognition shows its engine and the engine's two systems in sight;
     const { outside, fold } = pageParts(source, "Transcription");
     // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
     // with its key), as the translation catalog splits translation (#413). The APIs left
-    // 「詳細設定」; the realtime captions stayed, since they are set once.
-    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container"]);
+    // 「詳細設定」; the realtime captions stayed, since they are set once. speech.cpp's part starts
+    // with which server it uses (#1266), which left the captions' form.
+    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "AsrServer", "SourceModels", "SpeechServers", "EngineGroup", "CloudTranscription_Container"]);
     assert.deepEqual(fold, ["Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
     assert.deepEqual([...source.matchAll(/<EngineGroup group="(\w+)">/g)].map(match => match[1]), ["speechcpp", "api"]);
     // The search finds both groups by their names, and leads to their headings.
@@ -349,7 +334,7 @@ test("captions and VR turns the captions on in sight; where they sit, how they l
         assert.match(fold, part);
     assert.match(after, /<PagePointer [^>]*tab="experimental_features"/);
     // The overlay editor no longer carries its own switch: it is the one in sight.
-    assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /CheckboxContainer/);
+    assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /SwitchContainer/);
     const desktop = readFileSync(box("vr/DesktopCaptionOverlay.tsx"), "utf8");
     const enable = desktop.split('if (part === "enable") return (')[1].split("\n    );")[0];
     assert.match(enable, /setting_id="desktop_overlay"/);

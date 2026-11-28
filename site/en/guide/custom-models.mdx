@@ -15,6 +15,8 @@ What you can use depends on the feature.
 
 Each model setting has a "How to use your own model" link that opens its section of this page.
 
+You can type or paste a file's or a folder's location, or press "Choose file" or "Choose folder" beside the field and pick it on your PC. The picker shows only the kinds of file the field takes, and the picked location goes into the field as if you had typed it. Cancelling the picker changes nothing.
+
 ::: warning The app does not check the terms of use
 Before a model is downloaded from the settings, the app shows its provider, license and size and asks for your consent. For a file you point to yourself, the app does not check the terms of use. Make sure you may use it ([Models you bought or found published](#bought-models)).
 :::
@@ -28,16 +30,16 @@ Before a model is downloaded from the settings, the app shows its provider, lice
 
 ### Set it
 
-1. Open "Models and servers" near the bottom of Settings → "Text to speech (TTS)".
+1. Open "Models and servers" below "Multilingual TTS" in Settings → "Text to speech (TTS)".
 2. Enter the file's location in "Model GGUF path" of "Japanese TTS" or "Multilingual TTS". Japanese speech uses "Japanese TTS"; other languages use "Multilingual TTS".
 3. For a voice GGUF, enter its location in "Voice GGUF path (optional)".
-4. Press "Save changes".
-5. For a voice GGUF, enter `custom` as the "Japanese voice name" or "Other languages voice name" above, and save.
+4. Press Enter or leave the field to save it.
+5. For a voice GGUF, choose `custom` as the "Japanese voice name" or "Multilingual voice name" above. While the server runs, it is listed with the model's voices; while it is stopped, enter `custom`.
 6. Turn on "Text to speech (TTS)" on the main screen. The server starts then.
 
 ### Use a server you run yourself
 
-If you run a speech.cpp server yourself on the PC that runs ASTAROT, choose "External server" in "Japanese server" (or the other languages one) and enter its URL. The URL can only be `127.0.0.1`, `localhost` or `::1`.
+If you run a speech.cpp server yourself on the PC that runs ASTAROT, choose "External server" in "Japanese server" (or the other languages one) and enter its URL under "External servers and engines". The URL can only be `127.0.0.1`, `localhost` or `::1`.
 
 ### When it does not work
 
@@ -60,10 +62,10 @@ A wrong voice name gives an error with a number when speech plays. For a voice G
 
 1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and look at "ASR + VAD".
 2. Enter the file locations in "Model GGUF path" and "VAD GGUF path". To tell speakers apart, also enter "Diarization GGUF path (optional)".
-3. Press "Save changes".
+3. Press Enter or leave the field to save it.
 4. Turn on "Mic input" or "Listening" on the main screen.
 
-If you run a recognition server of your own on your PC, choose the external server under "ASR server" in "Realtime captions", and enter its URL.
+If you run a recognition server of your own on your PC, choose the external server under "ASR server" in Settings → "Speech recognition (ASR)", and enter its URL.
 
 ### When it does not work
 
@@ -96,8 +98,8 @@ RVC also needs its runtime. You can download the runtime from the settings ([Voi
 ### Set it
 
 1. Open Settings → "Voice changer (RVC)".
-2. Open "Models and runtime" below, and enter the model's location in "Permitted RVC model (.pth)". If you have an index, enter it in "RVC retrieval index (.index, optional)".
-3. Press "Save changes".
+2. Open "Models and runtime" near the top, then "Your own model" inside it, and enter the model's location in "Permitted RVC model (.pth)". If you have an index, enter it in "RVC retrieval index (.index, optional)".
+3. Press Enter or leave the field to save it.
 4. Turn on "Voice changer (RVC)" on the main screen.
 
 ### When it does not work
@@ -115,12 +117,12 @@ Seed-VC was removed in 0.5.0, so changing your voice with a reference WAV is no 
 
 ## Translation {#translation}
 
-In Settings → "Translation" → "Translation catalog", you can add a compatible M2M100 or NLLB-200 model by selecting its folder (including `manifest.json`). For TranslateGemma, download the llama.cpp runtime after reviewing its terms, then add your own GGUF file. Select the model when you want to use it.
+Under "Model catalog" in Settings → "Translation" → "On your PC", you can add a compatible M2M100 or NLLB-200 model by selecting its folder (including `manifest.json`). For TranslateGemma, download the llama.cpp runtime after reviewing its terms, then add your own GGUF file. Select the model when you want to use it.
 
 To use a model hosted by LM Studio, Ollama or an OpenAI-compatible server, connect to that server.
 
 1. Load the model into the server and start it.
-2. In Settings → "Translation" → "Local LLM and compatible server", press that server's connection check.
+2. In Settings → "Translation" → "API (cloud or your own server)", press that server's connection check.
 3. Choose the model, and choose the server as the translation engine on the main screen.
 
 See [Translation](../features/translation#use-local-llms-and-compatible-servers) for more.

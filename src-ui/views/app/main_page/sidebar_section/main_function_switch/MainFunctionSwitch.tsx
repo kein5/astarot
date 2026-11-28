@@ -4,6 +4,8 @@ import type { TFunction } from "i18next";
 import type { AtomStatus } from "@store";
 import type { SwitchBlockAction, SwitchBlockId } from "../../../../../logics/main/switchBlocks";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
+import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
+import { CAPTION_SWITCH_STATUSES, captionSwitchStatus } from "../../../../../logics/transcription/realtimeCaptionState";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
@@ -21,7 +23,7 @@ import { isSwitchShown, pickedPresets } from "../../../../../logics/configs/usag
 import ArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { store } from "@store";
 import clsx from "clsx";
-import styles from "./MainFunctionSwitch.module.scss";
+import * as styles from "./MainFunctionSwitch.css.ts";
 import TranslationSvg from "@images/translation.svg?react";
 import MicSvg from "@images/mic.svg?react";
 import HeadphonesSvg from "@images/headphones.svg?react";
@@ -32,8 +34,11 @@ import {
     useIsMainPageCompactMode,
     useMainFunction,
 } from "@logics_main";
-import { ToggleSwitch } from "../../../../common_components/toggle_switch/ToggleSwitch";
 import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
+import { StableWords } from "../../../../common_components/stable_words/StableWords";
+import { Button, Switch } from "../../../../kit/index.ts";
+import { BlockedSwitchDialog } from "./BlockedSwitchDialog";
+import type { SwitchBlock } from "../../../../../logics/main/switchBlocks";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -52,6 +57,9 @@ interface SwitchItem {
     cancellable?: boolean;
     disabled?: boolean;
     statusText?: string | null;
+    // Every state the switch may say under its name (the caption switches): its row keeps the room
+    // of the longest of them (#1364).
+    statusWords?: readonly string[];
 }
 
 export const MainFunctionSwitch = () => {
@@ -69,6 +77,10 @@ export const MainFunctionSwitch = () => {
 
 
     const voice = useVoice();
+    // Starting and failure of the caption switches, said under each (#1314, M-5).
+    const { state: realtime } = useRealtimeASR();
+    const captionStatus = (source: "mic" | "speaker") => { const key = captionSwitchStatus(realtime[source]); return key ? t(key) : null; };
+    const captionStatusWords = CAPTION_SWITCH_STATUSES.map(key => t(key));
     const { blocks, prepare } = useSwitchBlocks();
     const { showNotification_Error } = useNotificationStatus();
     // Known codes get their next step; the code stays visible for support.
@@ -123,6 +135,8 @@ export const MainFunctionSwitch = () => {
             SvgComponent: MicSvg,
             currentState: currentTranscriptionSendStatus,
             toggleFunction: toggleTranscriptionSend,
+            statusText: captionStatus("mic"),
+            statusWords: captionStatusWords,
         },
         {
             switch_id: "transcription_receive",
@@ -130,6 +144,8 @@ export const MainFunctionSwitch = () => {
             SvgComponent: HeadphonesSvg,
             currentState: currentTranscriptionReceiveStatus,
             toggleFunction: toggleTranscriptionReceive,
+            statusText: captionStatus("speaker"),
+            statusWords: captionStatusWords,
         },
         {
             switch_id: "ocr",
@@ -154,6 +170,8 @@ export const MainFunctionSwitch = () => {
     const picked = pickedPresets(currentUsagePresets.data);
     const [showOthers, setShowOthers] = useState(false);
     const { leads, settle } = useSetupLeads();
+    // A greyed switch that is pressed opens why and the step that fixes it (#1314, M-1).
+    const [blockedPress, setBlockedPress] = useState<{ name: string; block: SwitchBlock } | null>(null);
     const inSight = (item: SwitchItem) => isSwitchShown(picked, item.switch_id,
         item.currentState?.data === true || item.currentState?.state === "pending" || leads.includes(item.switch_id));
     const hiddenCount = switch_items.filter(item => !inSight(item)).length;
@@ -172,7 +190,7 @@ export const MainFunctionSwitch = () => {
                 // Only a switch that is off and waits for nothing is held off (activeSwitchBlock).
                 const ready = currentIsBackendReady.data === true;
                 const block = ready ? activeSwitchBlock(blocks, item.switch_id, item.currentState) : undefined;
-                const blockedReason = block ? t(`main_page.switch_blocked.${block.reason}`) : null;
+                const blockedReason = block ? switchBlockText(block, t) : null;
                 // The icon leads to the place the switch needs now, otherwise to its settings.
                 const destination = block?.action ?? SETTINGS_DESTINATION[item.switch_id];
                 return <SwitchRow
@@ -186,22 +204,30 @@ export const MainFunctionSwitch = () => {
                     switchLabel={item.label}
                     currentState={item.currentState}
                     statusText={ready ? item.statusText : null}
+                    statusWords={item.statusWords}
                     unavailableText={ready || starting ? null : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
                     settingsLabel={settingsLabel(destination, t)}
                     openSettings={() => prepare(destination)}
+                    onBlockedPress={block ? () => setBlockedPress({ name: item.label, block }) : undefined}
                     lead={leads.includes(item.switch_id) && item.currentState.data !== true}
                 />;
             }), ...(hiddenCount > 0 ? [<MoreFeaturesButton key="more_features" count={hiddenCount} expanded={showOthers}
-                onToggle={() => setShowOthers(value => !value)} />] : [])]}
+                onToggle={() => setShowOthers(value => !value)} />] : []),
+            // Only while it is open: the kit's dialog draws over the window, wherever it sits in the list.
+            ...(blockedPress ? [<BlockedSwitchDialog key="blocked_switch_dialog" name={blockedPress.name}
+                reason={switchBlockText(blockedPress.block, t)}
+                fixLabel={blockedPress.block.action ? settingsLabel(blockedPress.block.action, t) : null}
+                onFix={() => prepare(blockedPress.block.action)} onClose={() => setBlockedPress(null)} />] : [])]}
         </div>
     );
 };
 
-// Shows or hides the switches the uses picked in settings leave out. In the icon rail it is an
-// icon whose tooltip and name say the same. What it does is its tooltip and its accessible
-// description (the words stay in the page while the tooltip is closed).
+// Shows or hides the switches the uses picked in settings leave out: the kit's compact Button at
+// the list's end. In the icon rail it is an icon whose tooltip and name say the same. What it does
+// is its tooltip and its accessible description (the words stay in the page while the tooltip is
+// closed).
 export const MoreFeaturesButton = ({ count, expanded, onToggle }: { count: number; expanded: boolean; onToggle: () => void }) => {
     const { t } = useI18n();
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
@@ -211,13 +237,12 @@ export const MoreFeaturesButton = ({ count, expanded, onToggle }: { count: numbe
     const hintId = useId();
     return (
         <Tooltip bare placement="right" title={`${label}: ${hint}`}>
-            <button type="button" className={clsx(styles.more_features, { [styles.is_compact_mode]: compact })}
-                aria-expanded={expanded} aria-label={label} aria-describedby={hintId}
+            <Button size="compact" aria-expanded={expanded} aria-label={label} aria-describedby={hintId}
                 data-more-features onClick={onToggle}>
                 <ArrowDownSvg aria-hidden="true" className={clsx(styles.more_features_svg, { [styles.is_open]: expanded })} />
                 {!compact && <span className={styles.more_features_label}>{label}</span>}
                 <span id={hintId} hidden>{hint}</span>
-            </button>
+            </Button>
         </Tooltip>
     );
 };
@@ -234,19 +259,28 @@ export const SETTINGS_DESTINATION: Record<SwitchBlockId, SwitchBlockAction> = {
     rvc: "rvc",
 };
 
+// Why a switch cannot be turned on yet, in words: its reason, or everything it misses when more
+// than one thing is (#1314, M-2), named in the order the settings page shows them.
+export const switchBlockText = (block: SwitchBlock, t: TFunction): string => block.missing && block.missing.length > 1
+    // Only text to speech lists what it misses (switchBlocks.ts).
+    ? t("main_page.switch_blocked.tts_missing", {
+        items: block.missing.map(reason => t(`main_page.switch_blocked_items.${reason}`)).join(t("main_page.switch_blocked_items.separator")) })
+    : t(`main_page.switch_blocked.${block.reason}`);
+
 // The icon button's name and tooltip: what pressing it does.
 export const settingsLabel = (destination: SwitchBlockAction, t: TFunction) => {
     if (destination === "translator") return t("main_page.feature_settings.translator");
     if (destination === "translation") return t("main_page.feature_settings.translation_model");
-    const page = destination === "ocr_models" ? "ocr" : destination;
+    if (destination === "recognition_setup") return t("main_page.feature_settings.recognition_models");
+    const page = destination === "ocr_models" ? "ocr" : destination === "tts_models" ? "tts" : destination;
     return t("main_page.feature_settings.open_page", { page: t(`config_page.side_menu_labels.${page}`) });
 };
 
 // One row of the wide rail: the feature's icon is a button that opens its settings, the rest
-// of the row is the switch. The two are siblings because a switch cannot hold a button (its
-// children are not read out). The icon button is the same size in every state, so nothing
-// moves when the engine's state arrives. The icon rail has no room for two targets: there the
-// icon stays part of the switch and the settings open from the gear at the rail's foot.
+// of the row is the switch's label. The two are siblings because a label names one control
+// only. The icon button is the same size in every state, so nothing moves when the engine's
+// state arrives. The icon rail has no room for two targets: there the icon stays part of the
+// switch's label and the settings open from the gear at the rail's foot.
 type SwitchRowProps = SwitchContainerProps & {
     settingsLabel: string;
     openSettings: () => void;
@@ -262,14 +296,14 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
         <div className={clsx(styles.switch_row, {
             [styles.is_active]: active,
             [styles.is_unavailable]: unavailable || !!props.blockedReason,
-        })} data-lead={props.lead || undefined}>
+        })}>
             {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
             <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
-                <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
+                <Button size="icon-xs" className={styles.settings_button} data-feature-settings={props.switch_id}
                     aria-label={label} onClick={openSettings}>
                     <SvgComponent aria-hidden="true" className={clsx(styles.switch_svg, {
                         [styles.is_active]: active, [styles.is_pending]: pending })} />
-                </button>
+                </Button>
             </Tooltip>
             <SwitchContainer {...props} inRow />
         </div>
@@ -277,9 +311,10 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
 };
 
 // blockedReason: why the switch cannot be turned on yet and where to provide it. The switch is
-// then disabled and says so in its tooltip and to screen readers; it keeps its place in the
-// tab order so that the reason can be heard.
-// starting: the engine has not sent the switch's state yet; the toggle is a placeholder.
+// then greyed and says so in its tooltip and to screen readers; it keeps its place in the tab
+// order so that the reason can be heard. Pressed, it opens the reason with the step that fixes it
+// (onBlockedPress, #1314 M-1); without that, it does nothing.
+// starting: the engine has not sent the switch's state yet; the switch is a placeholder.
 // unavailableText: why no switch can be used (the engine is gone). The rail says it once at its
 // head (EngineReadout); the switch adds no line for it, and keeps it in its name and tooltip.
 // inRow: the icon is drawn by SwitchRow as its own button; the row draws the background.
@@ -295,16 +330,29 @@ type SwitchContainerProps = {
     unavailable?: boolean;
     starting?: boolean;
     statusText?: string | null;
+    // Every state statusText may be. The row keeps the room the longest of them needs under the name,
+    // empty while there is none, so that neither the row nor the rows under it move when the state
+    // comes or goes (#1364), also where the longest takes two lines.
+    statusWords?: readonly string[];
     unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
-    // The first-run setup leads here (#955): the switch stands out until it is turned on.
+    // The first-run setup leads here (#955): until it is turned on, a ring round the toggle, or in
+    // the icon rail, where the toggle is hidden, round the icon (data-lead).
     lead?: boolean;
+    // A greyed switch's press: opens why it cannot be turned on yet and the step that fixes it.
+    onBlockedPress?: () => void;
 };
 
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false }: SwitchContainerProps) => {
+// The row is the label of the kit's switch at its end (D-19, decided on 2026-11-25): pressing
+// anywhere on it presses the switch, once. The switch is named as the row was (aria-label), and
+// the row's words are read only as that name, not once more beside it: they are aria-hidden, as
+// they were inside the row that was the switch. The icon rail has no room for the switch: there it
+// is visually hidden, still focused and pressed through the row, whose ring shows its focus.
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, statusWords, unavailableText = null, blockedReason = null, inRow = false, lead = false, onBlockedPress }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
-    const reasonId = `main_switch_${switch_id}_reason`;
+    const switchId = `main_switch_${switch_id}`;
+    const reasonId = `${switchId}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
     const label = splitFeatureLabel(switchLabel);
     const active = !unavailable && currentState.data === true;
@@ -317,6 +365,10 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     // the icon rail. A state the wide rail prints under the name is not repeated in a bubble (Tooltip).
     const tooltip = blockedTitle ?? (unavailableTitle || null) ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined);
     const blocked = greyed || disabled || (!cancellable && pending);
+    // A switch held off for a missing setup answers its press with why and the fix (#1314, M-1); a
+    // switch that cannot be used for another reason (the engine is gone, a change on its way) does not.
+    const explains = !!blockedReason && !unavailable && !!onBlockedPress;
+    const press = () => { if (explains) onBlockedPress?.(); else if (!blocked) toggleFunction(); };
 
     const getClassNames = (baseClass: string | undefined) => clsx(baseClass, {
         [styles.is_compact_mode]: currentIsMainPageCompactMode.data,
@@ -329,43 +381,50 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
 
     return (
         <Tooltip bare placement="right" title={tooltip}>
-            <div
-                className={getClassNames(styles.switch_container)} data-lead={(lead && !inRow) || undefined}
-                role="switch" aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel} aria-checked={active}
-                aria-busy={pending} aria-disabled={blocked} tabIndex={0}
-                aria-describedby={blockedReason ? reasonId : undefined}
-                onClick={() => { if (!blocked) toggleFunction(); }}
-                onKeyDown={event => {
-                    if (event.key === " " || event.key === "Enter") {
-                        event.preventDefault();
-                        if (!event.repeat && !blocked) toggleFunction();
-                    }
-                }}
-            >
-                <div className={styles.label_wrapper}>
+            <label htmlFor={switchId} className={getClassNames(styles.switch_container)} data-lead={(lead && currentIsMainPageCompactMode.data) || undefined}>
+                <div className={styles.label_wrapper} aria-hidden="true">
                     {!inRow && <SvgComponent className={getClassNames(styles.switch_svg)} />}
                     <p className={getClassNames(styles.switch_label)}>
                         {label.name}
                         {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
                             data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                     </p>
-                    {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
+                    {(statusText || statusWords) && <span className={getClassNames(styles.switch_status)} role="status">
+                        {statusWords ? <StableWords align="start" words={statusWords} current={statusText ?? ""} /> : statusText}
+                    </span>}
                     {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
                     {children}
                 </div>
 
-                <ToggleSwitch
-                    isActive={active}
-                    isPending={pending}
-                    skeleton={starting}
-                    className={getClassNames(styles.toggle_control)}
-                />
+                <span className={currentIsMainPageCompactMode.data ? styles.visually_hidden : styles.switch_slot}
+                    data-lead={(lead && !currentIsMainPageCompactMode.data) || undefined}>
+                    <Switch
+                        id={switchId}
+                        checked={active}
+                        aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel}
+                        aria-busy={pending} aria-disabled={blocked && !explains}
+                        aria-haspopup={explains ? "dialog" : undefined}
+                        aria-describedby={blockedReason ? reasonId : undefined}
+                        // Greyed out as the kit draws a switch that cannot be used, still in the tab order.
+                        data-disabled={greyed ? "" : undefined}
+                        // While the engine starts, a flat block of the switch's size (MainPage.css.ts).
+                        data-skeleton={starting ? "" : undefined}
+                        // A press anywhere on the row reaches the switch through its label: one press, one toggle.
+                        onClick={press}
+                        onKeyDown={event => {
+                            if (event.key === " " || event.key === "Enter") {
+                                event.preventDefault();
+                                if (!event.repeat) press();
+                            }
+                        }}
+                    />
+                </span>
 
                 <div className={getClassNames(styles.switch_indicator)}></div>
                 {pending && (
                     <span className={styles.loader}></span>
                 )}
-            </div>
+            </label>
         </Tooltip>
     );
 };

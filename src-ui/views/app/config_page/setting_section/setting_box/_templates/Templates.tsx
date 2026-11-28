@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useId } from "react";
 import type { ComponentType, ReactNode } from "react";
 
-import styles from "./Templates.module.scss";
+import * as styles from "./Templates.css.ts";
 import { useStore_IsBreakPoint } from "@store";
 import {
     LabelComponent,
@@ -19,6 +19,8 @@ import {
     DownloadModels,
     MessageFormat,
     ConnectionCheckButton,
+    SettingSwitch,
+    SettingCombobox,
 } from "../_components";
 import type { LabelComponentProps } from "../_components/label_component/LabelComponent";
 import type { DropdownMenuProps, MultiDropdownEntry } from "../_components/dropdown_menu/DropdownMenu";
@@ -32,8 +34,8 @@ import type { ActionButtonProps } from "../_components/action_button/ActionButto
 import type { DownloadModelsProps } from "../_components/download_models/DownloadModels";
 import type { MessageFormatProps } from "../_components/message_format/MessageFormat";
 import type { ConnectionCheckButtonProps } from "../_components/connection_check_button/ConnectionCheckButton";
-import { Checkbox } from "@common_components";
-import type { CheckboxProps } from "../../../../../common_components/checkbox/Checkbox";
+import type { SettingSwitchProps } from "../_components/setting_switch/SettingSwitch";
+import type { SettingComboboxProps } from "../_components/setting_combobox/SettingCombobox";
 import { useI18n } from "@useI18n";
 
 // What a row of the settings takes besides its control's own props: the label column, where the
@@ -47,7 +49,7 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its end (a checkbox) or its start (a lone button).
+    // Where the control sits in the field column: its end (switches, radios, lone buttons) or start.
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -110,7 +112,7 @@ export type DropdownMenuContainerProps = TemplateRowProps & DropdownMenuProps;
 export const DropdownMenuContainer = (props: DropdownMenuContainerProps) => {
     const accessibility = useTemplateAccessibility(props);
     return (
-        <TemplatesContainerWrapper {...props}>
+        <TemplatesContainerWrapper {...props} control_align={props.control_align ?? "end"}>
             <LabelComponent {...props} {...accessibility} />
             <DropdownMenu {...props} {...accessibility} />
         </TemplatesContainerWrapper>
@@ -125,7 +127,7 @@ export const MultiDropdownMenuContainer = <P extends object>(props: MultiDropdow
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
 
     return (
-        <TemplatesContainerWrapper {...props}>
+        <TemplatesContainerWrapper {...props} control_align={props.control_align ?? "end"}>
             <LabelComponent {...props} {...accessibility} />
             <MultiDropdownMenu {...accessibility} dropdown_settings={props.dropdown_settings} is_break_point={currentIsBreakPoint.data} />
         </TemplatesContainerWrapper>
@@ -163,8 +165,8 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: a checkbox at its right end (#473),
-        // a lone button at its start; everything else fills it (#567).
+        // Where the control sits in the field column: switches, radios and lone buttons flush at
+        // its right end (#473, #1096); everything else fills it (#567).
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
     });
@@ -240,10 +242,11 @@ export const SliderContainer = (props: SliderContainerProps) => (
     <CommonContainer Component={Slider} no_padding={true} {...props} />
 );
 
-export type CheckboxContainerProps = TemplateRowProps & Omit<CheckboxProps, "aria-describedby">;
+// A setting turned on and off: the kit's switch at the row's end (K-02, decided on 2026-11-25).
+export type SwitchContainerProps = TemplateRowProps & Omit<SettingSwitchProps, "aria-describedby">;
 
-export const CheckboxContainer = (props: CheckboxContainerProps) => (
-    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="end" />
+export const SwitchContainer = (props: SwitchContainerProps) => (
+    <CommonContainer Component={SettingSwitch} {...props} add_break_point={false} control_align="end" />
 );
 
 export type EntryWithSaveButtonContainerProps = TemplateRowProps & EntryWithSaveButtonProps;
@@ -267,7 +270,15 @@ export const HotkeysEntryContainer = (props: HotkeysEntryContainerProps) => (
 export type RadioButtonContainerProps<O extends RadioOption = RadioOption> = TemplateRowProps & RadioButtonProps<O>;
 
 export const RadioButtonContainer = <O extends RadioOption>(props: RadioButtonContainerProps<O>) => (
-    <CommonContainer Component={RadioButton} {...props} control_align="start" />
+    <CommonContainer Component={RadioButton} {...props} control_align="end" />
+);
+
+// A choice among many, found by typing (#1369): the kit's Combobox at the row's right end, as
+// compact as the row's select fields. It takes RadioButtonContainer's props.
+export type ComboboxContainerProps = TemplateRowProps & SettingComboboxProps;
+
+export const ComboboxContainer = (props: ComboboxContainerProps) => (
+    <CommonContainer Component={SettingCombobox} {...props} control_align="end" />
 );
 
 // The key's page opens from the link under the label (webpage_url).
@@ -289,7 +300,7 @@ export const AuthKeyContainer = (props: AuthKeyContainerProps) => {
 export type ActionButtonContainerProps = TemplateRowProps & ActionButtonProps;
 
 export const ActionButtonContainer = (props: ActionButtonContainerProps) => (
-    <CommonContainer Component={ActionButton} {...props} add_break_point={false} control_align="start"/>
+    <CommonContainer Component={ActionButton} {...props} add_break_point={false} control_align="end" />
 );
 
 
@@ -319,13 +330,13 @@ export const WordFilterContainer = (props: TemplateRowProps) => {
 export type DownloadModelsContainerProps = TemplateRowProps & DownloadModelsProps;
 
 export const DownloadModelsContainer = (props: DownloadModelsContainerProps) => (
-    <CommonContainer Component={DownloadModels} {...props} control_align="start" />
+    <CommonContainer Component={DownloadModels} {...props} control_align="end" />
 );
 
 export type ConnectionCheckButtonContainerProps = TemplateRowProps & ConnectionCheckButtonProps;
 
 export const ConnectionCheckButtonContainer = (props: ConnectionCheckButtonContainerProps) => (
-    <CommonContainer Component={ConnectionCheckButton} {...props} control_align="start" />
+    <CommonContainer Component={ConnectionCheckButton} {...props} control_align="end" />
 );
 
 export type MessageFormatContainerProps = TemplateRowProps & MessageFormatProps;

@@ -1,16 +1,18 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
+import { languageSettingId } from "../../../../../../logics/transcription/recognitionFix";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
+import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
+import { catalogLanguages, listeningChoice, listeningRow } from "../../../../../../logics/transcription/listeningModel";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyFiles } from "./VocabularyFiles.tsx";
 import { VocabularyList } from "./VocabularyList.tsx";
 import type { TFunction } from "i18next";
@@ -18,6 +20,8 @@ import type { CaptionSource } from "../../../../../../logics/transcription/realt
 import type { RealtimeAsrEndpointId, RealtimeAsrSettings, RealtimeAsrSourceSettings, RealtimeAsrVocabulary }
     from "../../../../../../logics/transcription/useRealtimeASR";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
+import { saveSaidInline } from "../../../../../../logics/configs/fieldErrors.ts";
+import { FieldProblem } from "../_components/field_problem/FieldProblem";
 
 const key = (endpoint: RealtimeAsrEndpointId | null | undefined) => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
@@ -32,7 +36,8 @@ const THRESHOLDS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
-const Failure = ({ code, t }: { code: string; t: TFunction }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;
+// Said in the screen's words, never as the raw code (#1266); a code without words says itself.
+const Failure = ({ code, t }: { code: string; t: TFunction }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" }) || code}</p>;
 
 export const RealtimeASRSettings = () => {
     const { t, i18n } = useI18n();
@@ -40,16 +45,26 @@ export const RealtimeASRSettings = () => {
     const names = createLanguageNames(i18n.language);
     const languageLabel = (code: string) => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
     const { settings, state, endpoints, models, error, builtinVocabulary, send, updateError } = useRealtimeASR();
-    const { state: servers, send: sendSpeech } = useSpeechServers();
-    const label = ([group, field]: string[]) => {
-        if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
-        if (group === "vocabulary") return t(field === "builtin" || field === "removed" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
-        const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence", vad_threshold: "realtime.vad_threshold" };
-        return t(fields[group] ?? "realtime.title");
-    };
-    const write = (value: DraftWriteValue<RealtimeAsrSettings>) => send("/set/data/realtime_asr_settings", value);
-    const form = useSettingsDraft(settings, error, updateError, { label, write });
-    const { draft, setDraft, dirty, saving } = form;
+    const { settings: speech, state: servers, send: sendSpeech } = useSpeechServers();
+    // Listening's own model on the bundled server (#1242), chosen in the page's speech.cpp part
+    // (SourceModels, #1308 ★1): its languages are read from the catalog here.
+    const { catalog, state: downloads, send: sendDownload } = useModelDownloads();
+    const bundled = settings?.server === "bundled";
+    const asr = speech?.profiles?.asr;
+    const listening = listeningChoice(catalog, downloads.downloaded, asr);
+    useEffect(() => {
+        if (!bundled) return;
+        if (!catalog) sendDownload("/get/data/model_download_catalog");
+        sendDownload("/get/data/model_download_state");
+    }, [bundled]);
+    // Saves by itself (#1111, decided 3): a choice at once, the address when focus leaves the
+    // form or on Enter, and an edit made while a save waits once it ends. A refusal is said under
+    // the form.
+    const [problem, setProblem] = useState<string[] | null>(null);
+    const write = (value: DraftWriteValue<RealtimeAsrSettings>) => saveSaidInline("/set/data/realtime_asr_settings",
+        () => send("/set/data/realtime_asr_settings", value), setProblem);
+    const form = useSettingsDraft(settings, error, updateError, { write });
+    const { draft, change: setDraft, dirty, saving } = form;
     const refreshDevices = () => {
         for (const source of ["mic", "speaker"]) send("/get/data/realtime_asr_endpoints", { source });
     };
@@ -85,35 +100,29 @@ export const RealtimeASRSettings = () => {
     });
     const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
     const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
-    // On a page that keeps descriptions out of sight (#614) what the captions are and which server
-    // they use is the heading's hint, and each field's words are its label's. What to do before
+    // On a page that keeps descriptions out of sight (#614) what the captions are is the heading's
+    // hint, and each field's words are its label's. What to do before
     // Start (save) and every state stay in sight.
-    return <section data-setting-id="realtime_asr" data-unsaved={dirty || undefined} className={styles.container} aria-label={t("realtime.title")}>
-        <SectionLabelComponent sub label={t("realtime.title")} desc={`${t("realtime.scope")}\n${t("realtime.server_help")}`} />
-        {draft && <form aria-busy={saving} onSubmit={event => { event.preventDefault(); if (dirty && !saving) form.submit(write); }}>
-            <label>{t("speech_servers.asr_selection")}<select disabled={saving} aria-label={t("speech_servers.asr_selection")} value={draft.server || "external"}
-                onChange={event => setDraft({ ...draft, server: event.target.value })}>
-                {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
-            </select></label>
-            {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
-            {draft.server === "bundled" && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
-                description={t("realtime.start_server_help")} disabled={saving} checked={draft.start_server !== false}
-                onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
-            {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
-                onChange={event => setDraft({ ...draft, base_url: event.target.value })} /></label>}
-            {/* The model list's refresh sits under the list, in the control column (#473). */}
-            <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
+    return <section data-setting-id="realtime_asr" className={styles.container} aria-label={t("realtime.title")}>
+        <SectionLabelComponent sub label={t("realtime.title")} desc={t("realtime.scope")} />
+        {draft && <form aria-busy={saving} ref={form.group} onBlur={form.leave} onKeyDown={form.escape}
+            onSubmit={event => { event.preventDefault(); form.commit(); }}>
+            {/* The server these captions use is chosen first in the page's speech.cpp part (AsrServer, #1266). */}
+            {/* The model a server of one's own serves (#1308 ★4, decided on 2026-11-28): the bundled
+                server loads the model its settings name, so the field and the list's failure are not
+                shown for it. The model list's refresh sits under the list, in the control column (#473). */}
+            {!bundled && <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
                 actions={<button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>}>
-                <select disabled={saving} aria-label={t("realtime.model")} value={draft.model}
+                <select aria-label={t("realtime.model")} value={draft.model}
                     onChange={event => setDraft({ ...draft, model: event.target.value })}>
                     <option value="">{t("realtime.select_model")}</option>
                     {draft.model && !selectedModel && <option value={draft.model}>{draft.model} ({t("realtime.unavailable")})</option>}
                     {knownModels.map(row => <option key={row.id} value={row.id}>{row.id}</option>)}
                 </select>
-            </FormRow>
-            {models.error_code && <Failure code={models.error_code} t={t} />}
+            </FormRow>}
+            {!bundled && models.error_code && <Failure code={models.error_code} t={t} />}
             <FormRow label={t("realtime.silence")} description={t("realtime.silence_help")}>
-                <select disabled={saving} aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
+                <select aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
                     onChange={event => updateSilence(event.target.value)}>
                     <option value="">{t("realtime.silence_default")}</option>
                     {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
@@ -122,7 +131,7 @@ export const RealtimeASRSettings = () => {
                 </select>
             </FormRow>
             <FormRow label={t("realtime.vad_threshold")} description={t("realtime.vad_threshold_help")}>
-                <select disabled={saving} aria-label={t("realtime.vad_threshold")} value={draft.vad_threshold ?? ""}
+                <select aria-label={t("realtime.vad_threshold")} value={draft.vad_threshold ?? ""}
                     onChange={event => updateThreshold(event.target.value)}>
                     <option value="">{t("realtime.vad_threshold_default")}</option>
                     {draft.vad_threshold !== undefined && !THRESHOLDS.includes(draft.vad_threshold) &&
@@ -135,16 +144,24 @@ export const RealtimeASRSettings = () => {
                 const choices = endpoints[source]?.endpoints ?? [];
                 const follow = !draft[source].endpoint && draft[source].follow_default !== false;
                 const selected = follow || choices.find(row => key(row.endpoint) === key(draft[source].endpoint));
-                // "auto" only for a model that detects the language (Qwen3-ASR).
-                const languages = [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
+                // "auto" only for a model that detects the language (Qwen3-ASR). On the bundled server
+                // an input's languages are those of the model it uses, as the catalog lists them
+                // (#1298; Mic input's too, decided on 2026-11-28): Mic input's model, and Listening's
+                // own (#1242) or Mic input's when Listening shares it. They are there while the server
+                // is stopped and its list is empty, and Listening's own model runs on another server
+                // than the listed one's. A model that is not a catalog download is read from the
+                // server's list.
+                const fromCatalog = bundled ? catalogLanguages(source === "speaker" ? listeningRow(listening) : listening.mic) : null;
+                const languages = fromCatalog ?? [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
                 const owner = state[source];
                 const failure = endpoints[source]?.error_code || owner?.error_code;
                 // Which output to choose for the game audio, and what following the system's default does.
                 const inputHelp = [source === "speaker" && t("realtime.speaker_help"), follow && t("realtime.follow_default_help")].filter(Boolean).join("\n");
-                return <fieldset key={source}>
+                // Where the Device page's rows lead (#1266 ★3).
+                return <fieldset key={source} data-setting-id={`realtime_${source}`}>
                     <legend>{t(`realtime.${source}`)}</legend>
                     <FormRow label={t(`realtime.${source}_input`)} description={inputHelp || undefined}>
-                        <select disabled={saving} aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
+                        <select aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
                             onChange={event => updateSource(source, event.target.value === FOLLOW ? { endpoint: null, follow_default: true }
                                 : { endpoint: choices.find(row => key(row.endpoint) === event.target.value)?.endpoint ?? null, follow_default: false })}>
                             <option value="">{t("realtime.select_device")}</option>
@@ -153,15 +170,21 @@ export const RealtimeASRSettings = () => {
                             {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
                         </select>
                     </FormRow>
-                    <label>{t(`realtime.${source}_language`)}<select disabled={saving} aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
+                    {/* The switch's fix leads here when the model does not take the language (#1225). */}
+                    <label data-setting-id={languageSettingId(source)}>{t(`realtime.${source}_language`)}<select aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
                         onChange={event => updateSource(source, { language: event.target.value })}>
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}
                     </select></label>
-                    <button type="button" disabled={saving || dirty || !selected || !selectedModel || !languages.includes(draft[source].language) ||
-                        !owner || owner.requested || !!endpoints[source]?.error_code}
-                        onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
-                    <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>
+                    {/* A start and a stop of its own for a server of one's own only: with the bundled server, the
+                        main window's and the tray's switches are the one way to start captions, and they start the
+                        servers they need (#1396 ★3, decided on 2026-11-28). The state stays in sight either way. */}
+                    {!bundled && <>
+                        <button type="button" disabled={saving || dirty || !selected || !selectedModel || !languages.includes(draft[source].language) ||
+                            !owner || owner.requested || !!endpoints[source]?.error_code}
+                            onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
+                        <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>
+                    </>}
                     <EnvReadout tone={owner?.state === "ready" ? "active" : owner?.state === "failed" ? "failed" :
                         ["starting", "stopping"].includes(owner?.state ?? "") ? "warning" : "neutral"}>
                         <p>{t(`realtime.state_${owner?.state ?? "unknown"}`)}</p>
@@ -174,21 +197,21 @@ export const RealtimeASRSettings = () => {
                 <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("realtime.vocabulary")}</span>
                     {hints && <Hint text={t("realtime.vocabulary_help")} focusable />}</span></legend>
                 {!hints && <Description text={t("realtime.vocabulary_help")} />}
-                <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}
+                <label className={styles.checkLabel}><input type="checkbox" checked={vocabulary.builtin !== false}
                     onChange={event => updateVocabulary({ builtin: event.target.checked })} />{t("realtime.vocabulary_builtin")}</label>
                 {/* The whole dictionary, one list: terms are added, changed and taken out there (#792).
                     Each edit goes to the draft; one term or many, the user's terms are canonical
                     as the core makes them, and the core checks them again on save. */}
-                <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving}
+                <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={false}
                     onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
                 {/* The dictionary in and out of a file, under the list (#792). */}
-                <VocabularyFiles builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving} send={send}
+                <VocabularyFiles builtin={builtinVocabulary} vocabulary={vocabulary} disabled={false} send={send}
                     onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
             </fieldset>
+            {/* What a change stops: a choice saves at once (#1111). */}
             <Description text={t("realtime.save_help")} />
-            <button type="submit" disabled={saving || !dirty}>{t("realtime.save")}</button>
+            {problem && <FieldProblem id="realtime_asr_problem" text={t(problem)} />}
         </form>}
-        {form.navigationDialog}
-        {error && <Failure code={error} t={t} />}
+        {error && !problem && <Failure code={error} t={t} />}
     </section>;
 };

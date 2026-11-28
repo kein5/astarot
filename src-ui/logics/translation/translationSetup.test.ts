@@ -3,9 +3,9 @@ import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, loadModule } from "../test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
-import { downloadProgress } from "../main/setupNeeds.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -19,10 +19,14 @@ interface SwitchState {
 interface WeightRow {
     id: string;
     is_downloaded: boolean;
-    is_pending?: boolean;
-    progress?: number | null;
+}
+// A download of the catalog, as /get/data/model_download_state lists it by model.
+interface CatalogJob {
+    job_id: string;
+    phase: string;
 }
 type Call = [string, ...unknown[]];
+const applies = (calls: Call[]) => calls.filter(([path]) => path === "/run/apply_model_download");
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), calls: Call[] = [], notices: [string, unknown][] = [];
@@ -48,8 +52,6 @@ async function fixture(context: TestContext) {
     const translationValues = {
         currentCTranslate2WeightTypeStatus: { data: weightRows },
         currentSelectedCTranslate2WeightType: { data: "small", state: "ok" },
-        pendingCTranslate2WeightTypeStatus: (id: string) => { weight({ is_pending: true }); calls.push(["pending", id]); },
-        downloadCTranslate2WeightTypeStatus: (value: unknown) => calls.push(["/run/download_ctranslate2_weight", value]),
     };
     const translation = api(translationValues);
     const weight = (values: Partial<WeightRow>) => { translation.currentCTranslate2WeightTypeStatus = { data: [{
@@ -61,14 +63,16 @@ async function fixture(context: TestContext) {
         showNotification_Success: (message: unknown) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
-        "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
+        "./ui_configs": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ setRequest: noop }) },
         "./translation/useTranslationSetup": setup,
         "./main/translatorLabel": translatorLabel,
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
+        "./transcription/useRecognitionFix": { useRecognitionFix: () => ({ open: noop }) },
+        "./transcription/recognitionFix": { recognitionFixOf: () => null },
     });
     const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
     // A 400 answer as the tests report it: no message and no result, as before.
@@ -76,6 +80,9 @@ async function fixture(context: TestContext) {
         errorHandling({ message: undefined, result: undefined, ...report });
     let selector = false;
     const expanded: boolean[] = [];
+    // The catalog's downloads (#1015): "small" is made into the catalog's small-onnx-* models.
+    const jobs: Record<string, CatalogJob> = {};
+    const catalogIds = (weightType: unknown) => weightType === "small" ? ["small-onnx-float32", "small-onnx-int8"] : [];
     const controller = async (owner: HookRuntime) => loadModule<typeof import("../../views/app/_app_controllers/TranslationSetupController.tsx")>(
         new URL("../../views/app/_app_controllers/TranslationSetupController.tsx", import.meta.url), owner, {
         "@logics_configs": configs, "@logics_common": common,
@@ -86,7 +93,9 @@ async function fixture(context: TestContext) {
             "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
             "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: boolean) => { selector = value; } }) },
         }),
-        "../../../logics/main/setupNeeds": { downloadProgress },
+        "../../../logics/main/setupNeeds": { translationCatalogIds: catalogIds },
+        "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ state: { jobs },
+            send: async (...args: Call) => { calls.push(args); } }) },
         "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog": { LegacyModelDownloadDialog: "review" },
     });
     let { TranslationSetupController } = await controller(runtime);
@@ -110,14 +119,15 @@ async function fixture(context: TestContext) {
         assert.ok(review);
         return review;
     };
+    // The download of a variant of the model the review is about, started on its card.
     const accept = (review: TreeNode | null) => {
         assert.ok(review);
-        review.props.onDownload({ weight_type: "small", consent: true }); review.props.onCancel(); render();
+        review.props.onCatalogStart("small-onnx-int8"); review.props.onCancel(); render();
     };
     const enables = () => calls.filter(([path]) => path === "/set/enable/translation").length;
     context.onTestFinished(() => runtime.unmount());
     render();
-    return { render, remount, press, accept, enables, calls, notices, states, weight, setup, error, expanded, selector: () => selector };
+    return { render, remount, press, accept, enables, calls, notices, states, weight, setup, error, expanded, jobs, selector: () => selector };
 }
 
 test("turning Translation on without its model opens the review instead of a notice", async context => {
@@ -125,7 +135,6 @@ test("turning Translation on without its model opens the review instead of a not
     assert.equal(s.render(), null);
     const review = s.press();
     assert.equal(review.type, "review");
-    assert.equal(review.props.kind, "ctranslate2");
     assert.equal(review.props.weightType, "small");
     assert.equal(review.props.note, "studio.setup_translation_resume", "the review says the switch will be turned on");
     assert.deepEqual(s.notices, []);
@@ -133,44 +142,19 @@ test("turning Translation on without its model opens the review instead of a not
     assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")), "opening the review does not download");
 });
 
-test("after consent the switch is turned on once, when the model has arrived", async context => {
-    const s = await fixture(context);
-    s.accept(s.press());
-    assert.equal(s.render(), null);
-    assert.deepEqual(s.calls.slice(-2), [["pending", "small"], ["/run/download_ctranslate2_weight", { weight_type: "small", consent: true }]]);
-    assert.equal(s.enables(), 1, "nothing is retried while the model is on its way");
-    s.weight({ progress: 40 });
-    s.render();
-    assert.equal(s.enables(), 1);
-    s.weight({ is_downloaded: true, is_pending: false, progress: null });
-    s.render();
-    assert.equal(s.enables(), 2);
-    assert.deepEqual(s.notices, [["success", "studio.setup_translation_ready"]]);
-    s.render();
-    assert.equal(s.enables(), 2, "one continuation only");
-});
-
 test("changing the UI language while the model downloads still turns the switch on when it arrives", async context => {
     const s = await fixture(context);
     s.accept(s.press());
-    s.weight({ progress: 40 });
+    s.jobs["small-onnx-int8"] = { job_id: "j1", phase: "downloading" };
     assert.equal(await s.remount(), null);
     assert.equal(s.enables(), 1);
-    s.weight({ is_downloaded: true, is_pending: false, progress: null });
+    s.jobs["small-onnx-int8"] = { job_id: "j1", phase: "ready" };
+    s.render();
+    assert.equal(applies(s.calls).length, 1);
+    s.weight({ is_downloaded: true });
     s.render();
     assert.equal(s.enables(), 2);
     assert.deepEqual(s.notices, [["success", "studio.setup_translation_ready"]]);
-});
-
-test("a cancelled or failed download leaves Translation off, even if the model arrives later", async context => {
-    const s = await fixture(context);
-    s.accept(s.press());
-    s.weight({ is_pending: false, progress: null });
-    s.render();
-    s.weight({ is_downloaded: true });
-    s.render();
-    assert.equal(s.enables(), 1);
-    assert.deepEqual(s.notices, []);
 });
 
 test("going back, or choosing another translator, downloads nothing and leaves Translation off", async context => {
@@ -198,22 +182,68 @@ test("asking for another translator opens the list once, and drawing the page ag
     assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")));
 });
 
-test("a review opened from the empty conversation fetches the model without turning Translation on", async context => {
-    const s = await fixture(context);
-    s.setup.useTranslationSetup().open(false);
-    const review = s.render();
-    assert.ok(review);
-    assert.equal(review.props.note, null, "the review keeps saying nothing is turned on");
-    s.accept(s.render());
-    s.weight({ is_downloaded: true, is_pending: false, progress: null });
-    s.render();
-    assert.equal(s.enables(), 0);
-    assert.deepEqual(s.notices, []);
-});
-
 test("a missing model reported for anything but the switch is a notice, as before", async context => {
     const s = await fixture(context);
     s.error({ error_code: "TRANSLATION_MODEL_MISSING", endpoint: "/run/send_message_box", data: false });
     assert.equal(s.render(), null);
     assert.deepEqual(s.notices, [["error", "TRANSLATION_MODEL_MISSING"]]);
+});
+
+// #1015: the review lists the translation models of the catalog; the download starts on a card.
+
+test("a translation model fetched from the catalog is applied once and then turns the switch on", async context => {
+    const s = await fixture(context);
+    // A failed try of before: its end is not this download's.
+    s.jobs["small-onnx-int8"] = { job_id: "before", phase: "failed" };
+    const review = s.press();
+    review.props.onCatalogStart("small-onnx-int8"); review.props.onCancel();
+    assert.equal(s.render(), null);
+    s.jobs["small-onnx-int8"] = { job_id: "j1", phase: "downloading" };
+    s.render();
+    assert.deepEqual(applies(s.calls), []);
+    s.jobs["small-onnx-int8"] = { job_id: "j1", phase: "ready" };
+    s.render();
+    s.render();
+    assert.deepEqual(applies(s.calls), [["/run/apply_model_download", { id: "small-onnx-int8", job_id: "j1", expected: {} }]], "applied once");
+    assert.equal(s.enables(), 1, "the switch waits for the core to have the model");
+    s.jobs["small-onnx-int8"] = { job_id: "j1", phase: "applied" };
+    s.weight({ is_downloaded: true });
+    s.render();
+    assert.equal(s.enables(), 2);
+    assert.deepEqual(s.notices, [["success", "studio.setup_translation_ready"]]);
+});
+
+test("a failed or cancelled catalog download leaves Translation off, even if the model arrives later", async context => {
+    for (const phase of ["failed", "cancelled"]) {
+        const s = await fixture(context);
+        s.press().props.onCatalogStart("small-onnx-int8");
+        s.jobs["small-onnx-int8"] = { job_id: "j1", phase };
+        s.render();
+        s.weight({ is_downloaded: true });
+        s.render();
+        assert.equal(s.enables(), 1, phase);
+        assert.deepEqual(applies(s.calls), [], phase);
+        assert.deepEqual(s.notices, [], phase);
+    }
+});
+
+test("another model of the catalog, or a review the switch did not open, turns nothing on", async context => {
+    const s = await fixture(context);
+    // The review lists every translation model when the catalog has none of the selected one.
+    const review = s.press();
+    review.props.onCatalogStart("other-onnx-int8"); review.props.onCancel();
+    s.jobs["other-onnx-int8"] = { job_id: "j1", phase: "ready" };
+    s.render();
+    assert.deepEqual(applies(s.calls), [], "the user applies it on its card");
+    s.setup.useTranslationSetup().open(false);
+    const quiet = s.render();
+    assert.equal(quiet?.props.note, null, "the review from the empty conversation says nothing is turned on");
+    quiet?.props.onCatalogStart("small-onnx-int8");
+    s.jobs["small-onnx-int8"] = { job_id: "j2", phase: "ready" };
+    s.render();
+    s.weight({ is_downloaded: true });
+    s.render();
+    assert.deepEqual(applies(s.calls), []);
+    assert.equal(s.enables(), 1);
+    assert.deepEqual(s.notices, []);
 });

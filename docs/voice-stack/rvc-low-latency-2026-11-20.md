@@ -1,4 +1,272 @@
-# ボイスチェンジャーの低遅延化の調査と設計（2026-11-20、#531）
+# Research and design for lower voice changer latency (2026-11-20, #531)
+
+[日本語版](#ボイスチェンジャーの低遅延化の調査と設計2026-11-20531日本語版)
+
+This is the record of the "research and design" part of #531. We measured how the delay breaks down on the Windows voice conversion (RVC) path, and looked at automatic chunk-length tuning, audio input and output, processing on the GPU and the crossfade. All values were measured on the PCs in "Measured PCs" below and are not a guarantee for other environments. What needs deciding is collected in [Decision items](#decision-items).
+
+## Decisions (2026-11-20)
+
+The [decision items](#decision-items) below were decided as follows.
+
+1. For automatic tuning, add only Option A (choose at startup) first. Decide on Option B (adjust during conversion) after measuring the round trip with VRChat running.
+2. The startup choice works as proposed. The candidates are 40, 60, 80, 100, 120, 160 and 200 ms, the factor is 1.4, the worker chooses, and `ready` returns the chosen length.
+3. The thresholds during conversion are only recorded as candidates, with the values in this document. They are not part of this implementation.
+4. Add "Automatic" to the block length in "Advanced" and make "Automatic" the default. A length the user chose takes priority over automatic.
+5. Decide the output rule after measuring the difference on VB-Cable.
+6. Decide the crossfade after comparing by ear with a synthesized voice. Until then it stays at half the block.
+7. Do not support ASIO.
+8. How to ship it in 0.6.0 is decided on the implementation side, in line with decision 4 (make "Automatic" the default). If the call is not clear-cut, the implementation PR keeps it as a decision item. The implementation shipped it as a normal setting with "Automatic" as the default, not as an experimental feature. Experimental features are off by default, which does not fit the decision to make "Automatic" the default.
+9. Use VB-Cable for the measurement in 5.
+
+In the implementation of 1 to 4, the worker measures the time once with a 40 ms block and chooses the shortest candidate length that 1.4 times that time fits in. When we measured several lengths one after another in the same session, DirectML took 190 to 300 ms per block from the second length on (41 ms in a new session). So when DirectML chooses a length other than 40 ms, the worker loads the network again (about 3 seconds). CUDA did not behave this way, so it does not reload. The lengths chosen on the laptop were 80 ms with CUDA (5.4 seconds to `ready`) and 60 ms or 80 ms with DirectML (about 10 seconds). This is because DirectML's time at 40 ms (41 to 45 ms) straddles the boundary for choosing 60 ms (about 43 ms). The p50 of the end-to-end delay was 229.5 ms with CUDA and 231.5 ms with DirectML (10 runs each, in both cases runs where 80 ms was chosen).
+
+The decision items of the implementation PR (#806) were decided as follows (2026-11-20).
+
+- The chosen length is remembered for each combination of voice model and GPU and is not measured again after that. The worker records it in `<state>/vc_runtimes/rvc-block-lengths.json`. The reload when DirectML chooses a length other than 40 ms (about 10 seconds to `ready`) happens only the first time.
+- A length saved in `RVC_BLOCK_MS` with a development build is treated as a length the user chose (not as automatic).
+
+The 2 items that remained were decided as follows (2026-11-21).
+
+- The output rule (decision item 5) stays as the current rule (start playing once the 100 ms buffer is full). Tightening the margin removes only part of the difference, and avoiding audio dropouts in the middle of a conversation took priority. The implementation does not change. The material is in [Output rule difference on VB-Cable](#output-rule-difference-on-vb-cable-material-for-decision-item-5).
+- A recorded length is measured again when the user selects "Automatic" again in "Advanced". The remembered length is then not used, and the next time conversion starts, the GPU is measured again for that combination of voice model and GPU. No new button is added.
+
+Decision item 6 (the crossfade cap) was decided as follows (2026-11-27, #928).
+
+- The crossfade is capped at 20 ms. A 10 ms cap is not acceptable. In the worker's GPU layout (CUDA and DirectML), the crossfade is half the block, up to 20 ms. For an 80 ms block, the delay from the crossfade and the search goes from 50 ms to 30 ms, and the `latency_ms` in `ready`, which also includes the sample-rate conversions, goes from 52 ms to 32 ms. Blocks of 40 ms or less do not change, because half the block is already 20 ms or less.
+- A 20 ms block keeps a crossfade of 10 ms (half the block), the length that sounded choppy in the check below. 20 ms is not among the automatic candidates (40 ms and up), so it is used only when the user chooses it in "Advanced". This changed on 2026-11-28 (at the end of this section).
+
+The decision rests on a listening check. Japanese text read by Windows speech synthesis (Microsoft Haruka Desktop, 18.8 seconds) was converted with Saisho Utane from the catalog (RVC v2, 48 kHz, no index, no transposition). The conversion used the worker's layout (10 ms search, 2 s of left context, input high-pass) and changed only the crossfade. The six converted files were compared by ear ([samples](https://github.com/kein5/astarot/issues/928#issuecomment-7064024933), [result](https://github.com/kein5/astarot/issues/928#issuecomment-7208151039)). Whether the joins broke up depended on the length of the crossfade, not on the size of the block: every 10 ms crossfade sounded choppy, and every crossfade of 20 ms or more sounded fine.
+
+| Block | Crossfade | Result |
+|---|---|---|
+| 20 ms | 10 ms (half the block) | Choppy at the joins, hard to listen to |
+| 40 ms | 10 ms | Choppy at the joins, hard to listen to |
+| 40 ms | 20 ms (half the block) | No problem heard |
+| 80 ms | 10 ms | Choppy at the joins, hard to listen to |
+| 80 ms | 20 ms | No problem heard |
+| 80 ms | 40 ms (half the block, the layout before this decision) | No problem heard |
+
+The blocks were converted back to back, not at real-time pace. The files therefore contain only the sound of the joins, not dropouts from blocks that are converted too late.
+
+The choice left open for 20 ms blocks was decided as follows (2026-11-28, #928, [decision](https://github.com/kein5/astarot/pull/1270#issuecomment-7230988149)).
+
+- A 20 ms block gets a 20 ms crossfade too, as long as the block. The 20 ms block length stays available. The other choice was to stop offering 20 ms blocks.
+- One rule now covers every block length: in the worker's GPU layout, the crossfade is 20 ms whatever the block, never shorter and never longer. For a 20 ms block, the delay from the crossfade and the search goes from 20 ms to 30 ms, and `latency_ms` in `ready` goes from 22 ms to 32 ms. This combination was not among the listening samples above.
+
+## Summary of the results
+
+- We measured the delay on the Windows path end to end (laptop, Steam Streaming virtual devices, synthesized sound). The p50 from the onset of the input sound to the onset of the converted voice was 222 to 240 ms with CUDA at 80 ms blocks, and 176 to 187 ms with DirectML at 60 ms.
+- The delay is almost fully explained as "read + block + crossfade and search + round trip + audio left in the output". With CUDA at 80 ms, the block is 80 ms, the crossfade and search 50 ms, the round trip about 54 ms and the audio left in the output about 50 ms.
+- The processing time for one block hardly shrinks when the block gets shorter. On this laptop it takes about 50 ms with CUDA and about 40 ms with DirectML. So at the default 40 ms the processing cannot keep up, and the voice plays about 250 ms late while late blocks are dropped. The desktop PC (RTX 4080 SUPER) keeps up with 40 ms with time to spare.
+- With a long send interval, the GPU clock drops and processing a block gets slower. On this laptop it falls to P3 (1,050 to 1,185 MHz) at 120 ms and to P5 (555 MHz at the lowest) at 200 ms, and the p95 of the round trip at 200 ms was about twice that of back-to-back processing. We think the same effect made the p95 of the round trip at 80 ms larger than at 40 ms on the desktop PC. A longer block does not necessarily give more headroom.
+- For automatic tuning, the proposal is to choose "the shortest block whose processing keeps up" and to measure the headroom with the round trip at the send interval. How it behaves and its thresholds are decision items.
+- During the measurement, we found a bug where conversion on Windows stopped at the second block, and fixed it in #801.
+
+## Measured PCs
+
+- Laptop: Intel Core i7-1255U, 32 GB of memory, Windows 11 Home Insider Preview (build 26320), NVIDIA GeForce RTX 3060 Ti 8 GB (Thunderbolt external enclosure, PCIe x4), driver 617.42. ONNX Runtime is 1.31.0 for CUDA and 1.24.4 for DirectML. The details of the environment are the same as in [Comparison of execution providers for RVC inference](rvc-execution-providers-2026-11-20.md#計測した環境).
+- Model: Saisho Utane from the catalog (RVC v2, 48 kHz). No index is used.
+- The desktop PC values are taken from [Measurement results on the desktop PC](rvc-execution-providers-2026-11-20.md#デスクトップ-pc-での計測の結果2026-11-20linuxrtx-4080-supercuda) in the same record (Linux, RTX 4080 SUPER, CUDA).
+
+## The path and the breakdown of the delay
+
+### Path
+
+This is the Windows path as confirmed in the code (`native/audio-routing`, `native/voice-conversion`, `native/rvc-runtime`).
+
+1. Microphone: received in WASAPI shared mode, converted to 48 kHz mono. It is read every 10 ms, without events (`wasapi/capture.rs`). The engine period is 10 ms.
+2. Block: 20 ms segments are gathered into one block (40 ms by default). The first sound in a block waits until the block is complete.
+3. Input queue: holds up to 4 blocks. Blocks older than 240 ms are dropped without being sent to the worker, and if more than half are dropped within 6 seconds, conversion stops with `vc_capture_overrun`.
+4. Worker: only one block is sent at a time, and the sender waits for the answer. Inside the worker, the output lags the input by the crossfade (half the block) and the search (10 ms). Conversion between 48 kHz and 16 kHz adds about 2 ms (`latency_ms` in `ready`).
+5. Output queue: holds up to 4 blocks.
+6. Output: in WASAPI shared mode, playback starts once the 100 ms buffer is full (`wasapi/output.rs`). After that, the freed space is filled every 5 ms.
+
+### End-to-end measurement
+
+The measurement used `native/voice-conversion/examples/vc_path_latency.rs`. It uses the same conversion owner as the app (`VcProcess` and `DeviceRoute`), the worker and the WASAPI output, and takes the loopback of a virtual device in place of the microphone.
+
+- A synthesized sound (a 180 Hz tone with harmonics, 400 ms) is played to the output of Steam Streaming Microphone 15 times, every 2 seconds. Its loopback is read every 10 ms, like the app's microphone, and converted. The converted voice goes to Steam Streaming Speakers.
+- The loopbacks of the two devices are recorded with audio engine timestamps. The delay is measured from the onset of the input sound to the onset of the converted voice (where the 5 ms RMS reaches 1/10 of its maximum). In the runs that also recorded the delay from the cross-correlation of the envelopes (10 runs in the second round, and 1 run to check the example), it was within 3.2 ms of the onset delay every time.
+- No real microphone or speaker was used. No audio or text was saved.
+- `margin:0` is a prototype output for comparison. It does not wait for the buffer to fill and writes the audio as soon as it arrives. `full:100` follows the app's output rule on the prototype side, and records how much is left in the buffer each time it writes a block.
+
+| Provider | Block | Output | Onset delay p50 (per run) | Round trip (`round_trip_ms`) | Runs |
+|---|---|---|---|---|---|
+| CUDA | 80 ms | App output | 222.5–239.8 ms | 53–54 ms | 5 |
+| CUDA | 80 ms | `margin:0` | 209.0–225.5 ms | 53–54 ms | 4 |
+| CUDA | 80 ms | `full:100` | 233.2–249.8 ms | 53–55 ms | 2 |
+| DirectML | 80 ms | App output | 226.8–241.5 ms | 58 ms | 3 |
+| DirectML | 80 ms | `margin:0` | 199.7 ms | — | 1 |
+| DirectML | 60 ms | App output | 176.1–187.2 ms | 49 ms | 2 |
+| DirectML | 60 ms | `margin:0` | 164.6 ms | 50 ms | 1 |
+| CUDA | 120 ms | App output | 272.1–283.3 ms | 66 ms | 2 |
+| CUDA | 40 ms | App output | 251.7–256.9 ms | 49 ms | 2 |
+| DirectML | 40 ms | App output | 264.8 ms | — | 1 |
+
+- The round trip is `round_trip_ms` at the end of a run. It was not recorded for the 12 runs of the first round.
+- The spread within each run (the difference between minimum and maximum) was 10 to 25 ms at 60 ms and 80 ms, which keep up, 20 to 36 ms at 120 ms, and 55 to 114 ms at 40 ms, which does not keep up.
+- At 40 ms, neither provider keeps up with the processing. Blocks pile up in the queue and are dropped once they are older than 240 ms. During the 30 seconds measured, conversion did not stop, but the audio of the dropped blocks is missing.
+
+### Breakdown
+
+This is the example of CUDA at 80 ms with the app output.
+
+| Stage | Delay | How it was obtained |
+|---|---|---|
+| Microphone read | 0–10 ms | Read every 10 ms (code) |
+| Block | 80 ms | Block length |
+| Crossfade and search | 50 ms | 40 ms and 10 ms (code) |
+| Sample-rate conversion | About 2 ms | From the worker's `latency_ms` |
+| Round trip | About 54 ms | `round_trip_ms` |
+| Audio left in the output | About 50 ms | Audio left in the output, measured with `full:100` (below) |
+| Total | About 240 ms | Measured: 222 to 240 ms |
+
+- The output delay is the length of audio still in the buffer when a new block is written. Measured with the prototype that follows the app's rule (`full:100`), its p50 was 50 to 70 ms. With `margin:0` it is 20 to 30 ms. In both, once a late block empties the buffer, the audio left grows by that delay.
+- The difference that the output rule makes (between the app output and `margin:0`, measured back to back as a pair) was 6 to 18 ms with CUDA at 80 ms (4 pairs), and 23 ms with DirectML at 60 ms and 42 ms at 80 ms (1 pair each). This is smaller than the value expected from the 100 ms buffer (up to about 80 ms). As the code comments say, the Steam Streaming devices read 30 ms at a time and read twice in a row right after playback, so we think less of the 100 ms actually stays in the buffer. Devices that read 10 ms at a time (such as VB-Cable) should keep more. This was not measured.
+- The microphone was not measured. A real microphone is read every 10 ms, like the loopback, so the difference is expected to be a few ms.
+
+### Output rule difference on VB-Cable (material for decision item 5)
+
+As material for deciding decision item 5 (the output rule), we set the output to VB-Cable ("CABLE Input" from VB-CABLE Driver Pack46) and measured the same way. The input was the Steam Streaming Microphone loopback as before, with 15 sounds in each run. The VB-Cable engine period was 10 ms, and the shortest in shared mode was 2.67 ms.
+
+| Provider | Block | App output | `full:100` | `margin:0` |
+|---|---|---|---|---|
+| CUDA | 80 ms | 322–349 ms (2 runs) | 333–337 ms (2 runs) | 293–307 ms (3 runs) |
+| DirectML | 60 ms | 277 ms | 301 ms | 261 ms |
+| DirectML | 80 ms | 342 ms | — | 303 ms |
+
+- In the pairs measured back to back, the difference between the app output and `margin:0` was 15 ms and 50 ms with CUDA at 80 ms, 39 ms with DirectML at 80 ms and 16 ms at 60 ms. The difference between `full:100` and `margin:0` is 34 to 44 ms. This is a little larger than on the Steam Streaming devices (6 to 42 ms), and it also varied more from run to run.
+- The audio left in the buffer when writing had a p50 of 60 to 70 ms with `full:100` and 20 to 30 ms with `margin:0`.
+- `margin:0` ran empty 13 to 22 times in 30 seconds. Each time, the audio cuts out briefly. A rule with no margin at all cannot be used; in practice, the chosen rule would keep a margin of about 20 to 30 ms. In that case, the saving is expected to be smaller than the differences above.
+- Comparing `margin:0` runs with each other, VB-Cable was 70 to 85 ms slower than the Steam Streaming devices. We think this is the audio VB-Cable keeps in its own buffer. It is larger than what the output rule can save. It should change with the VB-Cable setting (Max Latency), but we have not measured with a different setting.
+
+## Block length and processing time
+
+With the same method as `tools/rvc_worker_bench.py --gpu-clocks`, we sent blocks of different lengths to the worker (200 packets each, the 190 after the first 10 counted, 1 run each). "At the send interval" is the round trip when packets are sent at the same interval as the microphone. "Back to back" is the time for one packet when the next is sent as soon as the answer arrives. The GPU state was read with `nvidia-smi` every 100 ms while sending at the send interval. When sending back to back, the GPU stayed at its maximum clock (1,935 to 1,950 MHz) for every block length.
+
+### CUDA (laptop)
+
+| Block | At the send interval p50 / p95 | Back to back p50 / p95 | Number over the block length | GPU state and clock |
+|---|---|---|---|---|
+| 20 ms | 284.8 / 327.3 ms | 48.2 / 63.8 ms | 190 / 190 | P2, 1,950 MHz |
+| 40 ms | 275.9 / 315.3 ms | 50.1 / 63.9 ms | 190 / 190 | P2, 1,950 MHz |
+| 60 ms | 52.6 / 64.7 ms | 52.0 / 63.9 ms | 30 / 190 | P2, 1,935 MHz |
+| 80 ms | 55.1 / 68.2 ms | 55.8 / 69.1 ms | 0 / 190 | P2, 1,950 MHz |
+| 120 ms | 64.2 / 74.2 ms | 57.5 / 71.3 ms | 0 / 190 | P3, 1,185 MHz |
+| 200 ms | 75.8 / 137.6 ms | 58.0 / 69.7 ms | 0 / 190 | P3 and P5, 840 MHz (lowest 555 MHz) |
+
+### DirectML (laptop)
+
+| Block | At the send interval p50 / p95 | Back to back p50 / p95 | Number over the block length | GPU state and clock |
+|---|---|---|---|---|
+| 20 ms | 227.3 / 280.5 ms | 38.3 / 49.3 ms | 190 / 190 | P0, 1,935 MHz |
+| 40 ms | 229.9 / 287.5 ms | 43.1 / 52.7 ms | 190 / 190 | P0, 1,935 MHz |
+| 60 ms | 52.0 / 58.6 ms | 41.1 / 50.8 ms | 4 / 190 | P0, 1,590 MHz |
+| 80 ms | 55.8 / 66.6 ms | 46.7 / 55.5 ms | 0 / 190 | P0, 1,410 MHz |
+| 120 ms | 71.0 / 83.4 ms | 46.4 / 62.0 ms | 0 / 190 | P3, 1,050 MHz |
+| 200 ms | 85.1 / 133.2 ms | 52.6 / 62.9 ms | 0 / 190 | P3 and P5, 1,140 MHz (lowest 675 MHz) |
+
+- When 20 ms and 40 ms blocks are sent at the send interval, the answers fall further and further behind, and the round trip includes the time spent in the queue. It is not the processing time itself.
+- Sent back to back, one packet took 48 to 58 ms with CUDA and 38 to 53 ms with DirectML, across the whole range from 20 ms to 200 ms. This is because feature extraction (HuBERT) reads the whole window, including 2 seconds of context, every time (the same trend as the rvc-stream measurement in [Audio pipeline latency](pipeline-latency-2026-11-18.md#声の変換rvc531)).
+- The shortest block that keeps up on this PC is 80 ms with CUDA and 60 ms with DirectML. With DirectML at 60 ms, 4 of the 190 went over the block length.
+- The longer the GPU rests, the lower its clock goes. With DirectML, the clock starts to drop from 60 ms, and at 120 ms the p50 at the send interval was 25 ms longer than back to back.
+- With CUDA on the desktop PC (RTX 4080 SUPER), one packet takes 11 to 15 ms to process. The p95 of the round trip is 18.1 to 20.1 ms at 40 ms and 45.1 to 46.6 ms at 80 ms, and at 80 ms the clock had dropped to P3 to P5. On the desktop PC, 20 ms was not measured at the send interval.
+
+## Bug found during the measurement (#801)
+
+When we started measuring this path, conversion stopped at the second block with `vc_block_expired`. The owner set a block's time from the time its first 20 ms segment arrived. So when the first segment arrived late and the next one arrived right after it, the end of the block was in the future (8.4 ms ahead this time). This happens often with WASAPI read every 10 ms. #801 keeps the end of a block from being later than the time its last segment arrived. All the measurements above are values after the #801 fix.
+
+## Design proposal
+
+### Automatic chunk-length tuning
+
+From the measurements, we take the following 3 points as given.
+
+1. The processing time for one block hardly changes with the block length. How short the block can get is limited by that PC's processing time.
+2. Headroom is measured with the round trip at the send interval. Back-to-back processing time does not include the slowdown from the GPU clock dropping. With DirectML at 120 ms on the laptop, the p50 was 46 ms back to back and 71 ms at the send interval.
+3. A longer block also makes the GPU rest longer, and its clock drops. The headroom after lengthening is not known until it is measured again after the change. A longer block adds the same amount of delay, so choose the shortest block that keeps up. A short block does not let the GPU rest, so the clock also stays up.
+
+From this, we propose the following two stages.
+
+#### Choose at startup (Option A)
+
+At the end of loading, the worker also converts a few blocks back to back on the GPU and chooses the first block length from that time (the same mechanism as the CPU speed check, `cpu_block_time`). For example, "the shortest candidate for which the back-to-back time × 1.4 is at most the block length". On the laptop, that gives 80 ms with CUDA (55.8 × 1.4 = 78) and 60 ms with DirectML (41.1 × 1.4 = 58). The desktop PC takes 11 to 15 ms per packet, so with candidates from 40 ms up, it gets 40 ms. 1.4 is a provisional value: at 60 ms and 80 ms on the laptop, the p95 at the send interval was 1.2 to 1.4 times the back-to-back p50. At present, the owner decides the block length and passes it to the worker, and checks in `ready` that the length is the same. If the worker chooses, a change is needed so that `ready` returns the chosen length and the owner follows it.
+
+#### Adjust during conversion (Option B)
+
+The owner already records the round trips of the last 6 seconds (`round_trip_ms`). It changes the block one step at a time as follows.
+
+- Lengthen: when the p95 of the round trip goes over 0.8 times the block, or when round trips longer than the block go over 1% of the last 6 seconds.
+- Shorten: when the p95 of the round trip stays below 0.6 times the next shorter block for 30 seconds. But do not go back to a length that recently failed to keep up.
+- Change at most once every 30 seconds. This prevents a loop where, after lengthening, the GPU clock drops, the round trip grows and the block is lengthened again.
+
+Changing the block length requires rebuilding the stream inside the worker. The loaded model stays usable, but the context and the crossfade start empty, so about one block of audio cuts out at the change. Restarting the worker stops conversion for about 5 seconds until `ready` (the laptop's figure). When other apps such as VRChat use the GPU, the round trip changes. Option B is there to change the block to follow that change. We have not yet measured with VRChat running.
+
+### Output buffer
+
+At present, playback starts once the 100 ms buffer is full. If the rule were instead "put a fixed length of silence before the first block and start playing at once", the audio left in the buffer could be sized to the variation of the round trip. When a late block empties the buffer, the length kept grows by that amount on its own. To reduce it again, processing that trims a few ms at a time from quiet blocks would be needed.
+
+The difference measured on the Steam Streaming devices was 6 to 18 ms. On devices that read 10 ms at a time, it is expected to be larger. Before deciding, it needs to be measured with a virtual cable used for VRChat's input (such as VB-Cable).
+
+### Audio input and output
+
+- Changing the microphone read from reading every 10 ms to events (`AUDCLNT_STREAMFLAGS_EVENTCALLBACK`) saves about 5 ms on average.
+- With `IAudioClient3`, the engine period can be shorter than 10 ms if the driver supports it. On this laptop, the built-in speakers went down to 5.33 ms, and the Steam Streaming devices offered only 10 ms (checked on the output devices; the microphone was not opened). The saving is a few ms on each side.
+- Exclusive mode stops other apps from using that device. The microphone could no longer be shared with Discord and similar apps, and the output virtual cable would be taken over too. The proposal is not to make it the default.
+- ASIO: Steinberg's ASIO SDK became dual-licensed under GPLv3 and its existing proprietary license from October 2025 ([KVR Audio article](https://www.kvraudio.com/news/steinberg-moves-vst-3-sdk-to-mit-open-source-license-asio-now-gplv3-65179), [SDK repository](https://github.com/audiosdk/asio)). This app is MIT-licensed, so using the SDK under GPLv3 would mean releasing the whole distribution under GPLv3. The proprietary license costs nothing but needs a contract with Steinberg, and the SDK cannot be kept in a public repository. ASIO helps only with microphones on audio interfaces that have ASIO drivers. The output to VRChat stays on a WASAPI virtual cable, so the saving is a few ms on the input side. The proposal for now is not to support it.
+
+### Room for keeping the processing on the GPU
+
+With DirectML at 80 ms on the laptop, the times of the three graphs (HuBERT, RMVPE, the synthesizer) added up to 35.8 ms (the sum of the p50 values in [Graph-only comparison](rvc-execution-providers-2026-11-20.md#グラフだけの比較)). One packet in the worker takes 46.7 ms back to back, so about 11 ms is spent outside the graphs. Outside the graphs, the worker does sample-rate conversion, feature interpolation, the crossfade, reading and writing the pipe, and copies between the CPU and the GPU. About 1 MB is copied per block, so we estimated the copy at under 1 ms even on PCIe 3.0 x4 (an estimate by calculation, with no profile taken). We think keeping the data on the GPU with IO binding would save a few ms at most. Profiling the CPU work outside the graphs first looks like the better step.
+
+### Crossfade
+
+At present the crossfade is phase-aligned (SOLA, with sine-squared weights), half the block long, with a 10 ms search. The output lags by the length of the crossfade and the search, which is 50 ms for an 80 ms block. A cap on the crossfade (for example 20 ms) would save 10 to 40 ms for blocks of 60 to 120 ms. Whether the audio breaks up with a short crossfade and short blocks has to be checked by ear. In particular, the pitch (RMVPE) looks only at the block plus 50 ms, so it may become unsteady with short blocks. Sound quality was not measured this time.
+
+> **Addendum** (2026-11-27, #928): After a listening check, the crossfade was capped at 20 ms. On 2026-11-28, 20 ms blocks got a 20 ms crossfade too, so the GPU layout uses 20 ms at every block length. See [Decisions](#decisions-2026-11-20).
+
+## Decision items
+
+1. Scope of automatic tuning: only Option A (choose at startup), or Option B (adjust during conversion) as well. The recommendation is to add Option A first, and decide on Option B after measuring the round trip with VRChat running.
+2. How to choose at startup: the candidate blocks (for example 40, 60, 80, 100, 120, 160 and 200 ms), the factor (1.4 for now), and whether the worker or the owner chooses. If the worker chooses, change the contract between the worker and the owner so that `ready` returns the length.
+3. Thresholds during conversion: the condition to lengthen (p95 over 0.8 times the block, or round trips over the block length above 1%), the condition to shorten (below 0.6 times the next shorter block for 30 seconds), the interval between changes (at most once every 30 seconds), and whether to accept about one block of audio cutting out at each change.
+4. Relation to the manual setting: whether to add "Automatic" to the block length in "Advanced" (`RVC_BLOCK_MS`, 40 ms by default) and make it the default. On this laptop, the default 40 ms runs about 250 ms late while dropping blocks. The proposal is that a length the user chose takes priority over automatic.
+5. Output rule: whether to change the rule of starting playback once 100 ms is full to a rule that puts a margin of silence first and plays at once. Before deciding, measure the difference on VB-Cable or a similar cable.
+6. Crossfade cap: keep it at half the block, or set a cap (for example 20 ms). The proposal is to decide after comparing by ear, with a synthesized voice (such as Windows speech synthesis), blocks of 20, 40 and 80 ms with and without the cap.
+7. ASIO: not supporting it (recommended), supporting it under GPLv3, or supporting it under the proprietary license.
+8. How to ship it in 0.6.0: ship automatic tuning as an experimental feature, or make it the default.
+
+## What was not measured
+
+- The delay with a real microphone, with virtual cables such as VB-Cable, and inside VRChat.
+- The round trip with VRChat running (when the two compete for the GPU).
+- The end-to-end delay on the desktop PC, and 20 ms blocks there. AMD and Intel GPUs.
+- Sound quality (short blocks, short crossfades).
+- A profile of the worker's processing outside the graphs.
+
+## Measuring further
+
+The end-to-end delay (Windows) is measured as follows. For the two virtual devices, choose ones that do not play sound.
+
+```sh
+cargo run --release --manifest-path native/voice-conversion/Cargo.toml --example vc_path_latency -- \
+    --worker <astarot-rvc-worker.exe> --runtime <state>/vc_runtimes/rvc \
+    --directml <state>/vc_runtimes/onnxruntime-directml/lib --model <voice.pth> \
+    --device cuda --block-ms 80 --output app --bursts 15
+```
+
+`--output full:100` records the audio left in the output with the same rule as the app, and `--output margin:0` uses the prototype that writes without waiting.
+
+The block length and the GPU clock (NVIDIA) are measured as follows.
+
+```sh
+python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>/vc_runtimes/rvc \
+    --model <voice.pth> --devices cuda --block-ms 20,40,60,80,120,200 --packets 200 --rounds 1 --gpu-clocks
+```
+
+---
+
+# ボイスチェンジャーの低遅延化の調査と設計（2026-11-20、#531）（日本語版）
 
 #531 の「調査と設計」の記録です。Windows の声の変換（RVC）の経路で遅れの内訳を測り、チャンク長の自動調整、音声の入出力、GPU 上での処理、クロスフェードを検討しました。値はどれも下の「計測した PC」で測ったもので、ほかの環境での保証ではありません。決めることは[判断項目](#判断項目)にまとめました。
 
@@ -27,6 +295,29 @@
 
 - 出力の規則（判断項目5）は、いまの規則（100 ms のバッファがいっぱいになってから再生する）のままにします。余裕を詰めても縮むのは差の一部だけで、会話の途中で音が落ちるのを避けることを優先しました。実装は変えません。材料は[VB-Cable での出力の規則の差](#vb-cable-での出力の規則の差判断項目5の材料)にあります。
 - 記録した長さの測り直しは、利用者が「高度な設定」で「自動」を選び直したときに行います。そのとき覚えた長さは使わず、次に変換を始めるときに、その声のモデルと GPU の組み合わせで GPU を測り直します。新しいボタンは足しません。
+
+判断項目6（クロスフェードの上限）は、次のとおり決まりました（2026-11-27、#928）。
+
+- クロスフェードの上限を 20 ms にします。10 ms の上限は採りません。worker の GPU の並び（CUDA と DirectML）では、クロスフェードをブロックの半分にし、20 ms を超えないようにします。80 ms のブロックでは、クロスフェードと探索の分の遅れが 50 ms から 30 ms になります。標本化周波数の変換も含む `ready` の `latency_ms` は、52 ms から 32 ms になります。40 ms 以下のブロックは変わりません。ブロックの半分がもともと 20 ms 以下だからです。
+- 20 ms のブロックは、クロスフェードがブロックの半分の 10 ms のままです。下の聴き比べで途切れて聞こえた長さです。20 ms は自動の候補（40 ms から）に入っていないので、利用者が「高度な設定」で選んだときだけ使われます。この点は 2026-11-28 に変わりました（この節の最後）。
+
+決定の根拠は聴き比べです。Windows の音声合成（Microsoft Haruka Desktop）で読ませた日本語（18.8 秒）を、カタログの Saisho Utane（RVC v2、48 kHz、インデックスなし、ピッチ変更 0）で変換しました。変換は worker と同じ並び（探索 10 ms、左の文脈 2 秒、入力のハイパスあり）で行い、クロスフェードだけを変えました。変換した6ファイルを聴き比べています（[音声の用意](https://github.com/kein5/astarot/issues/928#issuecomment-7064024933)、[結果](https://github.com/kein5/astarot/issues/928#issuecomment-7208151039)）。つなぎ目が途切れるかは、ブロックの大きさではなくクロスフェードの長さで決まっていました。10 ms のものは全部途切れて聞こえ、20 ms 以上は問題ありませんでした。
+
+| ブロック | クロスフェード | 結果 |
+|---|---|---|
+| 20 ms | 10 ms（ブロックの半分） | つなぎ目が途切れて聞きづらい |
+| 40 ms | 10 ms | つなぎ目が途切れて聞きづらい |
+| 40 ms | 20 ms（ブロックの半分） | 問題なし |
+| 80 ms | 10 ms | つなぎ目が途切れて聞きづらい |
+| 80 ms | 20 ms | 問題なし |
+| 80 ms | 40 ms（ブロックの半分。この決定の前の形） | 問題なし |
+
+ブロックは続けて変換し、実際の速さには合わせていません。そのため、聞こえるのはつなぎ目の音だけで、変換が間に合わないブロックによる途切れは入っていません。
+
+20 ms のブロックについて残っていた選択は、次のとおり決まりました（2026-11-28、#928、[決定](https://github.com/kein5/astarot/pull/1270#issuecomment-7230988149)）。
+
+- 20 ms のブロックも、クロスフェードを 20 ms（ブロックと同じ長さ）にします。ブロックの長さの選択肢の 20 ms は残します。もう1つの案は、20 ms のブロックをなくすことでした。
+- これで、どのブロックの長さにも同じ規則が当たります。worker の GPU の並びでは、クロスフェードはブロックの長さによらず 20 ms で、それより短くも長くもなりません。20 ms のブロックでは、クロスフェードと探索の分の遅れが 20 ms から 30 ms に、`ready` の `latency_ms` が 22 ms から 32 ms になります。この組み合わせは、上の聴き比べの音声にはありません。
 
 ## 結果の要約
 
@@ -198,6 +489,8 @@ Steam Streaming のデバイスで測った差は 6〜18 ms でした。10 ms �
 
 いまは位相を合わせたクロスフェード（SOLA、sin の2乗の重み）で、長さはブロックの半分、探索は 10 ms です。クロスフェードと探索の長さだけ出力が遅れるので、80 ms のブロックでは 50 ms になります。クロスフェードに上限（たとえば 20 ms）を設けると、60〜120 ms のブロックで 10〜40 ms 縮みます。短いクロスフェードと短いブロックで音が途切れないかは、聞いて確かめる必要があります。とくに音の高さ（RMVPE）は、ブロックに 50 ms を足した長さしか見ないので、短いブロックで揺れやすくなるおそれがあります。音質は今回測っていません。
 
+> **追記**（2026-11-27、#928）：聴き比べのあと、クロスフェードの上限は 20 ms に決まりました。2026-11-28 には 20 ms のブロックもクロスフェードが 20 ms になり、GPU の並びはどのブロックの長さでも 20 ms です。[決まったこと](#決まったこと2026-11-20)にあります。
+
 ## 判断項目
 
 1. 自動調整の範囲: 案A（起動時に選ぶ）だけにするか、案B（変換中に合わせる）も入れるか。推奨は、まず案A を入れ、VRChat を動かしながら往復を測ってから案B を決めることです。
@@ -223,7 +516,7 @@ Steam Streaming のデバイスで測った差は 6〜18 ms でした。10 ms �
 
 ```sh
 cargo run --release --manifest-path native/voice-conversion/Cargo.toml --example vc_path_latency -- \
-    --worker <vrct-rvc-worker.exe> --runtime <state>/vc_runtimes/rvc \
+    --worker <astarot-rvc-worker.exe> --runtime <state>/vc_runtimes/rvc \
     --directml <state>/vc_runtimes/onnxruntime-directml/lib --model <voice.pth> \
     --device cuda --block-ms 80 --output app --bursts 15
 ```
@@ -233,6 +526,6 @@ cargo run --release --manifest-path native/voice-conversion/Cargo.toml --example
 ブロックの長さと GPU のクロック（NVIDIA）は、次のように測ります。
 
 ```sh
-python tools/rvc_worker_bench.py --worker <vrct-rvc-worker> --runtime <state>/vc_runtimes/rvc \
+python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>/vc_runtimes/rvc \
     --model <voice.pth> --devices cuda --block-ms 20,40,60,80,120,200 --packets 200 --rounds 1 --gpu-clocks
 ```

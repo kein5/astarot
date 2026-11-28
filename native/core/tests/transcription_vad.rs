@@ -21,10 +21,10 @@ use common::net::{eventually, free_port};
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
-use vrct_transcription::capture::Source;
-use vrct_transcription::vad::{Segmenter, Vad, VadEngine};
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
+use astarot_transcription::capture::Source;
+use astarot_transcription::vad::{Segmenter, Vad, VadEngine};
 
 /// A VAD engine that cuts like the energy listener it is handed and notes each segmenter it
 /// made: (rate, channels, longest segment).
@@ -74,7 +74,7 @@ fn start(saved: Value, vad: Option<Vad>, realtime: impl FnOnce(&FakeAsr) -> Valu
     let services = Services {
         audio: audio.platform(),
         transcription_capture: capture.factory(),
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
         vad,
         ..Setup::default().services
     };
@@ -227,11 +227,10 @@ fn an_external_server_that_does_not_answer_cannot_turn_a_switch_on() {
 }
 
 #[test]
-fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it() {
+fn a_recording_with_the_vad_starts_the_bundled_server_and_stops_it_after() {
     // Decision 84 (b): as the realtime switch does, a recording whose VAD needs the bundled
-    // server starts it when the realtime settings allow (`start_server`), and the server is
-    // stopped once no recording uses it. With `start_server` off, the recording is told the
-    // server is not running (`speech_server_not_ready`) and cuts by volume.
+    // server starts it, and the server is stopped once no recording uses it. A choice not to
+    // start it (`start_server` off), saved by the versions before #1396, is left out.
     let models = tempfile::tempdir().unwrap();
     let gguf = |name: &str| {
         let path = models.path().join(format!("{name}.gguf"));
@@ -242,6 +241,8 @@ fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it()
     let empty = || row(String::new(), String::new());
     let speech_settings = json!({ "version": 1, "profiles": { "japanese": empty(), "multilingual": empty(), "asr": row(gguf("asr_gate"), gguf("vad")) } });
     for start_server in [true, false] {
+        // Each round loads the model again.
+        let _ = std::fs::remove_file(models.path().join("asr_gate.gguf.go"));
         let asr = FakeAsr::start();
         let capture = FakeCapture::new();
         let audio = FakeAudio::with(windows(&[("Mic A", "{a}")], Some("{a}"), &[("Speakers", "{s}")], Some("{s}")));
@@ -256,9 +257,9 @@ fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it()
         let services = Services {
             audio: audio.platform(),
             transcription_capture: capture.factory(),
-            transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+            transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
             speech_server_launch: Arc::new(move |_| {
-                let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+                let mut launch = astarot_speech_server::server::Launch::fixed(fake);
                 launch.start_timeout = std::time::Duration::from_secs(10);
                 launch
             }),
@@ -270,23 +271,16 @@ fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it()
         let mark = ui.lines().len();
         assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
         capture.hear(Source::Speaker, &[quiet(300), speech(1000), quiet(1500)]);
-        if start_server {
-            eventually("the recording starts the server", || asr_state() == "preparing");
-            std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
-            eventually("the server is ready", || asr_state() == "ready");
-            // The stand-in does not speak the Realtime API: the VAD falls back to volume, and
-            // the server stays while the recording uses it.
-            ui.wait_endpoint(mark, "/run/vad_unavailable");
-            std::thread::sleep(std::time::Duration::from_millis(300));
-            assert_eq!(asr_state(), "ready");
-            assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
-            eventually("the server stops once no recording uses it", || matches!(asr_state().as_str(), "stopped" | "stopping" | "idle"));
-        } else {
-            let told = ui.wait_endpoint(mark, "/run/vad_unavailable");
-            assert_eq!(told["result"]["details"]["reason"], "speech_server_not_ready");
-            assert!(!matches!(asr_state().as_str(), "preparing" | "ready"), "the server was started");
-            assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
-        }
+        eventually(&format!("the recording starts the server (saved start_server: {start_server})"), || asr_state() == "preparing");
+        std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
+        eventually("the server is ready", || asr_state() == "ready");
+        // The stand-in does not speak the Realtime API: the VAD falls back to volume, and the
+        // server stays while the recording uses it.
+        ui.wait_endpoint(mark, "/run/vad_unavailable");
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        assert_eq!(asr_state(), "ready");
+        assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
+        eventually("the server stops once no recording uses it", || matches!(asr_state().as_str(), "stopped" | "stopping" | "idle"));
         ui.stop();
         let _ = std::fs::remove_file(models.path().join("asr_gate.gguf.go"));
     }

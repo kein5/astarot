@@ -10,6 +10,10 @@ export const MAIN_SECTION_CONTAINER = "main_section";
 
 /** A column this narrow draws the top bar's shortest words. rem follows the UI size. */
 export const NARROW_COLUMN = "64rem";
+/** A column this narrow draws the top bar's stop as "Stop" alone, and mute without its "Muted" badge
+ *  (#1314, M-9). Wider, the default window's column included, the stop keeps "Stop speech", which
+ *  says what it stops. The bar holds those words on one line down to this width. */
+export const TINY_STOP_COLUMN = "56rem";
 /** A region this short gives its height to the conversation (the 200px minimum window included). */
 export const SHORT_REGION = "36rem";
 

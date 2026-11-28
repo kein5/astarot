@@ -21,9 +21,11 @@ spec.loader.exec_module(scenarios)
 
 class WindowsUpdateFixtureTests(unittest.TestCase):
     def test_valid_archives_have_exact_app_owned_top_level(self):
-        # The old package carries the Python sidecar as packages up to 0.4 did; the new one not.
-        for version, top in (("old", {scenarios.APP, scenarios.SIDECAR, "_internal"}),
-                             ("new", {scenarios.APP, "_internal"})):
+        # The old package carries the Python sidecar as packages up to 0.4 did, and the main binary
+        # under its name up to 0.6.x (ADR-014, 2.5); the new one neither.
+        self.assertEqual((scenarios.APP, scenarios.OLD_APP), ("astarot.exe", "vrct-vox.exe"))
+        for version, top in (("old", {scenarios.OLD_APP, scenarios.SIDECAR, "_internal"}),
+                             ("new", {scenarios.APP, scenarios.STEAMVR_MANIFEST, "_internal"})):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
                 self.assertEqual({name.split("/")[0] for name in archive.namelist()}, top)
                 self.assertIsNone(archive.testzip())
@@ -46,18 +48,29 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
                 self.assertFalse(any(name.startswith(missing) for name in archive.namelist()))
                 self.assertIsNone(archive.testzip())
+        # Without the main binary under either name: the installer takes both (ADR-014, 2.5, 8).
+        with zipfile.ZipFile(io.BytesIO(scenarios.payloads()["no-exe"])) as archive:
+            self.assertNotIn(scenarios.OLD_APP, archive.namelist())
 
-    def request(self, version, filename, range_header=None, head=False):
+    def handler(self, version, filename, range_header=None, head=False, release=None):
         handler = object.__new__(scenarios.PackageHandler)
         handler.path = f"/v{version}/{filename}"
         handler.command = "HEAD" if head else "GET"
         handler.headers = {"Range": range_header} if range_header else {}
-        handler.server = SimpleNamespace(payloads=scenarios.payloads(), requests=[], request_lock=threading.Lock())
+        if release is None:
+            release = threading.Event()
+            release.set()
+        handler.server = SimpleNamespace(payloads=scenarios.payloads(), requests=[], request_lock=threading.Lock(),
+                                         holding=threading.Event(), release=release)
         handler.wfile = io.BytesIO()
         handler.send_response = Mock()
         handler.send_header = Mock()
         handler.end_headers = Mock()
         handler.send_error = Mock()
+        return handler
+
+    def request(self, version, filename, range_header=None, head=False):
+        handler = self.handler(version, filename, range_header, head)
         handler.respond(head)
         return handler
 
@@ -80,6 +93,24 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
         handler.send_response.assert_called_once_with(200)
         self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["new"])
 
+    def test_held_transfer_sends_one_block_until_released(self):
+        # A second run starts while the first one waits here (the "held" package).
+        release = threading.Event()
+        handler = self.handler("held", scenarios.PACKAGE, release=release)
+        thread = threading.Thread(target=handler.respond, args=(False,))
+        thread.start()
+        try:
+            self.assertTrue(handler.server.holding.wait(timeout=5))
+            self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["held"][:8192])
+            self.assertTrue(thread.is_alive())
+        finally:
+            release.set()
+            thread.join(timeout=5)
+        self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["held"])
+        # Its checksum, and a size probe, are not held.
+        self.assertFalse(self.request("held", scenarios.PACKAGE, head=True).server.holding.is_set())
+        self.assertFalse(self.request("held", scenarios.PACKAGE + ".sha256").server.holding.is_set())
+
     def test_checksum_faults_are_distinct(self):
         filename = scenarios.PACKAGE + ".sha256"
         self.request("checksum-404", filename).send_error.assert_called_once_with(404)
@@ -96,6 +127,20 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
             (path / "extra").mkdir()
             with self.assertRaises(AssertionError):
                 scenarios.assert_tree(path, before)
+
+    def test_a_release_up_to_0_6_serves_its_package_under_the_name_of_then(self):
+        # ADR-014, 2.10: VRCT-VOX.zip up to 0.6.x, ASTAROT.zip from 0.7.0 and for the installer's own
+        # version, and for the fault versions, which are no version numbers.
+        self.assertEqual((scenarios.PACKAGE, scenarios.OLD_PACKAGE), ("ASTAROT.zip", "VRCT-VOX.zip"))
+        self.assertEqual(scenarios.package_name(scenarios.OLD_RELEASE), scenarios.OLD_PACKAGE)
+        for version in ("new", "old", "0.7.0", "0.10.0", "1.0.0", scenarios.OWN):
+            self.assertEqual(scenarios.package_name(version), scenarios.PACKAGE, version)
+        self.request(scenarios.OLD_RELEASE, scenarios.PACKAGE).send_error.assert_called_once_with(404)
+        handler = self.request(scenarios.OLD_RELEASE, scenarios.OLD_PACKAGE)
+        handler.send_response.assert_called_once_with(200)
+        self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()[scenarios.OLD_RELEASE])
+        with zipfile.ZipFile(io.BytesIO(scenarios.payloads()[scenarios.OLD_RELEASE])) as archive:
+            self.assertIn(scenarios.OLD_APP, archive.namelist())
 
     def test_installer_directory_argument_is_last_and_unquoted(self):
         command = scenarios.installer_command("C:/test/setup.exe", "C:/test/install dir", "new")

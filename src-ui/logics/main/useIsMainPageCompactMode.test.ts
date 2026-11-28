@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import type { ComponentType, SVGProps } from "react";
-import { hooks, loadModule, find, eventTarget, setRef, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, setRef, stubGlobals, unchecked, kitStandIns } from "../test/hookHarness.ts";
 
 async function fixture(saved: boolean, context: TestContext) {
     // The opened rail listens on the document for Escape and presses outside it.
@@ -62,7 +62,8 @@ for (const saved of [false, true]) {
         assert.equal(find(tree.sidebar, node => node.type === "languages"), null);
         assert.ok(find(tree.sidebar, node => node.type === "readout"), "the icon rail keeps the language pair in sight");
         assert.ok(!tree.button.props.disabled, "keyboard and pointer activation must remain available");
-        assert.equal(tree.button.props.type, "button");
+        // The kit's icon Button, which is a button that submits nothing.
+        assert.deepEqual([tree.button.type, tree.button.props.size, tree.button.props["aria-label"]], [kitStandIns.Button, "icon", "studio.toggle_sidebar"]);
         assert.equal(tree.button.props["aria-expanded"], false);
         tree.button.props.onClick();
         tree = s.render();
@@ -104,6 +105,9 @@ for (const saved of [false, true]) {
         // The toggle handles its own press; closing here as well would reopen it.
         s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: (selector: string) => selector === "[data-sidebar-toggle]" ? {} : null } });
         assert.equal(s.render().button.props["aria-expanded"], true);
+        // The translator popover is portaled to the body; pressing inside it belongs to the rail.
+        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: (selector: string) => selector === "[data-translator-selector]" ? {} : null } });
+        assert.equal(s.render().button.props["aria-expanded"], true);
         s.document.dispatch("keydown", { key: "Escape", defaultPrevented: false });
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.deepEqual(s.document.focused, ["[data-sidebar-toggle]"], "focus goes back to the toggle");
@@ -115,11 +119,13 @@ for (const saved of [false, true]) {
         assert.equal(s.render().button.props["aria-expanded"], false, "a press on the conversation closes it");
 
         // The opened rail carries its own close button, since the toggle is under it.
-        const closeButton = (tree: unknown) => find(tree, node => node.type === "button" && node.props["aria-label"] === "studio.close_sidebar");
+        const closeButton = (tree: unknown) => find(tree, node => node.type === kitStandIns.Button && node.props["aria-label"] === "studio.close_sidebar");
         assert.equal(closeButton(s.render().sidebar), null);
         s.render().button.props.onClick();
         const close = closeButton(s.render().sidebar);
         assert.ok(close);
+        // Its name is also its tooltip, beside the rail.
+        assert.equal(find(s.render().sidebar, node => node.type === "tooltip" && node.props.title === "studio.close_sidebar")?.props.placement, "right");
         close.props.onClick();
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.equal(s.document.focused.length, 2, "and focus goes back to the toggle");
@@ -133,7 +139,7 @@ for (const saved of [false, true]) {
     test(`a language selector opened from the rail over a narrow window closes the rail first (${saved})`, async context => {
         const s = await fixture(saved, context);
         s.render().button.props.onClick();
-        const opener = find(s.render().language, node => node.type === "button");
+        const opener = find(s.render().language, node => node.type === kitStandIns.Button);
         assert.ok(opener);
         opener.props.onClick();
         assert.deepEqual(s.selector(), { your_language: true, target_language: false, target_key: "1" });

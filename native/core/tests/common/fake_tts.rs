@@ -40,7 +40,7 @@ impl FakeTts {
         Self::start(seconds, |state, method, path, body| match (method, path) {
             ("GET", "/health") if state.healthy.load(Ordering::SeqCst) => (200, "application/json", Vec::new(), vec![br#"{"status":"ok"}"#.to_vec()]),
             ("GET", "/health") => (503, "application/json", Vec::new(), vec![b"{}".to_vec()]),
-            ("GET", "/v1/models") => (200, "application/json", Vec::new(), vec![serde_json::to_vec(&json!({"data": [{"id": "qwen3-tts", "speech": {"task": "synthesis", "options": [{"name": "seed", "type": "int", "minimum": 0, "maximum": 1000}, {"name": "instructions", "type": "string"}]}}]})).unwrap()]),
+            ("GET", "/v1/models") => (200, "application/json", Vec::new(), vec![serde_json::to_vec(&json!({"data": [{"id": "qwen3-tts", "speech": {"task": "synthesis", "voices": [{"name": "ono_anna", "language": "ja", "gender": "female", "description": "Playful Japanese female voice."}, {"name": "ryan", "language": "en", "gender": "male", "description": "Dynamic male voice with rhythm."}], "options": [{"name": "voice", "type": "string", "required": true, "choices": ["ono_anna", "ryan"]}, {"name": "seed", "type": "int", "minimum": 0, "maximum": 1000}, {"name": "instructions", "type": "string"}]}}]})).unwrap()]),
             ("POST", "/v1/audio/speech") => {
                 state.requests.lock().unwrap().push(serde_json::from_slice(body).unwrap_or(Value::Null));
                 let samples = (24000.0 * *state.seconds.lock().unwrap()) as usize;

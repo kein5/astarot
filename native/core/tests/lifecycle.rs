@@ -4,10 +4,11 @@ mod common;
 
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
 
 #[test]
 fn start_up_sends_its_notifications_in_order_and_then_opens_every_endpoint() {
@@ -31,6 +32,25 @@ fn start_up_sends_its_notifications_in_order_and_then_opens_every_endpoint() {
 
     // An endpoint that waits for start-up now answers at once.
     assert_eq!(ui.ok("/get/data/selected_translation_engines", None), json!({ "1": "CTranslate2", "2": "CTranslate2", "3": "CTranslate2" }));
+    ui.stop();
+}
+
+// #1236: the settings window, opened after the start-up, asks for the same answers, read now.
+#[test]
+fn the_settings_window_reads_what_the_start_up_sent_as_it_is_now() {
+    let ui = Ui::start();
+    let snapshot = ui.ready();
+    assert_eq!(ui.ok("/set/data/ui_language", Some(json!("ja"))), json!("ja"));
+    // The settings window's request names it, and so does the answer (the shell names what that
+    // window writes).
+    let from = ui.send_raw(r#"{"endpoint": "/run/settings_snapshot", "origin": "settings"}"#);
+    let answer = ui.wait_from(from, "the settings window's snapshot", |line| line["endpoint"] == "/run/settings_snapshot");
+    assert_eq!((answer["status"].clone(), answer["origin"].clone()), (json!(200), json!("settings")));
+    let now = answer["result"].clone();
+    let keys = |value: &Value| value.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
+    assert_eq!(keys(&now), keys(&snapshot), "the same endpoints as the start-up's");
+    assert_eq!(now["/get/data/ui_language"], "ja", "read when asked, not at the start-up");
+    assert!(now.get("/get/data/available_releases").is_none());
     ui.stop();
 }
 
@@ -97,6 +117,11 @@ fn a_change_is_saved_two_seconds_after_the_last_one() {
     // Some settings are saved at once.
     ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 5, "y_pos": 6, "width": 900, "height": 700 })));
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 5);
+    // The settings window keeps a place of its own, saved the same way (#1236).
+    ui.ok("/set/data/settings_window_geometry", Some(json!({ "x_pos": 40, "y_pos": 50, "width": 800, "height": 600 })));
+    let saved = ui.saved();
+    assert_eq!(saved["SETTINGS_WINDOW_GEOMETRY"], json!({ "x_pos": 40, "y_pos": 50, "width": 800, "height": 600 }));
+    assert_eq!(saved["MAIN_WINDOW_GEOMETRY"]["x_pos"], 5, "each window's own");
     ui.stop();
 }
 
@@ -122,7 +147,7 @@ fn a_start_up_that_panics_ends_the_run_so_the_ui_can_say_it_could_not_start() {
     };
     let dir = tempfile::tempdir().unwrap();
     let ui = Ui::with(Setup { services, dir: Some(dir.path().to_path_buf()), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_FAILED_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_FAILED_EXIT));
     assert!(ui.on(0, "/run/initialization_complete").is_empty());
     // The run is over: a request is not taken.
     let mark = ui.send("/get/data/version", None);
@@ -144,7 +169,7 @@ fn a_start_up_that_does_not_end_in_time_ends_the_run_and_never_opens() {
         ..Setup::default().services
     };
     let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_TIMEOUT_EXIT));
     // The start-up that ends later does not open the endpoints of a run that is over.
     std::thread::sleep(Duration::from_millis(2500));
     assert!(!ui.backend.dispatcher().is_open());
@@ -166,7 +191,7 @@ fn a_start_up_past_its_deadline_starts_nothing_once_it_goes_on() {
     };
     let dir = tempfile::tempdir().unwrap();
     let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_TIMEOUT_EXIT));
     let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
     common::net::eventually("the start-up ended", || {
         let log = log();
@@ -435,5 +460,46 @@ fn a_failed_save_is_reported_once_and_its_recovery_too() {
     ui.wait_endpoint(before, "/run/config_save_recovered");
     ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 3);
+    ui.stop();
+}
+
+/// A local translation whose unload waits until the test lets it go, as a translation in flight
+/// keeps the model until its request ends.
+struct StuckUnload(Arc<(Mutex<bool>, Condvar)>);
+
+impl LocalTranslation for StuckUnload {
+    fn load(&self, _: &LocalSetup) -> Result<(), LocalError> {
+        Err(LocalError::Missing)
+    }
+    fn loaded(&self) -> Option<LocalSetup> {
+        None
+    }
+    fn translate(&self, _: &str, _: &str, _: &str) -> Result<String, LocalError> {
+        Err(LocalError::Failed)
+    }
+    fn unload(&self) {
+        let (released, changed) = &*self.0;
+        let _ = changed.wait_timeout_while(released.lock().unwrap(), Duration::from_secs(60), |released| !*released);
+    }
+}
+
+// #1341: the end of the run stops the local model, but a translation in flight may keep it for
+// two minutes. The end waits 5 s at most, says so in the log, and goes on.
+#[test]
+fn the_end_of_the_run_waits_five_seconds_at_most_for_the_local_model_to_stop() {
+    let dir = tempfile::tempdir().unwrap();
+    let release = Arc::new((Mutex::new(false), Condvar::new()));
+    let local = Arc::new(StuckUnload(Arc::clone(&release)));
+    let services = Services { local_translation: Arc::new(move |_| local.clone() as Arc<dyn LocalTranslation>), ..Setup::default().services };
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services, ..Setup::default() });
+    ui.ready();
+    let began = Instant::now();
+    assert_eq!(ui.ok("/run/shutdown", None), true);
+    let took = began.elapsed();
+    assert!((Duration::from_millis(4900)..Duration::from_secs(9)).contains(&took), "the end took {took:?}");
+    let log = std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    assert!(log.contains("shutdown: the local translation did not stop in time"), "{log}");
+    *release.0.lock().unwrap() = true;
+    release.1.notify_all();
     ui.stop();
 }

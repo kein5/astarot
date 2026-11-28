@@ -39,114 +39,75 @@ const xDefault = (routePath: string) =>
 
 const manualTarget = (routePath: string) => MANUAL_REDIRECTS.find((entry) => entry.path === routePath)?.to
 
-// Pages are grouped by what a reader comes to do: start, find a task, look a feature up, fix
-// something. The voice and text features keep the order of the app's main switches; the screens
-// and integrations follow them.
-const sidebarJa: Sidebar = {
-  '/ja/': [
-    {
-      text: 'はじめに',
-      items: [
-        { text: 'ASTAROTとは', link: '/ja/guide/introduction' },
-        { text: 'インストール', link: '/ja/guide/install' },
-        { text: '動作環境と推奨スペック', link: '/ja/guide/requirements' },
-        { text: '対応環境と検証の範囲', link: '/ja/guide/support' },
-        { text: '最初の設定', link: '/ja/guide/first-setup' },
-        { text: '声と文字の流れ', link: '/ja/guide/how-it-works' },
-      ],
-    },
-    {
-      text: 'やりたいこと',
-      items: [
-        { text: 'やりたいことから探す', link: '/ja/guide/tasks' },
-        { text: '自分のモデルを使う', link: '/ja/guide/custom-models' },
-      ],
-    },
-    {
-      text: '声と文字の機能',
-      items: [
-        { text: '翻訳', link: '/ja/features/translation' },
-        { text: '音声認識（ASR）とリアルタイム字幕', link: '/ja/features/transcription' },
-        { text: 'テキスト読み上げ（TTS）', link: '/ja/features/tts' },
-        { text: 'ボイスチェンジャー（RVC）', link: '/ja/features/voice-conversion' },
-        { text: 'チャット読み取り（OCR）', link: '/ja/features/chat-reading' },
-      ],
-    },
-    {
-      text: '画面と連携',
-      items: [
-        { text: '字幕とVR', link: '/ja/features/vr' },
-        { text: '入力と出力', link: '/ja/features/io-flow' },
-        { text: '入力の小窓とホットキー', link: '/ja/features/quick-chat' },
-        { text: 'OBSとWebSocket', link: '/ja/features/integrations' },
-      ],
-    },
-    {
-      text: '設定と運用',
-      items: [
-        { text: 'モデルの取得', link: '/ja/guide/models' },
-        { text: 'Windowsの音声経路', link: '/ja/guide/windows-audio' },
-        { text: 'Linuxの音声経路', link: '/ja/guide/linux-audio' },
-        { text: '困ったとき', link: '/ja/guide/troubleshooting' },
-        { text: 'プライバシー', link: '/ja/guide/privacy' },
-        { text: 'ライセンスと謝辞', link: '/ja/guide/license' },
-      ],
-    },
-  ],
-}
+// Both languages use the same page order and route suffixes.
+const sidebarGroups = [
+  {
+    en: 'Getting started',
+    ja: 'はじめに',
+    pages: [
+      { path: 'guide/introduction', en: 'What is ASTAROT', ja: 'ASTAROTとは' },
+      { path: 'guide/install', en: 'Install', ja: 'インストール' },
+      { path: 'guide/first-setup', en: 'First setup', ja: '最初の設定' },
+      { path: 'guide/tasks', en: 'Find what you want to do', ja: 'やりたいことから探す' },
+      { path: 'guide/how-it-works', en: 'How voice and text flow', ja: '声と文字の流れ' },
+    ],
+  },
+  {
+    en: 'Conversation',
+    ja: '会話の基本',
+    pages: [
+      { path: 'features/translation', en: 'Translation', ja: '翻訳' },
+      { path: 'features/transcription', en: 'Speech recognition (ASR) and realtime captions', ja: '音声認識（ASR）とリアルタイム字幕' },
+      { path: 'features/vr', en: 'Captions and VR', ja: '字幕とVR' },
+      { path: 'features/quick-chat', en: 'Quick Chat and hotkeys', ja: '入力の小窓とホットキー' },
+    ],
+  },
+  {
+    en: 'Voice and reading',
+    ja: '声と読み取り',
+    pages: [
+      { path: 'features/tts', en: 'Text to speech (TTS)', ja: 'テキスト読み上げ（TTS）' },
+      { path: 'features/voice-conversion', en: 'Voice changer (RVC)', ja: 'ボイスチェンジャー（RVC）' },
+      { path: 'features/chat-reading', en: 'Chat reading (OCR)', ja: 'チャット読み取り（OCR）' },
+    ],
+  },
+  {
+    en: 'Audio routes and other apps',
+    ja: '音声経路と連携',
+    pages: [
+      { path: 'features/io-flow', en: 'Inputs and outputs', ja: '入力と出力' },
+      { path: 'guide/windows-audio', en: 'Windows audio route', ja: 'Windowsの音声経路' },
+      { path: 'guide/linux-audio', en: 'Linux audio route', ja: 'Linuxの音声経路' },
+      { path: 'features/integrations', en: 'OBS and WebSocket', ja: 'OBSとWebSocket' },
+    ],
+  },
+  {
+    en: 'Models',
+    ja: 'モデル',
+    pages: [
+      { path: 'guide/models', en: 'Model downloads', ja: 'モデルの取得' },
+      { path: 'guide/custom-models', en: 'Use your own models', ja: '自分のモデルを使う' },
+    ],
+  },
+  {
+    en: 'Help and reference',
+    ja: '困ったときと資料',
+    pages: [
+      { path: 'guide/troubleshooting', en: 'Troubleshooting', ja: '困ったとき' },
+      { path: 'guide/requirements', en: 'System requirements', ja: '動作環境と推奨スペック' },
+      { path: 'guide/support', en: 'Platform support', ja: '対応環境と検証の範囲' },
+      { path: 'guide/privacy', en: 'Privacy', ja: 'プライバシー' },
+      { path: 'guide/license', en: 'License and credits', ja: 'ライセンスと謝辞' },
+    ],
+  },
+]
 
-const sidebarEn: Sidebar = {
-  '/en/': [
-    {
-      text: 'Getting started',
-      items: [
-        { text: 'What is ASTAROT', link: '/en/guide/introduction' },
-        { text: 'Install', link: '/en/guide/install' },
-        { text: 'System requirements', link: '/en/guide/requirements' },
-        { text: 'Platform support', link: '/en/guide/support' },
-        { text: 'First setup', link: '/en/guide/first-setup' },
-        { text: 'How voice and text flow', link: '/en/guide/how-it-works' },
-      ],
-    },
-    {
-      text: 'What you want to do',
-      items: [
-        { text: 'Find what you want to do', link: '/en/guide/tasks' },
-        { text: 'Use your own models', link: '/en/guide/custom-models' },
-      ],
-    },
-    {
-      text: 'Voice and text',
-      items: [
-        { text: 'Translation', link: '/en/features/translation' },
-        { text: 'Speech recognition (ASR) and realtime captions', link: '/en/features/transcription' },
-        { text: 'Text to speech (TTS)', link: '/en/features/tts' },
-        { text: 'Voice changer (RVC)', link: '/en/features/voice-conversion' },
-        { text: 'Chat reading (OCR)', link: '/en/features/chat-reading' },
-      ],
-    },
-    {
-      text: 'Screens and integrations',
-      items: [
-        { text: 'Captions and VR', link: '/en/features/vr' },
-        { text: 'Inputs and outputs', link: '/en/features/io-flow' },
-        { text: 'Quick Chat and hotkeys', link: '/en/features/quick-chat' },
-        { text: 'OBS and WebSocket', link: '/en/features/integrations' },
-      ],
-    },
-    {
-      text: 'Setup and operation',
-      items: [
-        { text: 'Model downloads', link: '/en/guide/models' },
-        { text: 'Windows audio route', link: '/en/guide/windows-audio' },
-        { text: 'Linux audio route', link: '/en/guide/linux-audio' },
-        { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
-        { text: 'Privacy', link: '/en/guide/privacy' },
-        { text: 'License and credits', link: '/en/guide/license' },
-      ],
-    },
-  ],
-}
+const sidebarFor = (lang: 'en' | 'ja'): Sidebar => ({
+  [`/${lang}/`]: sidebarGroups.map((group) => ({
+    text: group[lang],
+    items: group.pages.map((page) => ({ text: page[lang], link: `/${lang}/${page.path}` })),
+  })),
+})
 
 // The theme's own words. Rspress has Japanese for them; these are the guide's words where they
 // differ. The / page's language (`mul`) takes the English ones.
@@ -185,7 +146,8 @@ export default defineConfig({
   outDir: 'dist',
   title: 'ASTAROT',
   lang: DEFAULT_LANG,
-  // The app's own icon (public/favicon.png).
+  // ASTAROT's favicon at 32 px (docs/brand/astarot/favicon-32.png). Rsbuild would find
+  // public/favicon.png by itself; naming it keeps the one link.
   icon: '/favicon.png',
   route: {
     // The content is the Markdown under ja/ and en/, and index.md (the language picker).
@@ -195,19 +157,21 @@ export default defineConfig({
     // / picks the language itself (pickLanguage); a page opened by its address stays put.
     localeRedirect: 'never',
   },
+  // English first, then Japanese, wherever the two languages stand side by side (decided
+  // 2026-11-23). The order of the language menu follows these lists.
   locales: [
     { lang: DEFAULT_LANG, label: 'Language', title: 'ASTAROT' },
-    {
-      lang: 'ja',
-      label: '日本語',
-      title: 'ASTAROT',
-      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方',
-    },
     {
       lang: 'en',
       label: 'English',
       title: 'ASTAROT',
       description: 'How to use ASTAROT, a translation, speech recognition, text-to-speech, voice conversion and chat-reading app for VRChat',
+    },
+    {
+      lang: 'ja',
+      label: '日本語',
+      title: 'ASTAROT',
+      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方',
     },
   ],
   i18nSource: (source) => {
@@ -217,7 +181,12 @@ export default defineConfig({
     return words
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#111b2c' }],
+    // The browser's own bar takes the canvas colour of each scheme (theme/tokens.css).
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#fafafc' }],
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#261633' }],
+    // The favicon drawn again for 16 px with one-pixel lines (docs/brand/astarot/favicon-16.png),
+    // for a tab of that size. The app icon, the symbol on a Dark Plum tile, is for home screens.
+    ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16.png` }],
     ['link', { rel: 'apple-touch-icon', href: `${base}apple-touch-icon.png` }],
     (route) => (route.routePath === '/' ? `<script>${pickLanguage('/')}</script>` : undefined),
     (route) => xDefault(route.routePath),
@@ -240,22 +209,17 @@ export default defineConfig({
           routePath,
           content: `---\npageType: blank\ntitle: ASTAROT\nsearch: false\n---\n\n<ManualRedirect to="${to}" />\n`,
         })),
-      // Two tags the head option cannot place, written into the built pages:
-      // - Readers without scripts go to the Japanese page, as the manual's HTML was Japanese. A
-      //   <meta> inside <noscript> in the head option is moved out of it and would refresh for
-      //   every reader, racing the script that picks the language.
-      // - The manual kept one ICO with a 16 px frame drawn for that size
-      //   (tools/astarot_favicon_small.py). It goes last, after the site's 32 px icon: of two icons
-      //   that fit equally the browser takes the later one.
+      // Readers without scripts go to the Japanese page, as the manual's HTML was Japanese. A
+      // <meta> inside <noscript> in the head option is moved out of it and would refresh for every
+      // reader, racing the script that picks the language, so it is written into the built pages.
+      // These pages have the site's icons, as every page does.
       afterBuild: async (_config, isProd) => {
         if (!isProd) return
         const dist = fileURLToPath(new URL('./dist/', import.meta.url))
         for (const { path: routePath, to } of MANUAL_REDIRECTS) {
           const file = `${dist}${routePath.replace(/^\//, '').replace(/\/$/, '/index')}.html`
           const html = await readFile(file, 'utf8')
-          const tags =
-            `<noscript><meta http-equiv="refresh" content="0; url=${base}ja${to}"></noscript>` +
-            `<link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="${base}manual/brand/favicon.ico">`
+          const tags = `<noscript><meta http-equiv="refresh" content="0; url=${base}ja${to}"></noscript>`
           if (!html.includes(tags)) await writeFile(file, html.replace('</head>', `${tags}</head>`))
         }
       },
@@ -283,31 +247,32 @@ export default defineConfig({
   // Screenshots open with the guide's own dialog, which keyboard users can open too.
   mediumZoom: false,
   themeConfig: {
-    // Dark only, as the guide was; the light scheme comes with the ASTAROT tokens.
-    darkMode: 'force-dark',
+    // Light and dark, following the OS, with Rspress's switch in the top bar (S-01 in
+    // docs/design/site-redesign). The colours are in theme/tokens.css.
+    darkMode: true,
     socialLinks: [{ icon: 'github', mode: 'link', content: repo }],
     locales: [
       { lang: DEFAULT_LANG, label: 'Language', nav: [], sidebar: {} },
       {
-        lang: 'ja',
-        label: '日本語',
-        // The top bar points at the three pages a reader looks for first.
-        nav: [
-          { text: 'ガイド', link: '/ja/guide/introduction' },
-          { text: 'インストール', link: '/ja/guide/install' },
-          { text: '困ったとき', link: '/ja/guide/troubleshooting' },
-        ],
-        sidebar: sidebarJa,
-      },
-      {
         lang: 'en',
         label: 'English',
+        // The top bar points at the three pages a reader looks for first.
         nav: [
           { text: 'Guide', link: '/en/guide/introduction' },
           { text: 'Install', link: '/en/guide/install' },
           { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
         ],
-        sidebar: sidebarEn,
+        sidebar: sidebarFor('en'),
+      },
+      {
+        lang: 'ja',
+        label: '日本語',
+        nav: [
+          { text: 'ガイド', link: '/ja/guide/introduction' },
+          { text: 'インストール', link: '/ja/guide/install' },
+          { text: '困ったとき', link: '/ja/guide/troubleshooting' },
+        ],
+        sidebar: sidebarFor('ja'),
       },
     ],
   },

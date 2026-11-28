@@ -5,14 +5,20 @@ import { directRouteReady, usesOutputDevice } from "../voice/routeState.ts";
 export type SwitchBlockId = "translation" | "transcription_send" | "transcription_receive" | "ocr" | "tts" | "rvc";
 
 export type SwitchBlockReason = "translation_model" | "translation_unavailable" | "translation_downloading" | "asr_models"
-    | "ocr_language" | "ocr_models" | "tts_source" | "rvc_model" | "rvc_output_device" | "rvc_route";
+    | "ocr_language" | "ocr_models" | "tts_source" | "tts_output_device" | "tts_model" | "rvc_model" | "rvc_output_device" | "rvc_route";
 
-// "translator" opens the translator list in the sidebar.
-export type SwitchBlockAction = "translation" | "translator" | "transcription" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
+// "translator" opens the translator list in the sidebar. "recognition_setup" opens the first-run
+// setup, which shows the recommended speech recognition models and their size and downloads them
+// after consent (#1225).
+// "tts_models" opens the TTS page at its models (#1314, M-2).
+export type SwitchBlockAction = "translation" | "translator" | "transcription" | "recognition_setup" | "ocr" | "ocr_models" | "tts" | "tts_models" | "rvc" | "device";
 
 export interface SwitchBlock {
     reason: SwitchBlockReason;
     action: SwitchBlockAction | null;
+    // Every requirement that is missing when more than one is (#1314, M-2: text to speech); `reason`
+    // is the first of them, and `action` leads to it.
+    missing?: readonly SwitchBlockReason[];
 }
 
 export type SwitchBlocks = Partial<Record<SwitchBlockId, SwitchBlock>>;
@@ -29,6 +35,16 @@ export interface SwitchVoiceSettings {
     mic_mode?: unknown;
     output_device?: unknown;
     routing?: unknown;
+    // Which engine reads Japanese, and which server each language's speech.cpp voice uses.
+    japanese_engine?: unknown;
+    japanese_server?: unknown;
+    multilingual_server?: unknown;
+}
+
+// The speech server settings (/get/data/speech_server_settings), as far as they are read here:
+// the model each profile has.
+export interface SwitchSpeechServers {
+    profiles?: Readonly<Record<string, { model?: unknown } | undefined>> | null;
 }
 
 // The saved direct voice settings.
@@ -50,6 +66,7 @@ export interface SwitchBlocksInput {
     needs?: readonly SetupNeed[];
     ocr?: OcrReadiness | null;
     voiceSettings?: SwitchVoiceSettings | null;
+    speechServers?: SwitchSpeechServers | null;
     directState?: SwitchDirectState | null;
 }
 
@@ -63,13 +80,14 @@ export interface SwitchStatus {
 // the setup needs (translation model, local speech recognition models), the chat reading
 // models of the selected language, the saved speech settings and the saved direct voice
 // settings. Each block names its reason and the settings page that provides it
-// (`action`: a config tab id; "translation" opens the model review, "ocr_models" the chat
-// reading models section; null when there is nothing to do but wait).
+// (`action`: a config tab id; "translation" opens the model review, "recognition_setup" the
+// recognition models' setup, "ocr_models" the chat reading models section; null when there is
+// nothing to do but wait).
 //
 // Only what is known blocks a switch. State that has not arrived yet blocks nothing, so a
 // switch that could start is never greyed out; the switch's own error and the setup
 // dialogs still answer anything this does not see.
-export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, directState = null }: SwitchBlocksInput = {}): SwitchBlocks => {
+export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, speechServers = null, directState = null }: SwitchBlocksInput = {}): SwitchBlocks => {
     const blocks: SwitchBlocks = {};
 
     const translation = needs.find(need => need.id === "translation");
@@ -83,7 +101,8 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     }
 
     if (needs.some(need => need.id === "transcription")) {
-        const block: SwitchBlock = { reason: "asr_models", action: "transcription" };
+        // The models are fixed where the switch is (#1225): the setup reviews and downloads them.
+        const block: SwitchBlock = { reason: "asr_models", action: "recognition_setup" };
         blocks.transcription_send = block;
         blocks.transcription_receive = block;
     }
@@ -95,9 +114,20 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
         blocks.ocr = { reason: "ocr_models", action: "ocr_models" };
     }
 
-    // Nothing to read aloud: the engine refuses with tts_source_not_selected.
-    if (voiceSettings && voiceSettings.mode === "off" && voiceSettings.mic_mode === "off") {
-        blocks.tts = { reason: "tts_source", action: "tts" };
+    // Text to speech names everything it misses at once (#1314, M-2), in the order of the TTS page:
+    // something to read aloud (the engine refuses with tts_source_not_selected), an output device
+    // (the TTS page refuses to save without one unless the route is the managed one), and a voice
+    // to read with (#1266, TT-3: each language reads through the bundled speech.cpp server, and
+    // neither has its model). One at a time, a fix that was refused for the next one read as if it
+    // had not been made.
+    if (voiceSettings) {
+        const missing: SwitchBlockReason[] = [];
+        if (voiceSettings.mode === "off" && voiceSettings.mic_mode === "off") missing.push("tts_source");
+        if (typeof voiceSettings.routing === "string" && voiceSettings.routing !== "managed" && !String(voiceSettings.output_device ?? "").trim())
+            missing.push("tts_output_device");
+        if (speechServers?.profiles && !ttsVoiceReady(voiceSettings, speechServers.profiles)) missing.push("tts_model");
+        const [first] = missing;
+        if (first) blocks.tts = { reason: first, action: first === "tts_model" ? "tts_models" : "tts", ...(missing.length > 1 && { missing }) };
     }
 
     // The saved settings the RVC switch starts from (MainFunctionSwitch's toggleRvc). The
@@ -115,6 +145,16 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     }
 
     return blocks;
+};
+
+// Whether a language can be read aloud: Japanese through an engine the user installed (which has
+// its own voices), or a speech.cpp voice on a server of the user's own (whose model is its own
+// business) or on the bundled server with its model set. Unknown settings count as ready.
+const ttsVoiceReady = (voice: SwitchVoiceSettings, profiles: NonNullable<SwitchSpeechServers["profiles"]>): boolean => {
+    const bundledWithoutModel = (role: "japanese" | "multilingual") =>
+        (voice[`${role}_server`] ?? "bundled") === "bundled" && !String(profiles[role]?.model ?? "").trim();
+    const japanese = (voice.japanese_engine ?? "speechcpp") !== "speechcpp" || !bundledWithoutModel("japanese");
+    return japanese || !bundledWithoutModel("multilingual");
 };
 
 // The block a switch shows now. A switch that is off and waits for nothing stays off while its

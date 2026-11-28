@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, kitStandIns } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as languageNames from "../common/languageNames.ts";
@@ -74,6 +74,8 @@ async function dialog(context: TestContext, entry: object, state: object = { job
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "./InputChoice": { InputChoice: "input-choice" },
+        "../../../../../../logics/transcription/listeningModel": await import("../transcription/listeningModel.ts"),
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
         "./catalogHeading": await loadHeading(runtime),
@@ -91,22 +93,23 @@ async function dialog(context: TestContext, entry: object, state: object = { job
 test("a translation model on the PC that the app can use offers no check or preparation", async context => {
     const buttonWords = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(node => node.props.children);
     const words = (tree: unknown) => nodesIn(tree).flatMap(node => [node.props?.children].flat()).filter(child => typeof child === "string");
-    const offersNothing = (tree: unknown) => !buttonWords(tree).some(word => word === "model_catalog.prepare" || word === "model_downloads.review")
-        && !words(tree).includes("model_catalog.prepare_hint");
+    const offersNothing = (tree: unknown) => !buttonWords(tree).some(word => word === "model_catalog.use" || word === "model_downloads.review")
+        && !words(tree).includes("model_catalog.use_hint");
     const applied = await dialog(context, nllb, { jobs: { [nllb.id]: { job_id: "j1", phase: "applied", paths: {} } } }, false, [nllb.id]);
     assert.ok(offersNothing(applied.render()), "applied in this run");
     const restarted = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, [nllb.id]);
     assert.ok(offersNothing(restarted.render()), "found after a restart");
-    // Its files there by their sizes but not usable (a damaged file): its check, as before.
+    // Its files there by their sizes but not usable (a damaged file): using it checks them (#1263).
     const damaged = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, []);
-    assert.ok(buttonWords(damaged.render()).includes("model_catalog.prepare"));
+    assert.ok(buttonWords(damaged.render()).includes("model_catalog.use"));
     // Not on the PC: the review, as before.
     const missing = await dialog(context, nllb, { jobs: {} }, false);
     assert.ok(buttonWords(missing.render()).includes("model_downloads.review"));
 });
 
 const checkboxes = (tree: unknown) => nodesIn(tree).filter(node => node.type === "input" && node.props.type === "checkbox");
-const start = (tree: unknown) => findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.start");
+// The review's buttons are the kit's (D-23).
+const start = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Button && node.props.children === "model_downloads.start");
 
 test("the review of a non-commercial model asks for a second checkbox and sends what was ticked", async context => {
     const s = await dialog(context, nllb);
@@ -184,7 +187,7 @@ test("reopening the review clears an earlier acknowledgement", async context => 
     let tree = s.render();
     checkboxes(tree).forEach(box => { box.props.onChange({ target: { checked: true } }); });
     tree = s.render();
-    findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(tree, node => node.type === kitStandIns.Button && node.props.autoFocus).props.onClick();
     tree = s.render();
     findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     tree = s.render();

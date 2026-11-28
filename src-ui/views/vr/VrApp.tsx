@@ -5,7 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
 import type { Atom, WritableAtom } from "jotai";
 
-import { dynamicStoreRegistry } from "@store";
+import { dynamicStoreRegistry, useStore_IsOpenedSettingsWindow } from "@store";
 import type { AtomState, RegisteredStoreHook } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useIsOpenedConfigPage } from "@logics_common";
@@ -13,6 +13,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import {
     UiLanguageController,
     FontFamilyController,
+    ThemeController,
 } from "../app/_app_controllers";
 
 import { useVr } from "@logics_configs";
@@ -31,7 +32,7 @@ import type { VrWindows } from "./VrLauncher";
 import type { VrPopup } from "./VrPopupWindow";
 import type { VrPanelLayout } from "../../logics/configs/config_page_setter/settingTypes.ts";
 
-import styles from "./VrApp.module.scss";
+import * as styles from "./VrApp.css.ts";
 
 // VR UI は1枚の画面外ウィンドウ (vr_layout.json の atlas) に各ウィンドウを並べて描く。
 // Python 側 (models/overlay/overlay.py) が1回だけ撮影し、領域ごとに別のオーバーレイとして表示する。
@@ -42,6 +43,24 @@ type RegionProps = {
     name: keyof VrPanelLayout["regions"];
     children?: ReactNode;
     hidden?: boolean;
+};
+
+// The size of each swatch of the log's background colours, in logical px
+// (PANEL_BACKGROUND_SWATCH_PX in native/vr-overlay/src/layout.rs, #1247).
+export const BACKGROUND_SWATCH_PX = 8;
+
+// The log's background colours, the window's fill above the log's own, in the gap right of the
+// log (at least 8 px wide at every log size). No overlay shows them; the overlay reads them to make
+// the log's background, and only it, see-through by the log's opacity.
+const BackgroundSwatch = ({ layout }: { layout: VrPanelLayout }) => {
+    const [x, y, w] = layout.regions.panel;
+    return (
+        <div className={styles.background_swatch} data-vr-background-swatch aria-hidden="true"
+            style={{ left: x + w, top: y, width: BACKGROUND_SWATCH_PX, height: BACKGROUND_SWATCH_PX * 2 }}>
+            <div className={styles.swatch_fill} />
+            <div className={styles.swatch_log} />
+        </div>
+    );
 };
 
 const Region = ({ layout, name, children, hidden = false }: RegionProps) => {
@@ -83,27 +102,30 @@ export const VrApp = () => {
         asyncStdoutToPython("/run/vr_panel_windows", { log: windows.log, popup: windows.popup !== null });
     }, [windows.log, windows.popup]);
 
-    // VR設定ウィンドウを開いている間は、デスクトップで設定画面を開いたのと同じ扱いにする
-    // (メインがメイン機能を止め、閉じたら戻す。VrPanelSyncController)
+    // VR設定ウィンドウを開いている間は、デスクトップで設定を開いたのと同じ扱いにする
+    // (設定画面ならメインがメイン機能を止め、閉じたら戻す。アプリでは設定のウィンドウを開き、何も止めない。VrPanelSyncController)
     const is_settings_open = windows.popup === "settings";
     useEffect(() => {
         sendToMain("vr-panel-config-page", is_settings_open).catch(console.error);
     }, [is_settings_open]);
-    // デスクトップ側で設定画面が閉じられたら、VR設定ウィンドウも閉じる
+    // デスクトップ側で設定画面 (アプリでは設定のウィンドウ、#1236) が閉じられたら、VR設定ウィンドウも閉じる
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
+    const { currentIsOpenedSettingsWindow } = useStore_IsOpenedSettingsWindow();
+    const is_desktop_settings_open = currentIsOpenedConfigPage.data === true || currentIsOpenedSettingsWindow.data === true;
     const was_config_page_open = useRef(false);
     useEffect(() => {
-        const is_open = currentIsOpenedConfigPage.data === true;
-        if (was_config_page_open.current && !is_open) {
+        if (was_config_page_open.current && !is_desktop_settings_open) {
             setWindows(w => (w.popup === "settings" ? { ...w, popup: null } : w));
         }
-        was_config_page_open.current = is_open;
-    }, [currentIsOpenedConfigPage.data]);
+        was_config_page_open.current = is_desktop_settings_open;
+    }, [is_desktop_settings_open]);
 
     const toggleLog = () => setWindows(w => ({ ...w, log: !w.log }));
     const openLog = () => setWindows(w => ({ ...w, log: true }));
     const togglePopup = (name: VrPopup) => setWindows(w => ({ ...w, popup: w.popup === name ? null : name }));
     const closePopup = () => setWindows(w => ({ ...w, popup: null }));
+    // A row of the windows menu opens its window in the menu's place (#1314, V-4).
+    const openPopup = (name: VrPopup) => setWindows(w => ({ ...w, popup: name }));
 
     return (
         <div ref={atlas} className={styles.atlas} style={{ width: atlas_width, height: atlas_height }}>
@@ -111,10 +133,12 @@ export const VrApp = () => {
             <VrPointerHover atlasRef={atlas} />
             <UiLanguageController />
             <FontFamilyController />
+            <ThemeController />
 
             <Region layout={layout} name="panel" hidden={!windows.log}><VrLogWindow open={windows.log} onClose={toggleLog} /></Region>
+            <BackgroundSwatch layout={layout} />
             <Region layout={layout} name="launcher"><VrLauncher windows={windows} toggleLog={toggleLog} openLog={openLog} togglePopup={togglePopup} /></Region>
-            <Region layout={layout} name="popup"><VrPopupWindow popup={windows.popup} onClose={closePopup} /></Region>
+            <Region layout={layout} name="popup"><VrPopupWindow popup={windows.popup} onOpen={openPopup} onClose={closePopup} /></Region>
             <Region layout={layout} name="toolbar"><VrToolbar /></Region>
             <Region layout={layout} name="tooltip"><VrTooltip atlasRef={atlas} layout={layout} /></Region>
         </div>

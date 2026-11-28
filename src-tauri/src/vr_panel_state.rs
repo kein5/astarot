@@ -57,7 +57,10 @@ impl VrPanelState {
 /// itself, so it cannot pass for Rust (`portal-shortcut`, `caption-overlay-moved` ...) or for
 /// another window: it calls `vr_panel_send`, which checks the sender, the name and the shape, and
 /// sends the event to the main window only.
-pub const PANEL_EVENTS: [&str; 3] = ["vr-panel-ready", "vr-panel-config-page", "vr-panel-stdout"];
+pub const PANEL_EVENTS: [&str; 4] = ["vr-panel-ready", "vr-panel-config-page", "vr-panel-stdout", "vr-panel-voice"];
+/// What the launcher's text to speech buttons ask the main window to do (#1314, V-4). The main
+/// window does it as its own switch and stop do (voiceActions.ts); nothing goes to the backend.
+pub const PANEL_VOICE_ACTIONS: [&str; 2] = ["toggle_tts", "stop"];
 pub const EVENT_INVALID: &str = "vr_panel_event_invalid";
 
 pub fn check_panel_event(sender: &str, event: &str, payload: &Value) -> Result<(), String> {
@@ -69,6 +72,7 @@ pub fn check_panel_event(sender: &str, event: &str, payload: &Value) -> Result<(
         "vr-panel-config-page" => payload.is_boolean(),
         // The main window checks the path against its relay list (vrPanelWire.ts).
         "vr-panel-stdout" => payload.get("path").is_some_and(Value::is_string),
+        "vr-panel-voice" => payload.as_str().is_some_and(|action| PANEL_VOICE_ACTIONS.contains(&action)),
         _ => false,
     };
     if valid { Ok(()) } else { Err(EVENT_INVALID.into()) }
@@ -157,11 +161,15 @@ mod tests {
     }
 
     #[test]
-    fn only_the_vr_panel_sends_its_three_events_in_their_shapes() {
+    fn only_the_vr_panel_sends_its_four_events_in_their_shapes() {
         use serde_json::json;
         assert_eq!(check_panel_event(VR_PANEL, "vr-panel-ready", &Value::Null), Ok(()));
         assert_eq!(check_panel_event(VR_PANEL, "vr-panel-config-page", &json!(true)), Ok(()));
         assert_eq!(check_panel_event(VR_PANEL, "vr-panel-stdout", &json!({ "path": "/run/vr_panel_windows", "value": {} })), Ok(()));
+        for action in PANEL_VOICE_ACTIONS {
+            assert_eq!(check_panel_event(VR_PANEL, "vr-panel-voice", &json!(action)), Ok(()), "{action}");
+        }
+        assert_eq!(check_panel_event(MAIN, "vr-panel-voice", &json!("stop")), Err(FORBIDDEN.to_string()));
         for label in [MAIN, "quick_chat", "caption_overlay", "unknown", ""] {
             assert_eq!(check_panel_event(label, "vr-panel-ready", &Value::Null), Err(FORBIDDEN.to_string()), "{label}");
         }
@@ -171,7 +179,10 @@ mod tests {
             assert_eq!(check_panel_event(VR_PANEL, event, &Value::Null), Err(EVENT_INVALID.to_string()), "{event}");
         }
         for (event, payload) in [("vr-panel-ready", json!(1)), ("vr-panel-config-page", json!("yes")),
-            ("vr-panel-stdout", json!({ "path": 3 })), ("vr-panel-stdout", json!(null))] {
+            ("vr-panel-stdout", json!({ "path": 3 })), ("vr-panel-stdout", json!(null)),
+            // Only the two actions: not the RVC switch, mute, or any request of the backend's.
+            ("vr-panel-voice", json!("toggle_rvc")), ("vr-panel-voice", json!("toggle_mute")), ("vr-panel-voice", json!(null)),
+            ("vr-panel-voice", json!({ "action": "stop" }))] {
             assert_eq!(check_panel_event(VR_PANEL, event, &payload), Err(EVENT_INVALID.to_string()), "{event} {payload}");
         }
         assert!(PANEL_EVENTS.iter().all(|event| event.starts_with("vr-panel-")));

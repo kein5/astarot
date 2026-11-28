@@ -20,12 +20,12 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::{OscArg, decode_packet};
-use vrct_core::config::Platform;
-use vrct_core::controller::{RealtimeLimits, Services};
-use vrct_core::vr_overlay::runtime::fake::FakeVr;
-use vrct_translation::fake::FakeProviders;
-use vrct_transcription::capture::Source;
+use astarot_adapters::osc::{OscArg, decode_packet};
+use astarot_core::config::Platform;
+use astarot_core::controller::{RealtimeLimits, Services};
+use astarot_core::vr_overlay::runtime::fake::FakeVr;
+use astarot_translation::fake::FakeProviders;
+use astarot_transcription::capture::Source;
 
 const TRANSLATE: &str = "/deepl-free/v2/translate";
 
@@ -104,10 +104,11 @@ fn start_changed(
     }
     let mut services = Services { transcription_capture: capture.factory(), realtime_limits: limits, ..Setup::default().services };
     if let Some(vr) = vr {
+        common::warm_system_fonts();
         services.vr = Arc::new(vr);
     }
     if let Some(providers) = providers {
-        services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&providers.url());
+        services.translation_endpoints = astarot_translation::providers::Endpoints::all_at(&providers.url());
     }
     change(&mut services);
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
@@ -161,6 +162,8 @@ impl Run {
 fn settings_are_normalized_saved_and_refused_with_a_code() {
     let run = start(Platform::Windows, json!({}), false);
     let defaults = run.ui.ok("/get/data/realtime_asr_settings", None);
+    // The run saves the chatbox's address and no recognition server: a saved file that never chose
+    // one keeps the external server (#1266; a new install takes the bundled one, config_versions.rs).
     assert_eq!((defaults["server"].clone(), defaults["mic"]["language"].clone(), defaults["speaker"]["language"].clone()), (json!("external"), json!("ja"), json!("auto")));
 
     let answer = run.ui.request("/set/data/realtime_asr_settings", Some(json!({ "server": "cloud" })));
@@ -246,6 +249,8 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     let state = run.ui.ok("/get/data/realtime_asr_state", None);
     assert_eq!((state["mic"]["state"].clone(), state["mic"]["requested"].clone()), (json!("ready"), json!(true)));
     assert_eq!(state["speaker"]["state"], "idle");
+    // The device the captions record, by the name the device list shows it with (#1314, M-6).
+    assert_eq!((state["mic"]["device"].clone(), state["speaker"]["device"].clone()), (json!("USB Mic"), Value::Null));
 
     let mark = run.ui.lines().len();
     assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
@@ -297,7 +302,8 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     // [`test_overlay_lifecycle_publication.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_overlay_lifecycle_publication.py
     let fake = FakeVr::running();
     let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
-    eventually("the large log made", || fake.handle("ASTAROT1").is_some());
+    // Built, not only made: the large log's first, empty picture is not a caption's (#861).
+    eventually("the overlays built", || fake.built());
     let large = fake.handle("ASTAROT1").unwrap();
     let drawn = || fake.calls_on(large, "raw");
     let before = drawn().len();
@@ -308,7 +314,12 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     for state in ["partial", "final", "translated"] {
         run.caption(mark, state);
     }
-    eventually("each state drew the log", || drawn().len() >= before + 3);
+    // Each caption row was queued for the large log before it reached the UI (#861); the server
+    // goes on speaking, so later captions may still wait.
+    let core = run.ui.backend.core().clone();
+    let queued = core.overlay_captions_queued();
+    eventually("the captions drawn", || core.overlay_captions_drawn(queued));
+    assert!(drawn().len() >= before + 3, "each state drew the log");
     let last = drawn().last().cloned().unwrap();
     assert!(!last.ends_with(" 1x1"), "the log shows the caption: {last}");
     assert!(run.ui.on(mark, "/run/message_output_error").is_empty());
@@ -563,6 +574,23 @@ fn the_settings_page_start_answers_what_the_server_lacks_before_any_session_star
     run.ui.stop();
 }
 
+// #1302: changing the captions' server stops them. A stopping session is no longer reported as
+// asked to run, and the core sends no word of its end: the UI polls while one is stopping, and
+// this is what it waits for, the session closed.
+#[test]
+fn a_settings_change_that_stops_the_captions_ends_with_them_closed() {
+    let run = start(Platform::Linux, json!({}), true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    let mut value = settings(&run.asr);
+    value["server"] = json!("bundled");
+    run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+    assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    eventually("the session closed", || run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["state"] == "closed");
+    run.ui.stop();
+}
+
 #[test]
 fn leaving_the_local_engine_stops_its_realtime_session() {
     // #394: on Windows the local engine listens through realtime recognition; choosing a cloud
@@ -575,21 +603,51 @@ fn leaving_the_local_engine_stops_its_realtime_session() {
     assert_eq!(run.ui.wait_endpoint(mark, "/set/disable/transcription_send")["result"], false);
     assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    // The session's own end comes after the capture stops and may still tell the UI about the
+    // captions it drops (#861): only what the microphone says after the session closed counts.
+    eventually("the session closed", || {
+        let state = run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["state"].clone();
+        state == "closed" || state == "idle"
+    });
+    let heard = run.ui.lines().len();
     run.capture.hear(Source::Mic, &[speech(2000)]);
     std::thread::sleep(Duration::from_millis(500));
-    assert!(run.ui.on(mark, "/run/realtime_caption").is_empty(), "no caption after the engine changed");
+    assert!(run.ui.on(heard, "/run/realtime_caption").is_empty(), "no caption after the engine changed");
     run.ui.stop();
+}
+
+// #1298: Listening turned on with "auto" on a model that cannot tell the language is refused with
+// the model's languages, as Mic input is, so the switch's dialog can offer them and a model that
+// tells the language (#1225, #1242). The dialog's buttons are covered in
+// `RecognitionFixController.test.ts`.
+#[test]
+fn listening_on_auto_is_refused_with_the_models_languages() {
+    let run = start(Platform::Linux, json!({}), true);
+    let mut value = settings(&run.asr);
+    value["speaker"]["language"] = json!("auto");
+    run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+    let endpoint = "/set/enable/transcription_receive";
+    let mark = run.ui.send(endpoint, None);
+    let answer = run.ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint);
+    assert_eq!(error_code(&answer), "TRANSCRIPTION_RECEIVE_NOT_READY", "{answer}");
+    assert_eq!(answer["result"]["details"], json!({ "reason": "realtime_language_auto_unsupported", "languages": ["ja"] }));
 }
 
 #[test]
 fn a_switch_says_what_is_missing() {
     let run = start(Platform::Linux, json!({}), true);
-    let not_ready = |run: &Run| {
+    let details = |run: &Run| {
         let mark = run.ui.send("/set/enable/transcription_send", None);
         let answer = run.ui.wait_from(mark, "the answer", |l| l["endpoint"] == "/set/enable/transcription_send");
         assert_eq!(error_code(&answer), "TRANSCRIPTION_SEND_NOT_READY", "{answer}");
         assert_eq!(answer["result"]["data"], false);
-        answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string()
+        answer["result"]["details"].clone()
+    };
+    let not_ready = |run: &Run| {
+        let details = details(run);
+        // Only a language the model does not take comes with the model's languages (#1225).
+        assert!(details.get("languages").is_none(), "{details}");
+        details["reason"].as_str().unwrap_or_default().to_string()
     };
     let set = |run: &Run, change: &dyn Fn(&mut Value)| {
         let mut value = settings(&run.asr);
@@ -600,20 +658,25 @@ fn a_switch_says_what_is_missing() {
     assert_eq!(not_ready(&run), "realtime_model_required");
     set(&run, &|s| s["model"] = json!("other-model"));
     assert_eq!(not_ready(&run), "realtime_model_unavailable");
+    // A language the model does not take: the answer lists the ones it does, so the switch can
+    // offer them (#1225).
     set(&run, &|s| s["mic"]["language"] = json!("en"));
-    assert_eq!(not_ready(&run), "realtime_language_unsupported");
+    assert_eq!(details(&run), json!({ "reason": "realtime_language_unsupported", "languages": ["ja"] }));
     set(&run, &|s| s["mic"]["language"] = json!("auto"));
-    assert_eq!(not_ready(&run), "realtime_language_auto_unsupported");
+    assert_eq!(details(&run), json!({ "reason": "realtime_language_auto_unsupported", "languages": ["ja"] }));
     set(&run, &|s| s["mic"]["follow_default"] = json!(false));
     assert_eq!(not_ready(&run), "realtime_endpoint_required");
     set(&run, &|s| s["server"] = json!("bundled"));
     // Stopped, and the server needs its model files first.
     assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    // A choice not to start the server, saved by an earlier version, is left out (#1396): the
+    // switch starts it all the same, and needs its model files first.
     set(&run, &|s| {
         s["server"] = json!("bundled");
         s["start_server"] = json!(false);
     });
-    assert_eq!(not_ready(&run), "speech_server_autostart_off");
+    assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    assert!(run.ui.ok("/get/data/realtime_asr_settings", None).get("start_server").is_none());
     run.capture.set_default(Source::Mic, None);
     set(&run, &|_| {});
     assert_eq!(not_ready(&run), "realtime_default_endpoint_missing");
@@ -672,7 +735,7 @@ fn an_utterance_the_server_never_finishes_ends_the_session_after_its_limit() {
     // Decision 81: the first result may take 120 s (a GPU builds its kernels) and each later one
     // 15 s; shortened here. The limit is counted from the utterance's start.
     let limits = |first: u64, later: u64| RealtimeLimits {
-        session: vrct_transcription::realtime::Limits {
+        session: astarot_transcription::realtime::Limits {
             first_result: Duration::from_millis(first),
             pending: Duration::from_millis(later),
             ..Default::default()
@@ -746,12 +809,13 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     assert!(waited >= Duration::from_millis(1900) && waited < Duration::from_secs(5), "{waited:?}");
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
 
-    // One that never delivers is given 5 s from the open.
+    // One that never delivers is given 5 s from the open. It never started, which is told apart
+    // from a device that went away (#1300).
     let mark = run.ui.lines().len();
     let opened = std::time::Instant::now();
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
-    assert_eq!(failed["result"]["details"]["reason"], "realtime_capture_failed");
+    assert_eq!(failed["result"]["details"]["reason"], "asr_capture_start_timeout");
     assert!(opened.elapsed() >= Duration::from_millis(4900), "{:?}", opened.elapsed());
 
     // The speaker's loopback delivers nothing while nothing plays: that is not a failure.
@@ -760,6 +824,46 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     std::thread::sleep(Duration::from_secs(3));
     assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["requested"], true);
     run.ui.stop();
+}
+
+// #1300: Windows holds a microphone's open until its permission question is answered, and refuses
+// the microphone when the question was left unanswered. The switch says so by the capture's own
+// codes, whose words name the question and the privacy setting, not as a device that went away.
+// #1300 (decided on 2026-11-28): while Windows holds a microphone's open for its permission question
+// on the desktop, the captions' state says so once the open has run 3 s, so the screens can tell a
+// user in VR to look at the desktop. It goes once the open returns.
+#[test]
+fn a_microphone_whose_open_waits_is_reported_as_waiting() {
+    let run = start(Platform::Linux, json!({}), true);
+    run.capture.hold("alsa.mic");
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mic = || run.ui.ok("/get/data/realtime_asr_state", None)["mic"].clone();
+    std::thread::sleep(Duration::from_millis(1500));
+    assert_eq!((mic()["state"].clone(), mic()["capture_waiting"].clone()), (json!("starting"), json!(false)), "not before 3 s");
+    eventually("the open is reported as waiting", || mic()["capture_waiting"] == true);
+    run.capture.let_go("alsa.mic");
+    eventually("the captions run", || mic()["state"] == "ready");
+    assert_eq!(mic()["capture_waiting"], false);
+    run.ui.stop();
+}
+
+#[test]
+fn a_microphone_windows_holds_or_refuses_is_told_as_such() {
+    // The reason Mic input's switch gives when its microphone's open fails with `code`.
+    let reason = |code: &str| {
+        let run = start(Platform::Linux, json!({}), true);
+        run.capture.refuse_with("alsa.mic", code);
+        let mark = run.ui.lines().len();
+        assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+        let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+        assert_eq!(error_code(&failed), "TRANSCRIPTION_SEND_NOT_READY", "{failed}");
+        run.ui.stop();
+        failed["result"]["details"]["reason"].as_str().unwrap_or_default().to_string()
+    };
+    assert_eq!(reason("asr_capture_start_timeout"), "asr_capture_start_timeout");
+    assert_eq!(reason("asr_capture_stream_create_failed"), "asr_capture_stream_create_failed");
+    // Another failure to open is still a capture that stopped.
+    assert_eq!(reason("asr_capture_endpoint_missing"), "realtime_capture_failed");
 }
 
 #[test]
@@ -771,7 +875,7 @@ fn a_switch_turned_off_and_on_while_the_server_does_not_answer_starts_again() {
     // that ends the wait lets the switch turn on again (the answer is 200, not that failure).
     let limits = RealtimeLimits {
         drain: Duration::from_millis(500),
-        session: vrct_transcription::realtime::Limits { setup: Duration::from_secs(10), ..Default::default() },
+        session: astarot_transcription::realtime::Limits { setup: Duration::from_secs(10), ..Default::default() },
         ..RealtimeLimits::default()
     };
     let run = start_with(Platform::Linux, json!({}), true, None, None, limits);
@@ -835,7 +939,7 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
     let services = Services {
         transcription_capture: capture.factory(),
         speech_server_launch: std::sync::Arc::new(move |_| {
-            let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+            let mut launch = astarot_speech_server::server::Launch::fixed(fake);
             launch.start_timeout = Duration::from_secs(10);
             launch
         }),
@@ -856,6 +960,39 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
         let reason = answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string();
         assert!(!reason.starts_with("speech_server_"), "{endpoint}: {answer}");
     }
+    ui.stop();
+}
+
+// #1314 (M-3): with the bundled speech.cpp missing or failing its check, the switch's refusal keeps
+// that reason, whose fix is to install the app again, instead of the general start failure that
+// points to the model and the device.
+#[test]
+fn a_switch_without_the_bundled_server_says_the_bundle_is_missing() {
+    let models = tempfile::tempdir().unwrap();
+    let gguf = |name: &str| {
+        let path = models.path().join(format!("{name}.gguf"));
+        std::fs::write(&path, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+        path.canonicalize().unwrap().to_str().unwrap().to_owned()
+    };
+    let row = |model: String, vad: String| json!({ "model": model, "vad_model": vad, "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let empty = || row(String::new(), String::new());
+    let speech_settings = json!({ "version": 1, "profiles": { "japanese": empty(), "multilingual": empty(), "asr": row(gguf("asr"), gguf("vad")) } });
+    let asr = FakeAsr::start();
+    let mut realtime = settings(&asr);
+    realtime["server"] = json!("bundled");
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    // The app's own launch: the bundle is looked for beside the app, and the test's app folder has none.
+    let services = Services { transcription_capture: capture.factory(), ..Setup::default().services };
+    let saved = json!({ "OSC_IP_ADDRESS": "127.0.0.2", "REALTIME_ASR_SETTINGS": realtime, "SPEECH_SERVER_SETTINGS": speech_settings });
+    let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Linux, ..Setup::default() });
+    ui.ready();
+    let mark = ui.send("/set/enable/transcription_send", None);
+    let answer = ui.wait_from(mark, "the answer", |l| l["endpoint"] == "/set/enable/transcription_send");
+    assert_eq!(error_code(&answer), "TRANSCRIPTION_SEND_NOT_READY", "{answer}");
+    assert_eq!(answer["result"]["details"]["reason"], "speech_bundle_missing_or_invalid", "{answer}");
+    assert!(capture.opened().is_empty(), "no device was opened without a server");
     ui.stop();
 }
 

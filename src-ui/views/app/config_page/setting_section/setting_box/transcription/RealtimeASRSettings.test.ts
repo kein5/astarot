@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, setRef, isRecord, stubGlobals } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, isRecord, stubGlobals, componentName } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { RealtimeAsrSettings } from "../../../../../../logics/transcription/useRealtimeASR.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
+import * as recognitionFix from "../../../../../../logics/transcription/recognitionFix.ts";
+import { readLocale, textAt } from "../../../../../../logics/test/locales.ts";
 
 // The settings the page writes, read back as far as the tests read them: a source for each input,
 // and the vocabulary's terms when it is there.
@@ -29,10 +32,19 @@ interface Listener {
 }
 type Reply = (answer: { status: number; result: unknown }) => void;
 
-// hints: whether the page keeps descriptions out of sight (#614).
-async function fixture(context: TestContext, { hints = false }: { hints?: boolean } = {}) {
+// hints: whether the page keeps descriptions out of sight (#614). part: the captions' form in
+// 「詳細設定」, or the server choice first in the page's speech.cpp part (AsrServer, #1266), which
+// edits the same settings and holds the address.
+// models: the recognition models on the PC and the speech servers' settings, for Listening's model
+// (#1242, #1298); none by default.
+interface Models {
+    catalog: unknown;
+    downloaded: Record<string, Record<string, string>>;
+    asr: { model: string; listening_model: string };
+}
+async function fixture(context: TestContext, { hints = false, part = "captions", models }: { hints?: boolean; part?: "captions" | "server"; models?: Models } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), barRuntime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
+    const runtime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
     const window = {
         addEventListener(type: string, fn: Listener["fn"], options?: { capture?: boolean }) { listeners.push({ type, fn, capture: !!options?.capture }); },
         removeEventListener(type: string, fn: Listener["fn"]) { const i = listeners.findIndex(row => row.type === type && row.fn === fn); if (i >= 0) listeners.splice(i, 1); },
@@ -41,9 +53,8 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();
-    const saveBar = await loadModule<typeof import("../../../../../../logics/voice/saveBar.ts")>(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
     const draftHooks = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": saveBar,
+        "./draftRebase": { rebaseDraft }, 
     });
     const asr: Asr = {
         settings: { server: "external", base_url: "http://localhost:8080", model: "asr-model",
@@ -58,12 +69,18 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         },
         updateError: error => { asr.error = error; },
     };
-    const speech = { state: {}, send: () => {} };
-    const { RealtimeASRSettings } = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, {
+    const speech = { settings: models && { profiles: { asr: models.asr } }, state: {}, send: () => {} };
+    const { RealtimeASRSettings } = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { "../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
+        "../../../../../../logics/transcription/recognitionFix": recognitionFix,
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
+        // Listening's own model (#1242): no model on the PC unless given; listeningModel.test.ts covers the choice.
+        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({ catalog: models?.catalog ?? null,
+            state: { jobs: {}, downloaded: models?.downloaded ?? {} }, send: () => true }) },
+        "../../../../../../logics/transcription/listeningModel": await import("../../../../../../logics/transcription/listeningModel.ts"),
+        "../../../../../../logics/voice/modelCatalog": { familyLabel: (entry: { name?: string }) => entry.name },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
@@ -75,22 +92,28 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const { SaveBar } = await loadModule<typeof import("../../../topbar/Topbar.tsx")>(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
-        "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
-        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
+    const { AsrServer } = await loadModule<typeof import("./AsrServer.tsx")>(new URL("./AsrServer.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
+        "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
+        "../../../../../../logics/voice/useSettingsDraft": draftHooks,
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
+        "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" },
     });
-    let dialogProps: { onClose: () => void } | null = null;
-    const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; assert.ok(dialogProps); dialogProps.onClose(); } };
-    const bar = () => barRuntime.render(SaveBar, {}, tree => {
-        const dialog = find(tree, node => node.type === "dialog");
-        // The dialog's ref, which React would fill with the element: the stub stands in for it.
-        if (dialog) { setRef(dialog, modal); dialogProps = dialog.props; }
-    });
-    const render = () => { runtime.render(RealtimeASRSettings); return runtime.render(RealtimeASRSettings); };
+    const component = part === "server" ? AsrServer : RealtimeASRSettings;
+    // The first drawing makes the draft; the server part draws nothing before it.
+    const render = () => {
+        runtime.render(component);
+        const tree = runtime.render(component);
+        assert.ok(tree);
+        return tree;
+    };
     const field = (label: string) => findIn(render(), node => node.type === "input" && node.props["aria-label"] === label).props;
-    const entries = () => saveBar.useSaveBarEntries();
-    const status = () => findIn(bar(), node => node.props?.role === "status").props.children;
     const changeURL = () => { field("realtime.url").onChange({ target: { value: "http://localhost:9090" } }); render(); };
+    // #1111: the form saves when focus leaves it, on Enter in the address, and a choice at once.
+    const form = () => findIn(render(), node => node.type === "form").props;
+    const leave = () => { form().onBlur({ relatedTarget: null }); render(); };
     // The page writes nothing but its settings, whole.
     const writes = () => calls.filter(([endpoint]) => endpoint.startsWith("/set/")).map(([endpoint, value]): [string, RealtimeAsrSettings] => {
         assert.ok(isSettings(value), endpoint);
@@ -114,9 +137,9 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
-    context.onTestFinished(() => { runtime.unmount(); barRuntime.unmount(); });
+    context.onTestFinished(() => { runtime.unmount(); });
     render();
-    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners, calls };
+    return { runtime, asr, render, field, changeURL, form, leave, writes, acknowledge, refuse, window, listeners, calls };
 }
 
 // #792: the page asks for the built-in terms and hands them, with the dictionary, to one list where
@@ -135,33 +158,29 @@ test("the dictionary is one list, with the built-in terms the page asked for", a
     assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add"), null);
     list().props.onVocabulary({ builtin: true, terms: ["猫丸"] });
     s.render();
-    assert.equal(s.entries().length, 1);
-    assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user", "realtime.vocabulary_builtin"], "the change waits in the save bar");
+    // A change from the list saves at once (#1111, decided 3); the form is not in the save bar.
+    assert.deepEqual(s.writes().map(([, value]) => value.vocabulary), [{ builtin: true, terms: ["猫丸"] }]);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
-    s.barRuntime.unmount();
 });
 
-test("realtime drafts register and unregister with the shared save bar, including dictionary edits", async context => {
-    const s = await fixture(context);
-    assert.equal(s.entries().length, 1);
-    assert.equal(s.status(), "voice_ui.saved");
+test("the server's address saves by itself when focus leaves the form, not while it moves inside", async context => {
+    const s = await fixture(context, { part: "server" });
     s.changeURL();
-    findIn(s.render(), node => node.type === "vocabulary-list").props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット"] });
-    const tree = s.render();
-    assert.equal(tree.props["data-unsaved"], true);
-    assert.deepEqual(s.entries()[0].changes, ["realtime.url", "realtime.vocabulary_user"]);
-    assert.equal(s.status(), "voice_ui.unsaved");
-    assert.deepEqual(s.writes(), [], "editing never submits");
+    assert.deepEqual(s.writes(), [], "typing never submits");
+    // Focus moving from the address to another field of the form saves nothing yet.
+    s.form().ref({ contains: () => true });
+    s.form().onBlur({ relatedTarget: {} }); s.render();
+    assert.deepEqual(s.writes(), []);
+    s.leave();
+    assert.deepEqual(s.writes().map(([, value]) => value.base_url), ["http://localhost:9090"]);
     s.runtime.unmount();
-    assert.deepEqual(s.entries(), []);
-    s.barRuntime.unmount();
     assert.equal(s.listeners.length, 0);
 });
 
-test("a dictionary file read in joins the draft and the save bar, as a term added in the list does", async context => {
-    // #792: the file part hands the dictionary it read to the form; nothing is saved until the bar
-    // saves. It writes out the dictionary the page shows, through the page's own requests.
+test("a dictionary file read in saves at once, as a term added in the list does", async context => {
+    // #792: the file part hands the dictionary it read to the form, which saves it at once (#1111).
+    // It writes out the dictionary the page shows, through the page's own requests.
     const s = await fixture(context);
     let tree = s.render();
     const files = findIn(tree, node => node.type === "vocabulary-files");
@@ -170,107 +189,93 @@ test("a dictionary file read in joins the draft and the save bar, as a term adde
     files.props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット", "Midnight Rooftop"] });
     tree = s.render();
     assert.deepEqual(findIn(tree, node => node.type === "vocabulary-files").props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
-    assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user"]);
-    assert.deepEqual(s.writes(), [], "reading a file never submits");
+    assert.deepEqual(s.writes().map(([, value]) => value.vocabulary?.terms), [["VRChat=ブイアールチャット", "Midnight Rooftop"]]);
+    await s.acknowledge(s.writes()[0][1]);
     // A term added in the list joins the same terms.
     const list = findIn(s.render(), node => node.type === "vocabulary-list");
     assert.deepEqual(list.props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     list.props.onVocabulary({ ...list.props.vocabulary, terms: [...list.props.vocabulary.terms, "猫丸=ねこまる"] });
     assert.deepEqual(findIn(s.render(), node => node.type === "vocabulary-files").props.vocabulary.terms,
         ["VRChat=ブイアールチャット", "Midnight Rooftop", "猫丸=ねこまる"]);
+    assert.equal(s.writes().length, 2);
     // No bulk add and no copy of the terms remain.
     assert.equal(find(s.render(), node => node.type === "textarea"), null);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
-    s.barRuntime.unmount();
 });
 
-test("the shared leave guard blocks category navigation until discard; keep editing preserves the draft", async context => {
-    const s = await fixture(context);
-    s.changeURL(); s.bar();
-    let proceeded = 0;
-    const leave = () => {
-        const event = { defaultPrevented: false, detail: { proceed: () => proceeded++ },
-            preventDefault() { this.defaultPrevented = true; } };
-        s.window.dispatch("vrct:settings-leave", event);
-        assert.equal(event.defaultPrevented, true);
-        assert.equal(proceeded, 0);
-        return s.bar();
-    };
-    let tree = leave();
-    assert.equal(s.modal.open, true);
-    assert.equal(find(s.render(), node => node.type === "dialog"), null, "capture guard owns the one leave dialog");
-    findIn(tree, node => node.type === "button" && node.props.children === "voice_ui.keep_editing").props.onClick();
-    assert.equal(s.modal.open, false);
-    assert.equal(s.field("realtime.url").value, "http://localhost:9090");
-    tree = leave();
-    findIn(tree, node => node.type === "button" && node.props.children === "voice_ui.discard_leave").props.onClick();
-    assert.equal(proceeded, 1);
+test("leaving the page with an edit asks nothing first, and Escape puts the saved address back", async context => {
+    // #1111, decided 4: an edit not saved yet goes with the page.
+    const s = await fixture(context, { part: "server" });
+    s.changeURL();
+    for (const type of ["vrct:settings-leave", "beforeunload"]) {
+        const event = { defaultPrevented: false, detail: { proceed() {} }, preventDefault() { this.defaultPrevented = true; } };
+        s.window.dispatch(type, event);
+        assert.equal(event.defaultPrevented, false, type);
+    }
+    assert.equal(find(s.render(), node => node.type === "dialog"), null);
+    s.form().onKeyDown({ key: "Escape", target: { tagName: "INPUT", type: "text" }, preventDefault() {} }); s.render();
     assert.equal(s.field("realtime.url").value, "http://localhost:8080");
-    s.render();
-    assert.equal(s.status(), "voice_ui.saved");
     assert.deepEqual(s.writes(), []);
 });
 
-for (const method of ["submit", "save bar"]) {
-    test(`${method} waits for acknowledgement and publishes saving/saved without starting audio`, async context => {
-        const s = await fixture(context);
+for (const method of ["Enter", "leaving"]) {
+    test(`${method} saves the address once and waits for its answer without starting audio`, async context => {
+        const s = await fixture(context, { part: "server" });
         s.changeURL();
-        if (method === "submit") {
-            findIn(s.render(), node => node.type === "form").props.onSubmit({ preventDefault() {} });
-        } else s.entries()[0].save();
-        s.render();
-        assert.equal(s.status(), "voice_ui.saving");
+        const save = () => {
+            if (method === "Enter") s.field("realtime.url").onKeyDown({ key: "Enter", preventDefault() {} });
+            else s.leave();
+            s.render();
+        };
+        save();
         assert.equal(s.field("realtime.url").readOnly, true);
-        assert.equal(findIn(s.render(), node => node.type === "button" && node.props.type === "submit").props.disabled, true);
-        findIn(s.render(), node => node.type === "form").props.onSubmit({ preventDefault() {} });
+        // No Save button: the form saves by itself.
+        assert.equal(find(s.render(), node => node.type === "button" && node.props.type === "submit"), null);
+        save();
         assert.equal(s.writes().length, 1);
         assert.equal(s.writes()[0][0], "/set/data/realtime_asr_settings");
         assert.equal(s.writes()[0][1].base_url, "http://localhost:9090");
         await s.acknowledge(s.writes()[0][1]);
-        assert.equal(s.status(), "voice_ui.saved");
-        assert.equal(s.entries()[0].dirty, false);
+        assert.equal(s.field("realtime.url").readOnly, false);
+        assert.equal(s.writes().length, 1, "the save asked for while one waited had nothing left to save");
+        assert.ok(!s.calls.some(([endpoint]) => endpoint.startsWith("/run/")));
     });
 }
 
-test("canonical vocabulary acknowledgement clears the save bar and enables realtime Start", async context => {
+test("canonical vocabulary acknowledgement enables realtime Start", async context => {
     const s = await fixture(context);
     s.asr.state = { mic: { requested: false }, speaker: { requested: false } };
     s.asr.models = { server: "external", configured_url: s.asr.settings.base_url, base_url: s.asr.settings.base_url,
         models: [{ id: "asr-model", languages: ["ja"] }] };
     findIn(s.render(), node => node.type === "vocabulary-list").props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット"] });
-    s.render(); s.entries()[0].save(); s.render();
+    s.render();
     const sent = s.writes()[0][1];
     await s.acknowledge({ ...sent, vocabulary: { ...sent.vocabulary, terms: ["VRChat=ブイアールチャット"] } });
-    assert.equal(s.entries()[0].dirty, false);
-    assert.equal(s.status(), "voice_ui.saved");
+    assert.equal(s.render().props["data-unsaved"], undefined);
     assert.equal(findIn(s.render(), node => node.type === "button" && node.props.children === "realtime.start_mic").props.disabled, false);
     vi.advanceTimersByTime(5000); s.render();
     assert.equal(s.asr.error, null);
 });
 
-test("rejected and unconfirmed saves keep edits visible and guarded; refresh does not erase them", async context => {
-    const s = await fixture(context);
+test("rejected and unconfirmed saves keep edits visible and say so under the form; refresh does not erase them", async context => {
+    const s = await fixture(context, { part: "server" });
     s.changeURL();
     s.asr.settings = { ...s.asr.settings, model: "refreshed-model" };
     s.render();
     assert.equal(s.field("realtime.url").value, "http://localhost:9090");
-    s.entries()[0].save(); s.render();
+    s.leave();
     await s.refuse("invalid_settings");
-    assert.equal(s.status(), "voice_ui.save_failed");
-    assert.equal(s.entries()[0].edited, true);
+    assert.equal(s.field("realtime.url").value, "http://localhost:9090");
     assert.equal(s.field("realtime.url").readOnly, false);
-    s.entries()[0].save(); s.render();
+    const problem = () => find(s.render(), node => node.type === "field-problem");
+    assert.ok(problem(), "the refusal is said under the form");
+    assert.equal(find(s.render(), node => componentName(node) === "Failure"), null, "and not again below it");
+    s.leave();
     vi.advanceTimersByTime(5000);
     s.render();
     assert.equal(s.asr.error, "save_unconfirmed");
-    assert.equal(s.status(), "voice_ui.save_failed");
-    const event: { defaultPrevented: boolean; returnValue?: unknown; preventDefault(): void } = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
-    s.window.dispatch("beforeunload", event);
-    assert.equal(event.defaultPrevented, true);
-    assert.equal(event.returnValue, "");
-    s.entries()[0].discard(); s.render();
-    assert.equal(s.status(), "voice_ui.saved");
+    assert.equal(s.writes().length, 2);
 });
 
 const silenceSelect = (tree: unknown) => findIn(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.silence");
@@ -282,20 +287,18 @@ test("the silence that ends an utterance is saved when chosen and left out for t
     assert.equal(select().value, "", "the default by default");
     // The default (0.4 s) comes first; the default before, 0.5 s, can still be chosen.
     assert.deepEqual(optionValues(silenceSelect(s.render())), ["", 300, 500, 700, 1000]);
+    // A choice saves at once (#1111, decided 3).
     select().onChange({ target: { value: "300" } });
     assert.equal(select().value, 300);
-    assert.deepEqual(s.entries()[0].changes, ["realtime.silence"]);
-    s.entries()[0].save(); s.render();
     assert.equal(s.writes()[0][1].silence_duration_ms, 300);
     await s.acknowledge(s.writes()[0][1]);
-    assert.equal(s.entries()[0].dirty, false);
     // Back to the default: the field goes, as the backend leaves it out.
     select().onChange({ target: { value: "" } });
-    s.render(); s.entries()[0].save(); s.render();
+    s.render();
     assert.equal("silence_duration_ms" in s.writes()[1][1], false);
     await s.acknowledge(s.writes()[1][1]);
-    assert.equal(s.entries()[0].dirty, false);
     assert.equal(select().value, "");
+    assert.equal(s.writes().length, 2);
 });
 
 const thresholdSelect = (tree: unknown) => findIn(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.vad_threshold");
@@ -308,12 +311,10 @@ test("the speech detection threshold is saved when chosen and left out for the s
     assert.deepEqual(optionValues(thresholdSelect(s.render())), ["", 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]);
     select().onChange({ target: { value: "0.3" } });
     assert.equal(select().value, 0.3);
-    assert.deepEqual(s.entries()[0].changes, ["realtime.vad_threshold"]);
-    s.entries()[0].save(); s.render();
     assert.equal(s.writes()[0][1].vad_threshold, 0.3);
     await s.acknowledge(s.writes()[0][1]);
     select().onChange({ target: { value: "" } });
-    s.render(); s.entries()[0].save(); s.render();
+    s.render();
     assert.equal("vad_threshold" in s.writes()[1][1], false);
     await s.acknowledge(s.writes()[1][1]);
     assert.equal(select().value, "");
@@ -328,7 +329,8 @@ test("a silence saved before the default became 0.4 s stays chosen", async conte
     const select = silenceSelect(s.render());
     assert.equal(select.props.value, 400);
     assert.deepEqual(optionValues(select), ["", 400, 300, 500, 700, 1000]);
-    assert.equal(s.entries()[0].dirty, false);
+    assert.equal(s.render().props["data-unsaved"], undefined);
+    assert.deepEqual(s.writes(), []);
 });
 
 // #614: on the speech recognition page the captions' words are hints: what they are is the
@@ -339,15 +341,16 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     const tree = s.render();
     const heading = findIn(tree, node => node.type === "section-label");
     assert.equal(heading.props.sub, true);
-    assert.equal(heading.props.desc, "realtime.scope\nrealtime.server_help");
+    assert.equal(heading.props.desc, "realtime.scope");
     const row = (label: string) => findIn(tree, node => node.type === "form-row" && node.props.label === label).props;
-    assert.equal(row("realtime.model").description, "realtime.auto_help");
+    // The ASR model is an external server's: not shown for the bundled one (#1308 ★4).
+    assert.equal(find(tree, node => node.type === "form-row" && node.props.label === "realtime.model"), null);
     assert.equal(row("realtime.silence").description, "realtime.silence_help");
     // Following the system's default says what that does; the game audio says which output to pick.
     assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
     assert.equal(row("realtime.speaker_input").description, "realtime.speaker_help\nrealtime.follow_default_help");
-    const check = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([check.label, check.description], ["realtime.start_server", "realtime.start_server_help"]);
+    // The server and whether a main switch starts it are chosen in the page's speech.cpp part (#1266).
+    assert.equal(find(tree, node => node.type === "hint-check"), null);
     const descriptions: unknown[] = [];
     find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
     // Saving before Start is what the disabled Start waits for: it stays in sight.
@@ -358,5 +361,42 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     if (hints) {
         assert.ok(mark);
         assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
+    }
+});
+
+// #1298: on the bundled server, each input's languages are those of the model it uses, as the
+// catalog lists them (Mic input's too, decided on 2026-11-28): there while the server is stopped and
+// the listed models are none, with "auto" for a model that tells the language. Listening's is its own
+// model, or Mic input's when it shares it.
+test("each input's languages come from the model it uses while the server is stopped", async context => {
+    const row = (id: string, languages: string[], detects: boolean) =>
+        ({ id, target: "asr", name: id, speech: { name: id, label: id, type: "q8_0", default: true, languages, detects } });
+    const catalog = { catalog_version: "v7", models: [row("reazon-q8", ["ja"], false), row("qwen-q8", ["ja", "en"], true)] };
+    const downloaded = { "reazon-q8": { model: "/m/reazon.gguf" }, "qwen-q8": { model: "/m/qwen.gguf" } };
+    const languagesOf = async (asr: Models["asr"], server = "bundled") => {
+        const s = await fixture(context, { models: { catalog, downloaded, asr } });
+        s.asr.settings = { ...s.asr.settings, server };
+        const tree = s.render();
+        const options = (source: string) => nodesIn(findIn(tree, node => node.type === "select" && node.props["aria-label"] === `realtime.${source}_language`))
+            .filter(node => node.type === "option").map(node => node.props.value);
+        return { mic: options("mic"), speaker: options("speaker") };
+    };
+    // One model for both.
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }), { mic: ["auto", "ja", "en"], speaker: ["auto", "ja", "en"] });
+    // Listening's own, beside Mic input's that cannot tell the language: no "auto" for Mic input,
+    // whose saved language is still shown.
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "/m/qwen.gguf" }), { mic: ["ja"], speaker: ["auto", "ja", "en"] });
+    assert.deepEqual(await languagesOf({ model: "/m/reazon.gguf", listening_model: "" }), { mic: ["ja"], speaker: ["ja"] });
+    // A server of one's own lists its models itself: nothing comes from the catalog (none listed here).
+    assert.deepEqual(await languagesOf({ model: "/m/qwen.gguf", listening_model: "" }, "external"), { mic: ["ja"], speaker: ["ja"] });
+});
+
+// #1299: since #1242 Listening may have a model of its own. The texts on which model the inputs use
+// lead to the row where it is chosen, in both languages, instead of saying one model serves both.
+test("the texts on the inputs' model lead to Listening's model, in both languages", () => {
+    for (const language of ["en", "ja"]) {
+        const locale = readLocale(language);
+        const row = textAt(locale, "realtime.listening_model");
+        for (const key of ["realtime.auto_help", "model_downloads.asr_choice"]) assert.ok(textAt(locale, key).includes(row), `${language} ${key}`);
     }
 });

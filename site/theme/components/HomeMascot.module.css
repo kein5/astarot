@@ -1,0 +1,45 @@
+.stage {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+}
+
+.picture {
+  composes: control from "./Control.module.css";
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 7 / 10;
+  padding: 0;
+  border: 0;
+  border-radius: var(--a-radius-control);
+  background: transparent;
+}
+
+.picture:enabled {
+  cursor: pointer;
+}
+
+.picture img,
+.animation svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.replaced {
+  opacity: 0;
+}
+
+.animation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.caption {
+  margin-top: 4px;
+  color: var(--a-secondary-text);
+  font-size: 14px;
+  line-height: 1.5;
+}

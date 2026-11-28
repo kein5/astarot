@@ -14,9 +14,11 @@ import * as voice from "./voice/useVoice";
 import * as speech from "./voice/useSpeechServers";
 import * as downloads from "./voice/useModelDownloads";
 import * as translationCatalog from "./translation/useTranslationCatalog";
+import * as transcriptionCatalog from "./transcription/useTranscriptionCatalog";
 import * as vcRuntimes from "./voice/useVcRuntimes";
 import * as flow from "./flow/useIoFlow";
 import * as gpuMemory from "./flow/useGpuMemory";
+import * as talkAi from "./talk_ai/useTalkAiSession";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
 import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -25,11 +27,16 @@ import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } f
 import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
 import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
+import { takeInlineRefusal } from "./configs/fieldErrors.ts";
 import { voiceErrorText } from "./voice/voiceErrorText.ts";
+import { isSettingsWindow, noticesHere } from "./common/settingsWindow.ts";
+import { withNotices } from "./common/noticeScope.ts";
 import type { BackendResponse } from "./common/pendingRequestRecovery.ts";
 import type { InitializationRoutes } from "./common/initializationFields.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
+// What the settings window asks for when it opens (#1236): the settings as the start-up sends them.
+const SETTINGS_SNAPSHOT = "/run/settings_snapshot";
 
 // A module whose hooks the routes call by name (@logics_common, a feature's hooks).
 type RouteNamespace = Readonly<Record<string, unknown>>;
@@ -121,6 +128,8 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/run/refresh_model_download_hardware", ns: downloads, hook_name: "useModelDownloads", method_name: "updateHardware" },
     { endpoint: "/get/data/model_download_state", ns: downloads, hook_name: "useModelDownloads", method_name: "updateState" },
     { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // A model already on the PC, checked instead of downloaded (#1263).
+    { endpoint: "/run/check_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     // Models the user registers under a name (#403).
@@ -133,6 +142,10 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/run/register_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
     { endpoint: "/run/remove_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
     { endpoint: "/run/use_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/get/data/transcription_catalog", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "updateCatalog" },
+    { endpoint: "/run/register_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/remove_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/use_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -178,6 +191,7 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/get/data/voice_route", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/run/mute_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/run/resume_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
+    { endpoint: "/set/disable/managed_route_rename_notice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/get/data/direct_voice_sources", ns: voice, hook_name: "useVoice", method_name: "updateDirectSources" },
     { endpoint: "/set/data/direct_voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
     { endpoint: "/get/data/direct_voice_state", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
@@ -187,6 +201,23 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/get/data/voice_audition_state", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/start_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/stop_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    // Talk AI (#388): the catalog, whether the key is kept, the screen sources and the conversation.
+    // Its settings (the provider, the local address, the screen's interval, size and detail) are
+    // routed from SETTINGS_ARRAY.
+    { endpoint: "/get/data/talk_ai_catalog", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateCatalog" },
+    { endpoint: "/get/data/talk_ai_auth_key", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateKey" },
+    { endpoint: "/set/data/talk_ai_auth_key", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answerKey" },
+    { endpoint: "/get/data/talk_ai_screen_sources", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateSources" },
+    { endpoint: "/get/data/talk_ai_status", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateStatus" },
+    { endpoint: "/run/talk_ai_status", ns: talkAi, hook_name: "useTalkAiSession", method_name: "updateStatus" },
+    { endpoint: "/set/enable/talk_ai", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/disable/talk_ai", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/enable/talk_ai_audio", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/enable/talk_ai_screen", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    { endpoint: "/set/disable/talk_ai_screen", ns: talkAi, hook_name: "useTalkAiSession", method_name: "answer" },
+    // Stopping the answer and ending the user's turn answer true; the status says the rest.
+    { endpoint: "/set/data/talk_ai_interrupt", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/talk_ai_end_turn", ns: null, hook_name: null, method_name: null },
     { endpoint: "/get/data/gpu_check_state", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateState" },
     { endpoint: "/run/start_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
     { endpoint: "/run/stop_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
@@ -227,6 +258,11 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     // again here, once the engine was ready, made it jump.
     { endpoint: "/get/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
     { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
+    // The settings window's own place, applied the same way when it is made (#1236).
+    { endpoint: "/get/data/settings_window_geometry", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/settings_window_geometry", ns: null, hook_name: null, method_name: null },
+    // The settings window's snapshot, read like the start-up's (receiveLine).
+    { endpoint: "/run/settings_snapshot", ns: null, hook_name: null, method_name: null },
 
     { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },
     { endpoint: "/run/open_filepath_vocabulary_exports", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_VocabularyExports" },
@@ -341,8 +377,24 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
 const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
+// Talk AI's own requests: a refusal of one is said on its page (useTalkAiSession.fail). Its
+// settings are not among them: a refused setting is said under its field or as a notice.
+const TALK_AI_REQUESTS = ["/get/data/talk_ai_catalog", "/get/data/talk_ai_auth_key", "/set/data/talk_ai_auth_key",
+    "/get/data/talk_ai_screen_sources", "/get/data/talk_ai_status", "/set/enable/talk_ai", "/set/disable/talk_ai",
+    "/set/enable/talk_ai_audio", "/set/enable/talk_ai_screen", "/set/disable/talk_ai_screen",
+    "/set/data/talk_ai_interrupt", "/set/data/talk_ai_end_turn"];
+// The settings whose change moves the local entry's address or ends a conversation.
+const TALK_AI_DESTINATIONS = ["/set/data/talk_ai_provider", "/set/data/talk_ai_local_url"];
 const TRANSLATION_CATALOG_CHANGES = ["/run/register_translation_catalog_entry", "/run/remove_translation_catalog_entry",
     "/run/use_translation_catalog_entry"];
+// Using a speech recognition API the user added points the custom Whisper server at it (#414).
+const TRANSCRIPTION_CATALOG_USE = "/run/use_transcription_catalog_entry";
+const TRANSCRIPTION_CATALOG_READS = ["/get/data/custom_whisper_url", "/get/data/custom_whisper_auth_key",
+    "/get/data/selectable_custom_whisper_model_list", "/get/data/selected_custom_whisper_model",
+    "/get/data/selectable_transcription_engines"];
+// The answers after which the translation catalog's built-in models are in use or usable otherwise:
+// the model in use was set, or a downloaded model was counted as on the PC.
+const TRANSLATION_WEIGHT_CHANGES = ["/set/data/selected_ctranslate2_weight_type", "/run/downloaded_ctranslate2_weight"];
 const TRANSLATION_CATALOG_READS = ["/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/selected_ctranslate2_weight_type",
     "/get/data/openai_compatible_url", "/get/data/openai_compatible_auth_key",
     "/get/data/selectable_openai_compatible_model_list", "/get/data/selected_openai_compatible_model"];
@@ -391,6 +443,7 @@ export const useReceiveRoutes = () => {
         return () => clearTimeout(timer);
     }, [downloadPending, expireDownloadRequests]);
     const { send: sendTranslationCatalog, fail: failTranslationCatalog, reset: resetTranslationCatalog } = translationCatalog.useTranslationCatalog();
+    const { send: sendTranscriptionCatalog, fail: failTranscriptionCatalog, reset: resetTranscriptionCatalog } = transcriptionCatalog.useTranscriptionCatalog();
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
     const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.some(phase => phase === job.phase));
     useEffect(() => {
@@ -418,7 +471,11 @@ export const useReceiveRoutes = () => {
         return () => clearInterval(timer);
     }, [gpuCheckRunning, pollGpuCheck]);
     const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
-    const realtimeActive = Object.values(realtimeState).some(value => value.requested);
+    const { fail: failTalkAi, reset: resetTalkAi, backendStopped: stopTalkAi } = talkAi.useTalkAiSession();
+    // Polled while a source is asked to run, and while one is stopping (#1302): the core reports a
+    // stopping session as no longer asked to run, and does not send its end. A settings change
+    // that stops the captions (another server, another model) left "Stopping captions" for good.
+    const realtimeActive = Object.values(realtimeState).some(value => value.requested || value.state === "stopping");
     useEffect(() => {
         if (!realtimeActive) return;
         const timer = setInterval(() => !store.backend_stopped && sendRealtime("/get/data/realtime_asr_state"), 500);
@@ -477,9 +534,17 @@ export const useReceiveRoutes = () => {
         store.expired_speech = expired;
     };
 
-    const receiveRoutes = (message: unknown) => {
+    // Both the main window and the settings window read every line (#1236): each shows the
+    // notices of the lines that answer it, and the settings window takes the settings it opens with
+    // from its own snapshot, which the main window passes over.
+    const settingsWindow = isSettingsWindow();
+    const receiveRoutes = (message: unknown) =>
+        withNotices(noticesHere(fieldOf(message, "origin"), settingsWindow), () => receiveLine(message));
+
+    const receiveLine = (message: unknown) => {
         const parsed_data = readBackendResponse(message);
         const { endpoint, status, result } = parsed_data;
+        if (endpoint === SETTINGS_SNAPSHOT && !settingsWindow) return;
         if (endpoint === "/get/data/voice_status" && status === 200) noticeExpiredSpeech(fieldOf(result, "expired"));
         if (status !== 200 && (isBackendUpdate(endpoint) || endpoint === "/run/shutdown")) {
             rejectExpectedExit(store.backend_session, endpoint);
@@ -488,6 +553,10 @@ export const useReceiveRoutes = () => {
         if (!pendingRequestRecovery.acceptResponse(endpoint)) return;
         pendingRequestRecovery.receive(parsed_data, asyncStdoutToPython);
         settingsWriteResponses.receive(parsed_data);
+        // A field that says the refusal of its own save waits for this answer (fieldErrors.ts). Any
+        // answer that is not a success ends that wait here, whatever its status, so it never
+        // outlives the save and keeps a later notice back (#1324); the field ends it on a success.
+        const saidInline = status !== 200 && takeInlineRefusal(endpoint);
         if (endpoint === "/run/send_message_box" && [400, 404, 423, 500].includes(status)) {
             failSentMessageLog(fieldOf(result, "data") ?? result);
         }
@@ -500,8 +569,24 @@ export const useReceiveRoutes = () => {
             failTranslationCatalog(errorCodeOf(result));
             return;
         }
+        if (status !== 200 && endpoint.includes("transcription_catalog")) {
+            failTranscriptionCatalog(errorCodeOf(result));
+            return;
+        }
+        // An entry was used: the custom Whisper server's address, key and models changed with it.
+        if (status === 200 && endpoint === TRANSCRIPTION_CATALOG_USE) {
+            for (const read of TRANSCRIPTION_CATALOG_READS) asyncStdoutToPython(read);
+        }
         // The dictionary could not be written out: the button that asked says so (#792).
         if (status !== 200 && endpoint === "/run/export_vocabulary") return;
+        // A refused log destination already reset the backend to its default and carries the
+        // effective path + error_code for inline validation beside the input (#1096, #1118).
+        if (status === 400 && endpoint === "/set/data/path_logs") {
+            if (isRecord(result) && typeof result.path === "string" && (result.error_code === null || typeof result.error_code === "string")) {
+                routes["/get/data/path_logs"](result);
+            }
+            return;
+        }
         // A name the core refused: the names stay as they were, and the editor is closed.
         if (status !== 200 && endpoint === "/set/data/speaker_names") {
             showNotification_Error(t("main_page.message_log.speaker_names_failed"), { category_id: "speaker_names" });
@@ -512,6 +597,12 @@ export const useReceiveRoutes = () => {
         if (status === 200 && TRANSLATION_CATALOG_CHANGES.includes(endpoint)) {
             for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
         }
+        // The translation model in use changed, from the model list or a catalog card, or a model
+        // came to be on the PC (a download of the model catalog, which the core applied and
+        // counts as downloaded): the catalog's cards say which one is in use and which can be used,
+        // so they are read again (#1228). Without the second, a model downloaded from its card
+        // stayed "Not downloaded" there, and pressing the card opened its review again.
+        if (status === 200 && TRANSLATION_WEIGHT_CHANGES.includes(endpoint)) sendTranslationCatalog("/get/data/translation_catalog");
         if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(errorCodeOf(result) || "download_failed", endpoint);
             return;
@@ -553,6 +644,19 @@ export const useReceiveRoutes = () => {
             failVirtualMicCheck(fieldOf(result, "error_code"));
             return;
         }
+        // A Talk AI request that was refused says why on its page; a voice that could not start
+        // also ends the conversation (useTalkAiSession.fail).
+        if (status !== 200 && TALK_AI_REQUESTS.includes(endpoint)) {
+            failTalkAi(errorCodeOf(result) || "talk_request_failed", endpoint);
+            return;
+        }
+        // The address of the local entry is in the catalog; a new one is read with it.
+        if (status === 200 && TALK_AI_DESTINATIONS.includes(endpoint)) asyncStdoutToPython("/get/data/talk_ai_catalog");
+        // The microphone is Talk AI's while it talks (#969, decision 9): turning recognition on
+        // then is refused, and the switch goes back. Say why where the user pressed it.
+        if (status === 409 && errorCodeOf(result) === "talk_microphone_in_use") {
+            showNotification_Warning(t("talk_ai.errors.talk_microphone_in_use"), { category_id: "talk_microphone_in_use" });
+        }
         // A refused audition says why on its card; a failed stop or poll leaves it as it is.
         if (status !== 200 && endpoint.includes("gpu_check")) {
             if (endpoint === "/run/start_gpu_check") failGpuCheck(fieldOf(result, "error_code"));
@@ -585,13 +689,15 @@ export const useReceiveRoutes = () => {
             return;
         }
 
-        if (endpoint === "/run/initialization_complete") {
+        if (endpoint === "/run/initialization_complete" || (endpoint === SETTINGS_SNAPSHOT && status === 200)) {
             resetDownloads();
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");
             sendDownload("/get/data/user_models");
             resetTranslationCatalog();
             sendTranslationCatalog("/get/data/translation_catalog");
+            resetTranscriptionCatalog();
+            sendTranscriptionCatalog("/get/data/transcription_catalog");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");
@@ -605,6 +711,7 @@ export const useReceiveRoutes = () => {
             resetStopVoice();
             resetGpuCheck();
             resetFirstRunSetup();
+            resetTalkAi();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
             sendRealtime("/get/data/realtime_asr_models");
@@ -684,6 +791,7 @@ export const useReceiveRoutes = () => {
                     data: fieldOf(result, "data"),
                     endpoint: parsed_data.endpoint,
                     result: parsed_data.result,
+                    saidInline,
                 });
                 break;
             }
@@ -728,6 +836,7 @@ export const useReceiveRoutes = () => {
         stopAudition();
         resetStopVoice();
         stopGpuCheck();
+        stopTalkAi();
     };
     return { receiveRoutes, backendStopped };
 };

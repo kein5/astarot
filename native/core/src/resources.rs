@@ -6,10 +6,10 @@
 //! Python runtime of an older version:
 //!
 //! - beside the binary (the Windows installer and ZIP, the Linux tar.gz, the deb and rpm in
-//!   `/opt/vrct-vox`):
+//!   `/opt/astarot`, `/opt/vrct-vox` up to 0.6.x):
 //!   `<app>/_internal/build/speechcpp`
-//! - in the AppImage, where the binary is `usr/bin/vrct-vox`:
-//!   `usr/lib/vrct-vox/_internal/build/speechcpp`
+//! - in the AppImage, where the binary is `usr/bin/astarot`:
+//!   `usr/lib/astarot/_internal/build/speechcpp` (`usr/lib/vrct-vox` up to 0.6.x)
 //! - a development checkout keeps them in `build/` at its root; a debug build of the app names
 //!   that root with [`use_development_checkout`].
 //!
@@ -42,9 +42,10 @@ pub fn folders(app_dir: &Path) -> Vec<PathBuf> {
     }
     folders.push(app_dir.join(FOLDER));
     if cfg!(target_os = "linux") {
-        // The AppImage: usr/bin/vrct-vox with its files in usr/lib/vrct-vox.
+        // The AppImage: usr/bin/astarot with its files in usr/lib/astarot. Each AppImage carries
+        // its own, so the name up to 0.6.x is not looked for.
         if let Some(prefix) = app_dir.parent() {
-            folders.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join(FOLDER));
+            folders.push(prefix.join("lib").join(astarot_app_identity::LINUX_PACKAGE.current()).join(FOLDER));
         }
     }
     folders
@@ -81,9 +82,14 @@ mod tests {
     fn linux_packages_keep_the_files_under_lib() {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("usr/bin");
-        let shipped = dir.path().join("usr/lib/vrct-vox/_internal/build/speechcpp");
+        let shipped = dir.path().join("usr/lib/astarot/_internal/build/speechcpp");
         std::fs::create_dir_all(&bin).unwrap();
         std::fs::create_dir_all(&shipped).unwrap();
         assert_eq!(locate(&bin, "build/speechcpp"), shipped);
+        // The folder of an AppImage up to 0.6.x is not this version's.
+        let older = dir.path().join("old/usr/lib/vrct-vox/_internal/build/speechcpp");
+        std::fs::create_dir_all(&older).unwrap();
+        std::fs::create_dir_all(dir.path().join("old/usr/bin")).unwrap();
+        assert_eq!(locate(&dir.path().join("old/usr/bin"), "build/speechcpp"), dir.path().join("old/usr/bin/build/speechcpp"));
     }
 }

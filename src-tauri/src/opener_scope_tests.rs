@@ -1,13 +1,14 @@
 //! Which URLs the app may open in the user's browser (second security audit SEC-02).
 //!
 //! Capabilities are combined per window, so one broad grant such as `opener:default` would undo
-//! the list in vrct_capability.json. Only the main window may open URLs, and only those the list
-//! allows. The opener plugin matches the scope with `glob::Pattern::matches`, denials first
+//! the list in vrct_capability.json. Only the main window and the settings window (#1236) may open
+//! URLs, and only those the list allows. The opener plugin matches the scope with `glob::Pattern::matches`, denials first
 //! (tauri-plugin-opener 2.7.2, src/scope.rs); these tests use the same matcher.
 use serde_json::Value;
 
-const CAPABILITIES: [(&str, &str); 6] = [
+const CAPABILITIES: [(&str, &str); 7] = [
     ("default.json", include_str!("../capabilities/default.json")),
+    ("settings-window.json", include_str!("../capabilities/settings-window.json")),
     ("vrct_capability.json", include_str!("../capabilities/vrct_capability.json")),
     ("quick-chat.json", include_str!("../capabilities/quick-chat.json")),
     ("caption-overlay.json", include_str!("../capabilities/caption-overlay.json")),
@@ -30,7 +31,7 @@ fn patterns(entry: &Value, key: &str) -> Vec<glob::Pattern> {
 }
 
 fn scope() -> (Vec<glob::Pattern>, Vec<glob::Pattern>) {
-    let capability = parse(CAPABILITIES[1].1);
+    let capability = parse(CAPABILITIES[2].1);
     let entry = capability["permissions"].as_array().unwrap().iter()
         .find(|permission| identifier(permission) == "opener:allow-open-url").expect("the URL scope");
     (patterns(entry, "allow"), patterns(entry, "deny"))
@@ -42,7 +43,7 @@ fn allowed(url: &str) -> bool {
 }
 
 #[test]
-fn only_the_main_window_may_open_urls_and_only_through_the_list() {
+fn only_the_main_and_settings_windows_may_open_urls_and_only_through_the_list() {
     // Every file in the folder is checked (a new one must be added to CAPABILITIES).
     let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities");
     let files = std::fs::read_dir(folder).unwrap().filter_map(|entry| entry.ok())
@@ -57,7 +58,8 @@ fn only_the_main_window_may_open_urls_and_only_through_the_list() {
                 continue;
             }
             assert_eq!(id, "opener:allow-open-url", "{name}: {id} grants more than the listed URLs");
-            assert_eq!(windows, ["main"], "{name}: only the main window opens links");
+            // The settings pages' links open from the settings window since #1236.
+            assert_eq!(windows, ["main", "settings"], "{name}: only the main and settings windows open links");
             assert!(permission["allow"].as_array().is_some_and(|list| !list.is_empty()), "{name}: no URL list");
         }
     }
@@ -85,11 +87,11 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://github.com/kein5/astarot",
         "https://github.com/kein5/astarot/releases",
         "https://github.com/kein5/astarot/blob/main/NOTICE.md",
+        "https://discord.gg/2kd3MSTnbE",
         "https://misyaguziya.github.io/VRCT-Docs/",
         "https://misyaguziya.github.io/VRCT-Docs/ja",
-        "https://github.com/misyaguziya",
+        // The original VRCT's repository; its developers' own pages are no longer linked (#1224).
         "https://github.com/misyaguziya/VRCT",
-        "https://twitter.com/misya_ai",
         "https://www.deepl.com/ja/your-account/keys",
         "https://console.deepgram.com/",
         // The key pages of the official translation APIs (#277).
@@ -141,6 +143,12 @@ fn other_urls_and_other_schemes_are_refused() {
         "https://vb-audio.com/Voicemeeter/",
         "https://huggingface.co@example.com/",
         "https://twitter.com/someone_else",
+        // The original VRCT's developers' pages, which About no longer links to (#1097, #1224).
+        "https://github.com/misyaguziya",
+        "https://github.com/misyaguziya/other",
+        "https://twitter.com/misya_ai",
+        "https://twitter.com/Shiina_12siy",
+        "https://discord.gg/other-invite",
         "https://creativecommons.org/licenses/by/4.0/../../",
         "file:///C:/Windows/System32/calc.exe",
         "mailto:someone@example.com",

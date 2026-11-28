@@ -26,6 +26,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "astarot-onnx-runtime"
+version = "0.0.0"
+dependencies = [
+ "ort",
+]
+
+[[package]]
+name = "astarot-translate-onnx"
+version = "0.0.0"
+dependencies = [
+ "astarot-onnx-runtime",
+ "ort",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokenizers",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,25 +1221,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-onnx-runtime"
-version = "0.0.0"
-dependencies = [
- "ort",
-]
-
-[[package]]
-name = "vrct-translate-onnx"
-version = "0.0.0"
-dependencies = [
- "ort",
- "serde",
- "serde_json",
- "sha2",
- "tokenizers",
- "vrct-onnx-runtime",
-]
 
 [[package]]
 name = "wasip2"

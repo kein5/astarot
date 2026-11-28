@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 // An element that can take focus: every HTML and SVG element. DOM queries return Element,
 // which has no focus(); this tells the two apart without assuming the element's kind.
@@ -22,19 +22,25 @@ export interface ConsentDialog {
 export function useConsentDialog(open: boolean, fallback?: RefObject<HTMLElement | null> | null): ConsentDialog {
     const dialog = useRef<HTMLDialogElement>(null);
     const opener = useRef<Focusable | null>(null);
-    useEffect(() => {
+    // The element that opened the dialog, read before the dialog takes the focus: the kit's Dialog,
+    // drawn inside the caller, shows itself in its own effect, which runs before the caller's.
+    useLayoutEffect(() => {
         if (!open) {
             opener.current = null;
             return;
         }
-        const node = dialog.current;
-        // StrictMode replays this effect after closing the dialog, when focus is
+        // StrictMode replays the effects after closing the dialog, when focus is
         // already on the body. Keep the element that opened the dialog.
         const active = document.activeElement;
-        if (!opener.current && focusable(active) && active !== document.body && !node?.contains?.(active)) opener.current = active;
+        if (!opener.current && focusable(active) && active !== document.body && !dialog.current?.contains?.(active)) opener.current = active;
+    }, [open]);
+    useEffect(() => {
+        if (!open) return;
+        const node = dialog.current;
         const trigger = opener.current;
         const nearby = trigger?.closest("[data-model-download], [data-setting-id]");
-        node?.showModal();
+        // Shown once: by the kit's Dialog when it holds the dialog, by this hook otherwise.
+        if (!node?.open) node?.showModal();
         return () => {
             if (node?.open) node.close();
             queueMicrotask(() => {

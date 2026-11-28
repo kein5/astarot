@@ -63,15 +63,31 @@ export const normalizeVirtualMicResult = (value: VirtualMicResultReply): Virtual
         recording: text(value.recording) ? value.recording : null }
     : null;
 
-// Which cable to check: the one TTS already plays into, or else the first one found.
+// Which cable to check: the one TTS already plays into, or else the first one found. The saved
+// output matches its cable as the core matched it when it said the output is a cable: under any
+// host, and under a name MME cut short (#1262).
 export const preferredCable = (status: VirtualMicStatus | null | undefined): VirtualMicCable | null => {
     if (!status?.cables?.length) return null;
-    if (status.tts_output_is_cable && status.tts_output) {
-        const name = deviceName(status.tts_output);
-        const match = status.cables.find(item => item.playback === status.tts_output || deviceName(item.playback) === name);
+    const output = status.tts_output;
+    if (status.tts_output_is_cable && output) {
+        const match = status.cables.find(item => sameOutput(item.playback, output));
         if (match) return match;
     }
     return status.cables[0];
+};
+
+// MME cuts device names at this many characters (MME_NAME_LIMIT in native/audio-routing/src/naming.rs).
+export const MME_NAME_LIMIT = 31;
+
+// Whether two names or identities are one device, whichever host lists them: the same name, or a
+// name cut at MME's limit that the other one begins with. The core's same_output
+// (native/audio-routing/src/naming.rs), which decides tts_output_is_cable: an output saved under
+// MME by an earlier version is cut there, such as ["MME", "CABLE Input (VB-Audio Virtual C"].
+// Characters are counted as the core counts them, by code point.
+export const sameOutput = (first: string, second: string): boolean => {
+    const one = deviceName(first), other = deviceName(second);
+    const [short, long] = [...other].length < [...one].length ? [other, one] : [one, other];
+    return short === long || ([...short].length === MME_NAME_LIMIT && long.startsWith(short));
 };
 
 // The device name inside a backend identity (["host", "name"]), or the text itself.
@@ -83,8 +99,3 @@ export const deviceName = (identity: string): string => {
         return identity;
     }
 };
-
-// Whether the guide opens by itself at start-up: Windows, not yet finished or put away for
-// good, and no cable found. A list that could not be read does not count as "no cable".
-export const guideOpensByItself = (notice: unknown, status: VirtualMicStatus | null | undefined): boolean => notice === true && status?.supported === true
-    && status.error === null && status.cables.length === 0;

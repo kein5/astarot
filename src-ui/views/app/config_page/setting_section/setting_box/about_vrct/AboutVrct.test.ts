@@ -3,8 +3,9 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import i18next from "i18next";
 import clsx from "clsx";
-import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, kitStandIns, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt, branchAt } from "../../../../../../logics/test/locales.ts";
+import { astarot_discord_invite_url } from "../../../../../../logics/ui_configs.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { ColorEntryWithSaveButtonProps } from "../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx";
 
@@ -17,7 +18,7 @@ const translate = async (language: string) => {
 };
 
 for (const language of ["en", "ja"]) {
-    test(`${language}: every About image link names its destination/person and credit images have text equivalents`, async () => {
+    test(`${language}: every About image link names its destination and every picture has a text equivalent`, async () => {
         const translation = await translate(language), runtime = hooks();
         const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
         const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
@@ -25,11 +26,20 @@ for (const language of ["en", "ja"]) {
             ...images, "@useI18n": { useI18n: () => translation },
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
-            "@ui_configs": { upstream_vrct_document_url: () => "https://example.test/docs" },
+            "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
+            "../_components/fold/Fold": { Fold: "fold" },
         });
         const tree = runtime.render(AboutVrct);
+        const topLinks = all(tree, node => node.type === "a" && node.props?.className === "vrct_vox_link");
+        const discordLink = topLinks.find(node => node.props.href === astarot_discord_invite_url);
+        assert.ok(discordLink, "official Discord link is rendered on About");
+        assert.equal(discordLink.props.target, "_blank");
+        assert.equal(discordLink.props.rel, "noreferrer");
+        assert.equal(discordLink.props.children, translation.t("config_page.about_vrct.links.discord"));
+        assert.ok(String(discordLink.props.children).length > 0 && !String(discordLink.props.children).startsWith("config_page."));
         const links = all(tree, node => node.props?.href_id);
-        assert.equal(links.length, 12);
+        // The original VRCT's documents and repository (#1222 removed the contributors' links).
+        assert.deepEqual(links.map(node => node.props.href_id), ["project_link_documents", "project_link_vrct_github"]);
         const names = [];
         for (const component of links) {
             // A link of the page's own: what it draws is the anchor.
@@ -40,16 +50,30 @@ for (const language of ["en", "ja"]) {
             assert.equal(name, translation.t(`config_page.about_vrct.image_links.${component.props.href_id}`));
             names.push(name);
         }
-        assert.equal(new Set(names).size, 12);
-        const creditImages = all(tree, node => node.type === "img");
-        assert.equal(creditImages.length, 15);
-        for (const image of creditImages) {
+        assert.equal(new Set(names).size, 2);
+        // Upstream VRCT's developer cards are removed (#1097), and so are its Contributors and Special
+        // Thanks (#1222): the page's pictures are the ASTAROT and VRCT logos.
+        const pictures = all(tree, node => node.type === "img");
+        assert.deepEqual(pictures.map(image => image.props.alt), ["ASTAROT", "VRCT"]);
+        for (const image of pictures) {
             assert.ok(image.props.alt && !image.props.alt.startsWith("config_page."), image.props.src);
+            assert.ok(!String(image.props.src).includes("dev_"), image.props.src);
         }
-        const disclaimer = findIn(tree, node => node.props?.className === "vrchat_disclaimer");
-        // The trademark notice keeps its original English wording in every locale.
-        assert.equal(disclaimer.props.lang, "en");
-        assert.match(disclaimer.props.children, /not endorsed by VRChat/);
+        // The trademark notice, in the UI's language only (#1266): another language keeps the
+        // English original in a fold under it, read as English.
+        const notice = draw(findIn(tree, node => componentName(node) === "VrchatDisclaimer"));
+        const english = translation.t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" });
+        assert.match(english, /not endorsed by VRChat/);
+        if (language === "en") {
+            assert.deepEqual([notice.type, notice.props.className, notice.props.lang, notice.props.children], ["p", "vrchat_disclaimer", "en", english]);
+        } else {
+            const [shown, fold] = notice.props.children;
+            assert.equal(notice.props.className, "vrchat_disclaimer");
+            assert.deepEqual([shown.type, shown.props.lang, shown.props.children], ["p", undefined, translation.t("config_page.about_vrct.vrchat_disclaimer")]);
+            assert.notEqual(shown.props.children, english);
+            assert.deepEqual([fold.type, fold.props.size, fold.props.summary], ["fold", "link", translation.t("config_page.about_vrct.vrchat_disclaimer_original")]);
+            assert.deepEqual([fold.props.children.type, fold.props.children.props.lang, fold.props.children.props.children], ["p", "en", english]);
+        }
     });
 
     test(`${language}: color swatches identify the field and expose expansion`, async t => {
@@ -57,7 +81,7 @@ for (const language of ["en", "ja"]) {
         stubGlobals(t, { document: eventTarget(), window: eventTarget() });
         const { ColorEntryWithSaveButton } = await loadModule<typeof import("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx")>(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
             clsx: { clsx }, "@useI18n": { useI18n: () => translation },
-            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
+            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         });
         // Test data: a swatch that is only opened, so without the save it never calls.
         const swatch = (label: string) => unchecked<ColorEntryWithSaveButtonProps>({ label, variable: "#FFFFFF" });
@@ -71,7 +95,8 @@ for (const language of ["en", "ja"]) {
         assert.equal(new Set(names).size, 2);
         let button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], false);
-        button.props.onClick();
+        // The swatch opens the kit's Popover (Radix asks it to open).
+        findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === kitStandIns.Popover).props.onOpenChange(true);
         button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], true);
         runtime.unmount();
@@ -85,11 +110,12 @@ for (const language of ["en", "ja"]) {
             "@useI18n": { useI18n: () => translation },
             "@ui_configs": { ui_configs: { overlay_small_log: controls } },
             "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
-            "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
+            "../_templates/Templates": { RadioButtonContainer: "radio", SwitchContainer: "switch", ActionButtonContainer: "action" },
             "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 0 },
             "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
             "./OverlayFontFamily": { OverlayFontFamily: "font" },
+            "./SteamVrAutoLaunch": { SteamVrAutoLaunch: "steamvr-auto-launch" },
             "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: settings }, currentOverlayLargeLogSettings: {} }) },
             "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         });
@@ -120,9 +146,9 @@ test("all new locale keys exist in both files without relying on fallback", () =
         ? flatten(child, `${prefix}${key}.`) : [`${prefix}${key}`]);
     for (const language of ["en", "ja"]) {
         const page = branchAt(resources[language].translation, "config_page");
-        const keys = [...flatten(branchAt(page, "about_vrct.image_links")), ...flatten(branchAt(page, "about_vrct.credits"))];
+        const keys = flatten(branchAt(page, "about_vrct.image_links"));
         const other = branchAt(resources[language === "en" ? "ja" : "en"].translation, "config_page");
-        assert.deepEqual(keys, [...flatten(branchAt(other, "about_vrct.image_links")), ...flatten(branchAt(other, "about_vrct.credits"))]);
+        assert.deepEqual(keys, flatten(branchAt(other, "about_vrct.image_links")));
         for (const name of ["open_color_picker", "duration_seconds_one", "duration_seconds_other"]) assert.ok(localeAt(page, `common.${name}`));
         assert.ok(textAt(page, "transcription.mic_word_filter.remove_word").includes("{{word}}"));
     }
@@ -141,7 +167,7 @@ test("every picture of the About page carries the natural size of its file", asy
         return [Number(/\swidth="(\d+)"/.exec(svg)?.[1]), Number(/\sheight="(\d+)"/.exec(svg)?.[1])];
     };
     const pictures = [...source.matchAll(/<img src=\{(\w+)\}([^>]*)\/>/g)];
-    assert.ok(pictures.length >= 16, String(pictures.length));
+    assert.equal(pictures.length, 2, "the ASTAROT and VRCT logos");
     for (const [, name, rest] of pictures.filter(([, name]) => name in files)) {
         const size = /width=\{(\d+)\} height=\{(\d+)\}/.exec(rest);
         assert.ok(size, `${name} has no width and height`);
@@ -149,7 +175,30 @@ test("every picture of the About page carries the natural size of its file", asy
     }
     // The link pictures: their size beside each link, and on their img.
     const links = [...source.matchAll(/\{ img: (\w+), size: \[(\d+), (\d+)\], href:/g)];
-    assert.ok(links.length >= 12, String(links.length));
+    assert.equal(links.length, 2, "the original VRCT's documents and repository");
     for (const [, name, width, height] of links) assert.deepEqual([Number(width), Number(height)], sizeOf(files[name]), name);
     assert.match(source, /src=\{img\} width=\{link\.size\[0\]\} height=\{link\.size\[1\]\}/);
+    // Width-constrained credit images keep height: "auto" so HTML width/height attributes do not distort aspect ratio.
+    const css = readFileSync(new URL("./AboutVrct.css.ts", import.meta.url), "utf8");
+    for (const name of ["vrct_vox_logo", "about_vrct_logo"]) {
+        assert.match(css, new RegExp(`export const ${name} = style\\(\\{[^}]*height: "auto"`), name);
+    }
+});
+
+test("a UI language without its own wording of the notice shows the English one, with no fold", async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "ja", fallbackLng: "en", resources: { en: resources.en, ja: { translation: {} } } });
+    const runtime = hooks();
+    const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
+    const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
+    const { AboutVrct } = await loadModule<typeof import("./AboutVrct.tsx")>(new URL("./AboutVrct.tsx", import.meta.url), runtime, {
+        ...images, "@useI18n": { useI18n: () => ({ i18n, t: i18n.t.bind(i18n) }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "ja" } }) },
+        "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
+        "@ui_configs": { astarot_discord_invite_url, upstream_vrct_document_url: () => "https://example.test/docs" },
+        "../_components/fold/Fold": { Fold: "fold" },
+    });
+    const notice = draw(findIn(runtime.render(AboutVrct), node => componentName(node) === "VrchatDisclaimer"));
+    assert.deepEqual([notice.type, notice.props.lang], ["p", "en"]);
+    assert.match(notice.props.children, /not endorsed by VRChat/);
 });

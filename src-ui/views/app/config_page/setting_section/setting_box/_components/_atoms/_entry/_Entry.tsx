@@ -1,7 +1,7 @@
 import clsx from "clsx";
-import { useRef, forwardRef, useImperativeHandle } from "react";
-import type { ChangeEvent, FocusEvent, HTMLAttributes, KeyboardEvent, ReactNode, WheelEvent } from "react";
-import styles from "./_Entry.module.scss";
+import { useRef, useImperativeHandle } from "react";
+import type { ChangeEvent, FocusEvent, HTMLAttributes, KeyboardEvent, ReactNode, Ref, WheelEvent } from "react";
+import * as styles from "./_Entry.css.ts";
 
 // What a parent may do with the field through its ref.
 export interface EntryHandle {
@@ -10,6 +10,9 @@ export interface EntryHandle {
 }
 
 export interface EntryProps {
+    // What the parent may do with the field (EntryHandle). A ref is one of the props, as React 19
+    // passes it.
+    ref?: Ref<EntryHandle>;
     id?: string;
     // Names the field when no aria-label is given and it is text.
     label?: ReactNode;
@@ -43,7 +46,7 @@ export interface EntryProps {
     "aria-expanded"?: boolean;
 }
 
-const _Entry = forwardRef<EntryHandle, EntryProps>((props, ref) => {
+const _Entry = ({ ref, ...props }: EntryProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
 
     useImperativeHandle(ref, () => ({
@@ -116,8 +119,6 @@ const _Entry = forwardRef<EntryHandle, EntryProps>((props, ref) => {
             </div>
         </div>
     );
-});
-
-_Entry.displayName = "_Entry";
+};
 
 export { _Entry };

@@ -26,13 +26,14 @@ test("a typed message is translated, sent to the chatbox and read aloud once eac
         await page.getByLabel("Chat voice").selectOption("original");
         // The stand-ins' one speaker (native/browser-core-bridge/src/services.rs).
         await page.getByLabel("Output device").selectOption({ label: "Integration speaker" });
-        await page.getByRole("button", { name: "Save changes" }).click();
-        await expect(page.getByRole("button", { name: "Save changes" })).toBeDisabled();
+        // Both are choices, saved at once (#1111).
+        await expect.poll(() => (app.settings().VOICE_SETTINGS as Record<string, unknown>)?.output_device).toBeTruthy();
+        await expect.poll(() => (app.settings().VOICE_SETTINGS as Record<string, unknown>)?.mode).toBe("original");
         await app.closeSettings();
         await app.setSwitch("Translation");
         await app.setSwitch("Text to speech (TTS)");
 
-        const composer = page.locator("textarea[class*=message_box_input_area]");
+        const composer = page.locator("textarea[data-message-input]");
         await composer.fill(MESSAGE);
         await composer.press("Enter");
         await expect(composer).toHaveValue("");

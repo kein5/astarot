@@ -201,7 +201,7 @@ covered in the next section.
 
 ## Rust crates in VRCT-VOX builds
 
-The application (`vrct-vox`) and the RVC worker (`astarot-rvc-worker`) are built
+The application (`astarot`) and the RVC worker (`astarot-rvc-worker`) are built
 from Rust crates. Every build lists the crates compiled into these two
 executables for its platform, with each crate's license, in
 `_internal/licenses/rust/README.md` (`crates.json` holds the same list), and

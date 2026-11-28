@@ -1,6 +1,6 @@
 import { useI18n } from "@useI18n";
 import { CircularProgress } from "@common_components";
-import styles from "./_DownloadButton.module.scss";
+import * as styles from "./_DownloadButton.css.ts";
 import { legacyDownloadPhase, useLegacyDownloadStatus } from "../../../../../../../../logics/common/useLegacyDownloadStatus";
 import type { LegacyDownloadOption } from "../../../../../../../../logics/common/useLegacyDownloadStatus";
 

@@ -329,7 +329,7 @@ macro_rules! voice_settings {
 
 voice_settings! {
     mode = "off",                  // off | original | translated (chat only)
-    mic_mode = "off",              // off | translated (Realtime microphone finals only)
+    mic_mode = "off",              // off | original | translated (Realtime microphone finals only)
     direct_policy = "suppress",    // suppress the managed direct voice | mix explicitly
     target_slot = "1",
     // external | bundled. New settings use the bundled server, so the default engine
@@ -383,11 +383,15 @@ voice_settings! {
     sharevox_intonation = "1.0",
 }
 
+/// The managed route's TTS input (`astarot_audio_routing::graph::TTS_SINK`, which this crate does
+/// not depend on; the tests hold the two to the route's prefix).
+pub const MANAGED_TTS: &str = "astarot.managed.tts";
+
 impl VoiceSettings {
     /// The output that carries speech: the managed route or the chosen device.
     pub fn playback_device(&self) -> &str {
         if self.routing == "managed" {
-            "vrct.managed.tts"
+            MANAGED_TTS
         } else {
             &self.output_device
         }
@@ -433,7 +437,7 @@ impl VoiceSettings {
         if !matches!(self.mode.as_str(), "off" | "original" | "translated") || !matches!(self.target_slot.as_str(), "1" | "2" | "3") {
             return Err(SettingsError("Invalid speech mode or translation slot"));
         }
-        if !matches!(self.mic_mode.as_str(), "off" | "translated") || !matches!(self.direct_policy.as_str(), "suppress" | "mix") {
+        if !matches!(self.mic_mode.as_str(), "off" | "original" | "translated") || !matches!(self.direct_policy.as_str(), "suppress" | "mix") {
             return Err(SettingsError("Invalid microphone speech mode or direct voice policy"));
         }
         if !matches!(self.routing.as_str(), "external" | "managed") {
@@ -488,7 +492,7 @@ impl VoiceSettings {
         let monitor_device = self.monitor_device.as_str();
         if self.monitor == "on"
             && !monitor_device.is_empty()
-            && (monitor_device.starts_with("vrct.managed.") || monitor_device.starts_with("vrct.source-bridge.") || monitor_device == self.playback_device())
+            && (astarot_app_identity::audio_route::is_route_name(monitor_device) || monitor_device == self.playback_device())
         {
             return Err(SettingsError("Monitor output must differ from the virtual microphone output"));
         }
@@ -603,18 +607,12 @@ impl VoiceSettings {
         })
     }
 
-    /// The server, voice, language and text for one message.
-    ///
-    /// Never falls back to the other text: translated mode without a
-    /// translation, or microphone speech without one, is an error.
-    /// `resolve_server` gives a running bundled server's base URL for a role
-    /// (`japanese` or `multilingual`).
     /// Where speech.cpp would speak a message of `source` in `language` (a UI language name or a
     /// tag): the server's base URL, the voice and the language tag, as [`Self::request_for`]
     /// chooses them, without a text. `None` where the mode speaks nothing for `source`, an
     /// installed engine speaks the language, or the server cannot be named.
     pub fn speechcpp_target(&self, source: &Source, language: &str, resolve_server: Option<ServerResolver<'_>>) -> Option<(String, String, &'static str)> {
-        let speaks = if *source == Source::Mic { self.mic_mode == "translated" } else { self.mode != "off" };
+        let speaks = if *source == Source::Mic { matches!(self.mic_mode.as_str(), "original" | "translated") } else { self.mode != "off" };
         if !speaks {
             return None;
         }
@@ -636,22 +634,27 @@ impl VoiceSettings {
         Some((url, voice.clone(), language))
     }
 
+    /// The server, voice, language and text for the selected mode. Translated mode requires
+    /// a translation. `resolve_server` gives the running bundled server's URL for each role.
     pub fn request_for(&self, event: &SpeechMessageEvent, resolve_server: Option<ServerResolver<'_>>) -> Result<SpeechRequest, TtsError> {
-        let (text, language) = if event.source == Source::Mic {
-            if self.mic_mode != "translated" {
+        let mode = if event.source == Source::Mic {
+            if !matches!(self.mic_mode.as_str(), "original" | "translated") {
                 return Err(SettingsError("Microphone speech is disabled").into());
             }
-            (&event.translated_text, &event.target_language)
-        } else if self.mode == "translated" {
-            (&event.translated_text, &event.target_language)
+            &self.mic_mode
         } else {
-            (&Some(event.original_text.clone()), &event.source_language)
+            &self.mode
+        };
+        let (text, language) = if mode == "translated" {
+            (event.translated_text.as_deref(), event.target_language.as_deref())
+        } else {
+            (Some(event.original_text.as_str()), event.source_language.as_deref())
         };
         let text = match text {
-            Some(text) if !is_blank(text) => text.clone(),
+            Some(text) if !is_blank(text) => text.to_owned(),
             _ => return Err(SettingsError("No text in the selected speech mode").into()),
         };
-        let language = language_tag(language.as_deref().unwrap_or(""))?;
+        let language = language_tag(language.unwrap_or(""))?;
         let japanese = language == "ja";
         let engine = self.engine_for(language)?;
         if engine != SPEECHCPP {
@@ -799,7 +802,8 @@ mod tests {
             json!(null),
             json!([]),
             json!({"routing": "other"}),
-            json!({"monitor": "on", "monitor_device": "vrct.managed.x"}),
+            json!({"monitor": "on", "monitor_device": "astarot.managed.x"}),
+            json!({"monitor": "on", "monitor_device": "astarot.source-bridge.x.playback"}),
             json!({"monitor": "on", "monitor_device": "cable", "output_device": "cable"}),
             json!({"monitor_volume": "101"}),
             json!({"monitor_volume": "0100"}),
@@ -808,6 +812,19 @@ mod tests {
         ] {
             assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");
         }
+        // The route of 0.6.0 and earlier, while its names are read (ADR-014, 2.11).
+        for device in ["vrct.managed.x", "vrct.source-bridge.x.playback"] {
+            let value = json!({"monitor": "on", "monitor_device": device});
+            assert_eq!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), astarot_app_identity::audio_route::READS_LEGACY_NAMES, "{value}");
+        }
+    }
+
+    #[test]
+    fn speech_on_the_managed_route_goes_to_its_tts_input() {
+        assert!(MANAGED_TTS.starts_with(astarot_app_identity::audio_route::NODE_PREFIX.current()));
+        assert_eq!(MANAGED_TTS, "astarot.managed.tts");
+        let settings = VoiceSettings::from_value_on(&json!({"routing": "managed"}), Platform::Other).unwrap();
+        assert_eq!(settings.playback_device(), MANAGED_TTS);
     }
 
     #[test]
@@ -823,12 +840,25 @@ mod tests {
     }
 
     #[test]
+    fn original_mic_mode_uses_the_source_text_and_language() {
+        let mic_settings = settings(json!({"mic_mode": "original", "routing": "managed",
+            "japanese_server": "external", "japanese_url": "http://127.0.0.1:8080"}));
+        assert_eq!(mic_settings.mode, "off");
+        assert_eq!(settings(mic_settings.to_value()), mic_settings);
+        let expected = SpeechRequest::speechcpp("http://127.0.0.1:8080".into(), "none", "ja", "こんにちは".into());
+        assert_eq!(mic_settings.request_for(&mic(None, "en"), None).unwrap(), expected);
+        assert_eq!(mic_settings.request_for(&mic(Some("Hello"), "en"), None).unwrap(), expected);
+    }
+
+    #[test]
     fn mic_settings_require_valid_mode_and_explicit_routing() {
         for value in [
             json!({"mic_mode": "original"}),
+            json!({"mic_mode": "unknown"}),
             json!({"mic_mode": true}),
             json!({"direct_policy": "duck"}),
             json!({"mic_mode": "translated", "output_device": "cable"}),
+            json!({"mic_mode": "original", "output_device": "cable"}),
             json!({"mic_mode": "translated", "direct_policy": "mix"}),
         ] {
             assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");

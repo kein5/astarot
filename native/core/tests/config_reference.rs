@@ -6,20 +6,23 @@
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
 //! Five differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
-//! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
+//! `config.json` for the key store (`astarot_core::config::secrets`): the settings are compared
 //! without them, and the keys Python kept in the file must be in the store instead. A saved
 //! choice of the retired Google recognition engine loads as none (`retire_google_engine`). The
 //! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391). And
 //! settings added after the Python backend (Issue #390) are written with their defaults into the
 //! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
-//! before the comparison. The RVC worker's choices added to the direct voice settings are not:
+//! before the comparison, as Listening's own recognition model is to each speech server profile
+//! (#1242). The RVC worker's choices added to the direct voice settings are not:
 //! left at their defaults they stay out of the file, which 0.4 reads (#428). And a key the core
 //! does not know stays in the file as it was, where Python dropped it, so that the version that
 //! wrote it finds it again (#560): [`without_unknown_keys`] checks that and leaves it out. And
 //! since 0.6.0 the local recognition migration of 0.3 to 0.5 and its notice are gone (#288):
 //! [`without_local_asr_migration`] takes them out of what Python did. And NLLB-200 3.3B is not
 //! offered since #565 (it will not be published): the list of local translation models has the
-//! others, and a saved choice of it loads as the default (no saved file here chose it).
+//! others, and a saved choice of it loads as the default (no saved file here chose it). And a new
+//! install recognizes through the bundled server since #1266, where Python's default was the
+//! external one: [`with_bundled_realtime_for_new_installs`] adds that to what Python wrote.
 
 use serde_json::{json, Map, Value};
 
@@ -42,10 +45,16 @@ fn with_added(settings: &mut Map<String, Value>) {
             }
         }
     }
+    // One level deeper: Listening's own recognition model (#1242), none in each speech server
+    // profile, so that Listening keeps the model Python's settings gave both sources.
+    let profiles = settings.get_mut("SPEECH_SERVER_SETTINGS").and_then(|saved| saved.get_mut("profiles")).and_then(Value::as_object_mut);
+    for row in profiles.into_iter().flat_map(|profiles| profiles.values_mut()).filter_map(Value::as_object_mut) {
+        row.entry("listening_model").or_insert_with(|| json!(""));
+    }
 }
 use std::path::Path;
-use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
-use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
+use astarot_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
+use astarot_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn reference() -> Value {
     serde_json::from_str(include_str!("data/python_config_reference.json")).unwrap()
@@ -106,8 +115,11 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // Python backend's UI had no layouts of the model catalogs. The AI translation's temperature and
 // instructions (#392) too: Python sent neither. RELEASE_CHANNEL_CHOSEN (#466) too: Python always
 // took the channel from the version. TRAY_COMPANION_WHEEL_HINT_SHOWN (#536) too: the Python
-// backend's hexagram had no wheel hint.
-const CORE_ONLY_KEYS: [&str; 11] = [
+// backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
+// the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
+// backend's UI had one look. SETTINGS_WINDOW_GEOMETRY (#1236) too: the Python backend's settings
+// were a page of the main window.
+const CORE_ONLY_KEYS: [&str; 20] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -119,6 +131,15 @@ const CORE_ONLY_KEYS: [&str; 11] = [
     "LLM_TRANSLATION_INSTRUCTIONS",
     "RELEASE_CHANNEL_CHOSEN",
     "TRAY_COMPANION_WHEEL_HINT_SHOWN",
+    "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
+    "THEME",
+    "CONVERSATION_LOG_DIRECTORY",
+    "TALK_AI_PROVIDER",
+    "TALK_AI_LOCAL_URL",
+    "TALK_AI_SCREEN_INTERVAL_MS",
+    "TALK_AI_SCREEN_LONG_EDGE",
+    "TALK_AI_SCREEN_DETAIL",
+    "SETTINGS_WINDOW_GEOMETRY",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
@@ -127,6 +148,9 @@ const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 fn without_core_additions(mut saved: Map<String, Value>) -> Map<String, Value> {
     for key in CORE_ONLY_KEYS {
         saved.shift_remove(key);
+    }
+    if let Some(Value::Object(features)) = saved.get_mut("EXPERIMENTAL_FEATURES") {
+        features.shift_remove("talk_ai");
     }
     if let Some(Value::Object(keys)) = saved.get_mut("AUTH_KEYS") {
         for engine in CORE_ONLY_AUTH_KEYS {
@@ -164,11 +188,43 @@ fn without_local_asr_migration(want: &mut Value, input: &Value) {
     }
 }
 
+/// The seventh intended difference (#1266): a new install recognizes through the bundled server,
+/// where Python's default was the external one. Nothing saved, an empty object or a file that
+/// could not be read is a new install; a saved file keeps Python's choice
+/// (`Config::migrate_realtime_server`).
+fn with_bundled_realtime_for_new_installs(want: &mut Value, input: &Value, defaults: &Value) {
+    let new_install = input.is_null()
+        || input.as_object().is_some_and(|saved| saved.is_empty() || saved.contains_key("raw") || saved.contains_key("raw_bytes"));
+    let Some(changed) = want["changed"].as_object_mut() else { return };
+    if new_install && !changed.contains_key("REALTIME_ASR_SETTINGS") {
+        let mut realtime = defaults["REALTIME_ASR_SETTINGS"].clone();
+        realtime["server"] = json!("bundled");
+        changed.insert("REALTIME_ASR_SETTINGS".into(), realtime);
+    }
+}
+
+/// The eighth intended difference (#1396, decided on 2026-11-28): the switches always start the
+/// bundled realtime servers, so the core leaves out Python's `start_server` of the realtime
+/// settings. A saved choice that differed only in it is no change.
+fn without_start_server(settings: &mut Map<String, Value>) {
+    if let Some(Value::Object(realtime)) = settings.get_mut("REALTIME_ASR_SETTINGS") {
+        realtime.shift_remove("start_server");
+    }
+}
+
+fn without_start_server_change(want: &mut Value, defaults: &Map<String, Value>) {
+    let Some(changed) = want["changed"].as_object_mut() else { return };
+    without_start_server(changed);
+    if changed.contains_key("REALTIME_ASR_SETTINGS") && changed.get("REALTIME_ASR_SETTINGS") == defaults.get("REALTIME_ASR_SETTINGS") {
+        changed.shift_remove("REALTIME_ASR_SETTINGS");
+    }
+}
+
 /// The fifth intended difference (#560): each key of the input the core does not know must be in
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
 fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str, failures: &mut Vec<String>) -> Map<String, Value> {
-    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    let known: Vec<&str> = astarot_core::config::schema::keys().iter().map(|key| key.name).collect();
     // Only a saved object has keys; `raw` and `raw_bytes` describe a file that is not one.
     let saved_object = input.as_object().filter(|object| !object.contains_key("raw") && !object.contains_key("raw_bytes"));
     for (key, value) in saved_object.into_iter().flatten() {
@@ -181,8 +237,8 @@ fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str
         }
     }
     // Python did not mark the file; the core names the newest version that saved it (#560).
-    if saved.shift_remove(vrct_core::config::NEWEST_SAVING_VERSION).is_none() {
-        failures.push(format!("{case}: {} is not written", vrct_core::config::NEWEST_SAVING_VERSION));
+    if saved.shift_remove(astarot_core::config::NEWEST_SAVING_VERSION).is_none() {
+        failures.push(format!("{case}: {} is not written", astarot_core::config::NEWEST_SAVING_VERSION));
     }
     saved
 }
@@ -202,6 +258,7 @@ fn check_platform(name: &str, platform: Platform) {
     defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
     // Intended (#288): the notice of the move to speech.cpp went in 0.6.0, with its key.
     defaults.shift_remove("LOCAL_ASR_NOTICE_PENDING");
+    without_start_server(&mut defaults);
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
@@ -225,6 +282,8 @@ fn check_platform(name: &str, platform: Platform) {
         let mut want = want.clone();
         retire_google_engine(&mut want);
         without_local_asr_migration(&mut want, &reference["inputs"][case]);
+        with_bundled_realtime_for_new_installs(&mut want, &reference["inputs"][case], &expected["defaults"]);
+        without_start_server_change(&mut want, defaults);
         let wanted_keys = moved_keys(&mut want);
         moved += wanted_keys.len();
         let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();
@@ -306,7 +365,7 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|w| !vrct_core::languages::RETIRED_TRANSLATION_WEIGHTS.contains(&w.as_str().unwrap()))
+        .filter(|w| !astarot_core::languages::RETIRED_TRANSLATION_WEIGHTS.contains(&w.as_str().unwrap()))
         .cloned()
         .collect();
     assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), json!(weights));

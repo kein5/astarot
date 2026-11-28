@@ -1,7 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { captureStatusSummary, detectorStatus, FULL_REGION, isFullRegion, normalizeRegion, readinessSummary, regionPercent, runtimeSummary, withRegionValue } from "./ocrReadiness.ts";
-import type { CaptureStatusSummary, OcrRegionInput } from "./ocrReadiness.ts";
+import type { CaptureStatusSummary, OcrReadiness, OcrRegionInput } from "./ocrReadiness.ts";
 import { unchecked } from "../test/hookHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
 
@@ -154,4 +154,76 @@ test("every readiness and OCR start-error string exists in English and Japanese"
             if (typeof value === "string") assert.ok(value.trim().length > 0, `${language}: ${key}`);
         }
     }
+});
+
+test("a region's edge at the far side keeps the smallest area inside the window", () => {
+    assert.deepEqual(normalizeRegion({ x: 1, y: 1 }), { x: 0.98, y: 0.98, width: 0.02, height: 0.02 });
+    assert.deepEqual(normalizeRegion({ x: 0.99, y: 0.985, width: 0.5, height: 0.5 }), { x: 0.98, y: 0.98, width: 0.02, height: 0.02 });
+});
+
+test("moving an edge shrinks the size to what is left, and a size is kept where it fits", () => {
+    const half = { x: 0.1, y: 0.2, width: 0.5, height: 0.6 };
+    assert.deepEqual(withRegionValue(half, "x", 90), { x: 0.9, y: 0.2, width: 0.1, height: 0.6 });
+    assert.deepEqual(withRegionValue(half, "x", 30), { x: 0.3, y: 0.2, width: 0.5, height: 0.6 });
+    assert.deepEqual(withRegionValue(half, "x", 100), { x: 0.98, y: 0.2, width: 0.02, height: 0.6 });
+    assert.deepEqual(withRegionValue(half, "y", 70), { x: 0.1, y: 0.7, width: 0.5, height: 0.3 });
+    assert.deepEqual(withRegionValue(half, "y", 10), { x: 0.1, y: 0.1, width: 0.5, height: 0.6 });
+    assert.deepEqual(withRegionValue(half, "y", 100), { x: 0.1, y: 0.98, width: 0.5, height: 0.02 });
+    assert.deepEqual(withRegionValue(half, "width", 30), { x: 0.1, y: 0.2, width: 0.3, height: 0.6 });
+    assert.deepEqual(withRegionValue(half, "height", 90), { x: 0.1, y: 0.2, width: 0.5, height: 0.8 });
+    assert.deepEqual(withRegionValue(half, "x", "a"), { x: 0, y: 0.2, width: 0.5, height: 0.6 });
+    assert.throws(() => withRegionValue(half, "", 1), { message: "unknown region key: " });
+    assert.throws(() => withRegionValue(half, "left", 1), { message: "unknown region key: left" });
+});
+
+test("only the whole window is the full region", () => {
+    for (const region of [{ x: 0.1 }, { y: 0.1 }, { width: 0.9 }, { height: 0.9 }]) {
+        assert.equal(isFullRegion({ ...FULL_REGION, ...region }), false, JSON.stringify(region));
+    }
+    assert.equal(isFullRegion({ x: 0, y: 0, width: 1, height: 1 }), true);
+    assert.equal(isFullRegion(undefined), true, "a region not yet known reads as the whole window");
+});
+
+test("every reason that blocks chat reading is not ready, and a missing window is named", () => {
+    const ready = { engine: true, language_supported: true, missing_models: [], capture: "ok", window_title: "VRChat" };
+    const blocking: [OcrReadiness, string][] = [
+        [{ engine: false }, "engine_unavailable"], [{ language_supported: false }, "language_unsupported"],
+        [{ missing_models: ["ppocrv6-small"] }, "models_missing"], [{ capture: "capture_unavailable" }, "capture_unavailable"],
+    ];
+    for (const [change, key] of blocking) {
+        assert.deepEqual(readinessSummary({ ...ready, ...change }), { key: `config_page.ocr.readiness.${key}`, params: {}, ok: false }, key);
+    }
+    assert.deepEqual(readinessSummary({ ...ready, capture: "window_not_found", window_title: "My VRChat" }),
+        { key: "config_page.ocr.readiness.window_not_found", params: { title: "My VRChat" }, ok: false });
+    assert.deepEqual(readinessSummary({ ...ready, capture: "window_not_found", window_title: null }).params, { title: "VRChat" });
+    assert.deepEqual(readinessSummary({ ...ready, missing_models: null }).ok, true, "no list of missing models is none missing");
+});
+
+test("the worker's state reads as failed only while it retries, and an unknown stage as a failed tick", () => {
+    assert.deepEqual(runtimeSummary({ state: "reading" }), { key: "config_page.ocr.runtime.reading", params: {}, ok: true, tone: "active" });
+    assert.deepEqual(runtimeSummary({ state: "waiting" }), { key: "config_page.ocr.runtime.waiting", params: {}, ok: false, tone: "warning" });
+    assert.deepEqual(runtimeSummary({ state: "starting" }), { key: "config_page.ocr.runtime.waiting", params: {}, ok: false, tone: "warning" });
+    for (const stage of ["capture", "detector", "recognition"]) {
+        assert.deepEqual(runtimeSummary({ state: "retrying", stage }), { key: `config_page.ocr.runtime.failed_${stage}`, params: {}, ok: false, tone: "failed" });
+    }
+    for (const stage of ["translation", null, undefined]) {
+        assert.equal(runtimeSummary({ state: "retrying", stage })?.key, "config_page.ocr.runtime.failed_tick", String(stage));
+    }
+});
+
+test("a worker that is stopped, or not active, reads as the readiness says, neutral only when ready", () => {
+    const ready = { engine: true, language_supported: true, missing_models: [], capture: "ok" };
+    for (const status of [{ active: true, state: "stopped" }, { active: false, state: "reading" }]) {
+        assert.deepEqual(captureStatusSummary(status, ready),
+            { key: "config_page.ocr.readiness.ready", params: {}, ok: true, sourceKey: "config_page.ocr.capture_source.stopped", tone: "neutral" }, JSON.stringify(status));
+        assert.deepEqual(captureStatusSummary(status, { ...ready, engine: false }),
+            { key: "config_page.ocr.readiness.engine_unavailable", params: {}, ok: false, sourceKey: "config_page.ocr.capture_source.stopped", tone: "warning" });
+    }
+    assert.equal(captureStatusSummary({ active: true, state: "reading", source: "vr" }, ready).key, "config_page.ocr.runtime.reading");
+});
+
+test("nothing is ready while the readiness is not known, and a shared window is lost only while the worker retries", () => {
+    for (const readiness of [null, undefined]) assert.deepEqual(readinessSummary(readiness), { key: "config_page.ocr.readiness.checking", params: {}, ok: false });
+    assert.equal(runtimeSummary({ state: "reading", stage: "capture", shared_window: "ended" })?.key, "config_page.ocr.runtime.reading");
+    assert.equal(runtimeSummary({ state: "retrying", stage: "capture", shared_window: "ended" })?.key, "config_page.ocr.runtime.shared_window_ended");
 });

@@ -82,7 +82,7 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "UI tests (Vitest), Biome (lint and format check), the type check and the Vite build"
+description = "UI tests (Vitest), Biome (lint and format check), the type check, the Vite build and the component catalog's build"
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:rust"]
@@ -160,6 +160,10 @@ run = "cargo test --locked --manifest-path native/core/Cargo.toml --test spec_ca
 description = "Regenerate the ADR index table (docs/adr/README.md) from the front matter"
 run = "python tools/adr_catalog.py --write"
 
+[tasks.component-map]
+description = "Regenerate the component map (docs/spec/reference/component-map.md) from tools/component_map.toml"
+run = "python tools/component_map.py --write"
+
 [tasks."build:voice-gate"]
 description = "Linux audio helpers in build/ (needs the PipeWire development files)"
 run = "python tools/build_voice_gate.py"
@@ -176,6 +180,10 @@ run = "npm run build"
 description = "Linux candidate build (tools/build_linux.py; see docs/voice-stack/linux-build-pipeline.md)"
 run = "python tools/build_linux.py"
 
+[tasks."mutation:changed"]
+description = "Mutation tests of what this branch changed, UI and Rust (tools/mutation_changed.py; #550)"
+run = "python tools/mutation_changed.py"
+
 [tasks."changelog:print"]
 description = "Show the next release's changes without writing anything"
 run = "python tools/changelog.py print"
@@ -187,3 +195,7 @@ run = "python tools/changelog.py scaffold-notes"
 [tasks."dev:web"]
 description = "Web UI development server (Vite)"
 run = "npm run dev:web"
+
+[tasks."dev:catalog"]
+description = "Component catalog of the UI kit (Storybook, http://localhost:6006)"
+run = "npm run dev:catalog"

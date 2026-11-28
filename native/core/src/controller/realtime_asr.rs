@@ -3,7 +3,7 @@
 //!
 //! Port of the realtime parts of [`src-python/controller.py`] (`_initRealtimeASR` to
 //! `_startRealtime`). The session, its transport and the delivery of captions are in
-//! `vrct_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
+//! `astarot_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
 //! VR large log; finals go through the message pipeline (`REALTIME_MIC`, `REALTIME_SPEAKER`).
 //!
 //! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
@@ -19,19 +19,19 @@ use serde_json::{Value, json};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::{Endpoint, SourceId};
-use vrct_speech_server::Profile;
-use vrct_transcription::realtime::{Admission, Delivery, Options, Session, Update};
-use vrct_transcription::server_vad::{self, ServerVad};
-use vrct_transcription::speechcpp;
-use vrct_transcription::vad::Vad;
-use vrct_translation::http::Cancel;
+use astarot_audio_routing::graph::{Endpoint, SourceId};
+use astarot_speech_server::Profile;
+use astarot_transcription::realtime::{Admission, Delivery, Options, Session, Update};
+use astarot_transcription::server_vad::{self, ServerVad};
+use astarot_transcription::speechcpp;
+use astarot_transcription::vad::Vad;
+use astarot_translation::http::Cancel;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
 const ASR_SERVER_WAIT: Duration = Duration::from_secs(120 + 5);
-const ASR_START_FAILURES: [&str; 4] =
-    ["speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_vulkan_missing", "speech_server_device_failed"];
+const ASR_START_FAILURES: [&str; 5] = ["speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_vulkan_missing",
+    "speech_server_device_failed", astarot_speech_server::codes::BUNDLE];
 
 /// How long realtime recognition waits ([`super::Services::realtime_limits`]). The app keeps
 /// [`RealtimeLimits::default`], Python's values; tests shorten them (decision 81 in
@@ -44,8 +44,8 @@ pub struct RealtimeLimits {
     /// How long a start waits for the previous session of its source to end, before it fails
     /// with `realtime_previous_owner_busy` (3 s).
     pub drain: Duration,
-    /// The session's own ([`vrct_transcription::realtime::Limits`]).
-    pub session: vrct_transcription::realtime::Limits,
+    /// The session's own ([`astarot_transcription::realtime::Limits`]).
+    pub session: astarot_transcription::realtime::Limits,
 }
 
 impl Default for RealtimeLimits {
@@ -59,6 +59,9 @@ struct Owner {
     id: u64,
     session: Session,
     delivery: Delivery,
+    /// The device the session records, by the name the device list shows it with (#1314, M-6):
+    /// the inputs and outputs panel says which microphone and which output the captions use.
+    device: String,
 }
 
 struct State {
@@ -69,7 +72,9 @@ struct State {
     cancels: [Cancel; 2],
     requested: [bool; 2],
     owners: [Option<Owner>; 2],
-    server_runs: [Option<(u64, u64)>; 2],
+    /// The bundled server each source's session uses, and its run, with the source's
+    /// generation: Mic input's, or Listening's own (#1242).
+    server_runs: [Option<(u64, Profile, u64)>; 2],
     errors: [Option<String>; 2],
     closed: bool,
     /// Stopped while Settings is open (`_realtime_settings_paused`).
@@ -78,26 +83,35 @@ struct State {
     refused: [bool; 2],
 }
 
+/// The bundled recognition servers, each switch's own (#1242): Mic input's, which also serves
+/// Listening while Listening has no model of its own, and Listening's.
+const ASR_SERVERS: [Profile; 2] = [Profile::Asr, Profile::AsrListening];
+
+/// A recognition server's place in [`ASR_SERVERS`].
+fn server_slot(profile: Profile) -> usize {
+    usize::from(profile == Profile::AsrListening)
+}
+
 #[derive(Default)]
 struct Toggle {
     shown: [bool; 2],
-    /// The run of the bundled ASR server a switch started.
-    asr_owned: Option<u64>,
+    /// The run of each bundled ASR server a switch started ([`ASR_SERVERS`]).
+    asr_owned: [Option<u64>; 2],
     starting: usize,
-    /// Recorders whose VAD may use the bundled server ([`VadUser`]): it is not stopped while
+    /// Recorders whose VAD may use each bundled server ([`VadUser`]): it is not stopped while
     /// one lives (decision 84).
-    vad_users: usize,
+    vad_users: [usize; 2],
 }
 
-/// A recorder's hold on the bundled ASR server for its VAD (decision 84). Counted while the
-/// recorder's VAD lives; the last one gone lets [`Core::release_asr_server`] stop a server a
-/// switch or a VAD started.
-struct VadUser(std::sync::Weak<Core>);
+/// A recorder's hold on the bundled ASR server of its source for its VAD (decision 84). Counted
+/// while the recorder's VAD lives; the last one gone lets [`Core::release_asr_server`] stop a
+/// server a switch or a VAD started.
+struct VadUser(std::sync::Weak<Core>, Profile);
 
 impl VadUser {
-    fn new(core: &Arc<Core>) -> VadUser {
-        core.realtime().toggle().vad_users += 1;
-        VadUser(Arc::downgrade(core))
+    fn new(core: &Arc<Core>, profile: Profile) -> VadUser {
+        core.realtime().toggle().vad_users[server_slot(profile)] += 1;
+        VadUser(Arc::downgrade(core), profile)
     }
 }
 
@@ -106,7 +120,8 @@ impl Drop for VadUser {
         let Some(core) = self.0.upgrade() else { return };
         {
             let mut toggle = core.realtime().toggle();
-            toggle.vad_users = toggle.vad_users.saturating_sub(1);
+            let users = &mut toggle.vad_users[server_slot(self.1)];
+            *users = users.saturating_sub(1);
         }
         // A recorder may go while its owner holds other locks: the release runs on its own.
         let _ = std::thread::Builder::new().name("astarot-vad-release".into()).spawn(move || core.release_asr_server());
@@ -223,6 +238,16 @@ impl Core {
         &self.transcription().realtime
     }
 
+    /// The bundled recognition server a source uses (#1242): Listening's own while Listening has a
+    /// model of its own, another file than Mic input's; else Mic input's, for both.
+    pub(crate) fn recognition_profile(&self, source: Source) -> Profile {
+        let apart = || {
+            astarot_speech_server::settings::normalize_settings(&self.config().get("SPEECH_SERVER_SETTINGS"))
+                .is_ok_and(|settings| settings.profile(Profile::Asr).listening_apart())
+        };
+        if source == Source::Speaker && apart() { Profile::AsrListening } else { Profile::Asr }
+    }
+
     /// Why the recorder's VAD cannot be turned on, or `None` (decision 13). Silero VAD runs on
     /// the speech.cpp server of realtime recognition: the bundled one needs its recognition
     /// model and its VAD model set; an external one, an address on this computer. Whether the
@@ -263,7 +288,7 @@ impl Core {
         }
         let reachable = settings["base_url"]
             .as_str()
-            .and_then(|url| vrct_translation::http::Url::parse(url).ok())
+            .and_then(|url| astarot_translation::http::Url::parse(url).ok())
             .and_then(|url| {
                 use std::net::ToSocketAddrs;
                 (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()
@@ -288,7 +313,7 @@ impl Core {
     }
 
     /// The VAD a source's recorder cuts with while its switch is on: the services' engine, else
-    /// Silero VAD on the speech.cpp server ([`vrct_transcription::server_vad`]). A server that is
+    /// Silero VAD on the speech.cpp server ([`astarot_transcription::server_vad`]). A server that is
     /// not set up, or one the recording cannot use, is told (`/run/vad_unavailable`), and the
     /// energy listener cuts.
     pub(crate) fn recorder_vad(self: &Arc<Self>, source: Source) -> Option<Vad> {
@@ -300,12 +325,13 @@ impl Core {
             return None;
         }
         let weak = Arc::downgrade(self);
-        let user = VadUser::new(self);
+        let profile = self.recognition_profile(source);
+        let user = VadUser::new(self, profile);
         let resolve: server_vad::Resolve = Arc::new({
             let weak = weak.clone();
             move || {
                 let _holds = &user;
-                weak.upgrade().ok_or_else(|| "realtime_session_failed".to_string())?.vad_server_url()
+                weak.upgrade().ok_or_else(|| "realtime_session_failed".to_string())?.vad_server_url(profile)
             }
         });
         let report: server_vad::Report = Arc::new(move |code: &str| {
@@ -316,20 +342,18 @@ impl Core {
         Some(Vad(Arc::new(ServerVad::new(resolve, report, server_vad::PYTHON))))
     }
 
-    /// The speech.cpp server the recorder's VAD uses: the bundled one, which a recording starts
-    /// when the realtime settings let a switch start it (`start_server`, decision 84) and waits
-    /// for, or the external one of the settings. Called where the VAD opens its session, not
-    /// on the recording's thread.
-    fn vad_server_url(&self) -> Result<String, String> {
+    /// The speech.cpp server the recorder's VAD uses: the bundled one of its source (`profile`,
+    /// #1242), which a recording starts and waits for (decision 84; always since #1396), or the
+    /// external one of the settings. Called where the VAD opens its session, not on the
+    /// recording's thread.
+    fn vad_server_url(&self, profile: Profile) -> Result<String, String> {
         let settings = self.vad_server_settings();
         let base = if settings["server"] == "bundled" {
-            let ready = self.speech_servers().state()["asr"]["state"] == "ready";
-            if !ready && settings["start_server"] != false
-                && let Some(code) = self.ensure_asr_server(true, &|| !self.realtime().state().closed)
-            {
+            let ready = self.speech_servers().state()[profile.name()]["state"] == "ready";
+            if !ready && let Some(code) = self.ensure_asr_server(profile, &|| !self.realtime().state().closed) {
                 return Err(code);
             }
-            self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
+            self.speech_servers().hub().binding(profile).map_err(|_| "speech_server_not_ready".to_string())?
         } else {
             settings["base_url"].as_str().unwrap_or("").to_string()
         };
@@ -363,6 +387,16 @@ impl Core {
             }
         }
         None
+    }
+
+    /// Language to prepare for microphone speech. Auto detection uses the tab's language
+    /// until the recognizer reports the language of a final.
+    pub(super) fn mic_speech_language(&self, fallback: Option<&str>) -> Option<String> {
+        let settings = self.config().get(SETTINGS_KEY);
+        match settings["mic"]["language"].as_str() {
+            Some(code) if code != "auto" => Self::realtime_language(code),
+            _ => fallback.map(str::to_owned),
+        }
     }
 
     /// `_realtimeFallbackLanguage`: the language the settings have for this side.
@@ -409,8 +443,12 @@ impl Core {
         for source in [Source::Mic, Source::Speaker] {
             let i = index(source);
             let mut health = match &state.owners[i] {
-                Some(owner) => owner.session.health(),
-                None => json!({ "source": source.as_str(), "state": "idle", "namespace": null, "error_code": null }),
+                Some(owner) => {
+                    let mut health = owner.session.health();
+                    health["device"] = json!(owner.device);
+                    health
+                }
+                None => json!({ "source": source.as_str(), "state": "idle", "namespace": null, "error_code": null, "device": null }),
             };
             let terminal = matches!(health["state"].as_str(), Some("closed" | "failed" | "stopping"));
             health["generation"] = json!(state.generation[i]);
@@ -502,8 +540,18 @@ impl Core {
         }
     }
 
-    /// `getRealtimeASRModels`.
-    fn realtime_models(&self) -> Reply {
+    /// `getRealtimeASRModels`: the models of the server a source uses (`{"source": "speaker"}`,
+    /// Mic input's without one), which is Listening's own bundled server while Listening has a
+    /// model of its own (#1242).
+    fn realtime_models(&self, data: &Value) -> Reply {
+        let source = match data.get("source") {
+            None | Some(Value::Null) => Source::Mic,
+            Some(_) => match source_of(data) {
+                Ok(source) => source,
+                Err(_) => return refused(400, "realtime_source_invalid"),
+            },
+        };
+        let profile = self.recognition_profile(source);
         let settings = self.realtime().state().settings.clone();
         let mut result = json!({
             "server": settings["server"],
@@ -514,8 +562,8 @@ impl Core {
             "error_code": null,
         });
         if settings["server"] == "bundled" {
-            result["server_generation"] = self.speech_servers().state()["asr"]["generation"].clone();
-            match self.speech_servers().hub().binding(Profile::Asr) {
+            result["server_generation"] = self.speech_servers().state()[profile.name()]["generation"].clone();
+            match self.speech_servers().hub().binding(profile) {
                 Ok(url) => result["base_url"] = json!(url),
                 Err(_) => {
                     result["base_url"] = Value::Null;
@@ -643,21 +691,31 @@ impl Core {
         self.publish_realtime_toggle(source, wanted.then(|| code.unwrap_or_else(|| "realtime_session_failed".into())));
     }
 
-    /// `_releaseAsrServer`: stops a bundled ASR server a switch started once neither uses it.
+    /// `_releaseAsrServer`: stops each bundled ASR server a switch started once no source uses it
+    /// (#1242: Mic input's and Listening's own on their own).
     fn release_asr_server(&self) {
+        // Read before the locks: the settings say which server a source starts on.
+        let profiles = [Source::Mic, Source::Speaker].map(|source| self.recognition_profile(source));
         let mut toggle = self.realtime().toggle();
-        let Some(owned) = toggle.asr_owned else { return };
-        if toggle.starting > 0 || toggle.vad_users > 0 {
-            return;
-        }
-        {
-            let state = self.realtime().state();
-            if [Source::Mic, Source::Speaker].iter().any(|s| Self::realtime_active(&state, *s)) {
-                return;
+        for profile in ASR_SERVERS {
+            let slot = server_slot(profile);
+            let Some(owned) = toggle.asr_owned[slot] else { continue };
+            if toggle.starting > 0 || toggle.vad_users[slot] > 0 {
+                continue;
             }
+            {
+                let state = self.realtime().state();
+                // A source that runs keeps the server its session is on, or the one it starts on.
+                let uses = |source: Source| {
+                    state.server_runs[index(source)].map_or(profiles[index(source)], |(_, used, _)| used) == profile
+                };
+                if [Source::Mic, Source::Speaker].iter().any(|s| Self::realtime_active(&state, *s) && uses(*s)) {
+                    continue;
+                }
+            }
+            toggle.asr_owned[slot] = None;
+            self.speech_servers().hub().stop(profile, Some(owned), None);
         }
-        toggle.asr_owned = None;
-        self.speech_servers().hub().stop(Profile::Asr, Some(owned), None);
     }
 
     fn realtime_start_current(&self, source: Source, expected: u64) -> bool {
@@ -665,53 +723,69 @@ impl Core {
         !state.closed && state.generation[index(source)] == expected
     }
 
-    /// `_awaitAsrServer`: starts the bundled server when allowed and waits until it is ready.
-    fn await_asr_server(&self, source: Source, expected: u64, start: bool) -> Option<String> {
-        self.ensure_asr_server(start, &|| self.realtime_start_current(source, expected))
+    /// `_awaitAsrServer`: starts the bundled server of the source's switch (`profile`) and waits
+    /// until it is ready.
+    fn await_asr_server(&self, source: Source, profile: Profile, expected: u64) -> Option<String> {
+        self.ensure_asr_server(profile, &|| self.realtime_start_current(source, expected))
     }
 
-    /// Starts the bundled ASR server when `start` allows it and waits until it is ready, while
-    /// `current` holds (else `realtime_stale_start`). A server it starts is owned as a switch's
-    /// ([`Core::release_asr_server`]).
-    fn ensure_asr_server(&self, start: bool, current: &dyn Fn() -> bool) -> Option<String> {
+    /// Starts the bundled ASR server `profile` when it is not up and waits until it is ready,
+    /// while `current` holds (else `realtime_stale_start`). A server it starts is owned as a
+    /// switch's ([`Core::release_asr_server`]): the switches start and stop the servers they need,
+    /// and nothing turns that off (#1396, decided on 2026-11-28).
+    ///
+    /// Listening's own server (#1242) that fails for memory while Mic input's runs is refused with
+    /// `realtime_asr_models_do_not_fit` (decided on 2026-11-27): the two models do not fit
+    /// together, and nothing changes without the user, who may use one model for both.
+    ///
+    /// A start is stale too once the run is shutting down (#1340): Mic input's switch waits here
+    /// holding the talk lock, which [`Core::shutdown`] takes before it closes realtime
+    /// recognition, so the wait must not outlast the shutdown's start.
+    fn ensure_asr_server(&self, profile: Profile, current: &dyn Fn() -> bool) -> Option<String> {
+        let current = || current() && !self.shutdown_requested();
         if !current() {
             return Some("realtime_stale_start".into());
         }
-        let row = self.speech_servers().state()["asr"].clone();
+        let name = profile.name();
+        let row = self.speech_servers().state()[name].clone();
         if row["state"] == "stopping" {
             return Some("speech_server_busy".into());
         }
         let mut run = row["generation"].as_u64().unwrap_or(0);
         let up = matches!(row["state"].as_str(), Some("ready" | "preparing"));
-        if !up && !start {
-            return Some("speech_server_autostart_off".into());
-        }
         if !up {
-            let profile = &self.config().get("SPEECH_SERVER_SETTINGS")["profiles"]["asr"];
-            if profile["model"].as_str().unwrap_or("").trim().is_empty() {
+            // Listening's own model is there whenever its server is the one to start.
+            let settings = &self.config().get("SPEECH_SERVER_SETTINGS")["profiles"]["asr"];
+            if profile == Profile::Asr && settings["model"].as_str().unwrap_or("").trim().is_empty() {
                 return Some("realtime_asr_model_missing".into());
             }
-            if profile["vad_model"].as_str().unwrap_or("").trim().is_empty() {
+            if settings["vad_model"].as_str().unwrap_or("").trim().is_empty() {
                 return Some("realtime_vad_model_missing".into());
             }
-            let Ok(options) = self.speech_servers().start_options(self, Profile::Asr) else {
+            let Ok(options) = self.speech_servers().start_options(self, profile) else {
                 return Some("speech_server_model_invalid".into());
             };
             let mut toggle = self.realtime().toggle();
             // The other source's switch may have started the server while this one checked the
             // settings (both switches turned on together): read the server again under the lock
             // and wait for that run instead of starting a second one.
-            let row = self.speech_servers().state()["asr"].clone();
+            let row = self.speech_servers().state()[name].clone();
             if row["state"] == "stopping" {
                 return Some("speech_server_busy".into());
             }
             run = row["generation"].as_u64().unwrap_or(0);
             if !matches!(row["state"].as_str(), Some("ready" | "preparing")) {
-                if let Err(code) = self.speech_servers().hub().start(Profile::Asr, options, run) {
-                    return Some(if code == vrct_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+                if let Err(code) = self.speech_servers().hub().start(profile, options, run) {
+                    // A missing or broken bundle keeps its own code (#1314, M-3): its fix is to install
+                    // the app again, not the model or the device the general failure points to.
+                    return Some(match code {
+                        astarot_speech_server::codes::BUSY => "speech_server_busy",
+                        astarot_speech_server::codes::BUNDLE => astarot_speech_server::codes::BUNDLE,
+                        _ => "speech_server_start_failed",
+                    }.into());
                 }
                 run += 1;
-                toggle.asr_owned = Some(run);
+                toggle.asr_owned[server_slot(profile)] = Some(run);
             }
         }
         let deadline = Instant::now() + ASR_SERVER_WAIT;
@@ -719,9 +793,13 @@ impl Core {
             if !current() {
                 return Some("realtime_stale_start".into());
             }
-            let row = self.speech_servers().state()["asr"].clone();
+            let row = self.speech_servers().state()[name].clone();
             if row["state"] == "failed" {
                 let code = row["error_code"].as_str().unwrap_or("");
+                let beside = self.speech_servers().state()[Profile::Asr.name()]["state"] == "ready";
+                if profile == Profile::AsrListening && code == astarot_speech_server::codes::OUT_OF_MEMORY && beside {
+                    return Some("realtime_asr_models_do_not_fit".into());
+                }
                 return Some(if ASR_START_FAILURES.contains(&code) { code } else { "speech_server_start_failed" }.into());
             }
             if row["generation"].as_u64() != Some(run) || matches!(row["state"].as_str(), Some("stopped" | "stopping")) {
@@ -741,7 +819,7 @@ impl Core {
     /// start against the settings and the server, and lists the server's models for the
     /// session. The list is asked for here, where a stop of the source ends it, before the
     /// session is placed; the session does not ask again (decision 81).
-    fn prepare_realtime(&self, source: Source, expected: u64, starter: Starter) -> Result<Options, String> {
+    fn prepare_realtime(&self, source: Source, expected: u64, starter: Starter) -> Result<Options, Refusal> {
         let i = index(source);
         let settings = {
             let state = self.realtime().state();
@@ -772,13 +850,15 @@ impl Core {
             return Err("realtime_stale_start".into());
         }
         let bundled = settings["server"] == "bundled";
+        // Each switch starts the server it uses (#1242): Listening's own, or Mic input's.
+        let profile = self.recognition_profile(source);
         let base_url = if bundled {
             if starter == Starter::Switch
-                && let Some(code) = self.await_asr_server(source, expected, settings["start_server"] != false)
+                && let Some(code) = self.await_asr_server(source, profile, expected)
             {
-                return Err(code);
+                return Err(code.into());
             }
-            self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
+            self.speech_servers().hub().binding(profile).map_err(|_| "speech_server_not_ready".to_string())?
         } else {
             settings["base_url"].as_str().unwrap_or("").to_string()
         };
@@ -801,8 +881,9 @@ impl Core {
         }
         let (models, diarizes) = listed.map_err(|_| "realtime_models_unavailable".to_string())?;
         let mut chosen = models.iter().find(|m| m.id == wanted).cloned();
-        if chosen.is_none() && starter == Starter::Switch && bundled && models.len() == 1 {
-            // The bundled server loads exactly one recognizer.
+        if chosen.is_none() && bundled && models.len() == 1 {
+            // The bundled server loads exactly one recognizer, and Listening's own server another
+            // one than the model saved for both (#1242).
             chosen = models.first().cloned();
         }
         let Some(chosen) = chosen else {
@@ -810,7 +891,9 @@ impl Core {
         };
         let language = settings[source.as_str()]["language"].as_str().unwrap_or("auto").to_string();
         if !speechcpp::language_supported(&chosen, &language) {
-            return Err(if language == "auto" { "realtime_language_auto_unsupported" } else { "realtime_language_unsupported" }.into());
+            // The model's languages go with the answer, so the switch can offer them (#1225).
+            let code = if language == "auto" { "realtime_language_auto_unsupported" } else { "realtime_language_unsupported" };
+            return Err(Refusal { code: code.into(), languages: Some(chosen.languages.clone()) });
         }
         Ok(Options {
             base_url,
@@ -856,15 +939,15 @@ impl Core {
         };
         if !active {
             self.realtime().toggle().starting += 1;
-            let code = match self.prepare_realtime(source, expected, Starter::Switch) {
-                Ok(options) => self.start_realtime_session(source, expected, options).err(),
-                Err(code) => Some(code),
+            let refused = match self.prepare_realtime(source, expected, Starter::Switch) {
+                Ok(options) => self.start_realtime_session(source, expected, options).err().map(Refusal::from),
+                Err(refusal) => Some(refusal),
             };
             self.realtime().toggle().starting -= 1;
             self.release_asr_server();
-            if let Some(code) = code {
+            if let Some(refusal) = refused {
                 self.publish_realtime_toggle(source, None);
-                return Reply::error(not_ready(source, &code));
+                return Reply::error(refusal.not_ready(source));
             }
         }
         let (active, code) = {
@@ -892,11 +975,16 @@ impl Core {
     /// is answered here (409), where Python's session started and then failed with it.
     fn start_realtime(self: &Arc<Self>, data: &Value) -> Reply {
         let Ok(source) = source_of(data) else { return refused(400, "realtime_start_invalid") };
+        let talk = (source == Source::Mic).then(|| self.talk_ai.lock().unwrap());
+        if talk.as_ref().is_some_and(|session| session.owns_microphone()) {
+            return Reply::conflict("talk_microphone_in_use");
+        }
         let Some(expected) = data.get("_realtime_generation").and_then(Value::as_u64) else {
             return refused(400, "realtime_start_invalid");
         };
         let started = self
             .prepare_realtime(source, expected, Starter::Page)
+            .map_err(|refusal| refusal.code)
             .and_then(|options| self.start_realtime_session(source, expected, options));
         let result = match started {
             Ok(()) => ok(self.realtime_state()),
@@ -910,6 +998,8 @@ impl Core {
     /// of the 409 (or 400) answer.
     fn start_realtime_session(self: &Arc<Self>, source: Source, expected: u64, prepared: Options) -> Result<(), String> {
         let i = index(source);
+        // The bundled server the start was prepared on (#1242), read before any lock is taken.
+        let profile = self.recognition_profile(source);
         let lifecycle = self.audio_devices().lock_source(source);
         let precheck = |state: &State| -> Result<(), String> {
             if state.closed || expected != state.generation[i] {
@@ -943,11 +1033,12 @@ impl Core {
             let mut server_run = None;
             if state.settings["server"] == "bundled" {
                 let hub = self.speech_servers().hub();
-                server_run = hub.current_run(Profile::Asr);
-                options.base_url = hub.binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?;
-                if server_run.is_none() || hub.current_run(Profile::Asr) != server_run {
+                let run = hub.current_run(profile);
+                options.base_url = hub.binding(profile).map_err(|_| "speech_server_not_ready".to_string())?;
+                if run.is_none() || hub.current_run(profile) != run {
                     return Err("speech_server_not_ready".into());
                 }
+                server_run = run.map(|run| (profile, run));
             }
             if speechcpp::local_url(&options.base_url).is_none() {
                 return Err("realtime_base_url_invalid".into());
@@ -965,7 +1056,7 @@ impl Core {
             }
             let generation = advance(&mut state, i);
             state.requested[i] = true;
-            state.server_runs[i] = server_run.map(|run| (generation, run));
+            state.server_runs[i] = server_run.map(|(profile, run)| (generation, profile, run));
             state.errors[i] = None;
             (generation, options, endpoint, detect, language)
         };
@@ -1000,6 +1091,11 @@ impl Core {
         }
         drop(lifecycle);
 
+        // Read once, at the start and outside the state's lock: the list names the device the way
+        // the settings show it.
+        let device = platform.endpoints(source).ok()
+            .and_then(|listed| listed.into_iter().find(|(listed, _)| listed.name == endpoint.name).map(|(_, label)| label))
+            .unwrap_or_else(|| endpoint.name.clone());
         let mut state = self.realtime().state();
         if state.closed || state.generation[i] != generation {
             return Err("realtime_stale_start".into());
@@ -1007,7 +1103,7 @@ impl Core {
         let session = Session::new(source, options, endpoint, platform);
         let delivery = self.realtime_delivery(source, generation, &session, detect, language);
         let id = self.realtime().owners.fetch_add(1, Ordering::SeqCst);
-        state.owners[i] = Some(Owner { id, session: session.clone(), delivery: delivery.clone() });
+        state.owners[i] = Some(Owner { id, session: session.clone(), delivery: delivery.clone(), device });
         drop(state);
         if session.start().is_err() || delivery.start().is_err() {
             return Err(fail_start("realtime_start_failed"));
@@ -1062,7 +1158,7 @@ impl Core {
                         (weak.clone(), current.clone(), admitted.clone(), session.clone(), arrival.clone());
                     Arc::new(move |payload: Value| -> bool {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.as_ref()) else { return false };
-                        core.publish_caption(source, generation, payload, &*current, &*admitted, &session, &arrival.snapshot)
+                        core.publish_caption(source, generation, payload, current.clone(), admitted.clone(), &session, &arrival.snapshot)
                     })
                 };
                 // The voice settings when the final arrived (`snapshot_voice`): its speech is
@@ -1071,7 +1167,7 @@ impl Core {
                 let process = {
                     let (weak, current, admitted) = (weak.clone(), current.clone(), admitted.clone());
                     let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
-                    Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current, output: vrct_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
+                    Arc::new(move |update: &Update, valid: astarot_transcription::realtime::delivery::Current, output: astarot_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.clone()) else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
                             return Ok(None);
@@ -1082,7 +1178,8 @@ impl Core {
                         let arrived = speech_update(update);
                         let received_ns = arrived.received_ns;
                         let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice { snapshot, update: arrived });
-                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns, &*output))
+                        let voices = super::messages::Voices { session: update.namespace.clone(), speakers: update.speakers.clone() };
+                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns, voices, &*output))
                     })
                 };
                 Admission { publish, process, admitted }
@@ -1113,15 +1210,16 @@ impl Core {
     }
 
     /// `publish` of `_startRealtime`: a caption row to the UI and the VR large log, drawn with
-    /// the settings its update arrived with.
+    /// the settings its update arrived with. The picture is queued for the caption worker (#861),
+    /// so that this loop goes on reading the recognition's updates, and the row goes after it.
     #[allow(clippy::too_many_arguments)]
     fn publish_caption(
-        &self,
+        self: &Arc<Self>,
         source: Source,
         generation: u64,
         payload: Value,
-        current: &(dyn Fn() -> bool + Send + Sync),
-        admitted: &(dyn Fn() -> bool + Send + Sync),
+        current: Arc<dyn Fn() -> bool + Send + Sync>,
+        admitted: Arc<dyn Fn() -> bool + Send + Sync>,
         session: &Session,
         snapshot: &Snapshot,
     ) -> bool {
@@ -1136,42 +1234,47 @@ impl Core {
         if !valid() {
             return false;
         }
-        self.run(200, "/run/realtime_caption", shown_payload);
         if self.config().get_bool("OVERLAY_LARGE_LOG") {
-            let namespace = payload["namespace"].as_str().unwrap_or("");
-            let state = payload["state"].as_str().unwrap_or("");
+            let namespace = payload["namespace"].as_str().unwrap_or("").to_string();
+            let state = payload["state"].as_str().unwrap_or("").to_string();
+            let item = payload["item_id"].as_str().unwrap_or("").to_string();
             let expires = payload["expires_ns"].as_u64().unwrap_or(0);
-            let overlay_current = || {
-                valid()
-                    && self.config().get_bool("OVERLAY_LARGE_LOG")
-                    && session.is_current(namespace)
-                    && (state == "discarded"
-                        || vrct_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
-            };
+            let revision = payload["revision"].as_u64().unwrap_or(0);
             let message = caption_message(source, &payload, snapshot);
-            let item = payload["item_id"].as_str().unwrap_or("");
-            let shown = self.show_overlay_caption(
-                source.as_str(),
-                namespace,
-                item,
-                state,
-                payload["revision"].as_u64().unwrap_or(0),
-                &message,
-                &overlay_current,
-            );
-            // A failed caption is told like a failed output of a message (`_runMessageSink`
-            // "overlay_large"); the caption still reaches the UI and the final goes on.
-            if shown.is_err() {
-                let id = format!("{namespace}:{item}");
-                self.output_failed("overlay_large", spec(source), Some(&id), &valid, &mut Vec::new());
-            }
+            let partial_of = (state == "partial").then(|| (source.as_str().to_string(), namespace.clone(), item.clone()));
+            let (weak, session) = (Arc::downgrade(self), session.clone());
+            self.queue_overlay_caption(super::overlay::CaptionJob {
+                partial_of,
+                draw: Box::new(move || {
+                    let Some(core) = weak.upgrade() else { return };
+                    // The caption was current and admitted when it was published. A partial
+                    // still needs its session: drawn after the session ended, it would stay, as
+                    // the end discarded the partials already. A final, a translation or a
+                    // discard is drawn as it would have been at once, even when listening stopped
+                    // meanwhile (the captions shown stay).
+                    let still = || {
+                        core.config().get_bool("OVERLAY_LARGE_LOG")
+                            && (state != "partial" || (current() && admitted() && session.is_current(&namespace)))
+                            && (state == "discarded"
+                                || astarot_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
+                    };
+                    let shown = core.show_overlay_caption(source.as_str(), &namespace, &item, &state, revision, &message, &still);
+                    // A failed caption is told like a failed output of a message (`_runMessageSink`
+                    // "overlay_large"); the caption still reaches the UI and the final goes on.
+                    if shown.is_err() {
+                        let id = format!("{namespace}:{item}");
+                        core.output_failed("overlay_large", spec(source), Some(&id), &still, &mut Vec::new());
+                    }
+                }),
+            });
         }
+        self.run(200, "/run/realtime_caption", shown_payload);
         true
     }
 
-    /// The end of the bundled ASR server (`_speechServerEnded` for "asr"): sessions that used
-    /// that run stop; a crash is told on the switch.
-    pub(crate) fn asr_server_ended(self: &Arc<Self>, run: Option<u64>, stopped: bool) {
+    /// The end of a bundled ASR server (`_speechServerEnded` for "asr", and for Listening's own,
+    /// #1242): sessions that used that run stop; a crash is told on the switch.
+    pub(crate) fn asr_server_ended(self: &Arc<Self>, profile: Profile, run: Option<u64>, stopped: bool) {
         if stopped {
             self.refuse_resume_after_asr_stop();
         }
@@ -1181,7 +1284,7 @@ impl Core {
             let mut affected = Vec::new();
             for source in [Source::Mic, Source::Speaker] {
                 let i = index(source);
-                if state.requested[i] && state.server_runs[i] == Some((state.generation[i], run)) {
+                if state.requested[i] && state.server_runs[i] == Some((state.generation[i], profile, run)) {
                     affected.push(source);
                     self.invalidate_locked(&mut state, source);
                 }
@@ -1191,7 +1294,7 @@ impl Core {
         if affected.is_empty() {
             return;
         }
-        let row = self.speech_servers().state()["asr"].clone();
+        let row = self.speech_servers().state()[profile.name()].clone();
         let reason = (row["state"] == "failed")
             .then(|| row["error_code"].as_str().unwrap_or("speech_server_start_failed").to_string());
         for source in affected {
@@ -1204,6 +1307,37 @@ impl Core {
 fn not_ready(source: Source, reason: &str) -> ErrorReply {
     let code = if source == Source::Mic { "TRANSCRIPTION_SEND_NOT_READY" } else { "TRANSCRIPTION_RECEIVE_NOT_READY" };
     ErrorReply::new(code, json!(false)).details(json!({ "reason": reason }))
+}
+
+/// Why a start was refused: the code, and, when the model does not take the chosen language,
+/// the languages it does take (#1225), so that the switch's answer can offer them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Refusal {
+    code: String,
+    languages: Option<Vec<String>>,
+}
+
+impl From<String> for Refusal {
+    fn from(code: String) -> Self {
+        Self { code, languages: None }
+    }
+}
+
+impl From<&str> for Refusal {
+    fn from(code: &str) -> Self {
+        code.to_string().into()
+    }
+}
+
+impl Refusal {
+    /// The switch's answer: `details.reason`, and `details.languages` when known.
+    fn not_ready(&self, source: Source) -> ErrorReply {
+        let reply = not_ready(source, &self.code);
+        match &self.languages {
+            Some(languages) => reply.details(json!({ "reason": self.code, "languages": languages })),
+            None => reply,
+        }
+    }
 }
 
 /// The codes `_startRealtime` answered with 400 (a `ValueError` of the settings).
@@ -1222,16 +1356,16 @@ fn is_bad_request(code: &str) -> bool {
 pub(crate) fn add(b: &mut Builder<'_>) {
     let weak = Arc::downgrade(b.core);
     b.core.speech_servers().on_end(Arc::new(move |ended| {
-        if ended.profile == Profile::Asr
+        if ended.profile.recognizes()
             && let Some(core) = weak.upgrade()
         {
-            core.asr_server_ended(ended.run, ended.stopped);
+            core.asr_server_ended(ended.profile, ended.run, ended.stopped);
         }
     }));
     b.with("/get/data/realtime_asr_settings", OPEN, |core, _| core.get_realtime_settings());
     b.with("/set/data/realtime_asr_settings", OPEN, |core, data| core.set_realtime_settings(data));
     b.with("/get/data/realtime_asr_endpoints", OPEN, |core, data| core.realtime_endpoints(data));
-    b.with("/get/data/realtime_asr_models", OPEN, |core, _| core.realtime_models());
+    b.with("/get/data/realtime_asr_models", OPEN, |core, data| core.realtime_models(data));
     // The built-in VRChat terms as the app ships them (#792): the settings page lists them to be
     // changed or taken out. They are no secret, but the name holds "vocabulary" and is masked in
     // the log like the rest of the dictionary.
@@ -1263,15 +1397,16 @@ fn caption_message(source: Source, payload: &Value, snapshot: &Snapshot) -> supe
             .as_array()
             .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
             .unwrap_or_default(),
+        session: payload["namespace"].as_str().map(str::to_string),
         only_translated: snapshot.overlay_only_translated,
     }
 }
 
 /// A realtime final as speech sees it (`TranscriptUpdate`), on speech's clock.
-fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
-    let now = vrct_tts::clock::monotonic_ns();
+fn speech_update(update: &Update) -> astarot_tts::message_hook::TranscriptUpdate {
+    let now = astarot_tts::clock::monotonic_ns();
     let age = update.received.map_or(0, |at| i64::try_from(at.elapsed().as_nanos()).unwrap_or(i64::MAX));
-    vrct_tts::message_hook::TranscriptUpdate {
+    astarot_tts::message_hook::TranscriptUpdate {
         source: update.source.to_string(),
         is_final: update.is_final,
         state: update.state.to_string(),

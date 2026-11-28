@@ -1,4 +1,4 @@
-# vrct-translation
+# astarot-translation
 
 オンラインの翻訳プロバイダと、かな・ローマ字の読みを扱う Rust クレートです。Issue #277 の範囲で、Python の `src-python/models/translation/` と `src-python/models/transliteration/` を置き換えます。中核（`native/core`）がこのクレートをエンドポイントにつなぎます。
 
@@ -78,7 +78,7 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 
 ## Python と違う点
 
-- **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートはプロキシを使いません（`native/ops` と同じ）。
+- **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートは、渡された送り方（`http::Transport`）で通信します。中核は、翻訳にも音声認識にも、環境変数か Windows のインターネットの設定のプロキシを通す `http::system_proxy` を渡します（#924 の項目 18）。この PC と LAN の宛先はプロキシを通しません。
 - **SDK の細かな違い**。LangChain や各社の SDK ではなく各 API を直接呼びます。送る中身と再試行の規則は Python のクライアントと同じにしてあり、契約テスト（下の「試験」）で確かめます。SDK が自分で付けるヘッダー（`User-Agent`、`x-stainless-*` など）は送りません。
 - **この PC と LAN の OpenAI 互換のエンドポイント**。LM Studio と同じ待ち時間で再試行しません（上の「この PC と LAN」）。
 
@@ -120,4 +120,4 @@ Python の実装と同じに動くことは、`tests/contract/` の 2 つのフ�
 - 応答には `retry-after` などのヘッダーを付けられます。再試行の前の待ちは SDK の規則に乱数が入るので、記録ではなく範囲（`retry_pause`）で書き、1 回目と 2 回目の要求の間の時間を Python と Rust の両方で確かめます。待つ場面があるので、Rust の試験は場面を並べて流します。
 - 中核が意図して Python と違う場面は、`python` の記録を残したまま `rust` に中核の記録を書き、`differences` にその理由と決めた場所を書きます（いまは、この PC と LAN の OpenAI 互換のエンドポイントの待ち時間と再試行だけです）。Google Cloud Translation と Papago は Python になかったので、各社の文書から書いた `expect` と比べます。
 - 読みの契約は記録した形態素を Rust の読みに渡して比べるので、辞書なしで動きます。`ASTAROT_SUDACHI_DICTIONARY` に SudachiDict の `system.dic`（ファイルに書いた版）を指定すると、sudachi.rs の解析結果も記録と比べます。2026-11-18 に Python の環境の SudachiDict full 20250825 で 170 文すべてが一致しました。
-- 場面を変えたときは、Python の環境で `ASTAROT_TRANSLATION_CONTRACT_WRITE=1` を付けて 2 つの Python の試験を流すと、記録を書き直します。Python のない環境では場面と記録を手で書きます。
+- 場面を変えたときは、場面と記録を手で書きます（記録を書き出した Python の試験は 0.6.0 でなくなりました）。

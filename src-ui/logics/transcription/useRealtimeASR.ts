@@ -37,7 +37,6 @@ export interface RealtimeAsrVocabulary {
 export interface RealtimeAsrSettings {
     readonly version?: number;
     readonly server?: string;
-    readonly start_server?: boolean;
     readonly base_url?: string;
     readonly model?: string;
     readonly mic: RealtimeAsrSourceSettings;

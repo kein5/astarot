@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getDefaultStore } from "jotai";
-import { store, useStore_Hotkeys, Atom_IsOpenedConfigPage, Atom_IsBackendReady, Atom_IsSoftwareUpdating, Atom_Hotkeys } from "@store";
+import { store, useStore_Hotkeys, Atom_IsOpenedConfigPage, Atom_IsHotkeysPageOpen, Atom_IsBackendReady, Atom_IsSoftwareUpdating, Atom_Hotkeys } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useNotificationStatus } from "@logics_common";
 import { useMainFunction } from "@logics_main";
@@ -89,6 +89,7 @@ const shortcutsEnabled = () => {
     const atoms = getDefaultStore();
     return atoms.get(Atom_IsBackendReady).data === true &&
         atoms.get(Atom_IsOpenedConfigPage).data === false &&
+        atoms.get(Atom_IsHotkeysPageOpen).data !== true &&
         atoms.get(Atom_IsSoftwareUpdating).data === false;
 };
 const pauseShortcuts = () => {
@@ -121,7 +122,7 @@ const ensurePortalListener = () => {
             listen("portal-shortcuts-lost", () => {
                 if (portalListener === listener && !portalPaused && portalLostHandler) portalLostHandler();
             }),
-            // It follows a failed bind, which leaves the shortcuts paused.
+            // It follows a failed bind whose keys in force before could not be bound again either.
             listen("portal-shortcuts-not-restored", () => {
                 if (portalListener === listener && portalNotRestoredHandler) portalNotRestoredHandler();
             }),
@@ -176,7 +177,7 @@ export const useHotkeys = () => {
         pendingHotkeys();
         asyncStdoutToPython("/get/data/hotkeys");
     };
-    const { showNotification_SaveSuccess, showNotification_Error, showNotification_Warning, closeNotification } = useNotificationStatus();
+    const { showNotification_Error, showNotification_Warning, closeNotification } = useNotificationStatus();
 
     // The desktop's portal ended the session that holds the keys. Say so and bind once more after
     // a moment, when a restarted portal is back; a second loss within a minute is left to the
@@ -304,10 +305,14 @@ export const useHotkeys = () => {
         portalHandler = runAction;
         const shortcuts: Record<string, string[]> = {};
         for (const [actionKey, keys] of Object.entries(currentHotkeys.data ?? {})) if (keys) shortcuts[actionKey] = keys;
-        if (!Object.keys(shortcuts).length && !portalBound) {
-            portalPaused = false;
-            return;
-        }
+        if (Object.keys(shortcuts).length || portalBound) await bindPortalShortcuts(shortcuts, isCurrent);
+        // Whatever the bind came to, the keys the desktop has now work. After a failed bind, they
+        // are the ones in force before it, which Rust binds again (Restore::Restored in
+        // portal_shortcut_worker.rs, #1051); when it cannot, it says so and no key is left to press.
+        if (isCurrent()) portalPaused = false;
+    };
+
+    const bindPortalShortcuts = async (shortcuts: Record<string, string[]>, isCurrent: () => boolean) => {
         try {
             await ensurePortalListener();
             if (!isCurrent()) return;
@@ -317,7 +322,6 @@ export const useHotkeys = () => {
             // The desktop may show its confirmation dialog the first time.
             const assigned = await invoke<Record<string, PortalAssigned> | null>("portal_shortcuts_bind", { shortcuts });
             if (!isCurrent()) return;
-            portalPaused = false;
             if (Object.keys(shortcuts).length) portalLostHandler = portalLost;
             // The desktop may keep another key, e.g. when VRCT's is taken.
             for (const [actionKey, row] of Object.entries(assigned ?? {})) {
@@ -457,7 +461,6 @@ export const useHotkeys = () => {
 
     const setSuccessHotkeys = (hotkeys: Hotkeys) => {
         updateHotkeys(hotkeys);
-        showNotification_SaveSuccess();
     };
 
     return {

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 
 import { useOcr } from "@logics_configs";
 import { useSaveButtonLogic } from "@logics_configs";
 import { detectorStatus } from "../../../../../../logics/configs/ocrReadiness";
 
 import {
-    CheckboxContainer,
+    SwitchContainer,
     DropdownMenuContainer,
     EntryWithSaveButtonContainer,
     SliderContainer,
@@ -23,7 +23,7 @@ import { OcrSharedWindow } from "./OcrSharedWindow";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import { HintDescriptions } from "../_components/hint/Hint";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 // The field's draft as the entry shows it: what was typed, or the value the backend answered.
 const entryValue = (value: unknown) => typeof value === "string" || typeof value === "number" ? value : null;
@@ -81,7 +81,7 @@ export const Main_Container = () => {
                 rows under it do not move when the answer comes (#912). */}
             {(!models || required.length > 0) &&
                 <OcrModels ids={required} missing={models?.missing_models ?? []} onChanged={refresh}
-                    settingId={OCR_MODELS_SETTING_ID} checking={!models}
+                    settingId={OCR_MODELS_SETTING_ID} checking={!models} required
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
         </div>
@@ -125,7 +125,7 @@ export const OcrChatboxDetector_Box = () => {
     const installed = status?.installed === true;
     return (
         <div className={styles.detector}>
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="ocr_use_chatbox_detector"
                 label={t("config_page.ocr.detector.label")}
                 desc={t("config_page.ocr.detector.desc")}
@@ -147,7 +147,7 @@ const OcrChatboxFilter_Box = () => {
     const { t } = useI18n();
     const { currentOcrChatboxFilter, toggleOcrChatboxFilter } = useOcr();
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="ocr_chatbox_filter"
             label={t("config_page.ocr.chatbox_filter.label")}
             desc={t("config_page.ocr.chatbox_filter.desc")}
@@ -211,15 +211,17 @@ const Performance_Container = () => {
     );
 };
 
-const OcrWindowTitle_Box = () => {
+export const OcrWindowTitle_Box = () => {
     const { t } = useI18n();
     const { currentOcrWindowTitle, setOcrWindowTitle } = useOcr();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    // Saved by itself (#1111): the core keeps a title that is not empty once trimmed.
+    const { variable, onChangeFunction, saveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOcrWindowTitle.data,
         state: currentOcrWindowTitle.state,
         setFunction: setOcrWindowTitle,
-        label: t("config_page.ocr.window_title.label"),
+        endpoint: "/set/data/ocr_window_title",
+        validate: value => value.trim() ? null : t("config_page.ocr.window_title.errors.empty"),
     });
 
     return (
@@ -229,6 +231,8 @@ const OcrWindowTitle_Box = () => {
             variable={entryValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
+            onRevert={revert}
+            error={error}
             state={currentOcrWindowTitle.state}
             remove_border_bottom={true}
         />

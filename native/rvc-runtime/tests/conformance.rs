@@ -10,9 +10,9 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use common::{case, case_json, cosine, log_spectral_distance, max_abs_error, npy, relative_error};
-use rvc_runtime::f0::{prepare_pitch, F0Estimator};
-use rvc_runtime::noise::Generator;
-use rvc_runtime::{audio, Chunking, Converter, Device, FeatureExtractor, FeatureIndex, NoiseMode, Options, Rmvpe, Synthesizer, Trace, Version, VoiceModel};
+use astarot_rvc_runtime::f0::{prepare_pitch, F0Estimator};
+use astarot_rvc_runtime::noise::Generator;
+use astarot_rvc_runtime::{audio, Chunking, Converter, Device, FeatureExtractor, FeatureIndex, NoiseMode, Options, Rmvpe, Synthesizer, Trace, Version, VoiceModel};
 
 /// The networks are large; run one test at a time.
 fn serial() -> MutexGuard<'static, ()> {
@@ -115,7 +115,7 @@ fn input_filter_and_padding_match() {
     let input = case.array("input_16k").f32();
     let expected = case.array("f0_input").f64();
     let signal: Vec<f64> = input.iter().map(|&x| x as f64).collect();
-    let filtered = rvc_runtime::filter::filtfilt(&rvc_runtime::filter::input_highpass(), &signal);
+    let filtered = astarot_rvc_runtime::filter::filtfilt(&astarot_rvc_runtime::filter::input_highpass(), &signal);
     let pad = (expected.len() - filtered.len()) / 2;
     let worst = filtered.iter().zip(&expected[pad..]).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
     eprintln!("METRIC filter: max abs error {worst:.3e} over {} samples", filtered.len());
@@ -185,7 +185,7 @@ fn index_neighbours_and_blend_match() {
     let index = FeatureIndex::load(Path::new(case.json["index"].as_str().unwrap())).unwrap();
     let queries = case.array("search_queries_0").f32();
     let (ids, scores) = (case.array("search_ids_0").i64(), case.array("search_scores_0").f32());
-    let k = rvc_runtime::index::NEIGHBOURS;
+    let k = astarot_rvc_runtime::index::NEIGHBOURS;
     let (mut same_sets, mut same_order, mut worst) = (0, 0, 0.0f32);
     let frames = queries.len() / index.dim();
     for frame in 0..frames {
@@ -322,7 +322,7 @@ fn loudness_mix_and_resampling_match() {
     let trim = options.chunking.pad * model_rate as usize;
     let mut output = synthesized[trim..synthesized.len() - trim].to_vec();
     let signal: Vec<f64> = case.array("input_16k").f32().iter().map(|&x| x as f64).collect();
-    let filtered = rvc_runtime::filter::filtfilt(&rvc_runtime::filter::input_highpass(), &signal);
+    let filtered = astarot_rvc_runtime::filter::filtfilt(&astarot_rvc_runtime::filter::input_highpass(), &signal);
     audio::rms_mix(&filtered, 16_000, &mut output, model_rate, options.rms_mix_rate);
     let expected = case.array("output").f32();
     let resampled = audio::resample(&output, model_rate, options.resample_sr);

@@ -1,4 +1,164 @@
-# Google と Papago のウェブ翻訳を Rust で作り直せるかの調査（2026-11-16）
+# Whether Google and Papago web translation can be rebuilt in Rust (2026-11-16)
+
+[日本語版](#google-と-papago-のウェブ翻訳を-rust-で作り直せるかの調査2026-11-16日本語版)
+
+Researched on 2026-11-16. All sources were viewed on that date. This research draws no legal conclusions. Readings of the terms stay within what the sources say, and points that are unclear are marked as unclear.
+
+## Background
+
+- Upstream VRCT has used Google, Bing and Papago web translation through two modules.
+  - Until 2026-09: UlionTse's `translators` (GPL-3.0). Upstream pinned a fork called misyaguziya/translators (comments in `src-python/model.py` and `src-python/test/test_model_input_translate_parallel.py`).
+  - From 2026-09-17: `translator_engines` by the upstream author (commit 5d455c31, "Replace translators (GPLv3) with translator_engines"). It was bundled as a compiled extension (`.pyd`).
+- The license of `translator_engines` ("VRCT Translator Engines License") allows reading the source, but allows use and distribution only as part of official VRCT. It explicitly forbids use in forks and derivatives, and what it covers includes "modification or derivative work". For this reason VRCT-VOX stopped bundling it in commit 7806cacc. On 2026-11-16 it was also removed from the list of translation engines (17 in `docs/voice-stack/core-integration.md`).
+- `translation_translator.py` imports it with `from translator_engines import translate_text` and sets `ENABLE_TRANSLATORS = False` if it is missing. The timeout for one request is 10 seconds. A comment says Bing takes up to 4 requests, counting the fetch of the authentication page and the retries.
+- A rebuild has two copyright conditions. Copying from the `translator_engines` code may count as a "derivative" under its license. Porting `translators` makes a GPL-3.0 derivative. A rebuild therefore has to be written without referring to either codebase, from public information and observed traffic (a clean room). This is about copyright only. The question of the services' terms remains separately ("Risks from the terms of service" below).
+- The core already has a similar case. Google speech recognition sends requests to an unofficial endpoint with Chromium's public key (14 in `core-integration.md`; after this research, it was decided to remove it). It is natural to decide on rebuilding web translation by the same policy as 14.
+- Using the official APIs (Google Cloud Translation and Papago on NAVER Cloud Platform) with the user's key was decided on 2026-11-16 and added to the core (32 in `core-integration.md`).
+
+## Technical feasibility
+
+### Google (web)
+
+It works over plain HTTP, and no browser is needed. In Rust, `reqwest` and `serde_json` are enough. However, every endpoint is unofficial, and they stopped working again in autumn 2026. There are four main endpoints.
+
+| Endpoint | Form | What it needs | Status in 2026 |
+|---|---|---|---|
+| `translate.googleapis.com/translate_a/single?client=gtx&sl=..&tl=..&dt=t&q=..` | GET. The response is a nested JSON array | No token | From around 2026-09, `client=gtx` started getting HTTP 429 and an "automated queries" HTML page. Several reports say that changing to `client=at` or `client=dict-chrome-ex` returns 200 [G5][G6][G7] |
+| `translate.google.com/translate_a/single?client=webapp&tk=..` | GET | A token built from a value called TKK, taken from the page's JavaScript | Extracting the token broke many times (py-googletrans #280, 2021-03, and others) [G3][G4]. In the curl test above, `client=webapp` got 403 [G5] |
+| `translate.google.com/_/TranslateWebserverUi/data/batchexecute?rpcids=MkEWBc` | POST. Nested JSON in `f.req`. The response is lines of JSON with a prefix | `f.sid` and `bl` (the build name) taken from the page; Origin and Referer | The endpoint that the web page itself uses. There are reports of it breaking from a pinned build name or a change in the response format [G8][G9] |
+| `translate-pa.googleapis.com/v1/translateHtml` | POST. JSON+protobuf format | A public key embedded in the web page (`wt_lib`) | One client started using it in 2026-10 as a way around the 429. It assumes the key is replaced when it changes [G10] |
+
+- Blocking mechanisms: rate limits (429), the "Sorry... automated queries" page with reCAPTCHA, and IP blocks [G2][G4][G11]. The reporter of the 2026-09 case writes that the identifier `client=gtx` itself seems to have been blocked, not the request rate [G5]. There is also a report of 429 on both Wi-Fi and a mobile connection. Other reports point to per-IP limits, so the cause is unclear.
+- How often things change: public records alone show broken TKK extraction (2020 to 2021, py-googletrans), changes in the batchexecute response (2021, 2023), the block on `client=gtx` (2026-09) and a 404 from one endpoint (2026-09; Translumo's v1.1.0 release notes say "Google moved its endpoint and started answering 404") [G3][G4][G8][G12]. Expect to fix things at least once a year.
+- robots.txt: `translate.google.com` sets `Disallow` on `/translate_a` and `/m?` for `User-agent: *` (only `/translate_a/element.js` is `Allow`) [G13]. Google's Terms of Service forbid automated access that violates machine-readable instructions such as robots.txt ("Risks from the terms of service" below).
+
+### Papago (web)
+
+This can also be built with plain HTTP. However, whether it still works could not be confirmed.
+
+- Endpoint: a POST to `https://papago.naver.com/apis/n2mt/translate` (a form with `source`, `target`, `text`, `honorific` and other fields). Language detection is `/apis/langs/dect` [P1][P2].
+- Authentication: add the headers `Authorization: PPG {UUID}:{signature}` and `Timestamp`. The signature is the Base64 of the HMAC-MD5 of a string that joins "UUID, URL and time". The key is a version string embedded in the site's JavaScript bundle [P2]. This procedure was read from the code of public clients, and NAVER has no documentation of it. A client has to fetch the site's page and JavaScript every time and find the key with a regular expression.
+- Records of breakage:
+  - XUnity.AutoTranslator: in 2025-04, "no result returned from Papago" (the version string could not be extracted). It was fixed on 2026-03-23, with a change that followed the rename of the JavaScript bundle from `vendors~main...` to `main.<hash>.chunk.js`. That PR closed 5 issues with the same symptom [P3][P4].
+  - MORT: a report in 2026-03 that the app freezes with Papago and that Papago appears to block bot requests. It was closed without a clear cause [P5].
+  - Translumo: removed Papago in v1.1.0 on 2026-09-22. The reasons given are "Papago's endpoint returns 404" and that the official API is paid [P6]. Which endpoint this 404 came from has not been confirmed.
+- On 2024-02-29 the free Papago API on NAVER Developers (10,000 characters a day) ended, which left only the paid API on NAVER Cloud Platform [P7]. On 2024-09-01 the website translation feature for other companies' browsers also ended [P8]. That is a separate feature from text translation.
+- Languages: web Papago covers about 15 languages (the README of `translators`) [P9]. In VRCT-VOX's language table, there was no language that only Papago could translate (17 in `core-integration.md`).
+
+### How to build it in Rust (if both are built)
+
+- Add clients to `native/translation` in the same form as the current providers. They need HTTP requests, headers and JSON parsing. Papago adds fetching the page, regular expressions, HMAC-MD5 (the `hmac` and `md-5` crates) and UUIDs. All these dependencies are MIT or Apache-2.0, and the distribution barely grows.
+- Every endpoint change needs an app update. If endpoint switches (gtx to at, for example) can be fixed through settings or a remote table, fixes go out faster, but by the same measure the app looks more like it is "circumventing" under the terms.
+- Tests can use a fake server. Checks against the real endpoints cannot go into CI (they are easily blocked) and have to be done by hand.
+
+## Risks from the terms of service
+
+### Google's terms
+
+- The current Google Terms of Service (in effect from 2026-07-30) forbid the following [G1].
+  - "using automated means to access content from any of our services in violation of the machine-readable instructions". It gives robots.txt as an example.
+  - "abuse, harm, interfere with, or disrupt our services or systems". Its examples include "bypassing our systems or protective measures".
+  - "Reverse engineering our services or underlying technology" (except where the law allows it).
+  - The terms state that failing to follow them can lead to suspension of the service or of the account.
+- Terms up to the 2017 version had a direct sentence: "don't ... try to access them using a method other than the interface and the instructions that we provide" [G14]. The current version does not appear to have it. Still, the robots.txt clause above and the clause against bypassing protective measures seem to cover much of the same ground. How far they reach cannot be judged here. <!-- writing-exempt: quoted wording of Google's 2017 terms -->
+- Most endpoints in the table above are either on a path that robots.txt marks `Disallow` (`translate.google.com/translate_a`) or not in any public documentation. Changing the `client` value to get through after a 429 could be read as bypassing "protective measures". This is a guess, and no source shows that Google has judged it so.
+- The Google APIs Terms of Service (last updated 2021-11-09) require using APIs only "by the means described in the documentation", not circumventing limits and not embedding developer credentials in open source projects [G15]. These terms are for developers who use the official APIs, and whether they apply directly to the web endpoints is unknown. Still, their reasoning directly conflicts with the idea of putting the web page's public key (`wt_lib`) into the app.
+- Showing output from the official Cloud Translation API comes with rules, such as marking it as machine translation, showing "powered by Google Translate" and including a disclaimer [G16].
+
+### NAVER and Papago
+
+- The original text of NAVER's terms of service (policy.naver.com) could not be retrieved from this environment. According to a secondary source, the terms in force from 2026-10-01 have a clause to the effect that users must not "collect ... posts ... by automated means such as macros or bots without NAVER's prior permission" [P10]. Since 2018, a clause that forbids comments and the like by automated programs has also been stated explicitly [P11]. Both are quoted from secondary sources, so they need checking against the original. No clause specific to Papago web translation was found.
+- NAVER offers its official API for a fee, so there is no reason to think that NAVER welcomes automated use of the free web endpoint.
+- The official Papago Translation (NAVER Cloud Platform) is paid and billed in units of 1,000,000 characters. A request is limited to 5,000 characters, and showing the Papago brand with a link is required [P12][P13]. The unit price could not be confirmed on the official pages.
+
+### Risks to the plan
+
+- Distribution: VRCT-VOX is distributed through GitHub Releases and other channels. For GitHub and the package channels, no source was checked on whether distributing an app that communicates in violation of a service's terms is itself forbidden. A secondary source says that Google Play's developer policy lists "apps that use a service or API in violation of its terms of service" as an example of a violation [G17]. There is no plan to distribute on Play now, but this needs checking if the app is ever distributed through a store.
+- Users: blocks can happen per IP. Google explains that automated requests from other people on the same connection (school, workplace, VPN, home) can also bring up the "unusual traffic" page [G11]. Whether a block at the translation endpoint extends to other services such as Search could not be confirmed from the sources. Some VRChat users use VPNs, so some people may get caught in a block. No sign-in is used, so a direct path to the suspension of a Google account seems unlikely, but this cannot be stated for certain.
+- Trust: unlike an official API, there is nowhere to complain when it stops working. Bug reports when it stops come to the project.
+- Relationship with upstream: upstream distributes the same feature under its own license. A separate rebuild by VRCT-VOX can be done in a form that raises no copyright problem, but consideration for competing with upstream's feature is a separate issue (`publication-and-upstream.md`).
+
+## Sustainability of maintenance
+
+- Google: public records alone show breakage in 2020, 2021, 2023 and 2026 (twice). Many clients hit the 2026-09 block at the same time, and each fixed it by changing the `client` value or by moving to another endpoint. On the client side, too, some expect the next block to hit the endpoints they moved to [G5][G7][G10].
+- Papago: in one case a fix took almost a year after the breakage (XUnity.AutoTranslator, 2025-04 to 2026-03) [P3][P4]. Key extraction breaks whenever the name or the content of the site's JavaScript changes. In 2026-09 one app removed Papago, citing a 404 [P6].
+- Amount of work: each breakage needs investigation, a fix, tests and a release. Until the fix, users cannot use the translation. VRCT-VOX fixes things by shipping app updates, so days pass between a breakage and the fix reaching users.
+- Detectability: when many users send requests of the same shape from one app, the requests are easy to tell apart. Countermeasures such as imitating a browser fingerprint (as the Anki add-on did by switching to `curl_cffi` [G7]) are even more clearly circumvention.
+- Alternatives:
+  - Use the official APIs with the user's key (32). Google Cloud Translation Basic (v2) works with an API key, is free up to 500,000 characters a month and then costs 20 dollars per 1,000,000 characters. Billing has to be set up [G18][G19]. Papago is paid.
+  - DeepL and the LLM providers (already available).
+  - Local translation (under consideration in 1 and 34 of `core-integration.md`). It involves neither a network nor any service's terms.
+
+## Options and their effects
+
+| Option | What it is | Advantages | Drawbacks |
+|---|---|---|---|
+| A. Do not build (official APIs and local translation only) | Keep the current state from 17 and add the official APIs from 32 | No concerns about the terms. No maintenance when things break. Users' connections are not caught up in blocks | No free, keyless, high-quality translation. Users who moved from upstream have to get a key or move to local translation |
+| B. Build with explicit opt-in | Build it in Rust in a clean room. Off by default. When the user selects it, show that "it uses an unofficial endpoint, may violate the terms and can stop working or get the connection blocked", and get consent. Add a rate cap | Brings back the same experience as upstream. Avoids copyright problems | Consent does not remove the terms problem (consent is between the user and the project and does not change the relationship with Google or NAVER). Repairs at least once a year. The more repairs work around blocks, the worse the position under the terms. The policy has to match speech recognition in 14 |
+| B'. Build Google only | B limited to Google | Breaks less often than Papago. More languages | Same as B. No language can be translated only by Papago, so dropping Papago loses little |
+| C. Official APIs only (as A, but adding official Papago too) | Google Cloud Translation, Azure Translator and NAVER's Papago with the user's keys | Within the terms. The response format is fixed by documentation, so it rarely breaks | Users have to get keys and set up billing. Official Papago is paid and needs two keys |
+
+- What to decide if B is chosen: whether it is off by default; whether to avoid automatic test requests at startup (a request like the current Python startup check hits the endpoint even when the user has not selected it); the rate cap; whether to use the existing flow that switches to local translation when blocked; and whether it can be built without anyone looking at the `translator_engines` and `translators` code.
+- The decision follows the same reasoning as 14 (the public key for Google speech recognition). If B is chosen, the consistent direction is to keep 14 as well; if A or C is chosen, to remove 14 as well.
+- Within the scope of this research, what can be said is this. It can be built technically. However, Google stopped working as recently as autumn 2026, and whether Papago works now could not be confirmed. At least for Google, the terms' clauses on robots.txt and on bypassing protective measures may apply. This is not a legal judgment of which option is allowed.
+
+## Sources
+
+All viewed on 2026-11-16.
+
+In the repository
+- `src-python/models/translation/translation_translator.py` (lines 22 to 38)
+- `docs/voice-stack/core-integration.md` (14, 17, 32)
+- `NOTICE.md` (lines 24 to 28)
+- Commits 5d455c31 (translators to translator_engines) and 7806cacc (stopped bundling translator_engines; the deleted license text is at `git show 7806cacc^:src-python/translator_engines.LICENSE.txt`)
+
+Google
+- [G1] Google Terms of Service (in effect from 2026-07-30): https://policies.google.com/terms
+- [G2] README of py-googletrans (unofficial-use disclaimer, IP blocks, TKK token): https://github.com/ssut/py-googletrans
+- [G3] py-googletrans issue #280 (2021-03-10, broken TKK extraction): https://github.com/ssut/py-googletrans/issues/280
+- [G4] py-googletrans `googletrans/urls.py` and `client.py` (`/translate_a/single`, `gtx` and `webapp`): https://raw.githubusercontent.com/ssut/py-googletrans/master/googletrans/urls.py and https://raw.githubusercontent.com/ssut/py-googletrans/master/googletrans/client.py
+- [G5] eeeXun/gtt issue #43 (2026-09-14; 429 for `client=gtx`, 200 for `at` and `dict-chrome-ex`): https://github.com/eeeXun/gtt/issues/43
+- [G6] noctalia-dev/official-plugins issue #64 (2026-09-03, 429 and a CAPTCHA page): https://github.com/noctalia-dev/official-plugins/issues/64
+- [G7] The Google Translate add-on for Anki (moved to `curl_cffi` on 2026-09-13): https://ankiweb.net/shared/info/1536291224 (from a search result summary; the page itself was not checked directly)
+- [G8] A batchexecute example (YiiGuxing/TranslationPlugin #835): https://github.com/YiiGuxing/TranslationPlugin/issues/835 and an AutoHotkey example: https://www.autohotkey.com/boards/viewtopic.php?t=113534
+- [G9] funkyremi/vscode-google-translate issues #51 and #98 (failures parsing the response): https://github.com/funkyremi/vscode-google-translate/issues/51 and https://github.com/funkyremi/vscode-google-translate/issues/98 (from a search result summary)
+- [G10] Asura7170/easydict_win32 PR #4 (2026-10-15, switch to `translate-pa.googleapis.com/v1/translateHtml`): https://github.com/Asura7170/easydict_win32/pull/4
+- [G11] Google Search help, "unusual traffic": https://support.google.com/websearch/answer/86640?hl=en
+- [G12] Translumo's releases (v1.1.0, September 22): https://github.com/ramjke/Translumo/releases
+- [G13] robots.txt of translate.google.com: https://translate.google.com/robots.txt
+- [G14] Google Terms of Service, 2017-10-25 version: https://policies.google.com/terms/archive/20171025
+- [G15] Google APIs Terms of Service (last updated 2021-11-09): https://developers.google.com/terms
+- [G16] Cloud Translation attribution requirements: https://docs.cloud.google.com/translate/attribution
+- [G17] Google Play developer policy (from a search result summary; the text itself was not checked directly): https://support.google.com/googleplay/android-developer/answer/18258653?hl=en
+- [G18] Cloud Translation pricing: https://cloud.google.com/products/translate/pricing
+- [G19] Using Cloud Translation Basic (`translation.googleapis.com/language/translate/v2`, API key): https://docs.cloud.google.com/translate/docs/basic/translating-text
+
+NAVER and Papago
+- [P1] arrufat/papago (Go; `/apis/n2mt/translate`, `/apis/langs/dect`, headers): https://github.com/arrufat/papago/blob/master/papago.go
+- [P2] 009342/PapagoTranslateAPI PR #1 (the HMAC-MD5 `PPG` signature): https://github.com/009342/PapagoTranslateAPI/pull/1/files (from a search result summary; the format of the signed string comes from a secondary description and was not checked directly)
+- [P3] XUnity.AutoTranslator issue #704 (2025-04-29): https://github.com/bbepis/XUnity.AutoTranslator/issues/704
+- [P4] XUnity.AutoTranslator PR #820 (2026-03-23, handling the rename of the JavaScript bundle): https://github.com/bbepis/XUnity.AutoTranslator/pull/820
+- [P5] kmonkeyhead/MORT issue #137 (2026-03-28): https://github.com/kmonkeyhead/MORT/issues/137
+- [P6] Translumo's releases (Papago removed in v1.1.0): https://github.com/ramjke/Translumo/releases
+- [P7] End of the Papago API on NAVER Developers (2024-02-29): https://www.oppadu.com/lesson/%EC%97%91%EC%85%80-%ED%8C%8C%ED%8C%8C%EA%B3%A0-%EB%B2%88%EC%97%AD-%ED%95%A8%EC%88%98/ (secondary source), and end of the old console (2025-03-20): https://cloudike.kr/blog/ai-naver-api-papago-%EC%84%9C%EB%B9%84%EC%8A%A4-%EC%A2%85%EB%A3%8C-%EC%95%88%EB%82%B4-25-3-20/ (secondary source)
+- [P8] End of Papago website translation (article of 2024-08-13): https://www.koreastocknews.com/news/articleView.html?idxno=102729
+- [P9] README of UlionTse/translators (GPL-3.0; Papago covers 15 languages): https://github.com/UlionTse/translators
+- [P10] The automation clause in NAVER's terms (secondary source; the original at policy.naver.com could not be retrieved): https://neonomadj.com/aside-naver-blog/
+- [P11] Explicit ban on comments by automated programs (article of 2018-04): https://news.nate.com/view/20180404n37939 (from a search result summary)
+- [P12] Papago Translation API (`papago.apigw.ntruss.com/nmt/v1/translation`, 5,000 characters per request): https://api.ncloud-docs.com/docs/ai-naver-papagonmt-translation
+- [P13] Preparing to use Papago Translation (billing per 1,000,000 characters, limits, brand display): https://guide.ncloud-docs.com/docs/papagotranslation-spec
+
+## What could not be confirmed
+
+- The original text and the article numbers of NAVER's terms of service (policy.naver.com and papago.naver.com could not be retrieved from this environment).
+- Whether the current Papago web endpoint works. No real requests were sent.
+- The unit price of Papago on NAVER Cloud Platform.
+- How Microsoft Store, GitHub and Linux package channels treat apps that communicate in violation of a service's terms.
+- Whether a block at the translation endpoint extends to Google Search and other services on the same connection.
+
+---
+
+# Google と Papago のウェブ翻訳を Rust で作り直せるかの調査（2026-11-16）（日本語版）
 
 調べた日: 2026-11-16。出典はすべてこの日に見たものです。法的な結論は出していません。規約の読み方は出典に書いてある範囲にとどめ、はっきりしない点はそう書いています。
 

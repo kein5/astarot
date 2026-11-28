@@ -35,9 +35,9 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_translation::http::Transport;
-use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
+use astarot_translation::http::Transport;
+use astarot_translation::prompt::HistoryItem;
+use astarot_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
 
 // ------------------------------------------------------------------------- local translation
 
@@ -350,6 +350,9 @@ fn fixed_url(endpoints: &Endpoints, provider: Provider, key: &str) -> String {
 
 /// How long a listed model list is used again instead of asking (`_RECENT_SEC`).
 const RECENT: Duration = Duration::from_secs(30);
+/// How long the end of the run waits for the local model to stop ([`Core::close_local_translation`]):
+/// llama.cpp's server is given 3 s to end.
+const LOCAL_STOP_WAIT: Duration = Duration::from_secs(5);
 /// The history kept for the chat providers (`translation_history_max_items`).
 const HISTORY_ITEMS: usize = 20;
 
@@ -438,7 +441,7 @@ impl Translators {
     // ------------------------------------------------------------ the provider calls
 
     // The provider is named at run time (the settings); `Provider::check` and the others turn
-    // the name into the provider's static type with one `match` in `vrct_translation` and call
+    // the name into the provider's static type with one `match` in `astarot_translation` and call
     // its `Api` methods directly (static dispatch, no `dyn`).
 
     /// Checks the key (or that the server answers) and lists the models: `setAuthKey` and the
@@ -954,6 +957,23 @@ impl Core {
     fn load_local(&self) -> Result<(), LocalError> {
         let _guard = self.translation.local_lock.lock().unwrap_or_else(|e| e.into_inner());
         self.translation.local.load(&self.local_setup())
+    }
+
+    /// Stops the local model at the end of the run (#1341): the llama.cpp server of a translation
+    /// LLM ([`super::translation_llama::Routed`]), which otherwise runs until the last `Arc<Core>`
+    /// is dropped, and the ONNX model. A translation that runs keeps the model until it ends (one
+    /// request may take two minutes), so the end of the run waits [`LOCAL_STOP_WAIT`] at most and
+    /// the stop finishes on its own thread after that.
+    pub(crate) fn close_local_translation(&self) {
+        let local = Arc::clone(&self.translation.local);
+        let (done, stopped) = std::sync::mpsc::channel();
+        let spawned = std::thread::Builder::new().name("local_translation_stop".into()).spawn(move || {
+            local.unload();
+            let _ = done.send(());
+        });
+        if spawned.is_err() || stopped.recv_timeout(LOCAL_STOP_WAIT).is_err() {
+            self.step("shutdown: the local translation did not stop in time");
+        }
     }
 
     /// Writes where the local model runs to the log and, when the chosen device could not be
@@ -1614,7 +1634,7 @@ mod tests {
             })
             .collect();
         let mut checked = 0;
-        for entry in vrct_ops::downloads::catalog::translation_models() {
+        for entry in astarot_ops::downloads::catalog::translation_models() {
             let Some((weight, variant)) = super::super::translation_onnx::weight_of_catalog_id(&entry.id) else { continue };
             if variant.name() == "int8" {
                 assert_eq!(names[weight], entry.name, "{weight}");

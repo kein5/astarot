@@ -1,6 +1,8 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
+import { LOG_FONT_SIZE } from "../../../../../../logics/main/logFontSize.ts";
 import { useI18n } from "@useI18n";
-import styles from "./Appearance.module.scss";
+import * as styles from "./Appearance.css.ts";
+import { ThemeContainer } from "./ThemePicker";
 import { ui_configs } from "@ui_configs";
 import { useStore_SelectableFontFamilyList } from "@store";
 
@@ -16,7 +18,7 @@ import {
     SliderContainer,
     DropdownMenuContainer,
     RadioButtonContainer,
-    CheckboxContainer,
+    SwitchContainer,
 } from "../_templates/Templates";
 
 import {
@@ -24,7 +26,7 @@ import {
 } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 import {
     AutoClearMessageInputBoxContainer,
@@ -37,7 +39,8 @@ export const Appearance = () => {
     const { currentMessageLogUiScaling, currentTransparency } = useAppearance();
 
     // The language and the size of the whole window are what a first start may need; the rest
-    // is set once to taste, in 「詳細設定」 (#554).
+    // is set once to taste, in 「詳細設定」 (#554). The theme (#965) is drawn as its colours, so
+    // it stays in sight with them.
     // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
         <HintDescriptions>
@@ -46,6 +49,7 @@ export const Appearance = () => {
                 <SectionLabelComponent label={t("config_page.appearance.section_label_display")} />
                 <UiLanguageContainer />
                 <UiScalingContainer />
+                <ThemeContainer />
             </div>
             <AdvancedSection status={t("config_page.advanced_status.appearance", {
                 log: currentMessageLogUiScaling.data ?? "-", transparency: currentTransparency.data ?? "-" })}>
@@ -128,9 +132,10 @@ export const MessageLogUiScalingContainer = () => {
             state={currentMessageLogUiScaling.state}
             variable={currentMessageLogUiScaling.data}
             setterFunction={setMessageLogUiScaling}
-            min={40}
-            max={200}
-            step={10}
+            // The same range and step as A− and A＋ beside the composer (#1314, M-8).
+            min={LOG_FONT_SIZE.min}
+            max={LOG_FONT_SIZE.max}
+            step={LOG_FONT_SIZE.step}
             show_label_values={[40, 60, 80, 100, 120, 140, 160, 180, 200]}
         />
     );
@@ -162,7 +167,7 @@ const ShowResendButtonContainer = () => {
     const { currentShowResendButton, toggleShowResendButton } = useAppearance();
 
     return (
-        <CheckboxContainer
+        <SwitchContainer
             setting_id="show_resend_button"
             label={t("config_page.appearance.show_resend_button.label")}
             desc={t("config_page.appearance.show_resend_button.desc")}

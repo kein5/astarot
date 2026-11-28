@@ -120,11 +120,19 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/selectable_release_channels", OPEN, "SELECTABLE_RELEASE_CHANNEL_LIST");
     b.get("/get/data/release_channel", OPEN, "SELECTED_RELEASE_CHANNEL");
     // A channel the user sets is theirs from then on: it no longer follows the version (#466).
+    // Another channel than before is checked for updates again (#1017).
     b.with("/set/data/release_channel", OPEN, |core, data| {
         let channel = json!(super::settings::python_str(data));
         let config = core.config();
+        let before = config.get("SELECTED_RELEASE_CHANNEL");
         match config.set_many(&[("SELECTED_RELEASE_CHANNEL", channel), ("RELEASE_CHANNEL_CHOSEN", json!(true))]) {
-            Ok(()) => ok(config.get("SELECTED_RELEASE_CHANNEL")),
+            Ok(()) => {
+                let now = config.get("SELECTED_RELEASE_CHANNEL");
+                if now != before {
+                    core.release_channel_set();
+                }
+                ok(now)
+            }
             Err(_) => super::error("VALIDATION_CONFIG_VALUE_INVALID", config.get("SELECTED_RELEASE_CHANNEL")),
         }
     });
@@ -139,7 +147,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Turning translation on loads the local model and waits for the translation pipeline;
     // turning it off clears the switch and the microphone's queued speech of translations.
     b.with("/set/disable/translation", WAIT, |core, _| {
-        core.cancel_mic_voice();
+        core.cancel_translated_mic_voice();
         let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
         ok(core.config().get("ENABLE_TRANSLATION"))
     });
@@ -167,11 +175,11 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     let asking = Arc::clone(core);
     b.add("/set/data/rvc_block_ms", OPEN, move |data: &Value| {
         let reply = rvc_block(data);
-        let automatic = json!(vrct_voice_conversion::worker::AUTO_BLOCK_MS);
+        let automatic = json!(astarot_voice_conversion::worker::AUTO_BLOCK_MS);
         if super::python_int(data) == Some(0) && asking.config().get("RVC_BLOCK_MS") == automatic {
             // Unwritten (a full disk), the kept length is used as before; the choice is saved.
             let runtimes = asking.config().environment().state_dir.join(crate::shipped_libraries::RUNTIMES_FOLDER);
-            let _ = vrct_voice_conversion::worker::ask_block_timing(&runtimes);
+            let _ = astarot_voice_conversion::worker::ask_block_timing(&runtimes);
         }
         reply
     });
@@ -203,6 +211,10 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/main_window_geometry", OPEN, "MAIN_WINDOW_GEOMETRY");
     let geometry = store(core, "MAIN_WINDOW_GEOMETRY", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/main_window_geometry", OPEN, geometry);
+    // The settings window's own (#1236), applied by the app before the window shows.
+    b.get("/get/data/settings_window_geometry", OPEN, "SETTINGS_WINDOW_GEOMETRY");
+    let geometry = store(core, "SETTINGS_WINDOW_GEOMETRY", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/settings_window_geometry", OPEN, geometry);
 
     // Compute device and the local translation
     b.get("/get/data/compute_mode", OPEN, "COMPUTE_MODE");
@@ -259,13 +271,23 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/hotkeys", OPEN, hotkeys);
     b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
     let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
-    b.add("/set/data/experimental_features", OPEN, experimental);
+    b.with("/set/data/experimental_features", OPEN, move |core, data| {
+        let mut session = core.talk_ai.lock().unwrap();
+        let reply = experimental(data);
+        if reply.status == 200 && reply.result["talk_ai"].as_bool() != Some(true) {
+            session.stop();
+        }
+        reply
+    });
     b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
     let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/usage_presets", OPEN, presets);
     b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
     let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/catalog_layout", OPEN, layout);
+    b.get("/get/data/theme", OPEN, "THEME");
+    let theme = store(core, "THEME", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/theme", OPEN, theme);
     // What the AI translation providers are asked besides the text (#392).
     b.get("/get/data/llm_translation_temperature", OPEN, "LLM_TRANSLATION_TEMPERATURE");
     let temperature = store(core, "LLM_TRANSLATION_TEMPERATURE", "VALIDATION_CONFIG_VALUE_INVALID");
@@ -450,6 +472,11 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     for add in AREAS {
         add(&mut b);
     }
+    // The settings window, opened after the start-up, asks for what the start-up told the main
+    // window: the same answers as `/run/initialization_complete`, read now (#1236). It reads the
+    // routes added above; a `/run/` endpoint is never part of the snapshot itself.
+    let readable = b.routes.clone();
+    b.with("/run/settings_snapshot", WAIT, move |core, _| ok(Value::Object(core.snapshot_of(&readable))));
     b.routes
 }
 
@@ -460,13 +487,16 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::downloads::add,
     super::adapters::add,
     super::credentials::add,
+    super::talk_ai::add,
     super::ocr::add,
     super::overlay::add,
+    super::steamvr::add,
     super::speakers::add,
     super::files::add,
     super::gpu_check::add,
     super::translation::add,
     super::translation_catalog::add,
+    super::transcription_catalog::add,
     super::messages::add,
     super::audio_devices::add,
     super::updates::add,

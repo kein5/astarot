@@ -9,6 +9,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "astarot-onnx-runtime"
+version = "0.0.0"
+dependencies = [
+ "ort",
+]
+
+[[package]]
+name = "astarot-rvc-runtime"
+version = "0.1.0"
+dependencies = [
+ "astarot-onnx-runtime",
+ "hound",
+ "libloading",
+ "ort",
+ "prost",
+ "rustfft",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -501,20 +522,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rvc-runtime"
-version = "0.1.0"
-dependencies = [
- "hound",
- "libloading",
- "ort",
- "prost",
- "rustfft",
- "serde_json",
- "thiserror",
- "vrct-onnx-runtime",
-]
-
-[[package]]
 name = "schannel"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,13 +743,6 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
-name = "vrct-onnx-runtime"
-version = "0.0.0"
-dependencies = [
- "ort",
-]
 
 [[package]]
 name = "webpki-root-certs"

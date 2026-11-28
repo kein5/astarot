@@ -22,14 +22,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use private_graph::{PrivateGraph, build_helper, tone_to};
-use vrct_audio_routing::graph::{self, Endpoint};
-use vrct_audio_routing::mute_state::MuteState;
-use vrct_audio_routing::pipewire::capture::PipeWireCapture;
-use vrct_audio_routing::pipewire::gate::PipeWireGate;
-use vrct_audio_routing::pipewire::read_graph_data;
-use vrct_audio_routing::process::ProcessEnv;
-use vrct_audio_routing::voice_route::{Gate, MuteBus, RouteOptions, VoiceRoute};
-use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks};
+use astarot_audio_routing::graph::{self, Endpoint};
+use astarot_audio_routing::mute_state::MuteState;
+use astarot_audio_routing::pipewire::capture::PipeWireCapture;
+use astarot_audio_routing::pipewire::gate::PipeWireGate;
+use astarot_audio_routing::pipewire::read_graph_data;
+use astarot_audio_routing::process::ProcessEnv;
+use astarot_audio_routing::voice_route::{Gate, MuteBus, RouteOptions, VoiceRoute};
+use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks};
 
 const RATE: f64 = 48000.0;
 /// 20 ms frames, as Python's observer read them.

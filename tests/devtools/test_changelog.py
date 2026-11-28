@@ -1,5 +1,6 @@
 """tools/changelog.py: how commits are sorted, how CHANGELOG.md is written, and the release notes."""
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -169,6 +170,77 @@ class UpdateTest(unittest.TestCase):
             cl.update_changelog("", "0.2.0-beta.1", self.SECTION.replace("0.2.0", "0.2.0-beta.1"))
 
 
+class JapaneseVersionTest(unittest.TestCase):
+    """The Japanese version after the English one (decision of 2026-11-24): a new stable release gets a
+    frame of its Japanese section for a person to translate; a translation is never replaced."""
+
+    def section(self, version="0.2.0", previous="v0.1.0", commits=()):
+        return cl.render_section(version, "2026-11-14", previous, list(commits), repo_url=REPO)
+
+    def test_a_new_file_holds_both_versions_and_the_frame_of_the_first_release(self):
+        text = cl.update_changelog("", "0.2.0", self.section())
+        self.assertIn("[日本語版](#変更履歴日本語版)", text.split("\n---\n")[0])
+        self.assertLess(text.index(cl.OLDER_HEADING), text.index("\n---\n"))
+        self.assertLess(text.index("\n---\n"), text.index(cl.JA_TITLE))
+        self.assertLess(text.index("## 0.2.0（2026-11-14）"), text.index(cl.JA_OLDER_HEADING))
+        self.assertEqual(cl.japanese_sections(text), ["0.2.0"])
+        self.assertEqual([name for name, _, _ in cl.sections(text)], ["0.2.0"])
+
+    def test_a_new_release_goes_above_the_previous_one_in_both_versions(self):
+        text = cl.update_changelog("", "0.2.0", self.section())
+        text = cl.update_changelog(text, "0.3.0", self.section("0.3.0", "v0.2.0"))
+        self.assertEqual([name for name, _, _ in cl.sections(text)], ["0.3.0", "0.2.0"])
+        self.assertEqual(cl.japanese_sections(text), ["0.3.0", "0.2.0"])
+
+    def test_a_translated_section_is_never_replaced(self):
+        text = cl.update_changelog("", "0.2.0", self.section(commits=[commit("fix", "keep the queue")]))
+        translated = text.replace("- Keep the queue（", "- 待ち行列を保つ（").replace(cl.JA_FRAME_NOTE + "\n\n", "")
+        changed = self.section(commits=[commit("fix", "keep the queue"), commit("feat", "add a page", id_="b" * 40)])
+        text = cl.update_changelog(translated, "0.2.0", changed, force=True)
+        self.assertIn("Add a page", text.split(cl.JA_TITLE)[0])
+        japanese = text.split(cl.JA_TITLE)[1]
+        self.assertIn("- 待ち行列を保つ（", japanese)
+        self.assertNotIn("Add a page", japanese)
+
+    def test_a_file_without_a_japanese_version_gets_no_frame(self):
+        english_only = "# Changelog\n\n" + cl.OLDER
+        text = cl.update_changelog(english_only, "0.2.0", self.section())
+        self.assertNotIn(cl.JA_TITLE, text)
+        self.assertEqual(cl.japanese_sections(text), [])
+
+    def test_the_frame_puts_headings_and_fixed_sentences_in_japanese_and_keeps_the_links(self):
+        section = cl.render_section("0.2.0", "2026-11-14", "v0.1.0", [
+            commit("fix", "keep the queue", scope="ui", id_="a" * 40),
+            commit("fix", "keep the queue", scope="ui", id_="b" * 40),
+            commit("feat", "change the reply", scope="api", breaking=True,
+                   footers=[("BREAKING CHANGE", "read the new field.")], id_="c" * 40),
+            commit("test", "cover the queue", id_="d" * 40),
+        ], repo_url=REPO, included=["0.2.0-beta.1", "0.2.0-beta.2"])
+        frame = cl.japanese_frame(section)
+        self.assertTrue(frame.startswith("## 0.2.0（2026-11-14）\n\n" + cl.JA_FRAME_NOTE + "\n"))
+        self.assertIn(f"[v0.1.0]({REPO}/compare/v0.1.0...v0.2.0)からの変更です。", frame)
+        self.assertIn("この版には0.2.0-beta.1、0.2.0-beta.2の変更も含まれます。", frame)
+        for heading in ("### 利用者に関わる変更", "#### 互換性が変わる変更", "#### 不具合の修正", "### 内部の変更",
+                        "#### 試験"):
+            self.assertIn(heading + "\n", frame)
+        self.assertIn(f"- **ui:** Keep the queue（[aaaaaaa]({REPO}/commit/{'a' * 40})、"
+                      f"[bbbbbbb]({REPO}/commit/{'b' * 40})）", frame)
+        self.assertIn("  - read the new field.", frame)
+        self.assertIsNone(cl.SECTION.search(frame))
+
+    def test_a_release_with_nothing_to_list_says_so_in_japanese(self):
+        frame = cl.japanese_frame(self.section(commits=[commit("chore", "version 0.2.0", scope="release")]))
+        self.assertIn("載せる変更はありません。", frame)
+
+    def test_the_header_and_the_closing_sections_are_those_of_changelog_md(self):
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith(cl.HEADER))
+        self.assertIn("\n" + cl.SEPARATOR + "\n\n" + cl.JA_HEADER, text)
+        self.assertIn(cl.OLDER + "\n" + cl.SEPARATOR + "\n", text)
+        self.assertTrue(text.endswith(cl.JA_OLDER))
+        self.assertEqual(cl.japanese_sections(text), [name for name, _, _ in cl.sections(text)])
+
+
 class ReleaseNotesTest(unittest.TestCase):
     def section(self, version, previous):
         return cl.render_section(version, "2026-11-14", previous, [
@@ -223,34 +295,58 @@ class NotesScaffoldTest(unittest.TestCase):
             cl.NotesEntry("user", "fix(tts): keep the queue", "5555555"),
         ])
 
-    def test_the_scaffold_follows_the_order_of_the_format(self):
-        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [
+    def scaffold(self, entries=()):
+        return cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", list(entries), repo_url=REPO)
+
+    def test_the_scaffold_has_the_english_version_first_then_the_japanese_one(self):
+        notes = self.scaffold()
+        english, japanese = notes.split("\n---\n")
+        body = english.split("-->", 1)[1].lstrip("\n")
+        self.assertTrue(body.startswith("# ASTAROT 0.6.0\n\n[日本語版](#astarot-060日本語版)\n\nIn ASTAROT 0.6.0, "), body)
+        self.assertTrue(japanese.lstrip("\n").startswith("# ASTAROT 0.6.0（日本語版）\n\nASTAROT 0.6.0では"), japanese)
+        self.assertEqual(cl.heading_anchor("ASTAROT 0.6.0（日本語版）"), "astarot-060日本語版")
+        # Apart from the two titles, every heading is ## and sits flat, as the format asks.
+        self.assertEqual(re.findall(r"^#+ ", notes, re.M), ["# "] + ["## "] * 4 + ["# "] + ["## "] * 4)
+        self.assertIn("from v0.5.2 to 0.6.0", english)
+        self.assertIn("v0.5.2から0.6.0まで", english)
+
+    def test_each_version_follows_the_order_of_the_format(self):
+        notes = self.scaffold([
             cl.NotesEntry("internal", "docs: explain the route", "#5"),
             cl.NotesEntry("user", "feat(ui): show the flow", "#12"),
             cl.NotesEntry("breaking", "fix(api)!: change the reply", "#30"),
-        ], repo_url=REPO)
-        body = notes.split("-->", 1)[1].lstrip("\n")
-        self.assertTrue(body.startswith("ASTAROT 0.6.0では"), body)
-        order = [notes.index(text) for text in (
-            "## （絵文字1つ）", "## ⚠️ 更新するときの注意", "## 🐞 既知の問題", "## 🔧 内部の変更",
-            "- fix(api)!: change the reply（#30）", "- feat(ui): show the flow（#12）", "- docs: explain the route（#5）",
-            "すべての変更は [CHANGELOG.md]")]
-        self.assertEqual(order, sorted(order))
-        self.assertEqual(len(order), len(set(order)))
-        # Every heading is ## and sits flat, as the format asks.
-        self.assertEqual(re.findall(r"^#+ ", notes, re.M), ["## "] * 4)
-        self.assertTrue(notes.rstrip().endswith(f"({REPO}/blob/main/CHANGELOG.md#060---2026-11-20) にあります。"))
-        self.assertIn("v0.5.2から0.6.0まで", notes)
+        ])
+        english, japanese = notes.split("\n---\n")
+        for part, texts in (
+            (english, ("## (One emoji)", "## ⚠️ When you update", "## 🐞 Known issues", "## 🔧 Internal changes",
+                       "- fix(api)!: change the reply (#30)", "- feat(ui): show the flow (#12)",
+                       "- docs: explain the route (#5)", "All changes are in [CHANGELOG.md]")),
+            (japanese, ("## （絵文字1つ）", "## ⚠️ 更新するときの注意", "## 🐞 既知の問題", "## 🔧 内部の変更",
+                        "- fix(api)!: change the reply（#30）", "- feat(ui): show the flow（#12）",
+                        "- docs: explain the route（#5）", "すべての変更は [CHANGELOG.md]")),
+        ):
+            order = [part.index(text) for text in texts]
+            self.assertEqual(order, sorted(order))
+            self.assertEqual(len(order), len(set(order)))
+        self.assertIn(f"({REPO}/blob/main/CHANGELOG.md#060---2026-11-20).", english)
+        self.assertTrue(notes.rstrip().endswith(f"({REPO}/blob/main/CHANGELOG.md#0602026-11-20) にあります。"))
 
     def test_a_release_without_pull_requests_says_so(self):
-        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [], repo_url=REPO)
+        notes = self.scaffold()
+        self.assertIn("No pull requests merged after v0.5.2 were found", notes.split("## 🔧 Internal changes")[1])
         self.assertIn("見つかりませんでした", notes.split("## 🔧 内部の変更")[1])
 
-    def test_the_changelog_link_reaches_the_heading_github_makes(self):
+    def test_the_changelog_links_reach_the_headings_github_makes(self):
         self.assertEqual(cl.changelog_anchor("0.5.1", "2026-11-18"), "051---2026-11-18")
         self.assertEqual(cl.changelog_anchor("1.10.0", "2027-01-02"), "1100---2027-01-02")
+        self.assertEqual(cl.changelog_anchor_ja("0.5.1", "2026-11-18"), "0512026-11-18")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn("\n## [0.5.1] - 2026-11-18\n", changelog)
+        self.assertIn("\n## 0.5.1（2026-11-18）\n", changelog)
         # The notes written by hand before the scaffold link the same way.
-        self.assertIn("CHANGELOG.md#051---2026-11-18", (ROOT / "docs/release-notes/0.5.1.md").read_text(encoding="utf-8"))
+        notes = (ROOT / "docs/release-notes/0.5.1.md").read_text(encoding="utf-8")
+        self.assertIn("CHANGELOG.md#051---2026-11-18", notes)
+        self.assertIn(f"[日本語版](#{cl.heading_anchor('ASTAROT 0.5.1（日本語版）')})", notes)
 
 
 class VersionTest(unittest.TestCase):
@@ -349,6 +445,8 @@ class EndToEndTest(unittest.TestCase):
         self.assertIn("compare/v0.1.0...v0.2.0", text)
         self.assertIn("This release includes the changes of 0.2.0-beta.1", text)
         self.assertIn("Show the flow", text)
+        self.assertIn("## 0.2.0（2026-11-14）", text)
+        self.assertIn("- **ui:** Show the flow（", text.split(cl.JA_TITLE)[1])
         self.assertLess(text.index("#### Breaking Changes"), text.index("#### Features"))
         self.assertLess(text.index("### User-facing Changes"), text.index("### Internal Changes"))
         again = self.run_tool("write", "--date", "2026-11-20")
@@ -357,6 +455,16 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual(self.run_tool("check").returncode, 0)
         notes = self.run_tool("release-notes")
         self.assertIn("blob/v0.2.0/CHANGELOG.md", notes.stdout)
+
+    def test_the_output_is_utf8_on_a_console_that_is_not(self):
+        # A Windows console's code page (cp1252 on the CI runners) cannot encode Japanese, which the
+        # release notes carry; the tool writes UTF-8 whatever the console's encoding is.
+        self.commit_files(("c", "fix(ui): keep the label 字幕 on one line"))
+        env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+        notes = subprocess.run([sys.executable, str(ROOT / "tools" / "changelog.py"), "release-notes",
+                                "--root", str(self.repo)], capture_output=True, env=env)
+        self.assertEqual(notes.returncode, 0, notes.stderr.decode("utf-8", "replace"))
+        self.assertIn("字幕", notes.stdout.decode("utf-8"))
 
     def test_refuses_a_version_that_is_already_tagged(self):
         self.set_version("0.2.0")

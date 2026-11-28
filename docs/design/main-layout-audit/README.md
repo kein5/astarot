@@ -1,11 +1,339 @@
-# メイン画面レイアウト監査（2026-11-15）
+# Main screen layout audit (2026-11-15)
+
+[日本語版](#メイン画面レイアウト監査2026-11-15日本語版)
+
+This is the audit report for issue #327. It lists the problems of the current layout, ahead of the main screen layout revision in 0.5.0. This PR does not change any code.
+
+- Scope: the main screen (`src-ui/views/app/main_page/`) and the title bar above it, at `03c21f3d` on `develop` (0.4.0-beta.1)
+- Result: 11 problems (2 high, 5 medium, 4 low). Also recorded: 17 places that rely on fixed dimensions ([Fixed-size assumptions](#fixed-size-assumptions)).
+- All automated detections: [findings.md](findings.md)
+- Scripts to reproduce the audit: [audit/](audit/) (they run on a checkout of the `v0.5.2` tag. The test parts they use (`tests/voice/test_studio_ui.py`, `tests/voice/test_docs_screenshots.py`, `tests/voice/studio-entry`) were removed on 2026-11-20, so they do not run on develop)
+
+## Conclusions
+
+- **In a small window, the main screen cannot be used.** At tauri's minimum size of 400×200, the conversation log is only 6px tall. Of the rail's switches, only the translation switch is visible.
+- **At the widths just past the switch to the wide layout, the top bar's buttons overlap.** In the English UI at 801 to 829px, the words "Stop speech" and "Mute" overlap and are cut off. The switch to the narrow layout is decided by the window width, so the difference in rail width (240px and 72px) is not taken into account.
+- **Even at common sizes, the rail's language settings are off screen.** At 1280×720 and 1366×768, you have to scroll to see the target languages and the translator. Yet the scrollbar thumb has the same color as the track, so nothing tells you that there is more below.
+- The page as a whole did not overflow (no horizontal scrolling) at any size. Every breakage happens inside an individual region.
+
+## Method
+
+### How the screen was rendered
+
+The audit used the existing setup that "renders the production screen against a mock backend" (the same one as `tests/voice/studio-entry`, `tests/voice/test_studio_ui.py` and `tools/docs_screenshots.py`).
+
+- The Vite dev server renders the production `MainPage`, `ConfigPage`, `WindowTitleBar` and `SnackbarController`. Playwright returns sample data in place of the backend.
+- Headless Chromium takes the screenshots while the viewport size is changed. The app draws its own window frame (`decorations: false`), so the viewport size is the window size.
+- The script reproduces the switch to the narrow layout and the UI size with the same processing as production: `html[data-narrow]` from `useWindow.asyncUpdateBreakPoint`, and the root font size from `UiSizeController`. `studio-entry` itself switches only `Atom_IsBreakPoint`.
+
+### Sizes
+
+Sizes are in CSS px. With the Windows display scale at 150%, a maximized window on a physical resolution of 1920×1080 is about 1280×720 in CSS.
+
+| Size | Why it was chosen |
+|---|---|
+| 400×200 | `minWidth` and `minHeight` in `tauri.conf.json` |
+| 450×220 | The initial size in `tauri.conf.json`. Used only for a moment, before the saved position and size are restored |
+| 640×480 | A typical narrow layout |
+| 800×600 / 801×600 | The boundary between the narrow and the wide layout (a width of 800 or less is the narrow layout) |
+| 870×654 | The size at first launch (`BUILT_IN_GEOMETRY` in `windowGeometry.js`) |
+| 1280×720, 1366×768, 1920×1080 | Common sizes named in the issue |
+| 1280×720 (UI 150%), 1920×1080 (UI 200%) | With the "UI size" setting raised |
+
+### States and languages
+
+The 7 states below were captured in both Japanese and English, 154 screenshots in total.
+
+- No conversation
+- With a conversation (3 target languages, which makes the rail as long as it gets)
+- Quick settings open
+- The language selector
+- The translator choice
+- The inputs and outputs panel
+- The rail toggled
+
+### How problems were detected
+
+`audit/detect.js` checks the following in each state at each size.
+
+- Whether an element's bounding rectangle goes outside the visible area (the intersection of the viewport and every ancestor that clips with overflow). It tells apart what scrolling can reach and what it cannot.
+- Regions that scroll.
+- Text and buttons whose content is larger than their own box.
+- Interactive elements that overlap each other. Elements that an overlay fully covers are left out, using `elementFromPoint`.
+
+After that, the screenshots were checked by eye for breakage that automated detection cannot catch (how text overlaps, how hard it is to read).
+
+### Personal information
+
+The conversation uses only the sample sentences for tests (`CONVERSATION` in `tests/voice/test_docs_screenshots.py`). No user text or audio was used. `detect.js` does not record the text of the conversation log; it writes `(message)` instead.
+
+## Problems
+
+Effort levels:
+
+- Small: a few lines of CSS fix it
+- Medium: changes how one component is built
+- Large: needs a new decision on the main screen's structure or on the minimum size policy
+
+| ID | Severity | Component | Reproduced at | Symptom | Effort |
+|---|---|---|---|---|---|
+| L-01 | High | `TopBar` / `StopActions` | English at widths of 801 to 829. In the narrow layout with the rail opened (400×200, 450×220, in Japanese and English) | The stop and mute buttons shrink, and their text spills out and overlaps | Medium |
+| L-02 | High | The whole main screen (`MessageContainer`, `SidebarSection`) | 400×200, 450×220 | The conversation log is 6px and 26px tall. Only 1 or 2 switches are visible | Medium to large |
+| L-03 | Medium | `SidebarSection` (wide layout) | 801×600 to 1366×768, UI 150% and 200%. With 3 target languages, 1920×1080 too | The language settings and the translator are off screen, and the scrollbar cannot be seen either | Small (bar) / large (structure) |
+| L-04 | Medium | `OpenSettings` and `SidebarSection` | All sizes (most visible at 801×600 and UI 200%) | The strip of the settings button (the gear) hides the bottom 4px of the rail (at 100%) | Small |
+| L-05 | Medium | `QuickSettingsMenu` | 400×200, 450×220 | The panel's left edge is cut off and its bottom goes outside the window. It also covers the composer and the send button | Small to medium |
+| L-06 | Medium | `IoFlowPanel` | 400×200, 450×220 | The panel pushes out the conversation log and the composer, and the whole conversation column scrolls | Small to medium |
+| L-07 | Medium | `TranslatorSelector` | All sizes in the wide layout | A fixed-height popover covers the language buttons with a semi-transparent layer, and only 4 engines are visible. The "Default" badge spills out of its box | Medium |
+| L-08 | Low | `LanguageSelector` | All sizes in the wide layout | The bottom 56px of the list's scroll region is outside its frame, and the bottom of the scrollbar cannot be seen | Small |
+| L-09 | Low | `LanguageReadout` (the icon rail) | Widths of 800 or less | English language names are shortened, as in "Japane…". At 640×480 the readout is hidden at the bottom of the rail and cannot be seen | Small |
+| L-10 | Low | `LanguageSwapButton` | English, wide layout | "Translate Both Languages" wraps onto 2 lines and is out of line with the arrows | Small |
+| L-11 | Low (observation) | `MessageContainer`, `LogBox` | 1920×1080 | Nothing is broken. But the composer grows to 192px tall and the send button to 100×192px, and a line of the log spreads across 1640px | Medium |
+
+### L-01 The stop and mute buttons in the top bar overlap
+
+![English at 801×600: Stop speech and Mute overlap](images/en-in-use-801x600.webp)
+
+![English at 450×220 with the rail opened: the buttons are squashed](images/en-sidebar-toggled-450x220.webp)
+
+- Symptom: In the English UI at 801×600, "Stop speech" is cut off at "Stop spee", and "Mute" lies over it. Checking widths in 4px steps, it happens at 801 to 829px and not at 830px or more. When the rail is opened for a moment in the narrow layout (400×200, 450×220), the 2 buttons are squashed to 18px wide, in Japanese and in English. They also overlap the inputs and outputs button and the quick settings button.
+- Likely cause:
+  - The switch to the narrow layout (short wording and icon-only buttons) is decided by the window width (800 × UI size or less), not by the width of the conversation column. At 801px, the conversation column left after the 240px rail is only 561px. That is narrower than the 728px it has in the narrow layout at 800px (with the 72px rail).
+  - `.stop` has `white-space: nowrap`. But its parents `.leading` and `.stop_actions` shrink with `min-width: 0`, while `RightSideComponents` on the right does not shrink, with `flex-shrink: 0`. So the buttons become narrower than their text.
+  - DESIGN.md's commitment to keep the stop actions "in the same place at every window size" is kept. But the buttons do not keep a shape that can be operated.
+- Effort: medium. The switch has to be based on the width of the conversation column (a container query, or a measured width). Along with that, set the buttons' `min-width` to `max-content`, or shrink the group on the right first.
+
+### L-02 The screen does not work at the minimum and initial sizes
+
+![400×200 (minimum size)](images/ja-in-use-400x200.webp)
+
+![450×220 (initial size)](images/ja-in-use-450x220.webp)
+
+- Symptom:
+  - At 400×200, the conversation log is 288×6px, and not a single line can be read. The heading shown when there is no conversation is cut off at the top and bottom too.
+  - The icon rail has a visible height of 54px. Its content is 423px, and of the switches only the translation switch is visible.
+  - At 450×220 too, the log is 26px, and 74px of the rail is visible.
+- Likely cause: The fixed-height parts alone use up nearly all of the 200px.
+  - Title bar 34px (`--title_bar_height: 3.4rem`)
+  - Top bar 56px (`--main_page_topbar_height: 5.6rem`)
+  - Top and bottom padding of `MessageContainer` 32px
+  - Separator 8px
+  - Minimum height of the composer 64px (`min-height: 6.4rem`)
+
+  Together they come to 194px. Subtracted from 200px, that leaves 6px for the log. `minHeight: 200` is not set above this total.
+- Note: The initial size of 450×220 is shown only for the short time until the saved size is restored. How much of it can be seen on a real machine was not checked ([Not verified](#not-verified)).
+- Effort: medium to large. Whether to raise the minimum window size to a value at which the main screen works, and whether a small window should give priority to either the log or the input: 0.5.0 needs to decide the policy.
+
+### L-03 The rail's language settings are off screen, and the scrollbar cannot be seen
+
+![1280×720: the target languages and the translator are off screen](images/ja-in-use-1280x720.webp)
+
+![1280×720, UI 150%: the voice changer row is cut off](images/ja-in-use-1280x720-ui150.webp)
+
+- Symptom: With a conversation and 3 target languages, the rail's visible height and content height are as follows (Japanese).
+
+  | Size | Visible height / content height |
+  |---|---|
+  | 801×600 | 454 / 974 |
+  | 870×654 | 508 / 974 |
+  | 1280×720 | 574 / 974 |
+  | 1366×768 | 622 / 974 |
+  | 1920×1080 | 934 / 974 |
+  | 1280×720 (UI 150%) | 501 / 1458 |
+  | 1920×1080 (UI 200%) | 788 / 1947 |
+
+  Even with 1 target language (the default), the content is 782px. At 1366×768 and below, the target language buttons and the translator cannot be seen. Even at 1920×1080, with 3 target languages the bottom 40px (Japanese) to 58px (English) goes off screen, and the translator button is hidden.
+
+  The scrollbar, meanwhile, can hardly be seen. The track and the thumb have the same color (`--dark_888_color`), and the thumb changes color only on hover.
+- Likely cause:
+  - The rail only stacks the following parts of set heights vertically, and nothing marks which of them takes priority.
+    - 6 switch rows (`min-height: 4.8rem`; TTS and RVC have an "Open settings" row added)
+    - The preset tabs (`height: 3rem`)
+    - A block for each language (about 96px)
+    - The translator button
+  - It has `overflow-y: scroll`, so it takes 8px for the scrollbar even when nothing overflows.
+  - This matches DESIGN.md's policy that small windows "scroll rather than dropping controls". But nothing in its look shows that the rail can scroll.
+- Effort: making the scrollbar visible is small. The rail's structure (where the language settings go, how several target languages are shown) is large, and is input for the 0.5.0 design decisions.
+
+### L-04 The settings button's strip hides the bottom of the rail
+
+![801×600: the bottom of the preset tabs is hidden by the settings button's strip](images/ja-in-use-801x600.webp)
+
+- Symptom: The lowest element in the scroll region goes 4px under the strip of the settings button (the gear, "Open settings"). Automated detection found these overlaps:
+  - The preset tabs (801×600)
+  - RVC's "Open settings" (1920×1080, UI 200%)
+  - The swap button (English, 1366×768)
+- Likely cause:
+  - `.scroll_container` in `SidebarSection.module.scss` leaves room for the settings button with `margin-bottom: calc(2rem + 1.6rem + 2rem)` (5.6rem).
+  - `OpenSettings`, on the other hand, is pinned to the bottom with `position: absolute`. With `min-height: 4rem` and `margin: 1rem` above and below, it is 6rem tall, so the room is 0.4rem short.
+  - The dimensions are added up by hand, so changing the button's dimensions puts them out of step again.
+- Effort: small. Laying out the settings button as a flex child, instead of positioning it absolutely, fixes it.
+
+### L-05 The quick settings panel is cut off (narrow windows)
+
+![400×200: the panel's left edge is cut off, and its bottom is outside the window](images/ja-quick-settings-400x200.webp)
+
+![450×220](images/ja-quick-settings-450x220.webp)
+
+- Symptom:
+  - At 400×200, 18px of the panel's left edge is cut off, and the start of an item name is missing (the 最 of 最前面固定, "Always on top").
+  - The bottom of the panel goes outside the window. The items below the third one (such as the VRChat detection status) can be seen only by scrolling the conversation column.
+  - The panel lies over the composer and the send button.
+- Likely cause:
+  - `.menu_panel` takes the viewport width as its reference, with `min-width: 26rem` and `max-width: min(34rem, calc(100vw - 2.4rem))`. It is then aligned to the right edge of the conversation column (328px wide).
+  - The conversation column (`MainSection .container`) has `overflow-y: auto`. Because of this it clips horizontally too, and the panel's left edge disappears.
+  - Vertically, the panel's height does not shrink to fit the height that is left.
+- Effort: small to medium. Take the width of the region the panel sits in as the reference for its width. Give the panel a maximum height and let its content scroll.
+
+### L-06 The inputs and outputs panel pushes out the conversation log and the composer (narrow windows)
+
+![400×200: opening the panel hides the composer](images/ja-io-flow-400x200.webp)
+
+- Symptom: Opening the panel at 400×200 and 450×220 pushes the conversation log and the composer down, out of sight. The whole conversation column (`MainSection`) scrolls vertically, and the panel itself scrolls too. At 1280×720 there is no problem ([for comparison](images/ja-io-flow-1280x720.webp)).
+- Likely cause: The panel is placed as one of the parts stacked vertically, with `flex-shrink: 0; max-height: 60%`. On top of the fixed-height top bar and the composer's minimum height, the panel takes 60% as well, so no room is left for the log.
+- Effort: small to medium. When the window is narrow, show the panel over the content, or shrink it before the log.
+
+### L-07 The translator choice has a fixed height and covers the language buttons below it with a semi-transparent layer
+
+![1280×720: the translator choice](images/ja-translator-selector-1280x720.webp)
+
+![English at 1280×720, UI 150%](images/en-translator-selector-1280x720-ui150.webp)
+
+- Symptom:
+  - The popover lies over the target language buttons. Its background is semi-transparent, so text underneath, such as "English (United States)", overlaps the descriptions and is hard to read.
+  - Its height is fixed at 260px (390px at UI 150%). The content is 647px (970px at the same size), so only 4 engines are visible, and the others appear only after scrolling.
+  - The "Default" badge of the selected engine spills 8px past the right side of its box.
+- Likely cause:
+  - `.container` is `position: absolute; bottom: 100%; height: 26rem`.
+  - The background is `var(--dark_1000_color_dd)` (opacity 0xdd), with `backdrop-filter: blur(0.1rem)`.
+  - Each engine's box is fixed at `width: 9.4rem; height: 6.2rem`.
+  - It is positioned absolutely inside the rail's scroll region, so where the popover appears depends on the rail's scroll position.
+- Effort: medium. Move the layer that is shown on top out of the rail, and fit its height to the free space. Make the background opaque.
+
+### L-08 The language selector's scroll region extends 56px past its frame
+
+![1280×720: the language selector](images/ja-language-selector-1280x720.webp)
+
+- Symptom:
+  - The list's scroll region (`.language_list_scroll_wrapper`) is 56px taller than the outer frame (`.container`, `overflow-y: hidden`). So the bottom of the scrollbar cannot be seen.
+  - There is 8rem of padding at the bottom, so scrolling still reaches the last language.
+  - The selector covers the whole conversation column, so the composer and the send button are hidden too. This matches the current specification.
+- Likely cause: The top bar (`LanguageSelectorTopBar`, 5.6rem tall) and a scroll region with `height: 100%` are stacked vertically in the same frame.
+- Effort: small. Make the frame a vertical flex column, and give the scroll region `flex: 1; min-height: 0`.
+
+### L-09 The language readout in the icon rail
+
+![English at 640×480: the icon rail](images/en-in-use-640x480.webp)
+
+- Symptom:
+  - In the icon rail at widths of 800 or less, a language name is shortened to fit one line, and the English "Japanese" is cut to "Japane…". As the CSS comment says, the shortening is intended, and the tooltip and the accessible name carry the full text.
+  - At 640×480 the language readout is at the bottom of the rail and cannot be seen without scrolling. The visible height is 334px and the content 423px. The scrollbar cannot be seen, as in L-03.
+- Effort: small.
+
+### L-10 The swap button's label wraps (English)
+
+![English at 1920×1080](images/en-in-use-1920x1080.webp)
+
+- Symptom: "Translate Both Languages" wraps onto 2 lines and is out of vertical line with the arrows on its left and right.
+- Likely cause: The rail's width is fixed at 240px, while the length of the label differs by language.
+- Effort: small.
+
+### L-11 A stretched layout in a large window (observation)
+
+![English at 1920×1080, UI 200%](images/en-in-use-1920x1080-ui200.webp)
+
+- Symptom: Nothing is broken. At 1920×1080 the screen looks like this:
+  - The composer is as large as 1640×192px, and the send button 100×192px.
+  - Lines of the conversation log spread to 1640px wide. Sent messages are aligned right and received ones left, so the eyes have to move far from side to side.
+  - The rail stays 240px wide, and with 3 target languages its bottom cannot be seen (L-03).
+- Likely cause:
+  - The composer's height is a ratio of the conversation column's height (10% by default, `MESSAGE_BOX_RATIO`), with a minimum of 6.4rem and a maximum of 90%.
+  - The length of a log line has no upper limit.
+- Effort: medium. Use this as input when deciding in 0.5.0 how to use large windows.
+
+## Where no problem was found
+
+- The page as a whole did not scroll horizontally or vertically at any size or in any state (comparing `scrollWidth` and `scrollHeight` with the viewport).
+- In the top bar with the rail not opened, the Japanese wording was not cut off at any size. The English was not cut off either, apart from the L-01 widths.
+- The left and right edges of the composer were on screen at every size (the same result as the existing test `test_small_window_and_reduced_motion`).
+
+Reference images:
+
+- [640×480](images/ja-in-use-640x480.webp)
+- [800×600](images/ja-in-use-800x600.webp)
+- [870×654](images/ja-in-use-870x654.webp)
+- [1366×768](images/ja-in-use-1366x768.webp)
+- [No conversation, 1280×720](images/ja-empty-1280x720.webp)
+- [The rail opened in the narrow layout, 640×480](images/ja-sidebar-toggled-640x480.webp)
+
+## Fixed-size assumptions
+
+As input for the 0.5.0 design decisions, these are the places that rely on hard-coded widths, heights and breakpoints. Values written in rem grow in proportion to the UI size. The window does not grow, so a larger UI size puts the screen in the same state as a narrower window.
+
+| Place | Value | Related problems |
+|---|---|---|
+| `src-tauri/tauri.conf.json` | Initial 450×220, minimum 400×200 | L-02 |
+| `src-ui/logics/common/windowGeometry.ts` `BUILT_IN_GEOMETRY` | First launch 870×654 | — |
+| `src-ui/logics/common/useWindow.ts` `asyncUpdateBreakPoint` and the CSS `@media (max-width: 800px)` (`TopBar`, `RightSideComponents`, `LogBox`) | Window width 800px × UI size, not the width of the conversation column | L-01 |
+| `SidebarSection.module.scss` `.container` | 24rem wide, 7.2rem for the icon rail | L-01, L-03, L-10 |
+| `SidebarSection.module.scss` `.scroll_container` | `margin-bottom: calc(2rem + 1.6rem + 2rem)`, calculated by hand. `overflow-y: scroll` | L-03, L-04 |
+| `OpenSettings.module.scss` | `position: absolute; bottom: 0`, `min-height: 4rem`, `margin: 1rem` | L-04 |
+| `variables.css` `--title_bar_height` | 3.4rem | L-02 |
+| `variables.css` `--main_page_topbar_height` | 5.6rem (the top bar, and the top bar of the language selector) | L-02, L-08 |
+| `MainFunctionSwitch.module.scss` | Switch rows have `min-height: 4.8rem` | L-03 |
+| `PresetTabSelector.module.scss` | `height: 3rem` | L-03 |
+| `MessageContainer.module.scss` `.message_box_resize_wrapper` | The height is a ratio (10% by default), `min-height: 6.4rem`, `max-height: 90%` | L-02, L-11 |
+| `MessageContainer.module.scss` `.container` | Padding `1.2rem 2rem 2rem`, separator 0.8rem | L-02 |
+| `RightSideComponents.module.scss` `.menu_panel` | `min-width: 26rem`, `max-width: min(34rem, calc(100vw - 2.4rem))` (based on the viewport) | L-05 |
+| `IoFlowPanel.module.scss` `.panel` | `max-height: 60%`, `flex-shrink: 0` | L-06 |
+| `TranslatorSelector.module.scss` | `height: 26rem`, boxes of 9.4rem × 6.2rem, `position: absolute` | L-07 |
+| `LanguageSelector.module.scss` | Covers the conversation column with `position: absolute`; the scroll region is `height: 100%` | L-08 |
+| `root.css` | The root font size is 62.5% × UI size (the base of every rem). The corner radius of `html, body` is fixed at 10px | All |
+
+## Not verified
+
+- A real Tauri window: No native GUI test was run. The transparent window, its shadow and the window frame controls were not reproduced. How much of the 450×220 initial size can be seen on a real machine was not checked either.
+- WebKitGTK on Linux: Only Chromium was used. Windows' WebView2 is Chromium-based too, so its results are expected to be close. WebKitGTK, however, may differ, for example in how it draws scrollbars.
+- Fonts: The default font is "Yu Gothic UI" (`config.py`), but this environment does not have it, so text was drawn in Noto Sans and Noto Sans CJK. The character widths differ, so the range of 801 to 829px in L-01 may shift on Windows.
+- Parts that exist only in `App.jsx`: The consent dialogs, the notices (toasts) and the startup screen are not in `studio-entry`, so they were not checked.
+- Long conversations and long messages: The sample conversation has only 3 messages. A virtually scrolled log filled with a large number of messages, and long text without line breaks, were not tried.
+- The rail's scroll position in the images: Opening the language selector or the translator choice scrolls the rail, because of the click. So in the images taken after that, the rail's scroll position differs from state to state.
+
+## Measurement environment
+
+- Linux (CachyOS, kernel 6.18)
+- Google Chrome for Testing 153.0.8010.12 (headless, through Playwright 1.64.1)
+- Node.js 26.13.1, the Vite dev server
+- Device pixel ratio 1
+- Captured with reduced motion (`prefers-reduced-motion: reduce`)
+- The clock fixed at 2026-01-10 21:30 (the same as `tools/docs_screenshots.py`)
+
+## How to reproduce
+
+Run these from the repository root.
+
+```sh
+python tools/dev.py setup --scope browser   # prepares build/dev/browser-venv
+npm ci
+AUDIT_OUT=build/layout-audit ASTAROT_TEST_STUDIO_UI=1 ASTAROT_TEST_CHROMIUM=/path/to/chrome \
+PYTHONPATH=tests/voice build/dev/browser-venv/bin/python -m pytest -c tests/voice/pytest.ini \
+    --rootdir . docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider
+python docs/design/main-layout-audit/audit/summarize.py build/layout-audit > docs/design/main-layout-audit/findings.md
+```
+
+- This produces 154 screenshots (PNG) in `build/layout-audit/shots/`.
+- This report includes 23 of them, converted to WebP.
+- `docs/` is excluded from pytest collection (`norecursedirs` in `pytest.ini`), so this audit script never runs in the regular `check`.
+
+---
+
+# メイン画面レイアウト監査（2026-11-15）（日本語版）
 
 Issue #327 の監査レポートです。0.5.0 でメイン画面のレイアウトを見直す前に、現状の問題を洗い出しました。この PR ではコードを直していません。
 
 - 対象: `develop` の `03c21f3d`（0.4.0-beta.1）のメイン画面（`src-ui/views/app/main_page/`）と、その上のタイトルバー
 - 結果: 問題 11 件（高 2、中 5、低 4）。ほかに、固定寸法に頼っている箇所を 17 か所記録しました（[固定寸法の前提](#固定寸法の前提)）。
 - 機械検出の全件: [findings.md](findings.md)
-- 再現用のスクリプト: [audit/](audit/)
+- 再現用のスクリプト: [audit/](audit/)（`v0.5.2` のタグのチェックアウトで動きます。使う試験の部品（`tests/voice/test_studio_ui.py`、`tests/voice/test_docs_screenshots.py`、`tests/voice/studio-entry`）を 2026-11-20 に消したので、develop では動きません）
 
 ## 結論
 

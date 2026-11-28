@@ -1,17 +1,28 @@
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge } from "../../logics/companion/bridge.ts";
-import { panelState, type CompanionStatus, type Switch } from "../../logics/companion/status.ts";
+import { actionFor, MAIN_SCREEN_ORDER, panelState, switchLabelKey, type CompanionStatus, type Switch as SwitchState } from "../../logics/companion/status.ts";
+import { applyThemeTokens, themeSetting, themeTokens } from "../../logics/theme/themes.ts";
+import { startupTheme } from "../../logics/theme/startupTheme.ts";
 import * as styles from "./CompanionPanel.css.ts";
+import { Button, Switch } from "../kit/index.ts";
 
-// The tray companion's control panel (experimental feature "tray_companion", Issue #355): the
-// everyday switches, opened from the tray or from the handle beside the captions. The hidden
-// main window owns the state; this page only shows it and asks.
+// The tray companion's control panel (experimental feature "tray_companion", Issue #355): the main
+// screen's feature switches, in its order and under its names (#1235), opened from the tray or from
+// the handle beside the captions. The hidden main window owns the state; this page only shows it
+// and asks. A switch the main window cannot turn on brings it forward to say why or to set it up
+// (CompanionController), as the hexagram's labels do.
 export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: CompanionBridge }) => {
     const { t, i18n } = useI18n();
     const [status, setStatus] = useState<CompanionStatus | null>(null);
     const first = useRef<HTMLButtonElement>(null);
-    const titleId = useId();
+    const titleId = useId(), switchId = useId();
+    // Until the main window's report comes, the theme the shell gave the page (#1259).
+    const savedTheme = JSON.stringify(status?.theme ?? startupTheme() ?? null);
+
+    useLayoutEffect(() => {
+        applyThemeTokens(document.documentElement.style, themeTokens(themeSetting(JSON.parse(savedTheme))));
+    }, [savedTheme]);
 
     useEffect(() => {
         let disposed = false, revision = 0;
@@ -56,26 +67,23 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
                 </p>
             </header>
             <div className={styles.switches}>
-                <SwitchRow buttonRef={first} label={t("companion.mic")} value={status?.mic} disabled={!ready}
-                    onClick={() => ask("toggle_mic")} t={t} />
-                <SwitchRow label={t("companion.translation")} value={status?.translation} disabled={!ready}
-                    onClick={() => ask("toggle_translation")} t={t} />
+                {MAIN_SCREEN_ORDER.map((feature, index) => <SwitchRow key={feature} id={`${switchId}-${feature}`}
+                    buttonRef={index === 0 ? first : undefined} label={t(switchLabelKey(feature))} value={status?.[feature]}
+                    disabled={!ready} onClick={() => ask(actionFor(feature))} t={t} />)}
             </div>
             <footer className={styles.footer}>
-                <button type="button" className={styles.linkButton} onClick={() => ask("open_main")}>
-                    {t("companion.open_main")}
-                </button>
-                <button type="button" className={styles.linkButton} onClick={() => bridge.hide().catch(() => {})}>
-                    {t("companion.close")}
-                </button>
+                <Button size="compact" onClick={() => ask("open_main")}>{t("companion.open_main")}</Button>
+                <Button size="compact" onClick={() => ask("open_settings")}>{t("companion.open_settings")}</Button>
+                <Button size="compact" onClick={() => bridge.hide().catch(() => {})}>{t("companion.close")}</Button>
             </footer>
         </main>
     );
 };
 
 type SwitchRowProps = {
+    id: string;
     label: string;
-    value: Switch | undefined;
+    value: SwitchState | undefined;
     disabled: boolean;
     onClick: () => void;
     buttonRef?: RefObject<HTMLButtonElement | null>;
@@ -84,15 +92,18 @@ type SwitchRowProps = {
 
 // A switch whose main switch is greyed out (blocked) says it cannot be used and stays pressable:
 // pressing it brings the main window forward with the reason, as the tray does (#562).
-const SwitchRow = ({ label, value, disabled, onClick, buttonRef, t }: SwitchRowProps) => {
+// The row is the switch's label, so pressing anywhere on it presses the kit's switch, and the
+// switch is named by the row's words, what it switches and its state. The words are read only as
+// that name, as they were inside the row's button, not once more beside it.
+const SwitchRow = ({ id, label, value, disabled, onClick, buttonRef, t }: SwitchRowProps) => {
     const on = value?.on === true, pending = value?.pending === true, blocked = value?.blocked === true;
+    const unusable = disabled || pending;
     return (
-        <button ref={buttonRef} type="button" role="switch" aria-checked={on} aria-busy={pending}
-            aria-disabled={blocked || undefined} data-blocked={blocked}
-            disabled={disabled || pending} className={styles.switchRow} onClick={onClick}>
-            <span className={styles.switchLabel}>{label}</span>
-            <span className={styles.switchValue}>{t(blocked ? "companion.unavailable" : on ? "companion.on" : "companion.off")}</span>
-            <span className={styles.track} aria-hidden="true"><span className={styles.thumb} /></span>
-        </button>
+        <label htmlFor={id} className={styles.switchRow} data-checked={on} data-blocked={blocked} data-busy={pending} data-disabled={unusable}>
+            <span id={`${id}-label`} className={styles.switchLabel} aria-hidden="true">{label}</span>
+            <span id={`${id}-state`} className={styles.switchValue} aria-hidden="true">{t(blocked ? "companion.unavailable" : on ? "companion.on" : "companion.off")}</span>
+            <Switch ref={buttonRef} id={id} checked={on} aria-labelledby={`${id}-label ${id}-state`} aria-busy={pending}
+                aria-disabled={blocked || undefined} disabled={unusable} onClick={onClick} />
+        </label>
     );
 };

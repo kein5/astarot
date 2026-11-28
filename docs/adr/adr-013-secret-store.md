@@ -11,7 +11,291 @@ evidence:
   - native/core/src/config/secrets/system.rs
   - native/core/tests/secret_store.rs
 ---
-# ADR-013: API キーを OS の資格情報ストアに保管する
+# ADR-013: Keep API keys in the OS credential store
+
+[日本語版](#adr-013-api-キーを-os-の資格情報ストアに保管する日本語版)
+
+Status: Accepted (2026-11-18). Decides to move the storage of the keys to the OS credential store. The work is done in Issue #575, and the decisions in section 9 and what was implemented were added in section 10.
+Date: 2026-11-18
+Decision owners: The repository maintainers
+Related: Issue #575, Issue #517, PR #384, items 35 and 37 in the list of decisions needed in [Core integration](../voice-stack/core-integration.md), [Data and persistence](../spec/data-and-persistence.md#apiキーの保存先), [Cross-cutting behavior](../spec/cross-cutting.md), [ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md), [Names and identifiers](../voice-stack/project-rename.md), `native/core/src/config/secrets.rs`, `NOTICE.md`
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT (ADR-011), and identifiers such as the storage locations and the app ID remain VRCT-VOX.
+
+> **Migration note** (2026-11-18, Issue #587): This ADR was written while it was in `docs/voice-stack/`. `release-candidates.md`, which section 7 names by file name only, is still in `docs/voice-stack/` ([Release candidates](../voice-stack/release-candidates.md)). The body has not been rewritten.
+
+## 1. Context
+
+### 1.1 Current storage (from 0.5.0)
+
+#384 split the API keys out of `config.json`, and they are stored in `secrets.json` in the same folder. The implementation is `SecretStore` in `native/core/src/config/secrets.rs`, and the app uses `FileStore`, which writes to a file. It covers the settings named in `SECRET_SETTINGS`. There are currently 3.
+
+| Setting | Contents | Entry name in `secrets.json` |
+|---|---|---|
+| `AUTH_KEYS` | API keys for translation providers | `AUTH_KEYS/<provider name>` |
+| `TRANSCRIPTION_AUTH_KEYS` | API keys for speech recognition providers | `TRANSCRIPTION_AUTH_KEYS/<provider name>` |
+| `PAPAGO_CLIENT_ID` | The Papago Client ID (used together with the Secret) | `PAPAGO_CLIENT_ID` |
+
+The protection on each OS is as follows.
+
+| OS | `protection` | What protects the keys |
+|---|---|---|
+| Windows | `dpapi` | The list of entries is encrypted with DPAPI (`CryptProtectData`). Only the user who was signed in when it was encrypted can decrypt it |
+| Linux | `none` | The list of entries is written in plain text. The only protection is setting the file permissions to 0600 (only the owner can read and write) |
+
+On both, a write goes to a temporary file, then `fsync`, then replaces the file. An unreadable file (another user's DPAPI, corrupted content) is moved to `secrets.json.unreadable-<timestamp>-<random>` the next time a key is written. When the file is only temporarily unreadable (a lock, a temporary I/O failure, DPAPI not responding), the write fails without touching the file (#427, #470). When the storage cannot be written to or read back, the key stays in memory so that it can be used for the rest of that run, and `/run/secret_store_failed` reports only the entry names. Key values do not appear in errors or logs.
+
+### 1.2 The problem with plain text on Linux
+
+On Linux, anyone who can read `secrets.json` can read the keys as they are. The 0600 permissions protect the keys from other users on the same PC, but they do not help in these cases.
+
+- The settings folder leaves the PC through a backup, a sync tool or a move to another PC
+- An unencrypted disk is taken out and read
+- The user hands over the whole settings folder for a bug report
+
+Windows encrypts the file with DPAPI, so even if the file leaves the PC, other users and other PCs cannot decrypt it. The same API key is protected to a different extent depending on the OS.
+
+### 1.3 A decision that had been left open
+
+How to store the keys had not been decided. Item 35 in the list of decisions needed in [Core integration](../voice-stack/core-integration.md) set out 2 options, "keep the current `secrets.json`" and "the OS credential vault". 0.5.0 kept `secrets.json`, which is easier to back out of. This ADR takes over that decision.
+
+## 2. Decision
+
+### 2.1 The decision
+
+The entries in `SECRET_SETTINGS` move to the OS credential store.
+
+| OS | Storage |
+|---|---|
+| Windows | Credential Manager (`CredWriteW`, `CredReadW`, `CredDeleteW`) |
+| Linux | Secret Service (the freedesktop.org D-Bus specification; GNOME Keyring, KWallet and others) |
+
+The work is done in Issue #575. The move adds one more `SecretStore` implementation and swaps `Services::secret_store`. The in-memory shape of the settings, the IPC requests and responses and the entry naming do not change.
+
+### 2.2 Properties to keep
+
+After the move, these properties still hold.
+
+1. **Keys do not leak.** Key values do not go into logs, errors, notifications or `process.log`. `StoreError` carries only the reason. Only entry names are reported.
+2. **Keys are not lost silently.** Only entries that were written to the new storage and read back count as moved (the same idea as `write_verified`).
+3. **After a failure, the app starts in the last good state.** If the app crashes partway through the migration, each key remains in either the old storage or the new one (the data integrity policy of #517).
+4. **Temporary failures are not mistaken for corruption.** When the store does not respond or is locked, neither the old storage nor the contents of the store are touched.
+5. **Nothing is sent out without the user's action.** Only stores inside the OS are used, and no storage on the network.
+
+## 3. Alternatives considered
+
+### 3.1 Candidates
+
+| Option | Description |
+|---|---|
+| (a) Keep as is | `secrets.json` encrypted with DPAPI on Windows, plain-text `secrets.json` with 0600 permissions on Linux |
+| (b) OS credential store | Credential Manager on Windows, Secret Service on Linux |
+| (c) Encrypt with a key the app manages | The app creates an encryption key and encrypts `secrets.json` with it. The encryption key is kept in the app's folder or embedded in the executable |
+
+### 3.2 Comparison
+
+| Aspect | (a) Keep as is | (b) OS credential store | (c) Encrypt with the app's key |
+|---|---|---|---|
+| The file leaves the PC on Linux | The keys can be read as they are | The keyring is encrypted with a key derived from the login password. The keyring file alone does not reveal the keys (unless the keyring has no password) | The encryption key is on the same PC, so if the whole settings folder leaves, the keys can be read. Even if the encryption key is embedded in the executable, anyone can get the executable |
+| The file leaves the PC on Windows | DPAPI keeps other users and other PCs from reading it | Credential Manager also uses DPAPI internally. The protection is about the same as (a) | Weaker than (a) if DPAPI is dropped |
+| Other programs running as the same user | On Windows they can decrypt it by calling DPAPI. On Linux they can read the file | On Windows they can read the credentials. On Linux they can request them over D-Bus while the keyring is unlocked. No option prevents this | They can read the encryption key and the file, so this is not prevented |
+| Same protection on both OSes | No (plain text on Linux only) | Yes (on both, the OS protects the keys and ties them to the login) | Yes, but both at the weaker level |
+| Dependencies | None added | On Windows, only a `windows-sys` feature is added. On Linux, the core gains D-Bus dependencies (`keyring`, `secret-service`, `zbus` or others; all MIT or Apache-2.0) | A cryptography library is added |
+| Environments where it does not work | None | Linux without Secret Service (a desktop with only a window manager, over SSH, no keyring, a keyring that has not been unlocked) | None |
+| Risk of losing keys | Low | Lost when the store is cleared or the user account is recreated, which is how the OS normally works | Losing the encryption key file makes the API keys unreadable. Encryption adds one more way to lose them |
+| Can users check the keys | Visible by opening the file (Linux) | Users can view and delete them in OS tools (Credential Manager, Seahorse, KWalletManager) | Not visible |
+
+### 3.3 Why the other options were not chosen
+
+- **(a) Keep as is**: Plain text remains on Linux, and the problem in section 1.2 is not solved. The protection still differs by OS. Adding no dependencies and working the same in every environment are advantages, and section 9 decides whether to keep it as the fallback storage for (b).
+- **(c) A key the app manages**: The encryption key sits on the same PC, so when the file leaves the PC, the encryption key leaves with it. In practice this protects little more than file permissions do, and because it looks encrypted, it misleads people about what is protected. It also adds a new way to lose the keys: losing the encryption key loses the API keys too. Deriving the encryption key from a user password would make it more effective, but the app would then ask for a password at every start and rebuild what the OS keyring already does.
+
+### 3.4 Why (b) is chosen
+
+- It removes the plain text on Linux. The keyring is tied to the login credentials, so the keys cannot be read even if the file leaves the PC.
+- Windows and Linux follow the same model: the OS protects the keys and ties them to the login.
+- Key management is left to the OS, so the app holds no encryption key.
+- Users can check and delete the keys in OS tools.
+- #384 already provides the point for swapping implementations (`SecretStore`, `Services::secret_store`), and the migration can follow the same path as the move from `config.json` to `secrets.json`.
+
+Even (b) cannot protect the keys from a malicious program running as the same user. The same is true of (a) and (c), and this ADR does not include that in what it protects against.
+
+## 4. Consequences
+
+### 4.1 Gains
+
+- API keys no longer stay in a plain-text file on Linux.
+- Handing over the settings folder for a backup or a report does not hand over the keys with it (both OSes).
+- The difference in protection between the OSes also becomes smaller in the spec and the documents.
+
+### 4.2 Costs and risks
+
+- The core on Linux gains D-Bus dependencies. Update `NOTICE.md`, the license register and the list in `tools/rust_licenses.py`. `zbus` is written in Rust only, so the AppImage does not need the D-Bus C library.
+- The behavior on Linux without Secret Service, or with the keyring not unlocked, has to be decided (section 9).
+- When the keyring is locked, the OS may show a dialog to unlock it. Decide when it may appear, and do not show an unexpected dialog during startup (section 9).
+- Credential Manager holds up to 2,560 bytes per entry. Every current entry fits, but check this when adding a setting with long values to `SECRET_SETTINGS`.
+- After going back to 0.5.x or earlier, the keys may be unreadable (section 4.3, section 9).
+- Most Linux CI and development environments have no Secret Service. Tests use a fake store, and checks against the real store are done separately (section 7).
+
+### 4.3 Migration approach
+
+The keys move from the existing `secrets.json` step by step.
+
+1. At startup, if `secrets.json` has entries, write them one by one to the OS store and read them back. Only entries that read back with the same value count as moved.
+2. What happens to moved entries (removed from `secrets.json` or kept) is decided in section 9. If they are removed, the file is rewritten with only the moved entries removed, as in the move from `config.json` to `secrets.json`.
+3. Entries that could not be moved stay in `secrets.json`, and the keys are kept in memory so that they work for the rest of that run. The existing `/run/secret_store_failed` (with `operation` set to `migrate`) reports only the entry names, and the move is retried at the next save and at a fixed interval. A failure for the same entry is reported only once until it is fixed.
+4. Keys still in `config.json` (installs upgraded from 0.4 or earlier that have not finished the move to `secrets.json`) move to the OS store by the same steps.
+5. If the app crashes partway, every entry remains in either the old storage or the OS store. The next start continues the same steps.
+6. An unreadable `secrets.json` is not moved by the migration steps. The current `FileStore` handling (moving it to `.unreadable-` the next time a key is written) is reviewed to match the handling of `secrets.json` decided in section 9.
+
+Entry names in the store (the target name on Windows, the attributes in Secret Service) use the internal identifier VRCT-VOX, not the display name ASTAROT. If the identifier changes, provide a migration as the [names and identifiers](../voice-stack/project-rename.md) policy says.
+
+### 4.4 What does not change
+
+- The in-memory shape of the settings, IPC requests and responses such as `/get/data/*_auth_key`, and the list in `/run/initialization_complete`
+- The entry naming (`AUTH_KEYS/<provider name>` and so on) and how entries are specified in `SECRET_SETTINGS`
+- The shape of `/run/secret_store_failed` (`{operation, entries, reason, store}`). `store` carries the type of the new storage
+- A request to delete a key (`/delete/data/*_auth_key` and so on) also deletes it from the storage
+
+## 5. Non-goals
+
+- Protecting the keys from malicious programs running as the same user
+- Moving the WebSocket token (`WEBSOCKET_AUTH_TOKEN`) and the restore token for Linux screen sharing (`OCR_PORTAL_RESTORE_TOKEN`). Whether to move them is decided under "whether to move other secrets as well" in item 35 of [Core integration](../voice-stack/core-integration.md). If they are moved, they follow this ADR's storage and properties
+- Reconsidering whether the Papago Client ID stays a secret (item 37 of the same document)
+- Supporting the macOS Keychain. The app does not target macOS
+- Storage on the network, or integration with password managers
+
+## 6. Scope of the work (Issue #575)
+
+- Add a `SecretStore` implementation for each OS. Windows uses the credential API in `windows-sys`, and Linux uses the Secret Service D-Bus API
+- The migration in section 4.3
+- Implementing what section 9 decides (fallback storage, the handling of `secrets.json`, the handling of store failures)
+- Updating the section on where API keys are stored in `docs/spec/data-and-persistence.md`, `docs/spec/cross-cutting.md` and the description in `secrets.rs`
+- Updating `NOTICE.md`, the license register and `tools/rust_licenses.py`
+- When adding text that users see, `en.yml` and `ja.yml` in `locales/`
+
+## 7. Verification and acceptance criteria
+
+| Aspect | What to check | How |
+|---|---|---|
+| Migration | Entries in `secrets.json` and `config.json` move to the OS store, and only those that read back count as moved | Core tests with a fake store (one that can inject failures, like `MemoryStore`) |
+| Failure partway | Whether a write fails, a read-back does not match or the app exits partway, every entry remains in one of the two storage locations. The next start continues from where it stopped | Fault-injection tests. Tests that start again from a state stopped partway |
+| Temporary failure | When the store does not respond or is locked, neither the old storage nor the contents of the store change | Inject temporary failures and corrupted contents separately with the fake store |
+| No key leaks | Key values do not appear in logs, errors, notifications or `process.log` | Tests check that the output does not contain key values |
+| IPC compatibility | Requests and responses for `/get/data/*_auth_key`, `/delete/data/*_auth_key` and `/run/secret_store_failed` do not change | The existing core tests |
+| Real Windows hardware | Keys can be written to Credential Manager, read after a restart and deleted. They move from the DPAPI `secrets.json` | A check on a real Windows machine |
+| Real Linux hardware | Keys can be written, read and deleted with GNOME Keyring and KWallet. The behavior without Secret Service and with a locked keyring matches what section 9 decides | A check on a real Linux machine. In CI, use `dbus-run-session` and a keyring daemon |
+| Distribution | Works in the AppImage and the other Linux packages | Check with the steps in `release-candidates.md` |
+| Licenses | Added dependencies appear in `NOTICE.md` and the register | `tools/rust_licenses.py` |
+
+Anything that cannot be checked on both OSes is marked "not verified" in the PR and checked during release candidate verification before it goes into a stable release (the same handling as section 2.7 of ADR-012).
+
+## 8. Revisit triggers
+
+- Many users are on Linux without Secret Service, and the handling of fallback storage affects how they use the app
+- More forms of distribution are supported (the Flatpak Secret portal, Snap, ARM and so on)
+- A serious vulnerability or a major change in specification appears in the Credential Manager or Secret Service API, or in a dependency in use
+- A value that could exceed the size limit for one entry is added to `SECRET_SETTINGS`
+- Protection from programs running as the same user becomes necessary
+
+## 9. Decisions needed
+
+The following had not been decided when this ADR was accepted. They were decided during the work in Issue #575 and written in section 10.
+
+1. **Handling Linux environments where Secret Service is not available.** Whether to have fallback storage. If so, whether to write to the current 0600 `secrets.json`. If not, whether to keep the keys in memory for that run only and report that they cannot be saved. In either case, when, where and how to tell the user (the settings screen, a notice at startup, `/run/secret_store_failed`). With fallback storage, whether to tell the user clearly that the keys are saved in plain text and get their consent.
+2. **Handling `secrets.json` after the migration.** Whether to remove moved entries at once, keep them for a set period or number of versions, or delete the file. Keeping them means the keys can still be read after going back to 0.5.x, but plain text stays on Linux for that time. Removing them means the keys have to be entered again after going back to 0.5.x. Whether to mention this in the release notes is decided together with this point.
+3. **Handling store failures.** What to do when, at startup, the store does not respond, the keyring is locked or the contents of the store cannot be read. Whether to show the dialog that unlocks the keyring at startup, when a feature that uses a key starts, or never. Whether to start with empty keys until the keyring is unlocked, or to read `secrets.json` if it is still there. How many times and at what interval to retry.
+4. **Handling an unreadable `secrets.json`.** The current `FileStore` moves an unreadable file to `.unreadable-` the next time a key is written. After the move to the OS store, whether to keep an unreadable `secrets.json`, move it or report it.
+
+## 10. What was decided during the work (Issue #575)
+
+For the 4 points in section 9, the options chosen from those listed there are the ones that do not lose keys and do not add plain text.
+
+### 10.1 Linux environments where Secret Service is not available (point 1 of section 9)
+
+#### Decision
+
+There is no fallback storage. Newly entered and changed keys are kept in memory for that run only, and `/run/secret_store_failed` reports this (`reason` is `unavailable` or `locked`). Keys saved in `secrets.json` up to 0.5 are read from that file and used until they can be moved to the OS store, and they are not deleted.
+
+#### Reasons
+
+- Writing to the 0600 `secrets.json` would extend the plain-text storage that this ADR set out to remove to new keys as well. It would also need a screen that asks for consent to save in plain text.
+- Keeping keys only in memory does not lose them silently. A notification says they cannot be saved, and saving is retried at the next save and every 30 seconds.
+- Deleting keys already saved in plain text would lose them.
+
+#### How the user is told
+
+When saving or migration fails, and when a key could not be read at startup, `/run/secret_store_failed` reports only the entry names. Each entry is reported once until it is fixed. For `unavailable` and `locked`, a notification on screen asks the user to start the keyring (GNOME Keyring, KWallet or others), unlock it and restart the app. For a migration failure (`migrate`), it says that the key is still in its original place and can be used as before. No indicator that stays on the settings screen was added.
+
+### 10.2 `secrets.json` after the migration (point 2 of section 9)
+
+#### Decision
+
+Each entry written to the OS store and read back is removed from `secrets.json` at that time. The file itself is not deleted. It stays as the file that holds the ID of the settings folder (`store_id` in section 10.5).
+
+#### Reasons
+
+- Keeping the entries would leave plain text on Linux. When the values in the 2 places disagreed, there would also be no way to decide which one to use.
+- The file is kept because the ID has to be stored somewhere.
+- Going back to 0.5.x means entering the keys again. The keys remain in the OS store and can be checked in Credential Manager, Seahorse or KWalletManager. This goes in the release notes (it was also written in the commit's `BREAKING CHANGE`).
+
+### 10.3 Store failures (point 3 of section 9)
+
+#### Decision
+
+- No dialog to unlock the keyring is shown, neither at startup nor when a feature that uses a key starts. The app does not call `Unlock` or `Prompt` in Secret Service.
+- A locked keyring, and a write for which the keyring tried to ask the user, are `locked`. No store, no session bus, or a single call that does not respond within 5 seconds is `unavailable`. Both are treated as temporary failures. With Credential Manager, no logon session and a busy system are `unavailable`.
+- A temporary failure touches neither `secrets.json` nor the OS store.
+- For an entry that could not be read from the OS store at startup, the value in `secrets.json` is used if it is still there. If not, the entry is treated as empty for that run and reported as a `read` failure. A key that could not be read is not overwritten with an empty value or deleted.
+- Reads are not retried during that run. They are tried again at the next start. Writes, deletes and migrations are retried at the next save and every 30 seconds (the mechanism from 0.5, unchanged).
+
+#### Reasons
+
+No unexpected dialog during startup (section 4.2). If a read were retried during the run to fill in a value, the values the UI received at startup would disagree with the values in the backend.
+
+### 10.4 An unreadable `secrets.json` (point 4 of section 9)
+
+#### Decision
+
+- The file is not deleted in any case.
+- A file that parses as JSON but whose entries cannot be decrypted (another user's DPAPI, for example) is left as it is, and its `store_id` stays in use. Each of its entries is reported as a `read` failure at every start while it is not in the OS store. The next time a key is saved to the OS store, the file is moved to `secrets.json.unreadable-<timestamp>-<random>`, and a new file that carries over the `store_id` is created. This is the same as the 0.5 `FileStore`, which moved the file on the next write.
+- A file that does not parse as JSON is also moved to `.unreadable-` when a key is saved, and a new file is created with a new ID. Entries placed in the OS store under the old ID remain and are not deleted.
+- A file that is only temporarily unreadable (a lock, a temporary I/O failure, DPAPI not responding) is left untouched, and the write becomes a temporary failure (the same as #427 and #470).
+
+#### Reasons
+
+A file that may contain keys is not deleted, and the user is told that it cannot be read. It is moved only so that new keys can be saved, and the moved file is kept too.
+
+### 10.5 What was implemented
+
+- `SystemStore` (`native/core/src/config/secrets/system.rs`) implements `SecretStore` and became the default for `Services::secret_store`. Internally it combines the OS store (`Vault`) with `secrets.json` (`FileStore`). IPC, the shape of the settings and the entry names did not change. The `store` in `/run/secret_store_failed` became `credential_manager` or `secret_service`, and `reason` gained `unavailable` and `locked`.
+- Each settings folder gets a 16-digit hexadecimal ID, kept as `store_id` in `secrets.json`. Entries in the OS store are separated by this ID, so that development and test settings separated with `VRCT_CONFIG_DIR` do not read or delete the user's keys. If the folder moves, the ID moves with it. The ID is created when the first key is saved, and the OS store is not queried while there is no ID. The ID is not a secret.
+- On Windows, entries are generic credentials named `VRCT-VOX/<ID>/<entry name>`, with the persistence `CRED_PERSIST_LOCAL_MACHINE` (they are not sent to other PCs through a roaming profile; property 5 in section 2.2).
+- On Linux, entries go in the default collection and are looked up by the attributes `application=vrct-vox`, `vrct-vox-store=<ID>` and `entry=<entry name>`. The label is `VRCT-VOX <entry name>`. When there is no default collection, creating one would mean asking the user, so this is treated as `unavailable`. The app talks to D-Bus through `zbus`, and the session uses `plain` from the specification. This ADR does not protect against programs of the same user (section 5), so no encryption on the bus was added.
+- Migration (section 4.3): When startup finds entries that are only in `secrets.json`, it keeps using them while it writes each one to the OS store and reads it back, and it removes from `secrets.json` only the entries that read back with the same value. Entries that fail stay in `secrets.json`, are reported as `migrate` failures and are retried at the next save and every 30 seconds. Keys left in `config.json` (0.4 or earlier) move to the OS store without going through `secrets.json`. If the process stops partway, each entry remains in one place or the other. When an entry is in both, the value in the OS store is used, and the copy in `secrets.json` is removed only when the values are the same.
+- A delete removes the copy in `secrets.json` first, then removes the entry from the OS store. Even if the OS store does not respond, no plain-text copy remains.
+- Dependencies: `zbus` 5.19.0 was added to the core on Linux. The app already uses the same version for portals such as screen sharing, so the list in `tools/rust_licenses.py` (Windows 379, Linux 455) does not change. On Windows, only the `windows-sys` feature `Win32_Security_Credentials` was added.
+- Tests: `MemoryStore`, which can inject failures, stands in for the OS store to check migration, failures partway, temporary failures, deletion and unreadable files (`native/core/src/config/secrets/system.rs` and `native/core/tests/secret_store.rs`). Core tests use this stand-in store by default and do not touch the credentials on the PC. Tests against the real store are marked `#[ignore]`. In CI, they run on Linux with GNOME Keyring started on a dedicated session bus, and on Windows with the runner's Credential Manager.
+
+### 10.6 What remains
+
+- Checks on real hardware with KWallet, Linux with a locked keyring, Linux without Secret Service and the AppImage. As section 7 says, these are done during release candidate verification.
+- Stating in the release notes that going back to 0.5.x requires entering the keys again.
+- If many users are on systems without Secret Service, that meets a revisit trigger in section 8. Fallback storage that saves in plain text with the user's consent will then be considered again.
+
+### 10.7 API keys in the translation catalog (added 2026-11-19)
+
+The keys of API entries that users add to the translation catalog (`TRANSLATION_CATALOG/<entry ID>`, #413) are not settings in `SECRET_SETTINGS`. They still follow this ADR's storage and properties, and the handling when they cannot be stored also matches sections 10.1 and 10.3.
+
+- Even when the key cannot be written to the storage or read back, the entry is added. The key is kept in memory for that run only. `/run/secret_store_failed` reports it once, and the write is tried again at the next save, every 30 seconds and at exit. The key is not written to a plain-text file (`Config::keep_secret`).
+- The entry's `key` is set to `true` once the storage holds the key. An entry whose key was still not stored at exit remains as an entry without a key at the next start. The UI shows this and tells the user to delete the entry and add it again.
+- When the storage is temporarily unreadable (`locked`, `unavailable` and so on), the key is not treated as missing, and nothing changes (property 4 in section 2.2).
+
+When #597 introduced this, an entry whose key could not be stored was not added, and `translation_catalog_key_store_failed` was returned. That handling differed from section 10.1, so it was changed to match section 10.1.
+
+---
+
+# ADR-013: API キーを OS の資格情報ストアに保管する（日本語版）
 
 Status: 採用（2026-11-18）。保管先を OS の資格情報ストアへ移すことを決める。実施は Issue #575 で、9 の判断と実施の内容は 10 に書き足した。
 Date: 2026-11-18

@@ -1,4 +1,167 @@
-# 計測手順とP0設備
+# Measurement procedures and P0 equipment
+
+[日本語版](#計測手順とp0設備日本語版)
+
+Per-stage latency across the whole audio pipeline, from the microphone to the translated voice, is in [Measuring and reducing audio pipeline latency (2026-11-18)](pipeline-latency-2026-11-18.md).
+The setup that tracks latency p50 and p95 over time in Bencher (core timings measured in CI, and how to send values from real models) is in [Continuous tracking of audio pipeline latency](pipeline-latency-tracking.md).
+The comparison of RVC inference across execution methods (CPU, CUDA, DirectML, WebGPU) and the procedure for measuring it on a desktop PC (`tools/rvc_worker_bench.py`) are in [Comparison of execution methods for RVC inference (2026-11-20)](rvc-execution-providers-2026-11-20.md).
+End-to-end measurements of the delay on the Windows voice conversion route with their breakdown, and design proposals such as automatic adjustment of the chunk length, are in [Research and design for lower voice changer latency (2026-11-20)](rvc-low-latency-2026-11-20.md).
+
+The performance targets are in §8 of the specification. Repeated measurements have been taken on a dedicated PipeWire graph on Linux.
+The UI → VRChat performance gate has not been judged.
+Test durations with the fake server are not TTS inference speed or VRChat latency.
+
+The later UI component and stdio integration tests are 16 independent cases that go from the production input field and settings UI through the real Main/Controller.
+The time from just before the real TTS stdio write to the first sound at the virtual microphone was 294 to 627 ms depending on the conditions, and cancel and mute took 57 ms and 72 ms. The Tauri connection and the surrounding services were replaced for testing,
+so these single values under differing conditions are not used to claim p95 or meeting spec §8. They are not aggregated with the 30 backend-started repetitions below.
+
+## Linux repeated measurement (speech.cpp 0.9.0, n=30)
+
+The later managed route + VRChat real TTS test measured 3 normal runs of
+event → first sound at the virtual microphone, and real cancel/mute. It is not combined with the 30 independent-graph runs below.
+The same test also reproduced the detection delay when the server is force-killed, so values for the stop operation are not extrapolated to stopping on a failure.
+The fix report for connection acceptance monitoring records independent-graph tests of real server failure and recovery
+for each monitoring interval. This is a separate group from the 30 normal speech runs below and from VRChat acceptance.
+The post-fix host and VRChat retest confirmed one playback each in 3 normal runs and 3 recovery runs, and
+silencing of the virtual microphone in 79 to 84 ms in 3 failure runs. These are not used to judge the UI-started performance gate or p95.
+
+Measured JSON /
+timestamp CSV.
+The same existing Irodori-TTS MF F16, RTX 4080 SUPER / Vulkan0, voice `none`.
+Excluding the 20.60-second startup warmup and the 2 preceding requests, the same Japanese test sentence was spoken 30 times.
+speech.cpp had been updated to 0.9.0 on the host before this measurement. These values are not aggregated with the single 0.8.11 value.
+
+| Measurement boundary | p50 | p95 | p99 |
+|---|---:|---:|---:|
+| backend event created → first non-silent PCM write | 60.419 ms | 62.493 ms | 63.526 ms |
+| backend event created → first non-silent read from the dedicated virtual source | 85.094 ms | 125.998 ms | 127.239 ms |
+
+48 kHz mono s16le, playback set to 20 ms, capture set to 10 ms.
+PipeWire 1.6.10, a dedicated daemon + WirePlumber `policy` profile (no physical device monitor).
+The normal desktop audio settings were left unchanged, and the dedicated processes and nodes were removed after measuring.
+VRChat ran as desktop `--no-vr` and the WiVRn server was also running, but HMD audio was not connected.
+GPU contention was not controlled, and FPS was not measured. Observed GPU memory use was 6606 MiB after the start and 9961 MiB after the end.
+UI IPC, the normal desktop audio route, VRChat internals, the network and audibility are not included.
+This differs from the UI start condition in spec §8, so these numbers do not count as passing the P1 performance gate.
+With n=30, the nearest-rank p99 is the maximum, not a stable tail estimate.
+
+## Repeated stop, disconnect and recovery (synthetic PCM, n=30)
+
+Measured JSON.
+A sustained signal independent of inference time was sent to real PipeWire.
+Each run confirmed 4 entries in the waiting queue and 16 discarded on overflow, 0 entries in the queue after stopping, an error on device removal,
+rejection of new requests during removal, and speech again after re-creation and explicit reselection.
+Another virtual sink was set as the default in the dedicated environment, and continuous monitoring of its source found 0 non-silent chunks.
+
+| Measurement boundary | p50 | p95 | p99 |
+|---|---:|---:|---:|
+| cancel call → worker idle | 10.100 ms | 15.230 ms | 15.258 ms |
+| cancel call → last non-silent read | 39.943 ms | 41.885 ms | 42.184 ms |
+| virtual device removed → worker idle | 6.208 ms | 8.418 ms | 11.388 ms |
+
+After stopping, silence of 150 ms or more with the reader still running was also confirmed. The read time is an upper bound that includes the capture buffer,
+and it does not stand in for Windows, physically unplugging and replugging USB/Bluetooth devices, or how long sound lingers in VRChat after a stop.
+
+Separately, a failure smoke test with the synthetic PCM replaced by real speech.cpp TTS
+also passed once. It confirmed cancellation including HTTP, device removal during speech, rejection of requests while no device exists,
+and speech after re-creation and explicit reselection, and normal speech afterward also succeeded.
+Passing `--server` to the CLI also runs this real-API failure smoke test before the repeated measurements.
+
+## Repetition CLI
+
+`tools/voice_acceptance.py` below was a tool that measured the Python backend's routes and text to speech. It was removed together with the backend on 2026-11-20 (#285). `tools/voice_latency.py`, which aggregated its output, was also removed, because the tool that wrote the CSV it read was gone (#810). This section is a record of the procedure up to 0.5. TTS in the core is measured with `native/core/examples/live_speech.rs`, and latency across the whole pipeline with `native/core/examples/pipeline_latency.rs`.
+
+Requires `pipewire`, `wireplumber` (with policy profile support), `pw-loopback`, `pw-cat`, `pw-dump` and
+`pw-metadata`. No GUI, external models or saved recordings are needed. Specify a new directory for the output.
+
+```sh
+# Stop, disconnect and recovery with a synthetic signal. No model needed.
+uv run --no-project python tools/voice_acceptance.py --route-runs 30 --output /tmp/vrct-routing-run
+# Also measure an existing local TTS that the user has prepared. Does not start a server or download models.
+uv run --no-project python tools/voice_acceptance.py --server http://127.0.0.1:18080 --samples 30 --warmup 2 --output /tmp/vrct-vox-run
+uv run --no-project python tools/voice_latency.py /tmp/vrct-vox-run/latency.csv
+```
+
+It uses a dedicated socket and temporary state, and does not connect to the normal default device or to physical microphones.
+On failure it still leaves partial JSON/CSV and a failure code, and ends the processes it owns.
+PCM is converted to counters and timestamps and then discarded. Text and raw audio are not saved in the report.
+In the first development test, the startup check by matching WirePlumber's display name timed out,
+so it was changed to check the actual PID and retested.
+The isolation method is based on [PipeWire's official runtime/socket variables](https://docs.pipewire.org/page_man_pipewire_1.html) and
+the `policy` profile in the installed WirePlumber configuration.
+
+## Linux real-API smoke test (n=1)
+
+Measurement JSON: CachyOS, RTX 4080 SUPER,
+speech.cpp 0.8.11, an already downloaded Irodori-TTS MF F16, Vulkan0, voice `none`, 48 kHz mono.
+After the 15.67-second load/warmup finished, the CLI's test sentence was sent to a temporary PipeWire sink/source.
+
+| Boundary | Single observed value |
+|---|---|
+| event inside the CLI → first non-silent PCM write completed | 191.372 ms |
+| CLI process start → non-silent PCM read at the virtual source | 304.746 ms |
+| TTFA in speech.cpp's own log | 182 ms |
+
+Non-silent data was confirmed at the virtual source, and the CLI exited with code 0. No raw audio, reference audio or PCM files
+were saved. The test processes and nodes have been stopped and removed.
+p50/p95/p99 and VRChat E2E performance are not judged from this single run. Windows, VRChat, HMD,
+GPU contention, quality and long runs are unverified. The server binary and model hashes were recorded in the JSON.
+
+`tools/voice_latency.py` (removed in #810) aggregated the following CSV (which contains no audio or text).
+
+```csv
+metric,environment,warm,start_ns,end_ns
+```
+
+It records the start and end measured with the same monotonic clock.
+`uv run --no-project python tools/voice_latency.py measurements.csv` printed nearest-rank p50/p95/p99 and counts per metric /
+environment / warm. It does not produce numbers from empty data.
+A separate JSON matching the environment ID records the OS, CPU/GPU, driver, VRAM, VRChat FPS, speech.cpp
+commit/binary hash, model ID/hash, voice ID (the audio itself is not saved), rate, device,
+backend, server settings, warmup count and sample count.
+
+## P1 measurement boundary
+
+`last_first_write_ms` is **backend pipeline start → output write of the first non-silent PCM completed**.
+It does not include anything before UI IPC, OS buffers, arrival at the virtual microphone, or VRChat's network.
+That the first write happens without waiting for the whole PCM to be complete is verified with the fake.
+Original-text mode is also queued at the end of the existing translation processing, so with translation ON the value includes that time.
+Queue of 4, the oldest waiting entry discarded, messages older than 5 seconds discarded, requests cancelled at 30 seconds,
+a limit of 60 seconds of audio, 2 seconds each for HTTP connect and each later read. The response headers and the first PCM share a 10-second deadline.
+The PipeWire pipe holds up to 4096 bytes.
+
+## VRChat desktop manual test
+
+Record on real hardware. The user selected the dedicated virtual microphone
+as VRChat's input and confirmed hearing the voice in the built-in record and playback test.
+The next request was cancelled after about 8 seconds, and the discarding of 2 waiting entries, the input meter stopping and no resumption were also confirmed.
+For the successful speech, the backend first write was 93.598 ms, and cancel to worker idle was 5.152 ms.
+This is neither a latency measurement inside VRChat nor a confirmation of sending to other users.
+
+The first, short sentence only made the meter react, and the second, long sentence failed with the 2-second timeout before the first PCM.
+After the wait limit for the response headers plus the first PCM was split out and set to 10 seconds, the same long sentence was spoken and the user confirmed it.
+Allowing a long first wait does not mean waiting that long every time; PCM that arrives is output at once.
+The existing percentiles from 30 short sentences are kept as observations from before the fix and are not mixed with this single measurement.
+
+## Real-hardware harness
+
+1. Separate before and after warmup, and record the UI send time and the output write time for 30 or more short sentences.
+2. Capture only approved measurement sounds from the virtual recording end, and measure arrival by onset or cross-correlation.
+3. Measure VC with the physical input and the virtual output on the same clock. Do not substitute ASR/translation completion times for VC latency.
+4. Compare FPS, VRAM, audio dropouts and buffers for VRChat + WiVRn with and without the HMD, and by GPU load.
+5. If text or recordings are saved, turn that on separately and explicitly, and delete them after measuring.
+
+| VC candidate | Real-hardware result | Adoption |
+|---|---|---|
+| VCClient Windows CUDA/ONNX RVC | Not measured | On hold |
+| Seed-VC Realtime Windows/Linux | Not measured | On hold |
+| VCClient Linux standard Beatrice | Per-model terms and real hardware unconfirmed | On hold |
+
+A P2 selection record must include p50/p95, quality, drops, VRAM, supported OSes and license.
+
+---
+
+# 計測手順とP0設備（日本語版）
 
 マイクから訳した声までの音声パイプライン全体の段ごとの遅延は、[音声パイプラインの遅延の計測と短縮（2026-11-18）](pipeline-latency-2026-11-18.md)にある。
 遅延のp50とp95をBencherで時系列に追う仕組み（CIで測る中核の時間と、実モデルの値の送り方）は、[音声パイプラインの遅延の継続計測](pipeline-latency-tracking.md)にある。
@@ -26,7 +189,7 @@ event→仮想マイク初音と実cancel/muteを測定した。以下の独立�
 
 実測JSON /
 timestamp CSV。
-同じ既存Irodori MF F16、RTX 4080 SUPER / Vulkan0、voice `none`。
+同じ既存Irodori-TTS MF F16、RTX 4080 SUPER / Vulkan0、voice `none`。
 起動時warmup 20.60秒と先行2要求を除外し、同じ日本語のテスト文を30回発声した。
 speech.cppはこの測定前にホスト側で0.9.0へ更新済みだった。0.8.11の単発値とは集約しない。
 
@@ -92,7 +255,7 @@ PCMはカウンターと時刻に変換して破棄。本文・生音声はレ�
 ## Linux実APIスモーク（n=1）
 
 測定JSON: CachyOS、RTX 4080 SUPER、
-speech.cpp 0.8.11、取得済みIrodori MF F16、Vulkan0、声`none`、48 kHz mono。
+speech.cpp 0.8.11、取得済みIrodori-TTS MF F16、Vulkan0、声`none`、48 kHz mono。
 load/warmup 15.67秒の終了後、CLIのテスト文を一時PipeWire sink/sourceへ送った。
 
 | 境界 | 1回の観測値 |

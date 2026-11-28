@@ -1,14 +1,14 @@
 [package]
-name = "ocr-runtime"
+name = "astarot-ocr-runtime"
 version = "0.1.0"
-description = "Chat-bubble OCR and VRChat frame capture for VRCT-VOX (codename Humots)"
+description = "Chat-bubble OCR and VRChat frame capture for ASTAROT (codename Humots)"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"
 publish = false
 
 [lib]
-name = "ocr_runtime"
+name = "astarot_ocr_runtime"
 
 [[bin]]
 name = "ocr-read"
@@ -23,14 +23,14 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 # else the library the app ships, else `onnxruntime.dll` / `libonnxruntime.so` by name. A
 # missing library makes the engine unavailable instead of failing the build or the start of the
 # process. The application core uses this (docs/voice-stack/core-integration.md, item 2).
-load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
+load-dynamic = ["astarot-onnx-runtime/load-dynamic"]
 
 [dependencies]
 # The names the app goes by outside its code (ADR-014): the OpenVR library variable, the screen frame.
-app-identity = { path = "../app-identity" }
+astarot-app-identity = { path = "../app-identity" }
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 # The process's one ONNX Runtime library and environment, shared with local translation.
-vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
+astarot-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 png = "0.18"
 serde = { version = "1", features = ["derive"] }
 # Only `ocr-read` writes JSON. The tests parse the reference floats exactly (below); the
@@ -44,14 +44,14 @@ thiserror = "2"
 unicode-bidi = "=0.3.15"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-x11rb = { version = "0.13", default-features = false }
+x11rb = { version = "0.13", default-features = false, features = ["randr"] }
 libloading = "0.8"
-vrct-openvr-client = { path = "../openvr-client" }
+astarot-openvr-client = { path = "../openvr-client" }
 
 [target.'cfg(windows)'.dependencies]
 libloading = "0.8"
 # The process's one OpenVR connection, shared with the VR overlay.
-vrct-openvr-client = { path = "../openvr-client" }
+astarot-openvr-client = { path = "../openvr-client" }
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

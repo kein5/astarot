@@ -1,7 +1,7 @@
 //! The reading engine: what `RapidOCR(params)(crop)` and `readtext_bgr_or_raise` do in
 //! the Python implementation, on ONNX Runtime.
 //!
-//! Steps (RapidOCR 3.9.2 with VRCT-VOX's parameters):
+//! Steps (RapidOCR 3.9.2 with ASTAROT's parameters):
 //! 1. keep the picture within 30..2000 px per side, in multiples of 32;
 //! 2. pad short or very wide pictures with black rows;
 //! 3. detect text lines (`det`), crop each with a perspective warp;
@@ -37,27 +37,29 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
-/// The process's ONNX Runtime environment, shared with local translation (`vrct-onnx-runtime`:
+/// The process's ONNX Runtime environment, shared with local translation (`astarot-onnx-runtime`:
 /// `ort` allows one per process), made on first use.
 pub(crate) fn environment() -> Result<&'static Environment> {
-    vrct_onnx_runtime::environment().map_err(backend)
+    astarot_onnx_runtime::environment().map_err(backend)
 }
 
 /// Whether ONNX Runtime can be used in this process (`ocr_engine.isAvailable`). With the
 /// statically linked build this is always true; a dynamically loaded library may be missing.
 pub fn is_available() -> bool {
-    vrct_onnx_runtime::is_available()
+    astarot_onnx_runtime::is_available()
 }
 
 /// A CPU session with the options RapidOCR's ONNX Runtime engine sets: no memory arena,
-/// every graph optimisation, `threads` intra-op threads and one inter-op thread.
+/// every graph optimisation, `threads` intra-op threads and one inter-op thread. Its threads run
+/// below normal on Windows ([`crate::priority::BelowNormalThreads`]).
 pub(crate) fn session(path: &Path, threads: usize) -> Result<Session> {
     let builder = Session::builder(environment()?).map_err(backend)?;
     let builder = builder.with_log_level(ort::logging::LogLevel::Fatal).map_err(backend)?;
     let builder = builder.with_optimization_level(GraphOptimizationLevel::All).map_err(backend)?;
     let builder = builder.with_execution_providers([ort::ep::CPU::default().with_arena_allocator(false).build()]).map_err(backend)?;
     let builder = builder.with_intra_threads(threads.max(1)).map_err(backend)?;
-    let mut builder = builder.with_inter_threads(1).map_err(backend)?;
+    let builder = builder.with_inter_threads(1).map_err(backend)?;
+    let mut builder = builder.with_thread_manager(crate::priority::BelowNormalThreads).map_err(backend)?;
     builder.commit_from_file(path).map_err(backend)
 }
 
@@ -75,7 +77,7 @@ pub(crate) fn run(session: &mut Session, io: &(String, String), shape: [usize; 4
     Ok((shape.iter().map(|&d| d as usize).collect(), data.to_vec()))
 }
 
-/// RapidOCR's settings that VRCT-VOX leaves at their defaults, plus the thread count.
+/// RapidOCR's settings that ASTAROT leaves at their defaults, plus the thread count.
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
     pub det: DetConfig,

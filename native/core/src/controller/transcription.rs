@@ -24,10 +24,10 @@ use crate::protocol::Reply;
 use serde_json::{Map, Value, json};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
-use vrct_audio_routing::identity::{Device, capture_key};
-use vrct_transcription::providers::{self, Candidate, Engine, Recognizer};
-use vrct_transcription::diagnostics::{Diagnostics, Event as Diagnosed, Stage};
-use vrct_transcription::recorder::{Event, Failure, Recorder, Settings};
+use astarot_audio_routing::identity::{Device, capture_key};
+use astarot_transcription::providers::{self, Candidate, Engine, Recognizer};
+use astarot_transcription::diagnostics::{Diagnostics, Event as Diagnosed, Stage};
+use astarot_transcription::recorder::{Event, Failure, Recorder, Settings};
 
 /// The Whisper APIs whose models come from `/models` (`TRANSCRIPTION_API_ENGINES`).
 const COMPATIBLE_ENGINES: [&str; 3] = ["Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper"];
@@ -205,7 +205,7 @@ impl Transcription {
         let core = self.core();
         let stopped = match legacy.recorder.take() {
             Some(mut recorder) => {
-                let wait = core.as_ref().map_or(vrct_transcription::recorder::STOP_WAIT, |core| core.services().recorder_stop_wait);
+                let wait = core.as_ref().map_or(astarot_transcription::recorder::STOP_WAIT, |core| core.services().recorder_stop_wait);
                 let stopped = recorder.stop_within(wait);
                 if !recorder.settled() {
                     if let Some(core) = &core {
@@ -223,7 +223,7 @@ impl Transcription {
 }
 
 impl CaptureOwner for Transcription {
-    fn reconfigure(&self, source: Source, target: &vrct_audio_routing::identity::Device, previous: Option<&Device>) -> Reopened {
+    fn reconfigure(&self, source: Source, target: &astarot_audio_routing::identity::Device, previous: Option<&Device>) -> Reopened {
         let Some(core) = self.core() else { return Reopened::Unchanged };
         let (transcript, energy) = flags(source);
         let (transcript, energy) = (core.config().get_bool(transcript), core.config().get_bool(energy));
@@ -371,7 +371,7 @@ impl Core {
                     "OpenAI_Whisper" => (endpoints.openai.clone(), selected("SELECTED_OPENAI_WHISPER_MODEL")),
                     _ => (config.get_str("TRANSCRIPTION_CUSTOM_URL"), selected("SELECTED_CUSTOM_WHISPER_MODEL")),
                 };
-                if vrct_translation::http::Url::parse(&base_url).is_err() {
+                if astarot_translation::http::Url::parse(&base_url).is_err() {
                     return Err("TRANSCRIPTION_ENGINE_UNAVAILABLE");
                 }
                 Engine::Compatible { name: engine.to_string(), key: key(engine), base_url, model }
@@ -497,7 +497,7 @@ impl Core {
                     let core = Arc::downgrade(self);
                     // `asr_attempts` and `asr_successes` of this recorder, for `[ASR-stats]`.
                     let (mut attempts, mut successes) = (0u64, 0u64);
-                    let recognize: vrct_transcription::recorder::Recognize = Box::new(move |mono: &[i16], rate: u32| {
+                    let recognize: astarot_transcription::recorder::Recognize = Box::new(move |mono: &[i16], rate: u32| {
                         let Some(core) = core.upgrade() else { return Ok(None) };
                         let engine = recognizer.engine.name().to_string();
                         let candidates = core.candidates(source, &engine);
@@ -714,6 +714,10 @@ impl Core {
 
     /// `setEnableTranscriptionSend` / `setEnableTranscriptionReceive`.
     pub(crate) fn set_enable_transcription(self: &Arc<Self>, source: Source, data: &Value) -> Reply {
+        let talk = (source == Source::Mic).then(|| self.talk_ai.lock().unwrap());
+        if talk.as_ref().is_some_and(|session| session.owns_microphone()) {
+            return Reply::conflict("talk_microphone_in_use");
+        }
         if self.realtime_toggles() {
             return self.enable_realtime_toggle(source, data);
         }
@@ -881,7 +885,7 @@ impl Core {
     }
 
     /// `_setEndpointCredential("Custom_Whisper")`: a URL and a key, checked together first.
-    fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
+    pub(super) fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
         let config = self.config();
         let refused = |core: &Core| {
             Reply::error(ErrorReply::new(
@@ -1123,7 +1127,7 @@ struct TranscriptionCheck {
 pub(crate) fn add(b: &mut Builder<'_>) {
     let _ = b.core.transcription.core.set(Arc::downgrade(b.core));
     b.core.audio_devices().set_capture_owner(Arc::clone(&b.core.transcription) as Arc<dyn CaptureOwner>);
-    vrct_transcription::set_failure_reporter(Box::new(crate::errors::report_failure));
+    astarot_transcription::set_failure_reporter(Box::new(crate::errors::report_failure));
 
     for source in [Source::Mic, Source::Speaker] {
         let dir = direction(source);

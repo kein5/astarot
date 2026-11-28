@@ -3,7 +3,7 @@
 //! The rules, unchanged from the Python `VoiceEventBus`:
 //!
 //! - Only final chat (when the chat mode is not `off`) and final microphone
-//!   translations (when microphone speech is `translated`) are accepted, while
+//!   speech (original or translated, according to the microphone's mode) is accepted, while
 //!   speech is enabled and not muted. Each message is spoken at most once.
 //! - At most `capacity` messages wait. A full queue drops its oldest microphone
 //!   message for a newcomer, or its oldest message when it holds no microphone
@@ -158,6 +158,9 @@ pub struct VoiceStatus {
     pub cancelled: u64,
     pub errors: u64,
     pub last_error: Option<String>,
+    /// One fixed word beside `last_error` that tells its failures apart, when the code has them:
+    /// how a `transport_error` failed to arrive (#861). `None` otherwise.
+    pub last_error_detail: Option<String>,
     pub last_first_write_ms: Option<f64>,
     pub sample_rate: Option<u32>,
     pub monitor_error: Option<String>,
@@ -183,6 +186,7 @@ struct Stats {
     cancelled: u64,
     errors: u64,
     last_error: Option<String>,
+    last_error_detail: Option<String>,
     last_first_write_ms: Option<f64>,
     sample_rate: Option<u32>,
     monitor_error: Option<String>,
@@ -371,6 +375,7 @@ impl VoiceEventBus {
             state.settings = Arc::new(settings);
             let silence = self.inner.cancel_locked(&mut state);
             state.stats.last_error = None;
+            state.stats.last_error_detail = None;
             state.stats.monitor_error = None;
             silence
         };
@@ -487,7 +492,7 @@ impl VoiceEventBus {
         };
         let inner = self.inner.clone();
         let running = token.clone();
-        let spawned = thread::Builder::new().name("vrct-tts-warm".into()).spawn(move || {
+        let spawned = thread::Builder::new().name("astarot-tts-warm".into()).spawn(move || {
             // A refusal or a server that is not there is left to the speech that follows to report.
             let done = catch_unwind(AssertUnwindSafe(|| (inner.warm_up)(&url, &voice, language, &running))).is_ok_and(|r| r.is_ok());
             finish_warm(&inner, &running, done);
@@ -517,8 +522,10 @@ impl VoiceEventBus {
                 }
             }
             Source::Mic => {
-                if state.settings.mic_mode != "translated" || event.translated_text.as_deref().is_none_or(is_blank) {
-                    return false;
+                match state.settings.mic_mode.as_str() {
+                    "original" => (),
+                    "translated" if event.translated_text.as_deref().is_some_and(|text| !is_blank(text)) => (),
+                    _ => return false,
                 }
                 if event.timestamp_ns <= 0 || event.timestamp_ns > monotonic_ns() {
                     state.stats.dropped += 1;
@@ -598,6 +605,7 @@ impl VoiceEventBus {
             cancelled: stats.cancelled,
             errors: stats.errors,
             last_error: stats.last_error.clone(),
+            last_error_detail: stats.last_error_detail.clone(),
             last_first_write_ms: stats.last_first_write_ms,
             sample_rate: stats.sample_rate,
             monitor_error: stats.monitor_error.clone(),
@@ -801,6 +809,7 @@ fn work(inner: &Arc<Inner>) {
                 state.stats.completed += 1;
                 if job.epoch == state.epoch {
                     state.stats.last_error = None;
+                    state.stats.last_error_detail = None;
                 }
                 "completed"
             }
@@ -816,8 +825,10 @@ fn work(inner: &Arc<Inner>) {
                         // Settings and driver errors can include input content or
                         // device paths; only fixed codes go into status.
                         let code = if token.is_set() { token.reason() } else { error.failure_code().to_owned() };
+                        let detail = if token.is_set() { None } else { error.failure_detail() };
                         if job.epoch == state.epoch {
                             state.stats.last_error = Some(code.clone());
+                            state.stats.last_error_detail = detail.map(str::to_owned);
                         }
                         failure = Some(code);
                         "error"

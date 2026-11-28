@@ -1,4 +1,737 @@
-# 配布境界と原典
+# Distribution boundaries and original sources
+
+[日本語版](#配布境界と原典日本語版)
+
+This record draws on the evidence map provided on 2026-10-27 and on the primary sources below.
+The table at the top records the state at the time of the initial survey. Later, models for development were downloaded with the user's approval, and the external Seed worker was implemented. Keep these apart from permission to distribute, and see each PoC report and the additions below.
+
+On 2026-10-31, `v0.1.0-beta.1` (a prerelease) was published. The Linux release packages (tar.gz and AppImage) bundled the executable of the pinned speech.cpp 0.10.0 and its notices. The Windows build did not bundle them at that time (they were added on 2026-11-07; see below). The LGPL and GPL components in the release packages are listed in [NOTICE](../../NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds). Each section below is a dated record, and words such as "unpublished" and "next step" describe the state at the time it was written.
+
+| Item | Evidence checked | Handling this time |
+|---|---|---|
+| VRCT code | [LICENSE](../../LICENSE), [NOTICE](../../NOTICE.md) | Keep the MIT attribution |
+| Upstream OCR detection weights | [Model license](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt) | Excluded from the fork's artifacts. Also deleted from the repository in 0.2.0 (it remains in commits up to 0.1.0) |
+| speech.cpp | [MIT of the verified v0.11.2](https://github.com/nyosegawa/speech.cpp/blob/v0.11.2/LICENSE) | After approval on 2026-10-29, the release component with the pinned CPU/Vulkan executables and the dependency notices was built and verified. It is bundled in the Linux release packages and was published in 0.1.0-beta.1. Updated to 0.11.0 on 2026-11-15 and to 0.11.2 on 2026-11-22. See the additions below |
+| Irodori-TTS v4.1 Small MF | [Model card](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF) | Japanese only. Besides the MIT notice, checked the statements that the person whose voice is used must give explicit consent and that impersonation and misinformation are prohibited. Only voices that the user manages are used |
+| Irodori-TTS Large | [Model description](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md) | Do not confuse its conditions with those of Small. Not bundled or verified this time |
+| Qwen3-TTS | [Model description](https://github.com/nyosegawa/speech.cpp/tree/main/docs/models) | Record the conditions and hash of the weights the user chooses when they are installed on a real machine. No models downloaded |
+| Seed-VC Realtime | [GPL-3.0](https://github.com/jiaheguo521/seed-vc-realtime/blob/main/LICENSE) | Integrated as an external worker for development. The derived code in `integrations/seed_vc` carries GPL-3.0-only notices. A PoC was run with approved models. The final distribution conditions and the arrangement of the corresponding source are not finished |
+| Beatrice | [Terms of the v1.1 JVS version](https://github.com/w-okada/voice-changer/blob/master/server/voice_changer/Beatrice/README.md) | States that commercial use is prohibited and that redistribution needs permission. Do not generalize this to all v2 models. The conditions per version and per model are a P2 gate |
+
+`chatbox_yolox_tiny.onnx` is excluded from the extracted TOC of the CPU and CUDA PyInstaller builds,
+and stale artifacts are also refused before the Tauri build and before the ZIP is created. CI checks the ZIP and the sidecar.
+Without the model, the existing OCR chat-bubble detection is unavailable (the other voice and translation features are independent).
+`tools/check_voice_distribution.py` takes the path of a release package and fails if it finds a prohibited model.
+From 2026-11-23, it rejects not only OCR weights but any file in a model format (`.onnx`, `.pth`, `.gguf`, `.safetensors`, `.bin`, `.index` and others, including compressed `.onnx.zst`), whatever its name or location (`MODEL_EXTENSIONS` in `tools/distribution_policy.py`). Every model is downloaded to the data folder after consent, so none goes into the release packages. If a model is ever allowed in the release packages, its full path inside the package and the reason go into `ALLOWED_MODELS` in the same file, and a code owner checks the entry. There are none now.
+
+The fork's product name, publisher and update distribution point are an open P5 gate. This record does not claim that the current workflow for official releases
+is ready to publish the fork. This work does not create tags, push or publish anything.
+The license register does not grant permission to bundle anything. Each additional model is checked on its own.
+
+## Further checks of the fork's distribution boundary (2026-10-29)
+
+Of the open P5 items stated at the top, the fork's identity and the separation of its publishing destination were implemented this time.
+The CPU and CUDA specs no longer collect the whole of OCR/rapidocr,
+and the OCR weights are excluded from the extracted datas/binaries on both the source and the destination side.
+The original LICENSE/NOTICE and the OCR model notices are collected explicitly. The ZIP and NSIS checks stop the release process when they fail.
+The final check of the real Windows build, the Linux product package and the final license audit of all bundled dependencies are not finished.
+Approval to download a model is not to be read as approval to redistribute it. speech.cpp management in the GUI is implemented in P5-B and is unpublished.
+
+## Notices in the Windows installer and the zeroconf version (2026-11-06)
+
+The seven notices of NScurl and its dependencies keep their original text in `src-tauri/nsis/licenses/nscurl/`,
+and they are bundled into `$PLUGINSDIR/licenses/nscurl/` inside the NSIS installer.
+Even if downloading the app itself fails, they can be read by extracting setup.exe with 7-Zip.
+They are also collected into the Windows ZIP (`VRCT-VOX.zip`, and up to 0.5 the CUDA ZIP too) as `_internal/licenses/nscurl/`,
+and [NOTICE](../../NOTICE.md#windows-installer-download-component) gives their location.
+The check of the final NSIS artifact fails if any of the seven is missing.
+Checking the extracted contents of a real Windows build, and whether the notices match the versions of the bundled DLLs, is needed separately.
+
+The zeroconf entry in NOTICE was corrected to 0.152.0, which `uv.lock` pins, and to the URL of its source distribution.
+The `.py` collection settings in each spec stay. This does not mean that the file layout after freezing has been checked
+or that the audit of the distribution conditions as a whole is complete.
+
+The release-package check identifies ZIP files, and ZIP files inside tar archives, by the information at the end of the file as well as by extension and leading signature.
+Each nested ZIP may be up to 128 MiB, the whole check of a ZIP or of a tar may extract up to 16 GiB and 100,000 entries,
+and ZIPs may be nested up to 4 levels deep. Exceeding a limit fails the check.
+The OCR directory information is carried into nested archives, and the name of the working directory on the host is not used in the decision.
+
+## Managed route additions (2026-10-27)
+
+The control helper `native/voice-gate/main.c` is new MIT code. It links dynamically to the system `libpipewire-0.3`,
+and it bundles no speech inference code, no models and no voice daemon of its own.
+The MIT notices in PipeWire's [COPYING](https://github.com/PipeWire/pipewire/blob/master/COPYING) and its
+[public header](https://github.com/PipeWire/pipewire/blob/master/src/pipewire/pipewire.h) were checked.
+This time it was verified with a source checkout and the system library; binary distribution of the helper is not set up.
+When the binary is distributed, bundle the copyright and license notices of the version used, including those for code from PipeWire/SPA headers.
+This addition does not change the conditions for adopting VC models.
+
+## Resampler for realtime ASR (2026-10-28)
+
+`soxr==1.1.0` was added as an explicit dependency. The Python wrapper is pinned at commit
+`91479780e687fa994daabcff074e5960dc0bd4e2`, and the bundled modified libsoxr at commit
+`a66f3eeeeb62a32403ff143b756eed92b1ec6b62`. Both are LGPL-2.1-or-later.
+PFFFT keeps its accompanying BSD-style notice. PyAV/FFmpeg is not additionally used for this conversion.
+
+sha256 of the actual Python 3.11 wheels:
+
+- Linux x64 manylinux2.27/2.28: `3da87e3ffa3e41823d873b051c7ecb2acebd8d1b6b46b752f5facf10a0d84ab9`.
+- Windows x64: `ae30c48ac795378cf23ba3c7c640b8ff794af714ac388b9fd6b31a40b39e6e86`.
+
+The pinned Linux wheel is installed with uv, which checks its hash. The survey confirmed that both wheels contain `COPYING.LGPL`, `LICENSE.txt`,
+`LICENSE-libsoxr.txt` and `LICENSE-PFFFT.txt`.
+For Windows, only the artifact was inspected; it was not run in a test. Running with numpy 1.26.4 was confirmed on Linux.
+
+[Pinned LICENSE](https://github.com/dofuuz/python-soxr/blob/91479780e687fa994daabcff074e5960dc0bd4e2/LICENSE.txt),
+[pinned build](https://github.com/dofuuz/python-soxr/blob/91479780e687fa994daabcff074e5960dc0bd4e2/CMakeLists.txt),
+[pinned PyPI release](https://pypi.org/project/soxr/1.1.0/). The native libsoxr is statically built into the extension.
+2026-10-31 (before 0.1.0): the LGPL and GPL components of the release packages were listed in [NOTICE](../../NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds),
+together with where to get the corresponding source, how to replace the components, and an offer to provide the source for three years. libsoxr can be replaced as an extension module (a separate file).
+The pure-Python LGPL package `zeroconf` is not put into the PYZ; it is bundled as `.py` files. The official PyAV wheels of the 12 to 18 series, for both Linux and Windows,
+bundled the GPL x264/x265, so they are not distributed, and the stand-in module in `packaging/pyinstaller-stubs/av` is used instead (it was removed together with the PyInstaller steps in 0.5.0; the rejection by the distribution policy stays).
+(faster-whisper does not decode when its input is a numpy array.) The distribution policy rejects the PyAV native libraries and x264/x265.
+The version of nanobind (BSD-3-Clause) in the actual build has not been identified.
+
+## Bundled RVC worker (2026-11-15, #275 Phase 3)
+
+RVC conversion is done by `native/rvc-runtime` (MIT, a reimplementation of the original project's inference with no code copied or adapted from it),
+shipped as `astarot-rvc-worker` in the Windows and Linux release packages. As a result, the external Python runtime described in "RVC additions" and the sections after it below
+(PyTorch, the original engine and dependencies such as `praat-parselmouth`) and the MIT code taken from the original project
+(`integrations/rvc/blocks.py`, `loader.py`, `LICENSE.upstream`) are no longer used, and they were deleted from the repository and the release packages.
+
+The worker does not carry ONNX Runtime itself; it loads it at run time. ONNX Runtime, the CUDA and cuDNN libraries
+and the base models are not in the release packages; they are downloaded straight from their providers after the user's consent (the version, size and SHA-256
+are pinned in `native/voice-conversion/src/runtime.rs`, which the Rust core uses; `src-python/models/voice_conversion/runtime_setup.py` from up to 0.4
+keeps the values from when ONNX Runtime was downloaded from GitHub).
+
+| Download | Source | License |
+|---|---|---|
+| ONNX Runtime 1.31.0 (the CUDA 13 build on PCs with an NVIDIA driver, the CPU build on PCs without one) | Microsoft's official NuGet packages (`Microsoft.ML.OnnxRuntime` for the CPU build; `Microsoft.ML.OnnxRuntime.Gpu.Windows` and `Microsoft.ML.OnnxRuntime.Gpu.Linux` for the CUDA 13 build). Until 2026-11-18, Microsoft's official releases on GitHub | MIT |
+| CUDA runtime, cuBLAS, cuRAND, NVRTC (CUDA 13.4 Update 1), cuDNN 9.26 (GPU only) | Only the needed files from NVIDIA's official wheels on PyPI (`nvidia-cuda-runtime`, `nvidia-cublas`, `nvidia-curand`, `nvidia-cuda-nvrtc`, `nvidia-cudnn-cu13`) | NVIDIA's CUDA EULA, cuDNN SLA |
+| HuBERT (`config.json` and `pytorch_model.bin` of `hubert_base`), `rmvpe.onnx` | `lj1995/VoiceConversionWebUI` on Hugging Face (the same pinned revision as before) | The model card shows MIT (its body is empty). The upstream conditions of HuBERT/ContentVec remain unconfirmed (they are not bundled, so the download arrangement stays). Checked on 2026-11-15 (the "#322" section below) |
+
+`rmvpe.onnx` is a file newly added by this download and replaces `rmvpe.pt` from the same revision. By a further decision on 2026-11-15,
+the runtime moved from CUDA 12 (the 12.8 series, the same as the PyTorch runtime) to CUDA 13 (driver 580 or later required), and a CPU runtime
+was added for PCs without an NVIDIA driver. The CPU runtime contains no NVIDIA files. When the new runtime has finished downloading, the app deletes
+the files of the earlier PyTorch runtime in the same folder (the venv, python, engine, the pinned `rmvpe.pt` and others) (`remove_earlier_rvc`). HuBERT is not
+distributed as a converted ONNX file; the worker builds the graph from the downloaded `pytorch_model.bin` when it loads the model.
+
+GitHub's `microsoft/onnxruntime` began returning 404 for both the repository and its release assets, so on 2026-11-18 the download source of ONNX Runtime
+moved from GitHub releases to NuGet packages. The version stays 1.31.0, and the license (MIT) does not change.
+The libraries in the CPU package are identical, byte for byte, to those in the GitHub archive. The CUDA provider in the CUDA 13 package
+links to cuBLAS 13 and cudart 13, like the `gpu_cuda13` build on GitHub, and matches the pinned NVIDIA wheels.
+The license link on the consent screen now points to the License page of the NuGet package. A runtime prepared from GitHub keeps working as installed, because the files in `lib/`
+have the same names (`OrtSource` in `runtime.rs`). NuGet has no 1.31.0 of the DirectML build
+(the latest is 1.24.4), but the RVC download does not use the DirectML build. When the RVC worker converts with DirectML, it loads the DirectML build
+shared with local translation (the section below) into its own process. Nothing new is downloaded.
+
+The worker's Rust dependencies (`ort`, `ort-sys`, `libloading`, `prost`, `rustfft`, `serde_json`, `thiserror`, `hound` and others) are under
+permissive licenses such as MIT, Apache-2.0 and ISC. How to bundle their license documents in the release packages is not worked out yet,
+as with the Rust dependencies of the Tauri app (an open item). → This was set up in the "#322" section below.
+
+### ONNX Runtime for local translation on the GPU (2026-11-19, decision 2 (c) of core-integration)
+
+The release packages contain only the CPU build of ONNX Runtime. The ONNX Runtime that runs local translation on the GPU is not in the release packages;
+it is downloaded from its provider after the user's consent, by the same mechanism as the runtime above (`onnx_cuda_runtime` and
+`onnx_directml_runtime` in `runtime.rs`, stored in `vc_runtimes/onnxruntime-cuda` and `vc_runtimes/onnxruntime-directml` in the settings folder).
+Only when that build is selected as the processing device for translation does the app load it at startup in place of the bundled CPU build. Chat reading
+uses the same library. The RVC worker also uses the DirectML build when it converts with DirectML (`native/rvc-runtime/README.md`).
+
+| Download | Source | License |
+|---|---|---|
+| CUDA build (when an NVIDIA driver is present): ONNX Runtime 1.31.0 (CUDA 13 build) and the same CUDA and cuDNN libraries as in the table above | The same NuGet packages and PyPI wheels as the GPU runtime for RVC (same versions and SHA-256). No base models | MIT, NVIDIA's CUDA EULA, cuDNN SLA |
+| DirectML build (Windows only): `onnxruntime.dll` and `onnxruntime_providers_shared.dll` of ONNX Runtime 1.24.4 (DirectML build), and `DirectML.dll` of DirectML 1.15.4 | Microsoft's official NuGet packages `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 and `Microsoft.AI.DirectML` 1.15.4 | ONNX Runtime is MIT. DirectML is under the Microsoft Software License Terms (DirectML) |
+
+The DirectML license (checked on its NuGet License page on 2026-11-19) allows distributing it inside apps and services,
+and allows use only on Windows and Xbox. Section 2a states that the software may collect information about users and their use and send it to Microsoft.
+It says that only part of this can be opted out of. The confirmation screen for the download says so. The DirectML build is not bundled,
+so it creates no obligations for the release packages. 1.24.4 is the last DirectML build of ONNX Runtime (DirectML is in maintenance only), and it is older than 1.31.0 of the CPU and CUDA builds.
+
+The CUDA build is not bundled, in line with the acceptance criteria of #288 (no CUDA libraries in the release packages). If the GPU runtime for RVC
+is already prepared, it is used without downloading again, since the files are the same (`cuda_libraries`).
+
+## In-app updates (2026-11-15, #330)
+
+`tauri-plugin-updater` 2.14.1 was added to the Tauri app. The Rust crates it newly brings into the Windows (x86_64-pc-windows-msvc) and Linux (x86_64-unknown-linux-gnu) builds,
+with the licenses in their `Cargo.toml`, are as follows (checked with `cargo tree -e normal --target …`).
+
+| License | Crates |
+|---|---|
+| Apache-2.0 OR MIT (either) | `tauri-plugin-updater`, `rustls`, `rustls-pki-types`, `rustls-platform-verifier`, `rustls-native-certs`, `hyper-rustls`, `tokio-rustls`, `getrandom`, `zeroize`, `zeroize_derive`, `openssl-probe`, `filetime`, `tar`, `xattr`, `typed-path`, `windows-registry`, `constant_time_eq` (CC0-1.0/MIT-0/Apache-2.0) |
+| MIT | `minisign-verify`, `zip` |
+| ISC | `rustls-webpki`, `untrusted` |
+| Apache-2.0 AND ISC | `ring` |
+| BSD-3-Clause | `subtle` |
+
+`webpki-root-certs` (CDLA-Permissive-2.0) is in the lock file but does not go into the Windows and Linux builds.
+Only program code is bundled; no certificate data or models were added. How to bundle license documents in the release packages
+is not worked out yet, as with the Tauri app's other Rust dependencies (an open item). → This was set up in the "#322" section below.
+As of 2026-11-16, #344 brought the certificate data of `webpki-roots` into the Tauri app (the "#344" section below).
+
+## License texts of Rust dependencies and the record of base models (2026-11-15, #322)
+
+### License texts of Rust dependencies
+
+Two Rust executables go into the release packages: `vrct-vox` of the Tauri app and `astarot-rvc-worker` of the RVC worker.
+On develop as of 2026-11-15, the other crates in `native/` were not yet built into any executable
+(those with only a `main.c`, such as `asr-capture`, are C). → #344 brought `native/core` and others into `vrct-vox` (the "#344" section below).
+
+When packages are built, `tools/rust_licenses.py` works out the dependencies of the two executables from the lock file.
+For the target environments (`x86_64-pc-windows-msvc`, `x86_64-unknown-linux-gnu`) it uses `cargo metadata --filter-platform`
+and follows the normal dependencies. Procedural macros are included; dependencies used only by build scripts and development dependencies are not.
+It copies documents such as LICENSE, COPYING and NOTICE from the top of each crate's published package
+to `_internal/licenses/rust/<crate>-<version>/`, and writes the list to `README.md` and `crates.json`.
+The copied documents and the list go into PyInstaller's `_internal` on both systems: on Windows as PyInstaller data (`bat/build.bat`, `bat/build_cuda.bat`, `tools/windows_voice_resources.py`),
+and on Linux as resources (`tools/build_linux.py`).
+→ From 0.5.0 PyInstaller is not used, and `tools/app_resources.py` copies them to the same `_internal/licenses/rust/` (the "Python no longer bundled" section below).
+Both checks fail if `crates.json` is missing. Crates inside the repository (path dependencies) are ASTAROT's own code
+and follow `LICENSE`, so their documents are not copied.
+
+With the lock file of 2026-11-15, Windows had 313 crates and Linux 385 (including the crates in the repository).
+The licenses are permissive ones such as MIT, Apache-2.0, BSD, ISC, Zlib, Unicode-3.0, CC0-1.0 and Unlicense,
+plus a few MPL-2.0 crates (`cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext`, `selectors`, and `dwrote` on Windows only).
+There are no GPL or LGPL crates. The MPL-2.0 crates are not modified. Their source is the same version on crates.io,
+and the list and NOTICE say so.
+
+There were 11 crates with no license text in their published package. They were filled in from the documents at the matching upstream commit or from the official text of the license,
+and the sources were recorded in `licenses/rust/supplements.json` (the documents are in the same folder).
+For `pathfinder_geometry` 0.5.1, the commit the package points to does not exist upstream, so the documents of the same project were used.
+`dwrote` and `selectors` have no license file upstream, and each of their source files carries an MPL-2.0 notice,
+so the MPL-2.0 text published by Mozilla was used. If a crate without a license text and without a supplement is added, the tool fails and the build stops.
+The list shows license notices; it does not replace an audit that each condition has been met.
+
+### RVC base models
+
+The approval record [rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json) was brought in line with the current download.
+`files` holds the three files the app downloads now (`hubert_base/config.json`, `hubert_base/pytorch_model.bin`, `rmvpe.onnx`),
+and `earlier_files` the two that the earlier PyTorch runtime downloaded and that are now recognized only so they can be deleted (`rmvpe.pt`,
+`hubert_base/preprocessor_config.json`). On 2026-11-15, the size and SHA-256 of `rmvpe.onnx` were confirmed through the Hugging Face API
+to match the values at the pinned revision. A test (`tests/voice/test_vc_runtime_setup.py`) checks that the pinned download values and
+the record match exactly, with nothing missing or extra.
+
+The upstream conditions are as follows (checked on 2026-11-15).
+
+| Model | What was checked | What remains |
+|---|---|---|
+| HuBERT (`hubert_base`) | The original RVC README lists [ContentVec](https://github.com/auspicious3000/contentvec) as a reference. The ContentVec repository is MIT (Copyright (c) 2019, no holder named) and is based on fairseq's HuBERT ([MIT](https://github.com/facebookresearch/fairseq/blob/main/LICENSE)) | Neither lj1995 nor the original RVC project states which ContentVec weights `hubert_base` came from or how they were converted. The ContentVec README only points to where the weights are distributed and sets no separate conditions for the weights. The conditions of the training data were not looked at |
+| RMVPE (`rmvpe.onnx`) | The [RMVPE](https://github.com/Dream-High/RMVPE) code is Apache-2.0. According to the original RVC README, the trained weights were trained by yxlllc and RVC-Boss | No separate conditions for the weights were found. `yxlllc/RMVPE` no longer exists |
+
+Neither is in the release packages; both are downloaded straight from their providers after the user's consent, so the download arrangement does not change.
+A "RVC base models" section was added to NOTICE to show where they come from.
+
+## Rust dependencies checked after the core integration (#344) (2026-11-16)
+
+Following the owner's decision on the open items of #322, the ledger was checked against the dependencies that #344 added. `tools/rust_licenses.py` was run on develop after #344 was merged (`6fe7bd36`) and compared with the list from develop just before the merge (`131bbc3a`).
+
+The Rust executables in the release packages are still the two, `vrct-vox` and `astarot-rvc-worker`. With #344, `vrct-vox` took in the backend core (`native/core`), and with it `native/adapters`, `native/ops`, `native/speech-server` and `native/tts`, which the core uses. All of these are crates in the repository, and the list treats them as VRCT-VOX code. The app's dependencies are decided by `src-tauri/Cargo.lock`; `native/core/Cargo.lock`, which exists to test the core on its own, is not used. No crate had different versions in the two lock files. The core crates have no feature flags, and no new executable goes into the release packages (`[[bin]]` targets such as `fake-speech` are for tests).
+
+| Item | Windows | Linux |
+|---|---|---|
+| Number of crates (before → after the merge) | 313 → 335 | 385 → 407 |
+| Newly added crates | 17 (12 external, 5 in the repository) | The same 17 |
+| Removed crates | 0 | 0 |
+| Crates missing a license text | 0 | 0 |
+
+The newly added external crates are `chacha20`, `const-oid`, `data-encoding`, `hybrid-array`, `if-addrs`, `rand`, `rand_core`, `sha1`, `tokio-macros`, `tokio-tungstenite`, `tungstenite` and `webpki-roots`. `if-addrs` is MIT OR BSD-3-Clause, `webpki-roots` is CDLA-Permissive-2.0, and the rest are MIT, or either MIT or Apache-2.0. All of them have license texts in their published packages, and no supplements (`licenses/rust/supplements.json`) were needed. All 11 entries in `supplements.json` are still used by one of the builds.
+
+The existing crates `base64`, `block-buffer`, `cpufeatures`, `crypto-common` and `digest` gained another version. `tokio-rustls` went down from 0.26.6 to 0.26.4, and `uuid` from 1.29.2 to 1.29.0. `native/adapters` requires exactly `tokio-rustls = "=0.26.4"` and `native/ops` exactly `uuid = "=1.29.0"`, and Cargo aligned the whole app on these versions. The licenses do not change. Whether to change these version requirements is undecided.
+
+The dependencies listed among the open items of #300 (tokio, rustls, ring, tokio-tungstenite, x11rb, windows-sys, if-addrs, socket2, serde_json, subtle, futures-util) all appear in the list for their target environments (`x11rb` on Linux only, `windows-sys` on Windows only).
+
+`webpki-roots` is Mozilla's root certificate data, and `native/ops` uses it to verify TLS certificates. So the statement in the #330 section above that no certificate data was added no longer holds (`webpki-root-certs` is still not in the builds). This data is derived from the data of the CCADB (Common CA Database) and follows the [CCADB data usage terms](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms). The terms are CDLA-Permissive-2.0, which requires that the text of the agreement accompany the data when it is distributed. The usage terms also require attribution to CCADB when the data is redistributed or used in derived works. The text was bundled as `_internal/licenses/rust/webpki-roots-1.0.11/LICENSE`, but the attribution appeared nowhere. So an attribution was added to "Rust crates in VRCT-VOX builds" in NOTICE, and the list that `tools/rust_licenses.py` writes (`README.md`) now carries the attribution in builds that include this crate. A test (`tests/devtools/test_rust_licenses.py`) checks that NOTICE carries the attribution as long as `webpki-roots` is in the lock file.
+
+### Additions when the audio devices were connected to the core (2026-11-16)
+
+The core now uses `native/audio-routing` (MIT, in the repository), so more crates go into `vrct-vox`. The list from `tools/rust_licenses.py` went from 335 to 336 crates on Windows and from 407 to 414 on Linux. On Windows, only `vrct-audio-routing` was added; crates such as `windows` were already included. On Linux, `pipewire`, `pipewire-sys`, `libspa`, `libspa-sys` (all MIT), `nom` 8.0.0 (MIT) and `cookie-factory` (MIT) were added. `bindgen` (BSD-3-Clause) and similar crates are used only at build time and do not go into the release packages. `cookie-factory` 0.3.3 has no license text in its published package, so `LICENSES/MIT.txt` from the commit of the published version was added to the supplements (`licenses/rust/supplements.json`). The `pipewire` crate links dynamically to `libpipewire-0.3` (MIT) at run time. Only the app enables the core's `pipewire` feature; it is not in the core's test builds.
+
+The only files that the core crates take in with `include_str!` are the page of the OBS browser source (`native/adapters/src/obs/page.html`) and the language tables (`native/core/data/*.json`). Both are made from the repository's own code and data, not third-party data. The core crates have no `build.rs` either.
+
+### Translation providers and readings (#277)
+
+The core now uses `native/translation` (translation providers, prompts and reading rules). It is a crate in the repository and is treated as VRCT-VOX code. The external crates it uses (`httparse`, `rustls`, `serde_json`, `webpki-roots`) and `chrono`, which was added to the core, were all versions already in `src-tauri/Cargo.lock`, so no new external crate was added to the app's lock file. The prompt texts were moved from Python's `translation_settings/prompt/*.yml` (VRCT-VOX code).
+
+The core's feature flag `onnx-translation` has been on by default since 2026-11-16 and is enabled in the app as well (the local translation engine was decided to be `native/translate-onnx`; see the decisions already made in [core-integration.md](core-integration.md)). `ort` uses `load-dynamic`, as chat reading does, so the build neither downloads nor links ONNX Runtime. The external crates newly added to the app's lock file are `tokenizers` 0.23.2 (Apache-2.0) and its dependencies (`esaxx-rs`, `spm_precompiled`, `fancy-regex`, `rayon`, `derive_builder`, `monostate`, `daachorse`, `compact_str` and others; all are MIT or Apache-2.0, or dual-licensed under both; `zerocopy` is BSD-2-Clause OR Apache-2.0 OR MIT, and `macro_rules_attribute` is Apache-2.0 OR MIT OR Zlib). `tools/rust_licenses.py` was run for both the Windows and the Linux targets and confirmed that all of them have license texts in their published packages. `tokenizers` is used with `default-features = false` and `fancy-regex`, so the C++ code (`esaxx_fast`, `onig`) is not built in. Where to distribute the ONNX Runtime library itself from is undecided (item 2 of the decisions needed in the same document). For the reading dictionary (item 3 there), its license will be added here once it is decided.
+
+## Dependencies added when chat reading moved into the core (2026-11-16, #285)
+
+The core (`native/core`) now uses `native/ocr-runtime`, and the following external crates were added to `vrct-vox`: `caseless` (MIT), `libloading` 0.9.1 (ISC), `ort` and `ort-sys` (MIT OR Apache-2.0), and `ndarray`, `matrixmultiply`, `num-complex`, `num-integer`, `rawpointer`, `unicode-bidi` and `unicode-normalization` (either MIT or Apache-2.0). `tools/rust_licenses.py` was run on both Windows and Linux and confirmed that all of them have license texts in their published packages. `ndarray` and some of the others were already used by `astarot-rvc-worker`.
+
+`native/ocr-runtime` is VRCT-VOX code that rewrites the processing of OpenCV 4.10.0 (Apache-2.0), RapidOCR 3.9.2 (Apache-2.0) and Clipper 6.4.2, which pyclipper bundles (Boost Software License 1.0), so that the results match. No source files were copied. The notices are in [NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds). ONNX Runtime is not statically linked into the app; it is loaded at run time (item 13 of the decisions needed in [core-integration.md](core-integration.md)). Which ONNX Runtime to distribute, and from where, is undecided. The OpenVR client library is undecided as well (item 16 of the same section).
+
+## Dependencies added when speech recognition moved into the core (2026-11-16, #278)
+
+The core now uses `native/transcription` (speech recognition). It is a crate in the repository and is treated as VRCT-VOX code. The external crates it uses (`tungstenite`, `serde_json`, `libc`) and the HTTP client of `native/translation` were all versions already in `src-tauri/Cargo.lock`, so no new external crate was added to the app's lock file. Cutting out utterances by volume rewrites the processing of SpeechRecognition 3.10.4 (BSD-3-Clause), and `rms` and `ratecv` rewrite CPython's `audioop` (PSF-2.0), so that the results are the same. No source files were copied. The notices are in [NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds). Google speech recognition (sent with SpeechRecognition's default key) was not moved (the entry on Google web speech recognition among the decisions already made in [core-integration.md](core-integration.md)). The core does not use the Silero VAD model (item 20 of the same section).
+
+The cloud traffic of speech recognition now goes through a proxy (2026-11-19, item 15 (4) in core-integration.md). To read the Windows Internet settings, `native/translation` uses `Win32_System_Registry` of `windows-sys` 0.61.2 (MIT OR Apache-2.0) on Windows only. This version was already in `src-tauri/Cargo.lock`, so no new external crate was added to the app's lock file. The Base64 for proxy authentication was written in-house.
+
+## Approval of rmvpe.onnx (2026-11-16, #322)
+
+By the owner's decision on the open items of #322, `rmvpe.onnx` stays in use. In the approval record [rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json), `status` was changed to `approved_for_app_fetch_after_user_consent`, and this decision was added to `consent`. The download arrangement does not change: the file is downloaded from the pinned revision after the user's consent and is not in the release packages. This is not an approval to redistribute.
+
+On 2026-11-16, the Hugging Face API confirmed that the sizes and blob IDs of the five files in the record (the three downloaded now and the two earlier ones) match the record. For the LFS files, the SHA-256 matched as well.
+
+The files are downloaded by the Python sidecar on the default path (`src-python/models/voice_conversion/runtime_setup.py`) and by the Rust core (`native/voice-conversion/src/runtime.rs`; item 6 of the decisions needed in [core-integration.md](core-integration.md)). The core downloads with the same pinned values as Python and writes the same version string to `receipt.json` (a unit test of `native/voice-conversion` checks that it matches the four versions computed in Python). A test (`tests/voice/test_vc_runtime_setup.py`) checks that the pinned values in Python match the record.
+
+## RVC additions (2026-10-29, no models downloaded)
+
+> From 2026-11-15, the external Python runtime in this section and in the Mia2026 section is not used (the section above). These sections are kept as a record.
+
+The inference API of RVC-Project/Retrieval-based-Voice-Conversion-WebUI at the pinned commit
+`81eed5e8f68b6bed1789f682fe78cdd324495afc` is used from an external worker.
+The resampling/SOLA in `integrations/rvc/blocks.py` and the synthesizer construction in loader are MIT code from that commit.
+The notices of the [original MIT text](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/81eed5e8f68b6bed1789f682fe78cdd324495afc/LICENSE)
+and of [DDSP-SVC's MIT](https://github.com/yxlllc/DDSP-SVC/blob/master/LICENSE), which RVC cites as the source of SOLA, are kept in
+[LICENSE.upstream](https://github.com/kein5/astarot/blob/a0ba2300c196016b046de5c59ad4c7cdabf145e2/integrations/rvc/LICENSE.upstream) (the commit before it was deleted). The excerpts of the original source for reproducing the review also state the attribution.
+
+The candidate base models are the HuBERT/RMVPE of `lj1995/VoiceConversionWebUI` that the official README points to.
+The [model card](https://huggingface.co/lj1995/VoiceConversionWebUI) shows MIT, but its body is empty.
+The pinned version, size and hash are recorded in [rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json).
+At first they were unapproved candidates that had not been downloaded. For the later approval and download, see the Mia2026 addition below.
+The base model information alone does not prove permission to use a third party's voice.
+The terms of use of speaker models and indexes are checked separately, and they are downloaded after consent. They are not bundled without permission.
+
+The dependency lock of the separate uv runtime was created during the Mia2026 validation. The final redistribution conditions of each wheel have not been audited. This record does not claim that the RVC models or engine binaries
+are bundled in the release packages. The GPL-3.0-only boundary of the Seed worker does not change with the RVC addition.
+
+## Local validation with Mia2026 (2026-10-29)
+
+Following the terms bundled in the user-provided Mia2026 ZIP (RVC girls common terms of use v1.0, 2026-09-04) and
+the user's explicit instruction, **the model, the index and the bundled data are not bundled into the product**.
+The model and the related files are used only in a private validation area outside Git. Exclusion and rejection of Mia2026.pth/.index/.zip/.png
+were added to both the CPU and CUDA specs and to the distribution guard. The tests use fake data.
+
+This time the four pinned HuBERT/RMVPE files were explicitly approved, and 370,392,700 bytes were downloaded and checked against their hashes.
+No new recordings, models or voices were published.
+
+The wheel metadata of the `praat-parselmouth==0.4.6` actually installed says GPLv3. The MIT of the RVC source alone
+is not to be generalized to the whole runtime. An audit of the final distribution conditions of the runtime, including Torch/torchaudio, FAISS, Transformers, NumPy/SciPy,
+librosa, libsndfile and others, is still needed in P5.
+
+## speech.cpp release component (Windows, 2026-11-07)
+
+The Windows build also bundles the official Vulkan `speech.exe` of the pinned speech.cpp 0.10.0 and its notices. The size and SHA-256 of the original ZIP are in the [pinned ledger](speechcpp-bundle-artifacts.json). `speech.dll`, `speech.h` and `speech.lib` in the ZIP are not used, so they are left out. `speech.exe` carries MSVC build information and does not load a dynamic C runtime library, so no GCC runtime is included. The GCC documents are notices for the Linux build and stay in the same set of notices. `vulkan-1.dll` and the GPU driver are not in the release packages.
+
+The RVC and Seed-VC runtimes, the base models and the voice models are not in the release packages on either Windows or Linux. The app's setup feature only downloads them straight from their providers to the PC after the user's consent; it does not redistribute them. The sources are GitHub (uv, Python, the engine itself, ONNX Runtime), PyPI, PyTorch and Hugging Face, and the consent screen shows license links and sizes. From 2026-11-15, the RVC runtime is only ONNX Runtime (plus the NVIDIA libraries for the GPU), and the conversion is done by the bundled `astarot-rvc-worker` ("Bundled RVC worker" above). Up to 0.4.x, the Windows release packages contained the GPL-3.0-only adapter in `_internal/voice_worker/integrations/seed_vc/`, and the license documents of the frozen Python packages in `_internal/licenses/python/`. The core in 0.5.0 does not prepare the Seed-VC runtime; it downloads only the RVC runtime, from NuGet (ONNX Runtime; GitHub until 2026-11-18), PyPI (the NVIDIA libraries) and Hugging Face (the base models) (`native/voice-conversion/src/runtime.rs`). The contents of the 0.5.0 release packages are in the "Python no longer bundled" section below.
+
+The Linux release packages have had the same setup feature since 2026-11-11 (the statements about uv and Seed-VC below apply up to 0.4.x). The uv it downloads is the official Linux release (x86-64, glibc build), with its version, size and SHA-256 pinned. For this, hash-pinned dependency lists (`requirements-cuda.lock`, `requirements.lock`) and the Seed-VC patch (`offline-loader.patch`, GPL-3.0-only) were added to `_internal/integrations/seed_vc/` (and, until 2026-11-15, to RVC's `_internal/integrations/rvc/` as well). PyTorch for Linux (the CUDA build) downloads the NVIDIA libraries as separate packages (`nvidia-*-cu12` and others). These also follow NVIDIA's licenses and are not in the release packages.
+
+## speech.cpp release component (2026-10-29)
+
+The official Linux CPU/Vulkan ZIPs of the pinned 0.9.0 are checked against their size and SHA256, and only the executables and the notices are extracted.
+See the [pinned artifact ledger](speechcpp-bundle-artifacts.json) and the [results of checking the actual files](speechcpp-bundle-report.md).
+The [set of notices](../../licenses/speech.cpp/NOTICE.md) keeps the MIT of speech.cpp/GGML/cpp-httplib,
+the dual license of miniaudio, and the GPLv3 + Runtime Library Exception 3.1 of the static GCC runtime.
+The executable as a whole is not to be described by speech.cpp's MIT alone. The OS libc, Vulkan loader and driver are outside the component.
+Models, reference voices, Mia2026 and VC runtimes are not included. Missing or altered license texts are checked automatically.
+The check of this component is not treated as completing the distribution audit of the whole app or of other VC runtimes. It is unpublished.
+
+On 2026-10-31 the pinned version was updated to 0.10.0 (commit 06590811a90041f935a470ba0e2b85346d2fc041). The license texts of speech.cpp/cpp-httplib/miniaudio/GGML are identical to those of 0.9.0, vendor is unchanged, and GGML was updated to submodule 700c9d743ed7cc583c0f1b6507afebb6c0e88bc0. The GCC of the official Vulkan executable is the same Ubuntu 11.4.0-1ubuntu1~22.04.3. No new third-party code is bundled.
+
+On 2026-11-15 the pinned version was updated to 0.11.0 (commit 8d18924cd238b87c0297df112f7ff40783a6414f). The three official ZIPs (Linux CPU, Linux Vulkan, Windows Vulkan) matched both the release's `SHA256SUMS` and the digests that GitHub shows. The license texts of speech.cpp/cpp-httplib/miniaudio are identical to those of 0.10.0, and vendor is unchanged. GGML was updated to submodule 79b50d239d0b88852814c873db0d85d43ed66d9b of speech.cpp's fork ([nyosegawa/ggml](https://github.com/nyosegawa/ggml)), and its license text is identical. The fork had been in use since 0.10.0, so the URLs of the original sources in the notices and the ledger were also changed to the fork. The GCC of the Linux executables is the same Ubuntu 11.4.0-1ubuntu1~22.04.3, the required glibc is still 2.34, and the only libraries loaded dynamically are libc, libm and (for the Vulkan build) libvulkan. The Windows `speech.exe` carries MSVC build information, loads only standard Windows DLLs and `vulkan-1.dll`, and does not load a dynamic C runtime library. No new third-party code is bundled. The speech enhancement (RE-USE) and dialogue (Haru-4B) models added in 0.11.0 are not used by the app and are not among the download candidates.
+
+On 2026-11-22 the pinned version was updated to 0.11.2 (commit cc16a71e46ee3324ca07f9df4d90ce43622ae598). 0.11.2 was published on 2026-11-21, and it was taken in by the decision of 2026-11-22 as an exception to the rule of waiting 14 days after publication (`docs/development.md`) (#556; the aim was to get an upstream change that finalizes utterances sooner into the 0.6.0 stable release). The three official ZIPs (Linux CPU, Linux Vulkan, Windows Vulkan) matched both the release's `SHA256SUMS` and the digests that GitHub shows. The license texts of speech.cpp/cpp-httplib/miniaudio and vendor are unchanged from 0.11.0, and the GGML submodule is still 79b50d239d0b88852814c873db0d85d43ed66d9b. The GCC of the Linux executables is the same Ubuntu 11.4.0-1ubuntu1~22.04.3, the required glibc is still 2.34, and the only libraries loaded dynamically are libc, libm and (for the Vulkan build) libvulkan. The Windows `speech.exe` loads only standard Windows DLLs and `vulkan-1.dll`. No new third-party code is bundled. The model catalog (`speech models --json`) is the same as in 0.11.0 apart from the version number. The WebAssembly build added in 0.11.2 is not bundled.
+
+## The two speech.cpp builds on Linux (0.5.0, 2026-11-16)
+
+From 0.5.0, there is one Linux release package (tar.gz, AppImage, deb, rpm) per architecture, and it contains both the CPU and the Vulkan build of speech.cpp. The Vulkan build is in `_internal/build/speechcpp/` and the CPU build in `_internal/build/speechcpp-cpu/`, each with its own `bundle.json` and set of notices made from the ZIP in the pinned ledger. Which one is used depends on the inference device in the settings (item 5 of the decisions needed in [core integration](core-integration.md)). The two executables come from the official ZIPs of the same release (0.11.0, commit 8d18924cd238b87c0297df112f7ff40783a6414f), and the notice texts are the same. No new third-party code is bundled. The CPU build loads only libc and libm dynamically, not the Vulkan loader. The Vulkan build loads libvulkan, but the loader and the driver are still not in the release packages. In deb and rpm, the Vulkan loader moved from required to recommended (item 48 of the decisions needed). On Windows, the official Windows build is Vulkan only, so only the Vulkan build is included, as before.
+
+## Download conditions for the built-in CTranslate2 models
+
+Local Whisper (faster-whisper) was removed in #288, and downloading the Whisper weights (the CTranslate2 conversions by Systran, Zoont and deepdml based on OpenAI's MIT models) stopped with it. Weights downloaded by earlier versions are not read, and users can delete them under Settings → Speech recognition (ASR). The providers stay listed in [NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions). faster-whisper was removed from the dependencies (`pyproject.toml`, `uv.lock`; PyAV went with it), and `onnxruntime`, which voice activity detection (the bundled Silero VAD) and OCR use, became a direct dependency. No dependency needs PyAV any more, but the stand-in module in `packaging/pyinstaller-stubs/av` and the rejection of PyAV and x264/x265 by the distribution policy stay as a defense (the stand-in module was removed together with the PyInstaller steps in 0.5.0). CTranslate2 and its extra CUDA dependencies stay, because local translation uses them.
+
+For CTranslate2 translation, M2M100 and its tokenizer files are MIT, and NLLB and its tokenizer files are CC-BY-NC-4.0 (non-commercial). The [list in NOTICE](../../NOTICE.md#downloadable-ctranslate2-translation-weights) is the reference. Non-commercial models are not made the default.
+
+Downloading a built-in model, including a selected NLLB and the tokenizer in the same set, requires explicit consent to the model and to the pinned list. Downloads at startup are limited to versions with a record of that consent. The tokenizer uses the pinned files in the CTranslate2 conversion repository, and their size and SHA-256 are verified. They are counted in the total size on the confirmation screen, and a change of download source requires consent to the manifest again. The license conditions do not change. This addition does not claim permission to distribute or that integrity verification is complete. For details of the download screen and the migration, see [model downloads](model-downloads.md#内蔵ctranslate2と文章分割ファイル).
+
+Python is no longer bundled from 0.5.0, so the `ctranslate2` wheel (which contains Intel MKL and oneDNN) is gone from the release packages too. The core does not read weights downloaded by earlier versions and deletes them after startup (the decisions already made in [core-integration.md](core-integration.md)).
+
+### Candidate engines for local translation (2026-11-16)
+
+Open-source software that the core could use for local translation was compared (item 1 of the decisions needed in [core-integration.md](core-integration.md)). None of it is in the app yet. The dependency and license register, NOTICE and the list from `tools/rust_licenses.py` do not change.
+
+| Candidate | Engine license | Model license | Handling |
+|---|---|---|---|
+| `native/translate-onnx` (`ort`, ONNX Runtime, `tokenizers`) | ASTAROT's code (MIT). `ort` is MIT OR Apache-2.0, ONNX Runtime is MIT, `tokenizers` is Apache-2.0 | M2M100 is MIT, NLLB-200 is CC-BY-NC-4.0 (not made the default) | **Adopted** (2026-11-16). Added to the app. Models were published on 2026-11-19 and 2026-11-21 ("Published models (2026-11-19, #687)" and "Publication of NLLB-200 distilled 1.3B (2026-11-21)" below). Users check the licenses of models they place themselves |
+| `ct2rs` 0.11.2 (bundles CTranslate2 4.8.5 and builds it statically) | `ct2rs`, `ct2rs-sys` and CTranslate2 are MIT. The bundled cpu_features and ruy are Apache-2.0, and spdlog is MIT. oneDNN (`onednn-src`) is Apache-2.0, and SentencePiece (`sentencepiece-sys`) is Apache-2.0 | The existing CTranslate2 weights (same as the list above) | Candidate. If it is added, the license texts of the libraries built from C++ source would have to be collected outside the list from `tools/rust_licenses.py` |
+| The `mkl` feature of `ct2rs` (Intel oneMKL) | Intel's EULA (redistributable, but not open source) | Same as above | Not measured. If it is added, write the EULA conditions into the ledger |
+| `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | No implementation of M2M100 or NLLB. Opus-MT is CC-BY-4.0, MADLAD-400 is Apache-2.0 | Dropped from the candidates because it needs the models to be obtained again and a quality check |
+| `fxtranslate` 0.5.0 | MPL-2.0 | Firefox's translation models (the author asks that they be redistributed by whoever uses them) | Dropped from the candidates because it only covers pairs with English and needs the models redistributed |
+| Bergamot (translateLocally, `marek_translate_locally` 1.0.1) | AGPL-3.0-or-later | ― | **Excluded**, because the AGPL would extend to the distribution conditions of the whole app |
+
+### Candidate models for local translation and how NLLB is handled (2026-11-18, #277)
+
+To consider whether to replace NLLB (an undecided item of #288), the licenses of the candidate models for local translation were checked. The license is the `license` field of the model card that the Hugging Face API (`/api/models/<repository>`) returned on 2026-11-18, and the version is the `sha` at that time. For cards without that field, the license file in the repository was read. How the check was done and the technical considerations are in [Local translation on the GPU and preparing publication](local-translation-gpu-2026-11-18.md).
+
+This work added neither models nor dependencies to the release packages. `NOTICE.md` and the list of Rust dependencies do not change.
+
+| Model | Repository and version | License | Commercial use | Runs on the current `native/translate-onnx` | Handling |
+|---|---|---|---|---|---|
+| M2M100 418M, 1.2B | `facebook/m2m100_418M`@`55c2e61b`, `facebook/m2m100_1.2B`@`7b361841` | MIT | Allowed | Yes | Adopted. The default is 418M. The int8 of 418M was published on 2026-11-19 |
+| NLLB-200 distilled 600M, 1.3B, 3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`, `-1.3B`@`7be3e246`, `facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | Not allowed | Yes | Adopted. Not made the default; when a user chooses it, the non-commercial license is shown and consent is obtained. The int8 of distilled 600M was published on 2026-11-19 (decision 78), and the int8 of 1.3B on 2026-11-21. 3.3B is not published (decided on 2026-11-20) |
+| MADLAD-400 3B MT, 7B MT | `google/madlad400-3b-mt`@`fa184c67`, `google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | Allowed | No (T5 architecture) | Candidate. Support for the T5 architecture and SentencePiece unigram would have to be added. 3B has about 2.9 billion parameters |
+| SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | Allowed | Partly (the target-language token is attached on the source side) | Candidate. About 330 million parameters |
+| mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | The model card does not state a license | Cannot be confirmed | No (MBart architecture) | Out of scope, because the license cannot be confirmed |
+| Opus-MT (`ja-en` and others) | `Helsinki-NLP/opus-mt-ja-en`@`0770961a` | Apache-2.0 (this card; some newer Tatoeba models are CC-BY-4.0) | Allowed | No (Marian architecture) | Out of scope. Each language pair needs its own model |
+| SeamlessM4T v2 | `facebook/seamless-m4t-v2-large`@`5f8cc790` | CC-BY-NC-4.0 | Not allowed | No | Out of scope |
+| TranslateGemma 4B | `google/translategemma-4b-it`@`10042cb0` | Gemma Terms of Use (downloading requires agreeing to the terms) | Allowed within the terms (the text of the terms was not read this time) | No (decoder-only LLM) | Usable with the current providers (Ollama, LM Studio, OpenAI-compatible). Building it in would need a separate review as a runtime of the translation catalog in #413. The terms and how to take it in are in "TranslateGemma (2026-11-18, #412)" below |
+| Hunyuan-MT 7B | `tencent/Hunyuan-MT-7B`@`9305c783` | Tencent Hunyuan Community License. Not effective in the European Union, the United Kingdom and South Korea (the top of `License.txt`) | Regional restrictions | No | Same as above. Not suited to the catalog because of the regional restrictions |
+| PLaMo 2 translate | `pfnet/plamo-2-translate`@`7546b474` | PLaMo Community License | Conditional (the text was not read this time) | No | Same as above |
+| Aya Expanse 8B | `CohereLabs/aya-expanse-8b`@`5062468b` | CC-BY-NC-4.0 | Not allowed | No | Out of scope |
+
+What was checked about NLLB's CC-BY-NC-4.0:
+
+- Copies and modified versions may be distributed if the author, the license and the changes are shown. It cannot be used in ways primarily intended for commercial advantage (NonCommercial).
+- ASTAROT does not make NLLB the default, and it shows the non-commercial license and obtains consent when a user chooses it (the policy since 2026-11-14). If it is published, the model card states the original model and its version, CC-BY-NC-4.0 and what was changed (export to ONNX and quantization). `tools/translation_onnx/publish.py stage` writes this.
+- The app cannot tell whether a user's use is within non-commercial bounds.
+
+#### Rules for listing NLLB-200 in the catalog (2026-11-18, #411)
+
+When a model is published and added to `native/ops/data/translation_models.json` with `publish.py catalog --write`, its id becomes as follows (`<model>-onnx-<variant>` in lower case, with `_` and `.` turned into `-`). The sizes are the int8 values in the section on model sizes in `tools/translation_onnx/README.md`, not the sizes of published files.
+
+| Planned id | Original model | Size (int8) |
+|---|---|---|
+| `nllb-200-distilled-600m-onnx-int8` | `facebook/nllb-200-distilled-600M` | 643 MB |
+| `nllb-200-distilled-1-3b-onnx-int8` | `facebook/nllb-200-distilled-1.3B` | 1,402 MB |
+| `nllb-200-3-3b-onnx-int8` | `facebook/nllb-200-3.3B` | 3,380 MB |
+
+It was decided not to publish 3.3B (2026-11-20, #803), and it was also removed from the app's list of built-in models (2026-11-21, #565). Its planned id above is not used.
+
+- The license is non-commercial, so it is not made the default model.
+- Downloading needs, separately from the usual consent, a confirmation that use is limited to non-commercial purposes. The `restrictions` of a catalog row are determined from the license string; for CC-BY-NC-4.0 it is `non_commercial`. The confirmation screen shows the license name and asks for a second checkbox, and if the start request lacks that confirmation (`acknowledged`), the download is refused without writing anything (`model_download_restriction_unacknowledged`). The mechanism is in [model downloads](model-downloads.md#非商用のライセンスの確認).
+- The confirmation when a user chooses the model (the NLLB confirmation in the translation settings and the core's `WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`) stays. It is asked for again, separately from the confirmation at download.
+
+The original weights (`model.safetensors`) of MADLAD-400 3B MT in the table above are 11,761,587,872 bytes. The license is Apache-2.0, so no extra confirmation is needed when it is listed.
+
+Records of published models are added to this section when the published version and the SHA-256 of the files are pinned in `native/ops/data/translation_models.json`.
+
+#### Published models (2026-11-19, #687)
+
+By decision 78 (2026-11-19), the int8 of NLLB-200 distilled 600M and of the default M2M100 418M were published and added to the catalog. Both were exported with `tools/translation_onnx/export.py` and published with the model card from `publish.py stage` (the original model and its version, the author, the license, the changes and the SHA-256 of each file). The size and SHA-256 of each file are pinned in `native/ops/data/translation_models.json`.
+
+| Catalog id | Published at, with version | Original model | License | Size (all files) | Handling |
+|---|---|---|---|---|---|
+| `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT (`LICENSE` includes fairseq's MIT text) | 505,722,914 bytes | The default model |
+| `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0 (non-commercial) | 642,621,286 bytes | Not the default. A non-commercial confirmation is required before download. A note on the download screen (`translation_nllb_600m`) shows the size and the memory used during translation (about 1.4 GiB) |
+
+3.3B is not published (decided on 2026-11-20; decision 78 stands).
+
+#### Publication of NLLB-200 distilled 1.3B (2026-11-21)
+
+On 2026-11-21, it was decided to publish the int8 of NLLB-200 distilled 1.3B. The material for the decision is in the section on the English and Japanese check (2026-11-20) in `tools/translation_onnx/README.md`. Before publishing, the license was checked from the same three angles as the other models: whether it can be used free of charge, whether it has restrictions such as non-commercial use, and whether it fits the way the catalog distributes models, downloaded from the catalog with consent.
+
+- The `license` field of the model card of the original model `facebook/nllb-200-distilled-1.3B`@`7be3e24664b38ce1cac29b8aeed6911aa0cf0576` was `cc-by-nc-4.0`. This is the value the Hugging Face API returned on 2026-11-21, and the body of the card also says "License: CC-BY-NC". There is no access restriction (gated), and downloading needs no login and no agreement to terms of use.
+- Free of charge: CC-BY-NC-4.0 is a royalty-free license, so the model can be used free of charge.
+- Restrictions: use is limited to non-commercial purposes (NonCommercial). The license is the same as that of 600M, so "Rules for listing NLLB-200 in the catalog" above applies as it is. The model is not made the default, a non-commercial confirmation is required before download, and the confirmation when a user chooses it stays.
+- Distribution: the converted model (export to ONNX and int8 quantization) is distributed under the same license, with the author, the license and the changes shown. The model card from `publish.py stage` writes these. The card came out with the same text as the 600M card except for the line breaks. This fits the current catalog, which downloads files one at a time from a pinned version on Hugging Face.
+- The "Intended Use" of the original model's card says it is a research model and was not released for production deployment. This is not a license condition. The 600M card has the same sentence, and the only differences between the two cards were the version tag and the links to metrics. How to treat this sentence was left to the decision in the publishing pull request.
+- From the above, it was judged that nothing stands in the way of publication.
+
+After the check, the model was exported with `export.py`, published with the model card from `publish.py stage`, and added to the catalog. The files of the published version were downloaded again without a token, and their sizes and SHA-256 were confirmed to match the catalog.
+
+| Catalog id | Published at, with version | Original model | License | Size (all files) | Handling |
+|---|---|---|---|---|---|
+| `nllb-200-distilled-1-3b-onnx-int8` | `kein5/nllb-200-distilled-1.3B-onnx-int8`@`12e90eb5cf137f1312d3b57037f6d904c43102f7` | `facebook/nllb-200-distilled-1.3B`@`7be3e246` | CC-BY-NC-4.0 (non-commercial) | 1,401,617,741 bytes | Not the default. A non-commercial confirmation is required before download. A note on the download screen (`translation_nllb_1_3b`) shows the size and the memory used during translation (about 2.6 GiB) |
+
+### TranslateGemma (2026-11-18, #412)
+
+As a candidate for the translation catalog, it was examined in more detail than its row in the table above. **It is not listed.** The catalog (`native/ops/data/translation_models.json`), NOTICE and the list from `tools/rust_licenses.py` do not change. No weights were downloaded, and the sizes are the values that the Hugging Face and Ollama registry APIs returned on 2026-11-18. A comparison of the routes and of how to get the weights is in [How to use TranslateGemma for translation](translategemma.md).
+
+| Item | Details |
+|---|---|
+| Model | Google's LLM for translation. Decoder-only and based on Gemma 3, in 4B, 12B and 27B sizes. The model card covers 55 languages |
+| License | The Gemma Terms of Use (version of 2026-04-01, with TranslateGemma in an appendix) and the Gemma Prohibited Use Policy (version of 2024-02-21), which section 3.2 incorporates into the terms. Not an OSI license. The restrictions on prohibited uses also apply to the people who use the model |
+| Official weights | [google/translategemma-4b-it](https://huggingface.co/google/translategemma-4b-it/tree/10042cb0e6e7fdce748996a71dc3dc432a4e0c89) @ `10042cb0e6e7fdce748996a71dc3dc432a4e0c89`, 12b @ `d1b225e1caa17f1ddc7e62065d8637d0923f34e2`, 27b @ `7d10f0b72f89a2d0f268cea30727d8b77c0d25c2`. All three are gated (`gated: manual`), and downloading needs a Hugging Face account and agreement to the terms. They contain only 16-bit safetensors; the weights are 8,600,277,880 bytes for 4B, 24,374,793,024 bytes for 12B and 54,864,980,440 bytes for 27B. The SHA-256 cannot be read without logging in |
+| Third-party conversions | [onnx-community/translategemma-text-4b-it-ONNX](https://huggingface.co/onnx-community/translategemma-text-4b-it-ONNX/tree/f7874a1ac60758872a4f78aac0df95b17b776994) @ `f7874a1ac60758872a4f78aac0df95b17b776994` is not gated, and its q4 is 3,091,548,551 bytes. It shows no license and has no copy of the terms. There are many ungated GGUF conversions as well, but few include a copy of the terms. Ollama's `translategemma:4b` is 3,298,866,368 bytes and has the Gemma Terms of Use as its license layer |
+| Redistribution conditions | Section 3.1: impose the use restrictions as enforceable provisions, give a copy of the terms, mark modified files as modified, and include a `Notice` file containing a set sentence |
+| Handling | Candidate. Not listed in the catalog. If it is listed, it is not made the default. Running it inside the app would need decoder-only generation added to `native/translate-onnx`, and the recommendation was that the project convert the weights and publish them with the terms attached (the maintainer decides on publishing). Do not download from third-party conversions that lack a copy of the terms |
+
+Addition on 2026-11-19: the maintainer decided to run it on the runtime for LLMs (ADR-015). In stage 3, users can add their own GGUF files to the translation catalog and run them with the llama.cpp server (the section below). No built-in entry is listed yet. For translation models downloaded through the catalog that fall under the Gemma terms of use, a confirmation of the terms (`gemma_terms`) is required separately from consent. Irodori-TTS v4 Large does not get this confirmation (on 2026-11-19 it was decided to limit it to translation models). The license and terms links on the consent screen are shown as before.
+
+### The llama.cpp server (2026-11-19, stage 3 of ADR-015)
+
+This is `llama-server`, which runs the translation LLMs. It is not bundled. Only when the user consents does the app download the archive of a pinned release and extract just the needed files into `lib/` of `vc_runtimes/llamacpp-vulkan/`. Only the Vulkan build is offered. The version, size and SHA-256 are in the table in [model downloads](model-downloads.md#llamacppのサーバーの取得).
+
+| Item | Details |
+|---|---|
+| Source | Release b12125 (2026-11-04) of `ggml-org/llama.cpp` on GitHub. Redirected from `github.com` to `release-assets.githubusercontent.com` |
+| llama.cpp and ggml | MIT (Copyright (c) 2023-2026 The ggml authors). The Linux archive carries it as `LICENSE`. The Windows archive does not contain this text, so the confirmation screen links to the `LICENSE` at the tag |
+| `libomp.dll` (Windows only) | LLVM's OpenMP runtime. Apache-2.0 WITH LLVM-exception (older code is dual-licensed under NCSA and MIT). `LICENSE-LLVM-OpenMP` from the archive is extracted into `lib/` |
+| Contents of the server library | Checked from the strings in the binary on 2026-11-19: cpp-httplib (MIT), nlohmann/json (MIT), and on Windows BoringSSL (Apache-2.0 plus the OpenSSL and ISC licenses). The archives do not contain the license texts of these |
+| System libraries used on Linux | `libssl.so.3` and `libcrypto.so.3` (OpenSSL 3, Apache-2.0), `libgomp.so.1` (GPL-3.0 with the GCC Runtime Library Exception), and `libvulkan.so.1` for the Vulkan build. The app neither downloads nor bundles them |
+| Not extracted | The CLI, the quantization and benchmark tools, the RPC server (`ggml-rpc`) and the multimodal tools |
+| Handling | Not in the app's release packages. The user downloads it straight from the provider. The confirmation screen states the license and that it is "not part of the ASTAROT distribution" |
+
+## Bundling Silero VAD (2026-11-15)
+
+The Silero VAD model, which finds speech segments when the microphone and the speaker audio are transcribed, used to be loaded from the copy inside the faster-whisper 1.1.1 package. As groundwork for dropping faster-whisper (#288), the same two files are bundled as part of the app. The probability calculation does not change.
+
+| Item | Details |
+|---|---|
+| Model | [Silero VAD](https://github.com/snakers4/silero-vad) v5. MIT, Copyright (c) 2020-present Silero Team. The license text is the one at tag v5.1.2 |
+| Split into two graphs | [faster-whisper](https://github.com/SYSTRAN/faster-whisper). MIT, Copyright (c) 2023 SYSTRAN. The files of v1.1.1 (commit `9e657b47cb71ed7aa32ce115ef0dca953ca39ae5`) are used unmodified. Checked against the PyPI wheel (SHA-256 `5808dc33…`) |
+| Files | `silero_encoder_v5.onnx` 713,415 bytes, `silero_decoder_v5.onnx` 532,505 bytes. The SHA-256 values are in the [notice](https://github.com/kein5/astarot/blob/v0.5.2/licenses/silero-vad/NOTICE.md) and are checked on every load |
+| Location | `src-python/models/transcription/silero_vad/` in the repository and `_internal/models/transcription/silero_vad/` in the release packages. The license text and the notice are in `licenses/silero-vad/` |
+
+## Outfit (the ASTAROT brand typeface, 2026-11-16)
+
+The ASTAROT brand typeface changed from Space Grotesk to Outfit. The wordmark is made of the outlines of the Outfit Bold glyphs, and the logo subtitle is also set in Outfit. To display the subtitle and similar text, the Outfit font files are bundled with the app (section 3.2 of ADR-011). The bundling is implemented in the P1 UI work, and at this point there are no font files in either the release packages or the repository.
+
+| Item | Details |
+|---|---|
+| Typeface | [Outfit](https://github.com/Outfitio/Outfit-Fonts). SIL Open Font License 1.1, Copyright 2021 The Outfit Project Authors. No Reserved Font Name |
+| License text | `OFL.txt` from upstream commit `902773808eb372f70fb34e8946dd1ffe604efc79` is placed unmodified at `licenses/outfit/OFL.txt`. Google Fonts also takes in this commit |
+| Font used for the wordmark | The static Outfit Bold distributed by Google Fonts (Version 1.100). SHA-256 `cc3235ab6d698be85a2735d1fd59ba8f73b144cb763c00aaf173b68f0471a9c7`. Its outlines differ slightly from those of the upstream static `Outfit-Bold.ttf` |
+| When bundling | Put `OFL.txt` with the font files, and add the file names, version, sizes and SHA-256 to `licenses/outfit/NOTICE.md`. The OFL does not allow selling the fonts on their own, but it allows redistributing them bundled with software. When bundling, include the copyright notice and the license text |
+
+## Candidate models for sound event detection (2026-11-17, #386)
+
+To add annotations such as `[拍手]` (applause) to captions, candidate audio classification models were compared (#386). None of them is in the app yet. No weights were downloaded, and the licenses were checked in the providers' repositories and model cards. The dependency and license register, NOTICE and the catalog do not change.
+
+| Candidate | Weight source | Weight license | What was checked | Handling |
+|---|---|---|---|---|
+| CED-Tiny, CED-Mini | [mispeech/ced-tiny](https://huggingface.co/mispeech/ced-tiny/tree/ace276d29dd0bb3f3517b0fa8cf300738c409019) @ `ace276d29dd0bb3f3517b0fa8cf300738c409019`, [mispeech/ced-mini](https://huggingface.co/mispeech/ced-mini/tree/26c3ebcae85d4330f4fc26763f029539a3afcda0) @ `26c3ebcae85d4330f4fc26763f029539a3afcda0` | Apache-2.0 (as shown on the model card) | `model.onnx` is 6,681,767 bytes for Tiny (SHA-256 `3890f227660be71886ff48633d11a731993e0206db8a486781412c28a0873435`) and 10,890,069 bytes for Mini (SHA-256 `2a86374dbe1fa03e96b0acf6a02618ac71852d12aa3d72a030b062ff1e5c5434`). The repositories have no LICENSE file, and `modeling_ced.py` in the same repository is Apache-2.0 under "Copyright 2023 Xiaomi Corporation and The HuggingFace Inc. team". No login is needed (`gated: false`). The training code ([RicherMans/CED](https://github.com/RicherMans/CED)) is GPL-3.0, so no code is copied from it | **Recommended**. Tiny is the first candidate for bundling. When it is bundled, put the full Apache-2.0 text and the copyright notice above in `licenses/`, and add the file name, revision, size and SHA-256 to NOTICE |
+| EfficientAT (`mn10_as` and others) | GitHub Release `v0.0.1` of [fschmid56/EfficientAT](https://github.com/fschmid56/EfficientAT) | MIT (repository) | No separate conditions are stated for the weights. No ONNX is published, so it would have to be converted in-house | Backup candidate |
+| PANNs (CNN14, MobileNetV1) | [Zenodo 3987831](https://zenodo.org/records/3987831) | CC-BY-4.0 (weights). The code is MIT | Can be bundled with attribution. ONNX would have to be converted in-house | Not taken, because it is worse in accuracy and size |
+| YAMNet | `storage.googleapis.com/audioset/yamnet.h5` ([tensorflow/models](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)) | Apache-2.0 (repository) | The source does not pin a version, and the file can only be read with Keras 2. ONNX would have to be converted in-house | Not taken, because its accuracy is low |
+| BEATs | The OneDrive link in the README of [microsoft/unilm](https://github.com/microsoft/unilm/tree/master/beats) | MIT (repository). No separate conditions are stated for the weights | A OneDrive link cannot pin a version and a hash, so it does not meet the catalog's conditions | Not taken |
+| AST | [MIT/ast-finetuned-audioset-10-10-0.4593](https://huggingface.co/MIT/ast-finetuned-audioset-10-10-0.4593) | BSD-3-Clause | 330 MB. Too heavy to run all the time | Not taken |
+| d1-omni-600M, d1-Omni-2B | [LiquidAI/d1-omni-600M](https://huggingface.co/LiquidAI/d1-omni-600M/tree/02b55d7076f15129e59ab3f94783f32c4b088674) @ `02b55d7076f15129e59ab3f94783f32c4b088674`, [LiquidAI/d1-Omni-2B](https://huggingface.co/LiquidAI/d1-Omni-2B/tree/51918b53052eacfd24062f99f13556c3c56fcf63) @ `51918b53052eacfd24062f99f13556c3c56fcf63`. Official GGUF and ONNX (2B only) versions also exist | LFM Open License v1.0 | See "Conditions of d1" below | Neither the default nor bundled. The maintainer decides whether to list it in the catalog |
+
+**Conditions of d1**: on 2026-11-17, the `LICENSE` of both repositories was read. The texts for 600M and 2B were the same apart from whitespace (600M 10,572 bytes, 2B 10,574 bytes). It is a license based on Apache-2.0, and its redistribution conditions are to give a copy of the license, to mark modified files as modified, and to keep the notices of a `NOTICE` file if there is one (section 4). Under section 5, commercial use by a legal entity with annual revenue of 10 million US dollars or more falls outside the license. This condition applies not only to whoever distributes the model but to each person who uses it. If VRCT-VOX bundled it, users at such entities would be using it without a license. drama-3, which has a revenue condition of the same kind, was also left to the maintainer to decide whether to list it (the "Additional speech.cpp TTS models" section above). It is not an OSI license, so it is not made the default.
+
+**AudioSet labels**: CED, EfficientAT, PANNs, YAMNet, BEATs and AST all return a classification into the 527 classes (521 for YAMNet) of AudioSet, which they were trained on. The AudioSet data is distributed under CC BY 4.0 and its label system (ontology) under CC BY-SA 4.0 ([the AudioSet download page](https://research.google.com/audioset/download.html)). CED's `config.json` contains the label names. When the label list is bundled as a file, write the attribution of the ontology and CC BY-SA 4.0 into NOTICE. None of the model providers deals with the rights to the YouTube audio itself that was used for training.
+
+**Measurements (2026-11-17)**: with approval to download, CED-Tiny, CED-Mini and d1-omni-600M (the official GGUF Q8_0, llama.cpp b12445) were compared on ESC-50. The results are in a comment on #386. The two CED `model.onnx` files matched the sizes and SHA-256 in the table above. ESC-50 ([karolpiczak/ESC-50](https://github.com/karolpiczak/ESC-50) @ `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`) is CC BY-NC 3.0 as a whole, and some clips have conditions of their own. It is used only for evaluation and goes into neither the repository nor the release packages. After the measurement, the ESC-50 and d1 files were deleted.
+
+## Additional speech.cpp TTS models (2026-11-16)
+
+More models can now be chosen for speech.cpp text to speech. None of them is in the release packages. After the user checks the license and size on the consent screen, they are downloaded from a pinned revision on Hugging Face to the PC. The files downloaded are the same as those that speech.cpp downloads under that model name (the default variant in `speech models --json`), and their sizes and SHA-256 were made to match. The revisions, sizes and SHA-256 do not change between 0.10.0 and the bundled 0.11.0.
+
+| speech.cpp name | Catalog ID | Source and revision | Files | License | Handling |
+|---|---|---|---|---|---|
+| `irodori-tts-mf` | `irodori-v41-f16`, `irodori-v41-q8` | Existing | Existing | MIT + Apache-2.0 | No change |
+| `qwen3-tts-0.6b` | `qwen3-06b-q8`, `qwen3-06b-q5` | Existing | Existing | Apache-2.0 | No change |
+| `irodori-tts` | `irodori-v41-small-f16` | [sakasegawa/Irodori-TTS-v4.1-Small-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188) @ `66fe2cde1973fd44e7202fbe36df722103958188` | `Irodori-TTS-859M-v4.1-F16.gguf`, 1,905,903,936 bytes, SHA-256 `f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3` | MIT (model, codec) + Apache-2.0 (the base of the codec) | Added |
+| `irodori-tts-large` | `irodori-v4-large-q8` | [sakasegawa/Irodori-TTS-v4-Large-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b) @ `79cae5947a97e941c62912749e1387c8b35ec16b` | `Irodori-TTS-3.4B-v4-Q8_0.gguf`, 3,875,154,272 bytes, SHA-256 `836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e` | Gemma Terms of Use (including the prohibited use policy) + MIT + Apache-2.0 | Added. Not made the default |
+| `qwen3-tts-1.7b` | `qwen3-17b-q8` | [sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978) @ `a72e6c6575d67652488cdffc1c863215a9899978` | `Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf`, 2,287,780,352 bytes, SHA-256 `1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d` | Apache-2.0 | Added |
+| `drama-3` | None | [sakasegawa/drama-3-GGUF](https://huggingface.co/sakasegawa/drama-3-GGUF/tree/9a01354d04ab6eb521bc9cdfc56ab6824c474af2) @ `9a01354d04ab6eb521bc9cdfc56ab6824c474af2` | The default `Drama-35B-A3B-v3-Q4_K.gguf` is 20,787,264,352 bytes | Fish Audio Community License 1.0 | Out of scope |
+
+None of the repositories needs a login to download (`gated: false` was confirmed through the Hugging Face API on 2026-11-16).
+
+**Irodori-TTS v4 Large**: the encoder that reads the text and the description comes from Google's `google/t5gemma-2-1b-1b`, so the model and the GGUF are distributed under the Gemma Terms of Use. On 2026-11-16, `GEMMA_TERMS_OF_USE.md` and `NOTICE` in the repository were checked. These terms do not separate commercial from non-commercial use, and they allow redistribution. Redistribution has conditions: give a copy of the terms, impose the restrictions on prohibited uses on recipients as binding terms, mark modified files as modified, and include the `NOTICE` text (section 3.1). Google can restrict use that it believes violates the terms (section 3.2). ASTAROT does not redistribute the files; users download them straight from the provider, so the redistribution conditions do not apply. The prohibited use policy does, however, extend to how users use the model. So the consent screen states that use follows the Gemma terms and the prohibited use policy, and it shows separate links to `GEMMA_TERMS_OF_USE.md`, `GEMMA_PROHIBITED_USE_POLICY.md`, `LICENSE-MIT` and `LICENSE-APACHE-2.0`. It is not an OSI license, so the model is not made the default and was put at the end of the list. The model card also prohibits imitating voices without permission, impersonation and generating misinformation. According to the model card, the official runtime adds an inaudible watermark (SilentCipher), but speech.cpp does not.
+
+**Why drama-3 was left out**: the Fish Audio Community License 1.0 (version of 2026-10-13) was read on 2026-11-16. Research and non-commercial use are free, but commercial use is allowed only while annual revenue is below 500,000 US dollars. In addition, anyone who lets third parties use the speech synthesis must impose restrictions at least as strict as the license on them as binding terms, and must display "Built with Fish Audio" prominently in the product or its description. If ASTAROT guided users to download the model, someone would have to judge who bears these obligations. That judgment is not made unilaterally. Even the default variant is 20.79 GB, and upstream measurements show about 21 GiB of GPU memory in use, which does not fit the premise of running alongside VRChat. The maintainer decides whether to list it after checking the conditions.
+
+The consent screen now shows the links to the license files on Hugging Face by file name. Even when one model has several conditions, it is clear which document is which.
+
+## Candidate RVC voice models (2026-11-17, #383)
+
+Candidate RVC voice models to add to the catalog were surveyed. This was only a survey; the catalog (`catalog.py`, `native/ops/src/downloads/catalog.rs`) was not changed. These are the three points that were checked:
+
+- License: whether the model can be used free of charge, and whether it has restrictions such as non-commercial use.
+- Distribution: whether it fits downloading from the provider with the user's consent. The current catalog downloads files one at a time from a pinned revision on Hugging Face and does not extract ZIPs (`HOSTS` in `native/ops/src/downloads/transport.rs`).
+- Voice rights: whose voice was used for training, and whether that person gave permission. Models trained on the voices of people or characters without permission are out of scope.
+
+The sizes and SHA-256 of Hugging Face files are the LFS values that the API showed, read on 2026-11-17. The sizes of ZIPs on authors' servers are the `Content-Length` of HEAD responses. No files were downloaded in either case.
+
+### Models that fit the catalog and wait for a decision
+
+| Model | Source and revision | Files | License | Origin of the voice | Handling |
+|---|---|---|---|---|---|
+| Saisho Utane · RVC v2 (the existing `rvc-saisho`) | [Saisho-Utane/Saisho-Model-RVC](https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/tree/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a) @ `7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a` | Unchanged ([model downloads](model-downloads.md#固定カタログ)) | CC BY 4.0 | The author's own voice and the author's own dataset (the author's card) | Stays listed. On 2026-11-17 the latest revision of the repository was still this value |
+| 愛想良い系少女の声 5種風味パック (a pack of five flavors of a friendly girl's voice; ちはや神社, made by 鶴乃) | [aa444rt/RVC_V2_models_5_japanese_womens](https://huggingface.co/aa444rt/RVC_V2_models_5_japanese_womens/tree/944f947d44a77b7f67509cd4f8f30333a1009548) @ `944f947d44a77b7f67509cd4f8f30333a1009548`. A re-upload by a third party | `V2-AISO-HOWATTO.pth` 55,074,309 bytes `8fc32652b8ec472615af3f6661a50a195dd54990e0f517bd0dbd66db59813146`, `V2-AISO-KAKKOII.pth` 55,074,309 bytes `ae33b60655a59ecb37135892ed4a95ba326b412d6589dea251fced95e18aef31`, `V2-AISO-SARASARA.pth` 55,074,757 bytes `ff8c3058dc6ef17f46bd178190cd38fdf46fc06f1d47c12fae55a0cc54398a4e`, `V2-AISO-SITTORI.pth` 55,074,309 bytes `7696d020ced92d9d5502ca40943ee7d35120988a92b70909fa099fc4e24a8477`, `V2-AISO-SYAKITTO.pth` 55,074,757 bytes `569257d45848dada4ba604dfb9a60496d3043eb112e82c81d71eb37be942be50`. The shared `.index` is a dummy (2,556,043 bytes, on the assumption that the search ratio is set to 0) | MIT (models, index, icon, sample audio) | The bundled `説明書.txt` says it is the voice of a person who does not exist, made by merging recordings of the conversation of 10 women, all of whom made a "AI化、NSFW、R18Gを含めた著作権関係の放棄" (waiver of copyright-related rights, including AI use, NSFW and R18G) | Waiting for a decision (1 below) |
+| Nepali RVC Voices v1 (4 voices) | [ampixa/nepali-rvc-voices-v1](https://huggingface.co/ampixa/nepali-rvc-voices-v1/tree/f9b58227fcb9e85b2435b514947d8c672e40dee1) @ `f9b58227fcb9e85b2435b514947d8c672e40dee1` | `voices/ne_rvc_{f01,f02,m01,m02}/*_v1.pth` at 57,584,861 bytes each, and `.index` files of 200,923,939 to 274,905,539 bytes. The SHA-256 values match `voices.json` in the repository | CC BY 4.0 (models). The training data, [IndicVoices-R](https://huggingface.co/datasets/ai4bharat/indicvoices_r), is also CC BY 4.0 | Anonymous speakers of IndicVoices-R. The [paper](https://proceedings.neurips.cc/paper_files/paper/2024/file/7dfcaf4512bbf2a807a783b90afb6c09-Paper-Datasets_and_Benchmarks_Track.pdf) says explicit consent was obtained from the speakers for the original IndicVoices. The card prohibits presenting the voices as real people and deceiving listeners | Waiting for a decision (2 below) |
+
+### Models whose distribution does not fit the current catalog
+
+| Model | Source | License and distribution conditions | Origin of the voice | Handling |
+|---|---|---|---|---|
+| [つくよみちゃん公式RVCモデル](https://tyc.rei-yumesaki.net/work/software/rvc/) (Tsukuyomi-chan official RVC model) 1.0.0 | A ZIP on the author's server (`tyc-rvc.zip`, 255,700,053 bytes, checked with HEAD) | [Its own terms](https://tyc.rei-yumesaki.net/work/software/rvc/terms/). Free of charge for individuals and companies, commercial or not. Credit is required. Redistributing it on its own and unmodified is prohibited in principle. Bundling it with one's own software is allowed on condition of a link to the distribution page, inclusion of the terms, treating it as a free extra, and showing an explanation and the credit before use. It cannot be used for political or religious activities, attacks on real people and similar purposes | The author, 夢前黎 (Rei Yumesaki), trained it only on their own voice (the terms page) | The source is not Hugging Face and the file is a ZIP, so the current mechanism cannot download it (3 below). It has usage restrictions, so it is not made the default |
+| [あみたろの声素材工房のRVCモデル](https://amitaro.net/synth/rvc/) (the RVC models of Amitaro's voice material workshop; はきはき, るんるん, よふかし, ささやき) | A ZIP on the author's server (はきはき is 421,620,163 bytes, checked with HEAD) | Free of charge including commercial use; credit is required. Prohibits resale, redistribution and registering the models with third-party services. Asks to be consulted in advance about building them into one's own software. They cannot be used for sexual expression and similar purposes | Amitaro trained them on their own readings of their own corpus | Not added, because the rights holder has not been consulted (4 below) |
+| [RVC_v2_Rio](https://huggingface.co/Alpha-Humana/RVC_v2_Rio/tree/ffcb30eb5994e5d8162abb59887d94ff08dc8b60) 1.1 | A ZIP on Hugging Face (`RVC_v2_Rio_1.1.zip`, 85,711,967 bytes, `57a904d565ee3520a81f872f4d7e59d6916fb9f6b4fdedc907e65dad370f577f`) | CC BY 4.0 | The card only says "my own voice" (male, mid-20s) | It is a ZIP, so the current mechanism cannot download it (3 below). The card is short, and the only statement on the origin of the voice is one sentence by the author |
+| [黄琴まひろ RVC学習済モデル](https://booth.pm/ja/items/5014978) (Kikoto Mahiro trained RVC model) 4.0.0 | A ZIP on BOOTH (downloading needs a login) | [The individual terms of use of れぷりかどーる](https://replicadoll.studio.site/terms-of-service/rvc). The page is rendered by script, and its text could not be read. According to search excerpts, the terms allow commercial use and redistribution built into software | The author voices the character. The breakdown of the training data and the permission of its contributors could not be confirmed | On hold. Not added until the text of the terms and the training data are checked |
+| [Models of VCTK speakers](https://huggingface.co/Nekochu/RVC-VCTK_Voice-sample) (Nekochu) | A standalone `.pth` and `.index` on Hugging Face. The format fits | The card says Apache-2.0. The training data, [VCTK 0.92](https://datashare.ed.ac.uk/handle/10283/3443), is CC BY 4.0, but the card has no attribution to VCTK | VCTK speakers. The corpus was made for research on voice cloning, but no primary source showing the scope of the speakers' consent was found | On hold (5 below) |
+
+### Models ruled out
+
+| Model | Reason |
+|---|---|
+| The VCClient samples (つくよみちゃん, あみたろ, 黄琴まひろ, 黄琴海月 and 刻鳴時雨 in [wok000/vcclient_model](https://huggingface.co/wok000/vcclient_model)) | Every `terms_of_use.txt` says "本モデルは、VCClient上でのみ使用可能です。" (this model can be used only on VCClient) |
+| [RinneVoiceSet](https://huggingface.co/RinneAi/RinneVoiceSet) | Prohibits secondary distribution of the voice models. Says nothing about whose voice it is or about consent. ZIP only |
+| [The RVC model of 刻鳴時雨 (Shigure Tokina)](https://huggingface.co/yasyune/Shigure_Tokina_RVC) (yasyune) | The model has no license. It was made by a third party who is not the rights holder. The addendum to the corpus allows distribution only of models trained with the voice pitch changed and of merged models |
+| [RVCgirls/RVC-japanese](https://huggingface.co/RVCgirls/RVC-japanese) | The contents are runtime packages (ZIPs of 4 to 18 GB), not voice models |
+| [kuwacom/RVC-Models](https://huggingface.co/kuwacom/RVC-Models) | The card limits them to private use |
+| The rest of the Hugging Face search results whose license is shown as CC0, CC BY, MIT or Apache-2.0 (460 on 2026-11-17) | Most carry the names of anime or game characters, singers, streamers and the like, and show no permission from the person or the rights holder. A license label does not show the rights to the voice used for training |
+
+### Decisions needed
+
+1. Whether to list the five AISO voices. The license and the voice contributors' waiver of rights are in the bundled `説明書.txt`. However, the original [BOOTH page](https://chihaya369.booth.pm/items/4701666) was private on 2026-11-17, so it cannot be confirmed that the Hugging Face re-upload is the same as the original distribution. The waiver of rights rests only on the distributor's statement. They are 40 kHz v2 models that do not use F0, an architecture that `native/rvc-runtime` has only tested with random weights, so if they are listed, check them by listening to the real models.
+2. Whether to list Nepali RVC Voices v1. The license and the record of consent are in place. However, the consent was obtained for the original IndicVoices (speech recognition data), and the paper does not show whether it was explicit consent to voice cloning. The author describes the models as an 80-epoch prototype, and their quality with Japanese input is unconfirmed. If they are listed, write the attribution to ampixa and IndicVoices-R on the consent screen and in [NOTICE](../../NOTICE.md).
+3. Whether to add downloads of ZIPs and downloads from authors' servers. Tsukuyomi-chan and Rio cannot be listed without them. If they are added, design the added download hosts, the pinned size and SHA-256 of each ZIP, and the list and checks of the files to extract, in both `transport.rs` and the catalog. For Tsukuyomi-chan, the explanation and the credit that the terms require must also be shown before use.
+4. Whether to consult the rights holders (Amitaro and others). Rights holders are not contacted until there is an instruction to do so.
+5. How to handle the VCTK speaker models. On hold until material showing the scope of the speakers' consent is found.
+
+## Speaker diarization model (2026-11-13)
+
+To tell speakers apart in captions of game audio, Nemotron 3 Diarization (Q8_0) was added to the downloadable models. It is not in the release packages. After the user checks the consent screen, it is downloaded from a pinned revision on Hugging Face to the PC.
+
+| Item | Details |
+|---|---|
+| Provider | NVIDIA ([nvidia/Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization)). The GGUF conversion is by sakasegawa |
+| Source | [sakasegawa/Nemotron-3-Diarization-GGUF](https://huggingface.co/sakasegawa/Nemotron-3-Diarization-GGUF/tree/9096d41cb78bba7ac882b96d453e25239eac692b) @ `9096d41cb78bba7ac882b96d453e25239eac692b` |
+| File | `Nemotron-3-Diarization-99M-Q8_0.gguf`, 106,179,488 bytes, SHA-256 `336df6350dce2ea5ff06aa6e2b249d331a859ced13305fbb45c44bdb3c0abe20` |
+| License | [OpenMDW-1.1](https://openmdw.ai/license/1-1/). The repository has `LICENSE.OpenMDW-1.1`. Downloading needs no login |
+
+On 2026-11-13, the text of OpenMDW-1.1 was read. It permits handling the model and related materials without restriction, on condition that copies of the agreement and the copyright and origin notices are kept when distributing them. The license ends for anyone who brings a lawsuit claiming patent or copyright infringement. It places no restrictions or obligations on the use of outputs. ASTAROT does not redistribute this model, so the distribution conditions do not apply. The consent screen shows links to the model card and to the license text in the repository.
+
+The original model card does not list Japanese in the training data. Neither the provider nor the converter has published its accuracy for Japanese. These conditions and the results of local tests are recorded in [Choosing and testing speaker diarization](speaker-diarization-2026-11-13.md).
+
+Among the candidates, Streaming Sortformer v2.1 (NVIDIA Open Model License) and Multitalker Parakeet (same license) were not adopted. Sortformer v1 (CC-BY-NC-4.0) is non-commercial, so it was dropped from the candidates. The pyannote models need a login and agreement to terms of use to download, so they cannot be listed in the catalog.
+
+## speech.cpp speech recognition models (2026-11-16)
+
+Seven recognition models that the bundled speech.cpp 0.11.0 supports were added to the downloadable models (31 entries, one per quantization type). They are not in the release packages. After the user checks the consent screen, they are downloaded from a pinned revision on Hugging Face to the PC. The revisions, sizes and SHA-256 are the values in speech.cpp's catalog, and the table per model is in [licenses/speechcpp-models/NOTICE.md](../../licenses/speechcpp-models/NOTICE.md).
+
+| Model | License | What was checked |
+|---|---|---|
+| Qwen3-ASR 0.6B / 1.7B | Apache-2.0 | The GGUF version's card matches the card of the original model (Qwen) |
+| ReazonSpeech v2 | Apache-2.0 | Matches the original model (reazon-research). The corpus used for training has separate conditions, but it is neither downloaded nor provided |
+| Parakeet TDT-CTC 0.6B ja | CC BY 4.0 | Matches the original model (NVIDIA). Sharing the model requires credit and a link to the license. The note on the consent screen says so |
+| Parakeet TDT 0.6B v3 | CC BY 4.0 | Same as above |
+| Haas-ja v1.0 | Apache-2.0 | The same revision as the Q8_0 that could already be downloaded. The other types are in the same repository |
+| Nemotron 3.5 Transcribe 30B-A4B | OpenMDW-1.1 | The same agreement as the speaker diarization model (the section above). The repository's `LICENSE` includes NVIDIA's copyright notice |
+
+On 2026-11-16, these were checked against the model cards at the pinned revisions and the cards of the original models. None of them has a Hugging Face access restriction (gated), and none needs a login or agreement to terms of use. None has a non-commercial restriction. No model was left out for license reasons. Nemotron 3.5 Transcribe is about 19 GB even in its smallest file. The note on the consent screen shows its size and memory needs, and it is not selected by default.
+
+## Python no longer bundled (0.5.0, 2026-11-16)
+
+From 0.5.0, the backend is the Rust core running inside the app (`vrct-vox`) ([core integration](core-integration.md)), and the release packages contain no Python. The PyInstaller steps (`spec/*.spec`) were dropped as well. `tools/app_resources.py` builds `_internal` in the release packages, and it contains only the following.
+
+| Path | Contents | License |
+|---|---|---|
+| `_internal/build/speechcpp/` | The pinned speech.cpp (Vulkan build) and the dependency notices | MIT and the licenses in each notice (the sections above) |
+| `_internal/build/speechcpp-cpu/` on Linux | The pinned speech.cpp (CPU build) and the dependency notices | Same as above ("The two speech.cpp builds on Linux" below) |
+| `_internal/build/sudachi/` | The reading dictionary SudachiDict full, with `LEGAL` and `LICENSE-2.0.txt` | Apache-2.0 ("The reading analyzer and dictionary" below) |
+| `_internal/build/astarot-rvc-worker(.exe)` | The bundled RVC worker | MIT (ASTAROT's own code). Its Rust dependencies are in `licenses/rust` |
+| `_internal/build/astarot-*` on Linux | Audio helper programs (`astarot-voice-gate` and others) | ASTAROT's own code |
+| `_internal/licenses/VRCT/` | `LICENSE` and `NOTICE.md` | |
+| `_internal/licenses/rust/` | License texts of the Rust crates of the app and the worker | As listed |
+| `_internal/licenses/nscurl/` (Windows) | The notices of NScurl in the installer | As in the section above |
+| `_internal/config/pipewire/` on Linux | Example PipeWire configuration | ASTAROT's own files |
+
+What leaves the release packages:
+
+- The Python runtime and the Python packages (including the license texts in `_internal/licenses/python/`). The components in the "LGPL and GPL components" table in NOTICE (libsoxr, OpenCV's FFmpeg and GCC runtime, zeroconf, the Seed-VC adapter, the PyInstaller bootloader) are only in the release packages up to 0.4.x. The promise to provide their source continues for three years from the release of each of those versions.
+- The bundled Silero VAD (`_internal/models/transcription/silero_vad/` in the section above). If Rust speech recognition comes to use Silero VAD, add it to `tools/app_resources.py` and bundle the notice in `licenses/silero-vad/` as well.
+- The RapidOCR configuration files (`rapidocr/*.yaml`). The Rust `ocr-runtime` does not read them.
+- Fonts (`*.ttf`). Up to 0.4.x, Noto Sans JP, KR, SC and TC (SIL Open Font License 1.1) were in `_internal` for VR captions. The Rust core bundles no typefaces and uses those on the user's PC (the entry on the caption typeface among the decisions already made in [core integration](core-integration.md)). So typeface licenses do not concern the release packages. The Outfit section is about the brand lettering and is separate from this.
+- The Sudachi dictionaries (SudachiPy's `sudachidict_core` and `sudachidict_full`). The Rust core reads the same dictionary with sudachi.rs. The version included is in the "The reading analyzer and dictionary" section below.
+
+- ONNX Runtime (decided on 2026-11-17, #509). Translation (`translate-onnx`) and OCR (`ocr-runtime`) load ONNX Runtime at run time through `ort`'s `load-dynamic` and share one environment per process. The release packages include the official CPU build 1.31.0 (MIT, Microsoft) in `_internal/onnxruntime`, with its license and `ThirdPartyNotices.txt` in `_internal/licenses/onnxruntime` (`tools/runtime_libraries.py`). The source is NuGet's `Microsoft.ML.OnnxRuntime`, the same package that the setup of the voice conversion runtime downloads for the CPU. Until 2026-11-18, it was taken from the GitHub release archive. The extracted libraries are the same as then, byte for byte. Only the license documents in the Linux release packages now have CRLF line endings (the text is the same). Builds that contain execution providers such as DirectML, CUDA or OpenVINO are not included. Up to 0.5.0-beta.4 nothing was included, and on Windows an old ONNX Runtime (1.17) in System32 was loaded and could not read the OCR models (IR 10).
+- The OpenVR client library (decided on 2026-11-17, #509). The VR overlay and the VR view of OCR load it at run time. From the same pyopenvr 2.12.1401 wheel as in 0.4.x (BSD-3-Clause, Christopher Bruns), `libopenvr_api_64` of OpenVR SDK 2.12.14 (BSD-3-Clause, Valve Corporation) is put in `_internal/openvr`. The licenses, Valve's for the same version (`LICENSE`) and pyopenvr's (`pyopenvr-LICENSE`), are put in `_internal/licenses/openvr`.
+
+Not decided yet (the decisions needed in [core integration](core-integration.md)):
+
+- The CUDA build (20). Its contents are now the same as those of the standard build. No NVIDIA libraries are included.
+
+`tauri-plugin-shell` and its dependencies (`os_pipe`, `shared_child`, `encoding_rs` and others) left the list of Rust crates, because the UI no longer starts programs.
+
+## Python 3.14 for development (2026-11-18)
+
+The Python used for development tools and tests is now 3.14 (`mise.toml`). The release packages contain no Python (the section above), so the release packages and the NOTICE entries do not change. The following packages were added to `uv.lock`.
+
+| Package | Version | License | Why it was added |
+|---|---|---|---|
+| `audioop-lts` | 0.2.2 | PSF-2.0 | Replaces `audioop`, which left the standard library in 3.13. Used by the VAD (`src-python/models/transcription/audio_vad.py`), the SpeechRecognition fork and the realtime tests of speech.cpp |
+| `standard-aifc` | 3.13.0 | PSF-2.0 | Replaces `aifc`, which left in 3.13. Used by the SpeechRecognition fork |
+| `standard-chunk` | 3.13.0 | PSF-2.0 | A dependency of `standard-aifc` (replaces `chunk`, which left in 3.13) |
+
+To get versions that have 3.14 wheels, the following three were upgraded. The licenses are the same as those of the previous versions.
+
+- PyAudioWPatch: from 0.2.12.6 to 0.2.12.8 (Apache-2.0)
+- PyYAML: from 6.0.2 to 6.0.3 (MIT)
+- SudachiPy: from 0.6.10 to 0.6.11 (Apache-2.0)
+
+### Environments with their own lock files (2026-11-19)
+
+The environments that have their own lock files were also aligned on 3.14. None of them is in the release packages.
+
+- The Seed-VC runtime (`integrations/seed_vc/`): the environment that the Python backend (`src-python/`) downloads from the providers after the user's consent. The core from 0.5.0 does not offer it. To get versions that have 3.14 wheels, numpy (1.26.4 to 2.4.6), scipy (1.13.1 to 1.16.3, BSD-3-Clause), librosa (0.10.2 to 0.10.2.post1, ISC) and PyYAML (6.0.2 to 6.0.3, MIT) were upgraded. The CUDA build of PyTorch stays at 2.10.0, now with the cp314 wheels. `audioop-lts`, `standard-aifc`, `standard-chunk` and `standard-sunau` (all PSF-2.0), which audioread needs from 3.13, were added. `editdistance` (MIT), which funasr 1.2.7 lists, has no 3.14 wheel, and funasr uses it only to compute accuracy, so it was removed from the lock.
+- The RVC reference environment (`native/rvc-runtime/reference/`): the same dependencies as in the earlier `integrations/rvc/requirements.in` were moved to `native/rvc-runtime/reference/requirements.in`. numpy, scipy and praat-parselmouth (0.4.6 to 0.4.7, GPL-3.0-or-later) were upgraded. This environment exists only to produce the references for the conformance tests and is used neither in the release packages nor to run the app.
+- The environment for exporting translation models (`tools/translation_onnx/`): the pinned versions stay, and every dependency has a 3.14 wheel.
+- The chatbox training environment (`tools/chatbox_lab/`): moved to PyTorch 2.9 (CUDA 12.6) and torchvision 0.24 (both BSD-3-Clause), the first versions of each that have 3.14 wheels.
+
+## Python backend removed (2026-11-20, #285)
+
+The Python backend (`src-python/`) and what only it used were deleted. The release packages have contained no Python since 0.5.0, so the release packages and the component table in NOTICE do not change.
+
+- 102 packages, the app's dependencies and their indirect dependencies, left `uv.lock` (ctranslate2, transformers, rapidocr, the SpeechRecognition fork, PyAudioWPatch, pyinstaller and others). What remains are the dependencies of the development tools and tests, and their versions did not change. The `cuda` extra and the `linux-build` group in `pyproject.toml` were removed as well.
+- Two packages were added to the `voice-test` group: `python-osc` 1.10.2 (Unlicense; used by the tests of the chatbox helper for the real-device tests) and pyopenvr (`openvr` 2.12.1401, BSD-3-Clause; used by the test that checks the core's copy of the OpenVR function table; `libopenvr_api_64` in the release packages is extracted from this wheel). Both used to be in `uv.lock` as dependencies of the app.
+- The Silero VAD ONNX models (`src-python/models/transcription/silero_vad/`) and their license texts (`licenses/silero-vad/`) were deleted. The copies for the 0.4.x release packages remain in those tags.
+- The Seed-VC integration (`integrations/seed_vc/`, including the files with GPL-3.0-only notices) was deleted. The promise to provide the source of what was in the release packages up to 0.4.x continues, as stated in the section above.
+- The pinned values of the CTranslate2 models that the translation comparison tool (`tools/translation_onnx/compare.py`) checks against were moved to `tools/translation_onnx/ctranslate2_pins.py`.
+
+## Unused test dependencies removed (2026-11-20, #810)
+
+Four packages that were not imported anywhere in `tests/`, `tools/` or `utils/` were removed from the `voice-test` group in `pyproject.toml`. They are test dependencies for development and are not in the release packages, so the release packages and NOTICE do not change.
+
+- `audioop-lts` 0.2.2 (PSF-2.0), added in the "Python 3.14 for development" section above. The VAD and the SpeechRecognition fork that used it went away with the Python backend.
+- `soxr` 1.1.0 (LGPL-2.1-or-later), `websockets` 17.4 (BSD-3-Clause) and `requests` 2.34.2 (Apache-2.0).
+- `certifi`, `charset-normalizer`, `idna` and `urllib3`, the indirect dependencies of `requests`, also left `uv.lock`.
+- They were also removed from the list of packages that `doctor` in `tools/dev.py` checks.
+
+## Tools for integration tests (2026-11-20, #821)
+
+Development dependencies were added for the integration tests that run from the UI through the core (ADR-017). None of them is in the release packages, so the release packages and NOTICE do not change.
+
+- npm development dependencies: `@playwright/test` 1.65.0 and its dependencies `playwright` and `playwright-core` (all Apache-2.0).
+- `python tools/dev.py setup --scope integration` downloads the Playwright browsers (Chromium and WebKit) to development PCs and to the CI cache. They go into neither the repository nor the release packages.
+- The core host `native/browser-core-bridge` is a test tool crate and is not part of the app build. The external crates it uses (`tungstenite`, `serde_json`) are the same versions that the core already uses.
+
+## Component catalog (2026-11-25)
+
+Development dependencies were added for the component catalog of the UI kit (Storybook, `src-ui/views/kit_catalog/`). The catalog is a development tool, and none of these packages is in the release packages, so the release packages and NOTICE do not change.
+
+- npm development dependencies: `storybook` 10.6.7 and `@storybook/react-vite` 10.6.7 (both MIT). 10.6.7 was the latest release public for 14 days on 2026-11-25 ([development guide](../development.md)); 10.6.8 came out on 2026-11-20.
+- They add 147 indirect dependencies to `package-lock.json`. 137 of them are MIT. The others are Apache-2.0 (`aria-query`, `doctrine`), BSD-2-Clause (`esprima`, `esutils`), BSD-3-Clause (`source-map` 0.6.1) and BlueOak-1.0.0 (`glob`, `minimatch`, `minipass`, `path-scurry`, `lru-cache`).
+- osv-scanner reports two moderate advisories on the indirect `glob` 13.0.7 and `minimatch` 10.2.6. They are listed in `osv-scanner.toml` with the reason and the day to look at them again.
+
+## The reading analyzer and dictionary (2026-11-16)
+
+Message readings (hiragana and romaji) are analyzed with Sudachi, as in Python. The core uses sudachi.rs as the analyzer and reads the dictionary from `_internal/build/sudachi/system.dic`. The comparison of candidates is in item 3 of the decisions needed in [core integration](core-integration.md).
+
+| Component | How it is included | License | What was checked |
+|---|---|---|---|
+| sudachi.rs 0.6.11 (crate `sudachi`) | Built into the app. It is not on crates.io, so it is pinned as a git dependency to the commit of tag v0.6.11 on GitHub (`90fd6068`) | Apache-2.0 (Works Applications) | The package folder has no license text, so the repository's `LICENSE` was put in `licenses/rust/sudachi-0.6.11/` (`supplements.json`). There is no NOTICE file. The built-in configuration and character definitions (`resources/`) are under the same license |
+| Dependencies of sudachi.rs (`fancy-regex`, `nom`, `yada`, `csv`, `memmap2` and others) | Built into the app | MIT, Apache-2.0, Unlicense/MIT and others | `tools/rust_licenses.py` collected them on both Windows and Linux with no license texts missing |
+| SudachiDict 20250825 (full, core, small) | `tools/sudachi_dictionary.py` downloads it from the official distribution (`d2ej7fkh96fzlu.cloudfront.net/sudachidict/`) with a pinned size and SHA-256 and puts it in `_internal/build/sudachi/`. The release packages include full (decided on 2026-11-21, #924) | Apache-2.0. Part of the vocabulary comes from UniDic (BSD-3-Clause, UniDic Consortium) and mecab-unidic-NEologd (Apache-2.0), and the distributed `LEGAL` carries those notices | The distributed `LEGAL` and `LICENSE-2.0.txt` are placed with the dictionary. The dictionary is identical, byte for byte, to SudachiPy's `sudachidict_*` 20250825 |
+
+Licenses of the candidates compared:
+
+- lindera (MIT) and vibrato (MIT or Apache-2.0) have no license issues. They were dropped for reading quality.
+- IPADIC (mecab-ipadic 2.7.0) has its own license, which allows redistribution but requires a copyright notice. NAIST-JDIC is BSD-3-Clause. Both were dropped for reading quality.
+- UniDic (unidic-mecab 2.1.2, UniDic-cwj 3.1.1) is triple-licensed under BSD, GPL and LGPL, and it can be distributed if BSD is chosen. It was dropped for reading quality.
+- lindera's embedded SudachiDict (`lindera-sudachidict`) downloads the dictionary at every build from lindera.dev, which is not the official distributor. Its license is the same as SudachiDict's. It was dropped for reading quality and for the size of the executable (+593 MB).
+
+No candidate was dropped for license reasons.
+
+## shadcn/ui (component design, 2026-11-19)
+
+The policy is now to bring the design, appearance and structure of components closer to the shadcn/ui components (DESIGN.md "Components"). The first to be aligned was the kit, an experiment with settings-screen components (`src-ui/views/kit/`): the `data-slot` names of the parts, the size and position of the chevron in select fields, the font weight of buttons and the opacity of the disabled state were matched to shadcn/ui. The code was not copied as it is: Tailwind classes were translated into vanilla-extract, and the colors are ASTAROT's tokens. The translated components are also treated as covered by the MIT copyright notice, and `NOTICE.md` carries the notice and the license text. No dependencies were added.
+
+| Item | Details |
+|---|---|
+| Reference | `apps/v4/registry/new-york-v4/ui/` of [shadcn-ui/ui](https://github.com/shadcn-ui/ui) (commit `968d8cb9dc` on `main`). MIT, Copyright (c) 2023 shadcn |
+| Not referenced | shadcn.io. A separate site built on top of shadcn/ui, whose free components have no license name |
+| Release packages | The kit is not yet used on any screen, and its sample page (`kit-lab.html`) is not in the build. `NOTICE.md` goes into the release packages as `licenses/VRCT/NOTICE.md` (`tools/app_resources.py`), so even when the screen components are aligned, the notice in this section of `NOTICE.md` is enough |
+
+## JPEG conversion of the Talk AI screen (#388)
+
+The core uses the JPEG feature of `image` 0.25.10 (MIT or Apache-2.0) to convert the screen to JPEG. `tools/rust_licenses.py` collects the license texts of `image` and the crates it depends on for the Windows and Linux packages.
+
+---
+
+# 配布境界と原典（日本語版）
 
 2026-10-27に提供されたevidence mapと以下の一次資料を参照。
 この冒頭表は初期調査時点の記録。後日、ユーザー承認済みの開発用モデル取得とSeed外部worker実装を行った。配布許可とは区別し、各PoC報告と下記追記を参照。
@@ -10,8 +743,8 @@
 | VRCTコード | [LICENSE](../../LICENSE), [NOTICE](../../NOTICE.md) | MIT帰属を維持 |
 | upstream OCR検出重み | [モデルライセンス](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt) | fork成果物から除外。0.2.0でリポジトリからも削除（0.1.0までのコミットには残る） |
 | speech.cpp | [検証済みv0.11.2のMIT](https://github.com/nyosegawa/speech.cpp/blob/v0.11.2/LICENSE) | 2026-10-29承認後、固定CPU/Vulkan実行ファイルと依存通知の配布部品を作成・検証。Linux配布物に同梱し、0.1.0-beta.1で公開。2026-11-15に0.11.0、2026-11-22に0.11.2へ更新。下記追記参照 |
-| Irodori v4.1 Small MF | [モデルカード](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF) | 日本語のみ。MIT表示に加え、声の本人の明示同意・なりすまし/誤情報禁止の記載を確認。ユーザー管理のvoiceだけ利用 |
-| Irodori Large | [モデル説明](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md) | Smallと条件を混同しない。今回は同梱・検証なし |
+| Irodori-TTS v4.1 Small MF | [モデルカード](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF) | 日本語のみ。MIT表示に加え、声の本人の明示同意・なりすまし/誤情報禁止の記載を確認。ユーザー管理のvoiceだけ利用 |
+| Irodori-TTS Large | [モデル説明](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md) | Smallと条件を混同しない。今回は同梱・検証なし |
 | Qwen3-TTS | [モデル説明](https://github.com/nyosegawa/speech.cpp/tree/main/docs/models) | ユーザーが選んだ重みの条件・hashを実機導入時に記録。モデル取得なし |
 | Seed-VC Realtime | [GPL-3.0](https://github.com/jiaheguo521/seed-vc-realtime/blob/main/LICENSE) | 開発用外部workerを統合。`integrations/seed_vc`の派生コードはGPL-3.0-only表示。承認済みモデルでPoC実施、最終配布条件と対応ソースの整理は未完了 |
 | Beatrice | [v1.1 JVS版条件](https://github.com/w-okada/voice-changer/blob/master/server/voice_changer/Beatrice/README.md) | 商用利用禁止・再配布時許諾の記載。これをv2全モデルへ一般化しない。版/モデル別条件はP2ゲート |
@@ -20,6 +753,7 @@ CPU/CUDA PyInstallerの展開済みTOCから `chatbox_yolox_tiny.onnx` を除外
 Tauri buildとZIP作成前にも古い成果物の混入を拒否する。CIでZIP/sidecarを検査。
 モデル不在時、既存のOCRチャット吹き出し検出は利用不可（他の音声・翻訳機能は独立）。
 `tools/check_voice_distribution.py` は配布物のパスを受け取り、禁止モデルを見つけると失敗する。
+2026-11-23 から、OCR の重みに限らず、モデルの形式のファイル（`.onnx`、`.pth`、`.gguf`、`.safetensors`、`.bin`、`.index` など。圧縮した `.onnx.zst` も含む）は、名前や置き場所にかかわらず拒否する（`tools/distribution_policy.py` の `MODEL_EXTENSIONS`）。どのモデルも同意を得てからデータのフォルダーに取得するので、配布物には入らない。同梱を認めるモデルがあれば、同じファイルの `ALLOWED_MODELS` に配布物の中の完全なパスと理由を書き、コードオーナーが確かめる。今は 1 つもない。
 
 Forkの製品名/publisher/更新配布先はP5の未完了ゲート。現行公式リリース用workflowを
 forkの公開に使える状態とは主張しない。この作業ではタグ・push・公開を行わない。
@@ -181,7 +915,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 写した文書と一覧は、WindowsではPyInstallerのデータとして（`bat/build.bat`、`bat/build_cuda.bat`、`tools/windows_voice_resources.py`）、
 Linuxではリソースとして（`tools/build_linux.py`）、どちらもPyInstallerの`_internal`に入る。
 → 0.5.0からはPyInstallerを使わず、`tools/app_resources.py`が同じ`_internal/licenses/rust/`へ写す（下の「Pythonの同梱の終了」の節）。
-どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はVRCT-VOX自身のコードで、
+どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はASTAROT自身のコードで、
 `LICENSE`に従うので文書を写さない。
 
 2026-11-15のロックファイルでは、Windowsが313クレート、Linuxが385クレート（リポジトリ内のクレートを含む）。
@@ -347,7 +1081,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | ASTAROTのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -377,7 +1111,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 NLLBのCC-BY-NC-4.0について確かめたこと:
 
 - 作者、ライセンス、変更したことを示せば、写しと改変したものを配れる。営利を主な目的とする使い方には使えない（NonCommercial）。
-- VRCT-VOXは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
+- ASTAROTは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
 - 利用者の使い方が非商用の範囲かどうかは、アプリからは判断できない。
 
 #### NLLB-200をカタログに載せるときの決まり（2026-11-18、#411）
@@ -608,12 +1342,12 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 | `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
 | Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/` | 読みの辞書SudachiDict fullと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
-| `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
-| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
+| `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（ASTAROT自身のコード）。Rustの依存は`licenses/rust` |
+| Linuxの`_internal/build/astarot-*` | 音声の補助プログラム（`astarot-voice-gate`など） | ASTAROT自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
 | `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
 | `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |
-| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | VRCT-VOX自身のファイル |
+| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | ASTAROT自身のファイル |
 
 配布物から消えるもの:
 
@@ -684,6 +1418,14 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 - Playwrightのブラウザ（ChromiumとWebKit）は、`python tools/dev.py setup --scope integration`が開発のPCとCIのキャッシュに取得する。リポジトリと配布物には入れない。
 - 中核のホスト`native/browser-core-bridge`は試験の道具のクレートで、アプリのビルドに含めない。使う外部のクレート（`tungstenite`、`serde_json`）は、すでに中核が使っている版と同じ。
 
+## 部品のカタログ（2026-11-25）
+
+UIの部品のカタログ（Storybook、`src-ui/views/kit_catalog/`）のために、開発の依存を足した。カタログは開発の道具で、どの依存も配布物には入らないので、配布物とNOTICEは変わらない。
+
+- npmの開発の依存：`storybook` 10.6.7と`@storybook/react-vite` 10.6.7（どちらもMIT）。10.6.7は、2026-11-25の時点で公開から14日たった最新の版（[開発の手引き](../development.md)）。10.6.8は2026-11-20に出た。
+- `package-lock.json`に間接の依存が147増えた。137はMITで、ほかはApache-2.0（`aria-query`、`doctrine`）、BSD-2-Clause（`esprima`、`esutils`）、BSD-3-Clause（`source-map` 0.6.1）、BlueOak-1.0.0（`glob`、`minimatch`、`minipass`、`path-scurry`、`lru-cache`）。
+- 間接の依存の`glob` 13.0.7と`minimatch` 10.2.6に、osv-scannerが中程度の勧告を2件出す。`osv-scanner.toml`に、例外として理由と見直す日を書いた。
+
 ## 読みの解析器と辞書（2026-11-16）
 
 メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。
@@ -712,3 +1454,7 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 | 参照元 | [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`）。MIT、Copyright (c) 2023 shadcn |
 | 参照しなかったもの | shadcn.io。shadcn/ui の上に作られた別のサイトで、無料の部品にライセンスの名前がない |
 | 配布物 | kit はまだ画面で使っておらず、見本のページ（`kit-lab.html`）もビルドに入らない。配布物には `NOTICE.md` が `licenses/VRCT/NOTICE.md` として入る（`tools/app_resources.py`）ので、画面の部品を寄せるときも、表示は `NOTICE.md` のこの節で足りる |
+
+## おしゃべりAIの画面のJPEG変換（#388）
+
+中核は画面をJPEGに変換するため、`image` 0.25.10（MITまたはApache-2.0）のJPEG機能を使う。`tools/rust_licenses.py` が、WindowsとLinuxの配布物用に `image` とその依存クレートのライセンス文を集める。

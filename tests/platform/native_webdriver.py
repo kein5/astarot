@@ -39,7 +39,7 @@ def matches_launched_app(executable, environment, launcher, *, appimage=False):
     # directory. Match both launcher identity and exact payload within that root.
     return (environment.get('APPIMAGE') == str(expected)
             and bool(environment.get('APPDIR'))
-            and executable == str(Path(environment['APPDIR']) / 'usr/bin/vrct-vox'))
+            and executable == str(Path(environment['APPDIR']) / 'usr/bin/astarot'))
 
 
 class NativeWebDriver:
@@ -49,6 +49,8 @@ class NativeWebDriver:
         self.session = None
         self.failed = False
         self.extra_env = env or {}
+        # The main window's handle, known once the settings window has been opened (#1236).
+        self.main_handle = None
 
     def request(self, method, path, data=None):
         # urllib forces Connection: close. tauri-driver 2.1.0 forwards that
@@ -90,7 +92,8 @@ class NativeWebDriver:
                 " summary.scrollIntoView({block:'center', inline:'center', behavior:'instant'}); return summary;", element)
             if not summary:
                 break
-            self.command("POST", f"/element/{summary[key]}/click", {})
+            # As any control is pressed: a fold's summary can be covered too (see below).
+            self.element_command(summary, "click")
         self.evaluate("const e = arguments[0].tagName === 'OPTION' ? arguments[0].parentElement : arguments[0]; e.scrollIntoView({block:'center', inline:'center', behavior:'instant'}); return true;", element)
         # Plain text typed into a field (no WebDriver key such as Tab or Enter)
         # must arrive whole; see _complete_typed.
@@ -120,9 +123,25 @@ class NativeWebDriver:
                     except AssertionError as notice_error:
                         if not any(code in str(notice_error) for code in ('"element not interactable"', '"element click intercepted"', '"stale element reference"')):
                             raise
+                else:
+                    self._move_pointer_aside()
                 # The configuration drawer animates. Retry only interactions
                 # WebDriver explicitly says were not delivered.
                 time.sleep(.1)
+
+    def _move_pointer_aside(self):
+        """Rest the pointer at the window's right edge, as a user moves on from what they pointed at.
+
+        What the pointer opens covers the page until it leaves: in a narrow window the settings
+        menu widens over the start of the page while the pointer is on it (SidebarSection), and
+        pressing one of its pages leaves the pointer there, over a fold's summary at the start of
+        a row (#1266 ★5).
+        """
+        width, height = self.evaluate("return [innerWidth, innerHeight]")
+        self.command("POST", "/actions", {"actions": [{
+            "type": "pointer", "id": "mouse", "parameters": {"pointerType": "mouse"},
+            "actions": [{"type": "pointerMove", "duration": 0, "origin": "viewport", "x": width - 2, "y": height // 2}],
+        }]})
 
     def click(self, selector):
         element = self.command("POST", "/element", {"using": "css selector", "value": selector})
@@ -139,9 +158,15 @@ class NativeWebDriver:
         return self.element_command(element, "click")
 
     def control(self, label, within=None):
+        """The form control named `label`: by its aria-label, inside a <label> that starts with the
+        words, or named by a <label for> of its own, as a settings row (FormRow) names its field,
+        a path field with its picker button among them (#1231)."""
         return self.evaluate("const root = arguments[1] ? document.querySelector(arguments[1]) : document;"
                              " if (!root) return null;"
-                             " return [...root.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0]) || [...root.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea');",
+                             " return [...root.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0])"
+                             " || [...root.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea')"
+                             " || [...root.querySelectorAll('label[for]')].find(e => e.textContent.trim() === arguments[0] && e.control)?.control"
+                             " || null;",
                              label, within)
 
     def fill(self, label, value):
@@ -199,6 +224,8 @@ class NativeWebDriver:
         then stays where it was, and a user presses it again.
         """
         find = f"[...document.querySelectorAll('[role=switch]')].find(e => e.getAttribute('aria-label') === {json.dumps(label)})"
+        # A user presses the switch's row, its label (#1200): the icon rail hides the switch itself.
+        target = f"(({find}).closest('label') ?? {find})"
         want = "true" if on else "false"
         self.wait(f"const e = {find}; return !!e && !e.disabled && e.getAttribute('aria-disabled') !== 'true';")
         deadline = time.monotonic() + 20
@@ -207,7 +234,7 @@ class NativeWebDriver:
             if state[0] == want and state[1] != "true":
                 return
             if state[1] != "true":
-                self.element_command(self.evaluate(f"return {find}"), "click")
+                self.element_command(self.evaluate(f"return {target}"), "click")
             settle = time.monotonic() + 3
             while time.monotonic() < settle:
                 if self.evaluate(f"return {find}.getAttribute('aria-checked')") == want:
@@ -218,11 +245,15 @@ class NativeWebDriver:
     def open_voice_page(self, tab, selector):
         self.wait("return innerWidth >= 500 && innerHeight >= 300")
         self.assert_rendered()
-        if not self.evaluate("return document.querySelector('[data-main-page][data-showing=config]') !== null"):
+        if not self.in_settings():
             self.open_settings()
         if not self.evaluate(f"return document.querySelector({json.dumps(selector)}) !== null"):
-            element = self.evaluate("return [...document.querySelectorAll('button[aria-label], [role=button]')].find(e => e.getAttribute('aria-label') === arguments[0] && e.getClientRects().length);", tab)
-            self.element_command(element, "click")
+            # The settings tab, not the main page's switch of the same name: since #1200 that switch
+            # is a <button> too, and behind the settings it cannot be pressed. Wait until the tab is drawn.
+            find = ("[...document.querySelectorAll('button[aria-label]:not([role=switch]), [role=button]')]"
+                    f".find(e => e.getAttribute('aria-label') === {json.dumps(tab)} && e.getClientRects().length)")
+            self.wait(f"return !!{find}")
+            self.element_command(self.evaluate(f"return {find}"), "click")
         self.wait(f"return document.querySelector({json.dumps(selector)}) !== null")
         self.open_fold_around(selector)
 
@@ -261,8 +292,11 @@ class NativeWebDriver:
         running (src-tauri/src/companion.rs). The tray menu's Quit sends
         companion-quit to the main window, which saves the settings and ends the
         app (CompanionController). A native tray menu cannot be pressed through
-        WebDriver, so this sends that same event from the page.
+        WebDriver, so this sends that same event from the main window's page: the
+        settings window may not send events (#1236).
         """
+        if self.main_handle is not None:
+            self.command("POST", "/window", {"handle": self.main_handle})
         self.evaluate("window.__TAURI_INTERNALS__.invoke('plugin:event|emit',"
                       " { event: 'companion-quit', payload: null }); return true;")
         self.app_process.wait(timeout=10)
@@ -270,12 +304,60 @@ class NativeWebDriver:
         # it a second time. The owned driver group is still reaped by __exit__.
         self.session = None
 
-    # Opening settings slides the main page up and away (0.12s); closing
-    # slides it back down over the settings page.
+    # The settings open in a window of their own (#1236), beside the main window. The driver
+    # follows them there and back: commands go to the window that is current.
+    def in_settings(self):
+        return self.evaluate("return location.pathname.endsWith('/settings.html')")
+
+    def window_showing(self, page):
+        """The handle of the window whose page is `page` ("settings.html"), or None.
+
+        The app has other windows too (Quick Chat, the VR panel, the tray's), so each is asked.
+        It leaves the current window as it found it when there is none.
+        """
+        current = self.command("GET", "/window")
+        for handle in self.command("GET", "/window/handles"):
+            self.command("POST", "/window", {"handle": handle})
+            try:
+                if self.evaluate("return location.pathname").endswith("/" + page):
+                    return handle
+            except AssertionError:
+                pass  # A window that went away between the listing and the switch.
+        self.command("POST", "/window", {"handle": current})
+        return None
+
+    def closing_window(self, press):
+        """Press something that closes the current window. The window may be gone before the
+        press is answered; the driver then says it has no such window, which is what was asked."""
+        try:
+            press()
+        except AssertionError as error:
+            if '"no such window"' not in str(error):
+                raise
+        self.command("POST", "/window", {"handle": self.main_handle})
+
     def close_settings(self):
-        self.click('button[class^="_back_"]')
-        self.wait("const page = document.querySelector('[data-main-page]');"
-                  " return page.matches('[data-showing=main]') && Math.abs(new DOMMatrix(getComputedStyle(page).transform).m42) < 1;")
+        """Close the settings as a user does, with the settings window's close button: it has no
+        "Go back" (#1236). The driver then works in the main window again."""
+        self.closing_window(lambda: self.click('button[data-window-close]'))
+        self.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
+        deadline = time.monotonic() + 10
+        while "settings.html" in self.window_pages():
+            assert time.monotonic() < deadline, f"the settings window did not close; see {self.output}"
+            time.sleep(.1)
+
+    def window_pages(self):
+        """The pages of the app's windows, the current window kept."""
+        current = self.command("GET", "/window")
+        pages = []
+        for handle in self.command("GET", "/window/handles"):
+            try:
+                self.command("POST", "/window", {"handle": handle})
+                pages.append(self.evaluate("return location.pathname").rsplit("/", 1)[-1])
+            except AssertionError:
+                pass
+        self.command("POST", "/window", {"handle": current})
+        return pages
 
     def open_settings(self):
         # A startup notice (toast, bottom left) covers this button until it
@@ -285,10 +367,17 @@ class NativeWebDriver:
                   " const r = b.getBoundingClientRect();"
                   " return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));",
                   timeout=30)
+        self.main_handle = self.command("GET", "/window")
+        size = self.command("GET", "/window/rect")
         self.click('[data-open-settings]')
-        # Settings are usable once the main page has finished sliding away.
-        self.wait("const page = document.querySelector('[data-main-page]');"
-                  " return page.matches('[data-showing=config]') && new DOMMatrix(getComputedStyle(page).transform).m42 <= 1 - page.offsetHeight;")
+        deadline = time.monotonic() + 15
+        while self.window_showing("settings.html") is None:
+            assert time.monotonic() < deadline, f"the settings window did not open; see {self.output}"
+            time.sleep(.2)
+        # The size the test gave the main window: the settings window opens at its own place.
+        self.command("POST", "/window/rect", {"width": size["width"], "height": size["height"]})
+        # Usable once its settings came from the backend and the page is drawn.
+        self.wait("return document.querySelector('[aria-current=page]') !== null", timeout=30)
 
     def assert_rendered(self):
         """Observe real frame delivery and a nonblank native WebDriver image."""
@@ -322,7 +411,7 @@ class NativeWebDriver:
         aria-busy) with placeholders, and with the composer already there. It is
         ready once that page is no longer busy, which is also when the saved
         settings (send button, UI size, languages) have been applied."""
-        return self.wait("const t = document.querySelector('textarea[class*=message_box_input_area]');"
+        return self.wait("const t = document.querySelector('textarea[data-message-input]');"
                          " return t !== null && t.closest('[aria-busy=true]') === null;", timeout=timeout)
 
     def wait(self, script, timeout=15):
@@ -368,7 +457,7 @@ class NativeWebDriver:
                     if self.process.poll() is not None:
                         raise RuntimeError("tauri-driver exited before startup")
                     time.sleep(.1)
-            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
+            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/astarot"))
             result = self.request("POST", "/session", {"capabilities": {"alwaysMatch": {
                 "browserName": "wry", "tauri:options": {"application": binary}}}})
             self.session = result["sessionId"]

@@ -3,7 +3,10 @@ import { useI18n } from '@useI18n';
 import { quickChatBridge } from '../../logics/quickChat/bridge';
 import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
-import styles from './QuickChat.module.scss';
+import { applyThemeTokens, themeSetting, themeTokens } from '../../logics/theme/themes.ts';
+import { startupTheme } from '../../logics/theme/startupTheme.ts';
+import * as styles from './QuickChat.css.ts';
+import { Button, Textarea } from '../kit/index.ts';
 
 // The bridge to the main window. A host without a resizable window leaves out growBy.
 export type QuickChatBridge = Omit<typeof quickChatBridge, 'growBy'> & Partial<Pick<typeof quickChatBridge, 'growBy'>>;
@@ -18,6 +21,8 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
     const field = useRef<HTMLTextAreaElement>(null), composing = useRef(false), sending = useRef(false);
     const lengthWarningId = useId(), overflowLength = chatboxOverflowLength(value);
     const container = useRef<HTMLElement>(null), warning = useRef<HTMLParagraphElement>(null), grown = useRef(0), isOverflowing = overflowLength !== null;
+    // Until the main window's first answer, the theme the shell gave the page (#1259).
+    const savedTheme = JSON.stringify(context.theme ?? startupTheme() ?? null);
     useLayoutEffect(() => {
         // This document has its own root. Font names stay a single CSS string,
         // with the local Noto/system fallbacks supplied by root.css.
@@ -26,6 +31,9 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
             document.documentElement.style.setProperty('--font_family', JSON.stringify(context.font_family));
         }
     }, [context.ui_scaling, context.font_family]);
+    useLayoutEffect(() => {
+        applyThemeTokens(document.documentElement.style, themeTokens(themeSetting(JSON.parse(savedTheme))));
+    }, [savedTheme]);
     // The warning gets room below the field: grow the window by its height and
     // shrink back when it goes, so the field itself never gets smaller.
     useLayoutEffect(() => {
@@ -87,7 +95,7 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
             bridge.hide().catch(() => setError('quick_chat_not_ready'));
         }
     }}>
-        <textarea ref={field} aria-label={t('quick_chat.message')} placeholder={t('studio.message_placeholder')} value={value} readOnly={pending}
+        <Textarea ref={field} fill className={styles.field} aria-label={t('quick_chat.message')} placeholder={t('studio.message_placeholder')} value={value} readOnly={pending}
             aria-describedby={overflowLength !== null ? lengthWarningId : undefined}
             onChange={event => { setValue(event.target.value); setError(null); }}
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
@@ -101,7 +109,7 @@ export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBrid
         </p>}
         <div className={styles.actions}>
             <span role={error ? 'alert' : 'status'}>{error ? t(`quick_chat.${error}`) : pending ? t('quick_chat.sending') : t(context.enter_to_send ? 'quick_chat.hint' : 'quick_chat.hint_enter_newline')}</span>
-            <button type="button" disabled={pending || !value.trim()} onClick={submit}>{t('quick_chat.send')}</button>
+            <Button tone="primary" className={styles.send} disabled={pending || !value.trim()} onClick={submit}>{t('quick_chat.send')}</Button>
         </div>
     </main>;
 };

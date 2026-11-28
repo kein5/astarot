@@ -1,5 +1,7 @@
 # Changelog
 
+[日本語版](#変更履歴日本語版)
+
 All notable changes to ASTAROT, newest first. Only stable releases are listed: each section
 covers everything since the previous stable release, its betas included. Betas (`X.Y.Z-beta.N`,
 from `develop`) are described in their [GitHub pre-release notes](https://github.com/kein5/astarot/releases).
@@ -9,6 +11,675 @@ changes for developers follow.
 
 A section is written when its release is prepared (`python tools/changelog.py write`), not on
 every commit. See [Changelog and releases](CONTRIBUTING.md#changelog-and-releases).
+
+## [0.7.0] - 2026-11-28
+
+Changes since [v0.6.0](https://github.com/kein5/astarot/compare/v0.6.0...v0.7.0).
+
+This release includes the changes of 0.7.0-beta.1, 0.7.0-beta.2, 0.7.0-beta.3 and 0.7.0-beta.4, listed below.
+
+### User-facing Changes
+
+#### Breaking Changes
+
+- **asr:** Always start the bundled ASR servers with the switches ([8198af6](https://github.com/kein5/astarot/commit/8198af6b15ef666305829a4235fb58e852453615))
+  - "Start the bundled ASR server when a switch is turned on"
+is removed, and a saved choice to keep it off no longer applies. To keep a
+speech recognition model from loading, leave Mic input and Listening off.
+- **release:** Name the release files ASTAROT and keep copies under the old names ([83bc928](https://github.com/kein5/astarot/commit/83bc92802cbd9df366f4403bf1de2ce3fe6bece0))
+  - The release files are named ASTAROT. The releases of
+0.7.x also carry each file under its VRCT-VOX name, and 0.8.0 stops: point
+links and scripts that download VRCT-VOX.zip, VRCT-VOX_setup.exe or
+VRCT-VOX-<version>-linux-x64-release.* at the ASTAROT names before then.
+- **linux:** Install the linux packages as astarot ([88d5924](https://github.com/kein5/astarot/commit/88d592489bd0cd4ec350dc6cb57cb77130962dd0))
+  - The Linux package is astarot and installs to
+/opt/astarot. Install the new deb or rpm as before: it removes the
+package vrct-vox. Scripts that start /opt/vrct-vox/vrct-vox start
+/opt/astarot/astarot or the command astarot instead; /usr/bin/vrct-vox
+still works until 0.8.0. Remove the package with `apt remove astarot` or
+`dnf remove astarot`. The tar.gz unpacks to ASTAROT instead of VRCT-VOX.
+Settings and models stay where they are.
+- **app:** Name the executable astarot ([87fe95d](https://github.com/kein5/astarot/commit/87fe95d875e2839fe56f4076003dc45d46ab2421))
+  - The executable is astarot.exe on Windows and astarot on
+Linux. Pin ASTAROT to the taskbar or Start again, and point the shortcuts
+and scripts you made yourself at the new name; an update with the
+installer points the shortcuts it made there. A Windows ZIP extracted over
+an earlier one leaves vrct-vox.exe beside astarot.exe: delete it. Windows
+may ask again for microphone access for the new executable. Linux scripts
+that start /opt/vrct-vox/vrct-vox start /opt/vrct-vox/astarot or the
+command astarot instead.
+- **installer:** Move the VRCT-VOX install folder and keys to ASTAROT ([d23e977](https://github.com/kein5/astarot/commit/d23e9779403dcb5ae7433db1223ae54c67337a6a))
+  - An install updated from %LOCALAPPDATA%\VRCT-VOX is in
+%LOCALAPPDATA%\ASTAROT afterwards. Pin the app to the taskbar or Start
+again, remake shortcuts you made to the old folder, and change scripts
+that name it. Installers of 0.6.0 and earlier no longer find the install
+by its registry key.
+- **audio:** Name the Linux virtual microphone ASTAROT and retire its VRCT units ([a11ee5b](https://github.com/kein5/astarot/commit/a11ee5b4c91dc89b67acb8e61ffd7945083c741e))
+  - on Linux, choose ASTAROT Managed Virtual Microphone in
+VRChat again after the update. A hand-placed 90-vrct-managed.conf no
+longer makes the route the app uses: replace it with
+90-astarot-managed.conf from this version, or remove it and let the app
+prepare the route. Scripts that name vrct-managed-*.service should use
+astarot-managed-*.service.
+
+#### Features
+
+- **vr:** Let SteamVR start ASTAROT together with itself ([4ce31e2](https://github.com/kein5/astarot/commit/4ce31e22f907f4d2c6ba0892a92ebc24f054c513))
+- **ui:** Fade the settings window's pages in when they are first drawn ([bd090f3](https://github.com/kein5/astarot/commit/bd090f356b3c1aca540b5c91973ac4dbf3659762))
+- **ui:** Bring popovers in from their button and out toward it ([471f244](https://github.com/kein5/astarot/commit/471f244dba9f7f46b68b673f841e4905ca092abe))
+- **ui:** Fade modal dialogs in as they open ([b524623](https://github.com/kein5/astarot/commit/b5246239c52ecfd5da4fca2afff8c7431a986762))
+- **ui:** Choose the translation engine from a searchable dropdown ([a08bc31](https://github.com/kein5/astarot/commit/a08bc31d1dd1702ee613570f6413091e3707871c))
+- **ui:** Show A− and A＋ for the log font size beside the composer ([fe77ff4](https://github.com/kein5/astarot/commit/fe77ff465c656fa7e292d9f6bc165bd24d5e7667))
+- **ui:** Name the caption devices and fit the flow graph in the inputs and outputs panel ([742d7c4](https://github.com/kein5/astarot/commit/742d7c47cc530f0fbb4c1f6723ee1e378c9ed4e7))
+- **ui:** Say why a greyed switch cannot turn on when it is pressed ([2260151](https://github.com/kein5/astarot/commit/22601519b244dee9d929f99780ac520b77f3e0a1))
+- **vr:** Add text to speech and its stop to the VR launcher ([3b90240](https://github.com/kein5/astarot/commit/3b90240ad109748b19d6c4443c69aa3f7bb9b399))
+- **transcription:** Offer the fix when the bundled speech server fails ([adec4d6](https://github.com/kein5/astarot/commit/adec4d6c774bd92efc874cfcbf4a10f92d09bc76))
+- **setup:** Prepare speech recognition for the inputs the chosen uses show ([0fd172f](https://github.com/kein5/astarot/commit/0fd172f5ffa1ef83e5224eb75980ebf3faeba63a))
+- **settings:** Choose each input's speech recognition model side by side ([ef9a697](https://github.com/kein5/astarot/commit/ef9a69792750acfbbac1c36d075ba1db1a32811c))
+- **transcription:** Say that Windows may be asking while the microphone waits ([e16d98a](https://github.com/kein5/astarot/commit/e16d98a7b778607e2994a94e60d5c4e37193128b))
+- **asr:** Choose Listening's own model and fix a refusal for its source alone ([405fc62](https://github.com/kein5/astarot/commit/405fc627d43fb82ce7b63ddbb6b82c9a5226c568))
+- **asr:** Take a model for Listening in the setup when the first cannot tell the language ([dd2906a](https://github.com/kein5/astarot/commit/dd2906a0a8b8d445033dba08c04244de6cfea707))
+- **asr:** Start each realtime switch's own bundled server ([b559757](https://github.com/kein5/astarot/commit/b55975784f176998276867f4fb445206d3e6c7f8))
+- **ui:** Press a model's card anywhere in every catalog ([c4d2bff](https://github.com/kein5/astarot/commit/c4d2bff65353ff2125eb49c6c730f39951dd9bbe))
+- **ui:** Choose the translation engine at the top of its settings page ([af49699](https://github.com/kein5/astarot/commit/af49699c9f4ade5b45dd75b27435c88c1ea18d76))
+- **ui:** Choose the text to speech voice from the model's voices ([8c16d04](https://github.com/kein5/astarot/commit/8c16d041f0c18ed40d0d3cebfe2500f1e2a77c8d))
+- **core:** Check a model already on the PC without downloading it ([3bb9b51](https://github.com/kein5/astarot/commit/3bb9b513050c76ee9ae891fb46d86caebd2e47ae))
+- **ui:** Keep the app running while the settings window is open ([3fd4c6b](https://github.com/kein5/astarot/commit/3fd4c6bb70902038893e20eab526e5a55c9fae35))
+- **talk-ai:** Add the Talk AI page and a band that shows what is sent ([1a31445](https://github.com/kein5/astarot/commit/1a31445f24fefa9151d135a0f1db5aece458dc6c))
+- **ocr:** Offer chat reading's missing models in its refusal dialog ([afbb05b](https://github.com/kein5/astarot/commit/afbb05b203105053fc93d632aca0940b5a0e4a05))
+- **ui:** Open the settings in a window of their own ([c3a148a](https://github.com/kein5/astarot/commit/c3a148a654b570303d9f273bf2cc694686471a81))
+- **core:** Answer the settings window with a snapshot and its own origin ([b510688](https://github.com/kein5/astarot/commit/b5106886571378dce175396282e8e888b87e6d3c))
+- **ui:** Group the settings on rounded grounds with quieter lines ([c0e7bd3](https://github.com/kein5/astarot/commit/c0e7bd384616420c6c9e54383ac72f10ba470cf4))
+- **ui:** Pick a settings path with the system's file or folder picker ([3e2ea53](https://github.com/kein5/astarot/commit/3e2ea5324a6724faa5ef6bca565115c9c058d0c4))
+- **ui:** Put all of the main screen's switches in the tray's control panel ([9a1a633](https://github.com/kein5/astarot/commit/9a1a633cffbfb359d326564ac97af17f5784ffdd))
+- **transcription:** Fix a refused speech recognition switch in place ([2baacae](https://github.com/kein5/astarot/commit/2baacaed5f335c04d19d2ab46f5094c049e589e6))
+- **ui:** Remove Contributors and Special Thanks from About ([46c96bc](https://github.com/kein5/astarot/commit/46c96bc6c778ccb0bc6485a7e555a2095e8d840d))
+- **site:** Animate the home mascot with the front-only model ([2da63ab](https://github.com/kein5/astarot/commit/2da63ab12713c62030676462817b5291ca28acb1))
+- **site:** Link to privacy and credits from the footer ([b6cf40c](https://github.com/kein5/astarot/commit/b6cf40c36ccdf6d915678c769afb8c03672755c6))
+- **site:** Place the still mascot beside the home heading ([0c5361a](https://github.com/kein5/astarot/commit/0c5361ab8847007622b8e703381f25ba7e020f28))
+- **ui:** Remove the save bar, its leave confirmation and the saved notice ([a30352e](https://github.com/kein5/astarot/commit/a30352e673f00d43ec3a4ecf059aea95e0769dcd))
+- **ui:** Save the voice settings by themselves ([27274e4](https://github.com/kein5/astarot/commit/27274e48aa28b17b814c3e87a7e970caa62e9cf3))
+- **ui:** Let forms drawn by several parts save by themselves ([106e768](https://github.com/kein5/astarot/commit/106e768dff417e2b5e0541390a551da40542cc93))
+- **ui:** Save the word filter, message formats, captions and key pairs by themselves ([b629e65](https://github.com/kein5/astarot/commit/b629e65f6b9f64ccbe6c85b8d51e9ae45cffb2e9))
+- **ui:** Let groups of settings save by themselves ([57f40fc](https://github.com/kein5/astarot/commit/57f40fc496f2ef2900357dddde1cfb84e7e4811b))
+- **ui:** Save the advanced settings by themselves ([9c9f7c5](https://github.com/kein5/astarot/commit/9c9f7c51c779020a59b7e69be33ceb3cc25f521a))
+- **ui:** Let color fields and setting groups save by themselves ([56d6d22](https://github.com/kein5/astarot/commit/56d6d22bd7e8891dc75ecb879044a97469c30c0f))
+- **ui:** Save the translation and speech recognition fields by themselves ([060a3e2](https://github.com/kein5/astarot/commit/060a3e23fa9d0bed0eb0b9ddf088e41af50aa75f))
+- **ui:** Let API key fields save by themselves ([68f811b](https://github.com/kein5/astarot/commit/68f811bd43ef0ee3ce661441cdbeb13f3d0b1401))
+- **ui:** Save the chat reading window name by itself ([c070736](https://github.com/kein5/astarot/commit/c070736248ece7fdd0132ec2d9530c22003967e1))
+- **ui:** Let a settings text field save by itself ([179d238](https://github.com/kein5/astarot/commit/179d238ec2de6dd47842c1442d9f8fa4d7c491c7))
+- **ui:** Link the official Discord server on About ([83f41d5](https://github.com/kein5/astarot/commit/83f41d5c643b3b9a338e9e2044537a16d6a65b50))
+- **ui:** Wire config file path display and editable log destination ([528c914](https://github.com/kein5/astarot/commit/528c91453900cba0ebe6dc515847c3fca33c1418))
+- **ui:** Separate log destination and config file location rows ([8a5f979](https://github.com/kein5/astarot/commit/8a5f979911a2eefc8e07608d29804a577b0b61c1))
+- **settings:** Configure the conversation log directory ([0dd015a](https://github.com/kein5/astarot/commit/0dd015a13807411df17f596a677792a89444f87f))
+- **talk-ai:** Share selected screen frames with consent ([65cccb9](https://github.com/kein5/astarot/commit/65cccb9ba4d9ccc81d9195396544604c172f87b9))
+- **talk-ai:** Capture microphone audio and play answers ([425b98d](https://github.com/kein5/astarot/commit/425b98dfe0855f97b937e10cd168e1659035c253))
+- **talk-ai:** Connect conversation settings and consent to the core ([1ce4bdc](https://github.com/kein5/astarot/commit/1ce4bdcf925b5a77d61fd0924612d10264f95004))
+- **talk-ai:** Add the Gemini Live client ([d8c77fa](https://github.com/kein5/astarot/commit/d8c77fa14443fa24da824d15e23d1f38f9e33196))
+- **tts:** Read microphone finals in their original language ([5ac3be0](https://github.com/kein5/astarot/commit/5ac3be0d962e25d8f20b8b42117d35c336934c84))
+- **ui:** Add original speech option to microphone TTS mode ([78b3e79](https://github.com/kein5/astarot/commit/78b3e797246f3cea0c075a4352785362c2b18364))
+- **ui:** Move the three kept setting notices into hints ([f74cfc3](https://github.com/kein5/astarot/commit/f74cfc320d95232af41c3c4bd5f13a2a8384973b))
+- **ui:** Add speech recognition APIs on the transcription page ([01d3366](https://github.com/kein5/astarot/commit/01d3366cd3149da89ac7d03ee68185f803932dba))
+- **core:** Keep the speech recognition APIs the user adds ([82ce937](https://github.com/kein5/astarot/commit/82ce9370b2f42a5336fdfd17dbe2d48c16be4cfa))
+- **ui:** Hint the runtimes' descriptions and point the voice changer's monitor to its page ([a5ff59e](https://github.com/kein5/astarot/commit/a5ff59e3b87c1a83ddbd3d107395b68d64d57082))
+- **site:** List each release file once beside its copy under the old name ([f9142d8](https://github.com/kein5/astarot/commit/f9142d8b72a82fc3ec545a42631caf28e3405060))
+- **installer:** Download ASTAROT.zip, and VRCT-VOX.zip from a release up to 0.6.x ([f19e6ce](https://github.com/kein5/astarot/commit/f19e6ce818d8046521795c264a637a88e5b9c97d))
+- **installer:** Install the package's main binary under either name ([7bb07f9](https://github.com/kein5/astarot/commit/7bb07f92c8479c81b3d583eb998f053d13b1bc92))
+- **translation:** Reach the online translators through the system proxy ([9d6db3e](https://github.com/kein5/astarot/commit/9d6db3ed85c78cdff7ed0f81d7fbe4f7740b0ec8))
+- **vr:** Name who spoke on the single-line subtitle overlay ([45c628b](https://github.com/kein5/astarot/commit/45c628bae5dcdeec50d98fce9f4e0dde951377f0))
+- **vr:** Show the game audio's realtime captions on the single-line overlay ([f2a1de9](https://github.com/kein5/astarot/commit/f2a1de9d87fce3acee13f62be02e4f60d8451f21))
+- **audio:** Read the route's old names for one series, retire old units always ([7d363e4](https://github.com/kein5/astarot/commit/7d363e44ed9d92304c9259113113ed794f1c50f2))
+- **core:** Rewrite the paths saved under an install folder the installer moved ([9e33f4a](https://github.com/kein5/astarot/commit/9e33f4a62781c63d62618d5c50c9462168137dc1))
+- **ui:** Tell once to choose the renamed virtual microphone in VRChat ([be7cc5b](https://github.com/kein5/astarot/commit/be7cc5b269b7e30ab5df3d8a9dd8aecc64f51381))
+- **app:** Remove the old app ID's data when the app data is deleted ([2e21178](https://github.com/kein5/astarot/commit/2e21178ffd7c276bad6b1c8173a16f246a055735))
+- **app:** Register the app as io.github.kein5.astarot ([910ae84](https://github.com/kein5/astarot/commit/910ae84a6f81719232f76847b3ab77a3f0853ecb))
+- **core:** Keep API keys under ASTAROT's names in the OS store ([8539585](https://github.com/kein5/astarot/commit/8539585cdb7f744168800cd7ab4c5073ce237912))
+- **ui:** Open the virtual microphone guide only when asked ([a70c6ff](https://github.com/kein5/astarot/commit/a70c6ffd7cfaca6e210ba8183a555f48a38327f2))
+- **ui:** Choose the app theme from presets or own colours ([e89575c](https://github.com/kein5/astarot/commit/e89575cd0c3a67940b15f3062c4e3ddb9028292b))
+- **core:** Save the app theme ([64ece7f](https://github.com/kein5/astarot/commit/64ece7f0efc65088a4b77386413e12dc7290e73c))
+
+#### Improvements
+
+- **ui:** Use the kit's Button for the main rail's settings buttons ([5e6331a](https://github.com/kein5/astarot/commit/5e6331acbc364da8719bd64e98e28f312fc1f5d4))
+- **ui:** Use the kit's Button for the main rail's other features toggle ([be8141a](https://github.com/kein5/astarot/commit/be8141aea51fb977757873eb59898fd95283bae0))
+- **ui:** Use the kit's Popover for the color picker ([6e1254d](https://github.com/kein5/astarot/commit/6e1254d31592eeae6b373824b0f17d57efc37bbb))
+- **ui:** Use the kit's ToggleGroup and Popover on the language settings ([12b2d4b](https://github.com/kein5/astarot/commit/12b2d4b230eeda6e2a807b8ba7a119c1a59a29da))
+- **ui:** Use the kit's ToggleGroup and Toggle on the settings switches ([ef37b37](https://github.com/kein5/astarot/commit/ef37b37793947eaed4cc88af82691a6d79e38bc9))
+- **ui:** Use the kit's Dialog and Button for the first-run setup ([02f1222](https://github.com/kein5/astarot/commit/02f1222f28faf68e7584d0ba49d06a0c4fae9204))
+- **ui:** Use the kit's Dialog and Button for the app's notices and confirmations ([b15024e](https://github.com/kein5/astarot/commit/b15024e975287115b112e31aa7b7ea77515afae9))
+- **ui:** Use the kit's Dialog and Button for the download consent dialogs ([984cf8f](https://github.com/kein5/astarot/commit/984cf8f5abf588872ab48eefff4a072071fb2974))
+- **ui:** Use the kit's switch for the settings that turn on and off ([52abd1f](https://github.com/kein5/astarot/commit/52abd1f1586a9dddac416f8ec6daf64da573eb64))
+- **ui:** Use the kit's Button for Quick Chat's send ([73f3331](https://github.com/kein5/astarot/commit/73f3331eee759503c103d55b8162afb28a52a9e2))
+- **ui:** Draw the theme tiles with a new kit ChoiceCard ([8c637b4](https://github.com/kein5/astarot/commit/8c637b4009d2e083b838db274576734b13491a7c))
+- **ui:** Use the kit's Textarea in the main window's input field ([09fc0df](https://github.com/kein5/astarot/commit/09fc0dfc75c49a41f94679db08b62c55489a9d05))
+- **ui:** Add the kit's Textarea and use it in Quick Chat and the TTS options ([e1cc9d1](https://github.com/kein5/astarot/commit/e1cc9d1978e4b34abd287bb46815fb8883ef42f9))
+- **ui:** Use the kit's Select in the translation and speech API catalogs ([3af9bdb](https://github.com/kein5/astarot/commit/3af9bdbcc6c514a95f6f638c77aa43a3792818f2))
+- **ui:** Use the kit's Select for the voice changer and model downloads ([a11d8e0](https://github.com/kein5/astarot/commit/a11d8e0ccff3460a96d3840776e3d9585b8855e8))
+- **ui:** Use the kit's Select on the TTS page and the audio route ([f7fdfdd](https://github.com/kein5/astarot/commit/f7fdfdd10fb5483723e802b8e90a38cd376d4635))
+- **ui:** Add the kit's InlineConfirm and use it for removing catalog entries and models of your own ([4749573](https://github.com/kein5/astarot/commit/474957374f2f0cd55b5815d58751b99d3615b722))
+- **ui:** Use the kit's Popover and Toggle for the quick settings ([3f6b223](https://github.com/kein5/astarot/commit/3f6b2234debaee104997147ddc7c2e7c51a9c204))
+- **ui:** Use the kit's Select in the setup and virtual microphone dialogs ([cd94bee](https://github.com/kein5/astarot/commit/cd94beea66feecac8756f90389e7c2b36cd13ef7))
+- **ui:** Use the kit's Card and Badge on the catalogs' cards ([4cc883e](https://github.com/kein5/astarot/commit/4cc883e9419997de55944b1d1d030a9902455d17))
+- **ui:** Use the kit's danger Button and Toggle for stop and mute ([cab8a02](https://github.com/kein5/astarot/commit/cab8a02f978849744b79aed042ac08f4f3cd6372))
+- **ui:** Open the kit Select's list in the forms' look where supported ([1e24092](https://github.com/kein5/astarot/commit/1e24092f705095e4a2fd3c0434fd4bf6722717d8))
+- **ui:** Use the kit's select on the settings rows ([6217593](https://github.com/kein5/astarot/commit/6217593e8f4b9af84316ae284954a7a8a817b5cc))
+- **ui:** Show the remaining title descriptions in the app's tooltip ([fc1bf9d](https://github.com/kein5/astarot/commit/fc1bf9d60ad1981a59ad2dd5654ccda0b74248fd))
+- **ui:** Add the kit's Item and use it for the setup's findings and the term dictionary ([da1964f](https://github.com/kein5/astarot/commit/da1964f10c8b1872162d7dc4d237478101ae5fd5))
+- **ui:** Align the settings search with the kit's field and list ([9193b3c](https://github.com/kein5/astarot/commit/9193b3c9887abd186e2549f184791191513bbe75))
+- **ui:** Use the kit's switch for the main features' switches ([a3540c8](https://github.com/kein5/astarot/commit/a3540c8e9b27719fb9e2edb204df1272a1417a9e))
+- **ui:** Add the kit's Progress and use it for the download bars ([1213c24](https://github.com/kein5/astarot/commit/1213c2460c6f55e8eea7460bb30b211491efe27c))
+- **ui:** Align the language selection with the kit ([e262821](https://github.com/kein5/astarot/commit/e2628218e52fcbaee423491dca0ff78ad252e896))
+- **ui:** Use the kit's Button for the settings bar's back button ([7e96637](https://github.com/kein5/astarot/commit/7e966370e832f653f5f073d2d793d4b20522929c))
+- **ui:** Use the kit's Button for the captions and VR page's buttons ([58cb40b](https://github.com/kein5/astarot/commit/58cb40b99fe17cd30f1bfcea88d3ad419e6de017))
+- **ui:** Use the kit's Switch and Button on the tray companion's panel ([61a7b15](https://github.com/kein5/astarot/commit/61a7b158b1da655aa6c6c8ecb02602aa406a68fe))
+- **ui:** Use the kit's Button and TextField on the speech recognition, advanced and OCR pages ([c1e8e6e](https://github.com/kein5/astarot/commit/c1e8e6e2e5a839bd65a932c3d839f1993e11ee42))
+- **ui:** Use the kit's Button and TextField on the translation page ([35a01b4](https://github.com/kein5/astarot/commit/35a01b4d9bcf75beb05450ad1454061973361114))
+- **ui:** Use the kit's Button for opening the language window ([372897c](https://github.com/kein5/astarot/commit/372897c29f250917c452019ec0425f8cc672a1b9))
+- **ui:** Use the kit's Button and TextField on the voice changer page ([51f443e](https://github.com/kein5/astarot/commit/51f443e9f7efb89fd574795329704ee265f7c951))
+- **ui:** Use the kit's Button and TextField on the TTS page ([68b828f](https://github.com/kein5/astarot/commit/68b828f680817948ef70fff8e0a88ea6235f599f))
+- **ui:** Use the kit's icon Button for the main rail's controls ([e48e6ca](https://github.com/kein5/astarot/commit/e48e6caa104ae71822411ca4cc1da29af6bac974))
+- **ui:** Use the kit's Button on the chat reading page ([cc69864](https://github.com/kein5/astarot/commit/cc6986422cf27925e923d0f8cce40223078551c5))
+- **ui:** Let the settings forms hold the kit's Button, starting with the voice route ([14da5a1](https://github.com/kein5/astarot/commit/14da5a13ba995f55c828da7f39e26d5f8d640bf5))
+- **ui:** Show the settings menu's full names in the app's tooltip ([ab86a36](https://github.com/kein5/astarot/commit/ab86a368b477ecd6da96726969329074e6a833b3))
+- **ui:** Use the kit's Button on the Hotkeys page ([d543a97](https://github.com/kein5/astarot/commit/d543a975126eaf808efdacea0f40d315ec2b6c65))
+- **ui:** Use the kit's Button for installing and checking updates ([cf77651](https://github.com/kein5/astarot/commit/cf77651d60e2f853b05c56d3f80891ba20df3603))
+- **ui:** Use the kit's Button in the word filter and the message format ([b222c5e](https://github.com/kein5/astarot/commit/b222c5e51c73e62ce08cf2fea419429c877b6a32))
+- **ui:** Use the kit's Button for swapping and adding or removing languages ([6f021e4](https://github.com/kein5/astarot/commit/6f021e46a86758ddc7ed24c0ae90207e7f73fd96))
+- **ui:** Use the kit's Button for the top bar's update and inputs and outputs buttons ([986bd32](https://github.com/kein5/astarot/commit/986bd32bf84ca2eab4f038b5bea38d9ad812677d))
+- **ui:** Use the kit's Button in the empty conversation and realtime controls ([ca5a8f8](https://github.com/kein5/astarot/commit/ca5a8f8d9686598490e839637ff637a0d9c246de))
+
+#### Bug Fixes
+
+- **ui:** Keep the speech recognition catalog after choosing a Listening model ([e19d6be](https://github.com/kein5/astarot/commit/e19d6befc850b8aff107f6187a61b59526e1c851))
+- **vr:** Show the whole graph in the Inputs and outputs window ([cce1fb4](https://github.com/kein5/astarot/commit/cce1fb46c553b9c1a3364031c5df7906a86d9ad6))
+- **audio:** Accept a Steam Link headset microphone as the default microphone ([65e1d95](https://github.com/kein5/astarot/commit/65e1d958e9fffdf958e01f8f5bcf5b28ecfa3765))
+- **asr:** Show the captions page's start and stop for an external server only ([b6b6768](https://github.com/kein5/astarot/commit/b6b676844968c2a2025c83538d1f912c3a3db4dc))
+- **ui:** Choose a recognition model for Mic input or Listening from its card ([bec1ed6](https://github.com/kein5/astarot/commit/bec1ed672b1c287a6926b21ca08e53786b94875f))
+- **ui:** Show a translation model downloaded from its card as usable there ([038d704](https://github.com/kein5/astarot/commit/038d7042d501075c1ca56cbdfa48e96197c78acd))
+- **asr:** Drop the Start and Stop buttons of the ASR servers ([e0a89b5](https://github.com/kein5/astarot/commit/e0a89b5888368160184c1d8c8244fa0fee0ce8a1))
+- **asr:** Show the state of Listening's own server in its settings ([66de6df](https://github.com/kein5/astarot/commit/66de6dfb60067eb902084e048c68560a02e8072c))
+- **ui:** Keep the room of a caption switch's longest state, also on two lines ([4aa5041](https://github.com/kein5/astarot/commit/4aa50419829f3389de47f6465c589859d69f4a02))
+- **ui:** Keep the line for a caption switch's state under its name ([ae57f98](https://github.com/kein5/astarot/commit/ae57f98d977c0ced1ba214f1adaba9da1e710491))
+- **ui:** Keep the place of the on mark beside each language heading ([aa6044e](https://github.com/kein5/astarot/commit/aa6044e2b6cdfeb817d2728135b63e972e4492cb))
+- **vr:** Show the paused strip in the VR settings only where features pause ([5799fca](https://github.com/kein5/astarot/commit/5799fca8a8e8116d67b70ce42b7f33f7a409de43))
+- **vr:** Enable the VR settings once the desktop settings window is open ([4e88344](https://github.com/kein5/astarot/commit/4e88344fdd15d0d691681cc2b41979f5422377d6))
+- **ui:** Lead from the first-run setup to the toggle itself, not its row ([78448ed](https://github.com/kein5/astarot/commit/78448ed66a9ad62f008819a8f9fe628a2596670b))
+- **ui:** Reword the memory guidance of the model download page ([a81156f](https://github.com/kein5/astarot/commit/a81156fbc20255432835d722d0cb75f5e38d9fa0))
+- **ui:** Say in what order the processing types are listed ([36bc5a8](https://github.com/kein5/astarot/commit/36bc5a825f254d0676d509ab9fdc04869791a151))
+- **ui:** Reword English text that follows the Japanese word for word ([2acfe86](https://github.com/kein5/astarot/commit/2acfe8695b378434c62ddf05bae4852dc678dbda))
+- **ui:** Say what will happen in English text shown before it happens ([1ceb53c](https://github.com/kein5/astarot/commit/1ceb53cccd1042e96a0104e9216a5d4729e2e0b2))
+- **ui:** Label the usage data preview "See what gets sent" ([b988edc](https://github.com/kein5/astarot/commit/b988edcadd5bbc13a51d83995004a860d62e44b0))
+- **ui:** Show the VRChat notice on About in the UI language only ([90b04f0](https://github.com/kein5/astarot/commit/90b04f006aae17716559be4d72246a3f8541086f))
+- **transcription:** Let the app close while Mic input waits for its server ([bdd9559](https://github.com/kein5/astarot/commit/bdd95598f509b5b80d56bbe7c7ea1ded3763c82e))
+- **translation:** Stop a translation LLM's server when the app closes ([2db9354](https://github.com/kein5/astarot/commit/2db9354e990fec32cb976f3830b69d385727415c))
+- **ui:** Stop a failed save from hiding later error notices ([59b73fb](https://github.com/kein5/astarot/commit/59b73fbbc381e0bdd283b5699bf0ac38a64041e3))
+- **ui:** Say caption starts and failures under the switches, without the strip ([eef4148](https://github.com/kein5/astarot/commit/eef4148d3a9b86afb2c664cb640aae11cfd88d28))
+- **ui:** Stop showing three saved settings as failed ([afe1ced](https://github.com/kein5/astarot/commit/afe1cedf3fdfb37b48b1cf3dde81cff399176594))
+- **tts:** Name everything text to speech misses at once ([5972d42](https://github.com/kein5/astarot/commit/5972d422251150704b8a791f39991d9aa22802f5))
+- **asr:** Call the setup by its name and drop the VAD model from the refusal ([71b2ca2](https://github.com/kein5/astarot/commit/71b2ca2adcb9c85f93d4bfe34ead8bbdde18098c))
+- **asr:** Say when the bundled speech server is missing, and how to put it back ([c5427cf](https://github.com/kein5/astarot/commit/c5427cf458617d59950663280af9b6ab011e4b9e))
+- **ui:** Say "Stop speech" on the top bar at the default window size ([dc9cfe5](https://github.com/kein5/astarot/commit/dc9cfe5d03d67fe7cd259b206363f106ff1594ea))
+- **setup:** Show only Done once the first-run setup is finished ([47c0a23](https://github.com/kein5/astarot/commit/47c0a235067ad88a90c527da60bffc3877e1bb8e))
+- **ui:** Give the notices the window's font fallbacks ([de1bd8b](https://github.com/kein5/astarot/commit/de1bd8b1091c070384611126420b14971587142a))
+- **rvc:** Give 20 ms blocks a 20 ms crossfade so the joins do not break up ([d6aca88](https://github.com/kein5/astarot/commit/d6aca884a65476b9869192ed3bbf300e34963d84))
+- **vr:** Say a switch's state in the UI's words and point recognition setup to the main screen ([dd770f4](https://github.com/kein5/astarot/commit/dd770f446bf7486531c130bf3404afc8cdf47c10))
+- **realtime:** Word the microphone wait for the system and fit it in the VR tooltip ([83a28ef](https://github.com/kein5/astarot/commit/83a28ef1d2559dd16ccca6ada582faacca92bfb4))
+- **setup:** Say on each line that a model is on the PC already ([08fba07](https://github.com/kein5/astarot/commit/08fba07cdc46826887459b77e7773da9b00e3268))
+- **settings:** Point the engine's help to where speech.cpp is set up ([8caa3bf](https://github.com/kein5/astarot/commit/8caa3bf8b72062a3c37a4c97c18e88af05ade289))
+- **transcription:** Show the ASR model field for an external server only ([c572e41](https://github.com/kein5/astarot/commit/c572e4134c36a8d9a108be32d18d4bb73c0caaee))
+- **transcription:** Offer Mic input's languages from its model too ([3315536](https://github.com/kein5/astarot/commit/3315536ab52b411323933db558d4e5e83551015b))
+- **transcription:** Tell a microphone waiting on Windows' permission apart ([fb0362c](https://github.com/kein5/astarot/commit/fb0362cba6cd966ae50d865977358fcba637632f))
+- **transcription:** Clear "Stopping captions" once the captions stop ([1dc31ca](https://github.com/kein5/astarot/commit/1dc31ca7c3456ef39c3dcf8ebcd96f166dbc566d))
+- **transcription:** Say that Listening may have a model of its own ([d4cbc83](https://github.com/kein5/astarot/commit/d4cbc83042ded517eab533a42abcf8799e7c8bb6))
+- **transcription:** Offer Listening's languages from the model it uses ([34c3b0a](https://github.com/kein5/astarot/commit/34c3b0a7b5bfc80d8049e4e9c7c51d299d0e9eff))
+- **downloads:** Keep the models on the PC in every download answer ([03770c5](https://github.com/kein5/astarot/commit/03770c5427376347b1f5ef202fc722deeaed20d3))
+- **ui:** Show the restore icon while the window is maximized ([3e44be5](https://github.com/kein5/astarot/commit/3e44be5d20293a6a89f39756ca1413cd73be8a3b))
+- **installer:** Keep the UI language when the installer is run by hand ([ac7b4c7](https://github.com/kein5/astarot/commit/ac7b4c72e25db481907a854115210ec0d30a658e))
+- **ui:** Match a cut MME output name in the virtual microphone guide ([0c727cd](https://github.com/kein5/astarot/commit/0c727cd9a1d221185d53f37e38d5ab1717139db3))
+- **ui:** Show the settings menu's scroll thumb ([7f6e214](https://github.com/kein5/astarot/commit/7f6e214ff4ecf9b41d7dcaa354a9a75c68cd69e5))
+- **ui:** Lead from the Device page to the realtime captions' devices ([2d5fe98](https://github.com/kein5/astarot/commit/2d5fe98e909ff7bfb4d8644ec1b26a5cf9186786))
+- **ui:** Lead to the talk AI page from its experimental switch ([bb5874c](https://github.com/kein5/astarot/commit/bb5874c120636f9060535cbd9a1fa61c7a2e97a3))
+- **ui:** Order the talk AI page as the speech recognition page ([bc888fc](https://github.com/kein5/astarot/commit/bc888fc6a55d0370abea3bef482decfe156357a2))
+- **ui:** Order the voice changer's setup as the speech pages ([5788012](https://github.com/kein5/astarot/commit/5788012321d13c2eac02c5dae7d794fc00414abe))
+- **ui:** Keep the settings top bar still when the mute badge shows ([4d3185e](https://github.com/kein5/astarot/commit/4d3185eed82633fc3dcc185f2929167658e44a3b))
+- **ui:** Lead to the translation settings from the translator list ([652caa1](https://github.com/kein5/astarot/commit/652caa19f2117a67f32d7d86ebbe2e5f4554a400))
+- **ui:** Drop the built-in mark from the translation catalog's entries ([4e70528](https://github.com/kein5/astarot/commit/4e7052817fe3d8ebeac9ab21d1f362526f67cace))
+- **ui:** Offer the GPU builds once a translation model is on the PC ([31e8b90](https://github.com/kein5/astarot/commit/31e8b904a1089e785cc66afc8d81c66a70fd601e))
+- **ui:** Make the GPU build's download review a plain button ([f51f20d](https://github.com/kein5/astarot/commit/f51f20d0340b3aad1aab1884c274f0bf92cb5200))
+- **ui:** Open a translation model's review with one press ([f5f1c1d](https://github.com/kein5/astarot/commit/f5f1c1db5c5feb086e5553574f89d30212a883b7))
+- **ui:** Keep a field's problem in sight while its hint is open ([f411235](https://github.com/kein5/astarot/commit/f411235fb98ea7ce4a6817f2afc0d85c7e1e8c87))
+- **ui:** Order the text to speech page as the speech recognition page ([343ad58](https://github.com/kein5/astarot/commit/343ad58e13c875aad9128855d5634e262bb63e08))
+- **ui:** Grey the text to speech switch while no voice has its model ([bece12e](https://github.com/kein5/astarot/commit/bece12e5c28f21628ad470f75f3f289766ff972e))
+- **ui:** Keep the measured memory out of a model card's hardware value ([e660619](https://github.com/kein5/astarot/commit/e6606196842e6b38aef018919e466c6d25d5f42d))
+- **ui:** Take the VAD with a speech recognition model from the catalog ([8497dcb](https://github.com/kein5/astarot/commit/8497dcb0b6ea16285d7d6624ac6fb845b7db5eb6))
+- **ui:** Choose the speech recognition server under the engine choice ([0f33ede](https://github.com/kein5/astarot/commit/0f33ede2eeb20c1aa05c14c77631ab03b00c3576))
+- **core:** Recognize through the bundled server on a new install ([2a8782e](https://github.com/kein5/astarot/commit/2a8782e2283dc3367830859ccad32ce17a7aed45))
+- **ui:** Show a model's review as one line with its breakdown folded ([ee44d04](https://github.com/kein5/astarot/commit/ee44d04803ccfd1167ceaeac3dcc225d296b6e14))
+- **ui:** Ask once in the first-run setup for every model it prepares ([0dd3c7e](https://github.com/kein5/astarot/commit/0dd3c7e6e4d7799c24b385a9d63f5ef9901dc6b8))
+- **ui:** Name settings consistently and drop save requests and raw codes ([9dcd6a9](https://github.com/kein5/astarot/commit/9dcd6a955257b1f862fb245cb09a61418389319d))
+- **ui:** Use a model already on the PC from its card ([93218de](https://github.com/kein5/astarot/commit/93218de9bf538c7694e2c29e29080138184b96b5))
+- **ui:** Show the chosen theme from the first paint ([82b7f24](https://github.com/kein5/astarot/commit/82b7f249555df21dba41a41102c613e388702b71))
+- **ui:** Draw the settings window's page once its layout is decided ([8a1ad9b](https://github.com/kein5/astarot/commit/8a1ad9b0139bd76d1d8980b39a94e39ee074476a))
+- **ui:** Lay the settings out again when their menu changes size ([c7cc182](https://github.com/kein5/astarot/commit/c7cc182023cc9a7342e2dadd3614437894903db7))
+- **ui:** Keep the setup's step names readable when a step fails ([f70b60f](https://github.com/kein5/astarot/commit/f70b60f5573463a9593d09c25be7e306619351e1))
+- **vr:** Fit the launcher's eight buttons inside its band ([568475b](https://github.com/kein5/astarot/commit/568475bcc981d031a76fb9d8d241a29d4c088c38))
+- **vr:** Let the VR log's opacity show what is behind it, not fade its text ([18d595d](https://github.com/kein5/astarot/commit/18d595d450b100667b948af629649838850ac32b))
+- **ui:** Keep what a settings page needs first in sight ([84a91f0](https://github.com/kein5/astarot/commit/84a91f0bb99620dd31614797b47ccacb8e19958b))
+- **ui:** Switch the translation model from its catalog card ([ba57b06](https://github.com/kein5/astarot/commit/ba57b06c5b1c7e7336c46bc6f1ea60e515ec566a))
+- **ui:** Say in the tray menu what each item turns on or opens ([4bd7386](https://github.com/kein5/astarot/commit/4bd73863e725ab2e4bbd73c83be53f82396a13e2))
+- **tts:** Write the model name as Irodori-TTS in the app and the documents ([75cf1be](https://github.com/kein5/astarot/commit/75cf1bef883f543c7082bffa175343aa9dc5d6e4))
+- **ui:** Let the conversation grow with the window ([d07faf6](https://github.com/kein5/astarot/commit/d07faf6d4da021099c765bcd46065c2063c142a3))
+- **ui:** Keep the settings menu in the window at a large UI size ([103e8c6](https://github.com/kein5/astarot/commit/103e8c69a13e17097b06dac87c24edf9ad45687f))
+- **site:** Let the home mascot jump on activation ([891e408](https://github.com/kein5/astarot/commit/891e4085dbf3c7938cc13c24fac21d633edef7c1))
+- **ui:** End a group's save guard when its save ends ([1d1272b](https://github.com/kein5/astarot/commit/1d1272b8b1547bfbe793250b363c84b24c72cc66))
+- **ui:** Lead the settings search to a setup fold by its title ([9e50dc7](https://github.com/kein5/astarot/commit/9e50dc7263c79db956a699f4717720639ed3ceeb))
+- **ui:** Drop the texts of the VAD switch the transcription page no longer has ([8239921](https://github.com/kein5/astarot/commit/823992159baa4f9f7991ba287ebb38eeeb32cff4))
+- **ui:** Start the volume thresholds at the core's default while they load ([5bc6e17](https://github.com/kein5/astarot/commit/5bc6e17993fef5a9df3f994e711a76b2bd40e91a))
+- **ui:** Treat a language with no server named as using the bundled one ([601809f](https://github.com/kein5/astarot/commit/601809fdf9b1f3da55ddb14729a8f0596f791e02))
+- **ui:** Stop offering settings search results that lead nowhere ([a55ecb5](https://github.com/kein5/astarot/commit/a55ecb5cbfadbd1860ed26d7d864b3aaa1653c8d))
+- **ui:** Show the app's default settings while they load ([2e167d5](https://github.com/kein5/astarot/commit/2e167d5cbef553749871fe5384a9e03862afe717))
+- **ui:** Say 対応 in the hiragana and romaji note ([18200fc](https://github.com/kein5/astarot/commit/18200fca716ecec7a28181ce9249cb49c9a0a41c))
+- **appimage:** Give browsers and the restarted app the host's environment ([2793cd7](https://github.com/kein5/astarot/commit/2793cd725c96ef1bd7b6a52bbe30570260022422))
+- **ui:** Let the hotkeys work again after a failed desktop bind ([026fcf0](https://github.com/kein5/astarot/commit/026fcf0e2b4d472d7a30d902093d016eb0ec4d8d))
+- **ui:** Right-align VR sample text button and hint ([593659a](https://github.com/kein5/astarot/commit/593659abd237395597e13b9f156180f4dc556ee9))
+- **ui:** Keep settings dropdowns compact and flush on the right edge ([f948556](https://github.com/kein5/astarot/commit/f948556a2cb4388de0bad2306b9ad2dd337b43fb))
+- **ui:** Align radio rows to the row right edge and cover all settings pages ([6948280](https://github.com/kein5/astarot/commit/694828028575aed82700e5f08024929be9cb54cf))
+- **ui:** Align all settings controls to the row right edge ([a3ccc27](https://github.com/kein5/astarot/commit/a3ccc276fbab739ca57583424d928b6cfdecf92a))
+- **ui:** Align standalone checkboxes and icon buttons to row right end ([bf831ec](https://github.com/kein5/astarot/commit/bf831ec8592994b38ffdca314817a5832ace73ce))
+- **ui:** Clarify empty user-added state in translation catalog ([74ad62b](https://github.com/kein5/astarot/commit/74ad62b7b0e4fdf80518e555726695a5a0f90399))
+- **ui:** Move translation local-model copy to hints and align wrapping ([73cce57](https://github.com/kein5/astarot/commit/73cce57d4bb707a390b84ae418a68e9bd1ec855f))
+- **ui:** Remove undefined not-supported clause from VRChat send copy ([032396f](https://github.com/kein5/astarot/commit/032396f7125e510796f367c20475f94cf17ab225))
+- **ui:** Keep show-all mutually exclusive with specific use cases ([336b7a8](https://github.com/kein5/astarot/commit/336b7a8af66cc30ce141cd8482fd6c320eb1d248))
+- **ui:** Move use-case filter descriptions to hover tooltips ([5effbde](https://github.com/kein5/astarot/commit/5effbdee6fae17beca790571753824e700e81506))
+- **ui:** Follow selected theme in quick chat, VR, and companion windows ([d3a5ae1](https://github.com/kein5/astarot/commit/d3a5ae157dbb6a61516a6409997124ed827dd8da))
+- **ui:** Disable caption sample sending when both overlays are off ([57b6567](https://github.com/kein5/astarot/commit/57b656738507c5282b9eab461012088de7f5cfcd))
+- **ui:** Restrict saved notice to explicit save-bar writes ([9520b8f](https://github.com/kein5/astarot/commit/9520b8ff2c368cd27c8cd6711d50c9f26ee08155))
+- **ui:** Save catalog layout and immediate view preferences without saved notice ([a8eefef](https://github.com/kein5/astarot/commit/a8eefef174871aee0f7c42cd9cdebf9d30e8ee23))
+- **ui:** Remove upstream VRCT developer cards from About page ([8517312](https://github.com/kein5/astarot/commit/851731245996109720f6f3de3ad27d32d6eb05a6))
+- **ui:** Align settings controls on the shared field column ([3ce633f](https://github.com/kein5/astarot/commit/3ce633ff0e87b20349c370830bdd413bd795a463))
+- **ui:** Open the translator list as a floating popover beside the rail ([cec30de](https://github.com/kein5/astarot/commit/cec30def7f0268981d6959abb4766af3d87c7c9d))
+- **talk-ai:** Include the client in Linux build workspaces ([9c6ec80](https://github.com/kein5/astarot/commit/9c6ec8034daf65afd74c5dd40235e04681888bb1))
+- **vr:** Align the panel texture and keep window controls reachable ([37d056c](https://github.com/kein5/astarot/commit/37d056cf312d442c4a74ecf75eebe418277c3f3a))
+- **ui:** Say the update check asks the developer's server on both channels ([c00e2d8](https://github.com/kein5/astarot/commit/c00e2d83f969a3aea55d19e214b75b7dee9431ee))
+- **ui:** Update microphone TTS copy for original speech mode ([06f4bad](https://github.com/kein5/astarot/commit/06f4bad005b443347868b392fc9218167d264a0a))
+- **tts:** Disable Windows loopback SYN retries on HTTP connect ([befe6d9](https://github.com/kein5/astarot/commit/befe6d96b35e6af143214af3e22e600e32238e83))
+- **vr:** Make Send on the large log stand out from its background ([8b4d093](https://github.com/kein5/astarot/commit/8b4d093b25fbab864f5dbc99bc7b566d54bc9880))
+- **vr:** Make Receive and timestamps on the large log stand out from their background ([6fdca6f](https://github.com/kein5/astarot/commit/6fdca6f4951e9b81ad50d1e745d8975ba8856518))
+- **vr:** Show custom translation model names ([c5f017d](https://github.com/kein5/astarot/commit/c5f017d33b556bddddfccd02b6859d2a8a99af5c))
+- **vr:** Name the translation models in the VR settings as the desktop does ([44a485f](https://github.com/kein5/astarot/commit/44a485f63420958643bf4a53e55b8a9f1ecdba78))
+- **ui:** Turn Translation on after its model comes from the catalog ([5b9c637](https://github.com/kein5/astarot/commit/5b9c637658d2e9af1dd06adf2e4d3beefd05ce67))
+- **vr:** Make who spoke on the single-line overlay stand out from its background ([857086a](https://github.com/kein5/astarot/commit/857086addcb3031737eb1c99a9e1ae5bbadcd5cd))
+- **update:** Keep the update channel set before from showing or installing its version ([f966ab6](https://github.com/kein5/astarot/commit/f966ab636c77be167c3db5820ae6b2864c411e02))
+- **vr:** Draw a realtime final's single-line picture off its delivery ([cc17b4f](https://github.com/kein5/astarot/commit/cc17b4ffcd6772de066bfd58f285d1801908135f))
+- **installer:** Keep secrets.json while a key of this install is left ([ab778dd](https://github.com/kein5/astarot/commit/ab778dd7dd3fe24d250d19a490ea24e9e47e0ecf))
+- **installer:** Record the version /VERSION installed in the Apps list ([052b1e8](https://github.com/kein5/astarot/commit/052b1e8bd192ab8e53222cdc3797d05dc8107596))
+- **installer:** Stop a second installer from breaking a running update ([c710070](https://github.com/kein5/astarot/commit/c7100704c839cdb143ec11ff42e3b4c3d5f0be11))
+- **installer:** Remove all app data and this install's API keys on request ([d8093bb](https://github.com/kein5/astarot/commit/d8093bbced68d5389facaf84f899f59898ec49e1))
+- **core:** Never take a copy of the settings cut short for a whole one ([47a2a28](https://github.com/kein5/astarot/commit/47a2a28d65b8b1839c914bb214c281d82596cd70))
+- **ui:** Keep a check of the earlier update channel from overwriting the new one ([78652b2](https://github.com/kein5/astarot/commit/78652b258021ef04524b917d70ff2ad26626f185))
+- **ops:** Put a model download back when its thread cannot start ([6f8c975](https://github.com/kein5/astarot/commit/6f8c975812e1906b387a4c6e333db1f35e80594c))
+- **ocr:** Lower only ONNX Runtime's threads while chat is read ([99c90a3](https://github.com/kein5/astarot/commit/99c90a35ff91612a06b8bf6c3f0e02de94e9c72c))
+- **linux:** Start programs with the host's environment under the AppImage ([0bf3025](https://github.com/kein5/astarot/commit/0bf30252db0595795d5f6af244ef902bbde339e6))
+- **vr:** Read each subtitle font once and redraw at a session's end only when needed ([dffffe7](https://github.com/kein5/astarot/commit/dffffe7fdf0b366e5b7411b1cfb17a7817d94a9c))
+- **core:** Draw realtime captions on the VR log off the loop that reads updates ([0ddb81c](https://github.com/kein5/astarot/commit/0ddb81c5ffa627ffe154ab11d2a0d417e2525251))
+
+#### Performance
+
+- **rvc:** Cap the crossfade at 20 ms so the converted voice comes sooner ([13528c3](https://github.com/kein5/astarot/commit/13528c3d7775100cc5013deecfbdc8f4472411c2))
+
+### Internal Changes
+
+#### Refactoring
+
+- **vr:** Drop the unused Display of ApplicationError ([417e7dc](https://github.com/kein5/astarot/commit/417e7dcf6d904ececbb75955461dfa8e3cde05bb))
+- **ui:** Let the settings forms hold the kit's Select ([c6d83e0](https://github.com/kein5/astarot/commit/c6d83e03374869c0f1b1a901efe584fa05cb970e), [0c3ee16](https://github.com/kein5/astarot/commit/0c3ee161dea5eba8ed4650b6556f5fb8bd5c49a2))
+- **site:** Share action and tab control styles ([907d97d](https://github.com/kein5/astarot/commit/907d97dc402fea695068b13e7ccc6b089efe6e62))
+- **site:** Share the bilingual sidebar structure ([beb5b7f](https://github.com/kein5/astarot/commit/beb5b7f3c87c0510718bedbaccdbf464c98ba133))
+- **ui:** Tell focus moving within the certificate pair from the blur ([4bb378d](https://github.com/kein5/astarot/commit/4bb378d608424d2df8a41f95afcb32dd6bb472d5))
+- **ui:** Say a refused OBS color in the core's words ([5125fdd](https://github.com/kein5/astarot/commit/5125fdd2219c32d59e0a2a4d637a1675e2487da1))
+- **release:** Keep individual .sha256 only for Windows ZIP packages ([4e6a048](https://github.com/kein5/astarot/commit/4e6a048d63b2bd4390a816e8135eff7292309586))
+- **ui:** Replace all & placeholders in the VR settings selector helper ([59e202a](https://github.com/kein5/astarot/commit/59e202acd94fb1972b7216ffdbc2937a0cea0af8))
+- Remove the review of the retired built-in translation download ([2df8c12](https://github.com/kein5/astarot/commit/2df8c127c30ce009ec787dfbf0ac28439d0c0fbc))
+- **ui:** Remove the SCSS mixins and the sass compiler ([43c7580](https://github.com/kein5/astarot/commit/43c7580456c98ee308372aeb667ea0d988d0d99e))
+- **ui:** Write the select's base-select value without a double cast ([15dfb91](https://github.com/kein5/astarot/commit/15dfb911ea5833ff92f7c099e8a422a0876d0952))
+- **ui:** Move the VR panel's styles to vanilla-extract ([9e5e82f](https://github.com/kein5/astarot/commit/9e5e82fdb4b2963b3e5153224e6a47aaccc0e909))
+- **ui:** Move the forms' shared styles to vanilla-extract ([4d01aad](https://github.com/kein5/astarot/commit/4d01aad6731a1f925e09568324ea85d9be75eacd))
+- **ui:** Move the large settings pages' styles to vanilla-extract ([b25fb76](https://github.com/kein5/astarot/commit/b25fb76aeed9a9ce337a4d9aa09329017b8eb5f4))
+- **ui:** Move ten settings pages' styles to vanilla-extract ([6de2402](https://github.com/kein5/astarot/commit/6de2402ffbf436394d5a16c5d2e99e8863cef70b))
+- **ui:** Move the last settings parts' styles to vanilla-extract ([880753e](https://github.com/kein5/astarot/commit/880753e9202acac522863b410704296d77b98878))
+- **ui:** Move the settings parts' styles to vanilla-extract ([3f80d6f](https://github.com/kein5/astarot/commit/3f80d6f1ee837b41f332dfd2ee326ae7e3164061))
+- **ui:** Move the settings page's frame styles to vanilla-extract ([7561bf5](https://github.com/kein5/astarot/commit/7561bf5e2968b8b5b20fdcc69fd907e0d4bd720a))
+- **ui:** Move the main page's styles to vanilla-extract ([35be6d0](https://github.com/kein5/astarot/commit/35be6d0372074d82b587f9209d59437f7a9906a5))
+- **ui:** Move the common components' and the windows' styles to vanilla-extract ([3107eb0](https://github.com/kein5/astarot/commit/3107eb0347e2879efaf329d423942548b183d5d9))
+- **ui:** Give the SCSS mixins to vanilla-extract styles ([dd3befd](https://github.com/kein5/astarot/commit/dd3befd766f9a2b4c4d54bba15f802a319237b0e))
+- **translation:** Drop what is left of the old CTranslate2 download ([36de472](https://github.com/kein5/astarot/commit/36de472f311bf8a933b97ec276bd7d8513e8193d))
+- **translation:** Open a policy-checked connection for a WebSocket ([7cfdf21](https://github.com/kein5/astarot/commit/7cfdf214287b9cf4d1f3fe9d821fef6872265ae2))
+- **ui:** Take refs as props instead of forwardRef ([4ffd0bf](https://github.com/kein5/astarot/commit/4ffd0bf11593cb3923d4157682e39294f958f954))
+- **app:** Name the app's crate and npm package astarot ([a53ca07](https://github.com/kein5/astarot/commit/a53ca07ba2766062253baa7e36ebdc9917d66a6f))
+- **native:** Name every Rust crate astarot-* ([4d5a950](https://github.com/kein5/astarot/commit/4d5a95052f3d4cf33cf3eac756f7b760aa6f78d4))
+
+#### Dependencies
+
+- **deps:** Update cookie to 0.18.3 for RUSTSEC-2026-0594 ([a9716c9](https://github.com/kein5/astarot/commit/a9716c9720927fefbf9cf27f527dc941e2521a19))
+- **deps:** Group the majors of npm packages that move together ([4d5bac5](https://github.com/kein5/astarot/commit/4d5bac526ce021330fd5d7f5d9d4ee94debdc1b8))
+
+#### Build & CI
+
+- **installer:** Ship the SteamVR manifest and remove the registration on uninstall ([f28ed0f](https://github.com/kein5/astarot/commit/f28ed0f2ae258b40a858e0bfe7757e386b17bdb7))
+- Show the workflows and the source archive under ASTAROT ([0c99048](https://github.com/kein5/astarot/commit/0c990480e1ade3a0ce8bbfb33716f5ece7449df5))
+- Run the RVC worker's unit tests on Ubuntu and Windows ([c49786b](https://github.com/kein5/astarot/commit/c49786b4402fd60582e8192c9173de4f430a27fb))
+- Start the Secret Service tests once GNOME Keyring is on the bus ([f805d51](https://github.com/kein5/astarot/commit/f805d51f045bef6c62c45b972506159da9c276ea))
+- **release:** Make no draft while immutable releases are off ([12091c5](https://github.com/kein5/astarot/commit/12091c5551cf745466d92b30f8575cb6b14f47c7))
+- **build:** Allow hk.pkl and RVC test fixtures in source archive check ([133aa36](https://github.com/kein5/astarot/commit/133aa3626cfc6a6f5778cd9ea860c198918a7e0b))
+- **ci:** Retry cleanup of shortcuts in use ([d61dd44](https://github.com/kein5/astarot/commit/d61dd44b75672f972e290fbdc4b1d8ca0457fef3))
+- **ci:** Use an older package to test Linux upgrades ([aab7c50](https://github.com/kein5/astarot/commit/aab7c50ad68f36c6e3df882817a4f0459a3566bc))
+- Stop retrying the #861 tests in core-integration ([5f24f1a](https://github.com/kein5/astarot/commit/5f24f1a0d61518f94da5d98b7d0d8c0920e88859))
+- Run the app's unit tests on Windows too ([44db52c](https://github.com/kein5/astarot/commit/44db52cd96ff5d6ce25bda7dac58aa2aa6b9265a))
+- Refuse every model file in a package, not only the OCR weights ([f4cafbd](https://github.com/kein5/astarot/commit/f4cafbd0d0f333d5a4c38bcdec04cfba7e014922))
+- Name the candidate artifacts ASTAROT ([b583b89](https://github.com/kein5/astarot/commit/b583b895d2a014c9801a95695f8c15ab3d54b97f))
+- **talk:** Keep the talk AI crate's build output out of the repository ([c5327be](https://github.com/kein5/astarot/commit/c5327be4c6f2d14cc80a7c4ef808b0a03374a031))
+- Check that the linux packages replace the ones up to 0.6.x ([9ed0f96](https://github.com/kein5/astarot/commit/9ed0f96872f25468e4e2cf52b8c5a87e21b337ba))
+- Count each week's CI failures per workflow and job ([42c8f5e](https://github.com/kein5/astarot/commit/42c8f5e3b4b112033f5e47676d4bdbb1d0472a8d))
+- **talk:** Use the astarot names of the renamed crates ([856dfbf](https://github.com/kein5/astarot/commit/856dfbfbf1ee3bfac656f4e34566c82373d17e4f))
+- Show the end of a failed Linux candidate step's log in the job log ([b1ececc](https://github.com/kein5/astarot/commit/b1ececc624f09a85308b0a9e27e07061578a08f3))
+- Try downloads and apt fetches again after a passing failure ([5cca7b4](https://github.com/kein5/astarot/commit/5cca7b49b0cd554811f921848fd8f5389d503ca8))
+- Retry the #861 tests in core-integration and list each pass on a retry ([8b0f105](https://github.com/kein5/astarot/commit/8b0f105e72ff8a09a26e617986bd3ef85941e8c6))
+- Name the Python project astarot ([55b496e](https://github.com/kein5/astarot/commit/55b496e0588943e1c0a18afb21393994da193d39))
+
+#### Tests
+
+- **integration:** Catch the main rail moving as the caption switches change ([baef1ee](https://github.com/kein5/astarot/commit/baef1ee1bd19ec0149919a28c19e23d6a41a46db))
+- **installer:** Count the SteamVR manifest as part of the app in the GUI uninstall ([58ce869](https://github.com/kein5/astarot/commit/58ce869c34b469b76e4582da651f841ad2882f0f))
+- **installer:** Import the uninstall argument into the app's tests ([ddb3d9b](https://github.com/kein5/astarot/commit/ddb3d9b1e681a2ac6afdcae614d141abed504c4f))
+- **vr:** Cover SteamVR's list of applications through the shared connection ([49e1a9f](https://github.com/kein5/astarot/commit/49e1a9fb0dc1042f9ec65ef2fb40a83ebd9627d9))
+- **vr:** Check that the SteamVR switch asks again when the settings reopen ([0f687d4](https://github.com/kein5/astarot/commit/0f687d445bbca274d460a81fb6d8a774e3236e43))
+- **ui:** Expect the new removal confirmation of an added translation API ([2c25a1f](https://github.com/kein5/astarot/commit/2c25a1f02f0dbf81e7a1ad14c843a9fd4f7a9776))
+- **core:** Name what shutdown does with each field of the core ([a433e84](https://github.com/kein5/astarot/commit/a433e84a0a470f51014c7d94bf8ace8e9ef233cd))
+- **installer:** Click through the reinstall page in the language scenario ([35a7819](https://github.com/kein5/astarot/commit/35a7819c5a818c0f94de4ad91a50dbcc3539d8cb))
+- **platform:** Move the pointer off the settings menu before pressing what it covers ([04d2aa5](https://github.com/kein5/astarot/commit/04d2aa583eb03394e3412f12805830abf0f24f7c))
+- **core:** Keep the file permission test Unix-only ([af1bb03](https://github.com/kein5/astarot/commit/af1bb03a5a2cafec964f5e1ad07005fb3df6ae4d))
+- **integration:** Open the review's breakdown for the exact bytes ([31cd67b](https://github.com/kein5/astarot/commit/31cd67b6b0ce936058b6d468144546c4d31ce686))
+- **ui:** Read the settings' style sheets as URLs on Windows too ([55137e0](https://github.com/kein5/astarot/commit/55137e049a152de2ade506b37934d78630b9c639))
+- **platform:** Find a settings field by its own label in the packaged-app tests ([582c06f](https://github.com/kein5/astarot/commit/582c06f6d43fef31ed1baf68e0d187e13805e3c1))
+- **platform:** Follow the settings window in the packaged-app tests ([d2a4b7e](https://github.com/kein5/astarot/commit/d2a4b7e23875a69e4b4e192f69ec4ca153f94283))
+- **integration:** Press a built-in model's card through the core ([f4501a4](https://github.com/kein5/astarot/commit/f4501a4cb1beadab5c7bcbdeda91399dadbd760c))
+- **site:** Check the rendered platform support sidebar link ([8e23067](https://github.com/kein5/astarot/commit/8e230679db199aa364a6a67cbacbe7e4a88c90fe))
+- **speech-server:** Keep copying the stand-ins on Windows ([25500d9](https://github.com/kein5/astarot/commit/25500d97e21a3628d31c2ad49897677071ae25ee))
+- **core:** Let the real OS store tests take turns ([ff00d55](https://github.com/kein5/astarot/commit/ff00d5555f429f08a5babe9ab1abecba09494147))
+- **osc:** Tell this handler's OSCQuery service from the other tests' ([c235503](https://github.com/kein5/astarot/commit/c2355033ce2381b0e3786e424a1740371ecc8f3b))
+- **osc:** Hold the unreachable service's port while the query runs ([13e7802](https://github.com/kein5/astarot/commit/13e7802d56a2e0e01b62adc4125ead3bd73e8b4c))
+- **speech-server:** Run the stand-in servers from hard links, not copies ([0410e81](https://github.com/kein5/astarot/commit/0410e81e4dfdc7c7989a5f602a7c27d058c01f55))
+- **platform:** Drop the restart-mute runs from the AppImage and package groups ([a867b1c](https://github.com/kein5/astarot/commit/a867b1cd5e10c996733f18a9f24e45c5c9ac0044))
+- **ui:** Check where the translation fields save and which values they refuse ([c55a1bf](https://github.com/kein5/astarot/commit/c55a1bfcecbf5cc35667c0a123d62ad5d5a2d6a7))
+- **platform:** Save the voice settings by choosing and by leaving the field ([cad5b61](https://github.com/kein5/astarot/commit/cad5b618ff0552305240f45836bbe28f5df619bf))
+- **ui:** Name a threshold field test so the strictness check passes ([11e2cd0](https://github.com/kein5/astarot/commit/11e2cd0b160bbe72344f299b69902097f74f2611))
+- **ui:** Check the settings search's list, keys and marked words ([18082f7](https://github.com/kein5/astarot/commit/18082f7ae2c88f82a4d6091d7e3cad71559d0718))
+- **ui:** Check how a settings dropdown opens, moves and closes ([8490e9d](https://github.com/kein5/astarot/commit/8490e9de49206f40d591e96edebe250e699692f7))
+- **ui:** Check the cards and form of the user's speech recognition APIs ([6ff4b52](https://github.com/kein5/astarot/commit/6ff4b52a9a36f0319fd7e63ab75f394ce3085d3d))
+- **ui:** Check what the appearance page shows and sets ([ff07093](https://github.com/kein5/astarot/commit/ff070935883aeedc578f014784b92006b65d7ecc))
+- **ui:** Check what a voice engine's runtime setup shows and starts ([be78dee](https://github.com/kein5/astarot/commit/be78dee2497f2d9f6d2048b9a203ae9044fec056))
+- **ui:** Check what a threshold's row joins to each source ([9943a1b](https://github.com/kein5/astarot/commit/9943a1bf764fbdafcbb1435bad34d5ae55ad450e))
+- **ui:** Check a threshold's volume meter and slider ([a7d3cb0](https://github.com/kein5/astarot/commit/a7d3cb0e18d61bcc40eb182a8e5d4f3f45b4fdf2))
+- **ui:** Check what a volume threshold's field shows and saves ([be71ea8](https://github.com/kein5/astarot/commit/be71ea824e9c37f62a3603b1f3cc9caf60d29278))
+- **ui:** Give the translation page test the field checks it now reads ([b32e41d](https://github.com/kein5/astarot/commit/b32e41d13a65ac671537888093b6b10b4ba4cbea))
+- **ui:** Read the voice page tests' forms as they save by themselves ([ecc8a5e](https://github.com/kein5/astarot/commit/ecc8a5e31c23f03c4c943958686fc4d1675ebdd3))
+- **ui:** Pass the field checks to the translation page test ([db93db3](https://github.com/kein5/astarot/commit/db93db30b03551ddc524c4bc01eab0f15dbb688a))
+- **integration:** Check that a setting saving by itself raises no notice ([5c2ebcf](https://github.com/kein5/astarot/commit/5c2ebcffdf7324bf55ad0a1f52ae836aa6e3dc08))
+- **ui:** Read the kit's Button and TextField on the voice settings pages ([360b836](https://github.com/kein5/astarot/commit/360b83678ae9d5e92bb632fccce398b1fd99112a))
+- **ui:** Check that a closed drop zone stops watching the drag ([141305a](https://github.com/kein5/astarot/commit/141305a9e752fc72889e3bd63af6505dc8beba3c))
+- **ui:** Drop a check of a fixed list from the speech recognition test ([f7bc7cd](https://github.com/kein5/astarot/commit/f7bc7cdedab7e113acc8a05bac5e1f18acd4e92d))
+- **ui:** Check the file drop zone's states and what it passes on ([b6dc9b6](https://github.com/kein5/astarot/commit/b6dc9b64f9acfa5147a4b7354a5f1682871c94e4))
+- **ui:** Check what the speech recognition page shows and sends ([79e1e9a](https://github.com/kein5/astarot/commit/79e1e9a4118df9e89d8666ea310a6150f42bc708))
+- **ui:** Check the cards and registration of models of one's own ([ecc2879](https://github.com/kein5/astarot/commit/ecc2879c12f1c48d7a7fbfb63d4cd45bc5a9cbc1))
+- **ui:** Check what the realtime captions form shows, waits for and sends ([d913078](https://github.com/kein5/astarot/commit/d913078353edc6563cfd1137f337b937f8908be6))
+- **ui:** Check what the VR settings page shows and sends ([3e0a4c8](https://github.com/kein5/astarot/commit/3e0a4c88f7ea81fcac2dcec80fca297561f47970))
+- **ui:** Read the IPC reference through its shared reader in the settings harness ([ef85ec9](https://github.com/kein5/astarot/commit/ef85ec9cb720f4d660c8b62989b6a244358ed4f9))
+- **ui:** Check what the TTS voice form shows and saves ([b7eb385](https://github.com/kein5/astarot/commit/b7eb385a53508e94c3d289f18dd23aa6418105e2))
+- **ui:** Check what the direct voice form shows, waits for and sends ([6b7759d](https://github.com/kein5/astarot/commit/6b7759df1425f0cb68788d7bf5542018b00242cf))
+- **ui:** Close the remaining config logic gaps and record their equivalents ([e6a96e0](https://github.com/kein5/astarot/commit/e6a96e0bf533d8dd739c3b8744860eb9d3e6dccc))
+- **ui:** Cover text fields that save by themselves and the log folder ([7cecd9d](https://github.com/kein5/astarot/commit/7cecd9d4f9c2d10cb386307b3d7dc26272096b64))
+- **ui:** Check the catalog's language list and engines, and record its equivalents ([8f836dd](https://github.com/kein5/astarot/commit/8f836ddb6858f07db7d947428171a0899ff6c656))
+- **ui:** Record the translation list's equivalent optional chain again ([bb7b98c](https://github.com/kein5/astarot/commit/bb7b98cf724942d6d7e4d6391d96eb11f528e838))
+- **ui:** Check the message log export as one of the shared switches ([299bec8](https://github.com/kein5/astarot/commit/299bec89e9de9927bf1bef085c64261d88a68afe))
+- **ui:** Follow the translation page's download review moving out ([e0386b7](https://github.com/kein5/astarot/commit/e0386b7c245e722433a513e758896b356010eb6d))
+- **ui:** Follow develop's settings changes in the settings tests ([d967fce](https://github.com/kein5/astarot/commit/d967fce3965ea028dc87576f04cc5ca6a7cf3504))
+- **ui:** Check what the model catalog shows, advises and sends ([8747c71](https://github.com/kein5/astarot/commit/8747c715a19d7afa716da9b5512b21dc2ab1d2f2))
+- **ui:** Cover revealing a setting and the small settings helpers ([6875584](https://github.com/kein5/astarot/commit/687558435bfecf0cab95e6e198b5996f78c4809c))
+- **ui:** Cover chat reading's region, readiness and shared window ([95050c9](https://github.com/kein5/astarot/commit/95050c9c200aaad206f7974e754eebbb6591e299))
+- **dev:** Check that the desktop tests import what exists ([02e91b9](https://github.com/kein5/astarot/commit/02e91b9f180be1fb29f8f9d2890347853921eb73))
+- **platform:** Open today's settings pages in the settings open-close test ([e265258](https://github.com/kein5/astarot/commit/e265258e84251f57c2a04af051561e3ada7c10c9))
+- Check the managed route's unmute through the app's window again ([b67200e](https://github.com/kein5/astarot/commit/b67200edfc391e310bed2e7d93771c1d595089c4))
+- **ui:** Scroll translator trigger into view before measuring shift ([df565de](https://github.com/kein5/astarot/commit/df565de3dbb8e1f58d301a354b12759a86943bc3))
+- **ui:** Compute expected field-column left per page width ([dc6aba8](https://github.com/kein5/astarot/commit/dc6aba8013c8ffb11341f0ecc37f92fd901bab82))
+- **core:** Hold translation until the speech server receives its warm-up ([4fca53a](https://github.com/kein5/astarot/commit/4fca53aaa258716e3a96ed67f88417467dfc6c86))
+- **vr:** Type the mirrored settings value as unknown ([0ba84a1](https://github.com/kein5/astarot/commit/0ba84a1d2637d6f47b0ce19821f3df53eaa3d896))
+- **ui:** Record useTranscriptionCatalog in routeRecorder and answerHandling ([4c91066](https://github.com/kein5/astarot/commit/4c91066791efe648898b1805e3b91d3b7b33a9d5))
+- **ui:** Run the harness's effects in React's order ([ca87c9a](https://github.com/kein5/astarot/commit/ca87c9ae6d940e8c06d604762842e1dc00568a85))
+- **ui:** Check the settings search over the real texts of every page ([6bbc158](https://github.com/kein5/astarot/commit/6bbc1581913b09f0977feb29c7e777753ba49487))
+- **ui:** Check the settings rows that several pages share ([4f542f9](https://github.com/kein5/astarot/commit/4f542f996c7a8ed16295182dc807428c883c229f))
+- **ui:** Check what the translation settings page shows and sends ([08f9740](https://github.com/kein5/astarot/commit/08f9740411cb2696f1b964737bd87a5489a5bfa6))
+- **ui:** Cover the settings logic's templates, weight list, sliders and text fields ([910e72d](https://github.com/kein5/astarot/commit/910e72d77be458fc78f6b9a4f93e359df0db4751))
+- **ui:** Check each setting's starting value against the core's defaults ([554918b](https://github.com/kein5/astarot/commit/554918b974c5fcccc76af5d43801804679b85035))
+- **ui:** Check every setting's requests and answers against the core and the IPC reference ([e4e9c52](https://github.com/kein5/astarot/commit/e4e9c52f512c30f32d7e83bc6381b6e03cc03bfa))
+- **ui:** Check the VR picker list's start, edges, focus and Tab ([3101ed4](https://github.com/kein5/astarot/commit/3101ed42b9d626ca88f61ad7b2814779637da257))
+- **ui:** Check what the VR hover tracker watches and lets go of ([d548e9f](https://github.com/kein5/astarot/commit/d548e9f3209694ae2bec6f8c656a067ab6935d40))
+- **ui:** Check the open VR log's frame and text size ([e3b349b](https://github.com/kein5/astarot/commit/e3b349b25ccc7b3d7f2a2a003ca80db091780a00))
+- **ui:** Check what each VR launcher button says and does ([0bd2633](https://github.com/kein5/astarot/commit/0bd2633b12da4aa6de0b4f7a7763751c477988fa))
+- **ui:** Check what the VR panel page reports and mirrors ([8dbd028](https://github.com/kein5/astarot/commit/8dbd028ffbaf0cb37e761d4a8cc58790b9d8077f))
+- **ui:** Follow the VR language window from a list to the backend's answer ([fdb5f82](https://github.com/kein5/astarot/commit/fdb5f82985c94117e0c47cb8b49301344e71705f))
+- **ui:** Draw the VR settings window's pages with the shared settings logic ([8782e09](https://github.com/kein5/astarot/commit/8782e09569dd07ed56d2ce93723a457337732021))
+- **ui:** Record the receive routes' equivalent mutants ([80cfadc](https://github.com/kein5/astarot/commit/80cfadcbba671687e1710bf9ccb64fdc514f9526))
+- **ui:** Cover what the routes do with failures, notices and polls ([dad2bdd](https://github.com/kein5/astarot/commit/dad2bdd195b65a6418e9c212f61ac44754a32a66))
+- **ui:** Check each route's receiver against the IPC reference ([166c7cd](https://github.com/kein5/astarot/commit/166c7cd99d060041db80ed2451e65c0dd3667005))
+- **ui:** Draw the VR window frame, the temporary windows and the panel page ([141285d](https://github.com/kein5/astarot/commit/141285d651f7f8c3042e04304ceb79bfe8d0493b))
+- **ui:** Check the VR toolbar's buttons, tooltips and steps ([2e4950c](https://github.com/kein5/astarot/commit/2e4950ceceeeaf24cb3773cadf895168c1ce58ab))
+- **ui:** Check what the VR settings rows show and send ([1a64a22](https://github.com/kein5/astarot/commit/1a64a22d8dccb6b559737e8028ede1f5b3414968))
+- **ui:** Draw the VR tooltip and its button over a stand-in page ([a1e01b4](https://github.com/kein5/astarot/commit/a1e01b44b86839f88c4216ddeae68b44382b2f5d))
+- **ui:** Draw the kit's parts and check what each gives its element ([f8b4ffa](https://github.com/kein5/astarot/commit/f8b4ffa7d31bff263927bf2368d88137c597fe83))
+- **ui:** Record the equivalent mutants of the hotkeys hook ([43abc83](https://github.com/kein5/astarot/commit/43abc8334c44c08bc8b0063421258d8d0f1ed055))
+- **ui:** Check how a hotkey edit is tried, refused and saved ([419c72c](https://github.com/kein5/astarot/commit/419c72cc3dec9178c044c671b271ec24f72c824b))
+- **ui:** Check the hotkeys the plugin registers on the other platforms ([9e2b424](https://github.com/kein5/astarot/commit/9e2b4240da819ecc51eb13ba94356b499b47d8ca))
+- **ui:** Check what the hotkeys do on the portal path ([7048953](https://github.com/kein5/astarot/commit/7048953ce5ac95e3db38b07cc16063f461d422db))
+- **ui:** Make the hotkey stand-ins show what the hook passes them ([7ce858f](https://github.com/kein5/astarot/commit/7ce858f7ccb3ef0f556e77ca36d8a8a2617bd95c))
+- **ui:** Draw the I/O flow panel with the real route map logic ([64f7137](https://github.com/kein5/astarot/commit/64f71374a7ffe4e9a1fd0860c991f5cb8a6ae423))
+- **ui:** Draw the I/O flow graph's boxes and arrows from measured boxes ([6eb8cc5](https://github.com/kein5/astarot/commit/6eb8cc53fb531d8c9de5567af59a3fcc539a003a))
+- **ui:** Leave the styles out of the UI's line coverage ([7882a4b](https://github.com/kein5/astarot/commit/7882a4b69e2f88c3626ea8a76b5bac6a4c2de2f3))
+- **ui:** Check the VR panel relay and the backend writes of a replaced session ([279a162](https://github.com/kein5/astarot/commit/279a162f39b2d4379cfc36221afc4ae14366f147))
+- **ui:** Check what a language write marks, reports and leaves behind ([3aa375b](https://github.com/kein5/astarot/commit/3aa375b4a1ccda56f186d99f088574a490b2ea9a))
+- Find the message box and the settings back button by data attributes ([0e6935e](https://github.com/kein5/astarot/commit/0e6935e95350f4a4f6d2afbda38b17e369c79f65))
+- **core:** Let the diarized caption test's server tell one utterance ([e7b93fa](https://github.com/kein5/astarot/commit/e7b93fa122573d02c33c68334fee803ae4df5d0c))
+- **installer:** Leave the uninstaller out of what an uninstall keeps ([56326c7](https://github.com/kein5/astarot/commit/56326c718f2602cb1dc690d57395f23eb17f1057))
+- Let the weekly CI failure count read the workflow runs ([2b0e6ff](https://github.com/kein5/astarot/commit/2b0e6ffa513a29b3ef42135387260ec7debd3992))
+- **ui:** Check the runtime section is drawn before reading its description ([3141514](https://github.com/kein5/astarot/commit/3141514684876b3ac14ae7cb06ecaf1e8d54da48))
+- **dev:** Check the guide's 16 px favicon instead of the manual's ICO link ([24b82c2](https://github.com/kein5/astarot/commit/24b82c2b4aeb86bd573a31c9be4cb86a2b5d080b))
+- **vr:** Say which part of a small-log caption did not come ([22c9672](https://github.com/kein5/astarot/commit/22c96724a10ede519339f08d3cf11275951fd770))
+- **installer:** Cover the rename of the executable on windows updates ([5c3d629](https://github.com/kein5/astarot/commit/5c3d62943cf03dbb9a39d600cd020ca5b7f35c86))
+- Wait for events, not fixed times, in three more #861 tests ([c6c9a87](https://github.com/kein5/astarot/commit/c6c9a8785a84c833d800d5b32ba2d3e53b49ae88))
+- **core:** Read the installer's file with this platform's paths ([2972b07](https://github.com/kein5/astarot/commit/2972b07a9b33035dcf5bafefe7cc99bb821e508d))
+- **installer:** Cover the move of the install folder and keys on windows ([e9880f1](https://github.com/kein5/astarot/commit/e9880f106e47429d00dee23332f0949afbc154a3))
+- **ui:** Say why the moved tests call hooks outside a drawing ([2ff28ec](https://github.com/kein5/astarot/commit/2ff28ec97b29e6c5563965284e78f412c3dc8eb8))
+- **core:** Wait for what the VR log tests count instead of a time ([30c539f](https://github.com/kein5/astarot/commit/30c539f8e82f7a870da62e9fe39fd41cbf572ac7))
+- **ui:** Load the sources of the data: URL tests through loadModule ([b1fd439](https://github.com/kein5/astarot/commit/b1fd4394da1bd298ad5942cb744191fe60bca3bf))
+
+#### Documentation
+
+- Describe the ASR servers that follow the switches alone ([99fdbc6](https://github.com/kein5/astarot/commit/99fdbc69684d107879fa9d873380a3049d931fa6))
+- Drop the code name Aglasis from the integration tests' host ([364be1a](https://github.com/kein5/astarot/commit/364be1ab7d55beb1aa5fe642f55e404a28bc66ca))
+- Match the code name table to the record in #689 ([d319fa7](https://github.com/kein5/astarot/commit/d319fa76ec76c86c436c37eab2a359e86e14f824))
+- **design:** Note the room the main rail keeps for the caption switches ([011408c](https://github.com/kein5/astarot/commit/011408c287c55540796d1b411a2c6c09282c74a4))
+- Describe how to regenerate the component map ([2a5dace](https://github.com/kein5/astarot/commit/2a5dace09e0b3e3eb95aeb20dbe8bab5db79d453))
+- **spec:** Put the config and log locations under stderr and logs ([3248eaa](https://github.com/kein5/astarot/commit/3248eaaa51b3e35d013708a3798632e70623b90b))
+- **design:** Describe how dialogs, popovers and the settings window come and go ([0473528](https://github.com/kein5/astarot/commit/0473528d9af1e5f6de5bd4ac26419a177bb29579))
+- Write the English of the two sections that existed only in Japanese ([49e9f48](https://github.com/kein5/astarot/commit/49e9f483379c6857524ef9ddf75d2c7bc4ca6d6d))
+- **skills:** Put the English version of the ci-triage skill first ([adbb6e9](https://github.com/kein5/astarot/commit/adbb6e948a04e515390b129c7365d06711048e80))
+- **skills:** Put the English version of the real-machine-check skill first ([76ba3fa](https://github.com/kein5/astarot/commit/76ba3fa52ce1538299d02ee69a6eec9f1090ceb1))
+- **skills:** Put the English version of the release-notes skill first ([e5c9535](https://github.com/kein5/astarot/commit/e5c953526a3c53303723e9bd232cb5c513d61c84))
+- **skills:** Put the English version of the release skill first ([f32d2a1](https://github.com/kein5/astarot/commit/f32d2a1179b410af14402f148341d50952b86b60))
+- **skills:** Put the English version of the pull-request skill first ([4e632d9](https://github.com/kein5/astarot/commit/4e632d92229e56d2fea16701fadba1dd2ef2bb93))
+- **skills:** Put the English version of the testing skill first ([3563e37](https://github.com/kein5/astarot/commit/3563e37100468f256c3c00495735024ef5fe9c7e))
+- **skills:** Put the English version of the e2e skill first ([a68ee08](https://github.com/kein5/astarot/commit/a68ee082946b739a6e07dc68e1267e50e7752f62))
+- **skills:** Put the English version of the adr skill first ([eb50b9d](https://github.com/kein5/astarot/commit/eb50b9d4ab2f2094e4dd311a541babec2b3d45c9))
+- **skills:** Put the English version of the jp-writing skill first ([2dad575](https://github.com/kein5/astarot/commit/2dad5759413438e83c43d63c7fe8de2d806c7c39))
+- Make the English version authoritative for every document and skill ([9e8e11d](https://github.com/kein5/astarot/commit/9e8e11df46df6784ee4dca1c6cb324579f08577d))
+- **rvc:** Record the 20 ms crossfade for 20 ms blocks ([a8e2738](https://github.com/kein5/astarot/commit/a8e27380a40551ee03c30f4c44b8cc5d5dfbbd30))
+- **spec:** Name the uses as the screen names them ([e22eaf3](https://github.com/kein5/astarot/commit/e22eaf37d818d96430cf173f5e35d2febfd33d83))
+- Describe the 0.7.0 names in the README and the project files ([1e95346](https://github.com/kein5/astarot/commit/1e953469f3d6e4e8a39ee440ef7b3dd31044ee63))
+- **site:** Say that Listening can use a model of its own ([7784c49](https://github.com/kein5/astarot/commit/7784c49368ecf927026ff34259eb385aec2e12d8))
+- **site:** Say that the Japanese setup takes a model for Listening too ([1006e1e](https://github.com/kein5/astarot/commit/1006e1e7d91072b555f07c7211d67b0541a7a539))
+- **site:** Say that a model's card is pressed anywhere ([3a7949a](https://github.com/kein5/astarot/commit/3a7949af5f878ae4c3534c99500e732dfba8f2bb))
+- **site:** Say that the Device page leads to the realtime captions' devices ([c69da9b](https://github.com/kein5/astarot/commit/c69da9bd19a7bcf79cef9cb291f195234f4e3ee0))
+- **site:** Say where the voice changer's own files and DirectML are ([37abf03](https://github.com/kein5/astarot/commit/37abf03f297e21df4b34771eda884aad9340bf44))
+- **site:** Say where the translation settings are now ([0702b03](https://github.com/kein5/astarot/commit/0702b0382aa22fc935ad4fb39732dcf1ab72fc6f))
+- **site:** Say where the text to speech server's address is entered ([d8c2795](https://github.com/kein5/astarot/commit/d8c27953cc880efb416ee29ef526ad948e3e0923))
+- **site:** Choose the custom voice from the list ([d7cb469](https://github.com/kein5/astarot/commit/d7cb469481263ebacdd90fea3efcbca05502b0b7))
+- **site:** Say that the VAD comes with a recognition model ([23598e8](https://github.com/kein5/astarot/commit/23598e86a8ac76bb7f46ed3fcbf9d10009862eec))
+- **site:** Name the speech recognition server where it now is ([3c8463e](https://github.com/kein5/astarot/commit/3c8463e307819c6d418310244b8a0c49fe1890e8))
+- **spec:** Describe the speech recognition server's default ([1477df8](https://github.com/kein5/astarot/commit/1477df84b039a9c4b415e107b45e5fb5d124cc0f))
+- **site:** Say where a download review keeps its details ([bd0bb64](https://github.com/kein5/astarot/commit/bd0bb64f0d99ca4b49ae319bc2ff6c9c81c8c1a8))
+- **rvc:** Record the 20 ms crossfade cap and its listening check ([1ef9cd7](https://github.com/kein5/astarot/commit/1ef9cd7a7267e4212d33be0bb19f037494f82e4b))
+- **site:** Say the setup's consent covers licenses and sizes ([58b43bd](https://github.com/kein5/astarot/commit/58b43bd2b8cfdd13d9734f408c1b1501412434ab))
+- **site:** Use the settings' new names in the manual ([377916c](https://github.com/kein5/astarot/commit/377916cfed83812b22b098e5f3440f877a0b34d3))
+- **spec:** Say that a model on the PC is used without a review ([edb0269](https://github.com/kein5/astarot/commit/edb0269041a2428f878e66bab69ac0b8ba165b5f))
+- **spec:** Say which windows follow the theme and from when ([aaf47e6](https://github.com/kein5/astarot/commit/aaf47e67867d9402ad4da5848f00972939d170fa))
+- **adr:** Add the ADR authoring guideline ([dbb635b](https://github.com/kein5/astarot/commit/dbb635b0f7e4aebbcd196d4dd2da17257bef2822))
+- **spec:** Describe the settings window as decided ([d76ea39](https://github.com/kein5/astarot/commit/d76ea3994070999efe1c857866b878387e302877))
+- **spec:** Describe Talk AI in both languages of the IPC spec ([5ae1adf](https://github.com/kein5/astarot/commit/5ae1adf8d9bd36b8fe2e0497c136624d18fd9515))
+- **spec:** Describe the chat reading refusal dialog with its models ([e01cd60](https://github.com/kein5/astarot/commit/e01cd60a7f95c97112de05469bebc39d1c86cde7))
+- **spec:** Describe the settings window ([a0c42b5](https://github.com/kein5/astarot/commit/a0c42b5d9211759f56b12be2690490aed730c1c9))
+- **design:** Record the settings groups and their quieter lines ([d1749b1](https://github.com/kein5/astarot/commit/d1749b1c4503bdf67715e1cf918d1c5ba549609f))
+- **site:** Say that a model's path can be picked beside its field ([a951011](https://github.com/kein5/astarot/commit/a9510117b28510ab3bca88ccc209f9c6308c92f3))
+- **design:** Record the button beside a path field ([7ad2ef2](https://github.com/kein5/astarot/commit/7ad2ef2fab3843fbb4c95a3593d9725c94c9654a))
+- **site:** Point to the setup folds where the settings pages put them ([8fe86f1](https://github.com/kein5/astarot/commit/8fe86f142c63d8a09e8626f8bc9100f247f50d11))
+- **design:** Record when a settings fold starts open ([116717d](https://github.com/kein5/astarot/commit/116717d7879bb9a5f0121d486add25f96590b073))
+- **site:** Say how a refused caption switch is fixed ([73d7847](https://github.com/kein5/astarot/commit/73d78477b3a06b5688939c9c5091e02dab9aa938))
+- **site:** Capture the mascot caption in both languages ([cfab1cc](https://github.com/kein5/astarot/commit/cfab1ccbb26e393335b71777fb00b53cfd69c99c))
+- **site:** Align the nine pairs of feature guides ([bffd49d](https://github.com/kein5/astarot/commit/bffd49d9f1295b6406242bbc903eb6559a466d8c))
+- **site:** Add direct links to setup and troubleshooting ([9d34fb2](https://github.com/kein5/astarot/commit/9d34fb28280a9050f63cc3fcce99616d5d507baa))
+- **voice-stack:** List the managed route's screen test under the ui group ([43ad2dc](https://github.com/kein5/astarot/commit/43ad2dcda9d4d0c8261b3cd7acd2c315e3c1aef4))
+- Limit the split form for issues to what agents write ([b70409b](https://github.com/kein5/astarot/commit/b70409bfaa52d3734f5d2ebbb7b625d51cc4730e))
+- Write maintainers' issue bodies in English, then Japanese ([3d36245](https://github.com/kein5/astarot/commit/3d3624544ab63e27b5c1fb93c7e72691eed9a74e))
+- **voice-stack:** Record how items 22 and 41 of #924 ended ([4eb6b92](https://github.com/kein5/astarot/commit/4eb6b92ecc1ca0b8b62055d961211805bfde5ff6))
+- **skills:** Point the release skill's notes section to release-notes ([a6ee5fa](https://github.com/kein5/astarot/commit/a6ee5fadafc8c3e489757aca84e83ee0edf66915))
+- **skills:** Write beta notes in both languages too ([f50c666](https://github.com/kein5/astarot/commit/f50c6668dc4e6945fa3eaae492dcbc0b704ffd01))
+- **site:** Tell users that settings save by themselves ([47d6b7f](https://github.com/kein5/astarot/commit/47d6b7f52bd3609c53c2788231d4c73136aadef8))
+- **spec:** Describe settings that save by themselves ([0f5f9a8](https://github.com/kein5/astarot/commit/0f5f9a8c29caee4ca3318b5260e27100785e300d))
+- **design:** Describe settings that save by themselves ([0fc008f](https://github.com/kein5/astarot/commit/0fc008fde98c9a286f39e70e6cf3b065c46e316b))
+- **skills:** Add release-notes, docs and testing skills ([96a7a57](https://github.com/kein5/astarot/commit/96a7a57e1594c92c41721d55191b7896f44389f3))
+- **release:** Say the /VERSION path relies on immutable releases ([f6f14ed](https://github.com/kein5/astarot/commit/f6f14edd3829b17ef8fdffcdba71193645d6fea8))
+- **readme:** Show the caption speed comparison in English ([bc456b5](https://github.com/kein5/astarot/commit/bc456b552557dc7a9a57738445e9ffa6121af137))
+- **readme:** Add the caption speed comparison with eight apps ([d5e23d3](https://github.com/kein5/astarot/commit/d5e23d3eb527cb019c77ddee20f90f9d5b0de2d2))
+- Describe how to open the component catalog ([a1c8e39](https://github.com/kein5/astarot/commit/a1c8e3904565407bf826e9d6e4924530e2b3ff6b))
+- **pr:** Standardize bilingual split PR description template and skill ([3517c6c](https://github.com/kein5/astarot/commit/3517c6cb5ed7e3a9b365d1174fe264ba9d616ae7))
+- **skills:** Link skills/e2e/SKILL.md from real-machine-check ([0ca76d7](https://github.com/kein5/astarot/commit/0ca76d7359a844566f033ec8ccc420e2cf3a6642))
+- **skills:** Add ci-triage skill for CI failure investigation ([85a9ac4](https://github.com/kein5/astarot/commit/85a9ac4adbd2f3274bd26aab6edbb8cd176b17f0))
+- **skills:** Add Windows real-machine-check skill ([479ee01](https://github.com/kein5/astarot/commit/479ee01b12b71aa765430f716ad65faed0c28071))
+- **skills:** Add e2e testing and result reporting skill ([d025f12](https://github.com/kein5/astarot/commit/d025f12cc9721884c348267b46faf30282bd1b07))
+- Limit the AGENTS.md release rule to pushing tags ([97f5cce](https://github.com/kein5/astarot/commit/97f5cce51af038ccfe72e602ed9dddf1d31793aa))
+- Put English and Japanese in the changelog and the release notes ([cda2dbe](https://github.com/kein5/astarot/commit/cda2dbecf42fc3d6438d799100a404dd92a1cfbe))
+- Make the Japanese of the voice stack documents match the English ([cf6a3ba](https://github.com/kein5/astarot/commit/cf6a3ba8703cd7877d9f3b4314f0cac897ded749))
+- Put English and Japanese in the voice stack documents ([8a99580](https://github.com/kein5/astarot/commit/8a99580a490f414d3a8ff5e4bd97439d77038078))
+- Make the Japanese of the design and writing guides match the English ([cdfc0d5](https://github.com/kein5/astarot/commit/cdfc0d513fc7df9b2539eb894178e9b8e0ed1817))
+- Make the Japanese of the root documents, ADRs and spec match the English ([8343d8f](https://github.com/kein5/astarot/commit/8343d8f371d010c548a5d1946335644514b0d8c5))
+- Put English and Japanese in the design, brand, writing and developer guides ([eb8e293](https://github.com/kein5/astarot/commit/eb8e2938aef07dfb23b6ba07cee67da3f10f72c4))
+- Put English and Japanese in the root documents, ADRs and spec ([21a227a](https://github.com/kein5/astarot/commit/21a227a22d0c223bb5eeb179c096017ef494f002))
+- **release:** Document emergency release halt and roll-forward procedure ([a67aa24](https://github.com/kein5/astarot/commit/a67aa24d21bd27c1edb7da0fdaeca3926ae00f73))
+- **release:** Add beta freeze and telemetry check to release procedures ([9a0459f](https://github.com/kein5/astarot/commit/9a0459f3a3fba433eacfa0ac5db1b9449fb4cbff))
+- **product:** Link to the Japanese translation ([c1e4b15](https://github.com/kein5/astarot/commit/c1e4b15c4ac3ace405095e723616439b528dbbc3))
+- Add the Japanese writing skill ([8148807](https://github.com/kein5/astarot/commit/814880764373f146605274d3e528b36023769c9b))
+- Add a Japanese reference translation after the English in NOTICE.md ([538a117](https://github.com/kein5/astarot/commit/538a1176b71f64e4c807162da07c2f103d8de384))
+- Add a Japanese version after the English in PRODUCT.md ([55ff81f](https://github.com/kein5/astarot/commit/55ff81f7ee63c7188241f63985af831a058d87f3))
+- Tell release readers that 0.7.0 moves the old install folder ([3aa0396](https://github.com/kein5/astarot/commit/3aa039616cd26b26b90b9a3e807a7e243db7cd51))
+- **spec:** Say plainly how an update resumes a stopped folder move ([15d96fc](https://github.com/kein5/astarot/commit/15d96fc94e55f9ae8ba7da9147be3862845b8bf1))
+- **adr:** Add ADR-019 for VOICEVOX CORE TTS runtime exception ([d7af477](https://github.com/kein5/astarot/commit/d7af477f9de81e952383d8b152f7d5f6e392f58b))
+- Pass --full-dry-run whenever a narrowed mutation run changes its files ([bbc5e89](https://github.com/kein5/astarot/commit/bbc5e89d34d424d7bbb4656be7bfa54eb15eae3a))
+- Follow the writing rules in the speech recognition API notes ([b4b6413](https://github.com/kein5/astarot/commit/b4b6413cc414e2c28a4c3153e78c4c85e2d9add7))
+- Describe the styles as vanilla-extract ([9e5840d](https://github.com/kein5/astarot/commit/9e5840df12121d615de113cccbf5c817cd615516))
+- **site:** Keep the step list's slim bar at the top of the window ([02f2808](https://github.com/kein5/astarot/commit/02f28086129c1e055b97897a7ef2148333518e6a))
+- **site:** Line up the steps of the first-setup page ([eacbcd4](https://github.com/kein5/astarot/commit/eacbcd4c50d823e09ceaffbcf10c7a0af8ec4ba5))
+- **adr:** Note that the Linux audio route moved to ASTAROT's names ([30262cb](https://github.com/kein5/astarot/commit/30262cb9e8758b6b45c992dbf9e1b4acb9ab318f))
+- **ui:** Give every element without a shared part one in the kit ([c0f9303](https://github.com/kein5/astarot/commit/c0f9303c27845677fd92a80272bb1acebb9862b1))
+- **ui:** Align the VR language window's filter and fold with the panel's parts ([0121fbe](https://github.com/kein5/astarot/commit/0121fbed5222cdc45cb0356826db21b521b6f14d))
+- **ui:** Record the decisions on replacing the hand-built parts ([b28f471](https://github.com/kein5/astarot/commit/b28f4713db830840fc43d8b051a5104bce4ed7e8))
+- Mark the records and update the procedures as decided in the review ([9b53810](https://github.com/kein5/astarot/commit/9b5381052700cd0be387d69464857d6771bcb9a8))
+- **spec:** Describe the core's engine checks, translation waits and audio devices ([6d7382a](https://github.com/kein5/astarot/commit/6d7382ac05922979382a5e1cb7332d42cccc482e))
+- **ui:** List the screens built by hand instead of the shared parts ([37dac2e](https://github.com/kein5/astarot/commit/37dac2eecd9ba38213974227b8e005da9f628873))
+- **adr:** Note that the old-name copies ship during 0.7.x ([d3767a0](https://github.com/kein5/astarot/commit/d3767a0d883064263b5c423432e5be9fadb52a71))
+- **adr:** Record how far ADR-010, 011 and 014 to 018 are built ([da88a0c](https://github.com/kein5/astarot/commit/da88a0cd186c3af9cc15c207e65a3af6633ee6f0))
+- **voice-stack:** Update the procedures for 0.6.0 and the ASTAROT names ([3e05286](https://github.com/kein5/astarot/commit/3e05286340a6d70985982334575db6d8ba41d730))
+- **spec:** Point to the core instead of the removed Python backend ([d64774d](https://github.com/kein5/astarot/commit/d64774df4215c347bcc30a216999d1c5b4a8d15d))
+- Match the development guide to tools/dev.py and the release texts to ASTAROT ([3321c85](https://github.com/kein5/astarot/commit/3321c851d729f20540d48f9a22feb7daec269027))
+- Update the crate READMEs for the astarot- names and the removed Python backend ([027ec24](https://github.com/kein5/astarot/commit/027ec24a381060f0fd91e24026683f8051f40aa0))
+- Bring the top-level guides up to 0.6.0 and name English first ([0899f56](https://github.com/kein5/astarot/commit/0899f56c6bcf8e54b2cd2673b16356ab85a7c110))
+- **site:** Give the app's download and unpacked size for 0.6.0 ([a55dc69](https://github.com/kein5/astarot/commit/a55dc694983f364c29e1061e5d1bd42eeeb4dc21))
+- **site:** List English before Japanese in the language menu and the landing page ([df64bb8](https://github.com/kein5/astarot/commit/df64bb818ec1ed4afd3db68ebb18ba5dc0583fee))
+- **writing:** Fix the findings in existing documents area by area ([7b5cb53](https://github.com/kein5/astarot/commit/7b5cb53a41ca0de3293a3428f61fc4d505b7a43d))
+- Describe the release files named ASTAROT and their copies ([457f0ee](https://github.com/kein5/astarot/commit/457f0ee220074d42c3eee6c30cbcf89f6b2bcfaf))
+- **writing:** Put English first in a heading that gives both languages ([9fb668f](https://github.com/kein5/astarot/commit/9fb668f31db961f90993231a65725785bbee808f))
+- Describe the linux packages named astarot ([511cc24](https://github.com/kein5/astarot/commit/511cc249d36df4571d28b934a6d1e1839aa5f7ee))
+- **site:** Retake the guide's screenshots on 0.6.0 ([2b10018](https://github.com/kein5/astarot/commit/2b1001871eafbf676e51985c518f00e83df63ea0))
+- Describe the executable name astarot ([d0aca44](https://github.com/kein5/astarot/commit/d0aca4499713e55abc133b49eaef81fd891e44b1))
+- Give 0.7.0 as the version that moves the install folder ([7737a14](https://github.com/kein5/astarot/commit/7737a14bb1df05634ce3fef6c2c3311c69f47635))
+- Give 0.7.0 as the version of the new app ID ([add6b6e](https://github.com/kein5/astarot/commit/add6b6e2ddf0909e12216cb23e210a605895c29e))
+- **site:** Show the ASTAROT favicon on every page of the guide ([444d744](https://github.com/kein5/astarot/commit/444d744e0767cfc1645064a1dade0d7266f4a8ee))
+- Run a fixed list of crates' mutants before a stable release ([3d3968d](https://github.com/kein5/astarot/commit/3d3968d83ac879728981802444ae8c92bf180924))
+- Note how long the audio route's old names are read ([dde1ec8](https://github.com/kein5/astarot/commit/dde1ec87080f9aa6c08a0e6610ba24dae1f1a662))
+- Say when the mutation tests run and move them out of the trial tools ([739a90d](https://github.com/kein5/astarot/commit/739a90d7a1b56ad5ff2cf4c45f389163d04b2eaa))
+- Read the API keys' 0.6.0 names during 0.6.x ([d34a032](https://github.com/kein5/astarot/commit/d34a0323183248a65fd7bc3b18756100fbfb0653))
+- **adr:** Date ADR-018's acceptance by the day it was decided ([c3b884b](https://github.com/kein5/astarot/commit/c3b884bd24a2399432985824d2b4cc1fbb383ea5))
+- Describe the move of the windows install folder and keys ([a122f6f](https://github.com/kein5/astarot/commit/a122f6f37a7870956ae368e6d9dac131a2ae7d43))
+- **adr:** Accept ADR-018 for the talk AI ([e9d1007](https://github.com/kein5/astarot/commit/e9d1007fca344a6ebc68b47d7fc498abddd150e9))
+- Describe the ASTAROT names of the Linux audio route and their move ([3d040cc](https://github.com/kein5/astarot/commit/3d040cca97d80906d29923d2258dcc5f15fb69ad))
+- Give the new app ID and its desktop file ([121bf83](https://github.com/kein5/astarot/commit/121bf8308edece0245e667d47213929d4fe4f947))
+- Name the API keys' entries under ASTAROT ([a4d0972](https://github.com/kein5/astarot/commit/a4d0972d19e38b431511954f9ab887f78274d330))
+- **adr:** Propose that the talk AI connects to external conversation services ([052cb3b](https://github.com/kein5/astarot/commit/052cb3b6298dc3281ddb0e0a4ca78c7cad09df25))
+- Write the crates' astarot-* names ([aff5b8e](https://github.com/kein5/astarot/commit/aff5b8e9d36866a20e920a1fdf3faa98a87423d3))
+- **site:** Bring the getting-started and guide pages up to 0.6.0 ([0dccf4e](https://github.com/kein5/astarot/commit/0dccf4ef2fee52d099a667e5a677244a22726da1))
+- List the translation models among the README's model downloads ([a4c0f96](https://github.com/kein5/astarot/commit/a4c0f9697dc2dd5176e241b6a0ed6a74efc0ac2d))
+- Update the platform support matrix and its records for 0.6.0 ([e03abaf](https://github.com/kein5/astarot/commit/e03abafc65f3469ba3400f311902df16d4789989))
+- **site:** Describe what 0.6.0 sends and keeps on the privacy page ([55e1999](https://github.com/kein5/astarot/commit/55e19994f0e1f4a08e050de146302da45e8e63b1))
+- **site:** Bring the feature pages up to 0.6.0 ([3107aae](https://github.com/kein5/astarot/commit/3107aae6eb3371574e1ae735c94c979164aa35f8))
+- **site:** Describe the update button that names the new version ([d8d20a8](https://github.com/kein5/astarot/commit/d8d20a86fff57e73714da7338d97db7f91514a56))
+- Describe the guide's palette in DESIGN.md and the site redesign ([9b56fa9](https://github.com/kein5/astarot/commit/9b56fa9235b887e0b42db19f8c809f7058f6350e))
+- **site:** Light only this page's step on the route strip ([f1ac848](https://github.com/kein5/astarot/commit/f1ac8481b741f8dc869bd46c346766fd98345469))
+- **site:** Give the guide the ASTAROT palette in a light and a dark scheme ([f31a8d1](https://github.com/kein5/astarot/commit/f31a8d153896d0e7c58231caa506ea0a17a2e8ee))
+- **site:** Write the guide's colour tokens from DESIGN.md and check them ([5eea1a5](https://github.com/kein5/astarot/commit/5eea1a57d5005fbf459bc3159473759f2918ace6))
+- **site:** Say which GPUs local translation can use after a runtime download ([d2b8e15](https://github.com/kein5/astarot/commit/d2b8e15827821a5a007176e42732f65d4ca2bd01))
+- **site:** Describe the one Windows package, the end of the Whisper move and the GPU report ([3448299](https://github.com/kein5/astarot/commit/3448299ec8cad4041c1e290d6b86fd0ed00ef9d7))
+
+#### Maintenance
+
+- **dev:** Generate the component map into docs/spec/reference ([030b5ce](https://github.com/kein5/astarot/commit/030b5cef3bf99944493fc3e07776c90c61117daa))
+- **dev:** Write the component map into docs/development.md ([2f871b4](https://github.com/kein5/astarot/commit/2f871b441d825078a62810c93ecdb7a9c9476038))
+- **dev:** Generate a component map of the ASTAROT ecosystem ([2863a1d](https://github.com/kein5/astarot/commit/2863a1dc6edf5cb1a671db4748f25cebc36966f0))
+- **dev:** Tidy the empty list of skills waiting for conversion ([b920759](https://github.com/kein5/astarot/commit/b920759be2e3eade6382eca437728dfbf57a16b7))
+- **dev:** Show the kit's motion in the component catalog ([7238971](https://github.com/kein5/astarot/commit/7238971d8f937e77e8551f334ad607152f2ed123))
+- **ui:** Add Motion to the kit for how its surfaces come and go ([bf11df9](https://github.com/kein5/astarot/commit/bf11df9e6dd052aa69f175fc414346845bf8fb42))
+- **ui:** Add a searchable single-choice dropdown to the UI kit ([a97b505](https://github.com/kein5/astarot/commit/a97b5058d608a2c70e82f437537f66b750fe8fd4))
+- **dev:** Reject skill descriptions that YAML reads as syntax ([11a5f93](https://github.com/kein5/astarot/commit/11a5f93e58c3eb7338f1632f45850ad3c052240f))
+- **dev:** Check that bilingual documents keep both versions and matching headings ([9a87c2e](https://github.com/kein5/astarot/commit/9a87c2e0dbb4dbdebaf08c02b9d72bb968381a8f))
+- **docs:** Name the site packages after ASTAROT ([1df9b42](https://github.com/kein5/astarot/commit/1df9b42467f63634161dbd7376619669390fb2f7))
+- Call the app ASTAROT in code comments ([db0d8bb](https://github.com/kein5/astarot/commit/db0d8bba3513443d06213fb610e7e5d2cd2e581a))
+- Name ASTAROT in the tool and package metadata ([c4757a0](https://github.com/kein5/astarot/commit/c4757a0bc3dbee8bc7a0adc88af05d2da5b20aa8))
+- **core:** Run a recognition server of Listening's own beside Mic input's ([ff9721a](https://github.com/kein5/astarot/commit/ff9721ac80406fda528e0183d3bd4db0e1bacb14))
+- **core:** Keep a recognition model of Listening's own in the speech server settings ([5d48e48](https://github.com/kein5/astarot/commit/5d48e4834bb8a9d73c666aa9d840918ccdc1b3de))
+- **tts:** Hand the voices a speech.cpp model takes to the settings ([bfa6793](https://github.com/kein5/astarot/commit/bfa67938f4b4d6ee9b6f029597b2e720e85e92a3))
+- **dev:** Test binaries that need features in check --scope rust ([9f99d4f](https://github.com/kein5/astarot/commit/9f99d4f5128ba62c8d437ffe45a168b44bda082b))
+- **tauri:** Drop unlinked upstream developer pages from the URL list ([72b1568](https://github.com/kein5/astarot/commit/72b1568176cec0fa859139ee75f2ef7e7d9647b9))
+- **ui:** Add Toggle, ToggleGroup and Popover to the kit ([cf65c0e](https://github.com/kein5/astarot/commit/cf65c0e4550a3a9b89f1113b956b3046d32f1024))
+- **dev:** Check commas and line breaks in the release notes ([20363e0](https://github.com/kein5/astarot/commit/20363e0bf02d25598702c08e99ec955fadaad190))
+- **dev:** Build the component catalog in the UI checks ([db78060](https://github.com/kein5/astarot/commit/db780601ccfb8aa1e55df7229e161ef80589a760))
+- **dev:** Add a Storybook catalog of the shared UI kit ([46de448](https://github.com/kein5/astarot/commit/46de4488f5cd2efce3d97cbb2d67c32efdc4756f))
+- **dev:** Scaffold release notes in English and Japanese ([e6a677b](https://github.com/kein5/astarot/commit/e6a677ba11c1439a569bdaa56a11b82ae52578d2))
+- **dev:** Add a Japanese frame of each new changelog section ([f34c349](https://github.com/kein5/astarot/commit/f34c3490990f091eaaea6291452ba461ab006368))
+- **dev:** Write the changelog tool's output as UTF-8 on any console ([95f3c84](https://github.com/kein5/astarot/commit/95f3c84cd38e50d498506d2c44162d33394010c4))
+- **dev:** Run parallel cargo-mutants without a shared target directory ([f8a7773](https://github.com/kein5/astarot/commit/f8a77734795a2c22fb9171ff3c03e88ee61cb445))
+- **tts:** Tell how a transport_error failed in the voice status ([2a2844d](https://github.com/kein5/astarot/commit/2a2844df3339394cd960a50938903514d290d029))
+- **dev:** Check documents against the writing guidelines ([837efa0](https://github.com/kein5/astarot/commit/837efa0b2dd3922ee0d6bf33c130f3d3735bffb9))
+- **dev:** Take the guide's screenshots from the integration tests' screens ([3a0bd19](https://github.com/kein5/astarot/commit/3a0bd19657f68eaedb05b245b2060d9d27ec78ac))
+- **talk:** Name the talk AI crate astarot-talk-ai ([af79454](https://github.com/kein5/astarot/commit/af79454ea7704eaf76de8ae31ec28420cc0cdde4))
+- **talk:** Connect to a realtime conversation service ([1466da8](https://github.com/kein5/astarot/commit/1466da80ed966feeea7cef2c530a05644afd6a49))
+- **dev:** Run the mutation tests on what a branch changed ([7edeeef](https://github.com/kein5/astarot/commit/7edeeef853fe072a67901ae9e1b85f02edfe07e2))
+- Format tools/site_tokens.mjs as Biome does ([64cb477](https://github.com/kein5/astarot/commit/64cb477486431d9767bf2a5a4db41b516d4084cb))
 
 ## [0.6.0] - 2026-11-22
 
@@ -1976,3 +2647,2580 @@ certificate and key. A LAN host saved without them goes back to
 ## Earlier releases
 
 Releases up to 0.1.0 are described in [GitHub Releases](https://github.com/kein5/astarot/releases).
+
+---
+
+# 変更履歴（日本語版）
+
+ASTAROTの主な変更を、新しい版から順に載せます。載せるのは正式版だけで、各節には前の正式版からの変更をすべて、その間のベータ版の分も含めてまとめます。ベータ版（`develop`から出す`X.Y.Z-beta.N`）の変更は、それぞれの[GitHubのプレリリースのノート](https://github.com/kein5/astarot/releases)に書きます。版の番号は[Semantic Versioning](https://semver.org/)に従います。構成は[Keep a Changelog](https://keepachangelog.com/en/1.1.0/)の考え方に沿っていて、利用者が気づく変更を先に、開発者向けの変更をその後に載せます。
+
+英語版の各節はコミットのたびではなく、その版のリリースを準備するときに書きます（`python tools/changelog.py write`）。詳しくはCONTRIBUTING.mdの[Changelog and releases](CONTRIBUTING.md#changelog-and-releases)を見てください。
+
+## 0.7.0（2026-11-28）
+
+[v0.6.0](https://github.com/kein5/astarot/compare/v0.6.0...v0.7.0)からの変更です。
+
+この版には0.7.0-beta.1、0.7.0-beta.2、0.7.0-beta.3、0.7.0-beta.4の変更も含まれます。それらも下の一覧に載せています。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **asr:** 同梱のASRサーバーをいつもスイッチと一緒に起動する（[8198af6](https://github.com/kein5/astarot/commit/8198af6b15ef666305829a4235fb58e852453615)）
+  - 「スイッチを入れたときに同梱ASRサーバーを起動する」はなくなり、オフにして保存していた選択も使われなくなりました。音声認識のモデルを読み込ませないには、マイク入力と聞き取りをオフのままにしてください。
+- **release:** リリースのファイルの名前をASTAROTにし、古い名前の写しも残す（[83bc928](https://github.com/kein5/astarot/commit/83bc92802cbd9df366f4403bf1de2ce3fe6bece0)）
+  - リリースのファイルの名前はASTAROTになりました。0.7.xのリリースには各ファイルのVRCT-VOXの名前の写しも入っていますが、0.8.0からは入りません。VRCT-VOX.zip、VRCT-VOX_setup.exe、VRCT-VOX-<version>-linux-x64-release.*をダウンロードするリンクやスクリプトは、それまでにASTAROTの名前に変えてください。
+- **linux:** Linuxのパッケージをastarotとしてインストールする（[88d5924](https://github.com/kein5/astarot/commit/88d592489bd0cd4ec350dc6cb57cb77130962dd0)）
+  - Linuxのパッケージはastarotになり、/opt/astarotにインストールされます。新しいdebかrpmはこれまでどおりインストールしてください。インストールするとパッケージvrct-voxは削除されます。/opt/vrct-vox/vrct-voxを起動するスクリプトは、代わりに/opt/astarot/astarotかコマンドastarotを起動するように変えてください。/usr/bin/vrct-voxは0.8.0まで使えます。パッケージを削除するときは`apt remove astarot`か`dnf remove astarot`を使ってください。tar.gzはVRCT-VOXではなくASTAROTに展開されます。設定とモデルは今の場所のままです。
+- **app:** 実行ファイルの名前をastarotにする（[87fe95d](https://github.com/kein5/astarot/commit/87fe95d875e2839fe56f4076003dc45d46ab2421)）
+  - 実行ファイルの名前はWindowsではastarot.exe、Linuxではastarotになりました。ASTAROTをタスクバーかスタートにピン留めし直し、自分で作ったショートカットとスクリプトは新しい名前を指すように変えてください。インストーラーが作ったショートカットは、インストーラーで更新すると新しい名前に向け直されます。前のZIPを展開した場所にWindowsのZIPを上書きで展開すると、astarot.exeの横にvrct-vox.exeが残るので削除してください。新しい実行ファイルについて、Windowsがマイクの使用の許可をもう一度求めることがあります。/opt/vrct-vox/vrct-voxを起動するLinuxのスクリプトは、代わりに/opt/vrct-vox/astarotかコマンドastarotを起動するように変えてください。
+- **installer:** VRCT-VOXのインストール先のフォルダーとレジストリのキーをASTAROTへ移す（[d23e977](https://github.com/kein5/astarot/commit/d23e9779403dcb5ae7433db1223ae54c67337a6a)）
+  - %LOCALAPPDATA%\VRCT-VOXにあるインストールを更新すると、%LOCALAPPDATA%\ASTAROTへ移ります。アプリをタスクバーかスタートにピン留めし直してください。古いフォルダーを指すショートカットを自分で作っていたら作り直し、そのフォルダーを指定しているスクリプトは書き換えてください。0.6.0以前のインストーラーはレジストリのキーからインストール先を見つけられなくなりました。
+- **audio:** Linuxの仮想マイクの名前をASTAROTにし、VRCTの名前のユニットを止めて消す（[a11ee5b](https://github.com/kein5/astarot/commit/a11ee5b4c91dc89b67acb8e61ffd7945083c741e)）
+  - Linuxでは更新の後にVRChatでASTAROT Managed Virtual Microphoneを選び直してください。手で置いた90-vrct-managed.confは、アプリが使う経路を作らなくなりました。この版の90-astarot-managed.confに置き換えるか、そのファイルを消してアプリに経路を準備させてください。vrct-managed-*.serviceを指定しているスクリプトは、astarot-managed-*.serviceを使うように変えてください。
+
+#### 機能
+
+- **vr:** SteamVRが起動するときにASTAROTも一緒に起動できるようにする（[4ce31e2](https://github.com/kein5/astarot/commit/4ce31e22f907f4d2c6ba0892a92ebc24f054c513)）
+- **ui:** 設定のウィンドウのページを最初に描くときにフェードインさせる（[bd090f3](https://github.com/kein5/astarot/commit/bd090f356b3c1aca540b5c91973ac4dbf3659762)）
+- **ui:** ポップオーバーを開いたボタンの方から出し、閉じるときはボタンの方へ戻す（[471f244](https://github.com/kein5/astarot/commit/471f244dba9f7f46b68b673f841e4905ca092abe)）
+- **ui:** モーダルのダイアログを開くときにフェードインさせる（[b524623](https://github.com/kein5/astarot/commit/b5246239c52ecfd5da4fca2afff8c7431a986762)）
+- **ui:** 翻訳エンジンを検索できるドロップダウンから選ぶ（[a08bc31](https://github.com/kein5/astarot/commit/a08bc31d1dd1702ee613570f6413091e3707871c)）
+- **ui:** ログのフォントサイズを変えるA−とA＋を入力欄の横に出す（[fe77ff4](https://github.com/kein5/astarot/commit/fe77ff465c656fa7e292d9f6bc165bd24d5e7667)）
+- **ui:** 「入力と出力」のパネルで字幕に使うデバイスの名前を出し、入力から出力への図をパネルに収める（[742d7c4](https://github.com/kein5/astarot/commit/742d7c47cc530f0fbb4c1f6723ee1e378c9ed4e7)）
+- **ui:** 灰色のスイッチを押したときに、オンにできない理由を伝える（[2260151](https://github.com/kein5/astarot/commit/22601519b244dee9d929f99780ac520b77f3e0a1)）
+- **vr:** VRのランチャーにテキスト読み上げのスイッチとその停止を足す（[3b90240](https://github.com/kein5/astarot/commit/3b90240ad109748b19d6c4443c69aa3f7bb9b399)）
+- **transcription:** 同梱の音声サーバーが失敗したときに、直す操作を出す（[adec4d6](https://github.com/kein5/astarot/commit/adec4d6c774bd92efc874cfcbf4a10f92d09bc76)）
+- **setup:** 選んだ用途で出る入力に合わせて音声認識を準備する（[0fd172f](https://github.com/kein5/astarot/commit/0fd172f5ffa1ef83e5224eb75980ebf3faeba63a)）
+- **settings:** 入力ごとの音声認識のモデルを並べて選ぶ（[ef9a697](https://github.com/kein5/astarot/commit/ef9a69792750acfbbac1c36d075ba1db1a32811c)）
+- **transcription:** マイクを開くのを待っている間は、Windowsが確認を求めているかもしれないと伝える（[e16d98a](https://github.com/kein5/astarot/commit/e16d98a7b778607e2994a94e60d5c4e37193128b)）
+- **asr:** 聞き取り専用のモデルを選び、断られた音源の分だけを直す（[405fc62](https://github.com/kein5/astarot/commit/405fc627d43fb82ce7b63ddbb6b82c9a5226c568)）
+- **asr:** 最初のモデルが言語を判別できないときは、初期設定で聞き取り用のモデルも取得する（[dd2906a](https://github.com/kein5/astarot/commit/dd2906a0a8b8d445033dba08c04244de6cfea707)）
+- **asr:** リアルタイムのスイッチごとに専用の同梱サーバーを起動する（[b559757](https://github.com/kein5/astarot/commit/b55975784f176998276867f4fb445206d3e6c7f8)）
+- **ui:** すべてのカタログでモデルのカードのどこでも押せるようにする（[c4d2bff](https://github.com/kein5/astarot/commit/c4d2bff65353ff2125eb49c6c730f39951dd9bbe)）
+- **ui:** 翻訳エンジンを翻訳の設定のページの先頭で選ぶ（[af49699](https://github.com/kein5/astarot/commit/af49699c9f4ade5b45dd75b27435c88c1ea18d76)）
+- **ui:** 読み上げの声をモデルが持つ声から選ぶ（[8c16d04](https://github.com/kein5/astarot/commit/8c16d041f0c18ed40d0d3cebfe2500f1e2a77c8d)）
+- **core:** お使いのPCにすでにあるモデルをダウンロードせずに確かめる（[3bb9b51](https://github.com/kein5/astarot/commit/3bb9b513050c76ee9ae891fb46d86caebd2e47ae)）
+- **ui:** 設定のウィンドウを開いている間もアプリを動かし続ける（[3fd4c6b](https://github.com/kein5/astarot/commit/3fd4c6bb70902038893e20eab526e5a55c9fae35)）
+- **talk-ai:** おしゃべりAIのページと、送っているものを示す帯を足す（[1a31445](https://github.com/kein5/astarot/commit/1a31445f24fefa9151d135a0f1db5aece458dc6c)）
+- **ocr:** チャット読み取りが断られたときのダイアログで、足りないモデルを勧める（[afbb05b](https://github.com/kein5/astarot/commit/afbb05b203105053fc93d632aca0940b5a0e4a05)）
+- **ui:** 設定を専用のウィンドウで開く（[c3a148a](https://github.com/kein5/astarot/commit/c3a148a654b570303d9f273bf2cc694686471a81)）
+- **core:** 設定のウィンドウにその時点の設定を返し、応答には要求元を付ける（[b510688](https://github.com/kein5/astarot/commit/b5106886571378dce175396282e8e888b87e6d3c)）
+- **ui:** 設定を角丸の地にまとめ、線を薄くする（[c0e7bd3](https://github.com/kein5/astarot/commit/c0e7bd384616420c6c9e54383ac72f10ba470cf4)）
+- **ui:** 設定のパスをシステムのファイルやフォルダーの選択画面で選ぶ（[3e2ea53](https://github.com/kein5/astarot/commit/3e2ea5324a6724faa5ef6bca565115c9c058d0c4)）
+- **ui:** メイン画面のスイッチをすべてトレイのコントロールパネルに置く（[9a1a633](https://github.com/kein5/astarot/commit/9a1a633cffbfb359d326564ac97af17f5784ffdd)）
+- **transcription:** 断られた音声認識のスイッチをその場で直す（[2baacae](https://github.com/kein5/astarot/commit/2baacaed5f335c04d19d2ab46f5094c049e589e6)）
+- **ui:** 「ASTAROTについて」から「貢献者」と「スペシャルサンクス」を外す（[46c96bc](https://github.com/kein5/astarot/commit/46c96bc6c778ccb0bc6485a7e555a2095e8d840d)）
+- **site:** ホームのマスコットを正面だけのモデルで動かす（[2da63ab](https://github.com/kein5/astarot/commit/2da63ab12713c62030676462817b5291ca28acb1)）
+- **site:** フッターからプライバシーと謝辞のページへリンクする（[b6cf40c](https://github.com/kein5/astarot/commit/b6cf40c36ccdf6d915678c769afb8c03672755c6)）
+- **site:** ホームの見出しの横に動かないマスコットを置く（[0c5361a](https://github.com/kein5/astarot/commit/0c5361ab8847007622b8e703381f25ba7e020f28)）
+- **ui:** 保存のバー、離れるときの確認、保存したことの知らせをなくす（[a30352e](https://github.com/kein5/astarot/commit/a30352e673f00d43ec3a4ecf059aea95e0769dcd)）
+- **ui:** 音声の設定を自動で保存する（[27274e4](https://github.com/kein5/astarot/commit/27274e48aa28b17b814c3e87a7e970caa62e9cf3)）
+- **ui:** 複数の部品が描くフォームを自動で保存できるようにする（[106e768](https://github.com/kein5/astarot/commit/106e768dff417e2b5e0541390a551da40542cc93)）
+- **ui:** ワードフィルター、メッセージフォーマット、字幕、アドレスとキーの組を自動で保存する（[b629e65](https://github.com/kein5/astarot/commit/b629e65f6b9f64ccbe6c85b8d51e9ae45cffb2e9)）
+- **ui:** 設定のグループを自動で保存できるようにする（[57f40fc](https://github.com/kein5/astarot/commit/57f40fc496f2ef2900357dddde1cfb84e7e4811b)）
+- **ui:** 高度な設定を自動で保存する（[9c9f7c5](https://github.com/kein5/astarot/commit/9c9f7c51c779020a59b7e69be33ceb3cc25f521a)）
+- **ui:** 色の欄と設定のグループを自動で保存できるようにする（[56d6d22](https://github.com/kein5/astarot/commit/56d6d22bd7e8891dc75ecb879044a97469c30c0f)）
+- **ui:** 翻訳と音声認識の欄を自動で保存する（[060a3e2](https://github.com/kein5/astarot/commit/060a3e23fa9d0bed0eb0b9ddf088e41af50aa75f)）
+- **ui:** APIキーの欄を自動で保存できるようにする（[68f811b](https://github.com/kein5/astarot/commit/68f811bd43ef0ee3ce661441cdbeb13f3d0b1401)）
+- **ui:** チャット読み取りのウィンドウ名を自動で保存する（[c070736](https://github.com/kein5/astarot/commit/c070736248ece7fdd0132ec2d9530c22003967e1)）
+- **ui:** 設定のテキスト欄を自動で保存できるようにする（[179d238](https://github.com/kein5/astarot/commit/179d238ec2de6dd47842c1442d9f8fa4d7c491c7)）
+- **ui:** 「ASTAROTについて」に公式Discordサーバーへのリンクを置く（[83f41d5](https://github.com/kein5/astarot/commit/83f41d5c643b3b9a338e9e2044537a16d6a65b50)）
+- **ui:** 設定ファイルの場所を表示し、ログの保存先を変えられるようにする（[528c914](https://github.com/kein5/astarot/commit/528c91453900cba0ebe6dc515847c3fca33c1418)）
+- **ui:** ログの保存先と設定ファイルの場所を別の行に分ける（[8a5f979](https://github.com/kein5/astarot/commit/8a5f979911a2eefc8e07608d29804a577b0b61c1)）
+- **settings:** 会話ログを保存するフォルダーを設定できるようにする（[0dd015a](https://github.com/kein5/astarot/commit/0dd015a13807411df17f596a677792a89444f87f)）
+- **talk-ai:** 同意を得てから、選んだ画面のフレームを共有する（[65cccb9](https://github.com/kein5/astarot/commit/65cccb9ba4d9ccc81d9195396544604c172f87b9)）
+- **talk-ai:** マイクの音声を取り込み、答えを再生する（[425b98d](https://github.com/kein5/astarot/commit/425b98dfe0855f97b937e10cd168e1659035c253)）
+- **talk-ai:** 会話の設定と同意を中核につなぐ（[1ce4bdc](https://github.com/kein5/astarot/commit/1ce4bdcf925b5a77d61fd0924612d10264f95004)）
+- **talk-ai:** Gemini Liveのクライアントを足す（[d8c77fa](https://github.com/kein5/astarot/commit/d8c77fa14443fa24da824d15e23d1f38f9e33196)）
+- **tts:** マイクの確定した認識結果を元の言語で読み上げる（[5ac3be0](https://github.com/kein5/astarot/commit/5ac3be0d962e25d8f20b8b42117d35c336934c84)）
+- **ui:** マイクの読み上げのモードに原文を読み上げる選択肢を足す（[78b3e79](https://github.com/kein5/astarot/commit/78b3e797246f3cea0c075a4352785362c2b18364)）
+- **ui:** 残していた設定の注意書き3つをヒントへ移す（[f74cfc3](https://github.com/kein5/astarot/commit/f74cfc320d95232af41c3c4bd5f13a2a8384973b)）
+- **ui:** 音声認識のページで音声認識のAPIを追加する（[01d3366](https://github.com/kein5/astarot/commit/01d3366cd3149da89ac7d03ee68185f803932dba)）
+- **core:** 利用者が追加した音声認識のAPIを保存する（[82ce937](https://github.com/kein5/astarot/commit/82ce9370b2f42a5336fdfd17dbe2d48c16be4cfa)）
+- **ui:** ランタイムの説明をヒントで出し、ボイスチェンジャーのページからモニターの設定のページへ案内する（[a5ff59e](https://github.com/kein5/astarot/commit/a5ff59e3b87c1a83ddbd3d107395b68d64d57082)）
+- **site:** リリースのファイルに古い名前の写しがあっても、一覧には1回だけ出す（[f9142d8](https://github.com/kein5/astarot/commit/f9142d8b72a82fc3ec545a42631caf28e3405060)）
+- **installer:** ASTAROT.zipをダウンロードし、0.6.x以前のリリースからはVRCT-VOX.zipをダウンロードする（[f19e6ce](https://github.com/kein5/astarot/commit/f19e6ce818d8046521795c264a637a88e5b9c97d)）
+- **installer:** パッケージの本体の実行ファイルをどちらの名前でもインストールする（[7bb07f9](https://github.com/kein5/astarot/commit/7bb07f92c8479c81b3d583eb998f053d13b1bc92)）
+- **translation:** オンラインの翻訳サービスに、システムが指定するプロキシを通して接続する（[9d6db3e](https://github.com/kein5/astarot/commit/9d6db3ed85c78cdff7ed0f81d7fbe4f7740b0ec8)）
+- **vr:** 1行の字幕オーバーレイに誰が話したかを出す（[45c628b](https://github.com/kein5/astarot/commit/45c628bae5dcdeec50d98fce9f4e0dde951377f0)）
+- **vr:** ゲームの音声のリアルタイムの字幕を1行の字幕オーバーレイに出す（[f2a1de9](https://github.com/kein5/astarot/commit/f2a1de9d87fce3acee13f62be02e4f60d8451f21)）
+- **audio:** 音声経路の古い名前は1つのリリース系列の間だけ読み、古いユニットは期限を設けずに止めて消す（[7d363e4](https://github.com/kein5/astarot/commit/7d363e44ed9d92304c9259113113ed794f1c50f2)）
+- **core:** インストーラーがインストール先を移したときは、その中を指す保存済みのパスを書き換える（[9e33f4a](https://github.com/kein5/astarot/commit/9e33f4a62781c63d62618d5c50c9462168137dc1)）
+- **ui:** 名前が変わった仮想マイクをVRChatで選び直すよう1回だけ伝える（[be7cc5b](https://github.com/kein5/astarot/commit/be7cc5b269b7e30ab5df3d8a9dd8aecc64f51381)）
+- **app:** アプリのデータを削除するときに、古いアプリIDのデータも消す（[2e21178](https://github.com/kein5/astarot/commit/2e21178ffd7c276bad6b1c8173a16f246a055735)）
+- **app:** アプリをio.github.kein5.astarotとして登録する（[910ae84](https://github.com/kein5/astarot/commit/910ae84a6f81719232f76847b3ab77a3f0853ecb)）
+- **core:** APIキーをOSの保管場所にASTAROTの名前で入れる（[8539585](https://github.com/kein5/astarot/commit/8539585cdb7f744168800cd7ab4c5073ce237912)）
+- **ui:** 仮想マイクの案内は利用者が求めたときだけ開く（[a70c6ff](https://github.com/kein5/astarot/commit/a70c6ffd7cfaca6e210ba8183a555f48a38327f2)）
+- **ui:** アプリのテーマをプリセットから選ぶか、自分で色を決める（[e89575c](https://github.com/kein5/astarot/commit/e89575cd0c3a67940b15f3062c4e3ddb9028292b)）
+- **core:** アプリのテーマを保存する（[64ece7f](https://github.com/kein5/astarot/commit/64ece7f0efc65088a4b77386413e12dc7290e73c)）
+
+#### 改善
+
+- **ui:** メイン画面のレールの設定のボタンにkitのButtonを使う（[5e6331a](https://github.com/kein5/astarot/commit/5e6331acbc364da8719bd64e98e28f312fc1f5d4)）
+- **ui:** メイン画面のレールで、ほかの機能の表示を切り替えるボタンにkitのButtonを使う（[be8141a](https://github.com/kein5/astarot/commit/be8141aea51fb977757873eb59898fd95283bae0)）
+- **ui:** 色の選択にkitのPopoverを使う（[6e1254d](https://github.com/kein5/astarot/commit/6e1254d31592eeae6b373824b0f17d57efc37bbb)）
+- **ui:** 言語の設定にkitのToggleGroupとPopoverを使う（[12b2d4b](https://github.com/kein5/astarot/commit/12b2d4b230eeda6e2a807b8ba7a119c1a59a29da)）
+- **ui:** 設定の切り替えのボタンにkitのToggleGroupとToggleを使う（[ef37b37](https://github.com/kein5/astarot/commit/ef37b37793947eaed4cc88af82691a6d79e38bc9)）
+- **ui:** 初期設定にkitのDialogとButtonを使う（[02f1222](https://github.com/kein5/astarot/commit/02f1222f28faf68e7584d0ba49d06a0c4fae9204)）
+- **ui:** アプリのお知らせと確認にkitのDialogとButtonを使う（[b15024e](https://github.com/kein5/astarot/commit/b15024e975287115b112e31aa7b7ea77515afae9)）
+- **ui:** ダウンロードの同意のダイアログにkitのDialogとButtonを使う（[984cf8f](https://github.com/kein5/astarot/commit/984cf8f5abf588872ab48eefff4a072071fb2974)）
+- **ui:** オンとオフを切り替える設定にkitのスイッチを使う（[52abd1f](https://github.com/kein5/astarot/commit/52abd1f1586a9dddac416f8ec6daf64da573eb64)）
+- **ui:** Quick Chatの送信にkitのButtonを使う（[73f3331](https://github.com/kein5/astarot/commit/73f3331eee759503c103d55b8162afb28a52a9e2)）
+- **ui:** テーマのタイルをkitに新しく足したChoiceCardで描く（[8c637b4](https://github.com/kein5/astarot/commit/8c637b4009d2e083b838db274576734b13491a7c)）
+- **ui:** メインのウィンドウの入力欄にkitのTextareaを使う（[09fc0df](https://github.com/kein5/astarot/commit/09fc0dfc75c49a41f94679db08b62c55489a9d05)）
+- **ui:** kitにTextareaを足し、Quick ChatとTTSのオプションで使う（[e1cc9d1](https://github.com/kein5/astarot/commit/e1cc9d1978e4b34abd287bb46815fb8883ef42f9)）
+- **ui:** 翻訳と音声認識のAPIのカタログにkitのSelectを使う（[3af9bdb](https://github.com/kein5/astarot/commit/3af9bdbcc6c514a95f6f638c77aa43a3792818f2)）
+- **ui:** ボイスチェンジャーとモデルのダウンロードにkitのSelectを使う（[a11d8e0](https://github.com/kein5/astarot/commit/a11d8e0ccff3460a96d3840776e3d9585b8855e8)）
+- **ui:** TTSのページと音声経路にkitのSelectを使う（[f7fdfdd](https://github.com/kein5/astarot/commit/f7fdfdd10fb5483723e802b8e90a38cd376d4635)）
+- **ui:** kitにInlineConfirmを足し、カタログの項目と自分のモデルを外すときに使う（[4749573](https://github.com/kein5/astarot/commit/474957374f2f0cd55b5815d58751b99d3615b722)）
+- **ui:** クイック設定にkitのPopoverとToggleを使う（[3f6b223](https://github.com/kein5/astarot/commit/3f6b2234debaee104997147ddc7c2e7c51a9c204)）
+- **ui:** 初期設定と仮想マイクのダイアログにkitのSelectを使う（[cd94bee](https://github.com/kein5/astarot/commit/cd94beea66feecac8756f90389e7c2b36cd13ef7)）
+- **ui:** カタログのカードにkitのCardとBadgeを使う（[4cc883e](https://github.com/kein5/astarot/commit/4cc883e9419997de55944b1d1d030a9902455d17)）
+- **ui:** 停止とミュートにkitのdangerのButtonとToggleを使う（[cab8a02](https://github.com/kein5/astarot/commit/cab8a02f978849744b79aed042ac08f4f3cd6372)）
+- **ui:** 対応している環境ではkitのSelectの一覧をフォームと同じ見た目で開く（[1e24092](https://github.com/kein5/astarot/commit/1e24092f705095e4a2fd3c0434fd4bf6722717d8)）
+- **ui:** 設定の行にkitの選択欄を使う（[6217593](https://github.com/kein5/astarot/commit/6217593e8f4b9af84316ae284954a7a8a817b5cc)）
+- **ui:** 残っていたtitle属性の説明をアプリの吹き出しで出す（[fc1bf9d](https://github.com/kein5/astarot/commit/fc1bf9d60ad1981a59ad2dd5654ccda0b74248fd)）
+- **ui:** kitにItemを足し、初期設定で見つけたことと用語辞書に使う（[da1964f](https://github.com/kein5/astarot/commit/da1964f10c8b1872162d7dc4d237478101ae5fd5)）
+- **ui:** 設定の検索をkitの欄と一覧に合わせる（[9193b3c](https://github.com/kein5/astarot/commit/9193b3c9887abd186e2549f184791191513bbe75)）
+- **ui:** メインの機能のスイッチにkitのスイッチを使う（[a3540c8](https://github.com/kein5/astarot/commit/a3540c8e9b27719fb9e2edb204df1272a1417a9e)）
+- **ui:** kitにProgressを足し、ダウンロードの進み具合のバーに使う（[1213c24](https://github.com/kein5/astarot/commit/1213c2460c6f55e8eea7460bb30b211491efe27c)）
+- **ui:** 言語の選択をkitに合わせる（[e262821](https://github.com/kein5/astarot/commit/e2628218e52fcbaee423491dca0ff78ad252e896)）
+- **ui:** 設定のバーの戻るボタンにkitのButtonを使う（[7e96637](https://github.com/kein5/astarot/commit/7e966370e832f653f5f073d2d793d4b20522929c)）
+- **ui:** 「字幕とVR」のページのボタンにkitのButtonを使う（[58cb40b](https://github.com/kein5/astarot/commit/58cb40b99fe17cd30f1bfcea88d3ad419e6de017)）
+- **ui:** トレイのコンパニオンのパネルにkitのSwitchとButtonを使う（[61a7b15](https://github.com/kein5/astarot/commit/61a7b158b1da655aa6c6c8ecb02602aa406a68fe)）
+- **ui:** 音声認識、高度な設定、OCRのページにkitのButtonとTextFieldを使う（[c1e8e6e](https://github.com/kein5/astarot/commit/c1e8e6e2e5a839bd65a932c3d839f1993e11ee42)）
+- **ui:** 翻訳のページにkitのButtonとTextFieldを使う（[35a01b4](https://github.com/kein5/astarot/commit/35a01b4d9bcf75beb05450ad1454061973361114)）
+- **ui:** 言語の窓を開くボタンにkitのButtonを使う（[372897c](https://github.com/kein5/astarot/commit/372897c29f250917c452019ec0425f8cc672a1b9)）
+- **ui:** ボイスチェンジャーのページにkitのButtonとTextFieldを使う（[51f443e](https://github.com/kein5/astarot/commit/51f443e9f7efb89fd574795329704ee265f7c951)）
+- **ui:** TTSのページにkitのButtonとTextFieldを使う（[68b828f](https://github.com/kein5/astarot/commit/68b828f680817948ef70fff8e0a88ea6235f599f)）
+- **ui:** メイン画面のレールの操作部品にkitのアイコンのButtonを使う（[e48e6ca](https://github.com/kein5/astarot/commit/e48e6caa104ae71822411ca4cc1da29af6bac974)）
+- **ui:** チャット読み取りのページにkitのButtonを使う（[cc69864](https://github.com/kein5/astarot/commit/cc6986422cf27925e923d0f8cce40223078551c5)）
+- **ui:** 設定のフォームにkitのButtonを置けるようにし、まず音声経路で使う（[14da5a1](https://github.com/kein5/astarot/commit/14da5a13ba995f55c828da7f39e26d5f8d640bf5)）
+- **ui:** 設定のメニューの省略しない名前をアプリの吹き出しで出す（[ab86a36](https://github.com/kein5/astarot/commit/ab86a368b477ecd6da96726969329074e6a833b3)）
+- **ui:** ホットキーのページにkitのButtonを使う（[d543a97](https://github.com/kein5/astarot/commit/d543a975126eaf808efdacea0f40d315ec2b6c65)）
+- **ui:** 更新のインストールと確認のボタンにkitのButtonを使う（[cf77651](https://github.com/kein5/astarot/commit/cf77651d60e2f853b05c56d3f80891ba20df3603)）
+- **ui:** ワードフィルターとメッセージフォーマットにkitのButtonを使う（[b222c5e](https://github.com/kein5/astarot/commit/b222c5e51c73e62ce08cf2fea419429c877b6a32)）
+- **ui:** 言語の入れ替え、追加、削除のボタンにkitのButtonを使う（[6f021e4](https://github.com/kein5/astarot/commit/6f021e46a86758ddc7ed24c0ae90207e7f73fd96)）
+- **ui:** 上のバーの更新と「入力と出力」のボタンにkitのButtonを使う（[986bd32](https://github.com/kein5/astarot/commit/986bd32bf84ca2eab4f038b5bea38d9ad812677d)）
+- **ui:** 空の会話とリアルタイムの字幕の操作にkitのButtonを使う（[ca5a8f8](https://github.com/kein5/astarot/commit/ca5a8f8d9686598490e839637ff637a0d9c246de)）
+
+#### 不具合の修正
+
+- **ui:** 聞き取りのモデルを選んだ後も、音声認識のカタログを消さない（[e19d6be](https://github.com/kein5/astarot/commit/e19d6befc850b8aff107f6187a61b59526e1c851)）
+- **vr:** 「入力と出力」のウィンドウにグラフ全体を出す（[cce1fb4](https://github.com/kein5/astarot/commit/cce1fb46c553b9c1a3364031c5df7906a86d9ad6)）
+- **audio:** Steam Linkのヘッドセットのマイクを、既定のマイクとして受け付ける（[65e1d95](https://github.com/kein5/astarot/commit/65e1d958e9fffdf958e01f8f5bcf5b28ecfa3765)）
+- **asr:** 「リアルタイム字幕」の設定の開始と停止は外部サーバーのときだけ出す（[b6b6768](https://github.com/kein5/astarot/commit/b6b676844968c2a2025c83538d1f912c3a3db4dc)）
+- **ui:** マイク入力か聞き取りに使う認識モデルを、カードから選ぶ（[bec1ed6](https://github.com/kein5/astarot/commit/bec1ed672b1c287a6926b21ca08e53786b94875f)）
+- **ui:** カードからダウンロードした翻訳モデルを、そのカードで使えるものとして出す（[038d704](https://github.com/kein5/astarot/commit/038d7042d501075c1ca56cbdfa48e96197c78acd)）
+- **asr:** ASRサーバーの「サーバーを起動」と「サーバーを停止」のボタンをなくす（[e0a89b5](https://github.com/kein5/astarot/commit/e0a89b5888368160184c1d8c8244fa0fee0ce8a1)）
+- **asr:** 聞き取り専用のサーバーの状態を設定に出す（[66de6df](https://github.com/kein5/astarot/commit/66de6dfb60067eb902084e048c68560a02e8072c)）
+- **ui:** 字幕のスイッチの最も長い状態の分の場所を、2行になるときも取っておく（[4aa5041](https://github.com/kein5/astarot/commit/4aa50419829f3389de47f6465c589859d69f4a02)）
+- **ui:** 字幕のスイッチの状態を出す行を、名前の下に取っておく（[ae57f98](https://github.com/kein5/astarot/commit/ae57f98d977c0ced1ba214f1adaba9da1e710491)）
+- **ui:** それぞれの言語の見出しの横に、オンの印の場所を取っておく（[aa6044e](https://github.com/kein5/astarot/commit/aa6044e2b6cdfeb817d2728135b63e972e4492cb)）
+- **vr:** VRの設定の一時停止の帯を、機能が一時停止するときだけ出す（[5799fca](https://github.com/kein5/astarot/commit/5799fca8a8e8116d67b70ce42b7f33f7a409de43)）
+- **vr:** デスクトップの設定のウィンドウが開いたら、VRの設定を使えるようにする（[4e88344](https://github.com/kein5/astarot/commit/4e88344fdd15d0d691681cc2b41979f5422377d6)）
+- **ui:** 初期設定から行ではなくスイッチそのものへ案内する（[78448ed](https://github.com/kein5/astarot/commit/78448ed66a9ad62f008819a8f9fe628a2596670b)）
+- **ui:** モデルのダウンロードのページで、メモリについての案内を書き直す（[a81156f](https://github.com/kein5/astarot/commit/a81156fbc20255432835d722d0cb75f5e38d9fa0)）
+- **ui:** 処理タイプがどの順に並んでいるかを書く（[36bc5a8](https://github.com/kein5/astarot/commit/36bc5a825f254d0676d509ab9fdc04869791a151)）
+- **ui:** 日本語をそのまま直訳した英語の文を書き直す（[2acfe86](https://github.com/kein5/astarot/commit/2acfe8695b378434c62ddf05bae4852dc678dbda)）
+- **ui:** 起きる前に出す英語の文を、これから起きることとして書く（[1ceb53c](https://github.com/kein5/astarot/commit/1ceb53cccd1042e96a0104e9216a5d4729e2e0b2)）
+- **ui:** 利用状況の送信内容のプレビューの英語の名前を"See what gets sent"にする（[b988edc](https://github.com/kein5/astarot/commit/b988edcadd5bbc13a51d83995004a860d62e44b0)）
+- **ui:** 「ASTAROTについて」のVRChatの告知を、UIの言語だけで出す（[90b04f0](https://github.com/kein5/astarot/commit/90b04f006aae17716559be4d72246a3f8541086f)）
+- **transcription:** マイク入力がサーバーを待っている間も、アプリを閉じられるようにする（[bdd9559](https://github.com/kein5/astarot/commit/bdd95598f509b5b80d56bbe7c7ea1ded3763c82e)）
+- **translation:** アプリを閉じるときに、翻訳LLMのサーバーを止める（[2db9354](https://github.com/kein5/astarot/commit/2db9354e990fec32cb976f3830b69d385727415c)）
+- **ui:** 失敗した保存が後のエラーの知らせを隠さないようにする（[59b73fb](https://github.com/kein5/astarot/commit/59b73fbbc381e0bdd283b5699bf0ac38a64041e3)）
+- **ui:** 字幕の開始と失敗を、帯ではなくスイッチの下で伝える（[eef4148](https://github.com/kein5/astarot/commit/eef4148d3a9b86afb2c664cb640aae11cfd88d28)）
+- **ui:** 保存できている3つの設定を、失敗と表示しないようにする（[afe1ced](https://github.com/kein5/astarot/commit/afe1cedf3fdfb37b48b1cf3dde81cff399176594)）
+- **tts:** 読み上げに足りないものを、一度にすべて挙げる（[5972d42](https://github.com/kein5/astarot/commit/5972d422251150704b8a791f39991d9aa22802f5)）
+- **asr:** 初期設定を本来の名前で呼び、断るときの文からVADのモデルを外す（[71b2ca2](https://github.com/kein5/astarot/commit/71b2ca2adcb9c85f93d4bfe34ead8bbdde18098c)）
+- **asr:** 同梱の音声サーバーがないときは、そのことと入れ直す方法を伝える（[c5427cf](https://github.com/kein5/astarot/commit/c5427cf458617d59950663280af9b6ab011e4b9e)）
+- **ui:** 既定のウィンドウの大きさで、上のバーに「読み上げを停止」と出す（[dc9cfe5](https://github.com/kein5/astarot/commit/dc9cfe5d03d67fe7cd259b206363f106ff1594ea)）
+- **setup:** 初期設定が終わったら「完了」だけを出す（[47c0a23](https://github.com/kein5/astarot/commit/47c0a235067ad88a90c527da60bffc3877e1bb8e)）
+- **ui:** 知らせにもウィンドウと同じ代わりのフォントを指定する（[de1bd8b](https://github.com/kein5/astarot/commit/de1bd8b1091c070384611126420b14971587142a)）
+- **rvc:** 20 msのブロックのクロスフェードを20 msにして、つなぎ目で音が途切れないようにする（[d6aca88](https://github.com/kein5/astarot/commit/d6aca884a65476b9869192ed3bbf300e34963d84)）
+- **vr:** スイッチの状態をUIの言葉で伝え、音声認識の準備はメイン画面へ案内する（[dd770f4](https://github.com/kein5/astarot/commit/dd770f446bf7486531c130bf3404afc8cdf47c10)）
+- **realtime:** マイクを待つ間の知らせをOSに合わせた文にし、VRの吹き出しに収める（[83a28ef](https://github.com/kein5/astarot/commit/83a28ef1d2559dd16ccca6ada582faacca92bfb4)）
+- **setup:** モデルがお使いのPCにすでにあることを、それぞれの行に書く（[08fba07](https://github.com/kein5/astarot/commit/08fba07cdc46826887459b77e7773da9b00e3268)）
+- **settings:** エンジンの説明でspeech.cppを設定する場所を案内する（[8caa3bf](https://github.com/kein5/astarot/commit/8caa3bf8b72062a3c37a4c97c18e88af05ade289)）
+- **transcription:** 「ASRモデル」の欄は外部サーバーのときだけ出す（[c572e41](https://github.com/kein5/astarot/commit/c572e4134c36a8d9a108be32d18d4bb73c0caaee)）
+- **transcription:** マイク入力でも言語の選択肢をそのモデルから出す（[3315536](https://github.com/kein5/astarot/commit/3315536ab52b411323933db558d4e5e83551015b)）
+- **transcription:** Windowsの許可を待っているマイクを見分けられるようにする（[fb0362c](https://github.com/kein5/astarot/commit/fb0362cba6cd966ae50d865977358fcba637632f)）
+- **transcription:** 字幕が止まったら「字幕を停止中」を消す（[1dc31ca](https://github.com/kein5/astarot/commit/1dc31ca7c3456ef39c3dcf8ebcd96f166dbc566d)）
+- **transcription:** 聞き取りに専用のモデルを使えることを書く（[d4cbc83](https://github.com/kein5/astarot/commit/d4cbc83042ded517eab533a42abcf8799e7c8bb6)）
+- **transcription:** 聞き取りの言語の選択肢を、聞き取りが使うモデルから出す（[34c3b0a](https://github.com/kein5/astarot/commit/34c3b0a7b5bfc80d8049e4e9c7c51d299d0e9eff)）
+- **downloads:** ダウンロードのどの応答にも、お使いのPCにあるモデルを含める（[03770c5](https://github.com/kein5/astarot/commit/03770c5427376347b1f5ef202fc722deeaed20d3)）
+- **ui:** ウィンドウを最大化している間は、元に戻すアイコンを出す（[3e44be5](https://github.com/kein5/astarot/commit/3e44be5d20293a6a89f39756ca1413cd73be8a3b)）
+- **installer:** インストーラーを手で実行したときもUIの言語を保つ（[ac7b4c7](https://github.com/kein5/astarot/commit/ac7b4c72e25db481907a854115210ec0d30a658e)）
+- **ui:** 仮想マイクの案内で、途中で切れたMMEの出力の名前も照合する（[0c727cd](https://github.com/kein5/astarot/commit/0c727cd9a1d221185d53f37e38d5ab1717139db3)）
+- **ui:** 設定のメニューにスクロールバーのつまみを出す（[7f6e214](https://github.com/kein5/astarot/commit/7f6e214ff4ecf9b41d7dcaa354a9a75c68cd69e5)）
+- **ui:** 「デバイス」のページから、リアルタイム字幕のデバイスへ案内する（[2d5fe98](https://github.com/kein5/astarot/commit/2d5fe98e909ff7bfb4d8644ec1b26a5cf9186786)）
+- **ui:** 実験的機能のスイッチから、おしゃべりAIのページへ案内する（[bb5874c](https://github.com/kein5/astarot/commit/bb5874c120636f9060535cbd9a1fa61c7a2e97a3)）
+- **ui:** おしゃべりAIのページを、音声認識のページと同じ順に並べる（[bc888fc](https://github.com/kein5/astarot/commit/bc888fc6a55d0370abea3bef482decfe156357a2)）
+- **ui:** ボイスチェンジャーの準備を、音声認識や読み上げのページと同じ順に並べる（[5788012](https://github.com/kein5/astarot/commit/5788012321d13c2eac02c5dae7d794fc00414abe)）
+- **ui:** ミュートのバッジが出ても、設定の上のバーを動かさない（[4d3185e](https://github.com/kein5/astarot/commit/4d3185eed82633fc3dcc185f2929167658e44a3b)）
+- **ui:** 翻訳エンジンの一覧から、翻訳の設定へ案内する（[652caa1](https://github.com/kein5/astarot/commit/652caa19f2117a67f32d7d86ebbe2e5f4554a400)）
+- **ui:** 翻訳のカタログの項目から「標準」の印を外す（[4e70528](https://github.com/kein5/astarot/commit/4e7052817fe3d8ebeac9ab21d1f362526f67cace)）
+- **ui:** お使いのPCに翻訳モデルが入ってから、GPU版を出す（[31e8b90](https://github.com/kein5/astarot/commit/31e8b904a1089e785cc66afc8d81c66a70fd601e)）
+- **ui:** GPU版の「取得内容を確認」を普通のボタンにする（[f51f20d](https://github.com/kein5/astarot/commit/f51f20d0340b3aad1aab1884c274f0bf92cb5200)）
+- **ui:** 翻訳モデルの取得内容の確認を、1回押すだけで開く（[f5f1c1d](https://github.com/kein5/astarot/commit/f5f1c1db5c5feb086e5553574f89d30212a883b7)）
+- **ui:** ヒントを開いている間も、欄の問題を見えるところに残す（[f411235](https://github.com/kein5/astarot/commit/f411235fb98ea7ce4a6817f2afc0d85c7e1e8c87)）
+- **ui:** テキスト読み上げのページを、音声認識のページと同じ順に並べる（[343ad58](https://github.com/kein5/astarot/commit/343ad58e13c875aad9128855d5634e262bb63e08)）
+- **ui:** どの声にもモデルがない間は、読み上げのスイッチを灰色にする（[bece12e](https://github.com/kein5/astarot/commit/bece12e5c28f21628ad470f75f3f289766ff972e)）
+- **ui:** モデルのカードのハードウェアの値に、計測したメモリの量を入れない（[e660619](https://github.com/kein5/astarot/commit/e6606196842e6b38aef018919e466c6d25d5f42d)）
+- **ui:** カタログで音声認識のモデルと一緒にVADも取得する（[8497dcb](https://github.com/kein5/astarot/commit/8497dcb0b6ea16285d7d6624ac6fb845b7db5eb6)）
+- **ui:** 音声認識のサーバーを、エンジンの選択の下で選ぶ（[0f33ede](https://github.com/kein5/astarot/commit/0f33ede2eeb20c1aa05c14c77631ab03b00c3576)）
+- **core:** 新しくインストールしたときは、同梱サーバーで音声を認識する（[2a8782e](https://github.com/kein5/astarot/commit/2a8782e2283dc3367830859ccad32ce17a7aed45)）
+- **ui:** モデルの取得内容の確認を1行で出し、内訳は折りたたむ（[ee44d04](https://github.com/kein5/astarot/commit/ee44d04803ccfd1167ceaeac3dcc225d296b6e14)）
+- **ui:** 初期設定では準備するすべてのモデルについて1回だけ尋ねる（[0dd3c7e](https://github.com/kein5/astarot/commit/0dd3c7e6e4d7799c24b385a9d63f5ef9901dc6b8)）
+- **ui:** 設定の名前をそろえ、保存を求める文と生のコードを外す（[9dcd6a9](https://github.com/kein5/astarot/commit/9dcd6a955257b1f862fb245cb09a61418389319d)）
+- **ui:** お使いのPCにすでにあるモデルを、カードから使えるようにする（[93218de](https://github.com/kein5/astarot/commit/93218de9bf538c7694e2c29e29080138184b96b5)）
+- **ui:** 最初の描画から選んだテーマで表示する（[82b7f24](https://github.com/kein5/astarot/commit/82b7f249555df21dba41a41102c613e388702b71)）
+- **ui:** 設定のウィンドウのページを、配置が決まってから描く（[8a1ad9b](https://github.com/kein5/astarot/commit/8a1ad9b0139bd76d1d8980b39a94e39ee074476a)）
+- **ui:** 設定のメニューの大きさが変わったら、設定を配置し直す（[c7cc182](https://github.com/kein5/astarot/commit/c7cc182023cc9a7342e2dadd3614437894903db7)）
+- **ui:** 手順が失敗しても、初期設定の手順の名前を読めるようにする（[f70b60f](https://github.com/kein5/astarot/commit/f70b60f5573463a9593d09c25be7e306619351e1)）
+- **vr:** ランチャーの8つのボタンを帯の中に収める（[568475b](https://github.com/kein5/astarot/commit/568475bcc981d031a76fb9d8d241a29d4c088c38)）
+- **vr:** VRのログの不透明度で、文字を薄くせず後ろが透けて見えるようにする（[18d595d](https://github.com/kein5/astarot/commit/18d595d450b100667b948af629649838850ac32b)）
+- **ui:** 設定のページで先に要るものを、見えるところに出しておく（[84a91f0](https://github.com/kein5/astarot/commit/84a91f0bb99620dd31614797b47ccacb8e19958b)）
+- **ui:** カタログのカードから翻訳モデルを切り替える（[ba57b06](https://github.com/kein5/astarot/commit/ba57b06c5b1c7e7336c46bc6f1ea60e515ec566a)）
+- **ui:** トレイのメニューに、それぞれの項目が何をオンにするか、何を開くかを書く（[4bd7386](https://github.com/kein5/astarot/commit/4bd73863e725ab2e4bbd73c83be53f82396a13e2)）
+- **tts:** アプリと文書でモデルの名前をIrodori-TTSと書く（[75cf1be](https://github.com/kein5/astarot/commit/75cf1bef883f543c7082bffa175343aa9dc5d6e4)）
+- **ui:** ウィンドウに合わせて会話を広げる（[d07faf6](https://github.com/kein5/astarot/commit/d07faf6d4da021099c765bcd46065c2063c142a3)）
+- **ui:** UIサイズが大きいときも、設定のメニューをウィンドウの中に収める（[103e8c6](https://github.com/kein5/astarot/commit/103e8c69a13e17097b06dac87c24edf9ad45687f)）
+- **site:** ホームのマスコットを、押したときにジャンプさせる（[891e408](https://github.com/kein5/astarot/commit/891e4085dbf3c7938cc13c24fac21d633edef7c1)）
+- **ui:** グループの保存が終わったら、二重の保存を防ぐ仕組みも解除する（[1d1272b](https://github.com/kein5/astarot/commit/1d1272b8b1547bfbe793250b363c84b24c72cc66)）
+- **ui:** 設定の検索で準備の折りたたみへその見出しから案内する（[9e50dc7](https://github.com/kein5/astarot/commit/9e50dc7263c79db956a699f4717720639ed3ceeb)）
+- **ui:** 音声認識のページからなくなったVADのスイッチの文言を消す（[8239921](https://github.com/kein5/astarot/commit/823992159baa4f9f7991ba287ebb38eeeb32cff4)）
+- **ui:** 読み込んでいる間は、音量のしきい値を中核の既定値で始める（[5bc6e17](https://github.com/kein5/astarot/commit/5bc6e17993fef5a9df3f994e711a76b2bd40e91a)）
+- **ui:** サーバーを指定していない言語は、同梱サーバーを使うものとして扱う（[601809f](https://github.com/kein5/astarot/commit/601809fdf9b1f3da55ddb14729a8f0596f791e02)）
+- **ui:** 行き先のない設定の検索結果を出さないようにする（[a55ecb5](https://github.com/kein5/astarot/commit/a55ecb5cbfadbd1860ed26d7d864b3aaa1653c8d)）
+- **ui:** 設定を読み込んでいる間は、アプリの既定の設定を出す（[2e167d5](https://github.com/kein5/astarot/commit/2e167d5cbef553749871fe5384a9e03862afe717)）
+- **ui:** ひらがなとローマ字の注記では「対応」と書く（[18200fc](https://github.com/kein5/astarot/commit/18200fca716ecec7a28181ce9249cb49c9a0a41c)）
+- **appimage:** ブラウザーと再起動したアプリに、ホストの環境を渡す（[2793cd7](https://github.com/kein5/astarot/commit/2793cd725c96ef1bd7b6a52bbe30570260022422)）
+- **ui:** デスクトップへの登録に失敗した後も、ホットキーをまた使えるようにする（[026fcf0](https://github.com/kein5/astarot/commit/026fcf0e2b4d472d7a30d902093d016eb0ec4d8d)）
+- **ui:** VRのサンプルの文のボタンとヒントを右にそろえる（[593659a](https://github.com/kein5/astarot/commit/593659abd237395597e13b9f156180f4dc556ee9)）
+- **ui:** 設定のドロップダウンを小さく保ち、右端にそろえる（[f948556](https://github.com/kein5/astarot/commit/f948556a2cb4388de0bad2306b9ad2dd337b43fb)）
+- **ui:** ラジオボタンの行を行の右端にそろえ、設定のすべてのページに当てはめる（[6948280](https://github.com/kein5/astarot/commit/694828028575aed82700e5f08024929be9cb54cf)）
+- **ui:** 設定のすべての操作部品を行の右端にそろえる（[a3ccc27](https://github.com/kein5/astarot/commit/a3ccc276fbab739ca57583424d928b6cfdecf92a)）
+- **ui:** 単独のチェックボックスとアイコンのボタンを行の右端にそろえる（[bf831ec](https://github.com/kein5/astarot/commit/bf831ec8592994b38ffdca314817a5832ace73ce)）
+- **ui:** 翻訳のカタログで利用者が追加した項目がないときの表示を分かりやすくする（[74ad62b](https://github.com/kein5/astarot/commit/74ad62b7b0e4fdf80518e555726695a5a0f90399)）
+- **ui:** 翻訳のローカルのモデルの説明をヒントに移し、折り返しをそろえる（[73cce57](https://github.com/kein5/astarot/commit/73cce57d4bb707a390b84ae418a68e9bd1ec855f)）
+- **ui:** VRChatへの送信の説明から、意味の定まらない「サポートの対象外」の一節を外す（[032396f](https://github.com/kein5/astarot/commit/032396f7125e510796f367c20475f94cf17ab225)）
+- **ui:** 「すべて表示」と個別の用途を同時に選べないようにする（[336b7a8](https://github.com/kein5/astarot/commit/336b7a8af66cc30ce141cd8482fd6c320eb1d248)）
+- **ui:** 用途の説明を、ポインターを重ねたときの吹き出しに移す（[5effbde](https://github.com/kein5/astarot/commit/5effbdee6fae17beca790571753824e700e81506)）
+- **ui:** Quick Chat、VR、コンパニオンのウィンドウでも選んだテーマに合わせる（[d3a5ae1](https://github.com/kein5/astarot/commit/d3a5ae157dbb6a61516a6409997124ed827dd8da)）
+- **ui:** どちらのオーバーレイもオフのときは、字幕のサンプルを送れないようにする（[57b6567](https://github.com/kein5/astarot/commit/57b656738507c5282b9eab461012088de7f5cfcd)）
+- **ui:** 保存の知らせは保存バーで明示的に保存したときだけ出す（[9520b8f](https://github.com/kein5/astarot/commit/9520b8ff2c368cd27c8cd6711d50c9f26ee08155)）
+- **ui:** カタログの並べ方と、すぐに反映する表示の設定を、保存の知らせを出さずに保存する（[a8eefef](https://github.com/kein5/astarot/commit/a8eefef174871aee0f7c42cd9cdebf9d30e8ee23)）
+- **ui:** 「ASTAROTについて」のページから、上流のVRCTの開発者のカードを外す（[8517312](https://github.com/kein5/astarot/commit/851731245996109720f6f3de3ad27d32d6eb05a6)）
+- **ui:** 設定の操作部品を共通の入力欄の列にそろえる（[3ce633f](https://github.com/kein5/astarot/commit/3ce633ff0e87b20349c370830bdd413bd795a463)）
+- **ui:** 翻訳エンジンの一覧を、レールの横に浮かぶポップオーバーとして開く（[cec30de](https://github.com/kein5/astarot/commit/cec30def7f0268981d6959abb4766af3d87c7c9d)）
+- **talk-ai:** Linuxのビルドのワークスペースにクライアントを含める（[9c6ec80](https://github.com/kein5/astarot/commit/9c6ec8034daf65afd74c5dd40235e04681888bb1)）
+- **vr:** パネルのテクスチャの位置を合わせ、ウィンドウの操作部品を押せる位置に保つ（[37d056c](https://github.com/kein5/astarot/commit/37d056cf312d442c4a74ecf75eebe418277c3f3a)）
+- **ui:** 更新の確認がどちらのチャンネルでも開発者のサーバーに問い合わせることを書く（[c00e2d8](https://github.com/kein5/astarot/commit/c00e2d83f969a3aea55d19e214b75b7dee9431ee)）
+- **ui:** マイクの読み上げの文言を、「原文」を読み上げるモードに合わせて直す（[06f4bad](https://github.com/kein5/astarot/commit/06f4bad005b443347868b392fc9218167d264a0a)）
+- **tts:** HTTPで接続するときに、WindowsのループバックでSYNを再送しないようにする（[befe6d9](https://github.com/kein5/astarot/commit/befe6d96b35e6af143214af3e22e600e32238e83)）
+- **vr:** 大きいログの「Send」を背景から見分けやすくする（[8b4d093](https://github.com/kein5/astarot/commit/8b4d093b25fbab864f5dbc99bc7b566d54bc9880)）
+- **vr:** 大きいログの「Receive」と時刻を背景から見分けやすくする（[6fdca6f](https://github.com/kein5/astarot/commit/6fdca6f4951e9b81ad50d1e745d8975ba8856518)）
+- **vr:** 利用者が追加した翻訳モデルの名前を出す（[c5f017d](https://github.com/kein5/astarot/commit/c5f017d33b556bddddfccd02b6859d2a8a99af5c)）
+- **vr:** VRの設定でも翻訳モデルをデスクトップと同じ名前で呼ぶ（[44a485f](https://github.com/kein5/astarot/commit/44a485f63420958643bf4a53e55b8a9f1ecdba78)）
+- **ui:** カタログからモデルを取得したら「翻訳」をオンにする（[5b9c637](https://github.com/kein5/astarot/commit/5b9c637658d2e9af1dd06adf2e4d3beefd05ce67)）
+- **vr:** 一行の字幕にある話した人の表示を背景から見分けやすくする（[857086a](https://github.com/kein5/astarot/commit/857086addcb3031737eb1c99a9e1ae5bbadcd5cd)）
+- **update:** 前に選んでいた更新のチャンネルの版を、表示したりインストールしたりしないようにする（[f966ab6](https://github.com/kein5/astarot/commit/f966ab636c77be167c3db5820ae6b2864c411e02)）
+- **vr:** リアルタイムの確定文を一行の字幕に描く処理を、届ける処理から切り離す（[cc17b4f](https://github.com/kein5/astarot/commit/cc17b4ffcd6772de066bfd58f285d1801908135f)）
+- **installer:** このインストールのキーが残っている間は、secrets.jsonを残す（[ab778dd](https://github.com/kein5/astarot/commit/ab778dd7dd3fe24d250d19a490ea24e9e47e0ecf)）
+- **installer:** /VERSIONでインストールした版を、Windowsのアプリの一覧に記録する（[052b1e8](https://github.com/kein5/astarot/commit/052b1e8bd192ab8e53222cdc3797d05dc8107596)）
+- **installer:** 2つ目のインストーラーが、実行中の更新を壊さないようにする（[c710070](https://github.com/kein5/astarot/commit/c7100704c839cdb143ec11ff42e3b4c3d5f0be11)）
+- **installer:** 指定したときは、アプリのデータすべてとこのインストールのAPIキーを消す（[d8093bb](https://github.com/kein5/astarot/commit/d8093bbced68d5389facaf84f899f59898ec49e1)）
+- **core:** 途中で切れた設定の写しを、完全な写しとして扱わない（[47a2a28](https://github.com/kein5/astarot/commit/47a2a28d65b8b1839c914bb214c281d82596cd70)）
+- **ui:** 前の更新のチャンネルの確認が、新しいチャンネルの結果を上書きしないようにする（[78652b2](https://github.com/kein5/astarot/commit/78652b258021ef04524b917d70ff2ad26626f185)）
+- **ops:** ダウンロードのスレッドを始められないときは、モデルのダウンロードを元に戻す（[6f8c975](https://github.com/kein5/astarot/commit/6f8c975812e1906b387a4c6e333db1f35e80594c)）
+- **ocr:** チャットを読み取っている間は、ONNX Runtimeのスレッドだけ優先度を下げる（[99c90a3](https://github.com/kein5/astarot/commit/99c90a35ff91612a06b8bf6c3f0e02de94e9c72c)）
+- **linux:** AppImageの中から起動するプログラムに、ホストの環境を渡す（[0bf3025](https://github.com/kein5/astarot/commit/0bf30252db0595795d5f6af244ef902bbde339e6)）
+- **vr:** 字幕のフォントをそれぞれ1回だけ読み、セッションの終わりには必要なときだけ描き直す（[dffffe7](https://github.com/kein5/astarot/commit/dffffe7fdf0b366e5b7411b1cfb17a7817d94a9c)）
+- **core:** VRのログへのリアルタイムの字幕の描画を、更新を読むループから切り離す（[0ddb81c](https://github.com/kein5/astarot/commit/0ddb81c5ffa627ffe154ab11d2a0d417e2525251)）
+
+#### 性能
+
+- **rvc:** クロスフェードを20 msまでにして、変換した声を早く出す（[13528c3](https://github.com/kein5/astarot/commit/13528c3d7775100cc5013deecfbdc8f4472411c2)）
+
+### 内部の変更
+
+#### リファクタリング
+
+- **vr:** ApplicationErrorの使われていないDisplayを外す（[417e7dc](https://github.com/kein5/astarot/commit/417e7dcf6d904ececbb75955461dfa8e3cde05bb)）
+- **ui:** 設定のフォームにkitのSelectを置けるようにする（[c6d83e0](https://github.com/kein5/astarot/commit/c6d83e03374869c0f1b1a901efe584fa05cb970e)、[0c3ee16](https://github.com/kein5/astarot/commit/0c3ee161dea5eba8ed4650b6556f5fb8bd5c49a2)）
+- **site:** 操作のボタンとタブの切り替えのスタイルを共有する（[907d97d](https://github.com/kein5/astarot/commit/907d97dc402fea695068b13e7ccc6b089efe6e62)）
+- **site:** 2か国語のサイドバーの構造を共有する（[beb5b7f](https://github.com/kein5/astarot/commit/beb5b7f3c87c0510718bedbaccdbf464c98ba133)）
+- **ui:** 証明書の組の中でのフォーカスの移動をblurと見分ける（[4bb378d](https://github.com/kein5/astarot/commit/4bb378d608424d2df8a41f95afcb32dd6bb472d5)）
+- **ui:** 断られたOBSの色を中核の文言で伝える（[5125fdd](https://github.com/kein5/astarot/commit/5125fdd2219c32d59e0a2a4d637a1675e2487da1)）
+- **release:** 個別の.sha256はWindowsのZIPのパッケージにだけ残す（[4e6a048](https://github.com/kein5/astarot/commit/4e6a048d63b2bd4390a816e8135eff7292309586)）
+- **ui:** VRの設定のセレクターの補助関数で、&のプレースホルダーをすべて置き換える（[59e202a](https://github.com/kein5/astarot/commit/59e202acd94fb1972b7216ffdbc2937a0cea0af8)）
+- 廃止した内蔵の翻訳のダウンロードの確認を消す（[2df8c12](https://github.com/kein5/astarot/commit/2df8c127c30ce009ec787dfbf0ac28439d0c0fbc)）
+- **ui:** SCSSのmixinとsassのコンパイラーを消す（[43c7580](https://github.com/kein5/astarot/commit/43c7580456c98ee308372aeb667ea0d988d0d99e)）
+- **ui:** 選択欄のbase-selectの値を二重のキャストなしで書く（[15dfb91](https://github.com/kein5/astarot/commit/15dfb911ea5833ff92f7c099e8a422a0876d0952)）
+- **ui:** VR UIのスタイルをvanilla-extractに移す（[9e5e82f](https://github.com/kein5/astarot/commit/9e5e82fdb4b2963b3e5153224e6a47aaccc0e909)）
+- **ui:** フォームの共通のスタイルをvanilla-extractに移す（[4d01aad](https://github.com/kein5/astarot/commit/4d01aad6731a1f925e09568324ea85d9be75eacd)）
+- **ui:** 大きな設定のページのスタイルをvanilla-extractに移す（[b25fb76](https://github.com/kein5/astarot/commit/b25fb76aeed9a9ce337a4d9aa09329017b8eb5f4)）
+- **ui:** 設定のページ10個のスタイルをvanilla-extractに移す（[6de2402](https://github.com/kein5/astarot/commit/6de2402ffbf436394d5a16c5d2e99e8863cef70b)）
+- **ui:** 最後に残った設定の部品のスタイルをvanilla-extractに移す（[880753e](https://github.com/kein5/astarot/commit/880753e9202acac522863b410704296d77b98878)）
+- **ui:** 設定の部品のスタイルをvanilla-extractに移す（[3f80d6f](https://github.com/kein5/astarot/commit/3f80d6f1ee837b41f332dfd2ee326ae7e3164061)）
+- **ui:** 設定ページの枠のスタイルをvanilla-extractに移す（[7561bf5](https://github.com/kein5/astarot/commit/7561bf5e2968b8b5b20fdcc69fd907e0d4bd720a)）
+- **ui:** メイン画面のスタイルをvanilla-extractに移す（[35be6d0](https://github.com/kein5/astarot/commit/35be6d0372074d82b587f9209d59437f7a9906a5)）
+- **ui:** 共通のコンポーネントとウィンドウのスタイルをvanilla-extractに移す（[3107eb0](https://github.com/kein5/astarot/commit/3107eb0347e2879efaf329d423942548b183d5d9)）
+- **ui:** SCSSのmixinをvanilla-extractのスタイルでも使えるようにする（[dd3befd](https://github.com/kein5/astarot/commit/dd3befd766f9a2b4c4d54bba15f802a319237b0e)）
+- **translation:** 古いCTranslate2のダウンロードの残りを外す（[36de472](https://github.com/kein5/astarot/commit/36de472f311bf8a933b97ec276bd7d8513e8193d)）
+- **translation:** WebSocketのために、方針を確かめた接続を開く（[7cfdf21](https://github.com/kein5/astarot/commit/7cfdf214287b9cf4d1f3fe9d821fef6872265ae2)）
+- **ui:** forwardRefではなくpropsでrefを受け取る（[4ffd0bf](https://github.com/kein5/astarot/commit/4ffd0bf11593cb3923d4157682e39294f958f954)）
+- **app:** アプリのクレートとnpmのパッケージの名前をastarotにする（[a53ca07](https://github.com/kein5/astarot/commit/a53ca07ba2766062253baa7e36ebdc9917d66a6f)）
+- **native:** Rustのクレートの名前をすべてastarot-*にする（[4d5a950](https://github.com/kein5/astarot/commit/4d5a95052f3d4cf33cf3eac756f7b760aa6f78d4)）
+
+#### 依存
+
+- **deps:** RUSTSEC-2026-0594のためにcookieを0.18.3に上げる（[a9716c9](https://github.com/kein5/astarot/commit/a9716c9720927fefbf9cf27f527dc941e2521a19)）
+- **deps:** 版が一緒に上がるnpmのパッケージは、メジャー版の更新を1つにまとめる（[4d5bac5](https://github.com/kein5/astarot/commit/4d5bac526ce021330fd5d7f5d9d4ee94debdc1b8)）
+
+#### ビルドとCI
+
+- **installer:** SteamVRのマニフェストを同梱し、アンインストールのときに登録を消す（[f28ed0f](https://github.com/kein5/astarot/commit/f28ed0f2ae258b40a858e0bfe7757e386b17bdb7)）
+- ワークフローとソースのアーカイブをASTAROTの名前で表示する（[0c99048](https://github.com/kein5/astarot/commit/0c990480e1ade3a0ce8bbfb33716f5ece7449df5)）
+- RVCのワーカーの単体試験をUbuntuとWindowsで動かす（[c49786b](https://github.com/kein5/astarot/commit/c49786b4402fd60582e8192c9173de4f430a27fb)）
+- GNOME Keyringがバスに現れてからSecret Serviceの試験を始める（[f805d51](https://github.com/kein5/astarot/commit/f805d51f045bef6c62c45b972506159da9c276ea)）
+- **release:** immutable releasesがオフの間は下書きを作らない（[12091c5](https://github.com/kein5/astarot/commit/12091c5551cf745466d92b30f8575cb6b14f47c7)）
+- **build:** ソースのアーカイブの検査でhk.pklとRVCの試験用のフィクスチャーを認める（[133aa36](https://github.com/kein5/astarot/commit/133aa3626cfc6a6f5778cd9ea860c198918a7e0b)）
+- **ci:** 使用中のショートカットの片付けを再試行する（[d61dd44](https://github.com/kein5/astarot/commit/d61dd44b75672f972e290fbdc4b1d8ca0457fef3)）
+- **ci:** Linuxのアップグレードの試験に、より古いパッケージを使う（[aab7c50](https://github.com/kein5/astarot/commit/aab7c50ad68f36c6e3df882817a4f0459a3566bc)）
+- core-integrationで#861の試験を再試行するのをやめる（[5f24f1a](https://github.com/kein5/astarot/commit/5f24f1a0d61518f94da5d98b7d0d8c0920e88859)）
+- アプリの単体試験をWindowsでも動かす（[44db52c](https://github.com/kein5/astarot/commit/44db52cd96ff5d6ce25bda7dac58aa2aa6b9265a)）
+- OCRの重みに限らず、パッケージに入ったモデルのファイルをすべて拒否する（[f4cafbd](https://github.com/kein5/astarot/commit/f4cafbd0d0f333d5a4c38bcdec04cfba7e014922)）
+- 配布候補のartifactの名前をASTAROTにする（[b583b89](https://github.com/kein5/astarot/commit/b583b895d2a014c9801a95695f8c15ab3d54b97f)）
+- **talk:** おしゃべりAIのクレートのビルド出力をリポジトリに入れない（[c5327be](https://github.com/kein5/astarot/commit/c5327be4c6f2d14cc80a7c4ef808b0a03374a031)）
+- Linuxのパッケージが0.6.xまでのパッケージを置き換えることを確かめる（[9ed0f96](https://github.com/kein5/astarot/commit/9ed0f96872f25468e4e2cf52b8c5a87e21b337ba)）
+- 毎週のCIの失敗をワークフローとジョブごとに数える（[42c8f5e](https://github.com/kein5/astarot/commit/42c8f5e3b4b112033f5e47676d4bdbb1d0472a8d)）
+- **talk:** 名前を変えたクレートのastarotの名前を使う（[856dfbf](https://github.com/kein5/astarot/commit/856dfbfbf1ee3bfac656f4e34566c82373d17e4f)）
+- 失敗したLinuxの配布候補の手順について、ログの末尾をジョブのログに出す（[b1ececc](https://github.com/kein5/astarot/commit/b1ececc624f09a85308b0a9e27e07061578a08f3)）
+- 一時的な失敗の後にダウンロードとaptの取得をやり直す（[5cca7b4](https://github.com/kein5/astarot/commit/5cca7b49b0cd554811f921848fd8f5389d503ca8)）
+- core-integrationで#861の試験を再試行し、再試行で通ったものを1つずつ一覧に出す（[8b0f105](https://github.com/kein5/astarot/commit/8b0f105e72ff8a09a26e617986bd3ef85941e8c6)）
+- Pythonのプロジェクトの名前をastarotにする（[55b496e](https://github.com/kein5/astarot/commit/55b496e0588943e1c0a18afb21393994da193d39)）
+
+#### 試験
+
+- **integration:** 字幕のスイッチが切り替わるときにメインのレールが動くのを検出する（[baef1ee](https://github.com/kein5/astarot/commit/baef1ee1bd19ec0149919a28c19e23d6a41a46db)）
+- **installer:** GUIのアンインストールでSteamVRのマニフェストをアプリの一部として数える（[58ce869](https://github.com/kein5/astarot/commit/58ce869c34b469b76e4582da651f841ad2882f0f)）
+- **installer:** アンインストールの引数をアプリの試験にimportする（[ddb3d9b](https://github.com/kein5/astarot/commit/ddb3d9b1e681a2ac6afdcae614d141abed504c4f)）
+- **vr:** 共有の接続を通したSteamVRのアプリの一覧を試験する（[49e1a9f](https://github.com/kein5/astarot/commit/49e1a9fb0dc1042f9ec65ef2fb40a83ebd9627d9)）
+- **vr:** 設定を開き直したときにSteamVRのスイッチが改めて問い合わせることを確かめる（[0f687d4](https://github.com/kein5/astarot/commit/0f687d445bbca274d460a81fb6d8a774e3236e43)）
+- **ui:** 追加した翻訳のAPIを消すときの新しい確認を期待する（[2c25a1f](https://github.com/kein5/astarot/commit/2c25a1f02f0dbf81e7a1ad14c843a9fd4f7a9776)）
+- **core:** 終了の処理が中核の各フィールドに何をするかを挙げる（[a433e84](https://github.com/kein5/astarot/commit/a433e84a0a470f51014c7d94bf8ace8e9ef233cd)）
+- **installer:** 言語のシナリオで再インストールのページを押して進める（[35a7819](https://github.com/kein5/astarot/commit/35a7819c5a818c0f94de4ad91a50dbcc3539d8cb)）
+- **platform:** 設定のメニューが覆うものを押す前に、ポインターをメニューから外す（[04d2aa5](https://github.com/kein5/astarot/commit/04d2aa583eb03394e3412f12805830abf0f24f7c)）
+- **core:** ファイルの権限の試験はUnixだけで動かす（[af1bb03](https://github.com/kein5/astarot/commit/af1bb03a5a2cafec964f5e1ad07005fb3df6ae4d)）
+- **integration:** 正確なバイト数を読むために確認の内訳を開く（[31cd67b](https://github.com/kein5/astarot/commit/31cd67b6b0ce936058b6d468144546c4d31ce686)）
+- **ui:** Windowsでも設定のスタイルシートをURLとして読む（[55137e0](https://github.com/kein5/astarot/commit/55137e049a152de2ade506b37934d78630b9c639)）
+- **platform:** パッケージにしたアプリの試験で、設定の入力欄をその欄自身のラベルで探す（[582c06f](https://github.com/kein5/astarot/commit/582c06f6d43fef31ed1baf68e0d187e13805e3c1)）
+- **platform:** パッケージにしたアプリの試験を設定のウィンドウに合わせる（[d2a4b7e](https://github.com/kein5/astarot/commit/d2a4b7e23875a69e4b4e192f69ec4ca153f94283)）
+- **integration:** 中核を通して内蔵モデルのカードを押す（[f4501a4](https://github.com/kein5/astarot/commit/f4501a4cb1beadab5c7bcbdeda91399dadbd760c)）
+- **site:** 描画したサイドバーにある対応環境へのリンクを確かめる（[8e23067](https://github.com/kein5/astarot/commit/8e230679db199aa364a6a67cbacbe7e4a88c90fe)）
+- **speech-server:** Windowsでは代役をコピーし続ける（[25500d9](https://github.com/kein5/astarot/commit/25500d97e21a3628d31c2ad49897677071ae25ee)）
+- **core:** 本物のOSのストアの試験を順番に動かす（[ff00d55](https://github.com/kein5/astarot/commit/ff00d5555f429f08a5babe9ab1abecba09494147)）
+- **osc:** このハンドラーのOSCQueryのサービスをほかの試験のものと見分ける（[c235503](https://github.com/kein5/astarot/commit/c2355033ce2381b0e3786e424a1740371ecc8f3b)）
+- **osc:** つながらないサービスのポートを、問い合わせの間は確保しておく（[13e7802](https://github.com/kein5/astarot/commit/13e7802d56a2e0e01b62adc4125ead3bd73e8b4c)）
+- **speech-server:** 代役のサーバーをコピーではなくハードリンクから動かす（[0410e81](https://github.com/kein5/astarot/commit/0410e81e4dfdc7c7989a5f602a7c27d058c01f55)）
+- **platform:** AppImageとパッケージのグループから、再起動後のミュートを見る実行を外す（[a867b1c](https://github.com/kein5/astarot/commit/a867b1cd5e10c996733f18a9f24e45c5c9ac0044)）
+- **ui:** 翻訳の入力欄の保存先と、入力欄が断る値を確かめる（[c55a1bf](https://github.com/kein5/astarot/commit/c55a1bfcecbf5cc35667c0a123d62ad5d5a2d6a7)）
+- **platform:** 音声の設定を、選んだときと欄を離れたときに保存する（[cad5b61](https://github.com/kein5/astarot/commit/cad5b618ff0552305240f45836bbe28f5df619bf)）
+- **ui:** 厳密さの検査が通るように、しきい値の入力欄の試験に名前を付ける（[11e2cd0](https://github.com/kein5/astarot/commit/11e2cd0b160bbe72344f299b69902097f74f2611)）
+- **ui:** 設定の検索の一覧、キー、印を付けた語を確かめる（[18082f7](https://github.com/kein5/astarot/commit/18082f7ae2c88f82a4d6091d7e3cad71559d0718)）
+- **ui:** 設定のドロップダウンの開き方、動き方、閉じ方を確かめる（[8490e9d](https://github.com/kein5/astarot/commit/8490e9de49206f40d591e96edebe250e699692f7)）
+- **ui:** 利用者が足した音声認識のAPIのカードとフォームを確かめる（[6ff4b52](https://github.com/kein5/astarot/commit/6ff4b52a9a36f0319fd7e63ab75f394ce3085d3d)）
+- **ui:** 「デザイン」のページが表示するものと設定するものを確かめる（[ff07093](https://github.com/kein5/astarot/commit/ff070935883aeedc578f014784b92006b65d7ecc)）
+- **ui:** 音声のエンジンのランタイムの準備が表示するものと開始するものを確かめる（[be78dee](https://github.com/kein5/astarot/commit/be78dee2497f2d9f6d2048b9a203ae9044fec056)）
+- **ui:** しきい値の行が音源ごとに何を結び付けるかを確かめる（[9943a1b](https://github.com/kein5/astarot/commit/9943a1bf764fbdafcbb1435bad34d5ae55ad450e)）
+- **ui:** しきい値の音量のメーターとスライダーを確かめる（[a7d3cb0](https://github.com/kein5/astarot/commit/a7d3cb0e18d61bcc40eb182a8e5d4f3f45b4fdf2)）
+- **ui:** 音量のしきい値の入力欄が表示するものと保存するものを確かめる（[be71ea8](https://github.com/kein5/astarot/commit/be71ea824e9c37f62a3603b1f3cc9caf60d29278)）
+- **ui:** 翻訳のページの試験に、いま読むようになった入力欄の検査を渡す（[b32e41d](https://github.com/kein5/astarot/commit/b32e41d13a65ac671537888093b6b10b4ba4cbea)）
+- **ui:** 音声のページの試験のフォームを、自動で保存するものとして読む（[ecc8a5e](https://github.com/kein5/astarot/commit/ecc8a5e31c23f03c4c943958686fc4d1675ebdd3)）
+- **ui:** 翻訳のページの試験に入力欄の検査を渡す（[db93db3](https://github.com/kein5/astarot/commit/db93db30b03551ddc524c4bc01eab0f15dbb688a)）
+- **integration:** 設定が自動で保存されても通知が出ないことを確かめる（[5c2ebcf](https://github.com/kein5/astarot/commit/5c2ebcffdf7324bf55ad0a1f52ae836aa6e3dc08)）
+- **ui:** 音声の設定のページでkitのButtonとTextFieldを読む（[360b836](https://github.com/kein5/astarot/commit/360b83678ae9d5e92bb632fccce398b1fd99112a)）
+- **ui:** 閉じたドロップ領域がドラッグを見張るのをやめることを確かめる（[141305a](https://github.com/kein5/astarot/commit/141305a9e752fc72889e3bd63af6505dc8beba3c)）
+- **ui:** 音声認識の試験から固定の一覧の確認を外す（[f7bc7cd](https://github.com/kein5/astarot/commit/f7bc7cdedab7e113acc8a05bac5e1f18acd4e92d)）
+- **ui:** ファイルのドロップ領域の状態と、それが渡すものを確かめる（[b6dc9b6](https://github.com/kein5/astarot/commit/b6dc9b64f9acfa5147a4b7354a5f1682871c94e4)）
+- **ui:** 「音声認識（ASR）」のページが表示するものと送るものを確かめる（[79e1e9a](https://github.com/kein5/astarot/commit/79e1e9a4118df9e89d8666ea310a6150f42bc708)）
+- **ui:** 自分のモデルのカードと登録を確かめる（[ecc2879](https://github.com/kein5/astarot/commit/ecc2879c12f1c48d7a7fbfb63d4cd45bc5a9cbc1)）
+- **ui:** リアルタイムの字幕のフォームが表示するもの、待つもの、送るものを確かめる（[d913078](https://github.com/kein5/astarot/commit/d913078353edc6563cfd1137f337b937f8908be6)）
+- **ui:** 「字幕とVR」のページが表示するものと送るものを確かめる（[3e0a4c8](https://github.com/kein5/astarot/commit/3e0a4c88f7ea81fcac2dcec80fca297561f47970)）
+- **ui:** 設定のハーネスで、IPCの参照表を共通の読み取り部分を通して読む（[ef85ec9](https://github.com/kein5/astarot/commit/ef85ec9cb720f4d660c8b62989b6a244358ed4f9)）
+- **ui:** TTSの声のフォームが表示するものと保存するものを確かめる（[b7eb385](https://github.com/kein5/astarot/commit/b7eb385a53508e94c3d289f18dd23aa6418105e2)）
+- **ui:** 入力の転送のフォームが表示するもの、待つもの、送るものを確かめる（[6b7759d](https://github.com/kein5/astarot/commit/6b7759df1425f0cb68788d7bf5542018b00242cf)）
+- **ui:** configのロジックに残っていた試験の抜けを埋め、等価なミュータントを記録する（[e6a96e0](https://github.com/kein5/astarot/commit/e6a96e0bf533d8dd739c3b8744860eb9d3e6dccc)）
+- **ui:** 自動で保存する入力欄とログのフォルダーを試験する（[7cecd9d](https://github.com/kein5/astarot/commit/7cecd9d4f9c2d10cb386307b3d7dc26272096b64)）
+- **ui:** カタログの言語の一覧とエンジンを確かめ、等価なミュータントを記録する（[8f836dd](https://github.com/kein5/astarot/commit/8f836ddb6858f07db7d947428171a0899ff6c656)）
+- **ui:** 翻訳の一覧のオプショナルチェーンの等価なミュータントを記録し直す（[bb7b98c](https://github.com/kein5/astarot/commit/bb7b98cf724942d6d7e4d6391d96eb11f528e838)）
+- **ui:** 会話ログの保存を共通のスイッチの1つとして確かめる（[299bec8](https://github.com/kein5/astarot/commit/299bec89e9de9927bf1bef085c64261d88a68afe)）
+- **ui:** 翻訳のページのダウンロードの確認がページの外に移ったのに合わせる（[e0386b7](https://github.com/kein5/astarot/commit/e0386b7c245e722433a513e758896b356010eb6d)）
+- **ui:** 設定の試験をdevelopの設定の変更に合わせる（[d967fce](https://github.com/kein5/astarot/commit/d967fce3965ea028dc87576f04cc5ca6a7cf3504)）
+- **ui:** モデルのカタログが表示するもの、勧めるもの、送るものを確かめる（[8747c71](https://github.com/kein5/astarot/commit/8747c715a19d7afa716da9b5512b21dc2ab1d2f2)）
+- **ui:** 設定を見せる処理と、設定の小さな補助関数を試験する（[6875584](https://github.com/kein5/astarot/commit/687558435bfecf0cab95e6e198b5996f78c4809c)）
+- **ui:** チャット読み取りの範囲、準備の状態、共有したウィンドウを試験する（[95050c9](https://github.com/kein5/astarot/commit/95050c9c200aaad206f7974e754eebbb6591e299)）
+- **dev:** デスクトップの試験が存在するものをimportしていることを確かめる（[02e91b9](https://github.com/kein5/astarot/commit/02e91b9f180be1fb29f8f9d2890347853921eb73)）
+- **platform:** 設定を開いて閉じる試験で、いまの設定のページを開く（[e265258](https://github.com/kein5/astarot/commit/e265258e84251f57c2a04af051561e3ada7c10c9)）
+- 管理対象の経路のミュートの解除を、再びアプリのウィンドウを通して確かめる（[b67200e](https://github.com/kein5/astarot/commit/b67200edfc391e310bed2e7d93771c1d595089c4)）
+- **ui:** ずれを測る前に、翻訳エンジンのボタンを見える位置までスクロールする（[df565de](https://github.com/kein5/astarot/commit/df565de3dbb8e1f58d301a354b12759a86943bc3)）
+- **ui:** 入力欄の列の左端の期待値をページの幅ごとに計算する（[dc6aba8](https://github.com/kein5/astarot/commit/dc6aba8013c8ffb11341f0ecc37f92fd901bab82)）
+- **core:** 音声サーバーがウォームアップを受け取るまで翻訳を止めておく（[4fca53a](https://github.com/kein5/astarot/commit/4fca53aaa258716e3a96ed67f88417467dfc6c86)）
+- **vr:** 写した設定の値にunknownの型を付ける（[0ba84a1](https://github.com/kein5/astarot/commit/0ba84a1d2637d6f47b0ce19821f3df53eaa3d896)）
+- **ui:** routeRecorderとanswerHandlingにuseTranscriptionCatalogを記録する（[4c91066](https://github.com/kein5/astarot/commit/4c91066791efe648898b1805e3b91d3b7b33a9d5)）
+- **ui:** ハーネスのエフェクトをReactと同じ順番で動かす（[ca87c9a](https://github.com/kein5/astarot/commit/ca87c9ae6d940e8c06d604762842e1dc00568a85)）
+- **ui:** すべてのページの実際の文言で設定の検索を確かめる（[6bbc158](https://github.com/kein5/astarot/commit/6bbc1581913b09f0977feb29c7e777753ba49487)）
+- **ui:** 複数のページが共有する設定の行を確かめる（[4f542f9](https://github.com/kein5/astarot/commit/4f542f996c7a8ed16295182dc807428c883c229f)）
+- **ui:** 「翻訳」のページが表示するものと送るものを確かめる（[08f9740](https://github.com/kein5/astarot/commit/08f9740411cb2696f1b964737bd87a5489a5bfa6)）
+- **ui:** 設定のロジックのテンプレート、重みの一覧、スライダー、入力欄を試験する（[910e72d](https://github.com/kein5/astarot/commit/910e72d77be458fc78f6b9a4f93e359df0db4751)）
+- **ui:** 各設定の初期値を中核の既定値と照らし合わせる（[554918b](https://github.com/kein5/astarot/commit/554918b974c5fcccc76af5d43801804679b85035)）
+- **ui:** すべての設定の要求と応答を、中核とIPCの参照表と照らし合わせる（[e4e9c52](https://github.com/kein5/astarot/commit/e4e9c52f512c30f32d7e83bc6381b6e03cc03bfa)）
+- **ui:** VRの選択の一覧の始まり、端、フォーカス、Tabを確かめる（[3101ed4](https://github.com/kein5/astarot/commit/3101ed42b9d626ca88f61ad7b2814779637da257)）
+- **ui:** VRのホバーの追跡が見張るものと手放すものを確かめる（[d548e9f](https://github.com/kein5/astarot/commit/d548e9f3209694ae2bec6f8c656a067ab6935d40)）
+- **ui:** 開いたVRのログの枠と文字の大きさを確かめる（[e3b349b](https://github.com/kein5/astarot/commit/e3b349b25ccc7b3d7f2a2a003ca80db091780a00)）
+- **ui:** VRのランチャーの各ボタンの表示と動作を確かめる（[0bd2633](https://github.com/kein5/astarot/commit/0bd2633b12da4aa6de0b4f7a7763751c477988fa)）
+- **ui:** VR UIのページが報告するものと写すものを確かめる（[8dbd028](https://github.com/kein5/astarot/commit/8dbd028ffbaf0cb37e761d4a8cc58790b9d8077f)）
+- **ui:** VRの言語のウィンドウを、一覧からバックエンドの応答までたどる（[fdb5f82](https://github.com/kein5/astarot/commit/fdb5f82985c94117e0c47cb8b49301344e71705f)）
+- **ui:** VRの設定のウィンドウのページを共通の設定のロジックで描く（[8782e09](https://github.com/kein5/astarot/commit/8782e09569dd07ed56d2ce93723a457337732021)）
+- **ui:** 受信のルートの等価なミュータントを記録する（[80cfadc](https://github.com/kein5/astarot/commit/80cfadcbba671687e1710bf9ccb64fdc514f9526)）
+- **ui:** ルートが失敗、通知、ポーリングをどう扱うかを試験する（[dad2bdd](https://github.com/kein5/astarot/commit/dad2bdd195b65a6418e9c212f61ac44754a32a66)）
+- **ui:** 各ルートの受け手をIPCの参照表と照らし合わせる（[166c7cd](https://github.com/kein5/astarot/commit/166c7cd99d060041db80ed2451e65c0dd3667005)）
+- **ui:** VRのウィンドウの枠、一時的なウィンドウ、パネルのページを描く（[141285d](https://github.com/kein5/astarot/commit/141285d651f7f8c3042e04304ceb79bfe8d0493b)）
+- **ui:** VRのツールバーのボタン、ツールチップ、段階を確かめる（[2e4950c](https://github.com/kein5/astarot/commit/2e4950ceceeeaf24cb3773cadf895168c1ce58ab)）
+- **ui:** VRの設定の行が表示するものと送るものを確かめる（[1a64a22](https://github.com/kein5/astarot/commit/1a64a22d8dccb6b559737e8028ede1f5b3414968)）
+- **ui:** 代役のページの上にVRのツールチップとそのボタンを描く（[a1e01b4](https://github.com/kein5/astarot/commit/a1e01b44b86839f88c4216ddeae68b44382b2f5d)）
+- **ui:** kitの部品を描き、各部品が要素に与えるものを確かめる（[f8b4ffa](https://github.com/kein5/astarot/commit/f8b4ffa7d31bff263927bf2368d88137c597fe83)）
+- **ui:** ホットキーのフックの等価なミュータントを記録する（[43abc83](https://github.com/kein5/astarot/commit/43abc8334c44c08bc8b0063421258d8d0f1ed055)）
+- **ui:** ホットキーの編集の試行、拒否、保存を確かめる（[419c72c](https://github.com/kein5/astarot/commit/419c72cc3dec9178c044c671b271ec24f72c824b)）
+- **ui:** ほかのプラットフォームでプラグインが登録するホットキーを確かめる（[9e2b424](https://github.com/kein5/astarot/commit/9e2b4240da819ecc51eb13ba94356b499b47d8ca)）
+- **ui:** ポータルの経路でホットキーがすることを確かめる（[7048953](https://github.com/kein5/astarot/commit/7048953ce5ac95e3db38b07cc16063f461d422db)）
+- **ui:** ホットキーの代役がフックから渡されたものを示すようにする（[7ce858f](https://github.com/kein5/astarot/commit/7ce858f7ccb3ef0f556e77ca36d8a8a2617bd95c)）
+- **ui:** 「入力と出力」のパネルを本物の経路図のロジックで描く（[64f7137](https://github.com/kein5/astarot/commit/64f71374a7ffe4e9a1fd0860c991f5cb8a6ae423)）
+- **ui:** 「入力と出力」の図の箱と矢印を、測った箱から描く（[6eb8cc5](https://github.com/kein5/astarot/commit/6eb8cc53fb531d8c9de5567af59a3fcc539a003a)）
+- **ui:** UIの行のカバレッジからスタイルを外す（[7882a4b](https://github.com/kein5/astarot/commit/7882a4b69e2f88c3626ea8a76b5bac6a4c2de2f3)）
+- **ui:** VR UIの中継と、置き換えられたセッションのバックエンドへの書き込みを確かめる（[279a162](https://github.com/kein5/astarot/commit/279a162f39b2d4379cfc36221afc4ae14366f147)）
+- **ui:** 言語の書き込みが印を付けるもの、報告するもの、残すものを確かめる（[3aa375b](https://github.com/kein5/astarot/commit/3aa375b4a1ccda56f186d99f088574a490b2ea9a)）
+- メッセージの入力欄と設定の戻るボタンをdata属性で探す（[0e6935e](https://github.com/kein5/astarot/commit/0e6935e95350f4a4f6d2afbda38b17e369c79f65)）
+- **core:** 話者を分けた字幕の試験のサーバーが、発話を1つだけ伝えるようにする（[e7b93fa](https://github.com/kein5/astarot/commit/e7b93fa122573d02c33c68334fee803ae4df5d0c)）
+- **installer:** アンインストールで残すものからアンインストーラーを外す（[56326c7](https://github.com/kein5/astarot/commit/56326c718f2602cb1dc690d57395f23eb17f1057)）
+- 毎週のCIの失敗の集計がワークフローの実行を読めるようにする（[2b0e6ff](https://github.com/kein5/astarot/commit/2b0e6ffa513a29b3ef42135387260ec7debd3992)）
+- **ui:** ランタイムの区画が描かれたことを確かめてから説明を読む（[3141514](https://github.com/kein5/astarot/commit/3141514684876b3ac14ae7cb06ecaf1e8d54da48)）
+- **dev:** マニュアルのICOのリンクではなく、ガイドの16 pxのfaviconを確かめる（[24b82c2](https://github.com/kein5/astarot/commit/24b82c2b4aeb86bd573a31c9be4cb86a2b5d080b)）
+- **vr:** 小さいログの字幕のどの部分が届かなかったかを示す（[22c9672](https://github.com/kein5/astarot/commit/22c96724a10ede519339f08d3cf11275951fd770)）
+- **installer:** Windowsの更新での実行ファイルの名前の変更を試験する（[5c3d629](https://github.com/kein5/astarot/commit/5c3d62943cf03dbb9a39d600cd020ca5b7f35c86)）
+- さらに3つの#861の試験で、固定の時間ではなくイベントを待つ（[c6c9a87](https://github.com/kein5/astarot/commit/c6c9a8785a84c833d800d5b32ba2d3e53b49ae88)）
+- **core:** インストーラーのファイルをこのプラットフォームのパスで読む（[2972b07](https://github.com/kein5/astarot/commit/2972b07a9b33035dcf5bafefe7cc99bb821e508d)）
+- **installer:** Windowsでのインストール先のフォルダーとキーの移動を試験する（[e9880f1](https://github.com/kein5/astarot/commit/e9880f106e47429d00dee23332f0949afbc154a3)）
+- **ui:** 移した試験が描画の外でフックを呼ぶ理由を書く（[2ff28ec](https://github.com/kein5/astarot/commit/2ff28ec97b29e6c5563965284e78f412c3dc8eb8)）
+- **core:** VRのログの試験で、時間ではなく数える対象を待つ（[30c539f](https://github.com/kein5/astarot/commit/30c539f8e82f7a870da62e9fe39fd41cbf572ac7)）
+- **ui:** data: URLの試験のソースをloadModuleで読み込む（[b1fd439](https://github.com/kein5/astarot/commit/b1fd4394da1bd298ad5942cb744191fe60bca3bf)）
+
+#### 文書
+
+- スイッチにだけ連動する音声認識のサーバーを書く（[99fdbc6](https://github.com/kein5/astarot/commit/99fdbc69684d107879fa9d873380a3049d931fa6)）
+- 結合テストのホストからAglasisというコードネームを外す（[364be1a](https://github.com/kein5/astarot/commit/364be1ab7d55beb1aa5fe642f55e404a28bc66ca)）
+- コードネームの表を#689の記録に合わせる（[d319fa7](https://github.com/kein5/astarot/commit/d319fa76ec76c86c436c37eab2a359e86e14f824)）
+- **design:** メインのレールが字幕のスイッチのために空けておく場所を注記する（[011408c](https://github.com/kein5/astarot/commit/011408c287c55540796d1b411a2c6c09282c74a4)）
+- 構成図の作り直し方を書く（[2a5dace](https://github.com/kein5/astarot/commit/2a5dace09e0b3e3eb95aeb20dbe8bab5db79d453)）
+- **spec:** 設定ファイルとログの保存先を「stderrとログ」の下に置く（[3248eaa](https://github.com/kein5/astarot/commit/3248eaaa51b3e35d013708a3798632e70623b90b)）
+- **design:** ダイアログ、ポップオーバー、設定のウィンドウの出入りを書く（[0473528](https://github.com/kein5/astarot/commit/0473528d9af1e5f6de5bd4ac26419a177bb29579)）
+- 日本語にしかなかった2つの節の英語を書く（[49e9f48](https://github.com/kein5/astarot/commit/49e9f483379c6857524ef9ddf75d2c7bc4ca6d6d)）
+- **skills:** ci-triageのスキルの英語版を先に置く（[adbb6e9](https://github.com/kein5/astarot/commit/adbb6e948a04e515390b129c7365d06711048e80)）
+- **skills:** real-machine-checkのスキルの英語版を先に置く（[76ba3fa](https://github.com/kein5/astarot/commit/76ba3fa52ce1538299d02ee69a6eec9f1090ceb1)）
+- **skills:** release-notesのスキルの英語版を先に置く（[e5c9535](https://github.com/kein5/astarot/commit/e5c953526a3c53303723e9bd232cb5c513d61c84)）
+- **skills:** releaseのスキルの英語版を先に置く（[f32d2a1](https://github.com/kein5/astarot/commit/f32d2a1179b410af14402f148341d50952b86b60)）
+- **skills:** pull-requestのスキルの英語版を先に置く（[4e632d9](https://github.com/kein5/astarot/commit/4e632d92229e56d2fea16701fadba1dd2ef2bb93)）
+- **skills:** testingのスキルの英語版を先に置く（[3563e37](https://github.com/kein5/astarot/commit/3563e37100468f256c3c00495735024ef5fe9c7e)）
+- **skills:** e2eのスキルの英語版を先に置く（[a68ee08](https://github.com/kein5/astarot/commit/a68ee082946b739a6e07dc68e1267e50e7752f62)）
+- **skills:** adrのスキルの英語版を先に置く（[eb50b9d](https://github.com/kein5/astarot/commit/eb50b9d4ab2f2094e4dd311a541babec2b3d45c9)）
+- **skills:** jp-writingのスキルの英語版を先に置く（[2dad575](https://github.com/kein5/astarot/commit/2dad5759413438e83c43d63c7fe8de2d806c7c39)）
+- すべての文書とスキルで英語版を正本にする（[9e8e11d](https://github.com/kein5/astarot/commit/9e8e11df46df6784ee4dca1c6cb324579f08577d)）
+- **rvc:** 20 msのブロックに使う20 msのクロスフェードを記録する（[a8e2738](https://github.com/kein5/astarot/commit/a8e27380a40551ee03c30f4c44b8cc5d5dfbbd30)）
+- **spec:** 用途を画面と同じ名前で書く（[e22eaf3](https://github.com/kein5/astarot/commit/e22eaf37d818d96430cf173f5e35d2febfd33d83)）
+- READMEとプロジェクトのファイルに0.7.0の名前を書く（[1e95346](https://github.com/kein5/astarot/commit/1e953469f3d6e4e8a39ee440ef7b3dd31044ee63)）
+- **site:** 聞き取りに専用のモデルを使えると書く（[7784c49](https://github.com/kein5/astarot/commit/7784c49368ecf927026ff34259eb385aec2e12d8)）
+- **site:** 日本語の画面の初期設定では聞き取りのモデルも取得すると書く（[1006e1e](https://github.com/kein5/astarot/commit/1006e1e7d91072b555f07c7211d67b0541a7a539)）
+- **site:** モデルのカードはどこを押してもよいと書く（[3a7949a](https://github.com/kein5/astarot/commit/3a7949af5f878ae4c3534c99500e732dfba8f2bb)）
+- **site:** 「デバイス」のページがリアルタイム字幕のデバイスへ案内すると書く（[c69da9b](https://github.com/kein5/astarot/commit/c69da9bd19a7bcf79cef9cb291f195234f4e3ee0)）
+- **site:** ボイスチェンジャーで使う自分のファイルとDirectMLがどこにあるかを書く（[37abf03](https://github.com/kein5/astarot/commit/37abf03f297e21df4b34771eda884aad9340bf44)）
+- **site:** 翻訳の設定がいまどこにあるかを書く（[0702b03](https://github.com/kein5/astarot/commit/0702b0382aa22fc935ad4fb39732dcf1ab72fc6f)）
+- **site:** テキスト読み上げのサーバーのアドレスをどこに入れるかを書く（[d8c2795](https://github.com/kein5/astarot/commit/d8c27953cc880efb416ee29ef526ad948e3e0923)）
+- **site:** 「custom」の声を一覧から選ぶ（[d7cb469](https://github.com/kein5/astarot/commit/d7cb469481263ebacdd90fea3efcbca05502b0b7)）
+- **site:** 認識モデルと一緒にVADも取得すると書く（[23598e8](https://github.com/kein5/astarot/commit/23598e86a8ac76bb7f46ed3fcbf9d10009862eec)）
+- **site:** 音声認識のサーバーをいまある場所で示す（[3c8463e](https://github.com/kein5/astarot/commit/3c8463e307819c6d418310244b8a0c49fe1890e8)）
+- **spec:** 音声認識のサーバーの既定を書く（[1477df8](https://github.com/kein5/astarot/commit/1477df84b039a9c4b415e107b45e5fb5d124cc0f)）
+- **site:** ダウンロードの確認の詳しい内容がどこにあるかを書く（[bd0bb64](https://github.com/kein5/astarot/commit/bd0bb64f0d99ca4b49ae319bc2ff6c9c81c8c1a8)）
+- **rvc:** クロスフェードの20 msの上限と、試聴での確認を記録する（[1ef9cd7](https://github.com/kein5/astarot/commit/1ef9cd7a7267e4212d33be0bb19f037494f82e4b)）
+- **site:** 初期設定の同意がライセンスと容量を含むと書く（[58b43bd](https://github.com/kein5/astarot/commit/58b43bd2b8cfdd13d9734f408c1b1501412434ab)）
+- **site:** マニュアルで設定の新しい名前を使う（[377916c](https://github.com/kein5/astarot/commit/377916cfed83812b22b098e5f3440f877a0b34d3)）
+- **spec:** PCにあるモデルは確認なしで使うと書く（[edb0269](https://github.com/kein5/astarot/commit/edb0269041a2428f878e66bab69ac0b8ba165b5f)）
+- **spec:** どのウィンドウがいつからテーマに従うかを書く（[aaf47e6](https://github.com/kein5/astarot/commit/aaf47e67867d9402ad4da5848f00972939d170fa)）
+- **adr:** ADRの執筆ガイドラインを足す（[dbb635b](https://github.com/kein5/astarot/commit/dbb635b0f7e4aebbcd196d4dd2da17257bef2822)）
+- **spec:** 設定のウィンドウを決まったとおりに書く（[d76ea39](https://github.com/kein5/astarot/commit/d76ea3994070999efe1c857866b878387e302877)）
+- **spec:** IPCの仕様に両方の言語でおしゃべりAIを書く（[5ae1adf](https://github.com/kein5/astarot/commit/5ae1adf8d9bd36b8fe2e0497c136624d18fd9515)）
+- **spec:** チャット読み取りが断られたときのダイアログを、そのモデルと一緒に書く（[e01cd60](https://github.com/kein5/astarot/commit/e01cd60a7f95c97112de05469bebc39d1c86cde7)）
+- **spec:** 設定のウィンドウを書く（[a0c42b5](https://github.com/kein5/astarot/commit/a0c42b5d9211759f56b12be2690490aed730c1c9)）
+- **design:** 設定のグループと、より静かにした線を記録する（[d1749b1](https://github.com/kein5/astarot/commit/d1749b1c4503bdf67715e1cf918d1c5ba549609f)）
+- **site:** モデルのパスは欄の横から選べると書く（[a951011](https://github.com/kein5/astarot/commit/a9510117b28510ab3bca88ccc209f9c6308c92f3)）
+- **design:** パスの入力欄の横のボタンを記録する（[7ad2ef2](https://github.com/kein5/astarot/commit/7ad2ef2fab3843fbb4c95a3593d9725c94c9654a)）
+- **site:** 準備の折りたたみを、設定のページが置いている場所で案内する（[8fe86f1](https://github.com/kein5/astarot/commit/8fe86f142c63d8a09e8626f8bc9100f247f50d11)）
+- **design:** 設定の折りたたみが開いて始まるときを記録する（[116717d](https://github.com/kein5/astarot/commit/116717d7879bb9a5f0121d486add25f96590b073)）
+- **site:** 断られた字幕のスイッチの直し方を書く（[73d7847](https://github.com/kein5/astarot/commit/73d78477b3a06b5688939c9c5091e02dab9aa938)）
+- **site:** マスコットの説明文を両方の言語で撮る（[cfab1cc](https://github.com/kein5/astarot/commit/cfab1ccbb26e393335b71777fb00b53cfd69c99c)）
+- **site:** 機能のページの9組をそろえる（[bffd49d](https://github.com/kein5/astarot/commit/bffd49d9f1295b6406242bbc903eb6559a466d8c)）
+- **site:** 「最初の設定」と「困ったとき」への直接のリンクを足す（[9d34fb2](https://github.com/kein5/astarot/commit/9d34fb28280a9050f63cc3fcce99616d5d507baa)）
+- **voice-stack:** 管理対象の経路の画面の試験をuiのグループに挙げる（[43ad2dc](https://github.com/kein5/astarot/commit/43ad2dcda9d4d0c8261b3cd7acd2c315e3c1aef4)）
+- Issueの分割形をエージェントが書くものに限る（[b70409b](https://github.com/kein5/astarot/commit/b70409bfaa52d3734f5d2ebbb7b625d51cc4730e)）
+- 保守担当者のIssueの本文は英語のあとに日本語で書く（[3d36245](https://github.com/kein5/astarot/commit/3d3624544ab63e27b5c1fb93c7e72691eed9a74e)）
+- **voice-stack:** #924の項目22と41の結末を記録する（[4eb6b92](https://github.com/kein5/astarot/commit/4eb6b92ecc1ca0b8b62055d961211805bfde5ff6)）
+- **skills:** releaseのスキルのノートの節をrelease-notesに向ける（[a6ee5fa](https://github.com/kein5/astarot/commit/a6ee5fadafc8c3e489757aca84e83ee0edf66915)）
+- **skills:** ベータ版のノートも両方の言語で書く（[f50c666](https://github.com/kein5/astarot/commit/f50c6668dc4e6945fa3eaae492dcbc0b704ffd01)）
+- **site:** 設定が自分で保存されると利用者に伝える（[47d6b7f](https://github.com/kein5/astarot/commit/47d6b7f52bd3609c53c2788231d4c73136aadef8)）
+- **spec:** 自分で保存される設定を書く（[0f5f9a8](https://github.com/kein5/astarot/commit/0f5f9a8c29caee4ca3318b5260e27100785e300d)）
+- **design:** 自分で保存される設定を書く（[0fc008f](https://github.com/kein5/astarot/commit/0fc008fde98c9a286f39e70e6cf3b065c46e316b)）
+- **skills:** release-notes、docs、testingのスキルを足す（[96a7a57](https://github.com/kein5/astarot/commit/96a7a57e1594c92c41721d55191b7896f44389f3)）
+- **release:** /VERSIONの経路はimmutable releasesに頼っていると書く（[f6f14ed](https://github.com/kein5/astarot/commit/f6f14edd3829b17ef8fdffcdba71193645d6fea8)）
+- **readme:** 字幕の速さの比較を英語で示す（[bc456b5](https://github.com/kein5/astarot/commit/bc456b552557dc7a9a57738445e9ffa6121af137)）
+- **readme:** 8つのアプリの字幕の速さの比較を足す（[d5e23d3](https://github.com/kein5/astarot/commit/d5e23d3eb527cb019c77ddee20f90f9d5b0de2d2)）
+- 部品のカタログの開き方を書く（[a1c8e39](https://github.com/kein5/astarot/commit/a1c8e3904565407bf826e9d6e4924530e2b3ff6b)）
+- **pr:** PRの説明のテンプレートとスキルを2か国語の分割形にそろえる（[3517c6c](https://github.com/kein5/astarot/commit/3517c6cb5ed7e3a9b365d1174fe264ba9d616ae7)）
+- **skills:** real-machine-checkからskills/e2e/SKILL.mdへリンクする（[0ca76d7](https://github.com/kein5/astarot/commit/0ca76d7359a844566f033ec8ccc420e2cf3a6642)）
+- **skills:** CIの失敗を調べるci-triageのスキルを足す（[85a9ac4](https://github.com/kein5/astarot/commit/85a9ac4adbd2f3274bd26aab6edbb8cd176b17f0)）
+- **skills:** Windowsのreal-machine-checkのスキルを足す（[479ee01](https://github.com/kein5/astarot/commit/479ee01b12b71aa765430f716ad65faed0c28071)）
+- **skills:** e2eの試験と結果の報告のスキルを足す（[d025f12](https://github.com/kein5/astarot/commit/d025f12cc9721884c348267b46faf30282bd1b07)）
+- AGENTS.mdのリリースの決まりをタグのpushに限る（[97f5cce](https://github.com/kein5/astarot/commit/97f5cce51af038ccfe72e602ed9dddf1d31793aa)）
+- 変更履歴とリリースノートに英語と日本語を載せる（[cda2dbe](https://github.com/kein5/astarot/commit/cda2dbecf42fc3d6438d799100a404dd92a1cfbe)）
+- voice-stackの文書の日本語を英語に合わせる（[cf6a3ba](https://github.com/kein5/astarot/commit/cf6a3ba8703cd7877d9f3b4314f0cac897ded749)）
+- voice-stackの文書に英語と日本語を載せる（[8a99580](https://github.com/kein5/astarot/commit/8a99580a490f414d3a8ff5e4bd97439d77038078)）
+- デザインと文章のガイドの日本語を英語に合わせる（[cdfc0d5](https://github.com/kein5/astarot/commit/cdfc0d513fc7df9b2539eb894178e9b8e0ed1817)）
+- ルートの文書、ADR、仕様の日本語を英語に合わせる（[8343d8f](https://github.com/kein5/astarot/commit/8343d8f371d010c548a5d1946335644514b0d8c5)）
+- デザイン、ブランド、文章、開発者のガイドに英語と日本語を載せる（[eb8e293](https://github.com/kein5/astarot/commit/eb8e2938aef07dfb23b6ba07cee67da3f10f72c4)）
+- ルートの文書、ADR、仕様に英語と日本語を載せる（[21a227a](https://github.com/kein5/astarot/commit/21a227a22d0c223bb5eeb179c096017ef494f002)）
+- **release:** 緊急時の配信の停止とロールフォワードの手順を書く（[a67aa24](https://github.com/kein5/astarot/commit/a67aa24d21bd27c1edb7da0fdaeca3926ae00f73)）
+- **release:** リリースの手順にベータ期間の変更凍結とテレメトリの確認を足す（[9a0459f](https://github.com/kein5/astarot/commit/9a0459f3a3fba433eacfa0ac5db1b9449fb4cbff)）
+- **product:** 日本語訳へリンクする（[c1e4b15](https://github.com/kein5/astarot/commit/c1e4b15c4ac3ace405095e723616439b528dbbc3)）
+- 日本語の文章のスキルを足す（[8148807](https://github.com/kein5/astarot/commit/814880764373f146605274d3e528b36023769c9b)）
+- NOTICE.mdの英語のあとに日本語の参考訳を足す（[538a117](https://github.com/kein5/astarot/commit/538a1176b71f64e4c807162da07c2f103d8de384)）
+- PRODUCT.mdの英語のあとに日本語版を足す（[55ff81f](https://github.com/kein5/astarot/commit/55ff81f7ee63c7188241f63985af831a058d87f3)）
+- 0.7.0が古いインストール先のフォルダーを移すとリリースの読み手に伝える（[3aa0396](https://github.com/kein5/astarot/commit/3aa039616cd26b26b90b9a3e807a7e243db7cd51)）
+- **spec:** 止まったフォルダーの移動を更新がどう再開するかを分かりやすく書く（[15d96fc](https://github.com/kein5/astarot/commit/15d96fc94e55f9ae8ba7da9147be3862845b8bf1)）
+- **adr:** VOICEVOX COREをTTSのランタイムの例外にするADR-019を足す（[d7af477](https://github.com/kein5/astarot/commit/d7af477f9de81e952383d8b152f7d5f6e392f58b)）
+- 絞って回すミューテーションテストで対象のファイルが変わるときは必ず--full-dry-runを付ける（[bbc5e89](https://github.com/kein5/astarot/commit/bbc5e89d34d424d7bbb4656be7bfa54eb15eae3a)）
+- 音声認識のAPIの説明で文章の決まりに従う（[b4b6413](https://github.com/kein5/astarot/commit/b4b6413cc414e2c28a4c3153e78c4c85e2d9add7)）
+- スタイルはvanilla-extractだと書く（[9e5840d](https://github.com/kein5/astarot/commit/9e5840df12121d615de113cccbf5c817cd615516)）
+- **site:** 手順の一覧の細い帯をウィンドウの上端に留める（[02f2808](https://github.com/kein5/astarot/commit/02f28086129c1e055b97897a7ef2148333518e6a)）
+- **site:** 「最初の設定」のページの手順をそろえる（[eacbcd4](https://github.com/kein5/astarot/commit/eacbcd4c50d823e09ceaffbcf10c7a0af8ec4ba5)）
+- **adr:** Linuxの音声経路がASTAROTの名前に移ったと注記する（[30262cb](https://github.com/kein5/astarot/commit/30262cb9e8758b6b45c992dbf9e1b4acb9ab318f)）
+- **ui:** 共通の部品がない要素すべてに、kitで部品を用意する（[c0f9303](https://github.com/kein5/astarot/commit/c0f9303c27845677fd92a80272bb1acebb9862b1)）
+- **ui:** VRの言語のウィンドウの絞り込みと折りたたみをパネルの部品に合わせる（[0121fbe](https://github.com/kein5/astarot/commit/0121fbed5222cdc45cb0356826db21b521b6f14d)）
+- **ui:** 手作りの部品の置き換えについての判断を記録する（[b28f471](https://github.com/kein5/astarot/commit/b28f4713db830840fc43d8b051a5104bce4ed7e8)）
+- レビューで決めたとおりに記録に印を付け、手順を更新する（[9b53810](https://github.com/kein5/astarot/commit/9b5381052700cd0be387d69464857d6771bcb9a8)）
+- **spec:** 中核のエンジンの確認、翻訳の待ち、音声デバイスを書く（[6d7382a](https://github.com/kein5/astarot/commit/6d7382ac05922979382a5e1cb7332d42cccc482e)）
+- **ui:** 共通の部品を使わずに手で作った画面を一覧にする（[37dac2e](https://github.com/kein5/astarot/commit/37dac2eecd9ba38213974227b8e005da9f628873)）
+- **adr:** 旧名の写しを0.7.xの間は配布すると注記する（[d3767a0](https://github.com/kein5/astarot/commit/d3767a0d883064263b5c423432e5be9fadb52a71)）
+- **adr:** ADR-010、011、014〜018がどこまで実装されたかを記録する（[da88a0c](https://github.com/kein5/astarot/commit/da88a0cd186c3af9cc15c207e65a3af6633ee6f0)）
+- **voice-stack:** 手順を0.6.0とASTAROTの名前に合わせて更新する（[3e05286](https://github.com/kein5/astarot/commit/3e05286340a6d70985982334575db6d8ba41d730)）
+- **spec:** なくなったPythonのバックエンドの代わりに中核を案内する（[d64774d](https://github.com/kein5/astarot/commit/d64774df4215c347bcc30a216999d1c5b4a8d15d)）
+- 開発の手引きをtools/dev.pyに、リリースの文面をASTAROTに合わせる（[3321c85](https://github.com/kein5/astarot/commit/3321c851d729f20540d48f9a22feb7daec269027)）
+- クレートのREADMEを、astarot-の名前となくなったPythonのバックエンドに合わせて更新する（[027ec24](https://github.com/kein5/astarot/commit/027ec24a381060f0fd91e24026683f8051f40aa0)）
+- 最上位の手引きを0.6.0に合わせ、英語を先に挙げる（[0899f56](https://github.com/kein5/astarot/commit/0899f56c6bcf8e54b2cd2673b16356ab85a7c110)）
+- **site:** 0.6.0のアプリのダウンロード時と展開後の大きさを示す（[a55dc69](https://github.com/kein5/astarot/commit/a55dc694983f364c29e1061e5d1bd42eeeb4dc21)）
+- **site:** 言語のメニューと入口のページで英語を日本語より先に並べる（[df64bb8](https://github.com/kein5/astarot/commit/df64bb818ec1ed4afd3db68ebb18ba5dc0583fee)）
+- **writing:** 既存の文書の指摘を場所ごとに直す（[7b5cb53](https://github.com/kein5/astarot/commit/7b5cb53a41ca0de3293a3428f61fc4d505b7a43d)）
+- ASTAROTという名前のリリースのファイルとその写しを書く（[457f0ee](https://github.com/kein5/astarot/commit/457f0ee220074d42c3eee6c30cbcf89f6b2bcfaf)）
+- **writing:** 両方の言語を並べる見出しでは英語を先にする（[9fb668f](https://github.com/kein5/astarot/commit/9fb668f31db961f90993231a65725785bbee808f)）
+- astarotという名前のLinuxのパッケージを書く（[511cc24](https://github.com/kein5/astarot/commit/511cc249d36df4571d28b934a6d1e1839aa5f7ee)）
+- **site:** マニュアルのスクリーンショットを0.6.0で撮り直す（[2b10018](https://github.com/kein5/astarot/commit/2b1001871eafbf676e51985c518f00e83df63ea0)）
+- 実行ファイル名のastarotを書く（[d0aca44](https://github.com/kein5/astarot/commit/d0aca4499713e55abc133b49eaef81fd891e44b1)）
+- インストール先のフォルダーを移す版を0.7.0と書く（[7737a14](https://github.com/kein5/astarot/commit/7737a14bb1df05634ce3fef6c2c3311c69f47635)）
+- 新しいアプリIDの版を0.7.0と書く（[add6b6e](https://github.com/kein5/astarot/commit/add6b6e2ddf0909e12216cb23e210a605895c29e)）
+- **site:** マニュアルのすべてのページにASTAROTのfaviconを出す（[444d744](https://github.com/kein5/astarot/commit/444d744e0767cfc1645064a1dade0d7266f4a8ee)）
+- 正式版の前に、決まった一覧のクレートのミューテーションテストを回す（[3d3968d](https://github.com/kein5/astarot/commit/3d3968d83ac879728981802444ae8c92bf180924)）
+- 音声経路の古い名前をいつまで読むかを注記する（[dde1ec8](https://github.com/kein5/astarot/commit/dde1ec87080f9aa6c08a0e6610ba24dae1f1a662)）
+- ミューテーションテストを回す時期を書き、試行中の道具から外す（[739a90d](https://github.com/kein5/astarot/commit/739a90d7a1b56ad5ff2cf4c45f389163d04b2eaa)）
+- 0.6.xの間はAPIキーの0.6.0の名前を読む（[d34a032](https://github.com/kein5/astarot/commit/d34a0323183248a65fd7bc3b18756100fbfb0653)）
+- **adr:** ADR-018の採用の日付を決まった日にする（[c3b884b](https://github.com/kein5/astarot/commit/c3b884bd24a2399432985824d2b4cc1fbb383ea5)）
+- Windowsのインストール先のフォルダーとキーの移動を書く（[a122f6f](https://github.com/kein5/astarot/commit/a122f6f37a7870956ae368e6d9dac131a2ae7d43)）
+- **adr:** おしゃべりAIのADR-018を採用する（[e9d1007](https://github.com/kein5/astarot/commit/e9d1007fca344a6ebc68b47d7fc498abddd150e9)）
+- Linuxの音声経路のASTAROTの名前とその移行を書く（[3d040cc](https://github.com/kein5/astarot/commit/3d040cca97d80906d29923d2258dcc5f15fb69ad)）
+- 新しいアプリIDとそのdesktopファイルを書く（[121bf83](https://github.com/kein5/astarot/commit/121bf8308edece0245e667d47213929d4fe4f947)）
+- APIキーの項目にASTAROTの名前を付ける（[a4d0972](https://github.com/kein5/astarot/commit/a4d0972d19e38b431511954f9ab887f78274d330)）
+- **adr:** おしゃべりAIを外部の会話サービスにつなぐことを提案する（[052cb3b](https://github.com/kein5/astarot/commit/052cb3b6298dc3281ddb0e0a4ca78c7cad09df25)）
+- クレートのastarot-*の名前を書く（[aff5b8e](https://github.com/kein5/astarot/commit/aff5b8e9d36866a20e920a1fdf3faa98a87423d3)）
+- **site:** 「はじめに」とガイドのページを0.6.0に合わせる（[0dccf4e](https://github.com/kein5/astarot/commit/0dccf4ef2fee52d099a667e5a677244a22726da1)）
+- READMEのモデルのダウンロードに翻訳モデルを挙げる（[a4c0f96](https://github.com/kein5/astarot/commit/a4c0f9697dc2dd5176e241b6a0ed6a74efc0ac2d)）
+- 対応環境の表とその記録を0.6.0に合わせて更新する（[e03abaf](https://github.com/kein5/astarot/commit/e03abafc65f3469ba3400f311902df16d4789989)）
+- **site:** プライバシーのページに0.6.0が送るものと残すものを書く（[55e1999](https://github.com/kein5/astarot/commit/55e19994f0e1f4a08e050de146302da45e8e63b1)）
+- **site:** 機能のページを0.6.0に合わせる（[3107aae](https://github.com/kein5/astarot/commit/3107aae6eb3371574e1ae735c94c979164aa35f8)）
+- **site:** 新しい版の番号を出す更新のボタンを書く（[d8d20a8](https://github.com/kein5/astarot/commit/d8d20a86fff57e73714da7338d97db7f91514a56)）
+- DESIGN.mdとサイトの再設計にマニュアルの配色を書く（[9b56fa9](https://github.com/kein5/astarot/commit/9b56fa9235b887e0b42db19f8c809f7058f6350e)）
+- **site:** 経路の帯でそのページの段階だけを光らせる（[f1ac848](https://github.com/kein5/astarot/commit/f1ac8481b741f8dc869bd46c346766fd98345469)）
+- **site:** マニュアルにASTAROTの配色を明るい配色と暗い配色で付ける（[f31a8d1](https://github.com/kein5/astarot/commit/f31a8d153896d0e7c58231caa506ea0a17a2e8ee)）
+- **site:** マニュアルの色のトークンをDESIGN.mdから書き出して検査する（[5eea1a5](https://github.com/kein5/astarot/commit/5eea1a57d5005fbf459bc3159473759f2918ace6)）
+- **site:** 実行環境をダウンロードしたあとローカルの翻訳がどのGPUを使えるかを書く（[d2b8e15](https://github.com/kein5/astarot/commit/d2b8e15827821a5a007176e42732f65d4ca2bd01)）
+- **site:** 1つになったWindowsのパッケージ、Whisperの移行の終わり、GPUの報告を書く（[3448299](https://github.com/kein5/astarot/commit/3448299ec8cad4041c1e290d6b86fd0ed00ef9d7)）
+
+#### 保守
+
+- **dev:** 構成図をdocs/spec/referenceに生成する（[030b5ce](https://github.com/kein5/astarot/commit/030b5cef3bf99944493fc3e07776c90c61117daa)）
+- **dev:** 構成図をdocs/development.mdに書き込む（[2f871b4](https://github.com/kein5/astarot/commit/2f871b441d825078a62810c93ecdb7a9c9476038)）
+- **dev:** ASTAROTのエコシステムの構成図を生成する（[2863a1d](https://github.com/kein5/astarot/commit/2863a1dc6edf5cb1a671db4748f25cebc36966f0)）
+- **dev:** 変換を待つスキルの空の一覧を整える（[b920759](https://github.com/kein5/astarot/commit/b920759be2e3eade6382eca437728dfbf57a16b7)）
+- **dev:** 部品のカタログでkitの動きを見せる（[7238971](https://github.com/kein5/astarot/commit/7238971d8f937e77e8551f334ad607152f2ed123)）
+- **ui:** kitの面が出入りする動きのために、kitにMotionを足す（[bf11df9](https://github.com/kein5/astarot/commit/bf11df9e6dd052aa69f175fc414346845bf8fb42)）
+- **ui:** UIのkitに、検索できる単一選択のドロップダウンを足す（[a97b505](https://github.com/kein5/astarot/commit/a97b5058d608a2c70e82f437537f66b750fe8fd4)）
+- **dev:** YAMLが構文として読むスキルの説明を拒否する（[11a5f93](https://github.com/kein5/astarot/commit/11a5f93e58c3eb7338f1632f45850ad3c052240f)）
+- **dev:** 2か国語の文書が両方の版と対応する見出しを保っていることを確かめる（[9a87c2e](https://github.com/kein5/astarot/commit/9a87c2e0dbb4dbdebaf08c02b9d72bb968381a8f)）
+- **docs:** サイトのパッケージの名前をASTAROTにちなんだものにする（[1df9b42](https://github.com/kein5/astarot/commit/1df9b42467f63634161dbd7376619669390fb2f7)）
+- コードのコメントでアプリをASTAROTと呼ぶ（[db0d8bb](https://github.com/kein5/astarot/commit/db0d8bba3513443d06213fb610e7e5d2cd2e581a)）
+- 道具とパッケージのメタデータにASTAROTの名前を書く（[c4757a0](https://github.com/kein5/astarot/commit/c4757a0bc3dbee8bc7a0adc88af05d2da5b20aa8)）
+- **core:** マイク入力の認識サーバーと並べて、聞き取り専用の認識サーバーを動かす（[ff9721a](https://github.com/kein5/astarot/commit/ff9721ac80406fda528e0183d3bd4db0e1bacb14)）
+- **core:** 音声サーバーの設定に聞き取り専用の認識モデルを持たせる（[5d48e48](https://github.com/kein5/astarot/commit/5d48e4834bb8a9d73c666aa9d840918ccdc1b3de)）
+- **tts:** speech.cppのモデルが使える声を設定に渡す（[bfa6793](https://github.com/kein5/astarot/commit/bfa67938f4b4d6ee9b6f029597b2e720e85e92a3)）
+- **dev:** check --scope rustで、featureが要るバイナリを試験する（[9f99d4f](https://github.com/kein5/astarot/commit/9f99d4f5128ba62c8d437ffe45a168b44bda082b)）
+- **tauri:** URLの一覧から、どこからもリンクしていない上流の開発者のページを外す（[72b1568](https://github.com/kein5/astarot/commit/72b1568176cec0fa859139ee75f2ef7e7d9647b9)）
+- **ui:** kitにToggle、ToggleGroup、Popoverを足す（[cf65c0e](https://github.com/kein5/astarot/commit/cf65c0e4550a3a9b89f1113b956b3046d32f1024)）
+- **dev:** リリースノートの読点と改行を確かめる（[20363e0](https://github.com/kein5/astarot/commit/20363e0bf02d25598702c08e99ec955fadaad190)）
+- **dev:** UIの検査で部品のカタログをビルドする（[db78060](https://github.com/kein5/astarot/commit/db780601ccfb8aa1e55df7229e161ef80589a760)）
+- **dev:** 共通のUIのkitを載せたStorybookのカタログを足す（[46de448](https://github.com/kein5/astarot/commit/46de4488f5cd2efce3d97cbb2d67c32efdc4756f)）
+- **dev:** 英語と日本語のリリースノートのひな形を作る（[e6a677b](https://github.com/kein5/astarot/commit/e6a677ba11c1439a569bdaa56a11b82ae52578d2)）
+- **dev:** 変更履歴の新しい節ごとに日本語の枠を足す（[f34c349](https://github.com/kein5/astarot/commit/f34c3490990f091eaaea6291452ba461ab006368)）
+- **dev:** 変更履歴の道具の出力を、どのコンソールでもUTF-8で書く（[95f3c84](https://github.com/kein5/astarot/commit/95f3c84cd38e50d498506d2c44162d33394010c4)）
+- **dev:** 共有のtargetのディレクトリなしでcargo-mutantsを並列で動かす（[f8a7773](https://github.com/kein5/astarot/commit/f8a77734795a2c22fb9171ff3c03e88ee61cb445)）
+- **tts:** 音声の状態で、transport_errorがどのように失敗したかを伝える（[2a2844d](https://github.com/kein5/astarot/commit/2a2844df3339394cd960a50938903514d290d029)）
+- **dev:** 文書を文章のガイドラインと照らし合わせる（[837efa0](https://github.com/kein5/astarot/commit/837efa0b2dd3922ee0d6bf33c130f3d3735bffb9)）
+- **dev:** ガイドのスクリーンショットを結合テストの画面から撮る（[3a0bd19](https://github.com/kein5/astarot/commit/3a0bd19657f68eaedb05b245b2060d9d27ec78ac)）
+- **talk:** おしゃべりAIのクレートの名前をastarot-talk-aiにする（[af79454](https://github.com/kein5/astarot/commit/af79454ea7704eaf76de8ae31ec28420cc0cdde4)）
+- **talk:** リアルタイムの会話のサービスに接続する（[1466da8](https://github.com/kein5/astarot/commit/1466da80ed966feeea7cef2c530a05644afd6a49)）
+- **dev:** ブランチが変えた部分にミューテーションテストをかける（[7edeeef](https://github.com/kein5/astarot/commit/7edeeef853fe072a67901ae9e1b85f02edfe07e2)）
+- tools/site_tokens.mjsをBiomeのとおりに整形する（[64cb477](https://github.com/kein5/astarot/commit/64cb477486431d9767bf2a5a4db41b516d4084cb)）
+
+## 0.6.0（2026-11-22）
+
+[v0.5.2](https://github.com/kein5/astarot/compare/v0.5.2...v0.6.0)からの変更です。
+
+0.6.0-beta.1と0.6.0-beta.2の変更もこの版に含まれていて、下に載せています。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **translation:** 翻訳LLMのGGUFファイルを専用の欄に置く（[45c544a](https://github.com/kein5/astarot/commit/45c544abb44d43e5ee74ece1e51b7883ae2e35e3)）
+  - llamacppの項目を足すと、translation_catalog.jsonの版1にしか対応していないアプリの版は、ファイル全体を読めないものとして扱います。その版はファイルに手を付けず、足した項目を1つも一覧に出さず、代わりに既定のローカルモデルを使います。古い版でほかの項目を使うには、新しい版でllamacppの項目を消す（ファイルは版1に戻ります）か、アプリをもう一度更新してください。
+- **translation:** translation-modelsフォルダーに置いたモデルを一覧に出すのをやめる（[bf3aca0](https://github.com/kein5/astarot/commit/bf3aca084ac8f0a13a12029018ef2c7a820a5dca)）
+  - translation-modelsフォルダーに置いたモデルは一覧に出ず、使われなくなりました。翻訳のカタログの「自分のモデルを追加」で1つずつ追加し直してください。モデルのフォルダーは今の場所のままでかまいません。
+- **asr:** 削除したWhisperエンジンの設定を移すのをやめる（[5d4dd31](https://github.com/kein5/astarot/commit/5d4dd31b3eb9f02b7f67db7293aa05b136aab3bf)）
+  - IPCのエンドポイント/get/data/local_asr_notice、/set/disable/local_asr_notice、/get/data/old_whisper_weights、/run/delete_old_whisper_weightsはなくなりました（404）。0.2以前がWhisperエンジンで保存した設定は、speech.cppへ移さなくなりました。音声認識のエンジンを選び直すか、先に0.5のリリースへ更新してください。<data>/weights/whisperにあるWhisperの重みは、アプリが数えることも消すこともなくなりました。容量を空けるにはそのフォルダーを手で削除してください。
+- **release:** WindowsのパッケージをCPU版とCUDA版に分けず1つにして出す（[2876c2e](https://github.com/kein5/astarot/commit/2876c2ea7ca7804e7dbb8d0baebb5dd7e0d16cfc)）
+  - 新しいリリースにはVRCT-VOX_cuda.zipが入りません。0.5.0から同じファイルを収めているVRCT-VOX.zipかインストーラーをダウンロードしてください。VRCT-VOX_cuda.zipを取得するスクリプトは、VRCT-VOX.zipを取得するように変えてください。npm run release-cudaとrelease-allはなくなりました。
+- **core:** APIキーをOSの資格情報の保管場所に入れる（[cd6dbab](https://github.com/kein5/astarot/commit/cd6dbab8d9a7b1314131135509665f9f2e31a1a7)）
+  - Linuxでは、新しく入れたAPIキーや変えたAPIキーは、Secret Serviceが動いていてロックが解除されているときだけ保存されます。Secret Serviceがないときは、アプリを閉じるまで使えます。GNOME KeyringやKWalletなどのキーリングを起動し、ロックを解除してください。前に保存したキーは移せるようになるまでsecrets.jsonから読んで使い続けます。移した後は古い版がキーを見つけられなくなるので、古い版に戻すときはそこでキーを入れ直してください。
+
+#### 機能
+
+- **ui:** 初期設定で準備した機能について、メイン画面のスイッチへ案内する（[daf56a7](https://github.com/kein5/astarot/commit/daf56a7dee0dae3e7d1d58fb4d0ce805f565d798)）
+- **ui:** 初期設定のモデルの選択肢のうち、PCに重すぎるかもしれないものに印を付ける（[6fedc81](https://github.com/kein5/astarot/commit/6fedc81a71b89d54074ca68a6f915a1baf4ee03e)）
+- **ui:** 追加したAPIのアドレスへ何を送るかを1文とヒントで伝える（[e064aa4](https://github.com/kein5/astarot/commit/e064aa47c0cf9bb53d1ff3062afaa60f6c49e1d3)）
+- **ui:** 初期設定で機能ごとのモデルを選ぶか、何も選ばずにおく（[2e68d41](https://github.com/kein5/astarot/commit/2e68d412bd7db984124386bc40fc8e76816b91c6)）
+- **ui:** 追加したAPIに送るものを1文で伝え、詳しい内容はヒントにする（[ed3a079](https://github.com/kein5/astarot/commit/ed3a0797f4c73de668ca322ac6acf90a04e34ad9)）
+- **ui:** 声とデバイスの注意書きは1文だけ残し、残りはヒントにする（[0e0caa4](https://github.com/kein5/astarot/commit/0e0caa41b54086fd7517478455afe62d62c876bc)）
+- **ui:** 追加と登録のフォームの説明を題のヒントへ移す（[fa08154](https://github.com/kein5/astarot/commit/fa08154eda3ad40809e908f32649d16fab4ea9f8)）
+- **ui:** クイック設定から字幕オーバーレイをその場で切り替える（[4fb636d](https://github.com/kein5/astarot/commit/4fb636da5f7e3273db93b3abaddf9f76f4fa9fa0)）
+- **ui:** 「読み上げを停止」を押したら反応を返し、ボタンは動作するときだけ出す（[9737044](https://github.com/kein5/astarot/commit/9737044b3cf345123822cec50b5461b6aa38c884)）
+- **ui:** 初期設定を開くかは利用者に任せ、開く場所を案内する（[957dde9](https://github.com/kein5/astarot/commit/957dde978043b05ca00d429151ad9b90db7426d7)）
+- **ui:** 六芒星の機能をその三角形を押して切り替える（[7c16d77](https://github.com/kein5/astarot/commit/7c16d776d1f1485ff432c42b4541123e22cb971a)）
+- **core:** ホイールで六芒星が回ることを知らせたかどうかを保存する（[1a5f151](https://github.com/kein5/astarot/commit/1a5f151ef0c63df97ec0e8e604c838e7cc6f4985)）
+- **ui:** 六芒星でポインターとスイッチがオンになったことに反応を返す（[8727d89](https://github.com/kein5/astarot/commit/8727d89606326a5d54dcebd5910aa77cb90e6630)）
+- **ui:** 六芒星の三角形にそれぞれの機能のアイコンを出す（[6b81283](https://github.com/kein5/astarot/commit/6b8128346e0b0a98a50a3d3fb1eea11e1a90c1cc)）
+- **ui:** アップデートのチャンネルが変わったらすぐに確認し直す（[00ede12](https://github.com/kein5/astarot/commit/00ede123fa07a0dcea4e43497220d8812446ffe5)）
+- **update:** ベータのチャンネルを更新用のWorkerから読む（[77547bf](https://github.com/kein5/astarot/commit/77547bfdbd85c520785cb21385609d78be2eb96d)）
+- **ui:** アップデートのチャンネルを実験的機能の中で選ぶ（[1de6e65](https://github.com/kein5/astarot/commit/1de6e6595c5b0bbac53f76668b86916a012b1d1d)）
+- **update:** 設定で指定したアップデートのチャンネルで更新を確認する（[d05c977](https://github.com/kein5/astarot/commit/d05c977652040f005c2484fc4b5240d29e7bc963)）
+- **core:** 利用者が選んだアップデートのチャンネルを保存する（[73e13e6](https://github.com/kein5/astarot/commit/73e13e6ce4e9cc2303ef03f8faef6e57776be9a3)）
+- **voice:** RVCの試聴のために利用者の声を録音する（[0e7f613](https://github.com/kein5/astarot/commit/0e7f613f906f2f51c1295e1593e93cb857e14487)）
+- **voice:** RVCの声のモデルの試聴をモニター出力だけで再生する（[dab8c44](https://github.com/kein5/astarot/commit/dab8c44895d7715fd9c5da452f282195b4c65c7a)）
+- **ui:** リアルタイムの字幕で発話を拾う感度（しきい値）を選ぶ（[3407b08](https://github.com/kein5/astarot/commit/3407b082b65cca1513742b30af08643739379713)）
+- **asr:** リアルタイムの字幕で、選んだ発話検出のしきい値を使えるようにする（[6671f46](https://github.com/kein5/astarot/commit/6671f46af506ecb06dd8b2d70254d504d5457eeb)）
+- **ui:** LLMのエンジンのTemperatureと指示を設定する（[224024d](https://github.com/kein5/astarot/commit/224024d0451844ed971a641fb50150cbab5c0444)）
+- **core:** AI翻訳のTemperatureと指示を保存する（[b859644](https://github.com/kein5/astarot/commit/b859644b1d122b14e598f3865995628a2a10ffbe)）
+- **translation:** 選んだTemperatureと指示をAIの提供元に送る（[4958be8](https://github.com/kein5/astarot/commit/4958be817bea5b7803ac3ec1b17ac4a854b6f92c)）
+- **ui:** ランタイムの修復が次の起動を待っているときに知らせる（[f928410](https://github.com/kein5/astarot/commit/f92841041266736bab106dc431d08d36d5407b2b)）
+- **vc:** 保留したランタイムの修復を次の起動で反映する（[e3ba75f](https://github.com/kein5/astarot/commit/e3ba75f7e31e07fdaacd5cdc2b49d4d2b723bb81)）
+- **ui:** 前のホットキーを割り当て直せなかったときに知らせる（[e18db55](https://github.com/kein5/astarot/commit/e18db55893b8c067fd5732370be33565519ab94c)）
+- **hotkeys:** ポータルでの割り当てに失敗してキーが1つも残らなかったことを報告する（[4a45e49](https://github.com/kein5/astarot/commit/4a45e49860ed210808936c0cf317a2e0f5fdbd16)）
+- **translation:** NLLB-200 distilled 1.3Bをダウンロードできるようにする（[2f89b39](https://github.com/kein5/astarot/commit/2f89b392d1e27670122bc0c6d0d5a2f555fbf9d4)）
+- **ui:** チャット読み取りのモデルをカタログのカードで表示する（[ea62981](https://github.com/kein5/astarot/commit/ea62981022dc3ffb9544b57c9b30a70116f06a7c)）
+- **ui:** モデルのカタログの区画を閉じた状態で始める（[9d65ee1](https://github.com/kein5/astarot/commit/9d65ee1053bfd17547fbd7029c24d7cce4e1e095)）
+- **ui:** モデルのカタログの区画をそれぞれ折りたためるようにする（[a78cc79](https://github.com/kein5/astarot/commit/a78cc795ccc3e00a5b8f3e48574b445e131fa183)）
+- **ui:** グリッドのカードにサイズとハードウェアを出す（[2ca77f8](https://github.com/kein5/astarot/commit/2ca77f8a7c9e5b5ffb0d02eeaeefc7f6d67a18d3)）
+- **ui:** カタログの並べ方を設定に保存し、最初はグリッドにする（[711fa2f](https://github.com/kein5/astarot/commit/711fa2fde4b7eaaf4a567868f5cbbfc178a251c8)）
+- **core:** モデルのカタログの並べ方を保存する（[800bfe5](https://github.com/kein5/astarot/commit/800bfe5390331d1ce4246cc8f5dbcaa8828d26da)）
+- **ui:** グリッドのカードの折りたたみで小さなファイルのサイズをMiBで示す（[6be9589](https://github.com/kein5/astarot/commit/6be95893b03d12c861ea18d7f779db38bdc8da73)）
+- **ui:** グリッドのカードに出す項目を減らし、カードの並びをそろえる（[447acc4](https://github.com/kein5/astarot/commit/447acc4a120f391e3173e943aa3d13fb3ca532d3)）
+- **ui:** ワードフィルターの帯を語が0個でも出し、一覧が空だと示す（[a214023](https://github.com/kein5/astarot/commit/a214023ee5eb5d0f5e0d22c20757f3436cfe5d7d)）
+- **ui:** モデルのカタログをグリッドかリストで並べる（[d985a63](https://github.com/kein5/astarot/commit/d985a63824ef84b59c27e8400005f96301a08f7b)）
+- **vc:** 「自動」を選び直したらGPUの速さを測り直す（[b0bcf0a](https://github.com/kein5/astarot/commit/b0bcf0a0f3dd71ada4a71c305842b66c582491fd)）
+- **ui:** ワードフィルターの一覧とほかのフォーマットの例を、ほかの設定と同じように折りたたむ（[4d9abcb](https://github.com/kein5/astarot/commit/4d9abcb952b9c7eb71cff77de619a4c53a92ed9d)）
+- **ui:** ファイルを読み込んだら、辞書をそのファイルの用語に置き換える（[f9cd964](https://github.com/kein5/astarot/commit/f9cd96456089109c1b50992fe6794c7eaa032a98)）
+- **core:** 使っている辞書の全体を用語辞書のファイルに書き出す（[572af34](https://github.com/kein5/astarot/commit/572af348c28b2ce0c473114fddabc5c9ee86152a)）
+- **ui:** 用語辞書の帯には用語の数だけを出す（[c1aeeac](https://github.com/kein5/astarot/commit/c1aeeac0a2e036204e354b91ee94d6369481a151)）
+- **ui:** 開いた折りたたみを、帯を先頭にした枠で囲む（[2f9e176](https://github.com/kein5/astarot/commit/2f9e1763bf112c827ac01ed566c79134508609e1)）
+- **ui:** 用語辞書をファイルで読み込み、書き出す（[417cacb](https://github.com/kein5/astarot/commit/417cacb4480fa99edd9dcc6963499bd278ebbf80)）
+- **core:** 用語辞書をファイルに書き出す（[722c0a4](https://github.com/kein5/astarot/commit/722c0a4ce1ccc67442ef193b54e7ae581b5ccd0a)）
+- **ui:** 用語辞書の各行から状態のバッジを外す（[ff674b6](https://github.com/kein5/astarot/commit/ff674b60594d88bda206bea12244ddd63a1cb7fb)）
+- **ui:** 設定の折りたたみをすべて、帯と山形の印を持つ1種類の折りたたみで描く（[148ecb6](https://github.com/kein5/astarot/commit/148ecb6aaf508422a17d0849004b8612d6a3ccf3)）
+- **ui:** 用語辞書の折りたたみを、開けると分かる帯で出す（[2edfe3e](https://github.com/kein5/astarot/commit/2edfe3e7f5bd6380e58c8c99671a31f8c1070973)）
+- **ui:** 用語辞書の1つの一覧から用語を追加する（[bde7a15](https://github.com/kein5/astarot/commit/bde7a1561aa152164844cb81f433d5ab51f34410)）
+- **rvc:** ワーカーが選んだ変換する単位の長さを、声のモデルとGPUごとに保存する（[412b738](https://github.com/kein5/astarot/commit/412b738f532bf7d7f9b38a784ba65e17eed59b35)）
+- **vc:** 既定ではGPUの処理が追いつく単位の長さで変換する（[6fa6411](https://github.com/kein5/astarot/commit/6fa641155f05cde451c6a01313010cbfcd07d4e7)）
+- **rvc:** GPUの処理が追いつく単位の長さをワーカーが選べるようにする（[15eb09e](https://github.com/kein5/astarot/commit/15eb09e7626c0bab81f85493a991eee128c6de4d)）
+- **ui:** 用語辞書の組み込みの用語を変えたり外したりする（[133bf9d](https://github.com/kein5/astarot/commit/133bf9db9bd601cb357f1f6547bc83711be78150)）
+- **core:** 利用者が用語辞書から外した組み込みの用語を戻さない（[06de65e](https://github.com/kein5/astarot/commit/06de65ea68c9515f5da72bf59fcb9a35142ddf55)）
+- **rvc:** 処理が追いつかないCPUでは変換しない（[7491025](https://github.com/kein5/astarot/commit/74910256344f705b4f497eda5e3376087a9afcef)）
+- **rvc:** DirectMLでは自動の変換に内蔵GPUを使わない（[55efead](https://github.com/kein5/astarot/commit/55efeada0151b196c1ac34e3ce78504d01d8849e)）
+- **rvc:** WindowsではDirectMLで声を変換する（[3a48203](https://github.com/kein5/astarot/commit/3a48203d62af1b2b3b5d135483258beb9750085a)）
+- **ui:** 新しい版があるときは、印を付けた更新のボタンに版の番号を出す（[1a29360](https://github.com/kein5/astarot/commit/1a29360385a1ac7b87c1be6b851176b39f2a5c85)）
+- **ui:** エンジンとの接続が切れたことを、レールの先頭で1回だけ伝える（[aef20dd](https://github.com/kein5/astarot/commit/aef20dd0e034c2cf8714fd05bdf92d4104ad0931)）
+- **ui:** WebSocketとOBSのアドレスに分かりやすい名前を付け、押すとコピーすることをボタンで伝える（[6aa6f3c](https://github.com/kein5/astarot/commit/6aa6f3c22442fb7912c3bc016090b9026f658aae)）
+- **ui:** OBSのアドレスが変わったという注意は、OBSブラウザソースがオンの間だけ出す（[b6d25ec](https://github.com/kein5/astarot/commit/b6d25ecf0494c8e5c46cf7a1e6dfcdaab689703d)）
+- **ui:** 「GPUの動作の報告」の下には押す前に知っておくことだけを残す（[c9b7a2e](https://github.com/kein5/astarot/commit/c9b7a2e3e59304f501b0ac1d7dc58d9b559f5c96)）
+- **ui:** メイン画面のtitle属性をキーボードでも開ける吹き出しに置き換える（[b616e02](https://github.com/kein5/astarot/commit/b616e02645a4b1cd77d5d7f375f18025c6a88f6d)）
+- **ui:** 共通の吹き出しをウィンドウの中に描き、キーボードのフォーカスでも開く（[cf56b4a](https://github.com/kein5/astarot/commit/cf56b4ab8bae51e835c0a1858e17cdc1a60a102d)）
+- **ui:** 吹き出しをオフにしていても、VRのログのボタンの吹き出しは出す（[2252f45](https://github.com/kein5/astarot/commit/2252f451de6fe1f492a33d5c95c4029710ee2d46)）
+- **ui:** VRの言語の窓の入れ替えのボタンを、入れ替える2つの言語の間に置く（[8ea8928](https://github.com/kein5/astarot/commit/8ea89286d57ad16f8bbe0df52594dc6c671a1e70)）
+- **ui:** VRの設定の注意書き2つに代えて、手の絵と使っている値を出す（[24a774c](https://github.com/kein5/astarot/commit/24a774c7766318143ff8ed51853e2021dfca0c53)）
+- **ui:** 外へ送るものの説明は1文だけ画面に残し、詳しい内容はヒントで出す（[f168a57](https://github.com/kein5/astarot/commit/f168a57bc0a5f1b62a3d01dc977900ecae05c4a7)）
+- **ui:** 空の会話に出すOSCの手順は、VRChatが見つからない間だけ出す（[1a61a16](https://github.com/kein5/astarot/commit/1a61a168cf2bc6572447a6eb3a5fdb1208f602e5)）
+- **ui:** 空の会話では、どこに入力するかは入力欄に任せる（[9c34fa1](https://github.com/kein5/astarot/commit/9c34fa1efa58b293cd6cc3fc164d6b1e1eac79da)）
+- **ui:** 準備のダイアログ2つでは、行き先はボタンに任せる（[f7c21ab](https://github.com/kein5/astarot/commit/f7c21ab0f023f5cffcea783ed6721aad41869bc8)）
+- **ui:** 空の会話の準備の一覧では、行き先はボタンに任せる（[3f482e7](https://github.com/kein5/astarot/commit/3f482e713f217386cf0de931e34727fd92423631)）
+- **ui:** 「入力と出力」のパネルの注意書きを見出しのヒントで出す（[30fe837](https://github.com/kein5/astarot/commit/30fe837a3d3c01ca8c03b10b539c82f9ebf7d36e)）
+- **ui:** VR UIの注意書きのうち、同じ画面が示すことを繰り返すものを外す（[705ae3f](https://github.com/kein5/astarot/commit/705ae3f4bb4114b1a1e66dd690edecddcbafb53b)）
+- **ui:** 実験的機能とアップデートのページの説明をヒントで出す（[1723046](https://github.com/kein5/astarot/commit/17230461d7a9895e4ab88b4022b432b29e57bf51)）
+- **ui:** 翻訳のページの説明をヒントで出す（[c126cf4](https://github.com/kein5/astarot/commit/c126cf416d44729bab4ed6f27e5bc0607608fb62)）
+- **ui:** 高度な設定の説明をヒントで出す（[fb637bc](https://github.com/kein5/astarot/commit/fb637bcfe95243ca693c0a7b61e62c0081e6b114)）
+- **ui:** 翻訳のカタログのカードをモデルのカタログと同じように並べる（[fba2ffc](https://github.com/kein5/astarot/commit/fba2ffcc5711b3bb433ff82e98d41a233f86ba1f)）
+- **ui:** shadcn/uiと同じように、ダイアログの後ろのウィンドウを50%の黒で暗くする（[48e4d4e](https://github.com/kein5/astarot/commit/48e4d4e358b903df204896d644b959f6297bedee)）
+- **ui:** カードの状態と項目がそろうようにモデルのカタログを並べる（[265eb30](https://github.com/kein5/astarot/commit/265eb30914387dc9d1fbf5c83e842fb5da0f956b)）
+- **linux:** 設定とデータをvrct-voxから移し、astarotのフォルダーに置く（[57ecb02](https://github.com/kein5/astarot/commit/57ecb0246a56a0fed2f30858d817e4bb99687db3)）
+- **core:** LinuxのフォルダーをASTAROTの名前へ移す処理を足す（[99e07f9](https://github.com/kein5/astarot/commit/99e07f913f38a1bb39dbc4d8b4fe5fdbc6258148)）
+- **ui:** すべてのダイアログを初期設定と同じ幅と余白にする（[e1def97](https://github.com/kein5/astarot/commit/e1def972d2d580d241973852cb38d2b7cf4f0c42)）
+- **ui:** 初期設定で、仮想ケーブルがないことを利用者の対応が要る状態として示す（[9b93060](https://github.com/kein5/astarot/commit/9b930609d90f86fa37c256f4c6a302924750ca46)）
+- **ui:** 初期設定で利用者の対応が要るものを先に出す（[16c629b](https://github.com/kein5/astarot/commit/16c629b3b686acd8cf8bee2029f2c1e2b48ee1d2)）
+- **ui:** 初期設定で見つけたことを、状態の印を付けた一覧で示す（[3c69e28](https://github.com/kein5/astarot/commit/3c69e28d170a46a16e0a977273d0875ad577ce93)）
+- **asr:** Linuxのリアルタイムの音声を、補助プログラムではなくPipeWireから読む（[3d0d8d1](https://github.com/kein5/astarot/commit/3d0d8d1f718fd3ddb058cc2e058a9ebe25d57a2c)）
+- **audio:** スピーカーのモニターをPipeWireで取り込む（[0a2a0a2](https://github.com/kein5/astarot/commit/0a2a0a2475a92c1c60839e3240dd0fd1bc67957c)）
+- **downloads:** GPUはVRChatが使う分を、RAMは測って決めた分を空けておく（[64a58ef](https://github.com/kein5/astarot/commit/64a58efa8adc77318f08635d21a6ad06ec40bb3e)）
+- **downloads:** モデルが重すぎると警告する前に、OSとVRChatの分のRAMを取っておく（[1264696](https://github.com/kein5/astarot/commit/1264696710434126875198fa19176577bb16623c)）
+- **downloads:** 翻訳モデルのM2M100 418Mに測ったメモリの量を設定する（[04d7d7c](https://github.com/kein5/astarot/commit/04d7d7cd2eecbc0db616b5fdb73d06c19153c54c)）
+- **vc:** Linuxの管理対象の経路で声を変換する（[27a1eab](https://github.com/kein5/astarot/commit/27a1eabfbdc384020dafb6e3a3b3aeffee96f333)）
+- **audio:** 管理対象の経路のために、マイクをPipeWireで取り込む（[5356b44](https://github.com/kein5/astarot/commit/5356b44e4020580c176ef4aff523155f2ac3b12b)）
+- **ui:** ボイスチェンジャーの設定の説明を吹き出しへ移す（[30e94bf](https://github.com/kein5/astarot/commit/30e94bf35a48c298ca92b1aa732d9779c0a05f90)）
+- **ui:** テキスト読み上げの設定の説明を吹き出しへ移す（[daf33f2](https://github.com/kein5/astarot/commit/daf33f2b961eca3ac80fffa44818647e7a1cf667)）
+- **ui:** 音声認識の設定の説明を吹き出しへ移す（[aac850d](https://github.com/kein5/astarot/commit/aac850ddd0697cc591862cc100a3db3d691bdfdc)）
+- **ui:** 準備の折りたたみ、チェックボックス、URLの行で、説明を吹き出しで出せるようにする（[27f1e8d](https://github.com/kein5/astarot/commit/27f1e8db5277ac079384a35809b4bfe7870e7e67)）
+- **asr:** Pythonの診断と同じように、発話のタイミングをログにまとめる（[7565ed8](https://github.com/kein5/astarot/commit/7565ed8c02da1fb31ae00b99bcd6373bb6e6be5d)）
+- **asr:** クラウドの音声認識を、システムが指定するプロキシを通して送る（[abafea6](https://github.com/kein5/astarot/commit/abafea66961c091c154e7d156dce8d86690c809f)）
+- **asr:** 音声認識をオフにしたとき、エンジンへ送っている途中の要求が終わるのを待つ（[b37bb62](https://github.com/kein5/astarot/commit/b37bb62b3d3d069afe71cb1fbb269c8cf9f68a4d)）
+- **translation:** M2M100 418MとNLLB-200 distilled 600Mをダウンロードできるようにする（[4d0c8b5](https://github.com/kein5/astarot/commit/4d0c8b5feaaf8827d5db699548fd4eecd404e1d3)）
+- **asr:** 同梱サーバーの検出モデルでは64 msから発話として数える（[4ea849e](https://github.com/kein5/astarot/commit/4ea849e04daaacc33e6be8c245b071f2bc55b352)）
+- **asr:** 外部のspeech.cppサーバーが応答しないときは、VADのスイッチを受け付けない（[592098b](https://github.com/kein5/astarot/commit/592098b73bfd75df81ccf5acd2c336bd1f054982)）
+- **asr:** リアルタイムのスイッチと同じように、録音のVADのために同梱サーバーを起動する（[553b283](https://github.com/kein5/astarot/commit/553b283c253fa40607ee4be5f573a8883ad13062)）
+- **translation:** llama.cppのサーバーはVulkan版だけを提供する（[83c64f9](https://github.com/kein5/astarot/commit/83c64f97cb83e14ed8c95be367a9843712a1e5cb)）
+- **translation:** PCに重すぎる翻訳モデルはダウンロードの前に警告する（[0e8ff48](https://github.com/kein5/astarot/commit/0e8ff48c26e6a5244410da58b3e5943ad3057c0b)）
+- **asr:** Deepgramのモデルが分からない間は、すべての言語を一覧に出す（[dfbcd35](https://github.com/kein5/astarot/commit/dfbcd3597fb1d93643f89fc7ca6a6ccb44823600)）
+- **tts:** 前の読み上げの後で待っている入力済みのチャットを捨てないようにする（[0e1f17e](https://github.com/kein5/astarot/commit/0e1f17e6ab080901837ae5d7d13642c67b891115)）
+- **translation:** 古いモデルのフォルダーを使っていた利用者を、追加のフォームへ案内する（[fcb0e87](https://github.com/kein5/astarot/commit/fcb0e87a821600a284290acfde988af1d48cbd11)）
+- **core:** ASTAROT_の環境変数をVRCT_の環境変数より先に読む（[5f4d589](https://github.com/kein5/astarot/commit/5f4d58915b17df5167d9baf1dd01855ccf13c0b1)）
+- **translation:** 自分で用意したTranslateGemmaのGGUFファイルで翻訳する（[308c77b](https://github.com/kein5/astarot/commit/308c77b6375fee95d0066a36a746380f1bf609e5)）
+- **downloads:** 翻訳モデルごとにダウンロードの注意書きを指定できるようにする（[1be22f1](https://github.com/kein5/astarot/commit/1be22f1c4ade61e1053b457baa9ac3bc95281bbe)）
+- **ui:** 翻訳のカタログを「詳細設定」の後ろに独立した区画として出す（[aa27a66](https://github.com/kein5/astarot/commit/aa27a66deb33b23cf6f86bd490335a9ec53eabb2)）
+- **translation:** llama.cppのサーバー向けにTranslateGemmaのプロンプトを組み立てる（[4cf2bbf](https://github.com/kein5/astarot/commit/4cf2bbfa73aa8da9b745f61474341a61de6a7f91)）
+- **translation:** llama.cppのサーバーをアプリが管理するプロセスとして動かす（[171b327](https://github.com/kein5/astarot/commit/171b3271ffcdef0f7bdc011b650fedfaf68b1a4c)）
+- **translation:** 同意を得てから、翻訳LLM用にllama.cppのサーバーを取得する（[338be37](https://github.com/kein5/astarot/commit/338be37c4f26750e6551bb870d702b86942a0bbc)）
+- **downloads:** Gemmaのモデルをダウンロードする前に、Gemmaの規約への同意を求める（[693ee6e](https://github.com/kein5/astarot/commit/693ee6e398136e9ed75ca25c13637ee452381467)）
+- **ui:** チャット読み取りの設定の説明を吹き出しへ移す（[fde2633](https://github.com/kein5/astarot/commit/fde263336cce9bf53b59730854f1d49e86aa5d41)）
+- **ui:** 字幕とVRの設定の説明を吹き出しへ移す（[000811d](https://github.com/kein5/astarot/commit/000811dfadaf454aff3010d8564c3e9b9f366ea4)）
+- **ui:** VRChatの設定の説明を吹き出しへ移す（[b1ef1a2](https://github.com/kein5/astarot/commit/b1ef1a20cd61131fe66668d121c133d2bcc16535)）
+- **ui:** デバイス、デザイン、ホットキーの設定の説明を吹き出しへ移す（[94134e5](https://github.com/kein5/astarot/commit/94134e5cd3860473d0c09ddeb331b4ec89ec5630)）
+- **ui:** 設定のページで説明をラベルの吹き出しとして出せるようにする（[246b746](https://github.com/kein5/astarot/commit/246b746da8b66662040db6b2df3b2729103e6d05)）
+- **translation:** 翻訳の設定から、GPU版のONNX Runtimeを取得する（[94a9b5d](https://github.com/kein5/astarot/commit/94a9b5d9a6c3301b1487bcbdf2fd9cd00327d263)）
+- **ui:** お使いのGPUで音声の処理がどう動くかを確かめ、GitHubで報告する（[420208f](https://github.com/kein5/astarot/commit/420208f660a76345a4199654bab1d9bcba5c2b13)）
+- **ui:** VADに要るものと、録音が音量で切れた理由を伝える（[24cf587](https://github.com/kein5/astarot/commit/24cf5873a24a87d7ff3ac4561361dd214ec22f19)）
+- **core:** VADのスイッチがオンのときは、speech.cppサーバーのVADを使う（[fc972b2](https://github.com/kein5/astarot/commit/fc972b2d3d71b7abd397a36a7555013de2f0b998)）
+- **transcription:** speech.cppサーバーのSilero VADで発話を区切る（[8f54103](https://github.com/kein5/astarot/commit/8f54103cfb564bb3ce5d81c70ccf82f12e2cd845)）
+- **rvc:** 「高度な設定」でRVCの変換する単位の長さを選ぶ（[bbe5b85](https://github.com/kein5/astarot/commit/bbe5b85c25386cdad435fed944ba5b0d48a87a28)）
+- **rvc:** 既定で40 msの単位で声を変換する（[8df5a6d](https://github.com/kein5/astarot/commit/8df5a6d69dd5ac7df8bebc87829913b4dc048bd0)）
+- **ui:** 「高度な設定」でOSCQueryをオフにできるようにする（[fd6f072](https://github.com/kein5/astarot/commit/fd6f072e465f0a7e13547c5585f844ad74f7202a)）
+- **translation:** モデルを一度GPUで試し、失敗したら代わりにCPUを使う（[b6e9f70](https://github.com/kein5/astarot/commit/b6e9f705b9803f7f46ce8c3ddb1f7ec6668d0d58)）
+- **translation:** DirectMLでint8とint4を選べるようにする（[798adf8](https://github.com/kein5/astarot/commit/798adf8486534ad1b351098a5188167879f5fb61)）
+- **asr:** リアルタイムの発話は既定で0.4秒の無音で終える（[f2279be](https://github.com/kein5/astarot/commit/f2279be6108d47c96c086abf8a04c576eafa0f71)）
+- **ui:** 辞書の用語をまとめて追加し、自分の用語をコピーする（[110d10a](https://github.com/kein5/astarot/commit/110d10a1bddbd6289bbdb63f1d15a11aef18c486)）
+- **tts:** 使っているTTSのモデルの試聴をカタログのカードから再生する（[f2bfe5e](https://github.com/kein5/astarot/commit/f2bfe5ed31961042a966fcac58ec7025b164f5c0)）
+- **tts:** 動いているTTSのモデルの声の試聴をモニター出力だけで再生する（[d4db59e](https://github.com/kein5/astarot/commit/d4db59ee61d903206771bfcba39853caf8cec7c7)）
+- **asr:** 音声認識をspeech.cppとAPIのグループに分けて出す（[04c9ea2](https://github.com/kein5/astarot/commit/04c9ea2507d335eefd7314d16d87a4ed0cbd4592)）
+- **ui:** ラジオボタンの行で選択肢をグループ名の下に並べられるようにする（[44bc4a5](https://github.com/kein5/astarot/commit/44bc4a55da3555b575c3dad992a5febfb3031f54)）
+- **ui:** デスクトップ字幕に声の名前を出す（[6567ebf](https://github.com/kein5/astarot/commit/6567ebfb0fcb5d02e5ef06ed146ad57a80b6837f)）
+- **ui:** セッションの声に名前を付け、ログを話者ごとにまとめる（[12d53ee](https://github.com/kein5/astarot/commit/12d53ee4c6a1445a912a0f94559bbedbfac393ff)）
+- **vr:** VRの大きいログに誰が話したかを出す（[a7dee39](https://github.com/kein5/astarot/commit/a7dee3940a2c9dc1a0d3fedc2def099b4071bf34)）
+- **ui:** TTSのページで、voicevox、aivisspeech、sharevoxの読み方を表示する（[4ffc9c7](https://github.com/kein5/astarot/commit/4ffc9c7c2fbfa8700c45ec48d4791f5432f5ec74)）
+- **tts:** voicevox、aivisspeech、sharevoxを、選んだ速さ、音量、高さ、抑揚で読ませる（[2d50815](https://github.com/kein5/astarot/commit/2d508156ba3fea96e425a2a13ae16067697a06f5)）
+- **translation:** 文に含まれる登録済みの用語をAIの翻訳に伝える（[61115a1](https://github.com/kein5/astarot/commit/61115a186fa49af65c2e1abd0fa0e31a40a0d4ab)）
+- **tts:** 日本語の読み上げで、登録した用語をその読みで読む（[21083d4](https://github.com/kein5/astarot/commit/21083d417c2282a24f59c4418056fc76007ee160)）
+- **asr:** すべてのエンジンで認識した文を用語辞書で直す（[84252df](https://github.com/kein5/astarot/commit/84252df8e9f8768971d6b4433340ed8de93ed188)）
+- **ui:** ほかの設定のページを開くボタンに、そのページの名前とそこですることを書く（[34bd79b](https://github.com/kein5/astarot/commit/34bd79be30e24a64ddde7aaa7130b3398cfa54b9)）
+- **ui:** 選んだ用途に要るメイン画面のスイッチを出す（[802af37](https://github.com/kein5/astarot/commit/802af3719d2b0c471b4b7fa7b067a36ce43d522c)）
+- **ui:** 設定のメニューの先頭で用途のプリセットを選ぶ（[7366cc7](https://github.com/kein5/astarot/commit/7366cc768c38806d7c10319123edd60f93a63c78)）
+- **core:** 利用者が選んだ用途のプリセットを保存する（[1696e32](https://github.com/kein5/astarot/commit/1696e3296b8fe798944a423e334022a3148d7d60)）
+- **ui:** 字幕の位置と見た目を折りたたむ（[2980aed](https://github.com/kein5/astarot/commit/2980aedc31323659276935d568b6bb6873e4f416)）
+- **ui:** 翻訳のAPIとローカルのLLMを折りたたむ（[b465930](https://github.com/kein5/astarot/commit/b465930854c52a9e0d0cf2751dc78e186b966344)）
+- **ui:** 音声認識のページでクラウドのエンジンとタイミングを折りたたむ（[36be304](https://github.com/kein5/astarot/commit/36be304dcb4fe26f5ec4e210c09f20214496088b)）
+- **ui:** TTSのページでモニターと生成の設定を折りたたむ（[5d5c702](https://github.com/kein5/astarot/commit/5d5c70258c663be7f80fd30db429e467588fc1ed)）
+- **ui:** チャット読み取りが読む場所と頻度を折りたたむ（[a0423f3](https://github.com/kein5/astarot/commit/a0423f3a19f9f1176d11d6a9f5c43d6143c8a92d)）
+- **ui:** デバイスのページで感度と音声経路を折りたたむ（[5034834](https://github.com/kein5/astarot/commit/503483438ea37a48d412f2fbb067189c40b3952a)）
+- **ui:** デザイン、ホットキー、VRChatのページで、一度だけ設定するものを折りたたむ（[9edbab1](https://github.com/kein5/astarot/commit/9edbab165ff3074427ad4fad6180c5b234ad1267)）
+- **ui:** VR UIを実験的機能の一覧に載せる（[3a601f6](https://github.com/kein5/astarot/commit/3a601f601c6bbdf51a348e6f5e20483c552e4508)）
+- **ui:** 入力音声の転送をボイスチェンジャーのページへ移す（[8fbbe91](https://github.com/kein5/astarot/commit/8fbbe91c9267004feb5746798b030d9883fd05f0)）
+- **ui:** OSCのアドレスとポートを「高度な設定」に戻す（[5512eed](https://github.com/kein5/astarot/commit/5512eed1113965a1e1781f9653ec8e40360600d8)）
+- **ui:** VRの設定のページの名前を「字幕とVR」に変える（[3052de2](https://github.com/kein5/astarot/commit/3052de2e82c0a0fa3873c49989ec2bd2aefc3130)）
+- **ui:** 設定のページを4つの見出しの下にまとめる（[4729c64](https://github.com/kein5/astarot/commit/4729c642b0edbfbb3e5b5f0daa217dffa9de6157)）
+- **asr:** リアルタイムの発話を終える無音の長さを選べるようにし、既定で結果を早く出す（[a1991c4](https://github.com/kein5/astarot/commit/a1991c4f83b3c4bc3823311981de56f58334dc8a)）
+- **translation:** 翻訳のカタログで自分の翻訳モデルとAPIを追加する（[57dc4aa](https://github.com/kein5/astarot/commit/57dc4aa66edcb89dbd428915493a8a63557e9e56)）
+- **ui:** ASTAROTの見た目の設定用の部品集（kit）を実験的に足す（[11c8456](https://github.com/kein5/astarot/commit/11c8456e4396fa05b7638780f9178a8cab127c7e)）
+- **ui:** 「入力と出力」のパネルに合成の時間とGPUのメモリを出す（[328ff68](https://github.com/kein5/astarot/commit/328ff68506b84022369d2ef025fd63e3f8316fab)）
+- **core:** 「入力と出力」のパネルのために、GPUのメモリを読む（[add4b84](https://github.com/kein5/astarot/commit/add4b842dfdc57f91e4ab93d973b8dd297142fe7)）
+- **voice:** 読み上げの合成で最初の音が出るまでにかかる時間を報告する（[01ac9b0](https://github.com/kein5/astarot/commit/01ac9b051b2b963c89f61da1e782af081373168c)）
+- **ui:** アプリの色をASTAROTのダークプラムとライラックにする（[0396594](https://github.com/kein5/astarot/commit/03965943ed1a13a7525b9842a4d12c0c76547fb2)）
+- **ui:** APIキーの保管に失敗したときに、することを伝える（[e9b13f6](https://github.com/kein5/astarot/commit/e9b13f64ca40b733651397fe769e88779772c8f2)）
+- **setup:** 音声認識をまとめて準備する初期設定を足す（[0fc9f83](https://github.com/kein5/astarot/commit/0fc9f83ec515887870497cf4e9836043731e7972)）
+- **setup:** 音声認識の準備を、途中から再開できる手順として組み立てる（[1f29bb2](https://github.com/kein5/astarot/commit/1f29bb2116b8d801a53b125708f87960ca3020f5)）
+- **setup:** 初期設定を自動で開いてよいかを保存する（[e01f803](https://github.com/kein5/astarot/commit/e01f803365ba649a56be1dc5266f2dfc89726c0d)）
+
+#### 改善
+
+- **deps:** speech.cpp 0.11.2を同梱する（[12dd5b7](https://github.com/kein5/astarot/commit/12dd5b79a8973c97a65c534c6fb5289fb69bcefd)）
+
+#### 不具合の修正
+
+- **ui:** 要らないGPU版のダウンロードを出さない（[777065c](https://github.com/kein5/astarot/commit/777065c7920cb69616f6034bd72eab915a60e897)）
+- **ui:** TTSのページの停止も上のバーの停止と同じように、動作するときだけ出す（[66d9779](https://github.com/kein5/astarot/commit/66d977956bbba57db8abdf4fcf969ee04af50d74)）
+- **ui:** 準備済みのモデルには確認も準備も出さない（[5e46f49](https://github.com/kein5/astarot/commit/5e46f4949383b11d0d9c378aeaa46d408934a3d0)）
+- **ui:** 翻訳のGPU版を利用者のGPUに合う1つの選択肢として出す（[32b6acc](https://github.com/kein5/astarot/commit/32b6acc4368396d4b3ce2f9e58e098bbd0edc53a)）
+- **ui:** 初期設定で既定の翻訳モデルを出す（[a8e97da](https://github.com/kein5/astarot/commit/a8e97da32eecc108f8848147bdc8ba1832461997)）
+- **vr:** Steam Frameのときのように、SteamVRをそのサーバーからも見つける（[92580ed](https://github.com/kein5/astarot/commit/92580edaa98356edc2b963e28acf87a4f17afa87)）
+- **ui:** 初期設定の翻訳の行から、翻訳の設定へ案内する（[9a9325d](https://github.com/kein5/astarot/commit/9a9325dc5b5037cd2b4cf97bd87639abb28166bd)）
+- **ui:** 翻訳のモデルの準備が残っている間は、初期設定へ案内する（[989149a](https://github.com/kein5/astarot/commit/989149a25e6c9fd1023ac701c5649adc7800088b)）
+- **ui:** 翻訳のモデルを初期設定の中で準備する（[5d9ac9c](https://github.com/kein5/astarot/commit/5d9ac9c9cf90a6ba88d126b46b27a2a757acc568)）
+- **ui:** 初期設定の翻訳の行から、モデルの確認へ案内する（[bc76d34](https://github.com/kein5/astarot/commit/bc76d34cec55f6022700345ab161999903807c72)）
+- **ui:** UIの言語を変えても、開いているもの、入力した文字、フォーカスを保つ（[cd0b73a](https://github.com/kein5/astarot/commit/cd0b73ad05f85bba73fcf72a15fb667f20b69922)）
+- **translation:** メッセージにまた読みが付くように、SudachiDictのfullを同梱する（[3771853](https://github.com/kein5/astarot/commit/3771853d72fd6c07eb3ec5f56da7271b99e04096)）
+- **ui:** 更新の再起動の知らせをUIの言語で出す（[991bccb](https://github.com/kein5/astarot/commit/991bccb09f28607f5bd1e16fb97b136471931616)）
+- **ops:** Windowsでも止まったダウンロードをすぐに中止する（[3b7108e](https://github.com/kein5/astarot/commit/3b7108e33c5722f389fda68fa2d4a1c73fc1b272)）
+- **ui:** 利用状況のイベントの欄を、問い合わせている間も同じ場所に保つ（[8eb3d29](https://github.com/kein5/astarot/commit/8eb3d297550b5ac5e3deafee49309e53003b1d85)）
+- **ui:** チャット読み取りのモデルと範囲を、応答が来る前から描く（[ef8f2e4](https://github.com/kein5/astarot/commit/ef8f2e4b9f0c08b65cfb4ffcf0ba1d6666dcd336)）
+- **ui:** 端に寄せた六芒星の三角形の幅を、オンでもオフと同じに保つ（[27a592d](https://github.com/kein5/astarot/commit/27a592d524eb8d79ce5924b86ed44c2cb7bf75a8)）
+- **ui:** 六芒星の三角形の輪郭を、オンのときも同じ幅に保つ（[76f8679](https://github.com/kein5/astarot/commit/76f8679b76f2eabcc1cff3c40d0cb4fa64901d56)）
+- **ui:** オンの六芒星の三角形の辺をすべてLilacで描く（[2ede62c](https://github.com/kein5/astarot/commit/2ede62c95dc3ad6ee5663e3661968085553b65ce)）
+- **ui:** オンの機能の六芒星の三角形にLilacの色を付ける（[f5fc3e5](https://github.com/kein5/astarot/commit/f5fc3e511808c2c5812b1913325f49f5e0225db9)）
+- **ui:** オンの六芒星の機能をLilacのアイコンと太い輪郭で示す（[8ce3ee5](https://github.com/kein5/astarot/commit/8ce3ee5e9bc04fa201abac50e54fa046288d8bc0)）
+- **ui:** チャット読み取りの確認中も保存した検出器の選択を出す（[21bae68](https://github.com/kein5/astarot/commit/21bae689eb735557a2a06d31061f2f86a4f7b167)）
+- **ui:** チャット読み取りの検出器の部分を、状態が届く前から描く（[d6c6f18](https://github.com/kein5/astarot/commit/d6c6f180fe2240b8e4c38c4be8c10a152bbe6286)）
+- **ui:** エンジンのカードを、確認し直している間も動かさない（[3c2b2fc](https://github.com/kein5/astarot/commit/3c2b2fc5a2339457531176570582e8ccd9a021eb)）
+- **ui:** 入力欄を中核の既定の高さで始める（[66a8ffb](https://github.com/kein5/astarot/commit/66a8ffb9661f17657bff5b03f9008bf43263916a)）
+- **ui:** 短い言葉を、最も長い言葉の分だけ取った幅の中央に置く（[424c4b4](https://github.com/kein5/astarot/commit/424c4b40345b781909daed1f2fcb9ae4e051fc4e)）
+- **ui:** フォームのボタンの下に問題を伝える1行分の場所を取っておく（[d738b35](https://github.com/kein5/astarot/commit/d738b35fa89346db88c45c82a879c9056f999d83)）
+- **ui:** チャット読み取りのモデルの帯を、必要なものを確認している間も同じ場所に保つ（[12ec021](https://github.com/kein5/astarot/commit/12ec021ad958eac0951ee4f2c9633438c81e6e3e)）
+- **ui:** GPUの確認の進み具合を出す1行分の場所を取っておく（[37e1281](https://github.com/kein5/astarot/commit/37e1281a940e7d3466bc5034c6b9150a251bbd82)）
+- **ui:** フォームの問題をボタンの下で伝える（[d12b3b1](https://github.com/kein5/astarot/commit/d12b3b1248dd9ead149a55545c24441e2681d0cb)）
+- **ui:** 操作部品の言葉が状態に合わせて変わっても幅を保つ（[87f9dba](https://github.com/kein5/astarot/commit/87f9dbacc7f4a2d16062cf0ba01ea8f6d806cffb)）
+- **ui:** 入力欄を最初のフレームから分かっている高さで描く（[e9764ee](https://github.com/kein5/astarot/commit/e9764ee8b174932d49a57013f6fe13f2ea6aa29b)）
+- **ui:** 「ASTAROTについて」のページの画像に、読み込む前から大きさを与える（[a4d2c4b](https://github.com/kein5/astarot/commit/a4d2c4bd4725bf677398bbfddce21d78813d6dc8)）
+- **ui:** 設定の見出しの行をどのページでも同じ高さに保つ（[3fa0bae](https://github.com/kein5/astarot/commit/3fa0baed8ba11a2d2f50159073db06ec4724a453)）
+- **ui:** LLMのエンジンのtemperatureを日本語でもTemperatureと呼ぶ（[c7a2650](https://github.com/kein5/astarot/commit/c7a26502f16b937f05f75157e42645ebf89f279c)）
+- **update:** インストールに失敗してアプリを再起動するときは、その前に知らせる（[27306f0](https://github.com/kein5/astarot/commit/27306f0ed88e651263cb44a425606fb92170d0c7)）
+- **ui:** 10秒たっても応答のないモデルの適用を待つのをやめる（[db73810](https://github.com/kein5/astarot/commit/db73810af5367b59ada907261fbdaf47e2816c9d)）
+- **osc:** Windowsのファイアウォールの確認画面を出さないようにする（[ce3f6d0](https://github.com/kein5/astarot/commit/ce3f6d050cd65f7607552dc618d8b6f71a2ac08c)）
+- **translation:** ローカルのモデルをダウンロードのカタログと同じ名前で呼び、NLLB-200 3.3Bを外す（[c1c7d7a](https://github.com/kein5/astarot/commit/c1c7d7ad505c4a8a11cd249e13dcca427cb5b66f)）
+- **vc:** ランタイムの修復で使用中のライブラリを置き換えられなかった理由を伝える（[4d9f991](https://github.com/kein5/astarot/commit/4d9f99146f6b76e4b6f0745993f74256d3204576)）
+- **config:** 新しい版が保存した設定を、古い版が保存するときも残す（[7078700](https://github.com/kein5/astarot/commit/7078700223f1dd41466c147cda6789e4802793b3)）
+- **ui:** トレイのコンパニオンで灰色のスイッチを準備が要るものとして示す（[661a65b](https://github.com/kein5/astarot/commit/661a65bf8f4815435b7fa0e41b45ac7fb585ec7b)）
+- **ui:** 翻訳エンジンの一覧のためにアイコンのレールを広げるが、その状態は保存しない（[4a61f52](https://github.com/kein5/astarot/commit/4a61f52728126355a0c97a5f0754a5a21a9ab8e8)）
+- **ui:** 上のバーのボタンをすべて会話の列の中に収める（[1cc2553](https://github.com/kein5/astarot/commit/1cc2553f591ae0b78e7e5013cb60338f4bc69558)）
+- **hotkeys:** デスクトップが受け付けないキーをショートカットが使っているときに知らせる（[913de32](https://github.com/kein5/astarot/commit/913de3221e3cb9ba7a9e5e934680e406f2bbcca9)）
+- **hotkeys:** 記号のキーを含むショートカットをデスクトップのポータルに登録できるようにする（[fca97ac](https://github.com/kein5/astarot/commit/fca97ac001dfc2ffb698e5122c7bbb4df100b745)）
+- **ui:** メモリの値がなくても、モデルのカードにどこで確かめたかを書く（[658dd95](https://github.com/kein5/astarot/commit/658dd95cc085109d4a7ae7b98b28c020c4eed97d)）
+- **hotkeys:** 記号をキーで記録するようになる前に保存したショートカットも登録する（[c3cc02c](https://github.com/kein5/astarot/commit/c3cc02c3a147708394e187fe6816108eb30ed2bd)）
+- **update:** 書き込めるAppImageを名前の変更1回で置き換える（[f6e5115](https://github.com/kein5/astarot/commit/f6e51157ee26560e23f6951300867fe3c96dc91f)）
+- **core:** ONNX Runtimeを選ぶ前に、ランタイムの以前のライブラリを戻す（[1d1e0b0](https://github.com/kein5/astarot/commit/1d1e0b09431b9b632eae98b897c2f0a01a28a84a)）
+- **vc:** 修復でライブラリを置き換えられないときは、用意済みのランタイムを残す（[5341ae7](https://github.com/kein5/astarot/commit/5341ae7e2c1c5801e0ca970bb16f7e876f8ae707)）
+- **config:** 途中で止まった設定やキーの保存が残した一時ファイルを消す（[f300b90](https://github.com/kein5/astarot/commit/f300b90476de8c7b7e7c4a0f83d2d48a1b55138e)）
+- **ui:** ダウンロード済みのモデルとそうでないモデルを、バッジの形で見分けられるようにする（[51cdc9b](https://github.com/kein5/astarot/commit/51cdc9b2e64cd6a0438d99095e34345f4363536b)）
+- **ui:** 読み上げの設定を保存した後、最初に押したときに読み上げをオンにする（[678ec6a](https://github.com/kein5/astarot/commit/678ec6a27fef3b81319705858cb4f932f259465e)）
+- **transcription:** 「Friends+」をプレイヤーが言うとおりに読む（[98b7e89](https://github.com/kein5/astarot/commit/98b7e89205cffb9b21a926c672819a206db36aee)）
+- **ui:** 編集した設定のフォームを離れる前に、保存バーの確認で尋ねる（[e38d665](https://github.com/kein5/astarot/commit/e38d66591a9a9ed81230109576bb42f9dc919f8f)）
+- **ui:** 接続用のキーの確認をアプリのダイアログの枠で描く（[32ce7f8](https://github.com/kein5/astarot/commit/32ce7f81fcf7c233e7eef10a7f2735fc8414f56c)）
+- **vc:** Pythonと同じように、取り込みそのものの失敗のコードを出す（[7cdc13f](https://github.com/kein5/astarot/commit/7cdc13f620d0fd6ca1bcbf8409fe63bee81a363d)）
+- **ui:** デバイスの「自動選択」を、それが選ぶ一覧の上に置く（[5da8af8](https://github.com/kein5/astarot/commit/5da8af8169a24417fa085986adcd7093eddabb9a)）
+- **vc:** マイクの音の断片の時刻を、届いた時点からさかのぼって付ける（[a83a9df](https://github.com/kein5/astarot/commit/a83a9df51fa2c737aed5f1dcd785ecc82fe86dcc)）
+- **asr:** チャットボックスのリアルタイムの確定文は、後で期限が切れたときも届いたものとして数える（[f8c3067](https://github.com/kein5/astarot/commit/f8c3067d4208d476f97f877b613c8d767a065693)）
+- **translation:** llama.cppのサーバーがプロンプトをRAMにキャッシュしないようにする（[6dfd991](https://github.com/kein5/astarot/commit/6dfd99169de4fb7b5261dc64ca82d3ec819ac885)）
+- **asr:** スピーカーが何も鳴らしていない間は、無音を録音に入れない（[2258da6](https://github.com/kein5/astarot/commit/2258da6c3e9a233da15a950517edd65887533a25)）
+- **asr:** デバイスがないことの知らせは、スピーカーと音量メーターに任せる（[2e7bbb7](https://github.com/kein5/astarot/commit/2e7bbb734f0741b4a9554d566ed2ab7f6f0827f1)）
+- **downloads:** Gemmaの規約への同意は翻訳モデルをダウンロードする前にだけ求める（[5b39753](https://github.com/kein5/astarot/commit/5b39753b95608061d3883e5ff95fbe2098ec0b7e)）
+- **asr:** Linuxのリアルタイムの音声の古さを、補助プログラムが付けた時刻で判断する（[4548e61](https://github.com/kein5/astarot/commit/4548e610fbdd7a2195a7c9f11f4669a2c3e6d0ea)）
+- **tts:** Windowsで、合成が出力に遅れても読み上げを続ける（[c4b3c40](https://github.com/kein5/astarot/commit/c4b3c401d5796512cc23acf3c028b7421a9b2c4e)）
+- **asr:** VRChatでミュートする前に聞き取った文は、ミュートを解いた後も送らない（[c31c5e5](https://github.com/kein5/astarot/commit/c31c5e5b5e01d289886b8ef313873d9721e39a79)）
+- **ui:** 吹き出しを1つの見た目で描き、再送のヒントが1文字ずつ折り返さないようにする（[9d86fd2](https://github.com/kein5/astarot/commit/9d86fd2c2598e03bd4642bdbaf7be29d0e14e1c3)）
+- **audio:** Linuxで復帰した後も仮想マイクを開いたままにする（[0329449](https://github.com/kein5/astarot/commit/03294491ee19d4076d00a272808fcf8338536305)）
+- **asr:** 「入力と出力」のパネルのリアルタイムのマイクの行は、確定した時点から時間を測る（[d146884](https://github.com/kein5/astarot/commit/d1468846e6c04f24d5b845e6cf855d15c98a6ecf)）
+- **ui:** 設定の検索欄をほかの入力欄と同じ形で描く（[f0a1d9b](https://github.com/kein5/astarot/commit/f0a1d9b174d1d8380da55a52e66ce2c7abdab5d3)）
+- **asr:** リアルタイムの開始ごとにspeech.cppにモデルを1回だけ問い合わせる（[3c1a0a4](https://github.com/kein5/astarot/commit/3c1a0a4e9b5fba19981ee23f558406e0260dc01e)）
+- **asr:** 停止で、リアルタイムの開始がspeech.cppを待っている状態を終わらせる（[7d11157](https://github.com/kein5/astarot/commit/7d111570c302a31e8b8756820cd283eaf0d54355)）
+- **ui:** 設定の文字の入力欄をほかの入力欄と同じ形で描く（[02b2428](https://github.com/kein5/astarot/commit/02b2428ac28ddb13c2f1601e2daa2fc9055cdc3d)）
+- **ui:** アプリの起動に失敗したときの終了のボタンに、見える縁を付ける（[f52149f](https://github.com/kein5/astarot/commit/f52149fc3b11ab242ddb3379974ba4358702edc5)）
+- **ui:** 「更新を確認」のボタンの縁を入力欄の枠線の色で描く（[04ea588](https://github.com/kein5/astarot/commit/04ea58835c53fcd7ca57df752ed964612ba51650)）
+- **ui:** 設定のフォームの枠線のボタンに、見える縁を付ける（[05777a1](https://github.com/kein5/astarot/commit/05777a134c9cefcf387a0e870e180d1db060cff4)）
+- **ui:** ヒントの吹き出しを、選択肢のラベルの狭い幅ではなく言葉の幅に合わせる（[b499f68](https://github.com/kein5/astarot/commit/b499f6853e810fcbd8b94b4e182d3b4adc72ff12)）
+- **ui:** 選択肢を選べない理由をその疑問符の印から開けるようにする（[fb2baf1](https://github.com/kein5/astarot/commit/fb2baf128de1c87c9f4ef220839a7f88bcc4e439)）
+- **translation:** 追加したAPIのキーがアプリを閉じるまでしか残らないときに、そのことを示す（[ea72461](https://github.com/kein5/astarot/commit/ea72461ab57f07fc4c5c329e22a8dea726db9e08)）
+- **translation:** キーの保管場所を読めないときに、追加したAPIをキーなしと表示しないようにする（[576ae1e](https://github.com/kein5/astarot/commit/576ae1ee577c04a1feace4cb22625bfd318d6808)）
+- **translation:** キーの保管場所が受け付けないときは、追加したAPIのキーをアプリを閉じるまで保つ（[2f71d53](https://github.com/kein5/astarot/commit/2f71d53dfe920df70213791495535a969493ec6c)）
+- **windows:** WebView2が異常終了の報告をMicrosoftへ送らないようにする（[db74347](https://github.com/kein5/astarot/commit/db74347588d51acf32e4c926712b62fd621096da)）
+- **ui:** 設定で版にCUDAと付けるのをやめる（[bf6996a](https://github.com/kein5/astarot/commit/bf6996a0a86f4fbc5256a69831f1830ea8596ea5)）
+- **asr:** リアルタイムの確定文が届いたときの設定を、最後の出力まで使う（[e71ba87](https://github.com/kein5/astarot/commit/e71ba875d88a2bb12ca80a980caa8d417f73c37c)）
+- **overlay:** VRのログのメッセージを、受け取ったときの「翻訳だけ表示」の選択で描く（[5a6bd58](https://github.com/kein5/astarot/commit/5a6bd58d417ddbfecf2391877cc3d8e38c4ee743)）
+- **ui:** VR UIの文字を4段の文字の大きさで描く（[cf0b5b6](https://github.com/kein5/astarot/commit/cf0b5b6f6bfe2c173ab3afa5199331a0813bd0a3)）
+- **config:** サーバーを一度も選んでいない設定では、外部の音声サーバーを使い続ける（[ebfe37b](https://github.com/kein5/astarot/commit/ebfe37be6312155c4a7898de684b1878a48ccbb4)）
+- **ui:** 1280x720ですべてのスイッチを出しているときも、翻訳エンジンをレールに収める（[2281b3f](https://github.com/kein5/astarot/commit/2281b3fbfb38603883ecfd5295b7fc8785d07d87)）
+- **ui:** それぞれの言語の欄に、どちら向きに翻訳するかを書く（[33f6512](https://github.com/kein5/astarot/commit/33f6512b6a472eb00ffe2bc1af7b5fd76a7aca92)）
+- **ui:** 入力欄の枠線に、面に対して3.5:1になるDark Plumの専用のトークンを使う（[445a0fc](https://github.com/kein5/astarot/commit/445a0fcc8030709276690d67ace100faabf87d2c)）
+- **ui:** 灰色とLilacの段を、ブランドの色から作る決まりに合わせる（[09cee5d](https://github.com/kein5/astarot/commit/09cee5d8a77db4900c20abd1de5110e8c4bbd7dc)）
+- **transcription:** 音声認識をオフにしてオンにし直したとき、その前に聞き取った発話を捨てる（[e1a8225](https://github.com/kein5/astarot/commit/e1a8225cba1f72b58cfb8d99043829d340edec92)）
+- **ocr:** チャット読み取りをオフにしてオンにし直したとき、その前に読んだ行を捨てる（[b0c65f9](https://github.com/kein5/astarot/commit/b0c65f96127bbf13f009d99f2867f24e32e2947c)）
+- **ui:** ラジオボタンの選択肢が待っている間も、キーボードのフォーカスをそこに保つ（[cf357e6](https://github.com/kein5/astarot/commit/cf357e67200226e2042fb8b44d92485e8716ee3b)）
+- **translation:** 使えるか、ダウンロードできるローカルのモデルだけを一覧に出す（[5f8254c](https://github.com/kein5/astarot/commit/5f8254cc869c5765b4c95c1f0679a26c0cfa07f1)）
+- **companion:** モニターの端でも、すばやく切り替えたときも、六芒星の動きを安定させる（[095bfea](https://github.com/kein5/astarot/commit/095bfeaf0cdef47f3515642233334158847996ef)）
+- **ui:** とても低いウィンドウでも、ログの文字の大きさの設定をログの中に収める（[dcfb984](https://github.com/kein5/astarot/commit/dcfb9842298364426f56400a50bbe70aa48edfda)）
+- **ui:** 六芒星を出すモニターの一覧を読めないときに知らせる（[5f25d8d](https://github.com/kein5/astarot/commit/5f25d8dd5f569e7b4a42d5c27218753623b27353)）
+- **ui:** UIの言語を変えても、片付けた初回の知らせを出し直さない（[18940da](https://github.com/kein5/astarot/commit/18940daf42d56d6cfbb31de0ded9a998bd794549)）
+- **ui:** ポインターがスクロールバーを通って翻訳エンジンの一覧から出たら、一覧を閉じる（[5e1661d](https://github.com/kein5/astarot/commit/5e1661da7b77a0befa62225ff6ee2ce9c966272e)）
+- **ui:** Shiftと記号のキーを使うホットキーを受け付ける（[c06a740](https://github.com/kein5/astarot/commit/c06a7401851bbf6cfe8c26abc0254e7cb1093040)）
+- **ui:** 応答のなかった適用が終わったら、モデルのダウンロードをまた使えるようにする（[f4d164e](https://github.com/kein5/astarot/commit/f4d164ee1f0fce982e4220e3ec10fb8940f967d0)）
+- **backend:** ウィンドウを待たせずにバックエンドを起動する（[63ad6f7](https://github.com/kein5/astarot/commit/63ad6f7c1cf7d7568602850b26d7c0db1639ef19)）
+- **config:** 何も変わらないときは、起動時にconfig.jsonに手を付けない（[40f316b](https://github.com/kein5/astarot/commit/40f316b0acd5a8639734b14beac1550b6454f6a2)）
+- **config:** 新しい版が保存した設定を、古い版が起動したときも残す（[6f3bd7c](https://github.com/kein5/astarot/commit/6f3bd7c5635969d9359c6f3423ef22165984e172)）
+- **osc:** ネットワーク上のほかの機器へアプリの存在を知らせないようにする（[eb8e445](https://github.com/kein5/astarot/commit/eb8e445ca74b850c816409cce5360dceea7c90a6)）
+- **core:** リアルタイムの字幕をVRの大きいログに出せないときに知らせる（[5b72e10](https://github.com/kein5/astarot/commit/5b72e100788cbf5c5c230ad445c8262345cb4fd9)）
+- **translation:** Pythonのクライアントが使っていたSDKと同じように、間を置いて再試行する（[1086f46](https://github.com/kein5/astarot/commit/1086f46e3fab57ad31b251199cb308c49fc6275f)）
+- **translation:** Pythonのクライアントが送っていたものと同じものを提供元に送る（[143c221](https://github.com/kein5/astarot/commit/143c221b6cb5c8cc9382218a11ae44f85c0b4eba)）
+- **transcription:** マイクから音が届かなくなったリアルタイムのセッションを終える（[f97353a](https://github.com/kein5/astarot/commit/f97353aa39374d81a4f58c1400843674bb472392)）
+- **vr:** VRのオーバーレイがオンのときにコントローラーを使っても異常終了しないようにする（[964d6d3](https://github.com/kein5/astarot/commit/964d6d3d8f7cf12cc0c0924809060926975ae4b7)）
+- **rvc:** RVCのランタイム用のONNX RuntimeをNuGetから取得する（[d024ea8](https://github.com/kein5/astarot/commit/d024ea80619ab6c0a8d5c73a6f247bd87d422246)）
+- **i18n:** 新しい日本語の文から、間を取るだけの読点を外す（[60cbd6a](https://github.com/kein5/astarot/commit/60cbd6a4b18994291a105ddd948d0367ad124f13)、[1252292](https://github.com/kein5/astarot/commit/1252292db40147eb8b09d26f75240225b0ef8795)）
+- **ui:** 設定のすべての行で入力欄の列をそろえる（[5e82637](https://github.com/kein5/astarot/commit/5e8263770ed739ca128c6a5813ebf96046aa0ad6)）
+- **ui:** VRの字幕の軸を設定の行として並べる（[e5b510c](https://github.com/kein5/astarot/commit/e5b510ce3506b3217418b3dc005271245242b4e1)）
+- **tts:** 新しい設定では同梱の音声サーバーを使って始める（[b47e7a5](https://github.com/kein5/astarot/commit/b47e7a5dc8f397972d9dc4b0454385c89f39e7a7)）
+- **ui:** アプリのウィンドウの文字の大きさをデザインの段に合わせる（[559de5e](https://github.com/kein5/astarot/commit/559de5e2d0669140f87a36c02a3a6255b02b14ea)）
+- **ui:** 言語の入れ替えのボタンを、操作していないときもボタンと分かる形で出す（[e81ba72](https://github.com/kein5/astarot/commit/e81ba72f13e063c7a455bac6007f3111a3b3f263)）
+- **ui:** コンパニオンのつまみとパネルにASTAROTと名前を付ける（[c0e403d](https://github.com/kein5/astarot/commit/c0e403d577aa95a65b8a84dd2cd5f472cd719746)）
+- **ui:** 版の「Beta」のバッジに、わざと訳していないという印を付ける（[115f1d5](https://github.com/kein5/astarot/commit/115f1d58b35bf095295b8808bb86b438a07417c3)）
+- **ui:** VRChatの告知の日本語訳を表示する（[6573642](https://github.com/kein5/astarot/commit/657364219b99d412b72f6b057cc0fe9cc2321ea7)）
+- **linux:** debとrpmの説明と保守担当者の欄にASTAROTと出す（[1a74e6a](https://github.com/kein5/astarot/commit/1a74e6ac3cb537f56b681b15f6def988d9d39332)）
+- **settings:** 移行でconfig.jsonを書き換える前に写しを残す（[ced9515](https://github.com/kein5/astarot/commit/ced951575c498f88088cf5942653c1c4286ca8e5)）
+- **ui:** 設定の検索結果で、VRのページを生のキーではなくページの名前で出す（[30aa843](https://github.com/kein5/astarot/commit/30aa8435d54c638980d2d05cf5b4a11e0a600d47)）
+- **core:** 後のメッセージを飛ばしたときも、前のメッセージをチャットボックスへ送る順番に残す（[b2b50d1](https://github.com/kein5/astarot/commit/b2b50d1f5eb09138e46849d912c6c278f20309d4)）
+- **models:** Pythonのダウンロードの管理を、壊れたモデルを回復する動作に合わせる（[6bde5a4](https://github.com/kein5/astarot/commit/6bde5a4d2c0729ad9b388b1473a302e80df938b1)）
+- **models:** 壊れたモデルで毎回失敗する代わりに、ダウンロードし直す（[371916e](https://github.com/kein5/astarot/commit/371916e61a40ccd08b384bb7a30bccedcd766356)）
+
+#### 性能
+
+- **voice:** メッセージを翻訳している間に音声サーバーを準備する（[9ed2709](https://github.com/kein5/astarot/commit/9ed270922d056dd716aa8223301ac04c54edfa45)）
+- **voice:** VRの字幕を描く前に、訳文の読み上げを要求する（[45d68b3](https://github.com/kein5/astarot/commit/45d68b3a9434ea1fa75ded7f469c79a3254b5c38)）
+- **tts:** 読み上げを、モデルが最初の音の前に置く無音からではなく、最初の音から始める（[9ff0cba](https://github.com/kein5/astarot/commit/9ff0cbadc04f472c9540ff65539e6ce4254a8d4e)）
+
+#### セキュリティ
+
+- **security:** 用語辞書をprocess.logに書かない（[6b40605](https://github.com/kein5/astarot/commit/6b4060545af04c50ddadbcac90e5fe6df1ad4097)）
+
+### 内部の変更
+
+#### リファクタリング
+
+- **ui:** しきい値、VRのサンプル、ダウンロードの状態の文言をUIの言語に合わせる（[b731e5b](https://github.com/kein5/astarot/commit/b731e5bf6287e2d69002d7658ea7678f24b9aaed)）
+- **ui:** refにReact 19と同じ形で型を付ける（[2b65292](https://github.com/kein5/astarot/commit/2b65292df018fec507fa3d796cac92110a3a0995)）
+- **ui:** 初めて使うときに作る値を文の中で作る（[d588482](https://github.com/kein5/astarot/commit/d588482b0e25d71bc64fcabb9de57a9fa7df85c0)）
+- **ui:** 非nullアサーションに頼っていた箇所で値を確かめる（[d43b1ad](https://github.com/kein5/astarot/commit/d43b1ad4cfb404bf3c57c00a502d5020ca4e7b96)）
+- **ui:** forEachのコールバックの本体を何も返さない形にする（[232b33b](https://github.com/kein5/astarot/commit/232b33b4fb4311d56605efa7632f0be1b3e90d61)）
+- **ui:** 4つの正規表現が制御文字に一致する理由を書く（[6ad720b](https://github.com/kein5/astarot/commit/6ad720b144469bcba9cd1c9b2b28e1e76bb5133d)）
+- **ui:** カタログの一覧がrole="list"を残す理由を書く（[9303c35](https://github.com/kein5/astarot/commit/9303c35684fbac74ae54ace794a96559e861e45d)）
+- **ui:** マーキーの移動距離をMath.maxで下限に抑える（[d3ddea6](https://github.com/kein5/astarot/commit/d3ddea64ced6ff6064cf60655dfdae88276bb426)）
+- **ui:** returnの後の余分なセミコロンを消す（[ad2591f](https://github.com/kein5/astarot/commit/ad2591f497c8291b09334c9e5eb04f3bb312dee0)）
+- **ui:** 局所の関数と値にescapeという名前を付けない（[b72b368](https://github.com/kein5/astarot/commit/b72b3682096de28bd8c5b998a79df59aeb9ccc59)）
+- **ui:** 型のない2つのlet宣言に型を付ける（[d9756f6](https://github.com/kein5/astarot/commit/d9756f61ce9331ae86266e034719cf0dfa91791b)）
+- **ui:** しきい値の入力の数値をNumber.isNaNで確かめる（[b7d19cb](https://github.com/kein5/astarot/commit/b7d19cbf119b2edc66af85964b9be26c8ffd4d76)）
+- **ui:** どこからも読まれない引数に印を付けるか消す（[f68f10f](https://github.com/kein5/astarot/commit/f68f10f3255eb7cba4cea1c40db03644cd385e88)）
+- **ui:** ないかもしれない値をオプショナルチェーンで読む（[c5d4c69](https://github.com/kein5/astarot/commit/c5d4c6988f1ce2b0e432404be0ee5faf952beff6)）
+- **ui:** どこからも読まれない変数と試験の引数を消す（[f243e5d](https://github.com/kein5/astarot/commit/f243e5dfb9957f2482d3da8f30194a39c6e239a0)）
+- **ui:** どこでも使わないimportを消す（[7ed23db](https://github.com/kein5/astarot/commit/7ed23dbc8a918309f8b668243164a770c97d41c2)）
+- **ui:** 再代入しない値にconstを使う（[0f036bd](https://github.com/kein5/astarot/commit/0f036bd8f37df6f6fe0f525fe1d1d75f84675fdc)）
+- **transcription:** 組み込みのVRChatの用語をデータファイルに置く（[4d37e3c](https://github.com/kein5/astarot/commit/4d37e3c124fb97382226f700fc5aa256612d6a81)）
+- **ui:** VRChatの検出の表示の文言とトーンをフックで渡す（[3a68a1b](https://github.com/kein5/astarot/commit/3a68a1beee03c52107a05b07253198f1514f9dfe)）
+- **ui:** ロケールの準備とuseI18nの別名に型を付ける（[93ef93f](https://github.com/kein5/astarot/commit/93ef93f4a7e0899f751a0a7112574eaebfb1831d)）
+- **asr:** Linuxのキャプチャの補助プログラムの起動をグラフの確認から切り離す（[b9b6c66](https://github.com/kein5/astarot/commit/b9b6c6684353be06ced589ec6362bf127291be46)）
+- **ui:** ツールチップの部品にshadcn/uiのdata-slotで名前を付ける（[f335c03](https://github.com/kein5/astarot/commit/f335c0316b1245c214cf19bb76357197639ef0be)）
+- **ui:** バックエンドを起動するコントローラーに型を付ける（[bdfdb3c](https://github.com/kein5/astarot/commit/bdfdb3c0824c0284a5a7cc99336b94b0442b5b8b)）
+- **ui:** 設定のメニュー、検索、上部のバー、版の表示に型を付ける（[c5283c8](https://github.com/kein5/astarot/commit/c5283c8113e1da5546054ad28d5290cd4f7b8609)）
+- **ui:** 「字幕とVR」のページに型を付ける（[6453a9d](https://github.com/kein5/astarot/commit/6453a9d946a2e468ae2d9a804440c6402c2b4b01)）
+- **ui:** VR UIのアプリと状態の受け手に型を付ける（[cf58123](https://github.com/kein5/astarot/commit/cf581233e74fcbae9959ea86180010a640c5ad66)）
+- **ui:** ローカル翻訳に出すGPU版に型を付ける（[2b380b2](https://github.com/kein5/astarot/commit/2b380b24fb4011cc883845038bb100afacff30df)）
+- **ui:** 「高度な設定」のページに型を付ける（[e1a116e](https://github.com/kein5/astarot/commit/e1a116e7a8b8c9fce5577bc060763e2d69ddda63)）
+- **ui:** 「ボイスチェンジャー（RVC）」のページと入力の転送のフォームに型を付ける（[5a8da0c](https://github.com/kein5/astarot/commit/5a8da0cd271b023a15db50ad2b1c6f341e984e5c)）
+- **ui:** 「音声認識（ASR）」のページとリアルタイムの設定に型を付ける（[9f5769a](https://github.com/kein5/astarot/commit/9f5769a2aaa0f1f2cac72915f0257bdd02b3aeab)）
+- **ui:** デスクトップの字幕のコントローラーに型を付ける（[ce8c2b2](https://github.com/kein5/astarot/commit/ce8c2b23fd5493dfd375040b2e3a2347318d2f24)）
+- **ui:** 設定のドロップダウンと色の選択で、共通の対象の型を通して問い合わせる（[b19b20a](https://github.com/kein5/astarot/commit/b19b20a5547a33c0f5ff86953dcf3799d1908367)）
+- **ui:** バックエンドの応答を受け取るルートに型を付ける（[e3c8459](https://github.com/kein5/astarot/commit/e3c8459a55882f90187a09d0119224173d652d0e)）
+- **ui:** 設定ページの枠に型を付ける（[4ed6c39](https://github.com/kein5/astarot/commit/4ed6c39e80565bacf97c7a56427a032f6c0ff569)）
+- **ui:** 「チャット読み取り（OCR）」のページに型を付ける（[bd80ed3](https://github.com/kein5/astarot/commit/bd80ed37431f2d2e93658c63bf82fd0d3e46e3b8)）
+- **ui:** 「翻訳」のページに型を付ける（[2e4335b](https://github.com/kein5/astarot/commit/2e4335be70339258da3014d2c01dde7cfab7f6d4)）
+- **ui:** 読み上げの設定と音声サーバーに型を付ける（[00c7323](https://github.com/kein5/astarot/commit/00c7323d2ea27f99658e84862302093fd3f517fb)）
+- **ui:** 「デバイス」のページと音声経路の設定に型を付ける（[fe03aad](https://github.com/kein5/astarot/commit/fe03aad1e659573d3c6257af0796a6d3f52b8ce9)）
+- **ui:** 状態をVR UIへ写すコントローラーに型を付ける（[bcabf54](https://github.com/kein5/astarot/commit/bcabf54d8c35e931cf9d2a55be4ee905491503f7)）
+- **ui:** 設定の行のテンプレートと、それを使ったフォームに型を付ける（[ad9163f](https://github.com/kein5/astarot/commit/ad9163f8fb06b76da24267d9b300e2dc5bd566ab)）
+- **ui:** バックエンドのエラーの扱いに型を付ける（[653a64a](https://github.com/kein5/astarot/commit/653a64ac9bcbc03834f09a49395eb57b80be18aa)）
+- **ui:** 「デザイン」のページと共通の設定の行に型を付ける（[c1b2198](https://github.com/kein5/astarot/commit/c1b2198e7a168bfcadaf87c203cd8c8e51487af1)）
+- **ui:** 翻訳のカタログの区画に型を付ける（[ff8a700](https://github.com/kein5/astarot/commit/ff8a7009d4a808d00994df0431cf000e206137f7)）
+- **ui:** モデルのカタログと自分のモデルに型を付ける（[b439e74](https://github.com/kein5/astarot/commit/b439e74c7bf242fbeafc56bb2c19d27988399237)）
+- **ui:** 初期設定のダイアログに型を付ける（[8c2706f](https://github.com/kein5/astarot/commit/8c2706ffb98dd2ddada539d28faf215287d2bc05)）
+- **ui:** 内蔵モデルのダウンロードの確認に型を付ける（[a3cff5c](https://github.com/kein5/astarot/commit/a3cff5c2ea4dd2ec3d36819c03e95de8d72b57ce)）
+- **ui:** 「ホットキー」「アップデート」「VRChat」「ASTAROTについて」のページに型を付ける（[b66728c](https://github.com/kein5/astarot/commit/b66728cdc5cd995d461c5178b9dd2817d57d5442)）
+- **ui:** 翻訳の準備と仮想マイクの案内に型を付ける（[51af2bd](https://github.com/kein5/astarot/commit/51af2bde31bbf163a1604b6644e1237514f557d8)）
+- **ui:** 設定のドロップダウン、選択肢、ワードフィルター、フォーマットに型を付ける（[1a05324](https://github.com/kein5/astarot/commit/1a053246bccf7625963bf8b82e50c5ea90baaf03)）
+- **ui:** 設定のスライダー、しきい値の行、ホットキーの入力欄に型を付ける（[ba0b63f](https://github.com/kein5/astarot/commit/ba0b63f199403fd99f258f59aa955b94d4142e43)）
+- **ui:** 設定の小さな操作部品と処理デバイスの表示名に型を付ける（[3daa89f](https://github.com/kein5/astarot/commit/3daa89f472db226285a24a2c45e5fe11ee0186f1)）
+- **ui:** 会話の列とメイン画面に型を付ける（[4c0d067](https://github.com/kein5/astarot/commit/4c0d067ff8653c17487e1d06993b057be259aaa6)）
+- **ui:** 言語の一覧とリアルタイム認識の停止の操作部品に型を付ける（[b8dd685](https://github.com/kein5/astarot/commit/b8dd68517e3d6f62b15bef2eb354a541f96343f8)）
+- **ui:** 「入力と出力」のパネルとそのVRのウィンドウに型を付ける（[3d7e9ce](https://github.com/kein5/astarot/commit/3d7e9ce8154e2ae252d4a26165692a47f99e7f34)）
+- **ui:** 設定のラベル、行、折りたたみ、ページへのリンクに型を付ける（[ceb0901](https://github.com/kein5/astarot/commit/ceb09013c5abe2b2564b618a7c9b6181fbadf403)）
+- **ui:** 会話ログに型を付ける（[05c1294](https://github.com/kein5/astarot/commit/05c1294ffca9d63db26c8c7c2446ab3c96c86be1)）
+- **ui:** メインウィンドウの上部のバーに型を付ける（[0504d59](https://github.com/kein5/astarot/commit/0504d5976bd2343b99c0b0832473cdc1416f47ab)）
+- **ui:** 「入力と出力」の図の箱ごとに専用の型を付ける（[82cf235](https://github.com/kein5/astarot/commit/82cf23597016e185e54f795309233b296acb3a9c)）
+- **ui:** 設定ページの入力欄、ドロップダウン、ダウンロードのatomに型を付ける（[15b1fe3](https://github.com/kein5/astarot/commit/15b1fe38877ba582dcc6a5494c2334eaf1038032)）
+- **ui:** メインスイッチに型を付ける（[6472543](https://github.com/kein5/astarot/commit/647254356901b1fffea7def51ee91c20a97cc6b9)）
+- **ui:** サイドバーの言語の設定に型を付ける（[5c3c27e](https://github.com/kein5/astarot/commit/5c3c27e00687e68d7f61459cf8b1ed8326bccbab)）
+- **ui:** グローバルホットキーのフックに型を付ける（[12e28d7](https://github.com/kein5/astarot/commit/12e28d7261f31388d51f174433d53e63d4f12a99)）
+- **ui:** フォームの範囲の操作部品をスライダーと同じく値の位置まで塗る（[023f83b](https://github.com/kein5/astarot/commit/023f83bd6890d5803670bc6efc7f4f30424c9f2a)）
+- **ui:** shadcn/uiのSliderと同じく、設定のスライダーを使えない状態にできるようにする（[e777d3a](https://github.com/kein5/astarot/commit/e777d3ac308f3dd4575bcc68dbffe82a65bd49d5)）
+- **ui:** スライダーの塗った部分を.6remの溝に描く（[a5d70b2](https://github.com/kein5/astarot/commit/a5d70b286d1360d925fd72b37b033ec1ce052afa)）
+- **ui:** チェックボックスの印をLilacの塗りの上にDark Plumで描く（[74355de](https://github.com/kein5/astarot/commit/74355deab0402404c7402f9a713f68e7702c2fda)）
+- **ui:** shadcn/uiと同じく、検索で何も見つからないことを1つのEmptyで示す（[bb55067](https://github.com/kein5/astarot/commit/bb550672997c56956954667785e975e1c4c34fdc)）
+- **ui:** 設定の検索結果をsurfaceの色で開く（[3486be8](https://github.com/kein5/astarot/commit/3486be8c96355d131425ba82d9bd2e07eb1aa824)）
+- **ui:** 使えないフォームとボタンを半分の濃さにする（[05a88ee](https://github.com/kein5/astarot/commit/05a88ee09d9ae42ac582375e285063db7b0a0dc0)）
+- **ui:** ほかの操作ボタンの文字もmediumの太さにする（[84c1b32](https://github.com/kein5/astarot/commit/84c1b32ef4f0e6358276eab94f7616993eebd34a)）
+- **ui:** 設定とダイアログのボタンの文字をmediumの太さにする（[8650816](https://github.com/kein5/astarot/commit/86508169b49ab900e2f2ed2b7ac08a5740ed904b)）
+- **ui:** kitのボタンにshadcn/uiのアイコンの大きさと、アイコンの横の狭い左右の余白を与える（[ea4e337](https://github.com/kein5/astarot/commit/ea4e337b171bbeacc453c63e1b1fe5b548311b73)）
+- **asr:** 試験がリアルタイム認識の待ち時間を短くできるようにする（[914eeae](https://github.com/kein5/astarot/commit/914eeae8946faa1829a5d9e24c2f39d055d7fc0b)）
+- **core:** 開発用と受け渡し用の名前をapp-identityから取る（[e62d858](https://github.com/kein5/astarot/commit/e62d858a39c9c09284659a242993d51234d90b69)）
+- **core:** フォルダー、アプリID、キーの名前をapp-identityから取る（[b2d22a3](https://github.com/kein5/astarot/commit/b2d22a3102740948e0f2d074b9bc7bf70a874cd1)）
+- **core:** アプリがコードの外で名乗る名前をまとめたクレートを1つ足す（[441f2cc](https://github.com/kein5/astarot/commit/441f2cc7a6b2494d24f00c56ee63ea9f6ae364d0)）
+- **ui:** フォームの選択欄の山形の印をkitの選択欄と同じ大きさと位置に描く（[5f902f2](https://github.com/kein5/astarot/commit/5f902f261b62bc7a4003fe053d7fb2cede486e3c)）
+- **ui:** kitの選択欄の選択肢とグループにshadcn/uiのdata-slotで名前を付ける（[d93906b](https://github.com/kein5/astarot/commit/d93906b5f2020fad057a87c63193e5d6da5d2af9)）
+- **ui:** kitのボタンの文字をmediumの太さにし、使えないkitの操作部品を半分の濃さにする（[2726334](https://github.com/kein5/astarot/commit/2726334a28a7a158926c3a474784a1da346f1fc4)）
+- **ui:** kitの選択欄をshadcn/uiのnative selectと同じ形で描く（[f05cc52](https://github.com/kein5/astarot/commit/f05cc525748bccd959e0cca36e5db412472cfd8d)）
+- **ui:** kitの部品にshadcn/uiのdata-slotで名前を付ける（[a127770](https://github.com/kein5/astarot/commit/a1277704964dff4c196ae3e6041d248d04313005)）
+- **ui:** 利用状況の送信の案内と、音声認識の同意のダイアログに型を付ける（[a258b39](https://github.com/kein5/astarot/commit/a258b3979db82352d706d1a2768831fab9bcac42)）
+- **ui:** チャット入力の小窓とチャット読み取りのコントローラーに型を付ける（[8242976](https://github.com/kein5/astarot/commit/824297669627a2b4ff4f1109311a9a68cf22660e)）
+- **ui:** メインスイッチを一時停止するコントローラーに型を付ける（[9fb058e](https://github.com/kein5/astarot/commit/9fb058e26b28c5dd5421991a11f0880dfe200e5f)）
+- **ui:** ウィンドウと見た目のコントローラーに型を付ける（[e81457d](https://github.com/kein5/astarot/commit/e81457d7b6c1ec83b272352a0202ab231eb8f560)）
+- **ui:** メインウィンドウのエントリポイントとアプリの外枠に型を付ける（[8dce283](https://github.com/kein5/astarot/commit/8dce283bc7f437291fbddd9fa3de0a99fc4d2e0b)）
+- **ui:** 停止の操作とVRChatの検出の表示に型を付ける（[2c607d3](https://github.com/kein5/astarot/commit/2c607d336151d718514e979547e239992f895b96)）
+- **ui:** クイック設定、起動の失敗、アップデートの画面に型を付ける（[c12c54a](https://github.com/kein5/astarot/commit/c12c54a0faf02a6d596cfb22ae50235e15699667)）
+- **ui:** 通知のスナックバーに型を付ける（[347b473](https://github.com/kein5/astarot/commit/347b4736d222db0928cb2a1335ac969c1d356ce9)）
+- **ui:** エラー画面に型を付ける（[5683fff](https://github.com/kein5/astarot/commit/5683fff7361b292e54f0b1dba20beec6ebfaa458)）
+- **ui:** 環境の表示に型を付ける（[5214bde](https://github.com/kein5/astarot/commit/5214bde796223fe4d7303bd181eeca1e0dc2d5cf)）
+- **update:** Windowsのどのインストールも1つにまとめたパッケージへ更新する（[3a08969](https://github.com/kein5/astarot/commit/3a08969a419c0232231712945dd4cd002bcf03f5)）
+- **ui:** VR UIのウィンドウに型を付ける（[953e6b1](https://github.com/kein5/astarot/commit/953e6b12da3e8e26e5fe4a861f1ff078ef414c7f)）
+- **ui:** TypeScriptのビューでロジックのフックへのキャストを外す（[1076889](https://github.com/kein5/astarot/commit/107688935bf132c64200734282763a5ad7e97eaf)）
+- **ui:** チャット入力の小窓と字幕オーバーレイのウィンドウに型を付ける（[1f573ce](https://github.com/kein5/astarot/commit/1f573ce7e74668055158d708c6aa1bc6b42eb657)）
+- **ui:** 共通のコンポーネントに型を付ける（[1e10566](https://github.com/kein5/astarot/commit/1e10566bd36a8a2de07d2af637e514182809ffb0)）
+- **ui:** 設定の下書きのフックに型を付ける（[fd1bc73](https://github.com/kein5/astarot/commit/fd1bc73370fdec1b7bedf11d71229a3b82e75cbb)）
+- **ui:** 設定の検索に型を付ける（[8711b89](https://github.com/kein5/astarot/commit/8711b8957c117869f6b8034a0abd40e28378e78f)）
+- **ui:** 設定のフックを読むフックに型を付ける（[0595aab](https://github.com/kein5/astarot/commit/0595aabe0e2d77f921c0daaad401303ef65b328f)）
+- **ui:** 設定の一覧と、そこから作るフックに型を付ける（[697ccd8](https://github.com/kein5/astarot/commit/697ccd86405e86c78c18bb5664d7b89b78ca4d28)）
+- **ops:** カタログの翻訳モデルの項目をデータファイルから読む（[3d1eece](https://github.com/kein5/astarot/commit/3d1eecea26137879c5e4137a1b82f96d67f38859)）
+- **ui:** 翻訳のカタログのフックに型を付ける（[de56dfa](https://github.com/kein5/astarot/commit/de56dfa4fff4909ef4125862e36742723d8a16db)）
+- **ui:** 共通のフックと、通知とメッセージの補助関数に型を付ける（[c2c73d8](https://github.com/kein5/astarot/commit/c2c73d8945643246083762dcd5d43cb54d395e7b)）
+- **ui:** 言語、スイッチ、初期設定のフックに型を付ける（[2305e55](https://github.com/kein5/astarot/commit/2305e55263255a3025c76808944fb02e11ec36a9)）
+- **ui:** 音声のフックに型を付ける（[ec1d755](https://github.com/kein5/astarot/commit/ec1d75530a6a4f0f1e4192224c747d4a3f92fbf6)）
+- **ui:** リアルタイム認識、「入力と出力」、小さな設定のフックに型を付ける（[811676b](https://github.com/kein5/astarot/commit/811676bc710a96ec57dc0bdde6994eb02fb4b4c6)）
+- **core:** ONNX Runtimeの環境を共通のクレートから取る（[9fbe5a4](https://github.com/kein5/astarot/commit/9fbe5a448f81188b0174f076c971d5151f7e50fa)）
+- **core:** ONNX Runtimeのライブラリと環境をまとめたクレートを1つ足す（[95b8112](https://github.com/kein5/astarot/commit/95b8112dcdf94c62ebfcf8afe5736a579bad2277)）
+- **ops:** speech.cppのモデルのデータをnative/opsに置く（[efeb804](https://github.com/kein5/astarot/commit/efeb8040cdeb210dadab9d9156d327cb693700b5)）
+- **ui:** ロジックのバレルファイルをTypeScriptに移す（[4c95feb](https://github.com/kein5/astarot/commit/4c95feb64cc4874b3a1066ad5e3be1d8f857d061)）
+- **ui:** バックエンドとの通信部分に型を付ける（[757acca](https://github.com/kein5/astarot/commit/757acca332b65b7e2cb32413d6db180204f35312)）
+- **ui:** 共有のストアとそのatomのフックに型を付ける（[4bf04bb](https://github.com/kein5/astarot/commit/4bf04bbe9ed08becc96e8cba16b9eecae8a2643e)）
+- **ui:** 訳さないままにする文字列に印を付け、使われていないボタンを消す（[069bae8](https://github.com/kein5/astarot/commit/069bae8666911cc1a3dcb8d1dcd9c823c68047a8)）
+- **ui:** 同意のダイアログと準備の要求のフックに型を付ける（[90f8bf2](https://github.com/kein5/astarot/commit/90f8bf2a2ae24fb49161651f0bce40e721c2722e)）
+- **ui:** ファイルのドロップ、保存バー、RVCの開始オプションのロジックに型を付ける（[6688bab](https://github.com/kein5/astarot/commit/6688bab0678d23a314c01a1f03c4370cb740d6c9)）
+
+#### 依存
+
+- **deps:** RUSTSEC-2026-0592のためにurlを2.5.9に上げる（[d69c184](https://github.com/kein5/astarot/commit/d69c184f4b8abb1130692ad0e8c7d5615aad911f)）
+- **deps:** 中核とopsの時刻の処理をchronoからjiffに移す（[b4b13d6](https://github.com/kein5/astarot/commit/b4b13d6d810b3a59bf7fc7a3781e5ed86e2b0492)）
+- **deps:** reactに合わせてreact-domと@types/react-domを19.3に上げる（[4cef809](https://github.com/kein5/astarot/commit/4cef809fb3b39a335c6ae56da9c8a77beea4784e)）
+- **deps:** CSPの試験が使うパーサーの@babel/parser 8.1.0を足す（[ef82586](https://github.com/kein5/astarot/commit/ef825869fb62270905b34e3bc456596d476da0ce)）
+- **deps:** @babel/typesを7.29.11から8.1.0に上げる（[718ed3c](https://github.com/kein5/astarot/commit/718ed3c201315f07d058d77f3500c481bb9ee7a6)）
+- **deps:** ポータルとトレイのコードをzbus 6に合わせる（[2afcc4d](https://github.com/kein5/astarot/commit/2afcc4ddabb5f36cd778cef51aac9e9a4926f0aa)）
+- **deps:** reactと@types/reactを上げる（[bd35241](https://github.com/kein5/astarot/commit/bd352411582b2d4c43b1e4c21a4f421a8df6ab60)）
+- **deps:** /src-tauriのzbusを5.19.0から6.2.1に上げる（[6ae647e](https://github.com/kein5/astarot/commit/6ae647e5425d5470c0abd494dacd65b668edea88)）
+- **deps:** @babel/standaloneを7.27.0から8.1.1に上げる（[eaf8f75](https://github.com/kein5/astarot/commit/eaf8f7519833e18f2b6c9b3cd973384c14b4fd6c)）
+- **deps:** react-error-boundaryを5.0.0から6.1.6に上げる（[134a9cb](https://github.com/kein5/astarot/commit/134a9cb8dc195d2647af5c4e9d213dea309a8c88)）
+- **deps:** @rollup/plugin-yamlを4.1.2から5.0.1に上げる（[43a983d](https://github.com/kein5/astarot/commit/43a983d8772792e12a38d8d5651e322943cd8824)）
+- **deps:** numpyを上げる（[2456de9](https://github.com/kein5/astarot/commit/2456de98fcc77aa5ea4dbdc6add0672ef2a3b2b7)）
+- **deps:** どの検査も動かしていなかったESLintを外す（[37d67c8](https://github.com/kein5/astarot/commit/37d67c8ff5071e3b270cb7b4194ac0c2e9e3d41e)）
+- **deps:** どこからもimportしていない試験用の依存を外す（[c54514e](https://github.com/kein5/astarot/commit/c54514e9964539592bbfb4696ce651a2e07ed5a5)）
+- **deps:** i18nextを25.0.1から27.2.2に上げる（[9c59c87](https://github.com/kein5/astarot/commit/9c59c87be8844e96132b971cce6f32579187fc0f)）
+- **deps:** CSPの試験が型を読む@babel/typesを依存として宣言する（[4a91859](https://github.com/kein5/astarot/commit/4a91859f8c7e9a5069fb01595ffcfbd8b719e474)）
+- **deps:** 文書サイトのviteを6.4.6に上書きする（[3c0b070](https://github.com/kein5/astarot/commit/3c0b070d34d21f4565cf2c95f69c7ccc8419c54e)）
+- **deps:** UIのビルドをVite 8.3.8に移す（[8e04e39](https://github.com/kein5/astarot/commit/8e04e39f877e724efa73e4f479976c6ab60a954a)）
+- **deps:** i18nのパッケージについて、npm installがTypeScript 7を受け入れるようにする（[dc3c546](https://github.com/kein5/astarot/commit/dc3c546f303bff73c7b2db2350270ac4d8e3e9a7)）
+- **deps:** Seed-VCの実行環境をPython 3.14で動かす（[7c65ede](https://github.com/kein5/astarot/commit/7c65ede81a9ff4ee156ab55d2375843f76dd8d3a)）
+- **deps:** SpeechRecognitionのフォークをPython 3.14でビルドできるようにする（[85354dc](https://github.com/kein5/astarot/commit/85354dc68d7aa00c9f2c76698ffb20a7c0ed7125)）
+- **deps:** Python 3.14で開発し試験する（[07b8d79](https://github.com/kein5/astarot/commit/07b8d7945f61b829b41670026b8f037dec5febe5)）
+- **deps:** react-i18nextを15.5.1から18.0.1に上げる（[cd00619](https://github.com/kein5/astarot/commit/cd00619398a9a33d31f0d319e016e47a3368297b)）
+
+#### ビルドとCI
+
+- Bencherの遅延の警報を中央値だけにする（[e88d8d5](https://github.com/kein5/astarot/commit/e88d8d56ce50271cf5fb8f47246e244c628a1cf0)）
+- Linuxの配布候補のジョブでアプリの単体試験を動かす（[bc8781d](https://github.com/kein5/astarot/commit/bc8781dfc2cf6fc3a6a2f2eabd2cd6b416d885ee)）
+- 版を固定したshellcheckでワークフローのシェルスクリプトを検査する（[759d2d3](https://github.com/kein5/astarot/commit/759d2d36e9719586f95ff8ea7fa35035d5455548)）
+- 公開したときにベータのアップデートのチャンネルを最新のリリースに向ける（[c6a7536](https://github.com/kein5/astarot/commit/c6a753678c8ec5bd71481ae001e1a5f4dacfc665)）
+- どのジョブも試験していなかったクレートを試験し、Rustのカバレッジを報告する（[7cf4952](https://github.com/kein5/astarot/commit/7cf495290c50de4781fe367ba6e465df7fca1f6e)）
+- **dev:** mise.tomlでcargo-llvm-covとcargo-mutantsの版を固定する（[7c10881](https://github.com/kein5/astarot/commit/7c10881f0cb5235403aa901c4e7316c8ece62a5d)）
+- 例外のない勧告があれば脆弱性の検査を失敗にする（[083a642](https://github.com/kein5/astarot/commit/083a6422661fe6ab4399b9e0ecf0ba564f0c06ca)）
+- 中核の管理対象の経路の試験を専用のPipeWireのグラフで動かす（[c5b0a33](https://github.com/kein5/astarot/commit/c5b0a33895c93c2e97355aae96611766384b717f)）
+- Dependabotが新しい版を提案するまで14日待つようにする（[f7c7574](https://github.com/kein5/astarot/commit/f7c7574a8a34eb984f9c991fbac75acd5dbb8746)）
+- actionlintとzizmorでワークフローを検査する（[e72c5f4](https://github.com/kein5/astarot/commit/e72c5f465ee6549ed2b5f00e6b3eabdd8773e3f9)）
+- **dev:** 道具の版を公開から2週間たった版に固定する（[c28d680](https://github.com/kein5/astarot/commit/c28d680eaae74bfed8f317eb5cca8c4b8bb2bf13)）
+- developの遅延の履歴を最初からやり直し、10回たまるまで警報を出さない（[4513f7a](https://github.com/kein5/astarot/commit/4513f7a682650fdb7424238824a3b84f66d055dc)）
+- 手で動かすワークフローでBencherの計測項目に単位を付ける（[309696b](https://github.com/kein5/astarot/commit/309696baec9a0c3aecd93f4d07c9384e86b8834c)）
+- **dev:** リポジトリの検査に使う道具10個の版をmiseで固定する（[301724c](https://github.com/kein5/astarot/commit/301724c9e1691a73b64de0dd4dccb46182b33c1f)）
+- すべてのプルリクエストで結合テストを動かす（[9c59aa1](https://github.com/kein5/astarot/commit/9c59aa14bd5b2ff63e24abde96855a4f9c6b7418)）
+- 使われていないLinuxのキャプチャの補助プログラムを外す（[26d7f99](https://github.com/kein5/astarot/commit/26d7f99f0098c8ae343ae5300aacb414fcb3ab2e)）
+- アプリが補助プログラムに渡すフレームのファイルにASTRの目印を付ける（[adaffa7](https://github.com/kein5/astarot/commit/adaffa7e9927862a572cc266ddd2b874bbce9e78)）
+- 補助プログラムの名前をastarot-*にし、vrct-vc-workerを外す（[337599c](https://github.com/kein5/astarot/commit/337599cf769d2e21fb343389e4654b52ab65b0bf)）
+- 開発、試験、ビルドの変数の名前をASTAROT_に変える（[235642d](https://github.com/kein5/astarot/commit/235642d8704f7b31a22a5d3cdb80717dc1fb4d4a)）
+- 音声の試験はdevelopとmainへのpushでだけ動かす（[487cbe2](https://github.com/kein5/astarot/commit/487cbe21610e9ab8d947a310cae84d082b7b1328)）
+- **linux:** ビルドの前の手順と並行して、ランナーのディスクを空ける（[cbe0562](https://github.com/kein5/astarot/commit/cbe05621602eece6fa3cb1ee90775fbecc215876)）
+- **linux:** AWSのランナーでは配布候補のパッケージをarchive.ubuntu.comから取る（[5054778](https://github.com/kein5/astarot/commit/505477882c16e49a1c9ac47c76503d0033febffa)）
+- **site:** 利用者ガイドをVitePressではなくRspressでビルドする（[4852904](https://github.com/kein5/astarot/commit/4852904fc426ccf4db3153add061eb53298b5523)）
+- Pythonのバックエンドのジョブを外す（[43d8028](https://github.com/kein5/astarot/commit/43d8028728c7b012a5ecab30c965d56723848d36)）
+- Pythonのバックエンドの依存、環境、検査を外す（[ea3173b](https://github.com/kein5/astarot/commit/ea3173b9088427ec5937be19b53f984f6cd1391f)）
+- 試験の後に動くワークフローから、パイプラインの時間を送る（[50bfe51](https://github.com/kein5/astarot/commit/50bfe51d627fdfc91815271e5fbcc769a1f88838)）
+- developとプルリクエストから、パイプラインの時間をBencherに送る（[039b7e9](https://github.com/kein5/astarot/commit/039b7e96fda3bee31f7db2627dd5a77b6e739ca1)）
+- **asr:** リアルタイムのキャプチャの試験をLinuxのジョブで動かす（[50e3e49](https://github.com/kein5/astarot/commit/50e3e49ed26b058e565920c64182b91c7649f211)）
+- **audio:** 入力の転送の声を抑える試験をLinuxのジョブで動かす（[d1fbf69](https://github.com/kein5/astarot/commit/d1fbf69567b953f189159ccc2280ada650396920)）
+- developのマージキューで必須の検査を動かす（[d890e95](https://github.com/kein5/astarot/commit/d890e955d8df9da42cca6bc97972b91f76b91543)）
+- **audio:** 管理対象の変換用デバイスの試験をLinuxのジョブで動かす（[f43ae30](https://github.com/kein5/astarot/commit/f43ae30067c2fff13eb5f0ec9cba66a78723bbc7)）
+- **audio:** 声のゲートの補助プログラムの試験をLinuxの音声の契約のジョブで動かす（[c5e0988](https://github.com/kein5/astarot/commit/c5e0988f1aaf10fe24c832846717aacd6795c441)）
+- **dev:** チャットボックスの実験と翻訳の書き出しの環境をPython 3.14に移す（[3eadca4](https://github.com/kein5/astarot/commit/3eadca4a213a5dedc93641edff215f22a482cf08)）
+- **release:** リリースのマージの後に下書きを準備し、戻しのプルリクエストを開く（[a82a53f](https://github.com/kein5/astarot/commit/a82a53fd24fd76dee1576362feac5ad6d65d972f)）
+- **dev:** uvがmise.tomlで固定したPythonを使うようにする（[94e3611](https://github.com/kein5/astarot/commit/94e3611ce6ecc4ad82bebc346ac84969a0db0618)）
+- 翻訳のクレートの試験を中核と一緒に動かす（[791017f](https://github.com/kein5/astarot/commit/791017f720fe3adb7716430e63fc1dfdbd48f062)）
+- **release:** CTranslate2かCUDAのライブラリを含むパッケージを拒否する（[2a32158](https://github.com/kein5/astarot/commit/2a321581423a74020017849323e27ff87a51b554)）
+- 同梱するONNX RuntimeをNuGetのパッケージから取る（[f7fff7d](https://github.com/kein5/astarot/commit/f7fff7dfed9deef71b28de2952939a724f9b98e7)）
+- 読み上げのクレートの試験を中核の試験と一緒に動かす（[73fa3c4](https://github.com/kein5/astarot/commit/73fa3c4112270b80000f4e54254168bedfed3ce4)）
+- APIキーを本物のOSの資格情報ストアで試験する（[1e8d231](https://github.com/kein5/astarot/commit/1e8d2317d3c6e3255430f26f6f103444e5cecfa4)）
+
+#### 試験
+
+- **ui:** 会話が空のときの試験で準備のロジックを1回だけ挙げる（[3ebefaa](https://github.com/kein5/astarot/commit/3ebefaa5dce99a9c9e2578d61eaad98ce1d0fb7c)）
+- **integration:** 折りたたみを一度に開いた状態で設定のページを確かめる（[761276b](https://github.com/kein5/astarot/commit/761276b0977c5c3004a8315fdb360da706221cdc)）
+- **integration:** ページを開いてもページ上の何も動かないことを確かめる（[f98cc9b](https://github.com/kein5/astarot/commit/f98cc9b93b90fd94d3682a89522c1bd1ee7c0ad4)）
+- **voice:** 停止の試験が再開する前に、ミュートの確定を待つ（[051ca57](https://github.com/kein5/astarot/commit/051ca5737efd6c059e1f01cbb5cabe59f0677eeb)）
+- **voice:** パスを探すのはログのうちRVCの試聴自身の行だけにする（[ed525b5](https://github.com/kein5/astarot/commit/ed525b5595f1d8d68a10b0eee0e5161edf769748)）
+- **ui:** CSPのバンドルの検査でreact-domのstyleのリソースを見分ける（[8cbbb7f](https://github.com/kein5/astarot/commit/8cbbb7f1664f257036463e4b8725f022058ad227)）
+- **ui:** 描画したツリーとrefをReact 19の型のとおりに読む（[6309c02](https://github.com/kein5/astarot/commit/6309c028d6117ccd7c5b6753e4d1b1b70735ee56)）
+- **ui:** 六芒星の文字を六芒星専用の文字サイズの段階と照らし合わせる（[f927556](https://github.com/kein5/astarot/commit/f927556894f82484a1788e19c7e606743808968f)）
+- **ui:** vanilla-extractのスタイルとfontの一括指定も文字サイズの段階に収める（[c98ea56](https://github.com/kein5/astarot/commit/c98ea569dd71830771f5a05d8614547f4a80b9d3)）
+- **ocr:** ポータルの補助プログラムの生存確認をLinuxだけにする（[a34ddd3](https://github.com/kein5/astarot/commit/a34ddd3606d1834de831013d2910a6a80659bdd3)）
+- **adapters:** OBSのサーバーの試験2つを当面Windowsでは外す（[3965412](https://github.com/kein5/astarot/commit/396541298e88bfd6db01a6afc9e10aebcfafd3ce)）
+- **ops:** 止まったダウンロードを閉じる試験を当面Windowsでは外す（[f793c71](https://github.com/kein5/astarot/commit/f793c7167dba5343d3f7209e519cf59e3c63d0d9)）
+- **integration:** 高さの低いウィンドウでもログのフォントサイズのパネルをログの中に収める（[d172c60](https://github.com/kein5/astarot/commit/d172c605e6b45b7ffff9640a307e21ca98b39d47)）
+- **ui:** メイン画面を描き直しても、しまった初期設定をしまったままにする（[b68cea4](https://github.com/kein5/astarot/commit/b68cea4693212db6ee7aea4db7a3861c6b850c37)）
+- 管理対象の仮想マイクの声がVRChatに聞こえることを確かめる（[9125058](https://github.com/kein5/astarot/commit/9125058e7e0a03885aa47dc23edd703078d205fb)）
+- **ui:** CSPの試験でパーサーの構文木をisNodeを通して読む（[f192f63](https://github.com/kein5/astarot/commit/f192f639ae77584e0d4108c83938b14de20167cd)）
+- **config:** 残ったファイルの名前の大文字と小文字だけを変えた場合は、ファイル名が大文字と小文字を区別するところでだけ確かめる（[cd3edde](https://github.com/kein5/astarot/commit/cd3edde7c67019d97063717aa00a89ae076bc207)）
+- 1回の送信がVRChatに1度表示され、管理対象の仮想マイクで1度聞こえることを確かめる（[8f4fe4b](https://github.com/kein5/astarot/commit/8f4fe4bf875be959c80985d5351e100b1fdf0ab6)）
+- **core:** 専用のPipeWireのグラフで、入力したチャットが管理対象の仮想マイクから聞こえることを確かめる（[00d9eff](https://github.com/kein5/astarot/commit/00d9effea03945b45f6c8c7ae4964cd30c787410)）
+- **core:** 偽の音声サーバーが読み上げの途中で失敗し、また戻れるようにする（[36f1561](https://github.com/kein5/astarot/commit/36f156160a2121ffeebb55232ba2b5c89abdbc8b)）
+- **ops:** Pythonのバックエンドのカタログとの比較をやめる（[794507a](https://github.com/kein5/astarot/commit/794507ab2de05a08fbdb6c0030a72101193f48f3)）
+- **core:** 中核が返すもの、送るもの、保つものを仕様書のために書き出す（[21ce77b](https://github.com/kein5/astarot/commit/21ce77b0029bd0109c8af851a4335fbcd9c5b9c9)）
+- **dev:** 道具がテキストの文字コードを明示している状態を保つ（[b9fb78f](https://github.com/kein5/astarot/commit/b9fb78f837c5231d4cf3394efd8616d0bf6d2b6d)）
+- **core:** 中核が送る通知の名前をすべてrun_mappingと照らし合わせる（[dfeeed1](https://github.com/kein5/astarot/commit/dfeeed1aecfadb419e32e225e77fc7724d66a3ec)）
+- **ops:** どの書き方が同じモデルのパスを指すかを示す（[f35439a](https://github.com/kein5/astarot/commit/f35439aee1342d65e540d5e89f8e5554246ea6a4)）
+- **core:** 保存する設定の限界値と言語の表を試験で固定する（[3132cac](https://github.com/kein5/astarot/commit/3132cac1d94e8bf05818d2fe6e4bb31fdd36e73e)）
+- **tts:** 最初の音の前にストリームが終わったときに残す先頭部分を確かめる（[b115220](https://github.com/kein5/astarot/commit/b115220690d5abcd775327233367d95b43e16ea1)）
+- **ops:** マニフェストに決まった名前と役割を求める（[a2ccd09](https://github.com/kein5/astarot/commit/a2ccd093ca35919cb31334ca641a0db6d9f195ec)）
+- **tts,asr:** 音の出だしと診断で、ミュータントが見つけた境界を試験で固定する（[8a861bf](https://github.com/kein5/astarot/commit/8a861bf83203fdcc513c8bfb8e6f5e1d56766558)）
+- **core:** 保存した設定の正規化関数をその性質に照らして確かめる（[cdb3f6b](https://github.com/kein5/astarot/commit/cdb3f6b838f7efc85537266c4826eb1be2fcaa07)）
+- **ops:** ダウンロードのカタログの決まりと、カタログが信頼するファイルを確かめる（[af6e65c](https://github.com/kein5/astarot/commit/af6e65c9ebc50dd4c7005eee8ce61601c3254ac4)）
+- **ops:** 試験用の翻訳の項目に、翻訳の項目が持つファイルを持たせる（[111a10c](https://github.com/kein5/astarot/commit/111a10c7b811bd9094d5b772d3934d3036edb1b1)）
+- **ui:** UIが待ち受けるルートをIPCの参照表と照らし合わせる（[46887b0](https://github.com/kein5/astarot/commit/46887b0b895f03c815cd98f1d2208ff51826f036)）
+- **ui:** UIの試験が動かすソースをすべて変異の対象にする（[9ae5638](https://github.com/kein5/astarot/commit/9ae563820d12430616bb9016af3dd925a654ae2a)）
+- **ui:** 試験がloadModuleで読み込むソースをViteでビルドする（[b2864a9](https://github.com/kein5/astarot/commit/b2864a9af2257eb05af981b8a52dcf9d1a29255b)）
+- **i18n:** ゲートの試験が普通の文字列の中に${...}を期待する理由を書く（[e03d3a1](https://github.com/kein5/astarot/commit/e03d3a145635bba2bd36a9f7856366c14e6ffa9f)）
+- **ui:** strict modeの試験のuseRefの代役を2つの文で書く（[d940133](https://github.com/kein5/astarot/commit/d94013344a2d4509aa64e72691270b930f70c4fd)）
+- **integration:** 項目を追加する前に翻訳のカタログのAPIのグループを開く（[b8512b9](https://github.com/kein5/astarot/commit/b8512b93378b8648ba290c983f0ee46074228ed4)）
+- **dev:** linkのスコープについて、表示した行ではなく実行する予定のコマンドを確かめる（[70af7a6](https://github.com/kein5/astarot/commit/70af7a672bc2842fd0933453aaea46081f9e37c7)）
+- **core:** speech.cppと同じく、偽の音声サーバーにTCP_NODELAYを設定する（[f17c7a2](https://github.com/kein5/astarot/commit/f17c7a20a65a69743805ea34c93b98527fe9f1e1)）
+- **ui:** 入力したメッセージを、翻訳、チャットボックス、読み上げに1回ずつ通す（[a05001c](https://github.com/kein5/astarot/commit/a05001c1428dde3ed6289abb20e805007ce39e12)）
+- **ui:** 読み上げとボイスチェンジャーの設定を保存し、再起動の後に読み戻す（[8211464](https://github.com/kein5/astarot/commit/8211464a6eee122fb90324345b723c6d09f52710)）
+- **ui:** 結合テストで折りたたみを開き、スイッチを切り替え、設定を持ったまま再起動する（[2b5ea0e](https://github.com/kein5/astarot/commit/2b5ea0e228efdcce8fb2f5444bed5b9f8829710d)）
+- **core:** 結合テストの代役に音声の出力を1つ持たせる（[691b264](https://github.com/kein5/astarot/commit/691b264e3fcc07b0da65d5d26dfa7b8f352669a4)）
+- **ui:** 結合テストでページの持つウィンドウの大きさを答える（[88885fb](https://github.com/kein5/astarot/commit/88885fb730c0e64bdc3da588efcf99a8c7440c4a)）
+- **ui:** 中核を通して、翻訳のAPIの項目を追加し、使い、消す（[2b76d4b](https://github.com/kein5/astarot/commit/2b76d4b5879fa9ab326daa3b2adde3f04626d5b5)）
+- **ui:** Playwrightでアプリの画面を本物の中核につないで動かす（[3a05b15](https://github.com/kein5/astarot/commit/3a05b15b096cb85f22010e20666c65756ac2de0b)）
+- **core:** 結合テストのためにブラウザーの中の画面を中核につなぐ（[1877f9c](https://github.com/kein5/astarot/commit/1877f9c6d3c2f07bd836fa129684207f27929157)）
+- **ui:** 操作の流れの試験でカタログの同梱の項目をアプリ共通の折りたたみとして読む（[abad8ef](https://github.com/kein5/astarot/commit/abad8effd4e2e580da4e7e31b4f2f739f6511d93)）
+- **dev:** チャット入力の小窓の試験をリリース前の受け入れ試験のグループとして動かす（[7868c9d](https://github.com/kein5/astarot/commit/7868c9db507a61d967e6ef299277d0e11230b32c)）
+- **platform:** チャット入力の小窓の試験をいまのアプリに対して動かす（[08cfc44](https://github.com/kein5/astarot/commit/08cfc441efc30cd5ce152dbce7047a2a6e59bb97)）
+- **ui:** 利用者が翻訳のカタログでする操作をVitestで確かめる（[c271d30](https://github.com/kein5/astarot/commit/c271d30a126fa2a819e012b6f618acbfbdcf5989)）
+- **core:** UIの音声のルートが中核の提供するエンドポイントに合うことを確かめる（[2fcf46d](https://github.com/kein5/astarot/commit/2fcf46de4f6debff36e75f4e8cd24e7f66c878b5)）
+- GUIのドライバーの後片付けの試験をvoiceの検査で動かす（[2c5cc1c](https://github.com/kein5/astarot/commit/2c5cc1c07e7171ac3cf23672167e19638626be51)）
+- **dev:** ネイティブの受け入れ計画の試験をtoolingの検査で動かす（[7011db1](https://github.com/kein5/astarot/commit/7011db1385cafcc35c6cebfc9ab33b052516874d)）
+- 対象がなくなったPythonの試験と道具を消す（[f59e697](https://github.com/kein5/astarot/commit/f59e6971e52213670eb74f3069086e1f8e731fe9)）
+- **ui:** 字幕のreducerについて、残っていた2つの確認をVitestで確かめる（[52f3147](https://github.com/kein5/astarot/commit/52f314768a0096edb441cf6b17ec8033ecff4107)）
+- **ui:** 「高度な設定」のページの試験でブロックの選択肢を読み込む（[5e897e0](https://github.com/kein5/astarot/commit/5e897e09d295d830fe04c17777767af17b138c96)）
+- **ci:** 配布候補のジョブのキャッシュはプルリクエストのときだけ使うよう求める（[6e4e5c2](https://github.com/kein5/astarot/commit/6e4e5c20d0a7c14afe5943df4c99ba349d283dfe)）
+- **ui:** チャット入力の小窓のブリッジにわざと形を違えた値だと印を付ける（[d31ac4c](https://github.com/kein5/astarot/commit/d31ac4c393a2632fc446429654acdeab619e6218)）
+- **ui:** ボタンの反応の試験にあるフックの実行部が、ハーネスの型ガードを使えるようにする（[75905ad](https://github.com/kein5/astarot/commit/75905ad60a62644fb70b852b85ebc63e053eb8c5)）
+- **ui:** 字幕オーバーレイとコンパニオンの試験で型を確かめない値に印を付ける（[d90faa2](https://github.com/kein5/astarot/commit/d90faa2be114470fdb4137542fd84378ab0bc217)）
+- **ui:** 共通のロジックの試験でハーネスの補助関数を使う（[cea6bb0](https://github.com/kein5/astarot/commit/cea6bb097b02ee93fc6dd358de763273476d3740)）
+- **ui:** 設定ページの試験でハーネスの補助関数を使う（[e1c6e05](https://github.com/kein5/astarot/commit/e1c6e05acc208da2cfaf94c96a3915d0708d5387)）
+- **ui:** 設定のコンポーネントの試験でハーネスの補助関数を使う（[be6d39f](https://github.com/kein5/astarot/commit/be6d39f10c636bfda9ca984d681461bf32a92ba6)）
+- **ui:** config pageの試験でハーネスの補助関数を使う（[6cf1e19](https://github.com/kein5/astarot/commit/6cf1e19840eb8d43ab2ff948a8e5a3f0edf53293)）
+- **ui:** 音声の試験でハーネスの補助関数を使う（[10d686a](https://github.com/kein5/astarot/commit/10d686a3f2955ff4e3a0cbe6d6a9c457f7f02365)）
+- **ui:** VR UIとウィンドウの試験でハーネスの補助関数を使う（[831db27](https://github.com/kein5/astarot/commit/831db273f1c7f806096b8572eeaec44fbf5c372e)）
+- **ui:** メインウィンドウの試験でハーネスの補助関数を使う（[7578a2a](https://github.com/kein5/astarot/commit/7578a2a76c840da4d0ea59165a44b85171de7914)）
+- **ui:** 音声認識と翻訳の試験でハーネスの補助関数を使う（[e28aa1a](https://github.com/kein5/astarot/commit/e28aa1a1f2fc699e8ee114980784f9f46647d891)）
+- **ui:** ルートとロケールの試験でハーネスの補助関数を使う（[6c10248](https://github.com/kein5/astarot/commit/6c1024863deec60b8323e466e1e1c2682b44050a)）
+- **ui:** 「入力と出力」とメイン画面の試験でハーネスの補助関数を使う（[ca16f6f](https://github.com/kein5/astarot/commit/ca16f6f6aca30a4b60a25c87dfc4cf5d95351e6b)）
+- **ui:** configsの試験でハーネスの補助関数を使う（[65f9efe](https://github.com/kein5/astarot/commit/65f9efe50dd823649697d262505fa1d91394425a)）
+- **ui:** 試験が繰り返す補助関数をハーネスに持たせ、ハーネスの通知に型を付ける（[000e9ce](https://github.com/kein5/astarot/commit/000e9cec460790b8277c4a9e38d0ac94c641dbf3)）
+- **site:** Rspressのビルドの検索、見出し、マニュアルのページを確かめる（[386775c](https://github.com/kein5/astarot/commit/386775cff275bbd5ff4048302643b550f1cd4dbe)）
+- **ui:** 「チャット読み取り（OCR）」「字幕とVR」「ASTAROTについて」「実験的機能」の設定の試験に型を付ける（[9cf2e35](https://github.com/kein5/astarot/commit/9cf2e35ae9a63e2ec0c822fa34ad11734356b7e3)）
+- **ui:** テキスト読み上げ（TTS）の設定の試験に型を付ける（[89308e4](https://github.com/kein5/astarot/commit/89308e48681676182321535caba319f95eda432a)）
+- **ui:** 「デバイス」「音声認識（ASR）」「翻訳」の設定の試験に型を付ける（[99a8507](https://github.com/kein5/astarot/commit/99a850717f0270bda694f0b07e21d373fe610c7a)）
+- **ui:** 「高度な設定」の試験に型を付ける（[6311f15](https://github.com/kein5/astarot/commit/6311f156c4a32dde6134c1ab91663ffef879fef4)）
+- **ui:** 字幕、コンパニオン、チャット入力の小窓のウィンドウの試験に型を付ける（[a6c2b7d](https://github.com/kein5/astarot/commit/a6c2b7d0698dc6351571273f035f76a698a6b89b)）
+- **ui:** VR UIの試験に型を付ける（[ef0b5d1](https://github.com/kein5/astarot/commit/ef0b5d13c3876745f3bf79f3271b1ff2997c01e2)）
+- **ui:** 設定ページの枠と、ページをまたぐ試験に型を付ける（[ed6d578](https://github.com/kein5/astarot/commit/ed6d578a9fe23655ec1d55d895bd3c59932c7f8d)）
+- **ui:** メインウィンドウの外枠とダイアログの試験に型を付ける（[6f6cf43](https://github.com/kein5/astarot/commit/6f6cf43e2b207d8aa3dffa7b973deeb044a72a1e)）
+- **ui:** テーマ、kit、共通のコンポーネントの試験に型を付ける（[99031aa](https://github.com/kein5/astarot/commit/99031aaafb529ff8519e97a64aa3fb7ce7ad22eb)）
+- **ui:** 設定の行のテンプレートの試験に型を付ける（[540bada](https://github.com/kein5/astarot/commit/540badaccff0973a74502949cf868fbfdad49d58)）
+- **ui:** 設定の操作部品の試験に型を付ける（[1ff4aa7](https://github.com/kein5/astarot/commit/1ff4aa7432e0c9da71519ff82db057e9f7ea5973)）
+- **ui:** ソースと表示名を読む、設定の部品の試験に型を付ける（[a1cde61](https://github.com/kein5/astarot/commit/a1cde61945bf869930345c8ea4985bf696296d68)）
+- **ui:** 設定ページの試験に型を付ける（[7ab53e5](https://github.com/kein5/astarot/commit/7ab53e57ecc519d887e25ac3892e5bda7b612c33)）
+- **ui:** 音声認識の試験に型を付ける（[12df4c6](https://github.com/kein5/astarot/commit/12df4c68ee02445ba45a7ce0a18dd36b0fc3c874)）
+- **ui:** ハードウェアの警告、ダウンロードの取り消し、ポーリングした状態の試験に型を付ける（[b948444](https://github.com/kein5/astarot/commit/b948444dfc3d7214c151fcbf7d3b971de230d583)）
+- **ui:** バックエンドのルートとエラーの試験に型を付ける（[e860533](https://github.com/kein5/astarot/commit/e86053336793ca5aadaa48f875ec13483c33193a)）
+- **ui:** 字幕オーバーレイとコンパニオンの試験に型を付ける（[1c0fee0](https://github.com/kein5/astarot/commit/1c0fee0e4a8dedba6498f8a1b3e9922e6403f33a)）
+- **ui:** 共通のロジックの試験に型を付ける（[4360d2c](https://github.com/kein5/astarot/commit/4360d2c50f554807d753ce6d88ad07e4af143ae4)）
+- **ui:** メインウィンドウのコントローラーの試験に型を付ける（[11fb6b8](https://github.com/kein5/astarot/commit/11fb6b8a96124eb8c1d3e01549d8b61c06c62304)）
+- **ui:** 「入力と出力」、メイン画面のロジック、初期設定、GPUの確認の試験に型を付ける（[585a6fa](https://github.com/kein5/astarot/commit/585a6fadb1c26e067c529ceb2c56f6c7ce97bcec)）
+- **ui:** メイン画面のログ、上部のバー、スイッチの試験に型を付ける（[2382f6c](https://github.com/kein5/astarot/commit/2382f6cfe4886a7a1905279f00af3ee7adf86ac5)）
+- **ui:** 共通の操作部品とフックを描画する試験に型を付ける（[215a2e3](https://github.com/kein5/astarot/commit/215a2e37747394b6666351a3994a4a6df4ac7486)）
+- **ui:** アプリのファイルと方針を読む検査に型を付ける（[5028e83](https://github.com/kein5/astarot/commit/5028e831111eae121d0b4712c000b563a025c20e)）
+- **ui:** 共通のロジックの試験に型を付ける（[67099fe](https://github.com/kein5/astarot/commit/67099feaa76defe00f20fa089d5ead253b7032d1)）
+- **ui:** 音声のフォーム、確認、試聴、制限の試験に型を付ける（[5a06a50](https://github.com/kein5/astarot/commit/5a06a50a2319b73f9190d829333a0d5739798590)）
+- **ui:** 翻訳の試験に型を付ける（[c5d0d20](https://github.com/kein5/astarot/commit/c5d0d20bcca949a07dd8e63a07b25b4514daff65)）
+- **ui:** 音声のエラー、ルート、カタログの試験に型を付ける（[eca0345](https://github.com/kein5/astarot/commit/eca0345e30328cd5a8ea00a7f0a232edb8fe1988)）
+- **ui:** メイン画面の言語と起動の試験に型を付ける（[bf5c870](https://github.com/kein5/astarot/commit/bf5c87093ab1618c0481abeb3c75576dd19119ab)）
+- **ui:** 試験が型なしで渡す値を1か所で宣言する（[afb933c](https://github.com/kein5/astarot/commit/afb933ce1cd4a3ebb974a25b7f24847e01dc8860)）
+- **ui:** 試験のハーネスに型を付け、試験をNodeの型で検査する（[29ecea4](https://github.com/kein5/astarot/commit/29ecea44b3ae3b7ece4e3f3d3bcb3393b1aa5ae0)）
+- **vc:** 失敗した変換が止まりきってから次を開始させる（[19c93dc](https://github.com/kein5/astarot/commit/19c93dcf012895707deed14d5c7548eff53fe3f2)、[e893991](https://github.com/kein5/astarot/commit/e89399100646aa32ec4f96799c5f1b97c02298b4)、[b3ab648](https://github.com/kein5/astarot/commit/b3ab6480780aa5df33e0f093c8a4f110dcb246d5)）
+- **audio:** 専用のグラフで、管理対象の経路が入力の転送の声を抑えることを聞いて確かめる（[7492e5b](https://github.com/kein5/astarot/commit/7492e5be0cceea9676d1efaa8cfbe0c226f4575b)）
+- **vc:** 管理対象の経路の再開の待ちと、モニターの障害を試験する（[0c6de15](https://github.com/kein5/astarot/commit/0c6de1557fda931e948d382a5886a28e0d02fd2e)）
+- **asr:** メッセージがすべての送り先に届いてから認識をオフにする（[ade61b4](https://github.com/kein5/astarot/commit/ade61b4d09a9d3d1c0774bff3ea1d7bff3fe49f6)）
+- **vc:** Linuxの試験で再開の前に経路の確認を待つ（[67f3cc8](https://github.com/kein5/astarot/commit/67f3cc8feb864f3e266ccf0da09c9836556e2b17)）
+- **ui:** ツールチップの試験で設定のヒントをTypeScriptとして読む（[d6c3827](https://github.com/kein5/astarot/commit/d6c382705632bee6733c5b5f540e4f6e28d3e720)）
+- **asr:** 停止したときの発話のまとめをどちらもあわせて読む（[7843b27](https://github.com/kein5/astarot/commit/7843b27bdcd7d111be0ffaeeb57d5dd632c3d052)）
+- **audio:** 専用のPipeWireのグラフで本物の声のゲートの補助プログラムを確かめる（[e6fc796](https://github.com/kein5/astarot/commit/e6fc7964beab39653769638690fc33e1fefbd019)）
+- **asr:** Linuxのキャプチャを代わりの補助プログラムに対して動かす（[1b7fe67](https://github.com/kein5/astarot/commit/1b7fe67ce62dc1d92dc5f3802ad6988c0d5f9194)）
+- **translation:** フォルダーの注記から、カタログ自身の節へたどる（[a25821b](https://github.com/kein5/astarot/commit/a25821b5c75d76b67e22260aae5a0a6b9f1bf061)）
+- **audio:** 本物のモニターがデバイスを開いている間や再生中の停止を試験する（[f327c72](https://github.com/kein5/astarot/commit/f327c72a7adee5a82087443e2bc6266eb0df10a1)）
+- **tts:** リスナーの表、最初の音声までの持ち時間、サーバーごとに1回の確認を試験する（[f24cf1a](https://github.com/kein5/astarot/commit/f24cf1a00a7794bc326037ef06d62f68b35701ab)）
+- **vc:** 変換した声のモニターと、止まるワーカーや無音しか得ないワーカーを試験する（[80dbb59](https://github.com/kein5/astarot/commit/80dbb593523aa1ce8c541378b6d996713b75473a)）
+- **audio:** 管理対象の経路が、ミュートが保存されるまでモニターを止めておく動きを試験する（[3b9885a](https://github.com/kein5/astarot/commit/3b9885ac37318ef5e67e3b9f5234f065658fa861)）
+- **vc:** ワーカーの契約、セッションの発話とそのオプションを試験する（[a2313cd](https://github.com/kein5/astarot/commit/a2313cd9237eddc0bbb01ed3dca4c816b49446a5)）
+- **asr:** 聞き取った文を翻訳している間のミュート、スピーカー、失敗するセッションを試験する（[198fbd1](https://github.com/kein5/astarot/commit/198fbd1d712062c12539f6b91cd615540b9e1d08)）
+- **asr:** 試験のなかったリアルタイム認識の失敗を試験する（[072b9ca](https://github.com/kein5/astarot/commit/072b9cadd1f572b2acb48290f242a59de7099712)）
+- **ui:** ファイル単位だけでなく、枠線のボタンごとの縁を確かめる（[80f9863](https://github.com/kein5/astarot/commit/80f9863c6acdf4b31452c1f2065d1aef17ca2dbe)）
+- **ui:** モデルの制限の試験に試聴の代役を持たせる（[c057319](https://github.com/kein5/astarot/commit/c057319982ffd44cd7f33d203677e36227fd48a1)）
+- **ui:** 各言語がどちら向きに訳されるかを示すことを確かめる（[6976acc](https://github.com/kein5/astarot/commit/6976acc1470d62c5e0de214694c18c5666e57b77)）
+- **dev:** 別の環境がmise.tomlで固定したPythonを使うことを確かめる（[ee7b0ce](https://github.com/kein5/astarot/commit/ee7b0cebd7e9241f0c69567767f46e25425194f6)）
+- **ui:** VR UIと字幕オーバーレイの文字をそれぞれの文字サイズの段階に収める（[10768df](https://github.com/kein5/astarot/commit/10768df5ba071d2c0818490df1432272718ac645)）
+- **ui:** 灰色とLilacのすべての段階をブランドの色を導く規則と照らし合わせる（[560bae2](https://github.com/kein5/astarot/commit/560bae22eed008ad4cf2689f0adda65bc0dee8ac)）
+- **core:** アップデートの応答を順番ではなく状態で待つ（[6cc5095](https://github.com/kein5/astarot/commit/6cc5095e3691296df2dc6224a52d61df10edf828)）
+- **asr:** 話者を分けたゲーム音声の字幕を、中核を通してVRの大きいログまで流す（[0067716](https://github.com/kein5/astarot/commit/00677167441ed2e28b9123fdc97257a77baaea6f)）
+- **voice:** UIの音声のルートと比べる対象をPythonのバックエンドの音声のルートだけにする（[942fbab](https://github.com/kein5/astarot/commit/942fbaba66a23fbecea5972eaf7d371a654df179)）
+- **tts:** 試聴の試験で再開の前にミュートの確定を待つ（[b4723e7](https://github.com/kein5/astarot/commit/b4723e706ea3a84dffad975c57a22fe45dd706e1)）
+- **tts:** TTSのカタログの試聴ボタンをブラウザーで確かめる（[b9847cd](https://github.com/kein5/astarot/commit/b9847cdc0a22332c3524b9cce1b17a700acab9c5)）
+- **asr:** 「音声認識（ASR）」のページの2つのグループをブラウザーで確かめる（[6dc0dcf](https://github.com/kein5/astarot/commit/6dc0dcfa5c810a20f4b890043683c42b9227832c)）
+- **translation:** 狭いウィンドウでローカルのモデルの一覧を確かめる（[9ed7f12](https://github.com/kein5/astarot/commit/9ed7f128e5d230334e360abfd543bb46fc490573)）
+- **ui:** 最も小さいウィンドウで、待機メッセージがありミュート中のときも停止とミュートが見えるようにする（[d2d1bd8](https://github.com/kein5/astarot/commit/d2d1bd89377d0382af16cae9d4e66f6067f8e253)）
+- **vr-overlay:** リアルタイムの字幕の更新、待ち、巻き戻しを確かめる（[ccf6815](https://github.com/kein5/astarot/commit/ccf68151a7e899769360ff9ed957608910dbb05a)）
+- **core:** VRの大きいログでリアルタイムの字幕を確かめる（[2e15468](https://github.com/kein5/astarot/commit/2e1546839f688f5582b0ec3ee246d259789c677e)）
+- **core:** 言語の切り替え、Deepgramの言語、ローカル認識の案内を確かめる（[a4403e5](https://github.com/kein5/astarot/commit/a4403e5454d7e0d6907662510ae5b8fb1296c9ee)）
+- **translation:** 中核の試験を動かすときにプロバイダーの契約を読む（[fdee9b3](https://github.com/kein5/astarot/commit/fdee9b321ed4a1a2ac6af5cfd873937d7e702246)）
+- **translation:** 重みと言語を中核と照らし合わせる（[bbf1b02](https://github.com/kein5/astarot/commit/bbf1b02773eefacd515b9b08d718faac7988dd1b)）
+- **translation:** PythonとRustを記録した1つの契約に合わせる（[520f5a9](https://github.com/kein5/astarot/commit/520f5a9605d2c8eb17a08172fa29dd61e46273f8)）
+- **tts:** リスナーと期限の試験がスレッドの起動にかかる時間に左右されないようにする（[fdb0d90](https://github.com/kein5/astarot/commit/fdb0d90f966b252fb532156835cc04a56f2e9a9d)）
+- **tts:** Windowsで、偽の音声サーバーが応答全体をキューに入れられるようにする（[f8f00a3](https://github.com/kein5/astarot/commit/f8f00a391abe6f53675187d8965e065a7f1d2412)）
+- **platform:** ネイティブGUI試験を名前の変わったページと折りたたみに合わせる（[157b04f](https://github.com/kein5/astarot/commit/157b04ffbc3312b38e7fb442a8887addfef93796)）
+- **voice:** 自前のサーバーで読み上げる試験では外部サーバーを指定する（[eae4e58](https://github.com/kein5/astarot/commit/eae4e58e10f1f63b892025d45339b769eda7af6f)）
+- **ui:** 入れ替えのボタンの試験をVitestで動かす（[7210fb0](https://github.com/kein5/astarot/commit/7210fb0674f017e2eda4e8a4218d950e3a3502ef)）
+- **ui:** 初期設定の試験をVitestで動かす（[a007f90](https://github.com/kein5/astarot/commit/a007f901e75d6442bd84f286990a30b50b024dd3)）
+- **transcription:** クレートがまだ確かめていなかった、Pythonの認識の試験の内容を試験する（[acc44e6](https://github.com/kein5/astarot/commit/acc44e6ec20f0c6a210758b9e396e2e9c9447e33)）
+- **core:** 停止したときに、認識が聞き取ったがまだ届けていなかった内容を試験する（[4f3b85b](https://github.com/kein5/astarot/commit/4f3b85bb13f4ade6f7fabfdd2d6fe9c2a5f9e779)）
+- **ui:** 文字サイズの段階の試験をVitestで動かす（[62881f1](https://github.com/kein5/astarot/commit/62881f1e571be1808d90b553fb741774edb0ef4a)）
+- **ui:** GPUのメモリの試験をVitestで動かす（[7e810fb](https://github.com/kein5/astarot/commit/7e810fbb87af37b4d3d71d34ad734714dffee543)）
+- **core:** 翻訳のカタログのキーの試験がPCの資格情報ストアを使わないようにする（[ae57ac1](https://github.com/kein5/astarot/commit/ae57ac1d7930eb2566852d19ad2c7ed844f99e34)）
+- **openvr:** オーバーレイとocrが呼ぶ関数表の位置をすべて確かめる（[333a45d](https://github.com/kein5/astarot/commit/333a45d9de088e389006564ad8111fc32fca6c8a)）
+- **openvr:** 関数表を呼ぶクレートのためにpyopenvrの関数表を記録する（[00d21c9](https://github.com/kein5/astarot/commit/00d21c9f8b132fde02e6f851538a9b36630fb976)）
+- **ui:** ブラウザー試験で「詳細設定」の中の設定にたどり着く（[1fa4f1f](https://github.com/kein5/astarot/commit/1fa4f1fc9b0a6f0bdbd19c7913359ef1260d407a)）
+- **ui:** 「入力と出力」のパネルのGPUのメモリの試験をVitestで動かす（[5c4aa09](https://github.com/kein5/astarot/commit/5c4aa0959a8fe850148f14bafb48a0b5475b6ba1)）
+- **ui:** 等価と判断したミュータントを理由とともに記録する（[ebc7f77](https://github.com/kein5/astarot/commit/ebc7f77548d5d727343d79dd1f599b55e3cd7646)）
+- **transcription:** リアルタイムの字幕を受け入れるときと外すときの動きを確かめる（[11a3ce4](https://github.com/kein5/astarot/commit/11a3ce4db136478f25fb3850780ad97dd223a069)）
+- **ui:** 想定どおりのバックエンドの終了と、保存バーのストアを直接試験する（[840b16f](https://github.com/kein5/astarot/commit/840b16f92e3479feb146bb345ec5260d4e272587)）
+- **ui:** 共通のリストと数値の補助関数を試験する（[1b3e0fd](https://github.com/kein5/astarot/commit/1b3e0fd4b71eadf25c330037fadaa4d142e31da1)）
+- **ui:** どの要求が保留中の設定を解放するかを確かめる（[2db727b](https://github.com/kein5/astarot/commit/2db727b0eadad7e5fd73caf40346ee369b1cdaf8)）
+- **ui:** 起動時の値の規則と、失敗の報告のしかたを確かめる（[85756a5](https://github.com/kein5/astarot/commit/85756a531a45fe4f75033531fba2db9faedb3c42)）
+- **flow:** 「入力と出力」の図の箱と矢印をすべて確かめる（[dd2b024](https://github.com/kein5/astarot/commit/dd2b024dd1aa3610e5bb22c0d66f18fc5a7be06f)）
+- **ui:** VRのページのスライダーを読むところでフォームの行をスタブにする（[e04d6bc](https://github.com/kein5/astarot/commit/e04d6bcf4a55be989909c56f3a815ff6bc5bc071)）
+- **ui:** すべてのページで設定の入力欄の列を測る（[3c9fdec](https://github.com/kein5/astarot/commit/3c9fdecee293cd931136f5dcd269c636717a7d57)）
+- **ui:** パレットとkitの試験をVitestで動かす（[b711d27](https://github.com/kein5/astarot/commit/b711d275d809607c89a6db3dda086403f1903daf)）
+- **translation:** 短い読みでも各ブロックに取り分が残ることを確かめる（[976af24](https://github.com/kein5/astarot/commit/976af24b876e3755e29402d93a7de3ebb64ba07c)）
+- **platform:** ネイティブGUI試験を初期設定を済ませた状態から始める（[0c81ba0](https://github.com/kein5/astarot/commit/0c81ba04c68c59561e4387408072518e1f8be873)）
+- **translation:** 仮名の表の項目すべてと、短い読みと長い読みの分け方を確かめる（[963e3c9](https://github.com/kein5/astarot/commit/963e3c94aac71b7d2188f279c77a54429e94c4d1)）
+- **voice:** 対応環境の表が配布物やCIの環境とずれたら失敗にする（[65fd377](https://github.com/kein5/astarot/commit/65fd377e3a3b618b7791268c570531a3a2b85e07)）
+- **setup:** 本番の画面で初期設定を確かめる（[e356555](https://github.com/kein5/astarot/commit/e35655554bb9c908ead021f4efd325f21bff59e5)）
+- **ui:** ジャンプのグループでひらがなの範囲の終わりと名前がない場合を試験で固定する（[4d86819](https://github.com/kein5/astarot/commit/4d86819deeb20fc7c54ee787c5e597c462e5a2eb)）
+- **ui:** UIの試験をnode:testではなくVitestで動かす（[b478fa9](https://github.com/kein5/astarot/commit/b478fa9e1ad9b5a7b14adcd8eb35910c383b51a0)）
+- **tts:** クレートがまだ確かめていなかった、Pythonの読み上げの試験の内容を試験する（[8488fa0](https://github.com/kein5/astarot/commit/8488fa0c433b5b0f1a1e9ddde8cb8845a5ecb16e)）
+- **core:** 最初の書き込みの後、バスが記録する開始の遅れを待つ（[32ca1de](https://github.com/kein5/astarot/commit/32ca1de2fc2f4278157a06ebbd31f5eb9077fa52)）
+- **core:** エンドポイントを通した読み上げの開始、順番、中断を試験する（[1e6ba3b](https://github.com/kein5/astarot/commit/1e6ba3b4bf586923c7e40f7a191f8cce2efbd01c)）
+- **core:** 入力中の表示の持ち主と順番を試験する（[2b7f9a5](https://github.com/kein5/astarot/commit/2b7f9a5108691ac47194fba3249d0423ba6d7d02)）
+- **core:** メッセージの途中の終了、翻訳の履歴、会話ログを試験する（[9360cba](https://github.com/kein5/astarot/commit/9360cba423b31c3cceaf2880558d42859cff7932)）
+- **core:** 翻訳のフォールバック、対応しない言語の組、並行する送り先を試験する（[380db4a](https://github.com/kein5/astarot/commit/380db4a515f34fab0b0bf71a2887082bdabd682d)）
+- **ui:** UIのTypeScriptにanyと型検査の抜け道を入れないようにする（[b729d3c](https://github.com/kein5/astarot/commit/b729d3c25174e230b563eeff5a61b317c72dcf9b)）
+
+#### 文書
+
+- **release:** 0.6.0のノートに初期設定から案内するスイッチを足す（[6c64463](https://github.com/kein5/astarot/commit/6c644632cbfe960983ff8fe6e59e9f78740d57a5)）
+- **release:** 0.6.0の既知の問題に実機での確認を足す（[ec38c02](https://github.com/kein5/astarot/commit/ec38c02a44712d354b4906103baeb6d615ec0495)）
+- **release:** 0.6.0のリリースノートを足す（[d2eb2a2](https://github.com/kein5/astarot/commit/d2eb2a2b9667b3496a69bd7e79e2239f0719a154)）
+- 外部の検査道具一式のSergulathをコードネームの一覧に入れる（[c98affb](https://github.com/kein5/astarot/commit/c98affb7d09145b9648e3268b6b050403bbf12d9)）
+- **site:** 0.6.0ではVRChatのためのファイアウォールの確認が出なくなったと書く（[247cd0f](https://github.com/kein5/astarot/commit/247cd0f04712126c499540486d77f3f109fa89a6)）
+- **spec:** 初期設定で使う翻訳モデルのエンドポイントを挙げる（[cf436d1](https://github.com/kein5/astarot/commit/cf436d15c8f408027c3ccd404f972342859bd15f)）
+- **spec:** 初期設定の翻訳の行がどこへ案内するかを書く（[1eb2df0](https://github.com/kein5/astarot/commit/1eb2df0b572eeb0aef537fad3f190ec0bd17c6a9)）
+- 配布物にSudachiDictのfullが入っていると記録する（[cf0e744](https://github.com/kein5/astarot/commit/cf0e744590c5561c7840d42bc96131e644db92e5)）
+- **core:** 中核の統合で決着した5項目を済みにする（[be9d854](https://github.com/kein5/astarot/commit/be9d854d353b8b5f8dcd9a30f166d7395b393e8e)）
+- **design:** 押したときや応答で変わるものの場所を空けておくことを記録する（[762feb1](https://github.com/kein5/astarot/commit/762feb12ecd94711a8617111666a8ccb0a4bf167)）
+- **spec:** 六芒星を押したときの動きと初回のホイールの案内を書く（[a5fbaf3](https://github.com/kein5/astarot/commit/a5fbaf315b99895a699d3c4e43eaa4f475719a70)）
+- **design:** 六芒星を押したときの動きと初回のホイールの案内を書く（[0018e7b](https://github.com/kein5/astarot/commit/0018e7b96813598570aeb511a3a080440d669959)）
+- **spec:** 六芒星のアイコン、押したときの動き、フィードバックを書く（[3c95cf3](https://github.com/kein5/astarot/commit/3c95cf3f4eda39b5a55be5c5b4151db0af1c5506)）
+- **design:** 六芒星がポインターにどう応えるかを書く（[9229655](https://github.com/kein5/astarot/commit/9229655a3bb011cf0cfdf5558bcd481c6dee99e9)）
+- **design:** 六芒星の輪郭の太さはオンでもオフでも同じだと書く（[e7bea6f](https://github.com/kein5/astarot/commit/e7bea6ff944b1fb6da36f7cda6a7b4534c5036e4)）
+- **design:** 六芒星のオンの三角形は辺がすべてLilacだと書く（[ab4f9a9](https://github.com/kein5/astarot/commit/ab4f9a9ede919bc47153c133e228e626913e9b5f)）
+- **design:** オンの機能を示す六芒星のLilacの三角形を書く（[ff350b6](https://github.com/kein5/astarot/commit/ff350b6e4b22b350e78a8c19e1efc38c242d4654)）
+- **design:** 六芒星のLilacのアイコンと太くした輪郭を書く（[574fe62](https://github.com/kein5/astarot/commit/574fe62e4a3c2772c96b42d9a0082ac4cb3c88be)）
+- **design:** 六芒星のアイコンとその緑を書く（[bd8f9d6](https://github.com/kein5/astarot/commit/bd8f9d62469c1d80108e934d2a84f9c313892492)）
+- Workerが配信するベータ版のアップデートのチャンネルを書く（[a5a7dff](https://github.com/kein5/astarot/commit/a5a7dffe14a80cfe3f752cccb352f8af5ca86f56)）
+- **spec:** 利用者が選ぶアップデートのチャンネルを書く（[76bd9b7](https://github.com/kein5/astarot/commit/76bd9b7dbdb3cb72fa545940d87fc6810a023d17)）
+- **spec:** app-update-restartingを書く（[3142fc2](https://github.com/kein5/astarot/commit/3142fc24cf71eb1ea5a3167796d3000c8663a00c)）
+- **spec:** リアルタイム字幕の発話検出のしきい値を書く（[989f8e8](https://github.com/kein5/astarot/commit/989f8e8705f7aed9ffbfe32fad286cf133ad2d29)）
+- **spec:** LLMによる翻訳の温度と指示を書く（[9a4f975](https://github.com/kein5/astarot/commit/9a4f97531d1bad6109bef17f94d12b4c9ba82a2a)）
+- **spec:** 音声認識の行から古いWhisperの重みを外す（[5c2cd97](https://github.com/kein5/astarot/commit/5c2cd973562f4671ac3983bfaa59110149024e1e)）
+- カタログの翻訳モデルにNLLB-200 distilled 1.3Bを入れる（[04c20a3](https://github.com/kein5/astarot/commit/04c20a348610a53a4ef0fbb2d453e58a78575fdb)）
+- 出した版とこれから出る版のアプリの動きにガイドを合わせる（[5d3ed14](https://github.com/kein5/astarot/commit/5d3ed1425fe7b14fbde488abcc623782c7e61091)）
+- **spec:** 次の起動で反映するランタイムの修復を書く（[c1c2142](https://github.com/kein5/astarot/commit/c1c2142a4a56e482433dd8e152e94238226886d5)）
+- UIがReact 19で動くと書く（[da4e8ed](https://github.com/kein5/astarot/commit/da4e8ed58c2d564e41d0ef13a6e859821cb06121)）
+- **adr:** 改名のリリースノートからファイアウォールで許可する案内を外す（[d88cddb](https://github.com/kein5/astarot/commit/d88cddb63e33374c438df0fb1d2c5a8c5f5d3156)）
+- **spec:** portal-shortcuts-not-restoredを書く（[1078b04](https://github.com/kein5/astarot/commit/1078b040903ed5bae3310ad29dfd928ac2d35a55)）
+- **hotkeys:** ポータルでの登録に失敗したあと何も聞き直さない理由を記録する（[894b93b](https://github.com/kein5/astarot/commit/894b93b6feadc29cc0c3a3cc7d293f5f3d5947f9)）
+- **design:** トレイのコンパニオンの六芒星に専用の文字の大きさの段を設ける（[3121b74](https://github.com/kein5/astarot/commit/3121b74ff70030605b6d12c5a59b991e1c68bd64)）
+- **spec:** 使用中のライブラリで断られるランタイムの修復を書く（[ea9e38a](https://github.com/kein5/astarot/commit/ea9e38a364d20d7cc4b47c4029be44e943051f89)）
+- **site:** マニュアルにボイスチェンジャーのモデルの確認を載せる（[4529a07](https://github.com/kein5/astarot/commit/4529a0780608a2cf4cda6ad313d67356227ec965)）
+- **dev:** 版を固定したカバレッジの道具とカバレッジのジョブを書く（[c95ca89](https://github.com/kein5/astarot/commit/c95ca896179011970f479e3900f3f7c4fb433b77)）
+- **spec:** 新しい版のために残す設定を書く（[575e80f](https://github.com/kein5/astarot/commit/575e80f5ef21965057f3afcd22e0f2985fe72080)）
+- 使っていないCの補助が配布物から外れたと記録する（[d30a435](https://github.com/kein5/astarot/commit/d30a435faed8b110a2c36c9c487dbbdcbfa69a7f)）
+- Rustのコードが置き換えたPythonのソースへのリンクをv0.5.2のタグに向ける（[6ba67b1](https://github.com/kein5/astarot/commit/6ba67b1a57a5c5659ca03fa2dc5b158fe771f04e)）
+- **update:** プラグインによるAppImageのインストールが不可分になったらそちらに戻すと記録する（[6ccf711](https://github.com/kein5/astarot/commit/6ccf711acd5c353356c658c1042436d48c488b56)）
+- **spec:** アプリが自分自身を置き換えるAppImageの更新を書く（[4b3b4f2](https://github.com/kein5/astarot/commit/4b3b4f21af091ffa12f02b0c927fbf35a3699fd1)）
+- **spec:** 失敗したときに残るものにランタイムの準備を足す（[2543d9a](https://github.com/kein5/astarot/commit/2543d9a93d181ae690d4d4d6dbae2cd0ca2ec147)）
+- **spec:** 中核のカタログから参照の表を作る（[ae845e5](https://github.com/kein5/astarot/commit/ae845e58f247b47c00537c406755cf1ea5d5dee7)）
+- ビルドの手引きと古いリンクをkein5/astarotに向ける（[792defc](https://github.com/kein5/astarot/commit/792defcb02580253aeb7aaff1802eb0c7eb6a585)）
+- **dev:** Rustのカバレッジの測り方とミューテーションテストの流し方を書く（[49ca7d1](https://github.com/kein5/astarot/commit/49ca7d16b785ebdb8219c21184c3dbb733afd055)）
+- **ui:** ミューテーションテストを全部流すのにかかる時間とカバレッジを取り直すときを書く（[b314e84](https://github.com/kein5/astarot/commit/b314e84781c24a47aa96f0c5fac34687d20447be)）
+- 実際のモデルでパイプラインの遅延を手で測る方法を書く（[8b38b0c](https://github.com/kein5/astarot/commit/8b38b0c5b4ccb0c6dd4d387fcffcd33009fc1de2)）
+- **ui:** loadModuleが読むソースはViteを通ると書く（[6dcc06a](https://github.com/kein5/astarot/commit/6dcc06ad1ff3d4bff49c60eb9078cbed829861d5)）
+- **dev:** mise.tomlが版を固定する道具にBiomeを入れる（[9bd0f87](https://github.com/kein5/astarot/commit/9bd0f87d8140ae00bad463f92321bc06c3d5d741)）
+- Linuxのデスクトップの検査に要るものにxwininfoを挙げる（[3fba051](https://github.com/kein5/astarot/commit/3fba05123125d480551ac2a53a7f68d2b704ba6d)）
+- **voice:** 出力の決まりと測り直しについての判断を記録する（[b2a2077](https://github.com/kein5/astarot/commit/b2a20771b8c49c7def926a3ee408848ab364b573)）
+- 結合テストのホストは当面vrct-の接頭辞のままだと記録する（[f08df48](https://github.com/kein5/astarot/commit/f08df48ac24de614ceac44b794e1f92e6a68132a)）
+- 結合テストのホストにAglasisというコードネームを付ける（[0040a46](https://github.com/kein5/astarot/commit/0040a46027280185c405bab6ab69721c464169a4)）
+- **site:** KDE Plasmaのデスクトップでの0.5.2のAppImageの確認を記録する（[e5566de](https://github.com/kein5/astarot/commit/e5566deed8d44326fa0a971a852c6bdf419684e2)）
+- **adr:** Playwrightの結合テストで画面を中核に通して動かす（[02df820](https://github.com/kein5/astarot/commit/02df8207e570cb86af26679469e84b158a237085)）
+- **voice:** ブロック長についての判断とVB-CABLEでの結果を記録する（[08c813b](https://github.com/kein5/astarot/commit/08c813bb4b3a663821ba7e7b29b763a7d8fe886b)）
+- **voice:** RVCのブロック長についての判断を記録する（[ff7b5a5](https://github.com/kein5/astarot/commit/ff7b5a547394e79e7376dd66e29887ccf13c46ff)）
+- パッケージ名がastarot-の名前になると記録する（[a44ca0e](https://github.com/kein5/astarot/commit/a44ca0e74e6262e63149b3fbbe22deb96cfbcfa9)）
+- READMEとLinuxの手引きにastarotのフォルダーを書く（[d5f7559](https://github.com/kein5/astarot/commit/d5f755992ca3e77f1c8e78629b9fb9871e9776e4)）
+- **site:** ガイドにLinuxでのastarotのフォルダーを書く（[6ad7262](https://github.com/kein5/astarot/commit/6ad72622927b6e2d14292db8bde47e534a263241)）
+- **translation:** NLLBについて英語と日本語で記録し、3.3Bの確認を閉じる（[e881187](https://github.com/kein5/astarot/commit/e88118791834519ac0f5fb35bc02c0614145e7ac)）
+- **voice:** RVCの経路の遅延とチャンク長の設計を記録する（[8111f2c](https://github.com/kein5/astarot/commit/8111f2ced7efce649c9c6466acca543a20fd2cb2)）
+- 8つのクレートのマニフェストと文書にそれぞれのコードネームを書く（[6f185a6](https://github.com/kein5/astarot/commit/6f185a6bf80bd96ebafdfd240ca26a32e6d2c429)）
+- 内部のクレートのコードネームを記録する（[9dd22ce](https://github.com/kein5/astarot/commit/9dd22cecdd60c3f3f2d07b9af92fc8447681d8e2)）
+- **voice:** デスクトップPCでのCUDAによるRVCのワーカーの結果を記録する（[277b977](https://github.com/kein5/astarot/commit/277b9777b5536e5142289b6a3955899e90403749)）
+- **design:** 見直した設定のページに「ASTAROTについて」を入れる（[437c483](https://github.com/kein5/astarot/commit/437c4831762e05fc4da712c924c0671dee7e0ffe)）
+- **voice:** RVCの実行プロバイダーの比較とデスクトップPCでの測り方を記録する（[e814f57](https://github.com/kein5/astarot/commit/e814f57230949a6ab6b559e393851e8ed1fbcc0f)）
+- **design:** 操作の下に残すもの、注記の読み手、行のボタンの名前の付け方を書く（[93cae88](https://github.com/kein5/astarot/commit/93cae888a66b3dec34e0ab7e9981f4f219c27e0b)）
+- **site:** OBSとWebSocketのURLの行にあるコピーのボタンを案内する（[c5002b5](https://github.com/kein5/astarot/commit/c5002b5ded5462160b24e8def41f19a13a6624d3)）
+- **design:** VRのウィンドウがツールチップを使わずに操作部品をどう説明するかを書く（[a68ab94](https://github.com/kein5/astarot/commit/a68ab9464d7b08d3035068b596fb852d8a727844)）
+- **design:** PCの外へ出るものを設定のページでどう示すかを書く（[e38bd9a](https://github.com/kein5/astarot/commit/e38bd9a5c5feb4b504827d4194e08c393d03eacb)）
+- **design:** 見直したページに「実験的機能」と「アップデート」を入れる（[14ad852](https://github.com/kein5/astarot/commit/14ad852c6bd1b76545e74aa13fa53311ff391ea7)）
+- **design:** 見直したページに翻訳のページを入れる（[3341aa9](https://github.com/kein5/astarot/commit/3341aa96fafd0f4ebff1bb30a64c03c444d2efe0)）
+- **design:** shadcn/uiの棚卸しにkitのDialogの部品を記録する（[1057094](https://github.com/kein5/astarot/commit/10570948ff115daf29d3389a536ffaaff0d1437e)）
+- **dev:** コードオーナーが自分の持つファイルのマージを決めると書く（[b85362e](https://github.com/kein5/astarot/commit/b85362ea773d7c041b936bf7c78e06dd79ba8553)）
+- **release:** リリースのたびに対応環境の表とその記録を更新する（[f302a18](https://github.com/kein5/astarot/commit/f302a18a8dfae6d04c2a9d68b9c45d4cadfead41)）
+- **release:** リリースの確認に使う配布物をkein5/astarotからダウンロードする（[6c25f6d](https://github.com/kein5/astarot/commit/6c25f6dacbc9fe965a657a2bd50052b2479bad42)）
+- **design:** 見直したページに「高度な設定」を入れる（[8195ceb](https://github.com/kein5/astarot/commit/8195ceb72df56c871f21f41f7e1b0647bfee09eb)）
+- **design:** カードにしたカタログに翻訳のカタログを入れる（[ac8029e](https://github.com/kein5/astarot/commit/ac8029ec008304f979b68abfbc8379eddd358f6f)）
+- **spec:** 保存バーの確認を先に出す動きを守る試験の名前を書く（[69efa48](https://github.com/kein5/astarot/commit/69efa48b2fc60f96661c4e10818dd9f18ff28e50)）
+- **design:** カタログのカードの配置を記録する（[ef0abf9](https://github.com/kein5/astarot/commit/ef0abf9d020f4d7dbb0da15f12a37f8801113395)）
+- **spec:** Linuxのフォルダーをastarotへ移すことを書く（[d89bc0a](https://github.com/kein5/astarot/commit/d89bc0aef2493c0f3784474801b72f5ee2700410)）
+- **ui:** i18nextの型のオプションをオフにしている理由を記録する（[a7bb07e](https://github.com/kein5/astarot/commit/a7bb07e4233d34d5764c4b6964a3aa52eb6d591b)）
+- **design:** ダイアログに共通の幅と間隔を記録する（[9d5efb5](https://github.com/kein5/astarot/commit/9d5efb561301ecbda85dfffcb90c2a572166a673)）
+- **ui:** 計画に試験のハーネスと試験についての判断を記録する（[a95c43f](https://github.com/kein5/astarot/commit/a95c43f4411aec898b571f4cda1b2bd15d24e9b2)）
+- Rspressへ移したあとのガイドのファイルを案内する（[9ebd436](https://github.com/kein5/astarot/commit/9ebd436f2a7efce0ed34b86e884f86bd7468165b)）
+- **design:** Rspressでのサイトの再設計を計画する（[105e2c5](https://github.com/kein5/astarot/commit/105e2c5fde2c0fff2d3a7f02258503ef5e20f515)）
+- **adr:** ガイドのサイトをRspress（React）で作る（[6170b6c](https://github.com/kein5/astarot/commit/6170b6c1a696121cd3cbe9aa087f12ffcfc24a38)）
+- **design:** 指摘の一覧で利用者の対応が要るものをどう分けるかを書く（[fd6d0bd](https://github.com/kein5/astarot/commit/fd6d0bd11bcc9a92ada703db0d23976f4d33d540)）
+- **design:** 指摘の一覧と初回のダイアログの部品を記録する（[1aa7a82](https://github.com/kein5/astarot/commit/1aa7a8279b1eee7dba2f835557af693e63204975)）
+- **ui:** TypeScript移行の計画に試験の移行が終わったことを記録する（[578a3c8](https://github.com/kein5/astarot/commit/578a3c883d18476bcf038dd70aecb1b895a00322)）
+- **ui:** 試験をTypeScriptのファイル名で書く（[9262845](https://github.com/kein5/astarot/commit/9262845a54537150caa5dfb2291d2431413ca531)）
+- **ui:** 共通のロジックの試験をTypeScriptのファイル名で書く（[c517e7d](https://github.com/kein5/astarot/commit/c517e7d62601bb577112d1aba7ba77cdb5e12571)）
+- **ui:** テーマ、kit、文字の大きさの試験をTypeScriptのファイル名で書く（[76e6272](https://github.com/kein5/astarot/commit/76e62723087eda09af3defe1bf14acb75215e915)）
+- **ui:** TypeScript移行の計画にロケールの準備を記録する（[2ca9e96](https://github.com/kein5/astarot/commit/2ca9e96ed929b5ba4597fc044311e65eae15a0e2)）
+- **ui:** TypeScript移行の計画に試験のハーネスを記録する（[0a30cb5](https://github.com/kein5/astarot/commit/0a30cb57ce1f5d11d8538c59d620877f4410adfe)）
+- Pythonのバックエンドのないリポジトリを説明する（[65242a8](https://github.com/kein5/astarot/commit/65242a86eaedf9fb8dbad39adedb8b31391dc70d)）
+- パイプラインの遅延をBencherで追う方法を書く（[15def3b](https://github.com/kein5/astarot/commit/15def3bffccf98426286866576432c0697976f72)）
+- **asr:** Linuxのリアルタイムの録音を補助から移したことを記録する（[52e7b58](https://github.com/kein5/astarot/commit/52e7b5884bed8203f608bd616f86abafb262d75d)）
+- **downloads:** OSとVRChatのために残すメモリの出典を示す（[7ca77cb](https://github.com/kein5/astarot/commit/7ca77cbc95e35a33d2cf577f1a9d6062c49a85f7)）
+- **audio:** 入力の転送の抑止の試験を移したと記録する（[c07952d](https://github.com/kein5/astarot/commit/c07952d3850927024059bfa570ed07cd58485210)）
+- **vc:** 管理対象の経路の残りの試験を移したと記録する（[a99f43c](https://github.com/kein5/astarot/commit/a99f43c2218993f8b24a337beebc7c33c388cf55)）
+- **vc:** 録音のコードについての判断と残す3つの動きを記録する（[001c9b4](https://github.com/kein5/astarot/commit/001c9b43e05071b72ca9ad9c2203713da78c6dad)）
+- **ui:** TypeScript移行の計画にllama.cppのサーバーの準備を記録する（[a5d58bf](https://github.com/kein5/astarot/commit/a5d58bf9a34176f9b9766c4d1436259e2705f0a4)）
+- **downloads:** 翻訳の項目が#687でカタログに入ったと注記する（[5eeaef2](https://github.com/kein5/astarot/commit/5eeaef2e2257853052a81b69c94ce99df3f17ae6)）
+- **design:** ツールチップは文字の細部をいまのまま保つと記録する（[f389b35](https://github.com/kein5/astarot/commit/f389b35e94d3333d76d0ace03c34f9e972e7c6ee)）
+- **ui:** TypeScript移行の計画にdevelopから入った試験を数える（[2b0f5b3](https://github.com/kein5/astarot/commit/2b0f5b3fb830c4e8dbd4868d39ba7e82e58def72)）
+- **translation:** TranslateGemmaについての判断と計測を記録する（[ae5ec4a](https://github.com/kein5/astarot/commit/ae5ec4a1b98e2a06e3185a679e58b79cbafa9331)）
+- **vc:** 判断11をどう実装したかを記録する（[9f6e05b](https://github.com/kein5/astarot/commit/9f6e05b3e4f5405014b7c89edb5876617a119260)）
+- **design:** 音声のページを見直し済みとして挙げ、折りたたみとチェックボックスのヒントを書く（[15cda5f](https://github.com/kein5/astarot/commit/15cda5fb2cc5562ac81d06ef2cee45674d10506a)）
+- **audio:** 判断89をどう実装したかを記録する（[2edb7ee](https://github.com/kein5/astarot/commit/2edb7eeb4ca9bb10b449a59320f24914b8f96623)）
+- **asr:** 判断15をどう実装したかを記録する（[5db7002](https://github.com/kein5/astarot/commit/5db700208fb52a8735acdb737ba304cf14aa2462)）
+- **translation:** 公開した翻訳モデルと、その版を固定した場所を記録する（[bd7d52f](https://github.com/kein5/astarot/commit/bd7d52f82e503268531e66a74839b7a82f692420)）
+- **asr:** 判断84、85、88をどう実装したかを記録する（[810593b](https://github.com/kein5/astarot/commit/810593ba043a934bf0e6079a485834a202497c5a)）
+- **translation:** 翻訳モデルのメモリの目安を書く（[2d2fc4f](https://github.com/kein5/astarot/commit/2d2fc4f7ad879515816f464512d5e2f41d16f95f)）
+- **asr:** 判断74をどう実装したかを記録する（[9ef05a4](https://github.com/kein5/astarot/commit/9ef05a42adb94fce12015df2663b62828b605ec2)）
+- **asr:** 判断70と82をどう実装したかを記録する（[7814d64](https://github.com/kein5/astarot/commit/7814d6408b6b927f3271487ca41fc4d931dcb50a)）
+- **tts:** 判断61と62をどう実装したかを記録する（[5e62e1a](https://github.com/kein5/astarot/commit/5e62e1a7eb0ba91fa06fd5f66a237d4dcfc85473)）
+- **core:** 判断55と58をどう実装したかを記録する（[d12a512](https://github.com/kein5/astarot/commit/d12a512805b2eed0f69b0d597eebdbe3d04abe32)）
+- **dev:** pull-requestのスキルに、マージを決めてよい人と、チャットでの指示を承認とみなすことを書く（[1fd65ee](https://github.com/kein5/astarot/commit/1fd65eefb8d784fc5476fb8b54c6a8b43c2d18bd)）
+- **dev:** adrのスキルに、まとめられるものはまとめるよう求める（[4a002f0](https://github.com/kein5/astarot/commit/4a002f0b6b75ea1fb36055b470df119c4d7a4a28)）
+- **release:** リリースの手引きに公開の前と後の確認を書く（[49a4821](https://github.com/kein5/astarot/commit/49a48211a6ebef30b1e46486ebd5b649080bf87e)）
+- **core:** 移行の残りについての判断を記録する（[429bba8](https://github.com/kein5/astarot/commit/429bba8b02ff15bc337d3778d267b8fff9bf2eb9)）
+- **design:** しきい値の操作部品をshadcn/uiとの照合から外すと記録する（[5a0e6c7](https://github.com/kein5/astarot/commit/5a0e6c73e1f44adc3f878092ea14fd4c828e3b7d)）
+- **design:** shadcn/uiの棚卸しにツールチップの照合を記録する（[d00aade](https://github.com/kein5/astarot/commit/d00aade58b9e363b62f92b664826bc970f874af4)）
+- **translation:** 自分のモデルはカタログからだけ足せると書く（[a194ddb](https://github.com/kein5/astarot/commit/a194ddb755e5a732d062f03830d43f6a0b41fe07)）
+- **design:** サイトの棚卸しで「this PC」と一緒に「this computer」も数える（[569877a](https://github.com/kein5/astarot/commit/569877a6358589fdb28d17224ea35820c00d6f1b)）
+- **site:** ガイドで読み手のPCを「お使いのPC」と呼ぶ（[c5c66ab](https://github.com/kein5/astarot/commit/c5c66ab798e2cae28921775506ef8ca8fd4d5733)）
+- **ui:** TypeScript移行の計画にルートとエラーの扱いを記録する（[57fb6dc](https://github.com/kein5/astarot/commit/57fb6dc22371fbb9d00805d1ff4263b26a168b64)）
+- **ui:** TypeScript移行の計画に設定のページの枠を記録する（[ba97c3b](https://github.com/kein5/astarot/commit/ba97c3bcc6cf793cc16fedc6da4307129cc830a8)）
+- **ui:** TypeScript移行の計画に残りの設定のページを記録する（[1c99c61](https://github.com/kein5/astarot/commit/1c99c61ff3b75f33a732644752a543edde03c2de)）
+- **ui:** TypeScript移行の計画にVR UIのアプリとビューの移行が終わったことを記録する（[51824ef](https://github.com/kein5/astarot/commit/51824efa5b590238448f82cd215fc072649f9e82)）
+- **ui:** TypeScript移行の計画に翻訳のページを記録する（[0f3c004](https://github.com/kein5/astarot/commit/0f3c004f71721071d63ca674d2de87b3b005b144)）
+- **ui:** TypeScript移行の計画に「高度な設定」のページを記録する（[0563999](https://github.com/kein5/astarot/commit/05639998f4b03ae10b6f009839886b640852adcd)）
+- **ui:** TypeScript移行の計画に音声の設定のページを記録する（[02df6a4](https://github.com/kein5/astarot/commit/02df6a438ee9c73bde11e1f1e136e64c57f98611)）
+- **ui:** TypeScript移行の計画にデバイスと音声認識のページを記録する（[0106e06](https://github.com/kein5/astarot/commit/0106e06070efc08e81c5852d76d5f3ac8d514b5c)）
+- **ui:** TypeScript移行の計画に残りのアプリのコントローラーを記録する（[f213666](https://github.com/kein5/astarot/commit/f213666a3cb8bedcc770436e5f31aa599810a755)）
+- **ui:** TypeScript移行の計画に設定の部品と行のひな形を記録する（[2e347b4](https://github.com/kein5/astarot/commit/2e347b4f93b1c8218af81479faff90501d65082b)）
+- **ui:** TypeScript移行の計画に設定の小さな部品を記録する（[d372557](https://github.com/kein5/astarot/commit/d372557e2f8ff3ea4d7fc2c0da28df4fe08874f2)）
+- **ui:** TypeScript移行の計画にメイン画面の会話の列を記録する（[2cd7e4b](https://github.com/kein5/astarot/commit/2cd7e4b58f806ab3e7c382185f6226e7ccdc1c2f)）
+- **ui:** TypeScript移行の計画にメイン画面のサイドバーと上部のバーを記録する（[bef8389](https://github.com/kein5/astarot/commit/bef83890645c29bb254a8d70b0e085de13c4de11)）
+- **ui:** TypeScript移行の計画に入力と出力のパネルを記録する（[89a638e](https://github.com/kein5/astarot/commit/89a638ee32a8327f0b175d1f0c444eb2a96a87d2)）
+- **ui:** TypeScript移行の計画にホットキーのフックを記録する（[82e0b60](https://github.com/kein5/astarot/commit/82e0b6019a89a2409688f57904d83b8a1d37d5d4)）
+- **design:** サイトの再設計についての判断を記録する（[0bc06b5](https://github.com/kein5/astarot/commit/0bc06b5d7066ce75ed939813e421c51b80ea0521)）
+- **tts:** TTSの試験を比べ直したことと、Linuxでの読み上げの確認を記録する（[3deac32](https://github.com/kein5/astarot/commit/3deac32d5e6218a8f0b8ca9d88afb292cd9f7299)）
+- **translation:** llama.cppのサーバーとGemmaの利用規約の確認を記録する（[76c1168](https://github.com/kein5/astarot/commit/76c1168735843be8d4af987cf7de21c8b4a0bb26)）
+- **design:** マスコットの置き場所とサイトの再設計の段階を計画する（[3af77dc](https://github.com/kein5/astarot/commit/3af77dc0aad0cf4eb0df56a164098edf336ad754)）
+- **design:** サイトの部品と色のトークンを挙げる（[6b648d2](https://github.com/kein5/astarot/commit/6b648d2dd733bf1462821d64be442111e161ce39)）
+- **design:** ガイドとマニュアルを1つのサイトにする案を出す（[de6c45a](https://github.com/kein5/astarot/commit/de6c45a75d80fc5835fd5e0e5381ab3ebc0f81b6)）
+- **design:** ガイドとマニュアルのサイトを棚卸しする（[40ffe59](https://github.com/kein5/astarot/commit/40ffe59f88ec2fd6f402e7acba6b4b3bf966cd54)）
+- **vc:** 声質変換の試験をどう覆い直したかを記録する（[d22d8ce](https://github.com/kein5/astarot/commit/d22d8cecd9d38b1792ec54765ed3c3fa0c3f6aa5)）
+- **asr:** 音声認識のPythonとの違いを1つの表に挙げる（[5b6edbe](https://github.com/kein5/astarot/commit/5b6edbea5234615bb398324c7b977718aa9ce8bc)）
+- **design:** shadcn/uiの棚卸しにチェックボックスとスライダーの照合を記録する（[abd4a26](https://github.com/kein5/astarot/commit/abd4a2698ba485b4aee05a5213fec49a4f9a91c1)）
+- **asr:** 認識結果の取り消しの試験がいま何を確かめているかを記録する（[49edeb5](https://github.com/kein5/astarot/commit/49edeb546da3106833d8fd35d91a4c8af5f0b492)）
+- **design:** shadcn/uiの棚卸しに検索の照合を記録する（[f4c41a6](https://github.com/kein5/astarot/commit/f4c41a60111f108906db97db1ddfc501b961348c)）
+- **design:** shadcn/uiの棚卸しにボタンの照合を記録する（[dd84580](https://github.com/kein5/astarot/commit/dd84580bb04053dbf79a1dce40266564f6f68906)）
+- **asr:** 判断81がどう決着したかを記録する（[3a86062](https://github.com/kein5/astarot/commit/3a86062e14124edb0e075fe9c0f71ca5fddfa3d3)）
+- VRCT-VOXの名前と並べて読むASTAROTの名前を注記する（[164309c](https://github.com/kein5/astarot/commit/164309c5114ad48d2ec38a2a4c286544e304c6a0)）
+- **design:** shadcn/uiの棚卸しに選択欄と入力欄の照合を記録する（[e30b505](https://github.com/kein5/astarot/commit/e30b505a7cb50f862a858e7b74043aed88fb9a16)）
+- **design:** 翻訳のページのどこに翻訳のカタログを置くかを記録する（[261bfaa](https://github.com/kein5/astarot/commit/261bfaa56fee2fc0b1fb77627eb45706963038ed)）
+- **design:** impeccableのデザインシステムにshadcn/uiとの照合を注記する（[990974f](https://github.com/kein5/astarot/commit/990974f28db6df6b30f1916cc626ab0578f62d37)）
+- **design:** レイアウトを先に考える原則をimpeccableのデザインシステムにも入れる（[0f3998d](https://github.com/kein5/astarot/commit/0f3998d243e749c83de075e657e0a1b5f60a0109)）
+- **design:** impeccableのデザインシステムで操作部品のトランジションを120 msに縮める（[fb82532](https://github.com/kein5/astarot/commit/fb825324a4486f58567f016e740b27a180ff0b7c)）
+- **design:** impeccableのデザインシステムで開いている設定のページをLilacで示す（[6918f2d](https://github.com/kein5/astarot/commit/6918f2d6afa6ece3e3134f5241c3ae8bcf176330)）
+- **design:** 主操作の見本をボタンと同じ文字の太さで描く（[2b374c6](https://github.com/kein5/astarot/commit/2b374c6b978350fe50ca9836d03070fc3bd9b6b5)）
+- **design:** impeccableのデザインシステムで副操作を枠線のボタンとして示す（[7067232](https://github.com/kein5/astarot/commit/7067232aa61399c28e76d7f8bfc1768720c4b08e)）
+- **design:** 設定のkitがshadcn/uiから取り入れたものを書く（[6192d66](https://github.com/kein5/astarot/commit/6192d66e3f9604c36c8f89b7e047173b3dc41fde)）
+- **notice:** 部品の設計の出典としてshadcn/uiを記録する（[25e4440](https://github.com/kein5/astarot/commit/25e4440f7aac179a800beabda47f7908016f891c)）
+- **design:** kitの選択欄をshadcnのnative selectと比べる（[4fbeb3f](https://github.com/kein5/astarot/commit/4fbeb3fa53fd9f63374f82163a2add4c51996549)）
+- **design:** shadcnとの照合からその棚卸しを案内する（[0a383c8](https://github.com/kein5/astarot/commit/0a383c895cbac65adcdb9ae5841f8017049a523b)）
+- **design:** 部品がshadcn/uiとどう違うかを挙げる（[0b0bfca](https://github.com/kein5/astarot/commit/0b0bfcaf6f937f805b5ff8ea16e675a2a4c15cf4)）
+- **translation:** TranslateGemmaのためのLLMのランタイムを計画する（[d82dca3](https://github.com/kein5/astarot/commit/d82dca384dfe825fad4a075deaa10662a3810ddd)）
+- **translation:** 決まったTranslateGemmaの動かし方を注記する（[a7d10e9](https://github.com/kein5/astarot/commit/a7d10e9936e77696de4824f5258621a12a86abc3)）
+- **adr:** TranslateGemmaをLLMのランタイムで動かすことをADR-012の例外として記録する（[4113b40](https://github.com/kein5/astarot/commit/4113b4038531c2e74f3f8cab6669f073e8d9a531)）
+- **design:** 部品の設計、見た目、構造をshadcn/uiにそろえる（[a9a2375](https://github.com/kein5/astarot/commit/a9a23751a279c79522e3d953bf9b19d310761966)）
+- **dev:** AGENTS.mdからスキルを案内する（[c207b5f](https://github.com/kein5/astarot/commit/c207b5f75920473dd2be5d818d63c4331f1c36ad)）
+- **dev:** リリースのブランチから戻しの統合までを扱うreleaseスキルを足す（[7a02a30](https://github.com/kein5/astarot/commit/7a02a30c526c9f05c4c8017df39ccffc9dbe8af5)）
+- **dev:** 変更をdevelopへ入れるためのpull-requestスキルを足す（[908ed39](https://github.com/kein5/astarot/commit/908ed3967503cc4b66878606a5e08b3de0831f16)）
+- **dev:** 設計判断の記録を書き、置き換えるためのadrスキルを足す（[a27bf1b](https://github.com/kein5/astarot/commit/a27bf1b37f825585e31b2c7a0d2cd33f30c22f0b)）
+- **design:** VRChat、字幕、チャット読み取りのページを見直し済みとして挙げる（[4863a01](https://github.com/kein5/astarot/commit/4863a01624ddaab32c5c30cfe6ca5e1b1dc16e0a)）
+- **design:** 見直した設定のページで説明をどう出すかを書く（[df6ab6d](https://github.com/kein5/astarot/commit/df6ab6d03d1b76f461d01ab789414c4bc4043f95)）
+- **ui:** TypeScript移行の計画にアプリのコントローラーの前半を記録する（[7ce14f8](https://github.com/kein5/astarot/commit/7ce14f83d5b10f67bdee791c5e8db40ae0b487b8)）
+- **translation:** ONNX RuntimeのGPU版をどう提供するかを記録する（[9bc6a5a](https://github.com/kein5/astarot/commit/9bc6a5a4191c5ff3aad5379038ec3f3e59f52a44)）
+- **site:** 対応環境の表でCUDAのZIPを0.5で終わったものとして示す（[7b8f30e](https://github.com/kein5/astarot/commit/7b8f30e544799429455155d7d22e1acfe9b32cdd)）
+- **release:** AMDのGPUでの結果の集め方を書く（[beea4bb](https://github.com/kein5/astarot/commit/beea4bb9c987c7fb5632d4b15f5d83f506583ddd)）
+- **ui:** TypeScript移行の計画にアプリのシェルを記録する（[1049e71](https://github.com/kein5/astarot/commit/1049e71f5dd42d7472b189ed81bcefe58af49c1e)）
+- **core:** 判断81の上流のIssueへリンクする（[fee4d74](https://github.com/kein5/astarot/commit/fee4d74a9e4c85dd60fe9f3d76a96060da928731)）
+- **core:** VADについての判断と、それが決めずに残すことを記録する（[baf8300](https://github.com/kein5/astarot/commit/baf8300ab5c443668f1e8b8d2903f651544dd73f)）
+- **asr:** 0.6.0でWhisperの移行が終わったことを記録する（[9ac1116](https://github.com/kein5/astarot/commit/9ac111698ce8d9973a11850f705b1bc8906ca2ec)）
+- **translation:** 判断76は書いたまま残し、その下に結果を足す（[5aed829](https://github.com/kein5/astarot/commit/5aed8298039b52687c0c1d879ac17a3fba7120d8)）
+- **translation:** 鍵の保管先が断ったときにメモリに持つカタログのAPIキーを書く（[85e9644](https://github.com/kein5/astarot/commit/85e96448ab0666b8648a58b4bf8e8974e7529e7c)）
+- **privacy:** WebView2の異常終了の報告は送らないと書く（[8d8eef8](https://github.com/kein5/astarot/commit/8d8eef8b82df7a8472d76b800bd57ed7de599c1e)）
+- **site:** 翻訳は言語の間で両方向に働くと利用者に伝える（[b3a2355](https://github.com/kein5/astarot/commit/b3a235587b5ac31bb9ed0fb7e5775eff5eebeead)）
+- **design:** 言語の組の2つの向きをどこで伝えるかを書く（[9a4a9a1](https://github.com/kein5/astarot/commit/9a4a9a1f7a56aa279fdc1afd61b0a71c2f089117)）
+- **release:** 1つにまとめたWindowsの配布物についての判断を記録する（[898f986](https://github.com/kein5/astarot/commit/898f986b3c4d4a9019cabc29569a4208237ddde6)）
+- **dev:** 別に作る環境をPython 3.14へ移したことを記録する（[f2c133c](https://github.com/kein5/astarot/commit/f2c133cfd07b4c49a82292f9229712a6e3a99695)）
+- **rvc:** ボイスチェンジャーの既定のブロックが40 msであることを記録する（[97dc298](https://github.com/kein5/astarot/commit/97dc298b6aa7ee1bb76c354281cb2ebd365b3527)）
+- **site:** OSCQueryのスイッチと、その告知がPCの中にとどまることを書く（[07d4c19](https://github.com/kein5/astarot/commit/07d4c19802221c314d72ff810b1b91d200e96245)）
+- **translation:** GPUにモデルを読み込んだあとの確認を記録する（[5274bdc](https://github.com/kein5/astarot/commit/5274bdcc895eec0d696bd1443b287831a7a6ba4c)）
+- **core:** 判断80と、リアルタイムの確定の文が設定を読む時点を記録する（[5e239ef](https://github.com/kein5/astarot/commit/5e239ef32ef7cb31e522df04a37a6eeecee7f244)）
+- **site:** 音声のモデルごとにどこまで確かめたかを挙げる（[c645ea9](https://github.com/kein5/astarot/commit/c645ea97b1df222db21a7329cab7fadf3549eeb6)）
+- **design:** VR UIの文字の大きさを4段にする（[7c3b22c](https://github.com/kein5/astarot/commit/7c3b22cca44d9654411d05de03f81c41f06e6290)）
+- **translation:** DirectMLでのint8とint4を記録する（[496d9ed](https://github.com/kein5/astarot/commit/496d9eddccb7205fecf49a2b3ba71a322288636f)）
+- **adr:** #635でWindowsのフォルダーとキーを移すことが確定したと注記する（[9d396ca](https://github.com/kein5/astarot/commit/9d396ca8decf510ccfd4a7afc9528c73a133a1cb)）
+- **asr:** リアルタイム字幕の既定の無音が0.4秒であることを記録する（[1cdfa4c](https://github.com/kein5/astarot/commit/1cdfa4ced21a02257f692712ad056eab7cd5d9c1)）
+- **design:** 灰色とLilacのすべての段が導き方の決まりに従うと書く（[8c675f8](https://github.com/kein5/astarot/commit/8c675f8752ce73cfd5c90e91db6d0e463e935107)）
+- 識別子のページからADR-014を案内する（[839947f](https://github.com/kein5/astarot/commit/839947fed509b6b2f788c58a93b5caead8f87ea6)）
+- **adr:** 0.6.0で内部の識別子をASTAROTへどう移すかを記録する（[721113d](https://github.com/kein5/astarot/commit/721113d28159f18c581a6d58074f8d825d94d110)）
+- **core:** 判断65と、抜けをどう埋めたかを記録する（[5fa7420](https://github.com/kein5/astarot/commit/5fa7420d9fb53e7a9e3e6d012ebda9800e400d6d)）
+- **ui:** TypeScript移行の計画に設定の下書きと最初のビューを記録する（[0e0ce2e](https://github.com/kein5/astarot/commit/0e0ce2eaecc061c5a92b6cf997c725e5a4462f43)）
+- **asr:** 辞書の語をまとめて足すこととコピーすることを書く（[d5bffbf](https://github.com/kein5/astarot/commit/d5bffbfe3fe38381818474cfc310d0204a2eb84b)）
+- **ui:** TypeScript移行の計画に設定の一覧を記録する（[402d0e1](https://github.com/kein5/astarot/commit/402d0e1d93613662498bd622084cd0d38b365fc4)）
+- **site:** 話者についての注意書きを名前の付け方の節の上にまとめる（[b92a72a](https://github.com/kein5/astarot/commit/b92a72ab4eeec9be8508625af3103d94c7230784)）
+- **spec:** すぐ答える要求と繰り返し問い合わせる要求に声の試聴を入れる（[1cf7b49](https://github.com/kein5/astarot/commit/1cf7b497317e7104509603295b0f594011e679a9)）
+- **site:** 読み上げの声の試聴の仕方を利用者に伝える（[5a57013](https://github.com/kein5/astarot/commit/5a5701348e85461356fc7a91073577210ad9c8d4)）
+- **spec:** 読み上げのカタログの声の試聴を書く（[cd3e3d3](https://github.com/kein5/astarot/commit/cd3e3d336ed1d09b19a6b44925bf059c2da89d90)）
+- **site:** 音声認識エンジンの2つの系統を説明する（[3f4a431](https://github.com/kein5/astarot/commit/3f4a431c87162c86ede3dd877d6cbfe6cb2b29e9)）
+- **asr:** 音声の文書と仕様の文書にspeech.cppとAPIのグループを記録する（[bc1baa2](https://github.com/kein5/astarot/commit/bc1baa2c89e6d6d66b76710ef7871f716e96f4f3)）
+- **design:** 音声認識のページの2つの系統を書く（[02fcc34](https://github.com/kein5/astarot/commit/02fcc34a4d760c180f365515e98fd470edbba33e)）
+- **translation:** カタログのデータファイルにTranslateGemmaの項目を置く（[089ac35](https://github.com/kein5/astarot/commit/089ac355d375433c9103ae93d12f8aef5506d2eb)）
+- **licensing:** TranslateGemmaを翻訳の候補として記録する（[8442c3a](https://github.com/kein5/astarot/commit/8442c3a898f1d8f52c7e0aa975cf6f04251be39f)）
+- **translation:** TranslateGemmaの動かし方と重みの入手の仕方を比べる（[1aafc4a](https://github.com/kein5/astarot/commit/1aafc4a2cbfff613f0aea3af9d1a9af1d2991c1f)）
+- **downloads:** 翻訳の項目からそのデータファイルを案内する（[f4eaf4d](https://github.com/kein5/astarot/commit/f4eaf4db8a393ec463e25f12e572d357ace2e5ac)）
+- **downloads:** 非商用の利用への同意を書く（[438f377](https://github.com/kein5/astarot/commit/438f377a02d0a1e54a8b8a27f5ede96d55fcb722)）
+- **licensing:** NLLB-200をカタログに足すときの決まりを記録する（[ee9498d](https://github.com/kein5/astarot/commit/ee9498d2bacd6915964dd6e73b3408f6389c3631)）
+- **translation:** ローカルのモデルの一覧を書く（[579ef4d](https://github.com/kein5/astarot/commit/579ef4d22d637906eb7b90b56a6b157f9bf69715)）
+- **asr:** 話者の名前と、ログで同じ話者が続く区間を書く（[5a9996f](https://github.com/kein5/astarot/commit/5a9996f6ccd3adde82a5c5a8da0643369a603f34)）
+- **contributing:** Issueからdevelopまでの道筋を図にする（[c304e40](https://github.com/kein5/astarot/commit/c304e4055ba708321397dd7c30385a032a40db58)）
+- **release:** リリースの流れを1つの図にする（[ef4cfa8](https://github.com/kein5/astarot/commit/ef4cfa8d384dc86ce6e374f6440e6bdaedeba38a)）
+- **asr:** 用語辞書がどこで使われるかを説明する（[5e8b10d](https://github.com/kein5/astarot/commit/5e8b10dba1e5c47a2fbbeedfce9ce1aea04d86a4)）
+- **release:** 自動にしたリリースの手順と公開前のタグの確認を書く（[021d873](https://github.com/kein5/astarot/commit/021d873e898b67632481c559da26637d7a1e5df2)）
+- **spec:** 廃止した設定キーの名前と、キーを足すときを書く（[c584eb4](https://github.com/kein5/astarot/commit/c584eb4e51a3919cc6423c7b02c8afe398996060)）
+- **design:** ほかの設定のページを開くボタンの文言の決め方を書く（[0c76d02](https://github.com/kein5/astarot/commit/0c76d022894cd70fc2bd9254a5c6426e72504744)）
+- **release:** リリースノートを書く人にノートのひな形を案内する（[06818a1](https://github.com/kein5/astarot/commit/06818a1a5bb292cf06677b5cfe07997a247e6017)）
+- **site:** プライバシーのページに外部へのすべての接続と新しい鍵の保管先を挙げる（[168aeff](https://github.com/kein5/astarot/commit/168aeffd9feda482154ba4079a2072aec60e0edb)）
+- **site:** 文字起こしのページから廃止したGoogleの音声エンジンを外す（[b29178c](https://github.com/kein5/astarot/commit/b29178c3d3faa308b75402c3f2f71f6a9daa57ed)）
+- **translation:** GPUの確認、公開の手順、NLLBの調査を記録する（[2bdc629](https://github.com/kein5/astarot/commit/2bdc629ef6f1310554aa5fa79526387eaa224d42)）
+- **spec:** config.jsonが知らないキーをどう残すかと、起動時にいつ保存するかを書く（[cd9bb7f](https://github.com/kein5/astarot/commit/cd9bb7fc6820b660f80fa8dc089b5d832f72da1e)）
+- **spec:** OSCQueryの検出がPCの中にとどまることを書く（[cf9dc74](https://github.com/kein5/astarot/commit/cf9dc741b2e1ed7075118d70956063a1decfa596)）
+- **core:** 音声認識の移行のその3と判断75〜78を記録する（[32ed961](https://github.com/kein5/astarot/commit/32ed96157147e94adce75cdf2dc8d11507513f94)）
+- **ui:** 移行の計画に小さなフックの段階を記録する（[c2f604a](https://github.com/kein5/astarot/commit/c2f604abc61ddd14e76e43623175dd44f255ced4)）
+- **dev:** Python 3.14の道具一式と、その版を決める場所を書く（[6fdecbe](https://github.com/kein5/astarot/commit/6fdecbe9a6112cb91359d835b5bd5ad17dffa6e1)）
+- **core:** ONNX Runtimeのライブラリと環境がどこから来るかを書く（[e20f014](https://github.com/kein5/astarot/commit/e20f014a9b1e48be9c359160e0ef57ed2d1ff7cb)）
+- **core:** 音声認識の移行のその2と判断73と74を記録する（[f1dfd96](https://github.com/kein5/astarot/commit/f1dfd96c6cf0d1618d44e9ec8c230b035e3b192f)）
+- **design:** 部品を設計するときの参考を挙げる（[a66512e](https://github.com/kein5/astarot/commit/a66512ec4727b4ab2800749aa9b4d7d4ffb04437)）
+- **design:** 説明の文を足す代わりにレイアウトで画面を説明する（[c0d3d66](https://github.com/kein5/astarot/commit/c0d3d667ed9528453e5f11add86b64c3383c189f)）
+- **core:** developの#556を取り込んだあとの音声認識の遅延を足す（[0d08878](https://github.com/kein5/astarot/commit/0d0887873a1cbcf3995886c2a54bb60bb80edb98)）
+- **release:** mainから急ぎの修正を出す方法を書く（[59f7972](https://github.com/kein5/astarot/commit/59f79729662fc30292295c0e0ab8671fc387cd36)）
+- **translation:** プロバイダーの契約と、#277で決まらずに残ることを記録する（[7f3356b](https://github.com/kein5/astarot/commit/7f3356bb75fd241a54606540672782a970409393)）
+- **release:** 1つにまとめたWindowsの配布物にまだ要るものを記録する（[88af598](https://github.com/kein5/astarot/commit/88af5980fe68d5c6b61e5fc951c22ee4d02a6e33)）
+- **site:** CPU版とCUDA版の配布物には0.5.0から同じファイルが入っていると書く（[7696d70](https://github.com/kein5/astarot/commit/7696d70bea2d5e772271fcd09dc35d99bcde81f0)）
+- **core:** 音声認識の移行と、その計測と判断を記録する（[73b0b52](https://github.com/kein5/astarot/commit/73b0b52a3c8c7101a9c1926a90d6640e82e42e16)）
+- **design:** impeccableのデザインシステムを新しい面、枠線、入力欄の枠線に合わせる（[9b0ccae](https://github.com/kein5/astarot/commit/9b0ccae1cf8a1dc3c9c24153070ce68f974233c2)）
+- **design:** 警告と失敗の色をactiveのlilacと同じ明度にする（[aae9364](https://github.com/kein5/astarot/commit/aae93641514b34e6d68094dacf56eb6704f62903)）
+- **design:** 入力欄の枠線に3:1に届く色を付ける（[3d49feb](https://github.com/kein5/astarot/commit/3d49feb0120b6c23a79f47b34ef40a202fa044e2)）
+- **design:** 面と枠線をDark Plumの色相のままにする（[e23d00a](https://github.com/kein5/astarot/commit/e23d00a4da9cd21162ac34cea0bc56ddb1281be2)）
+- ONNX Runtimeの入手元としてNuGetを挙げる（[aa689fc](https://github.com/kein5/astarot/commit/aa689fc05442e37584d7c0351f4e354586e49085)）
+- **site:** 設定のスクリーンショットを撮り直す（[5e576c8](https://github.com/kein5/astarot/commit/5e576c80ba6eb36b0bcb9e6292007fcc1bd34d72)）
+- 用途のプリセットと「詳細設定」の折りたたみを書く（[2a20a1f](https://github.com/kein5/astarot/commit/2a20a1f9d254edeb9c00ed3059b6ef2025d666ff)）
+- **adr:** ADRの古いパスに残した案内のページを消す（[aa3bcda](https://github.com/kein5/astarot/commit/aa3bcdab10c4ae9da02ca94a7c961af77bb17151)）
+- **voice:** 音声パイプラインの時間がどこにかかるかと、#556で変わったことを記録する（[d71a5fb](https://github.com/kein5/astarot/commit/d71a5fb68311699b5361c31fda80cf2fc5790c39)）
+- **adr:** ADR-012とADR-013が挙げるファイルはdocs/voice-stackに残ったと注記する（[7912fee](https://github.com/kein5/astarot/commit/7912fee0bfcef7665cd99253b2a95792bbf3601b)）
+- **spec:** 音声のサーバーの節を読む人をdocs/adrへ案内する（[6c08521](https://github.com/kein5/astarot/commit/6c0852188d3031fcd76b747564454ff742edb03c)）
+- **dev:** UIのミューテーションテストの流し方と読み方を書く（[6a48b18](https://github.com/kein5/astarot/commit/6a48b1892c868cc3e18df4a7932224d9fbca9350)）
+- AGENTS.mdでADRの読み方と書き方を説明する（[6f16603](https://github.com/kein5/astarot/commit/6f16603e99fa7bc5f333dba8558978623ab1f506)）
+- **adr:** front matterに状態、実装の状況、有効性、書いた時点の前提を記録する（[1d1dde1](https://github.com/kein5/astarot/commit/1d1dde140d335730f5a2c64ab664259c4ea2a32f)）
+- **adr:** ADRへの参照をdocs/adrに向ける（[153888e](https://github.com/kein5/astarot/commit/153888ec4c9e1218a8d6eb9bc401770c319ea94f)）
+- **adr:** ADR 004〜013の古いパスに案内を残す（[410380d](https://github.com/kein5/astarot/commit/410380dd117e2a2140030af80cb8d1506c14b188)）
+- **adr:** ADR 001〜003をそれぞれのファイルに分け、索引を足す（[2391a6b](https://github.com/kein5/astarot/commit/2391a6b65b3d0bbab4e559782cc5a6be81b5e34f)）
+- **adr:** ADR 004〜013をdocs/voice-stackからdocs/adrへ移す（[5e82fba](https://github.com/kein5/astarot/commit/5e82fba3d2d50d8be6fd918070435d8addd37c9a)）
+- **design:** 設定のkitがMacaw UIとOptiAxiomから取り入れたものを記録する（[0cb0bf8](https://github.com/kein5/astarot/commit/0cb0bf877042d6504d923537ca1d38e6cf2f448a)）
+- **core:** 読み上げの移行と、実際に試した結果と判断を記録する（[a500c2b](https://github.com/kein5/astarot/commit/a500c2b74463dd41a3570c63ccfbfb950d0db132)）
+- **brand:** ADR-011に16 px用のfaviconを記録する（[1ba0d16](https://github.com/kein5/astarot/commit/1ba0d164d80e4d6b3794edf4254fb900f78f47f6)）
+- **site:** マニュアルのページに16 px用のfaviconを出す（[43403af](https://github.com/kein5/astarot/commit/43403af9c96ae42d8affa7febb9ae5976c18993d)）
+- **brand:** ASTAROTのfaviconに16 pxの光学サイズ用の形を足す（[2e7df0d](https://github.com/kein5/astarot/commit/2e7df0df5be9fce8cffbc0b9d4c23957532edc52)）
+- **spec:** 入力と出力のパネルの合成にかかる時間とGPUのメモリを書く（[82ea558](https://github.com/kein5/astarot/commit/82ea558ba462d56b9d385c152b37146042e8cf3d)）
+- 検証のページを記録の一覧と呼び、間を置くだけの読点を外す（[0a8cbc0](https://github.com/kein5/astarot/commit/0a8cbc0ae1f92aae203c0e73acff1e6daa2e5a74)）
+- **contributing:** 対応環境に関わるPRには確かめた環境と確かめていない環境を報告するよう求める（[f429ddb](https://github.com/kein5/astarot/commit/f429ddba81d1bedfffbaaec8fec615f4684ae5a5)）
+- **ui:** 移行の計画に型付きのストアとトランスポートを記録する（[220ec36](https://github.com/kein5/astarot/commit/220ec360b7fa78deafab1bf03e94bf65b3494a55)）
+- **readme:** 実際のモデルでの試験の記述を0.5より前の版に限り、対応環境の表へリンクする（[3dba90f](https://github.com/kein5/astarot/commit/3dba90f1fcebdffa522846365e66e036e8cc16e3)）
+- **site:** CIの確認と実機の確認を分けた対応環境の表を公開する（[b2de5b7](https://github.com/kein5/astarot/commit/b2de5b757ea3e72494fcc8c5aac6fa2b96de358d)）
+- **voice-stack:** 環境ごとにCIと実機で確かめたことを記録する（[89b3545](https://github.com/kein5/astarot/commit/89b3545216290a96805f5b5a8d7fc9627a3a4570)）
+- **core:** APIキーをOSの資格情報の保管先へ移す方法を記録する（[e924cb6](https://github.com/kein5/astarot/commit/e924cb666d8a9d2675b4e1cf3359e7dc519d7cee)）
+- **dev:** ミューテーションテストの項目にVitestへの移行を注記する（[e5d76da](https://github.com/kein5/astarot/commit/e5d76daf9595af2e9dbcce9a38a7493f808f4be8)）
+- **dev:** VitestでのUIの試験を書く（[5d75a8e](https://github.com/kein5/astarot/commit/5d75a8e81e0efe9c827d7bef77395cbe70b5f6b6)）
+- **design:** 設定の全項目の数を取り込み、言い回しを整える（[1b4f7bf](https://github.com/kein5/astarot/commit/1b4f7bfd8de58238755c62b99e168402b5a61c87)）
+- **spec:** 設定、モデル、アップデートの操作が失敗したときに残るものを書く（[ad29d4c](https://github.com/kein5/astarot/commit/ad29d4c3af359bbafd1e69dd16b7773d319ed3c6)）
+- **design:** 設定の段階分け、用途のプリセット、初回の流れを提案する（[c4701bc](https://github.com/kein5/astarot/commit/c4701bc9fdbbc6518c311b3fff8050fb10689bc1)）
+- **design:** メイン画面、設定、初回の知らせを棚卸しする（[cb9429f](https://github.com/kein5/astarot/commit/cb9429f77a3f1559f76f700f7eb7f02b8cd8f137)）
+- i18nの検査と、文言を訳さずに残してよい場合を説明する（[1ca0535](https://github.com/kein5/astarot/commit/1ca05353f3942a7efe5d649114b05272001b19cc)）
+- **ui:** UIをJavaScriptからTypeScriptへ移す計画を立てる（[2d65cde](https://github.com/kein5/astarot/commit/2d65cde024da1e0af817a52213fb8394ddf80bd4)）
+- **core:** 秘密の保管先のモジュールのコメントにADR-013を書く（[b8e7a0a](https://github.com/kein5/astarot/commit/b8e7a0a11d572ff2e448fa4817684b07570504c1)）
+- **core:** 秘密の保管先についての未決の問いからADR-013を案内する（[2a8816a](https://github.com/kein5/astarot/commit/2a8816acbf191cabdec1f79948b2ca5d68415a90)）
+- **core:** APIキーをOSの資格情報の保管先に置く判断を記録する（ADR-013）（[5c2902a](https://github.com/kein5/astarot/commit/5c2902aac6e6a08ae087cf81c53a3508790f941d)）
+
+#### 保守
+
+- **dev:** コミットメッセージを確かめる方法として文書に書くものをhkのフックにする（[01cac0c](https://github.com/kein5/astarot/commit/01cac0c7f5bb8df767b4dd9c083e35cb7ac0cc17)）
+- **core:** 起動時にチャットボックスの検出器がPCにあるかを伝える（[d097755](https://github.com/kein5/astarot/commit/d097755dd26430fba8f5b5ecc4d9db9a9d0ee5b0)）
+- **ui:** React 19でvirtuaがログを測る間にログの大きさが変わらないようにする（[f36d17c](https://github.com/kein5/astarot/commit/f36d17c9cbe5deefaf1159fe2a2734ff09ecb312)）
+- **ui:** React 19でも書き出されるようにinertを真偽値で設定する（[9ea0a74](https://github.com/kein5/astarot/commit/9ea0a7460a1454a899832e8b35e7fdde1fb26b51)）
+- **dev:** GitのフックにBiomeを足し、フックを入れるsetupのスコープを足す（[06fd74f](https://github.com/kein5/astarot/commit/06fd74f34de0c585022ec864203428a5e88f2f49)）
+- **dev:** Rustのクレートごとのカバレッジを1つの表として測る（[f97b4fb](https://github.com/kein5/astarot/commit/f97b4fb00a02e4f8a1c6e7ff5cf06cf686511f05)）
+- **dev:** check --scope rustでocr-runtimeとrvc-runtimeを試験する（[f220f87](https://github.com/kein5/astarot/commit/f220f8777a9b495aa7297e83635d931630960a95)）
+- **dev:** vrchat-voiceのグループでもラボのVRChatのクライアントを起動する（[050db6e](https://github.com/kein5/astarot/commit/050db6ed6821b358785890dcc848ec2630e100a3)）
+- **dev:** ネイティブの受け入れ試験でvrchat-voiceのグループを流す（[0090408](https://github.com/kein5/astarot/commit/0090408dc24aba85bb3b2e39e251983767cad9a1)）
+- **dev:** specの近道で表より先に中核のカタログを書き出す（[4ce0fd7](https://github.com/kein5/astarot/commit/4ce0fd72ff429c74d84421594368d33c3fcb49d7)）
+- **dev:** 道具が読み書きする文字コードを明示する（[095aa56](https://github.com/kein5/astarot/commit/095aa5650c225f02ada878a7ebdf3449c5c8ea95)）
+- **dev:** 開発用のCLIの近道をmiseだけに置く（[02f6058](https://github.com/kein5/astarot/commit/02f6058185fa674390dea404c53f665b8c740953)）
+- **dev:** パイプラインの遅延のまとめにWindowsでのCPU使用率を記録する（[a619304](https://github.com/kein5/astarot/commit/a6193047ad377ba2c0912816dd5eac7f11259cca)）
+- **dev:** 秘密の情報、ワークフロー、リンク、メッセージを確かめるGitのフックをhkで用意する（[6439f46](https://github.com/kein5/astarot/commit/6439f46221fa909fb2c4d2749a55a45a419d84f5)）
+- **dev:** 新しいコミットに秘密の情報がないか、ロックファイルに脆弱性がないかを確かめる（[45a3b1d](https://github.com/kein5/astarot/commit/45a3b1d28db8cbcf295781c141d7184cd8b5eb2a)）
+- **dev:** クレートのライセンスをcargo-denyで確かめ、Rustの試験をnextestで流す（[20bc87c](https://github.com/kein5/astarot/commit/20bc87c30acf4ceb7099920491046041fab7e83a)）
+- **dev:** 文書の間のリンクをlycheeで確かめる（[659690b](https://github.com/kein5/astarot/commit/659690ba955e4cc7c20c8afc548c587f790e66ae)）
+- **dev:** uiのスコープでBiomeのlintと整形の検査を流す（[3b0ef40](https://github.com/kein5/astarot/commit/3b0ef4040c525c0cec36ae2858a241e7a0ea7987)）
+- **dev:** Biomeの版を固定し、UIのTypeScriptに合わせて設定する（[6bc999a](https://github.com/kein5/astarot/commit/6bc999a0710dd98f6e3c208b9535654ebd41d856)）
+- **dev:** setupとcheckにintegrationのスコープを足す（[5df2c02](https://github.com/kein5/astarot/commit/5df2c026cc4a2a5f663ee7394cb1664db2fae4e6)）
+- **dev:** 中核への移行のための起動の計測を外す（[800122c](https://github.com/kein5/astarot/commit/800122c4ad50283d36cf37434f570f6080568e24)）
+- **updates:** アップデートの確認のUser-AgentにASTAROTを入れて送る（[4c380a9](https://github.com/kein5/astarot/commit/4c380a99e6d9168d864139a5f1e7a9571802838d)）
+- **telemetry:** 利用状況のイベントのUser-AgentにASTAROTを入れて送る（[2a4915f](https://github.com/kein5/astarot/commit/2a4915fb9ffff1f574f5bb7474e29b5a58f5d42f)）
+- **dev:** 経路の遅延の例で自動のブロックを測る（[e4f53f5](https://github.com/kein5/astarot/commit/e4f53f5a1903b24500b3fbbc7d127fc698fe26b5)）
+- **core:** アプリのスレッド、実行時のフォルダー、トレイの名前をASTAROTにする（[c9fa474](https://github.com/kein5/astarot/commit/c9fa474ad0bb13a208f2b0d25f3b95fe875ec9ad)）
+- **core:** ダウンロードと翻訳のUser-AgentにASTAROTを入れて送る（[824a942](https://github.com/kein5/astarot/commit/824a942d871459156bc5cd3c4c331ec3e13377cc)）
+- **vr:** SteamVRのオーバーレイの名前をASTAROTにする（[d66bc67](https://github.com/kein5/astarot/commit/d66bc670e7c77202a2cbfd56711b6aa2b2b87c3c)）
+- **osc:** OSCQueryの受け口をASTAROTとして告知する（[6a97960](https://github.com/kein5/astarot/commit/6a97960693f8e942913af7494d874349e75d6023)）
+- **downloads:** 新しいモデルのフォルダーにASTAROTの持ち主の印を付ける（[bcd1867](https://github.com/kein5/astarot/commit/bcd18677eff256f9a3875115757a04ad9bc62458)）
+- **dev:** RVCのワーカーのベンチでGPUのクロックを採る（[a309124](https://github.com/kein5/astarot/commit/a3091248377bbd2d54a92971d341454c5f261f8b)）
+- **dev:** Windowsで変換した声の遅延を端から端まで測る（[fffb404](https://github.com/kein5/astarot/commit/fffb40448e388deacacba18f28375659c02d056a)）
+- **vc:** ブロックの終わりを最後の部分が届いた時刻より後に記さないようにする（[20c88a6](https://github.com/kein5/astarot/commit/20c88a63947eede48b16a874a40a500b5eea92ef)）
+- **dev:** パイプラインの遅延のまとめで欠けのない発話だけを数える（[caa480e](https://github.com/kein5/astarot/commit/caa480e83b864a0273273c4f7b347675a030114d)）
+- **ui:** 部品の見本集にkitのDialogを出す（[d06efe2](https://github.com/kein5/astarot/commit/d06efe27a5d6eb806996d38103c78e5f94b9de20)）
+- 公開されるものを決めるファイルだけをコードオーナーの担当にする（[72215ec](https://github.com/kein5/astarot/commit/72215ecb2041ecbfa1f1fcb6157fa7c5f503e8dd)）
+- **ui:** 設定のkitにshadcn/uiのDialogの部品を足す（[a63cbae](https://github.com/kein5/astarot/commit/a63cbaef52cc4fdb55b90e979e3288bc38b7a448)）
+- Pythonのバックエンドと、それだけが使っていたものを消す（[9eeb5bf](https://github.com/kein5/astarot/commit/9eeb5bfcf5e8787ecfc9bfef55b67ee87f03ccd8)）
+- 仕様、版、2つの試験でsrc-pythonを読まないようにする（[7977599](https://github.com/kein5/astarot/commit/797759941a4bcfee6f99012fbe9a3c3b970c80f0)）
+- **dev:** pipeline_latencyのパーセンタイルをBencher Metric Formatで書き出す（[6b87ef9](https://github.com/kein5/astarot/commit/6b87ef92dbed17dac299af74495aa30b6eebc6a7)）
+- **dev:** 代役を使って音声パイプラインそのものの時間を測る（[91b9ded](https://github.com/kein5/astarot/commit/91b9dedd1c66dfb083998673f3dc7db2dfc17559)）
+- **downloads:** NLLB 600Mの翻訳モデルに測ったメモリの値を入れる（[3eca6e9](https://github.com/kein5/astarot/commit/3eca6e9639d89dbaedf072c117943f4b10acc172)）
+- **translation:** 翻訳に失敗したときのログの行にエンジンの名前を書く（[66fdecd](https://github.com/kein5/astarot/commit/66fdecdc6e58fad0178ec55573f3ac65c4d13950)）
+- **dev:** 私用のPipeWireのグラフでLinuxの管理対象の経路の読み上げを測る（[247c60f](https://github.com/kein5/astarot/commit/247c60f45526b806a080acdb71f2e3fcf0ea3edf)）
+- **downloads:** ASTAROTの名前で印を付けたモデルのフォルダーを認める（[4c12f98](https://github.com/kein5/astarot/commit/4c12f9822148cec9fd9d750109ae3132aa494311)）
+- **dev:** モデルカードに元のモデルの作者と重みの変更を書く（[9a40730](https://github.com/kein5/astarot/commit/9a4073019c903eafaccd209161278535b307ecdb)）
+- **dev:** .claude/skillsと.agents/skillsを共通のスキルへのリンクにする（[dec7b23](https://github.com/kein5/astarot/commit/dec7b231535b4b119256b8867c2dbf1f48468b22)）
+- **translation:** 翻訳のデバイスに要るONNX RuntimeのGPU版を読み込む（[39a2f4c](https://github.com/kein5/astarot/commit/39a2f4cf95e86eed7fe85d68e840a5b9ff01bb92)）
+- **translation:** ランタイムの準備にONNX RuntimeのCUDA版とDirectML版を足す（[472db08](https://github.com/kein5/astarot/commit/472db082134b2900ebb66fe7373f0fad7a4f2385)）
+- **core:** GPUの報告のためにspeech.cppをCPUとGPUごとに測る（[58c4626](https://github.com/kein5/astarot/commit/58c462692e70dfd67cda554026fefc9a41daec3b)）
+- **dev:** RVCの参照用の環境をPython 3.14で作り直す（[48a51a1](https://github.com/kein5/astarot/commit/48a51a195e2f1ad58cd380f47adb3f83e8ed8f1f)）
+- **core:** OSCQueryをオフにする設定を足す（[48549a4](https://github.com/kein5/astarot/commit/48549a4f0d28975e6887ab18e792d12142b753b7)）
+- **osc:** OSCの接続でOSCQueryをオフにし、またオンにできるようにする（[3ef3889](https://github.com/kein5/astarot/commit/3ef388915a514f7db5fa09b16cdd0a3a7188a97a)）
+- **ui:** ダウンロードの確認で非商用のチェックボックスを別に求める（[fac1737](https://github.com/kein5/astarot/commit/fac1737c3d48beece041d7ce1be161d228515b68)）
+- **downloads:** 非商用のモデルのダウンロードを、その同意がなければ断る（[0923f26](https://github.com/kein5/astarot/commit/0923f266730bd031d04cdcf70d09722ed1a0395e)）
+- **dev:** 正式版のリリースノートをそのPRから書き始める（[ff7a39a](https://github.com/kein5/astarot/commit/ff7a39a01d123756e0d8fb36dc5dbdf36c010907)）
+- **dev:** 公開する翻訳モデルを用意し、アップロードし、登録する（[2dbcc5e](https://github.com/kein5/astarot/commit/2dbcc5ea00e774bf86ed339cbf5765b56f82e2d7)）
+- **dev:** ローカルのフォルダーから翻訳モデルを書き出し、試験用の小さなモデルも書き出す（[061f60a](https://github.com/kein5/astarot/commit/061f60ae39760cefe7f6031ea09919b982fe7642)）
+- **translation:** DirectMLでもCPUと同じようにデコードする（[e568a93](https://github.com/kein5/astarot/commit/e568a93f9dfc481a24833f3f660552f7829e0c9a)）
+- **transcription:** Linuxの補助が受け取れない録音のノード名を断る（[4a60738](https://github.com/kein5/astarot/commit/4a60738c1f85491f0f4b2002968893b1046cec74)）
+- **transcription:** speech.cppからはJSONのモデルの一覧だけを読む（[d86530c](https://github.com/kein5/astarot/commit/d86530c1ebc73ad38cc34b6d2e2c18eb63f7c6d7)）
+- **dev:** 配布の検査で、どのPythonでもZIPを終端レコードで見分ける（[9b11350](https://github.com/kein5/astarot/commit/9b11350c4df86d02118d78956088d44395f6a5b3)）
+- **core:** 一覧にない音声認識エンジンを断る（[5664df1](https://github.com/kein5/astarot/commit/5664df128bc78f55d436ffecb2c6d51ad92ca7e2)）
+- **dev:** Pythonの翻訳部分なしでONNXの比較を流せるようにする（[93d011f](https://github.com/kein5/astarot/commit/93d011f75d4e17e0784e9c86666b1785b7081dc6)）
+- **dev:** 本物のspeech.cppのサーバーでリアルタイムの認識の遅延を測る（[32ebf55](https://github.com/kein5/astarot/commit/32ebf55b17563ed15dfe67a6616c8231396ac361)）
+- **dev:** Windowsでpipeline_latencyの例をビルドする（[30dc71e](https://github.com/kein5/astarot/commit/30dc71ee79df6d74ba6231da6b95733b716302f7)）
+- **dev:** 認識の表をsrc-pythonではなく中核から読む（[1ea3729](https://github.com/kein5/astarot/commit/1ea37291cb965e7a852ddd6779349c8a0c04d57e)）
+- **transcription:** 途切れないVADの区間をPythonと同じく7秒で切る（[b8224f8](https://github.com/kein5/astarot/commit/b8224f88400c157a83892a4b5e3582baf6d4b3b6)）
+- **dev:** リアルタイムの無音をほかの長さでも試し、発話の出力の出だしを測る（[8c3b8a0](https://github.com/kein5/astarot/commit/8c3b8a0cf7d8c7fbc853dc6b329b31b468222827)）
+- **dev:** UIの試験をミューテーションテストで測る（[17cc88d](https://github.com/kein5/astarot/commit/17cc88dfe78044c59879694370863459a8e3b241)）
+- **dev:** 実際のモデルで音声パイプラインを段ごとに測る（[effddfa](https://github.com/kein5/astarot/commit/effddfa43113ac7c9b739238a78fc3d05f47bf7a)）
+- **dev:** ADRを確かめ、索引を作り直す（[251844b](https://github.com/kein5/astarot/commit/251844bed1c9542c4dfa078efb2353b5b2b71014)）
+- **translation:** 翻訳のカタログを2つのグループに分けて並べ、利用者が足した項目を使う（[1d8999c](https://github.com/kein5/astarot/commit/1d8999c086fe0ef5352cf4316ef92bae54465756)）
+- **translation:** 利用者が足した翻訳モデルとAPIを専用のファイルに置く（[507cea4](https://github.com/kein5/astarot/commit/507cea4b12ee64d75f2d7fc3e9812ac24ba8a97f)）
+- **dev:** 本物の音声のサーバーで中核を通した読み上げを測る（[8f6b997](https://github.com/kein5/astarot/commit/8f6b9973f391b283ff6571bd7ea24f39e14bc7c0)）
+- **dev:** 翻訳のクレートの読みの変換にcargo-mutantsを用意する（[6b41dbb](https://github.com/kein5/astarot/commit/6b41dbbdbdfa4243fbdd1c9e170929fb626d688f)）
+- **core:** アプリが起動した音声のサーバーと一緒に読み上げを終え、ポートを探らない（[7662798](https://github.com/kein5/astarot/commit/766279800d06ce3c04bcffbb63add7778443ad94)）
+- **dev:** モデルを書き出すスクリプトがONNX Runtimeの利用状況の報告を送らないようにする（[d9672fe](https://github.com/kein5/astarot/commit/d9672fef7b0cdcf17efbf7c3a133abbb3aaf3147)）
+- **dev:** 開発者の検査からONNX Runtimeの利用状況の報告を送らないようにする（[512ba52](https://github.com/kein5/astarot/commit/512ba522bc319fa0c58f55860345a4b0d24b6e8d)）
+- **dev:** i18nのロケールの問題をそのキーの行で示す（[a14c918](https://github.com/kein5/astarot/commit/a14c918c77f21cb260c6b4333182b812d3cc2f1d)）
+- **dev:** 訳されていないUIの文言や壊れた文言を検査で止める（[25a78fb](https://github.com/kein5/astarot/commit/25a78fbce1436059436fdb935c5d27d98a234854)）
+
+## 0.5.2（2026-11-18）
+
+[v0.5.1](https://github.com/kein5/astarot/compare/v0.5.1...v0.5.2)からの変更です。
+
+### 利用者に関わる変更
+
+#### 不具合の修正
+
+- **rvc:** RVCの実行環境に使うONNX RuntimeをNuGetから取得する（[607a65e](https://github.com/kein5/astarot/commit/607a65ebc28da582ec3b600316e4c4d4dd85114d)）
+- **vr:** VRのオーバーレイがオンの状態でコントローラーが有効になっても異常終了しないようにする（[7e022c1](https://github.com/kein5/astarot/commit/7e022c11f8ae220335ce58f88f987a0115668a7b)）
+
+### 内部の変更
+
+#### ビルドとCI
+
+- 同梱するONNX RuntimeをNuGetのパッケージから取る（[c9f8cfb](https://github.com/kein5/astarot/commit/c9f8cfb97462a3e9d9faf029660b38646b6a1683)）
+
+#### 試験
+
+- **openvr:** オーバーレイとOCRが呼ぶ関数表の位置をすべて確かめる（[d6ebb16](https://github.com/kein5/astarot/commit/d6ebb16fed41c3f1626d27df9034c10636c23388)）
+- **openvr:** 関数表を呼ぶクレートのためにpyopenvrの関数表を記録する（[95fe114](https://github.com/kein5/astarot/commit/95fe114616cd7f5f1b1554df87fe0b81cfbbc404)）
+
+#### 文書
+
+- ONNX Runtimeの取得元としてNuGetを書く（[d15c27a](https://github.com/kein5/astarot/commit/d15c27a580c57f55a3a1e46d8bf214f74c1f8239)）
+- **release:** 0.5.2のリリースノートを足す（[3d6e3ff](https://github.com/kein5/astarot/commit/3d6e3ff7ad210a3fdb27b8f691cb42626a5992e6)）
+
+## 0.5.1（2026-11-18）
+
+[v0.5.0](https://github.com/kein5/astarot/compare/v0.5.0...v0.5.1)からの変更です。
+
+### 利用者に関わる変更
+
+#### 機能
+
+- **installer:** アプリをASTAROTの名前でインストールし、アプリの一覧にもその名前で出す（[7a4792a](https://github.com/kein5/astarot/commit/7a4792a5da199def0d99395067d1698a7f3b57e8)）
+
+#### 不具合の修正
+
+- **ui:** 設定のメニューで「実験的機能」のタブの英語の名前が収まるようにする（[42f0cb8](https://github.com/kein5/astarot/commit/42f0cb831dbd45e525e79fa118e0284992cd1034)）
+- **ui:** 設定のメニューのタブをそれぞれ1行で表示し、タブの高さをそろえる（[6862102](https://github.com/kein5/astarot/commit/686210255b76e934a7eb1484d127bc04688adc65)）
+- **ui:** 言語やレイアウトが追いつかないときも、あいさつの表示を長くは待たせない（[1a7353b](https://github.com/kein5/astarot/commit/1a7353bb36afab5a3fcb6218e6ff7ac6a9245183)）
+- **ui:** 保存した大きさと言語がそろってから空の会話のあいさつを描く（[9547561](https://github.com/kein5/astarot/commit/9547561d5866b87731baea7164c7a74a92f1c082)）
+- **ui:** 保存したUIの大きさを、その値が届くフレームを描く前に反映する（[1a2987b](https://github.com/kein5/astarot/commit/1a2987b464a45a01407f7f838ead55d08d43c4e5)）
+- **ui:** あいさつの下の一覧が伸びる間も、空の会話を先頭の位置に保つ（[3414d8c](https://github.com/kein5/astarot/commit/3414d8cf2d378f2dfb326b4a166fb69d901bf5ac)）
+- **ui:** 既定の大きさのウィンドウでレールの「ボイスチェンジャー」を1行に収める（[f23bf0c](https://github.com/kein5/astarot/commit/f23bf0c25cfa2057dd26854390ea8036b304e596)）
+- 補助のウィンドウの名前をASTAROTにする（[7fde602](https://github.com/kein5/astarot/commit/7fde6021058ec9804236174ec80a6235d95110de)）
+- **windows:** WebView2がEdgeの試験的な機能を取得したり、部品の更新を繰り返したりしないようにする（[b59bbba](https://github.com/kein5/astarot/commit/b59bbbadfb6f34aa28dd5651ff7134b99190882f)）
+- **ui:** 音声エンジンの推論デバイスとしてCPUと独立GPUだけを選べるようにする（[ca52167](https://github.com/kein5/astarot/commit/ca5216726a37cc195e61c5eec5cb7d3e4036c88b)）
+- **speech:** 音声のサーバーを内蔵GPUで起動しない（[a9a2c10](https://github.com/kein5/astarot/commit/a9a2c1058e29b58c242f9514ea592a3b5ba51b10)）
+- リリースをkein5/astarotのリポジトリからダウンロードする（[9ca663d](https://github.com/kein5/astarot/commit/9ca663db2cf8600baf4ee2c281027b82297b36dc)）
+- **site:** 改名後のリポジトリから使い方ガイドを/astarot/の下に公開する（[2bf2f29](https://github.com/kein5/astarot/commit/2bf2f29f5ffc9f1a713c8c28829f154b10d7a44b)）
+- **ui:** 使い方ガイドを新しいアドレスのkein5.github.io/astarotで開く（[f993245](https://github.com/kein5/astarot/commit/f993245cb338669d8de2ed51909360526521afdc)）
+
+### 内部の変更
+
+#### 依存
+
+- **deps:** sassを開発用の依存に載せる（[89b4f86](https://github.com/kein5/astarot/commit/89b4f860d8ee403c87bc76df43e50372c0bceb40)）
+- **deps:** DeepLの再試行、OCRのモデルの確認、Ruffを#498に合わせる（[93d632e](https://github.com/kein5/astarot/commit/93d632e311fded824e2da303e6d5c56aff7259df)）
+- **deps:** CSPをreact-toastify 11.2とjs-base64 3.9に合わせる（[eaab438](https://github.com/kein5/astarot/commit/eaab4383cc7fdf3f338bf258f99afc45d13215e9)）
+- **deps:** python-minor-and-patchのグループを1つのディレクトリで19件更新する（[84af89a](https://github.com/kein5/astarot/commit/84af89aca3fc1bdaf88d6305a45befaef6a94166)）
+- **deps:** websocketsを15.0.1から17.4に上げる（[8079ee8](https://github.com/kein5/astarot/commit/8079ee85c15cd0ba9fa443354585d92281cb9de2)）
+- **deps:** npm-minor-and-patchのグループを1つのディレクトリで9件更新する（[ea349d2](https://github.com/kein5/astarot/commit/ea349d295a6a7aacc8b6ff0c5c227ed0ec203790)）
+- **deps:** pycawを20240210から20260927に上げる（[ca87e1f](https://github.com/kein5/astarot/commit/ca87e1f18521a938f627d249449e6e310f1c0407)）
+- **deps:** numpyを1.26.4から2.4.6に上げる（[2bdbb46](https://github.com/kein5/astarot/commit/2bdbb46e1fdf88ee387eca394c3798db4935c668)）
+- **deps:** psutilを5.9.8から7.2.2に上げる（[b1c4b0f](https://github.com/kein5/astarot/commit/b1c4b0f6019faac95448132cde8fac0df1bed03a)）
+- **deps:** jotaiを2.12.3から3.0.2に上げる（[107a9f4](https://github.com/kein5/astarot/commit/107a9f49c18e7ec618abeafd7c7622bbd5e601e3)）
+- **deps:** typescriptを5.9.3から7.0.2に上げる（[c88e62a](https://github.com/kein5/astarot/commit/c88e62ac0e388cb5fdfaadc25fca0c51eb032de0)）
+
+#### ビルドとCI
+
+- **release:** リリースの下書きの題名をASTAROTにする（[47edf68](https://github.com/kein5/astarot/commit/47edf68e9630725938579bfbb8fc592753a6007d)）
+- actions/checkoutを4.4.0から7.0.1に上げる（[955747f](https://github.com/kein5/astarot/commit/955747f7d9ceba704aaceffcf68c64b1115c4716)）
+- actions/upload-artifactを4.6.2から7.0.2に上げる（[2e3dd10](https://github.com/kein5/astarot/commit/2e3dd10d830abaf59bda8ee829a4356a47eaa0c9)）
+- jdx/mise-actionを5.2.7から5.2.8に上げる（[aead6b0](https://github.com/kein5/astarot/commit/aead6b0e882c6b48d951291a2f7b5bee052c452c)）
+- actions/download-artifactを4.3.0から8.0.2に上げる（[98c0094](https://github.com/kein5/astarot/commit/98c0094ddede2f80dfad3a86c86c4944a3b0fcf0)）
+
+#### 試験
+
+- **ui:** 設定のメニューのタブがすべて1行で同じ高さであることを確かめる（[f69d2bf](https://github.com/kein5/astarot/commit/f69d2bf9d58d608fa005e86a1b9c2cfda6cc9e64)）
+- **ui:** 既定の大きさのウィンドウで、レールの名前が1行に収まることを確かめる（[06fe9af](https://github.com/kein5/astarot/commit/06fe9af30def6071a0f17f7b9e83b0a32fc49b05)）
+- **core:** 遅らせて行う設定の保存を、決まった時間眠って待つのではなく完了まで待つ（[a85e053](https://github.com/kein5/astarot/commit/a85e053aaac0d356026f196f05329ba177c3e2ed)）
+- **core:** 選んだデバイスを確かめる前に、デバイスの監視が変更を終えるのを待つ（[98667fd](https://github.com/kein5/astarot/commit/98667fda74743c7ecf1a14036cf2047e0da1acea)）
+- **installer:** 新しいインストールと更新で表示名を確かめる（[1577b6e](https://github.com/kein5/astarot/commit/1577b6e479565b7003da7a419b20435d51370f6c)）
+- **websocket:** websockets 17でも保留中のpingを読む（[7a48498](https://github.com/kein5/astarot/commit/7a4849875987d1d459d7b2bbc49542008974326e)）
+- **docs:** スクリーンショットのアニメーションを待つのを3秒で打ち切る（[83b0ad6](https://github.com/kein5/astarot/commit/83b0ad6d7563416f7ac14bade2d59e3bf4c751ab)）
+- **security:** Pagesのデプロイの条件がkein5/astarotを指していることを確かめる（[52ae935](https://github.com/kein5/astarot/commit/52ae935808587fadafb2ac70025fc881252cd355)）
+
+#### 文書
+
+- **release:** 0.5.1のリリースノートが指すONNX Runtimeがどれかを書く（[e3e1bda](https://github.com/kein5/astarot/commit/e3e1bda7f4c257d8346f1276cbcdb99fa1d24f0a)）
+- **release:** 0.5.1のリリースノートを足す（[5dbfedf](https://github.com/kein5/astarot/commit/5dbfedf58835f522b3f16cfd9904ef58178e0b06)）
+- **site:** 使い方ガイドでアプリをASTAROTと呼ぶ（[e83d991](https://github.com/kein5/astarot/commit/e83d991824acd685fad202fc3f6c453567f95c8a)）
+- **docs:** GitHubへのリンクをkein5/astarotのリポジトリに向ける（[54719ac](https://github.com/kein5/astarot/commit/54719acf1bad3dbbab058dc361ecbdad4110bb62)）
+- **dev:** 変異テストの項目から余分なカンマを消す（[1fd92cc](https://github.com/kein5/astarot/commit/1fd92cc2a7c2ad43a7c411cca75e107d24178728)）
+- **dev:** 変異テストの項目を0.6.0の計画に合わせる（[71a262c](https://github.com/kein5/astarot/commit/71a262c903becf9246a2abf00770c465bf3208cc)）
+- **design:** impeccableのデザインシステムをASTAROTと名付け、色を変える（[863522b](https://github.com/kein5/astarot/commit/863522b10f0a1e411ed3835f050c693140986785)）
+- **design:** 配色を青ではなくライラックとプラムで説明する（[65e0e49](https://github.com/kein5/astarot/commit/65e0e49b6253d1332113fa5a80555809015e267b)）
+- **design:** DESIGN.mdの配色をASTAROTのブランドの色に移す（[f07d057](https://github.com/kein5/astarot/commit/f07d0570a53792eaa4c4fdce451d83acd5ac7709)）
+- **dev:** AGENTS.mdからエージェント向けの道具の一覧へリンクする（[89200a1](https://github.com/kein5/astarot/commit/89200a1843f1a442e675c1bdc67b802feb1441dc)）
+- **dev:** 監査、執筆、検査にエージェントが使う道具を一覧にする（[802e7c4](https://github.com/kein5/astarot/commit/802e7c48dd562a948a8e975c09519c941d1e2c70)）
+- **rename:** インストール時の名前についての注記の言い回しを引き締める（[e07f476](https://github.com/kein5/astarot/commit/e07f476c6c352e4117de5f858ae5f31610fda3cc)）
+- **release:** リリース候補のビルドが確かめないことを挙げる（[07c76b3](https://github.com/kein5/astarot/commit/07c76b3e1c0bcbf988e4350078d256ce82683ae6)）
+- **site:** ガイドのボタンと設定の名前を0.5.0の画面に合わせる（[ff14e66](https://github.com/kein5/astarot/commit/ff14e6610d27b664a5d3cbefbe252afbca9cb745)）
+- **spec:** リリースのURLに合わせて設定キーの表を作り直す（[73b166d](https://github.com/kein5/astarot/commit/73b166ddce838ee1399b5dc42f10329dcee993dc)）
+- READMEのバッジをkein5/astarotから読む（[68f7700](https://github.com/kein5/astarot/commit/68f770016723dfe5208fb2f1e2c596f23e497541)）
+- **release:** 0.5.0のリリースノートからkein5/astarotの変更履歴へリンクする（[6fb3473](https://github.com/kein5/astarot/commit/6fb34738facaeb1d0c88fe086d52b85cac17bf9b)）
+- ガイドへのリンクをkein5.github.io/astarotに向ける（[61acd44](https://github.com/kein5/astarot/commit/61acd441f8af6668e1366c1a75fceb27c95eb462)）
+- 英語の文章のルールに、段落と論証のルールとhumanizerの推敲の道具を足す（[21f8572](https://github.com/kein5/astarot/commit/21f8572de2fbded5a538f498298454d15f4fccb9)）
+- 日本語の文章のルールを出典の役割ごとに分け、重複を削る（[63d5ce4](https://github.com/kein5/astarot/commit/63d5ce4b4778ac20a7765c26e9f6e1064a1a3a35)）
+- 日本語の文章のルールに、段落、論証、読み手の負担のルールを足す（[c620153](https://github.com/kein5/astarot/commit/c62015391feee29aec266f408cb2e5c8cc035e5f)）
+- AIの文章の癖に絞った英語の文章のルールを足す（[e69e9e5](https://github.com/kein5/astarot/commit/e69e9e5eb69a2a4eb21fc1693b8e6fc3b072ea7f)）
+- リンクとAGENTS.mdを、移した日本語の文章のルールに向ける（[98b9b29](https://github.com/kein5/astarot/commit/98b9b2976c08af0b7650e653e1201c720b5db805)）
+- 日本語の文章のルールをdocs/writing/japanese-guideline.mdに移す（[ae6a009](https://github.com/kein5/astarot/commit/ae6a0092ea286680ef98201e5e1a9e4bc282eeb6)）
+- 文書の種類ごとの文章のルールを全般のルールより優先させる（[c0aa674](https://github.com/kein5/astarot/commit/c0aa67430fd759800c0fdfaea3d5ab60479938f8)）
+- **agents:** エージェントに日本語の文章のルールを示す（[ab4b01b](https://github.com/kein5/astarot/commit/ab4b01b48a2612ef3232fa035a3c9606c25b8247)）
+- 文書、画面の文言、エージェントの報告に使う日本語の文章のルールを足す（[d7349e0](https://github.com/kein5/astarot/commit/d7349e01259b5145b491904dae0e0b4da4f970d8)）
+- **licensing:** 音の出来事の計測とESC-50の利用条件を書き留める（[35734a8](https://github.com/kein5/astarot/commit/35734a802b9113e4161a4067b211c1e528e5c0e9)）
+- **licensing:** 字幕に使う音の出来事のモデルの候補を記録する（[1065e37](https://github.com/kein5/astarot/commit/1065e37cf235eee4b802ee572e9c8e49be3b807a)）
+
+## 0.5.0（2026-11-17）
+
+[v0.4.0](https://github.com/kein5/astarot/compare/v0.4.0...v0.5.0)からの変更です。
+
+この版には0.5.0-beta.1、0.5.0-beta.2、0.5.0-beta.4、0.5.0-beta.5、0.5.0-beta.6の変更も含まれます。それらも下の一覧に載せています。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **linux:** speech.cppの2つのビルドをアーキテクチャごとに1つのパッケージで配る（[679373f](https://github.com/kein5/astarot/commit/679373f22eb60ca680763a2e02a6c9e8448d0375)）
+  - tools/build_linux.pyから--variantと--speech-archiveがなくなりました。--download-speechを渡すか、固定した2つのアーカイブをリリースでの名前のまま置いて--speech-archive-dirを渡してください。リリース候補と、Linuxのファイル名からlinux-x64-vulkanやlinux-x64-cpuを探すものは、linux-x64-releaseを使う必要があります。
+- **transcription:** Google Web Speechのエンジンと、その汎用のキーを廃止する（[804a617](https://github.com/kein5/astarot/commit/804a61708fc14c771f2c6f8735e335819c096400)）
+  - Googleの音声認識のエンジンはなくなりました。このエンジンを選んでいた利用者は、次に音声認識をオンにするときに別のエンジンを選ぶよう求められます。選べるのは「ローカル（speech.cpp）」か、自分のAPIキーで使うクラウドのエンジン（Groq、OpenAI、Deepgram、または独自のWhisperのサーバー）です。
+- **core:** APIキーをconfig.jsonに置かない（[877d74f](https://github.com/kein5/astarot/commit/877d74ffc628fa57894531c48e541986abfe85fb)）
+  - config.jsonにはAPIキーが入らなくなりました。config.jsonからキーを読む道具は読むのをやめる必要があります。0.4以前に戻す利用者は戻した版でAPIキーを入れ直す必要があります。
+- **core:** Rustの中核を唯一のバックエンドとして動かし、Pythonの同梱をやめる（[8f186f6](https://github.com/kein5/astarot/commit/8f186f6c30e5d7f04c520244f69f9fb976ccc016)）
+  - 配布物にvrct-vox-sidecarとPythonの実行環境が入らなくなりました。開発者はnpm run dev、npm run dev-fast、またはnpm run build-resourcesと`python tools/dev.py setup --scope resources`を使います。build-python、build-python-cuda、build-cuda、dev-cuda、dev-cuda-fast、sidecar-dev、setup --scope sidecar、spec/*.specのファイルはなくなりました。Pythonのバックエンドと比べるときは、0.4.xのパッケージかタグを使ってください。
+
+#### 機能
+
+- **ui:** モデルのカタログに自分のモデルを載せる（[259a3d7](https://github.com/kein5/astarot/commit/259a3d7fb4fae19462248c870f86d2a282cb403e)）
+- **downloads:** 自分のモデルのファイルを登録し、そのモデルに切り替える（[a4f8142](https://github.com/kein5/astarot/commit/a4f8142d80850170f016c8d7afbfb6f32709da03)）
+- **ui:** 音声のサーバーでCPUを選んだときに、どのビルドで動くかを表示する（[e9718ff](https://github.com/kein5/astarot/commit/e9718ff3ea1540538a2a2af6cb4b99a783d08938)）
+- **core:** speech.cppを設定で指定したCPU版かVulkan版のビルドで動かす（[6ae3dab](https://github.com/kein5/astarot/commit/6ae3dab5d5a429ea0c7517d5cf0b7a9b9f72e983)）
+- **overlay:** 字幕の書体をお使いのPCの書体から選ぶ（[07da896](https://github.com/kein5/astarot/commit/07da8966d890ec595c1ba0da6aca79968c1950dc)）
+- **app:** バックエンドのエンドポイントを通して、リリースの一覧を出し、アプリを更新する（[237303e](https://github.com/kein5/astarot/commit/237303e9e1bf41bc22b5e205a6fe420b1486ab16)）
+- **core:** 起動時の更新の確認は、更新の確認がオンのときだけ行う（[addc91c](https://github.com/kein5/astarot/commit/addc91cd0f2481d365f2e8ff834846e37c1c8dfa)）
+- **ui:** PCに重すぎる可能性のあるカタログのモデルに印を付ける（[cb7fca1](https://github.com/kein5/astarot/commit/cb7fca1ef99aa04eb0d588f93b03fd13e5f1970c)）
+- **overlay:** コントローラーでVR UIを指し、押し、つかみ、拡大・縮小し、大きさを変える（[2baa87c](https://github.com/kein5/astarot/commit/2baa87c07f86399126b77eb9d5d1acef872e418f)）
+- **ui:** カタログのモデルのうち、PCに重すぎるように見えるものを知らせる（[3de3dfc](https://github.com/kein5/astarot/commit/3de3dfceb6112134441effa4a3b72e6c7ca6d70c)）
+- **vc:** RVCのデバイス、CPUのスレッド数、入力のハイパスを選べるようにする（[05d4d4e](https://github.com/kein5/astarot/commit/05d4d4e5f5c5aae3200cbd21ef011c3dd67028a6)）
+- **tts:** COEIROINKの話す速さ、音量、音の高さ、無音の長さを設定できるようにする（[edd73a6](https://github.com/kein5/astarot/commit/edd73a6e214f35187c443c0b3ab7a5a0ab6025b6)）
+- **ui:** 音声認識の設定にWhisperの区間フィルターのしきい値を表示する（[960882e](https://github.com/kein5/astarot/commit/960882e7560273aa59de3f04c538314294b0eb5f)）
+- **ui:** 用途ごとに分けたカタログからモデルを選ぶ（[23d9de4](https://github.com/kein5/astarot/commit/23d9de4b3b33033d1a2595abdc8d16c182717387)）
+- **core:** ONNXのローカル翻訳を、GPUのデバイス、量子化の選択、自分のモデルと合わせてオンにする（[687173a](https://github.com/kein5/astarot/commit/687173a61fceccb2de0e2a1bd05788648f418d2d)）
+- **translation:** ローカル翻訳をCPUに加えてAMD、NVIDIA、IntelのGPUでも動かす（[4afd605](https://github.com/kein5/astarot/commit/4afd6052aa6e075324b96e5773895fb1b65619eb)）
+- **translation:** Google Cloud Translation、Papago、ローカルLLM向けのLANのアドレスを足す（[6d8ef83](https://github.com/kein5/astarot/commit/6d8ef83c6f41fe875fde4bfb0c6d67121acd93af)）
+- **downloads:** 前回までの起動でダウンロードしたモデルを報告する（[60792ee](https://github.com/kein5/astarot/commit/60792ee6adbff5804eb2acc45b4908df02f30ee3)）
+- **tray:** メインのウィンドウを閉じても、アプリをトレイで動かし続ける（[406e53b](https://github.com/kein5/astarot/commit/406e53bc4b35f0a137dd7683c9af60511de7722b)）
+- **tray:** アプリ全体でトレイのアイコンを1つにし、六芒星のオーバーレイと共有する（[52fc768](https://github.com/kein5/astarot/commit/52fc76837f59f4d003bb88b2476a02d0ab82aba9)）
+- **ui:** 六芒星を出すモニターを設定かトレイのメニューで選ぶ（[d59bba8](https://github.com/kein5/astarot/commit/d59bba8525cf0c2895afd38a431f17a435813e84)）
+- **core:** アプリに同梱した辞書でメッセージの読みを表示する（[33082d5](https://github.com/kein5/astarot/commit/33082d5fe72ee9938ca68eee0289f54b05fb400b)）
+- **translation:** sudachi.rsとSudachiDictのファイルで読みを解析する（[e7be223](https://github.com/kein5/astarot/commit/e7be223f41bd3650b821954c9dfc3ea0e71f26ab)）
+- **ui:** 共通の設定を六芒星の真ん中から外に出して並べる（[a3253a6](https://github.com/kein5/astarot/commit/a3253a6c75589b01a0f60dc76d08f92ca5735333)）
+- **ui:** ホイールで六芒星を回し、機能を画面の内側に寄せて並べる（[4b19b6a](https://github.com/kein5/astarot/commit/4b19b6ac7304a312eb70db10e83441efd83d99f7)）
+- **tray:** 六芒星を画面の端に隠し、ポインターの近くに出す（[340491c](https://github.com/kein5/astarot/commit/340491c9c38943ea8c1c9e84111cf427214644ec)）
+- **ui:** 六芒星のオーバーレイ（tray companion）を既定でオフの実験的機能として出す（[819afcd](https://github.com/kein5/astarot/commit/819afcddb790fe1504ebbc1c16ef701d14f31255)）
+- **tray:** 六芒星のオーバーレイがオンの間、アプリをシステムトレイに置き続ける（[4a1b475](https://github.com/kein5/astarot/commit/4a1b475fbf25f3b7c0d6cbeeb6dbe9a0d5b215ae)）
+- **ui:** 言語の選択欄を入力中のISO 639のコードで絞り込む（[ef60634](https://github.com/kein5/astarot/commit/ef606345277565d3853da04b5542be5144d1ccf5)）
+- **ui:** 言語の選択欄を言語コードで絞り込む（[60574f9](https://github.com/kein5/astarot/commit/60574f96b4adf28a46eeb7f82a6eebb19ff15622)）
+- **core:** マイクのリアルタイム音声認識で確定した文を読み上げ、声を流しているケーブルは受け付けない（[fe74572](https://github.com/kein5/astarot/commit/fe745725dac46d0109be274246d56dacc20c680b)）
+- **core:** Rustのバックエンドで音声認識のオンとオフを切り替える（[8fb152b](https://github.com/kein5/astarot/commit/8fb152b46c5af42a85203a6b1d0c6cba662b7f73)）
+- **transcription:** 音声認識のクレートを足す（[37fac05](https://github.com/kein5/astarot/commit/37fac05cdf053762f19feadf838656d14968aa8a)）
+- **audio-routing:** 音声認識のためにマイクかスピーカーのループバックを読む（[ac319fd](https://github.com/kein5/astarot/commit/ac319fd846de29ea7ffd011511907e94632c4583)）
+- **core:** Rustの中核から声を読み上げ、変換し、経路に流す（[b6203e8](https://github.com/kein5/astarot/commit/b6203e8c702a779529a66db19164e2601a8a1896)）
+- **vc:** RVCのワーカー、直接音声、その実行環境の準備をRustで受け持つ（[6c05ac7](https://github.com/kein5/astarot/commit/6c05ac7119b55fa969b2c79b4d8dc1d2d518b8d3)）
+- **tts:** Rustの中核からインストール済みの音声エンジンで日本語を読み上げる（[54a0ee4](https://github.com/kein5/astarot/commit/54a0ee4116e1ff2fa08b85a8476442067242039f)）
+- **core:** パイプラインのメッセージをVRのログに出し、読み取ったチャットの行もパイプラインに通す（[b3ae827](https://github.com/kein5/astarot/commit/b3ae827c2a9c9c4be5cbb32f71c8c94e77394561)）
+- **ui:** 設定に「実験的機能」のページを足す（[6c813a3](https://github.com/kein5/astarot/commit/6c813a3098d0e365e81971d555828823877263b6)）
+- **core:** Rustの中核でメッセージを翻訳して送る（[0a5690b](https://github.com/kein5/astarot/commit/0a5690b1023d93dfadb898f9daf9b6ce089ab8c4)）
+- **core:** RustのバックエンドでVRChatのチャット吹き出しを読み取る（[f42ee40](https://github.com/kein5/astarot/commit/f42ee40326f433c474d3287814f928566740685d)）
+- **ocr:** チャット読み取りが実行時にONNX Runtimeを読み込み、その状態を報告するようにする（[0e51a24](https://github.com/kein5/astarot/commit/0e51a24b4fdf68c4dbe05005fbee70926b55168e)）
+- **ui:** Windowsのマイクの許可の問い合わせにASTAROTの名前を出す（[cc212d3](https://github.com/kein5/astarot/commit/cc212d3b0b43e429279c57ec3b7e2dc9d606a711)）
+- **ui:** アプリのアイコンをASTAROTのアイコンにする（[74447a3](https://github.com/kein5/astarot/commit/74447a30e464b317949ad20e47978c1936b9f73f)）
+- **core:** 翻訳の提供元と読みをRustのクレートとして足す（[68a6234](https://github.com/kein5/astarot/commit/68a62349fea1e39597ebcd51318669505d0ddb65)）
+- **ui:** アプリにASTAROTのシンボルとロゴを出す（[b95983f](https://github.com/kein5/astarot/commit/b95983f494580a4e80e0c3b40e10602279c50121)）
+- **core:** 更新のエンドポイントにPythonのバックエンドと同じように応答する（[8e26dce](https://github.com/kein5/astarot/commit/8e26dce22cde71cf81352ad6c60574c31eb994fb)）
+- **ui:** アプリのウィンドウの題名をASTAROTにする（[97689d1](https://github.com/kein5/astarot/commit/97689d19511e013497d81812c9653b6d27e62a23)）
+- **ui:** メッセージと設定でアプリをASTAROTと呼ぶ（[2e5bcc7](https://github.com/kein5/astarot/commit/2e5bcc7b870794aba663b0f58e305d8049bfdaac)）
+- **core:** VR UIの配置と、チャット読み取りをオフにする要求に応答する（[fd6dc69](https://github.com/kein5/astarot/commit/fd6dc69fc0483fbbaad204d4e8a217bae7ff1974)）
+- **core:** 保存したキー、URL、機能の設定の要求に、中核のバックエンドで応答する（[2ff3772](https://github.com/kein5/astarot/commit/2ff377280dbdaefa579b68dc957662752422f612)）
+
+#### 不具合の修正
+
+- **ui:** メインのレールの機能のアイコンを、操作していないときもボタンとして描く（[7872217](https://github.com/kein5/astarot/commit/78722176dd768ccab97e728545c830b1f4cda289)）
+- **ui:** アプリの起動中に空の会話の見出しが動かないようにする（[4222c26](https://github.com/kein5/astarot/commit/4222c2646b0f58c61fb593c3264e48f594d29c10)）
+- **ui:** 音声エンジンが使うGPUをもとに、モデルのメモリの注記を出す（[68cba22](https://github.com/kein5/astarot/commit/68cba22c9b0b18d507dbf26f6140fc74b0c79c3e)）
+- **audio:** Windowsの仮想マイクで、テキスト読み上げ（TTS）がoutput_underflowで失敗しないようにする（[8e0338a](https://github.com/kein5/astarot/commit/8e0338a9c7e2d4d9ef8f93f3d95c03d4584448dc)）
+- **tray:** トレイのアイコンの名前をASTAROTにする（[69da590](https://github.com/kein5/astarot/commit/69da590fbf8a01da269c7cc0d0faabc7542cf672)）
+- **ui:** 各機能の設定をそのアイコンから開くようにして、起動時にメインのレールがずれないようにする（[f134b45](https://github.com/kein5/astarot/commit/f134b459ebfa7648b4e4bc8bdcdf33b557533e71)）
+- **core:** チャット読み取りと翻訳で1つのONNX Runtimeを共有し、同梱のライブラリを使う（[27a3fe6](https://github.com/kein5/astarot/commit/27a3fe665d1ede406b8b52efcfedefa2a0d0f648)）
+- **ui:** トレイのスイッチが役目を終えたあとも、メインのウィンドウをトレイに置いておく（[58da2b3](https://github.com/kein5/astarot/commit/58da2b3f7eb4f537401f12e2059778cf747cfb9f)）
+- **ui:** 命令に応答がなかったあとも、モデルのダウンロードを始め直せるようにする（[396319a](https://github.com/kein5/astarot/commit/396319a1a06c5898c8c0b2135b6ce96a892ad29b)）
+- **ui:** ホットキーを登録できないときや、ウィンドウを元に戻せないときに利用者に知らせる（[b40c5d3](https://github.com/kein5/astarot/commit/b40c5d348974719ec9064bd40df5b6fbb2db80d6)）
+- **ui:** チャット読み取りと従来のモデルの確認画面で、開始のボタンを青で表示する（[05ee264](https://github.com/kein5/astarot/commit/05ee264435072c7cd7202365d3151371317b2937)）
+- **ui:** 残りのメッセージでもエンジンを「ASTAROTの処理部分」と呼ぶ（[17fca81](https://github.com/kein5/astarot/commit/17fca81316f181b238076a99be893e9a1625b9ca)）
+- **ui:** 入力の転送と音声経路のエラーを言葉で説明する（[814fe48](https://github.com/kein5/astarot/commit/814fe488976bb4fd4794a5cab208fd1d06b9b4c3)）
+- **ui:** 「保存失敗」は、そのページ自身の保存が失敗したときだけ出す（[0fbd9cb](https://github.com/kein5/astarot/commit/0fbd9cbed57cd70afd00d36473d6c86b38f581fb)）
+- **ui:** developで足したLLMのプライバシーの注記で「メモリ」と書く（[1eca6c9](https://github.com/kein5/astarot/commit/1eca6c9c39ecb9b298921aec0d1f20a8552e833e)）
+- **ui:** VRの字幕のスライダーを欄と同じ位置から始め、値を表示し、端をそろえる（OCR）（[cf07e6c](https://github.com/kein5/astarot/commit/cf07e6cb51483a8364fff35eef7b69363879303f)）
+- **ui:** 「取得内容を確認」の名前と見た目を1つにそろえ、チェックボックスの端を欄の端に合わせる（[4a57681](https://github.com/kein5/astarot/commit/4a57681801fb879b429b6a91b80f772820a8e181)）
+- **ui:** 声のページのボタンを操作の対象の欄にそろえる（[166dc0d](https://github.com/kein5/astarot/commit/166dc0d2686347c314dbe3d11610dc77136ee832)）
+- **ui:** 設定に手順の番号とリンクの見た目を出し、等幅の書体を1つにそろえる（[eb9dc7a](https://github.com/kein5/astarot/commit/eb9dc7aba543863c5119115e5d3bc09dffc93bed)）
+- **ui:** 読み上げの停止の名前を1つにし、日本語ではオン／オフと書く（[959a2c6](https://github.com/kein5/astarot/commit/959a2c6b665aadc2dc9246581b9655a1701802c5)）
+- **ui:** 「実験的機能」のページと六芒星のメニューで、アプリの名前をASTAROTにする（[abe57e3](https://github.com/kein5/astarot/commit/abe57e3a68a956d5ae16749b5a302a90b4fb598e)）
+- **ui:** TTSのエンジンとそのサーバーに要るものを、利用者の言葉で書く（[f29e057](https://github.com/kein5/astarot/commit/f29e057ab0becfe2d82143358c3967104ae365ab)）
+- **ui:** 翻訳モデルをダウンロードできない間は、ほかの翻訳エンジンを勧める（[f600905](https://github.com/kein5/astarot/commit/f600905cf7a0d082bb4775c0f8660b260d6684bb)）
+- **config:** Windowsが一時的にsecrets.jsonを復号できないときも、ファイルを残す（[fb4622e](https://github.com/kein5/astarot/commit/fb4622e0baf7e75585f6655e6c73545591a7826e)）
+- **ui:** LLMの翻訳と更新の確認が送る内容を説明する（[3cad2f5](https://github.com/kein5/astarot/commit/3cad2f56256dcd9dc376764721179dfe0bed20c0)）
+- **osc:** Hostがアドレスかlocalhostを指すときだけOSCQueryの要求に応答する（[ca9f6d1](https://github.com/kein5/astarot/commit/ca9f6d18eea8f9ed01c2f63abe8557edeea8bfdd)）
+- **core:** 起動時には使っているエンジンにだけ接続し、ほかのエンジンは選んだときに確かめる（[f2ab165](https://github.com/kein5/astarot/commit/f2ab165e445b444c578e8f0958935e36f9b3ac7f)）
+- **log:** ホームフォルダーのより多くの書き方でユーザー名を隠す（[f1ac8ab](https://github.com/kein5/astarot/commit/f1ac8ab1daf92fa0fb63f7276ed78cb7c087db3f)）
+- **websocket:** WebSocketサーバーが保つ接続の数に上限を設ける（[5bbb341](https://github.com/kein5/astarot/commit/5bbb341b8d8ea61dfeb9625fa7c7c21192095b68)）
+- **ocr:** SteamVRが終了を求めたあとは、間を置いてから接続し直す（[c07fc7c](https://github.com/kein5/astarot/commit/c07fc7c4f205bd4a12ca1072c5d26de1f8d95f6b)）
+- **backend:** 失敗した実行が止まるのを、ウィンドウを固まらせずに待つ（[1ebaa37](https://github.com/kein5/astarot/commit/1ebaa373f5414ed43df65a292bb71ef8fe22180f)）
+- **translation:** 100 Continueと一緒に届く応答を捨てない（[6d7892e](https://github.com/kein5/astarot/commit/6d7892e0bd3425aca30dd00b813b789e052abb38)）
+- **update:** リポジトリの名前が変わっても、ベータ版の更新とリリースの一覧を保つ（[e0f4dfe](https://github.com/kein5/astarot/commit/e0f4dfe8f3f8f24470791d162d0f43fdd34cd91e)）
+- **update:** Windowsのインストーラーが起動しないときは、アプリを起動し直す（[61282bc](https://github.com/kein5/astarot/commit/61282bc08f359d08f359f2810994800714ec9f40)）
+- **telemetry:** 送れるエラーだけを記録し、記録が欠けないようにする（[cf0994a](https://github.com/kein5/astarot/commit/cf0994a04098bcc4b8e84f3f7b2944f3d1a6295e)）
+- **vc:** 壊れた声のモデルとインデックスを、ワーカーが異常終了する前に断る範囲を広げる（[6b78d10](https://github.com/kein5/astarot/commit/6b78d10effa685f87db8aadba9cc262d356f063f)）
+- **tray:** トレイのアイコンから戻せないときは、起動時にメインのウィンドウを表示する（[02c281f](https://github.com/kein5/astarot/commit/02c281fa9b07932461131fdb6d369f5471f5816a)）
+- **tray:** トレイのメニューが変わる間もアプリが応答するようにする（[13e0e05](https://github.com/kein5/astarot/commit/13e0e0530621d38c1a82a85064a9949db3e59ed2)）
+- **audio:** 滞った取り込みが音声を妨げたり、無音を積み上げたりしないようにする（[84a1d02](https://github.com/kein5/astarot/commit/84a1d0272b13c448350576121487243d3b446275)）
+- **ui:** お知らせに答えるまでは、利用状況の送信のスイッチをオフで表示する（[b2dc5cc](https://github.com/kein5/astarot/commit/b2dc5cce045299cd7fd5a7159e798ec693d7aa3b)）
+- メインのウィンドウを起動後に動かさず、最初から留まる位置で開く（[35963bc](https://github.com/kein5/astarot/commit/35963bc763ffc310eab0bfa1dad932175bd53b4c)）
+- **linux:** AppImageでトレイのアイコンの題名にASTAROTを出す（[84c5316](https://github.com/kein5/astarot/commit/84c5316df9d9ce238d54e57f1f50237526e43741)）
+- **ui:** 閉じるボタンの名前を、閉じたときに起きることに合わせる（[7188a21](https://github.com/kein5/astarot/commit/7188a2133dd7a9386cf08e90a60a67c964ee2f1d)）
+- **ui:** 起動直後にエンジンに接続できないという誤ったお知らせを出さない（[ad5e455](https://github.com/kein5/astarot/commit/ad5e4553579a21ab5d825b8eeeccb35ebf4c3fba)）
+- **ui:** ワードフィルターとVRの行をそろえ、\nを入力したとおりに表示する（[80f83d7](https://github.com/kein5/astarot/commit/80f83d746973ec46ec7943a420e0eabbfd443666)）
+- **ui:** 空白の入った「この PC」と「this computer」も書き換える（[10c9a81](https://github.com/kein5/astarot/commit/10c9a81627b12b15556d338c53626b241bc7d347)）
+- **ui:** 英語の見出しとラベルを、先頭だけを大文字にする形（sentence case）で書く（[525e442](https://github.com/kein5/astarot/commit/525e44244dd87d92068d7b72ef6105511ab15d84)）
+- **ui:** 「このPC」ではなく「お使いのPC」と書く（[d209189](https://github.com/kein5/astarot/commit/d209189e0f2e212c9455732df3bb3e184fd80a1c)）
+- **ui:** 保存バーのないページでは、変更がすぐに反映されると書く（[280addb](https://github.com/kein5/astarot/commit/280addb738d4e9164321130cb1965ce0d4899d49)）
+- **ui:** 古い設定のドロップダウンをフォームと同じ欄の形で描く（[c4c10c8](https://github.com/kein5/astarot/commit/c4c10c888cfb217d171b904892e87041e915de6c)）
+- **ui:** すべてのページで設定のオンとオフをチェックボックスで切り替える（[d4dd130](https://github.com/kein5/astarot/commit/d4dd130c7e1013546d46faf42d81ed9d230c7a13)）
+- **ui:** 上のバー、設定、ホットキーでミュートの名前を1つにそろえる（[6ff37c2](https://github.com/kein5/astarot/commit/6ff37c2d48b6e062d1ea6f2c73969a30ba04b648)）
+- **ui:** 専用のボタンで直接音声をRVCに切り替える（[db88271](https://github.com/kein5/astarot/commit/db88271e5822b8c181ff55890f808394ad33b41c)）
+- **ui:** 一覧を読み込んでいる間に、選んだ六芒星のモニターを「外されている」と表示しない（[5ae1d0f](https://github.com/kein5/astarot/commit/5ae1d0f32196d552991565a71480b0b3cba007b1)）
+- **tray:** 六芒星のオーバーレイをオフにしたときや起動に失敗したときは、オフのままにする（[5e9ce8c](https://github.com/kein5/astarot/commit/5e9ce8c0cfdb15940129d44133103dfe16c5c114)）
+- **config:** 声のモデルの選択を0.4でも読める形で保つ（[927ace9](https://github.com/kein5/astarot/commit/927ace9aaafbff772acb0e975856cecd38a5646f)）
+- **asr:** Linuxで取り込みのスレッドのpidfdをその補助のプロセスだけに渡す（[2998f7a](https://github.com/kein5/astarot/commit/2998f7a12819193fac2a5db39210c5b0e52d1e19)）
+- **ui:** エンジンがどんなエラーを返しても、言語の変更を終わらせる（[8814bca](https://github.com/kein5/astarot/commit/8814bcab946f08b03317d3a101c11909b7445f2f)）
+- **audio:** マイクを開く間もデバイスの一覧と読み上げを止めない（[6601607](https://github.com/kein5/astarot/commit/66016073e9d0c695270e9fb6e25c6b84dfa8f8df)）
+- **audio:** 出力先が変わったとき、COMを初期化したスレッドでCOMを解放する（[897b7a9](https://github.com/kein5/astarot/commit/897b7a9ecc73d8c13d0f810c8ace97a40b11ac7d)）
+- **ui:** ネットワークが切れたお知らせをUIの言語で出す（[2aacf2b](https://github.com/kein5/astarot/commit/2aacf2bb84123e0e6bb66cb33c0a2cd0b58282f1)）
+- **ui:** 隠れているログのフォントサイズのスライダーを、Tabキーの移動先から外す（[f6c8247](https://github.com/kein5/astarot/commit/f6c8247e6b357bbf0e89b9975cf289562fddd830)）
+- **ui:** サイドバーのスクロールバーを使っている間も、翻訳エンジンの一覧を開いたままにする（[97edca1](https://github.com/kein5/astarot/commit/97edca1d28ad3b53a82e700915ad2060d1b98809)）
+- **ui:** ダウンロードのサイズを表示言語で書く（[2047bef](https://github.com/kein5/astarot/commit/2047bef8b89049a87567bbcf0db0fcc5693b4f75)）
+- **ui:** チャット読み取りの言語の一覧が届く前から、自動の言語の名前を出す（[07e0fa3](https://github.com/kein5/astarot/commit/07e0fa38b80582c3472b442cf13e9627a4913912)）
+- **ui:** GPUの確認結果の時刻を表示言語の形式で書く（[6bd414f](https://github.com/kein5/astarot/commit/6bd414f3336ce8963a699b548c16682022cf34d9)）
+- **ui:** 自分のモデルの案内のリンクをリンクらしく見せる（[71911c5](https://github.com/kein5/astarot/commit/71911c5c8abad8d26320298332c8ca89f7fd9fbb)）
+- **ui:** フォームの主な操作を青で表示し、同意の欄に余白を取る（[4ffaf06](https://github.com/kein5/astarot/commit/4ffaf06f9805a2dac8d58ca8b0f975e6e6c6bbb0)）
+- **ui:** 設定の行を区画の見出しにそろえる（[1b8cf18](https://github.com/kein5/astarot/commit/1b8cf18f7f887d7f29d55a2cf810b50afc216a9b)）
+- **ui:** クイック設定の行に「オン」「オフ」と表示する（[3a5f7f4](https://github.com/kein5/astarot/commit/3a5f7f40e4762937002ecf4b112153d40502eaf1)）
+- **ui:** 翻訳エンジンの選択を言語と同じように欄として表示する（[962ffe9](https://github.com/kein5/astarot/commit/962ffe91d5c8bdb3d26a6e2ca73fdd65e5a4a741)）
+- **core:** Linuxで「フォルダーを開く」から起動したファイルマネージャーの終了を回収する（[5ce9882](https://github.com/kein5/astarot/commit/5ce9882556f2300a0105820e8d36c3bdc58bfb0b)）
+- **core:** 止まった実行の利用状況のイベントのフックを外す（[663801f](https://github.com/kein5/astarot/commit/663801f2ea2850dcd08100405144a6ad52d1b3b3)）
+- **ui:** モデルの取得内容の確認で、翻訳モデルのグループの名前を出す（[4b0de8c](https://github.com/kein5/astarot/commit/4b0de8ca9057392a364c87c40fcfb14a2ab06637)）
+- **ui:** Shiftを先に離しても、Shiftと記号のホットキーを保存する（[c09f55d](https://github.com/kein5/astarot/commit/c09f55d83adad93f01c0768f127c3cfc57a4738d)）
+- **ui:** 自分のモデルが断られたときも、入力した名前とパスを残す（[6cba086](https://github.com/kein5/astarot/commit/6cba0862904720c3b598cfd0735f0a634819eb78)）
+- **rvc:** 壊れた声のモデルや悪意のある声のモデルを、ワーカーを終わらせずに無効として報告する（[207250a](https://github.com/kein5/astarot/commit/207250a7501cf65d4f065851b45a47037def049a)）
+- **ui:** トレイから押したスイッチがオンにならなかった理由を表示する（[1306501](https://github.com/kein5/astarot/commit/13065011110096ece9d8cb67f8efa242c5a6a5f4)）
+- **osc:** 入れ子になったOSCの配列とmDNSのキャッシュに上限を設ける（[a2114b2](https://github.com/kein5/astarot/commit/a2114b2b496bd22e8a58cc35aa189836fdf248e5)）
+- **ui:** 停止とミュートが上のバーの右側のボタンに重ならないようにする（[d21ebba](https://github.com/kein5/astarot/commit/d21ebba2997901fbc8bf261c5b336cec73f3a241)）
+- **core:** PCがスリープから復帰してもバックエンドを動かし続ける（[c110afb](https://github.com/kein5/astarot/commit/c110afb15ad2daee951f1d388a16c43967e0e6d2)）
+- **core:** process.logに利用者のホームフォルダーを書かない（[338d239](https://github.com/kein5/astarot/commit/338d2395612126db6fc90769003cc2ba33540508)）
+- **config:** キーのファイルを一時的に読めないときも、保存したAPIキーを残す（[28366de](https://github.com/kein5/astarot/commit/28366dee23ae591dfca12653c1e61c9c828c4873)）
+- **rvc:** Windowsでネットワークの共有フォルダーにある声のモデルを見つける（[cd748df](https://github.com/kein5/astarot/commit/cd748dfb03934274212fdce640d3470aa75d838c)）
+- **core:** 失敗した実行が止まるのを待ってから始め直す（[72dbe49](https://github.com/kein5/astarot/commit/72dbe49ea6ec1484d218783a34f78aa651c76995)）
+- **linux:** セッションを持たないポータルのバックエンドの再起動を無視する（[c2a3180](https://github.com/kein5/astarot/commit/c2a31807f5c7f7884030c68d4d2d0107fd43eb38)）
+- **vr:** アプリを終了するとき、LinuxのVR UIの最後のフレームを消す（[c4322f3](https://github.com/kein5/astarot/commit/c4322f3034872395f077108e4981c35b343d8980)）
+- **core:** 期限を過ぎた起動を止めたあとは、何も新しく始めない（[d671b49](https://github.com/kein5/astarot/commit/d671b493ed1f9205ac8bb6f5da6f3c304f8c82ef)）
+- **asr:** 2つの認識のスイッチで同梱サーバーの1回の起動を共有する（[dc4fd34](https://github.com/kein5/astarot/commit/dc4fd34d851a68a7cb06906ac07327a1d17a127a)）
+- **installer:** パッケージのSHA-256が合わないときはダウンロードし直す（[aae2f25](https://github.com/kein5/astarot/commit/aae2f25df5e04a1dc2c871bc8fe204596c39db3e)）
+- **hotkeys:** 変更を取り消したときや失敗したときも、Waylandのホットキーを保つ（[b28ba84](https://github.com/kein5/astarot/commit/b28ba847a3d1fed38a967d65648a6fdd4428f676)）
+- **translation:** あふれるチャンクの大きさはパニックせずに断る（[2e2dd2c](https://github.com/kein5/astarot/commit/2e2dd2cb539442727741a9626d4f350874c68455)）
+- **vr:** VR UIがホバーの効果のためにポインターをまた受け取れるようにする（[876ce20](https://github.com/kein5/astarot/commit/876ce20fed80fc521d3d6fb9f3ee4225dc31f898)）
+- **tray:** Linuxにappindicatorのライブラリがないときは、トレイのアイコンなしで起動する（[4f3eb99](https://github.com/kein5/astarot/commit/4f3eb991c66748588bd81ca2826d92fa7c454213)）
+- **vr:** VRの言語の絞り込みでコードを入力した言語を選ぶ（[a6c79d8](https://github.com/kein5/astarot/commit/a6c79d866c91dec2431454a464a084590cc8ed0e)）
+- **ui:** 開いたサイドバーがそのサイドバーで開いたものを覆ったり隠したりしないようにする（[2bbc6c2](https://github.com/kein5/astarot/commit/2bbc6c217381666ee430fc9e25d0a765f1947ada)）
+- **vr:** VRのオーバーレイとチャット読み取りのどちらかが止まっても、もう一方の接続を保つ（[a845239](https://github.com/kein5/astarot/commit/a8452397615db1e6ced52ba7ba1d13b1879c784c)）
+- **ui:** 送信が断られたとき、失敗した入力のメッセージにだけ印を付ける（[2e717c7](https://github.com/kein5/astarot/commit/2e717c738ac07481d8212abba5ae71f238902ef7)）
+- **ui:** 「高度な設定」から保存してもRVCの選択を保つ（[cf1e31d](https://github.com/kein5/astarot/commit/cf1e31d06b6c23b246a3629f78c563b09b6e0a5d)）
+- **ui:** 設定の検索でVRとホットキーの設定を見つけ、OCRの結果すべてに移れるようにする（[4132e09](https://github.com/kein5/astarot/commit/4132e0981b253112d0b0d25e0dea7cc843db98ba)）
+- **asr:** 音声認識が止まったときに、クラウドの音声エンジンが失敗した理由を書く（[b487c20](https://github.com/kein5/astarot/commit/b487c20dcbd886a1731af565a599db5d3a0ebdde)）
+- **ui:** 音声のページで応答のない要求と失敗した要求を説明する（[abbcc4e](https://github.com/kein5/astarot/commit/abbcc4e017633fe6bbf97ce7d45f5a1171dc7878)）
+- **ui:** 日本語のエラーでもRVCの検索結果の混合率を同じ名前で呼ぶ（[0ac17f4](https://github.com/kein5/astarot/commit/0ac17f4bdc83a575e4d64a098cecb2542f0df4cc)）
+- **ui:** 灰色になっている相手の言語の追加と削除のボタンが、キーで動かないようにする（[cbc4524](https://github.com/kein5/astarot/commit/cbc45245db4ad3e6416289c13839fff1cec801d1)）
+- **ui:** ログのメッセージをEnterかSpaceの長押しで送り直す（[b37a450](https://github.com/kein5/astarot/commit/b37a4507df0e67dbf6c09f4dce623940ed6aebcd)）
+- **ui:** 停止やミュートの失敗を押した場所で知らせる（[1139150](https://github.com/kein5/astarot/commit/113915037005af6fab231d2c35a534782134cbdd)）
+- **ui:** サイドバーで同じ言語を選んだときに、国にかかわらず警告する（[a128cb2](https://github.com/kein5/astarot/commit/a128cb25c1dca4c056c0b30cfe7a4809053a9236)）
+- **ui:** 翻訳のGPUのメモリのお知らせをUIの言語で出す（[378554b](https://github.com/kein5/astarot/commit/378554bedd3f59a3a37fd7ec1a46766d18cb285d)）
+- **ui:** TTSの設定を保存できなかった理由を説明する（[7f5b9b6](https://github.com/kein5/astarot/commit/7f5b9b6d22675caef88f2d86f2552fa28a461e61)）
+- **ui:** 音声認識のサーバーの失敗をTTS向けの助言なしで説明する（[7e73b81](https://github.com/kein5/astarot/commit/7e73b81d31d51a7710102f0e94fb9be4085a6c79)）
+- **ui:** OCRのウィンドウの名前、TLSのファイル、新しい接続のキーが保存されたことを確かめる（[2635656](https://github.com/kein5/astarot/commit/2635656c7ff4bac6344769203a390fa0ded0858e)）
+- **ui:** スイッチを押してチャット読み取りのモデルがないと分かったときは、モデルの取得へ案内する（[effc305](https://github.com/kein5/astarot/commit/effc30536a24b0cdbd328df5baa34177933ea1a2)）
+- **ui:** デスクトップ字幕のウィンドウを、起動し直したあとも動かした位置に保つ（[02365ef](https://github.com/kein5/astarot/commit/02365efa975047c74d51184682715be44eb0db65)）
+- **vr:** VR UIで変えた音声、モデル、チャットボックスの設定を保存する（[d5ac972](https://github.com/kein5/astarot/commit/d5ac97227fcddfac7bde4eac9990663be0878362)）
+- **voice:** Seed-VCを選べなくし、保存されたSeed-VCの選択をRVCに移す（[b3b2413](https://github.com/kein5/astarot/commit/b3b24135ee6233e073328cef412c4e361a19bd46)）
+- **ui:** 録音と発話の時間切れの設定を実際の働きのとおりに説明する（[a61e235](https://github.com/kein5/astarot/commit/a61e235bfbf42dc029ca8bdb5d91d4603173a421)）
+- **asr:** VADのエンジンを同梱するまで、VADの選択肢を使えないものとして表示する（[8562c39](https://github.com/kein5/astarot/commit/8562c399695769de197a738df3f4d2aedc298e9b)）
+- **core:** 音声入力の文字をふたたびVRChatのウィンドウに貼り付ける（[6dd4b87](https://github.com/kein5/astarot/commit/6dd4b87a66ded0abf275ae9347839b064d58c624)）
+- **core:** 複数の翻訳のうち1つが異常に失敗しても、翻訳をオンのままにする（[92ae423](https://github.com/kein5/astarot/commit/92ae423c5cdb1e13bbd4d40e454930cc63143015)）
+- **ui:** 働かなくなった起動時のモデルのダウンロードのスイッチを消す（[1e4283c](https://github.com/kein5/astarot/commit/1e4283c9c17c96f4c4b9379df0e4305c6296398a)）
+- **core:** 保存したOSCの送り先を開けないときは、代わりに同じPCに送る（[1c8c998](https://github.com/kein5/astarot/commit/1c8c99863793ce891b52bb663edb667ecf19995f)）
+- **core:** メッセージをVRの字幕に出せないときに警告する（[f163242](https://github.com/kein5/astarot/commit/f16324240bc223f3c4b149a661f623cc01192e8b)）
+- **core:** 切り替える前のエンジンをまだ使っている認識を止める（[95dbacb](https://github.com/kein5/astarot/commit/95dbacb8cec467cd7e80c5f8af188476019a4f3d)）
+- **ui:** エラー画面の更新のボタンは、アプリが自分で更新できる環境でだけ出す（[c2e6a2b](https://github.com/kein5/astarot/commit/c2e6a2b8edd48f50a4dfc69b230cdd82a880275c)）
+- **linux:** debとrpmのパッケージでlibpipewireを必須にする（[f536499](https://github.com/kein5/astarot/commit/f53649938a52bfad1274dc6bc33bda17b85ef83a)）
+- **ui:** RVCのハイパスのチェックボックスをほかの欄と同じ24pxの高さにする（[89d921b](https://github.com/kein5/astarot/commit/89d921b2f84a813b5198fa39ff7aff597b6d3d51)）
+- **core:** 起動の途中で実行が終わったときは、起動の期限を待つ処理をすぐに起こす（[5b5800a](https://github.com/kein5/astarot/commit/5b5800a10e693606c3688b27db131c584ca8c2af)）
+- **vr:** VR UIがRustやほかのウィンドウからのものに見えるイベントを送れないようにする（[3d4c72e](https://github.com/kein5/astarot/commit/3d4c72e546788a258c0e3ac47021426a27f2ea8c)）
+- **hotkeys:** Waylandのショートカットのポータルがなくなったときは、利用者に知らせて割り当て直す（[27f448c](https://github.com/kein5/astarot/commit/27f448c123d78e7503506a325d63b2398ff67b80)）
+- **ui:** デスクトップ字幕やVR UIのウィンドウを開けないときに利用者に知らせる（[6b6e5e4](https://github.com/kein5/astarot/commit/6b6e5e42693c4346650f70366585a1c6cb58cf03)）
+- **update:** Windowsのインストーラーを動かす前に、最新の設定を保存して中核を止める（[6f296a3](https://github.com/kein5/astarot/commit/6f296a3c6570b0e97eae2f3c809d652d7964f893)）
+- **core:** 起動がパニックしたり止まったりしたときは、いつまでも起動中のままにせず利用者に知らせる（[08152da](https://github.com/kein5/astarot/commit/08152da72fc60947097fba4d94a07c0df843a0db)）
+- **overlay:** メッセージに改行があっても、デスクトップの入力と出力の帯を更新し続ける（[e545ef0](https://github.com/kein5/astarot/commit/e545ef0b8210f119eb21fa08c557a5205306aef0)）
+- **ui:** ほかの認証情報と同じく、PapagoのクライアントIDをVR UIに出さない（[0edeee9](https://github.com/kein5/astarot/commit/0edeee98d3f93f6d70a5832a0707be42647f469f)）
+- **ui:** 翻訳モデルのダウンロードを共通の同意の確認へ案内し、公開されたモデルがなければそう書く（[d35d292](https://github.com/kein5/astarot/commit/d35d292d6a55ea9cc9642788a471b7b75b9cbb98)）
+- **translation:** Google、Bing、Papagoの翻訳エンジンを選べなくする（[cbbd4ea](https://github.com/kein5/astarot/commit/cbbd4ea1314c3c370ec4409da194ed6c6a518295)）
+- **ui:** 声の入力欄とチャット入力の小窓に、入力例のプレースホルダーを出す（[68a3b0b](https://github.com/kein5/astarot/commit/68a3b0b4081c64139e5880c201c2c5b37968ae2a)）
+- **vc:** 変換したブロックの古さをそのブロックの経路で判断する（[f292f66](https://github.com/kein5/astarot/commit/f292f66d320e60e4c2b3126dc97bce0784f8f745)）
+- **ui:** 1280x720で相手の言語が1つのときも、翻訳エンジンが横に見えるようにする（[eb47d30](https://github.com/kein5/astarot/commit/eb47d3024851338c78119b764a763d9379b15116)）
+- **obs:** Windowsで止めるとき、止まったブラウザーソースの要求をすぐに終わらせる（[e2054d7](https://github.com/kein5/astarot/commit/e2054d756b1642d17f899d463c7b085a2cf9b879)）
+- **osc:** 取り下げたmDNSのサービスを、goodbyeを送ったあとは告知しない（[3c9edd5](https://github.com/kein5/astarot/commit/3c9edd56152f63e19cd815a8c5c5d528a3386c79)）
+- **ui:** 言語の設定と翻訳エンジンをレールに収める（[13d0074](https://github.com/kein5/astarot/commit/13d00740d1f109ab4c8576628ae7fa4494c63f46)）
+- **ui:** 高さの低いウィンドウやとても横に広いウィンドウでも、会話を読めるようにする（[88743f2](https://github.com/kein5/astarot/commit/88743f2f83ae039e3743d43c1e1572a5b392bb3b)）
+- **ui:** 狭いウィンドウでは会話の上にレールを開き、レールの下端を見えるようにする（[f6b342f](https://github.com/kein5/astarot/commit/f6b342f595dbec11e40f81b241205369555cbbda)）
+- **ui:** メインの上のバーを、ウィンドウではなく会話の列の幅に合わせる（[f8c701d](https://github.com/kein5/astarot/commit/f8c701df770fc237847c2a38f92b257b3519c81f)）
+
+#### 性能
+
+- **core:** 起動時にONNX Runtimeを立ち上げずに設定のフォルダーを見つける（[7aaffb9](https://github.com/kein5/astarot/commit/7aaffb9a102367fc8c15d40a024c62766f76a933)）
+
+#### セキュリティ
+
+- **core:** 同梱のONNX RuntimeがMicrosoftに利用状況の報告を送らないようにする（[264a99c](https://github.com/kein5/astarot/commit/264a99cdaf73d792486b8947f8069ccee635cc39)）
+- **security:** メインのウィンドウには使っているcoreの権限だけを与える（[29a607f](https://github.com/kein5/astarot/commit/29a607fcb6a465976b35ff1dbbe45c0f690f271c)）
+- **security:** リリースのビルドでWebインスペクターをオフにする（[e6c373d](https://github.com/kein5/astarot/commit/e6c373dc8bd3d875c4d276cba5aa0e78537ae8b7)）
+
+### 内部の変更
+
+#### リファクタリング
+
+- **ui:** トレイの要求を1か所にまとめ、cfgだけの早期のreturnをなくす（[c8c1803](https://github.com/kein5/astarot/commit/c8c180381d96b880a403f1848dd65faa226d0ce7)）
+- **vr-overlay:** OpenVRの接続を1つ共有し、シーンのアプリケーションを読む（[ce63c70](https://github.com/kein5/astarot/commit/ce63c70728807e1aafb74c37918106d999c0a7a7)）
+- **translation:** 提供元への要求を、コンパイル時に解決するトレイトで共通にする（[4179f84](https://github.com/kein5/astarot/commit/4179f84ee4d8a881463d5a40a8f6d57a6f94a827)）
+- **ui:** メインのページのレイアウトの骨組みをADR-010の土台に移す（[82a79a0](https://github.com/kein5/astarot/commit/82a79a008f2988f16d0bed66161bbba7c1696ac2)）
+- **ui:** vanilla-extractとRadixの土台を、それぞれ1か所で使う形で足す（[01140b0](https://github.com/kein5/astarot/commit/01140b022085f59c7ada45567cded58af7af7cf2)）
+- **ui:** フックを使わないロジックのモジュールをTypeScriptに移す（[09d6042](https://github.com/kein5/astarot/commit/09d60425815db94d14dd59616531567fae185914)）
+
+#### 依存
+
+- **deps:** npm 10でもインストールできるpackage-lock.jsonを書く（[fcaedaa](https://github.com/kein5/astarot/commit/fcaedaaebf3d917b7949b92192f2e855f251262f)）
+- **deps:** UIの移行のためにTypeScript、vanilla-extract、Radixを足す（[2f38a20](https://github.com/kein5/astarot/commit/2f38a203862187b430d2d5b78374072ed95f6540)）
+
+#### ビルドとCI
+
+- **build:** 配布物にONNX RuntimeとOpenVRのクライアントのライブラリを入れる（[ecbb86c](https://github.com/kein5/astarot/commit/ecbb86c0cc3676ebfb248a522faca3181524732a)）
+- **build:** Windowsのパッケージをビルドするときに、古いspeech.cppの同梱物を置き換える（[226a4a0](https://github.com/kein5/astarot/commit/226a4a008e473f88c7eadb9b89750ae9194189d5)）
+- 読みに使うSudachiDictを、エディションを固定して取得する（[9cda20c](https://github.com/kein5/astarot/commit/9cda20c588ec352e9e08b8f417b7c0e9d8635d38)）
+- **linux:** アプリの中でPipeWireを通して音声のデバイスを一覧にする（[510ace8](https://github.com/kein5/astarot/commit/510ace86efefa3a6ce9e3af4aab1fdc7f63396da)）
+- アプリの配布ファイルをPythonのバックエンドなしでそろえる（[8079609](https://github.com/kein5/astarot/commit/80796091f8711bca0bd0d95077f09813c7f26489)）
+- **dev:** 開発とCIのNodeを26.13.1に固定する（[952ddbe](https://github.com/kein5/astarot/commit/952ddbe3f1fe75167a55e88bea3c5a8fb98ac03a)）
+- **site:** マニュアルのリリースへのリンクをアドレス全体で比べる（[c9d6d03](https://github.com/kein5/astarot/commit/c9d6d0326ace9ea3bccfbf1c1fba8a63e13cd346)）
+- **site:** マニュアルのリリースへのリンクを完全に一致するアドレスで照合する（[42f1fe5](https://github.com/kein5/astarot/commit/42f1fe5492d50f24b98ae5c3abad353a1ddc370b)）
+- **site:** マニュアルの2つの言語、章のページ、リンク先のガイドのページを確かめる（[eadd4f4](https://github.com/kein5/astarot/commit/eadd4f44fc30b25dbc83e73b7c9da7fc5c3c70d1)）
+- **ui:** UIの型を検査し、UIの試験がTypeScriptのソースを読めるようにする（[4cb08e8](https://github.com/kein5/astarot/commit/4cb08e864878955e97e2fb003fcbe7d42c37fb79)）
+
+#### 試験
+
+- **build:** Linuxのステージングの試験で、実行時ライブラリのダウンロードを代わりのもので置き換える（[f280ffe](https://github.com/kein5/astarot/commit/f280ffed2543bcb17fe494817d5209acd384be98)）
+- **backend:** メインのウィンドウの確認を非同期のbackend_startに残す（[b06908a](https://github.com/kein5/astarot/commit/b06908ad43293aadf96357303022c740818c413a)）
+- **ui:** 保存の前に「直接音声でRVCを使う」を押し、止まっているアニメーションをいつまでも待たないようにする（[ff51863](https://github.com/kein5/astarot/commit/ff518635f2d7c27ced733159b027c693b0611a48)）
+- **ui:** お知らせと検索の試験でsentence caseのラベルを期待する（[f2cc17f](https://github.com/kein5/astarot/commit/f2cc17fe0fd7c8728737a15b7b9297051c203bbb)）
+- **ui:** 起動時の既定値の試験に、言語のボタンが使うサイドバーのフックを渡す（[ec547dc](https://github.com/kein5/astarot/commit/ec547dc311a1010833f9c5bb6d02714845bab3ad)）
+- **ui:** 翻訳エンジンのボタンを名前で探す（[d7ee1fd](https://github.com/kein5/astarot/commit/d7ee1fd8033a459fa243509c27c0df7c1aff841d)）
+- **ui:** 入力の転送を開いたあとで保存バーを確かめる（[6a3a09e](https://github.com/kein5/astarot/commit/6a3a09ecc15a244d33a37019d8f2c0a8012427f1)）
+- **core:** 中核の設定の参照を中核自身の版に保つ（[68e5fd9](https://github.com/kein5/astarot/commit/68e5fd915dab9bac271cd604700c4e52f627ccb9)）
+- **ui:** 音声のサーバーのお知らせの中から、代わりにCPUを使うというお知らせを確かめる（[8cfe166](https://github.com/kein5/astarot/commit/8cfe166e98e7056ec95b00bbd5ebf6a194795dc7)）
+- **ui:** メインのウィンドウの安全の試験に、同じ言語の規則と2つの相手の言語を与える（[7b764cb](https://github.com/kein5/astarot/commit/7b764cb3dfdd7f16fc93a05cfc3aac50c7304caa)）
+- **downloads:** コントローラーの試験で共通の反映の補助関数を読み込む（[044e129](https://github.com/kein5/astarot/commit/044e129d91bdb381beca50f40b3ac807b5846239)）
+- **core:** 失敗しているVRのオーバーレイをまたオンにしたとき、どちらの順序でも受け入れる（[cfbaf9e](https://github.com/kein5/astarot/commit/cfbaf9e329945f1e1857424b13b3744d874f7495)）
+- **core:** 4つのタイミングの試験で、遅い経路が実際に行う処理を待つ（[7149f75](https://github.com/kein5/astarot/commit/7149f753557c781e529e55b25ddb01575d0f6485)）
+- **platform:** ネイティブのGUIの試験で、トレイのメニューと同じ方法でアプリを終了する（[fe9cb39](https://github.com/kein5/astarot/commit/fe9cb39b0be0bc4314e07035404f5ebca6f7a0d0)）
+- **ui:** 設定とスイッチの試験で声の新しいimportを代わりのもので置き換える（[abd3f8c](https://github.com/kein5/astarot/commit/abd3f8cfc6221f4997187d18379601fa23fc469e)）
+- **core:** 中核が応答で返すエラーコードが、すべて仕様にあることを確かめる（[077a087](https://github.com/kein5/astarot/commit/077a087ab8d98619d764cdd820de29e312db9a56)）
+- **ui:** 配布物のアプリの試験でメインのページをdata属性で探す（[a12b65c](https://github.com/kein5/astarot/commit/a12b65cc41a2ada96205f86d491f80e7b375a46a)）
+- **core:** 翻訳したチャットとマイクの確定した文を中核から読み上げる（[6b40731](https://github.com/kein5/astarot/commit/6b40731da56908a9eb37764bbe5226b308d4f9af)）
+- **adapters:** 眠って待つのではなく、WebSocketのハンドラーを待つ（[2b18759](https://github.com/kein5/astarot/commit/2b18759dd294983035e84cbf23994603b981ae95)）
+- **core:** サーバーの試験に、OSが自分からは割り当てないポートを使わせる（[62d0189](https://github.com/kein5/astarot/commit/62d0189e6240ef86125cc9faba3fb9d2b76d7448)）
+- **voice:** 型の除去をオンにして、TypeScriptの字幕のreducerを読む（[2d0e902](https://github.com/kein5/astarot/commit/2d0e9021a1aede0e9f1cad821fcd72c3ef934de6)）
+
+#### 文書
+
+- **release:** 0.5.0のリリースノートを足す（[1b258ed](https://github.com/kein5/astarot/commit/1b258ed5f311b86a28a7b86fb4ad4751443679b0)）
+- **site:** ガイドのスクリーンショットを0.5.0-beta.5に合わせる（[b601c28](https://github.com/kein5/astarot/commit/b601c2852daaf97d0dc415f6e712bc87269417c5)）
+- 文書を0.5.0の中核とASTAROTの表示名に合わせる（[d15ec46](https://github.com/kein5/astarot/commit/d15ec463bf9a45c29637f283761c84f0e47f3a6a)）
+- READMEとサポートのページから、アクセシビリティについての文書へリンクする（[7125ee5](https://github.com/kein5/astarot/commit/7125ee5e5bdeb1d71054e098e7fa3b414df5869d)）
+- アクセシビリティについての文書を足す（[2e8c718](https://github.com/kein5/astarot/commit/2e8c71846489171ef3293883faae7fccab5796d9)）
+- **spec:** Webの翻訳エンジンを外した箇所で、アプリの名前をASTAROTにする（[a43f5f5](https://github.com/kein5/astarot/commit/a43f5f551e60344d5beda7e3f98af3dc43f79d03)）
+- READMEと開発者向けの文書でアプリの名前をASTAROTにする（[d9c2c35](https://github.com/kein5/astarot/commit/d9c2c35e1eeb73791b6ea586d15b4f207517a9fd)）
+- **site:** ガイドのスクリーンショットに0.5.0の画面を使う（[f47831b](https://github.com/kein5/astarot/commit/f47831ba44983b73c7b5c8811f08a0437a050669)）
+- **notice:** Seed-VC、Silero、翻訳、クレートについての注記を0.5.0に合わせる（[4fbe353](https://github.com/kein5/astarot/commit/4fbe35324ab7328da73ddf8e933be973d1808e31)）
+- **conduct:** リポジトリにないDiscussionsの記述を消す（[f0f5e24](https://github.com/kein5/astarot/commit/f0f5e24298bfa9e06d0220e253bacdf1fb5caff2)）
+- **contributing:** Rustのモデルのカタログと、いまのCIのジョブを指す（[c40646f](https://github.com/kein5/astarot/commit/c40646f52480aea46843bd3b601b6f48a1ea2f80)）
+- **security:** 公開しているすべてのパッケージと0.5.0のバックエンドを、対象の範囲に挙げる（[142b906](https://github.com/kein5/astarot/commit/142b9066743998146e8fe1eb5b9e54d483886ca3)）
+- **design:** 説明の折りたたみとスイッチの使い方をUIに合わせる（[8173a75](https://github.com/kein5/astarot/commit/8173a7596c7efed511394aab2cbe617d60d20536)）
+- **product:** Rustのバックエンドと、RVCだけの実行環境の取得を説明する（[fec1203](https://github.com/kein5/astarot/commit/fec1203abd1b2e22423fbc86e449ebd73252b596)）
+- **readme:** Seed-VCの注記、Linuxのパッケージ、チャット読み取りのメニューを正す（[ab99fd9](https://github.com/kein5/astarot/commit/ab99fd9ed807269b5856e106041cda00e9049a0a)）
+- **agents:** Rustにあるカタログの写しと、SCSS Modulesのスタイルを挙げる（[6748495](https://github.com/kein5/astarot/commit/6748495577c4b82c3b3e5fe6fe833d42b4058504)）
+- **agents:** バックエンドとRustの検査の案内を、native/と中核の記録に向ける（[6a36b26](https://github.com/kein5/astarot/commit/6a36b26cfd9f5f6bd1002ef267bb19af7ce64ad3)）
+- **agents:** Rustのバックエンドの中核と、RVCだけになった声質変換を説明する（[c6dc229](https://github.com/kein5/astarot/commit/c6dc229cf5b6213a0cd17bdfa0f21523b7023820)）
+- **design:** UIの監査から、操作部品、保存、言葉づかいのルールを書き留める（[53ad18e](https://github.com/kein5/astarot/commit/53ad18ecd473291c72ff25631d2bd72129af85f2)）
+- **spec:** 始め直した実行が失敗した実行のログを残すことを書く（[744a7ec](https://github.com/kein5/astarot/commit/744a7ec6275a0e857dbfeaff19a9e854032410ff)）
+- **spec:** VR UIが中継するモデル、時間切れ、チャットボックスのスイッチを挙げる（[0178cac](https://github.com/kein5/astarot/commit/0178cac924e64aec0536a4edff4d08e7c56c46f7)）
+- **core:** Webの翻訳エンジンについての決定から繰り返しの行を消す（[50aa00d](https://github.com/kein5/astarot/commit/50aa00d166132313357c58f4ce6dec59935d10d5)）
+- **core:** OCR、ローカル翻訳、VADの推論ランタイムを比べる（[d2aad89](https://github.com/kein5/astarot/commit/d2aad890cad7ca15dceb52cdbb9e2bec2b4f68f9)）
+- **core:** #394の決定に、#384の項目に続く番号を振る（[2644900](https://github.com/kein5/astarot/commit/2644900432b4e67fad143d46dc339c3340f9882a)）
+- **core:** 貼り付け先の決定に、#384の項目に続く番号を振る（[c86f06e](https://github.com/kein5/astarot/commit/c86f06e5618d3e48229127d771f75627776acf3d)）
+- **core:** #394の中核の修正で決めたことを記録する（[f93ed22](https://github.com/kein5/astarot/commit/f93ed22834911af6a6cc7dfa4f6dad0f98952e0c)）
+- speech.cppの2つのビルドを配る場所と、設定がどちらを選ぶかを記録する（[dc41cc2](https://github.com/kein5/astarot/commit/dc41cc2941d72f3a91057b31ab52a56c7d23c09a)）
+- **downloads:** 自分のモデルとuser_models.jsonを説明する（[ac7e4b5](https://github.com/kein5/astarot/commit/ac7e4b5b2681e99a5a6befe25809bce958289c23)）
+- **transcription:** Google Web Speechのエンジンを廃止したことを記録する（[aacac90](https://github.com/kein5/astarot/commit/aacac90b62c207cee4348256a875010ee9204d91)）
+- **overlay:** コントローラーの移植と、OSの字幕の書体を記録する（[ad5cfe4](https://github.com/kein5/astarot/commit/ad5cfe4e0d292a8e33ff767bfae66b18f70259ee)）
+- **updates:** アプリの更新機能の上に作った更新のエンドポイントを説明する（[f44c864](https://github.com/kein5/astarot/commit/f44c864a153e911974c50b1f87cce9b014187660)）
+- **downloads:** 重すぎる可能性のあるモデルへの警告を説明する（[e49028a](https://github.com/kein5/astarot/commit/e49028a35ce8178c006ec51f41fd74450d8a18dc)）
+- **spec:** 別の変更がこのブランチに書き込んだ、VR UIの中継についての注記を取り下げる（[0dd2642](https://github.com/kein5/astarot/commit/0dd2642f256c83f16f1a02cc09a69d933a182367)）
+- **translation:** 提供元をゼロコストの抽象化として説明する（[773a1e3](https://github.com/kein5/astarot/commit/773a1e3a7f313a7857b6bc410a02090fed0dcde8)）
+- **spec:** パニックした起動や時間切れになった起動の終了コードを説明する（[f99f9a8](https://github.com/kein5/astarot/commit/f99f9a861054ba47f9c317151ef5784fa8733816)）
+- **downloads:** モデルのカタログとダウンロード済みの状態を説明する（[5ae84d0](https://github.com/kein5/astarot/commit/5ae84d0626e782c144215c54b1bf6ca06ecdbd2a)）
+- **core:** ONNXのローカル翻訳についての決定と、未決のことを記録する（[9cef80f](https://github.com/kein5/astarot/commit/9cef80f3d2fa077d59e519d20ed6ae45cf5d3c05)）
+- **core:** 翻訳の提供元、LANのアドレス、公式のAPIについての決定を記録する（[a5c25d4](https://github.com/kein5/astarot/commit/a5c25d4b3332feccc8795c83538de05a0ae920d4)）
+- **core:** 秘密の情報の置き場所と、それについての未決の選択を記録する（[aa2a0c0](https://github.com/kein5/astarot/commit/aa2a0c056c3e336a65d32e796556a407062141fc)）
+- **core:** 翻訳の提供元、公式のAPI、モデルの同意、ランタイムの選択を整理する（[97df00f](https://github.com/kein5/astarot/commit/97df00f6face6b9c1c10dc9e4e8c6ed2a93191a3)）
+- **core:** 翻訳の古い仕組みを棚卸しし、ローカル翻訳のエンジンを比べる（[7897223](https://github.com/kein5/astarot/commit/7897223ac3870e7be0f3f5570a3f9e1e0ea4f62d)）
+- **core:** 読みの解析器の選択と辞書の選択肢を記録する（[48950c2](https://github.com/kein5/astarot/commit/48950c2f1e370fb25fcd1dde9769bf33cfdccadf)）
+- **core:** Pythonのないパッケージのサイズと起動を記録する（[94ec1a9](https://github.com/kein5/astarot/commit/94ec1a9d5be12a426ed5c31568c6b60e285604fc)）
+- **core:** すべてのエンドポイントが中核で動くようになったので、未決の判断の番号を振り直す（[19b9bfb](https://github.com/kein5/astarot/commit/19b9bfb03fb6c4b5ac95c376d97ae7cc157bf841)）
+- **core:** 音声認識の接続と、その未決の選択を記録する（[69bd632](https://github.com/kein5/astarot/commit/69bd632ca295258c2dfe05cce00b91e6c23e184c)）
+- **ui:** レイアウトの監査がvanilla-extractのクラス名でも動くようにする（[f233610](https://github.com/kein5/astarot/commit/f2336102ef516d5cdfbb2b3538c1578ee61b68c2)）
+- **site:** マニュアルのロゴの副題の下にあるライラックの線を消す（[00662c1](https://github.com/kein5/astarot/commit/00662c1cc41186161584b5f95bce5512bec55dd1)）
+- **ui:** メイン画面のレイアウトの見直しを前後の画像とともに記録する（[59461b0](https://github.com/kein5/astarot/commit/59461b0dba6ec2d9fd4989bd6cb2cfc56deadfff)）
+- **design:** 見直したメイン画面のレイアウトを説明する（[ac112c1](https://github.com/kein5/astarot/commit/ac112c1b232cd3c2f09359b3587a35caaea781cd)）
+- **core:** 翻訳の接続と、読みについての未決の選択を記録する（[50768c7](https://github.com/kein5/astarot/commit/50768c7cc9742b4f2ba4bc05c4ad5b32e5ed7763)）
+- **core:** Linuxのパッケージが同梱のファイルをどこに置くかを書く（[47e8a93](https://github.com/kein5/astarot/commit/47e8a932842468dc8edafa37bd8e6499b90f08c7)）
+- **readme:** mise.tomlで固定したNode.jsの版を示す（[bc3b956](https://github.com/kein5/astarot/commit/bc3b9562a8af569a5bf81328a1a86f62e455c237)）
+- **site:** ASTAROTの利用者向けマニュアルをトップページと章のページで公開する（[771755b](https://github.com/kein5/astarot/commit/771755b4a113e6d70344776b0e4726cdd3adf455)）
+- **site:** マニュアル用に、ASTAROTのアイコン、ワードマーク、ガイドの画像を足す（[77d40a1](https://github.com/kein5/astarot/commit/77d40a1995d5e86a5783f68f153e8acdc3a6f1e2)）
+- **site:** 最新のリリースを、ダウンロードのメニューが出す7つのファイルと照らし合わせる（[4fa6036](https://github.com/kein5/astarot/commit/4fa6036c649d5af1b70400ce335b04c1b8cd55bf)）
+- **dev:** UIをTypeScriptとvanilla-extractへ移す間の決まりを説明する（[99914ac](https://github.com/kein5/astarot/commit/99914ac1a964a5add37b3ccfee0d70b8dc9e1b5c)）
+- **brand:** 英語のUIをOutfitで組み、Outfitを同梱する計画を記録する（[11c210e](https://github.com/kein5/astarot/commit/11c210eec78a658f42242e026d5231c6691ecf49)）
+- **brand:** ASTAROTのワードマークと副題をOutfit Boldで組む（[8d4fe70](https://github.com/kein5/astarot/commit/8d4fe70e84e19beabab08853bf3d68db6748123d)）
+- **core:** 中核の残りのエンドポイントが待っている理由と、判断が要ることを挙げる（[a822dec](https://github.com/kein5/astarot/commit/a822dec91ed9ae12c7b768e93e727cac87868231)）
+
+#### 保守
+
+- **ui:** 起動時にコンソールに出るリリースのチャンネルのエラーを止める（[183f7f4](https://github.com/kein5/astarot/commit/183f7f4ae72a624a71e476232abf2f0b256c7c5a)）
+- **ui:** 使っていない入口のテンプレート1つ、補助関数2つ、文言1つを消す（[541e083](https://github.com/kein5/astarot/commit/541e0839d8773e8bf64137d41b676ae656f3fe3f)）
+- **ui:** 使っていないリリースのチャンネルの文言と、リリースの一覧のフックを消す（[883a293](https://github.com/kein5/astarot/commit/883a293667b443f71e26eb80029b15449283d6ae)）
+- **dev:** 翻訳モデルをfloat32、float16、int8、int4のいずれかで書き出す（[60da85d](https://github.com/kein5/astarot/commit/60da85dc7d1b169c5801b8b0877673673415ca6a)）
+- **config:** 実験的機能のスイッチをすべて既定でオフにして保存する（[80edba0](https://github.com/kein5/astarot/commit/80edba0c370d01f4d8a00c93f7d169b60ecd1cec)）
+- **core:** Rustのバックエンドで、音声のデバイスを一覧にし、選び、変化に追従する（[a742964](https://github.com/kein5/astarot/commit/a742964e5339ae6542b15fe81c0dde4052ff3f11)）
+- **audio-routing:** デバイスを選ぶ規則と仮想マイクの確認を足す（[f69f906](https://github.com/kein5/astarot/commit/f69f90638180aba364e1ad20d4e330af78805016)）
+- **core:** VRのオーバーレイとVR UIをバックエンドの中核で動かす（[76f7309](https://github.com/kein5/astarot/commit/76f73094400e57f18a450b55f83088eb9cefe6e9)）
+- **vr:** バックエンドの中核のためにSteamVRのオーバーレイのクレートを足す（[0a05aa3](https://github.com/kein5/astarot/commit/0a05aa3fef1362e82b15714a76d771e345430431)）
+- **dev:** Pythonのサイドカーのないパッケージを計測する（[53fb4bc](https://github.com/kein5/astarot/commit/53fb4bcbcf1f9ee9365322326129ff54bb9c8bbe)）
+- **dev:** Outfit BoldからASTAROTのワードマーク、ロゴ、ブランドボードを作る（[f7c43e4](https://github.com/kein5/astarot/commit/f7c43e411e8865134ed54ffc0862b2d415132221)）
+- **dev:** 中核に切り替える前に、パッケージのサイズとバックエンドの起動を計測する（[89ef820](https://github.com/kein5/astarot/commit/89ef82034a855a0d93295f2c5057fab5f3b42cde)）
+
+## 0.4.0（2026-11-16）
+
+[v0.3.0](https://github.com/kein5/astarot/compare/v0.3.0...v0.4.0)からの変更です。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **voice:** RVCをCPUで変換できるようにし、GPUの実行環境をCUDA 13に移して以前の実行環境を消す（[8367f8d](https://github.com/kein5/astarot/commit/8367f8d4ac03760b7d6f48bb009d8e8b1de2f506)）
+  - GPUでRVCを変換するには、NVIDIAのドライバー580以降と、GeForce GTX 16シリーズまたはRTX 20シリーズ以降のGPUが必要になりました。それより古いものではCPUで変換し、約1.3秒の遅延が出ます。GPUを使い続けるには、ドライバーを更新してください。
+- **voice:** 同梱のRustのワーカーでRVCの声を変換する（[c2f5373](https://github.com/kein5/astarot/commit/c2f53736afc092da87b17ddfd316b3a7ecb7c5a7)）
+  - 以前の版で準備したRVCの実行環境（PyTorchのもの）は使えなくなりました。「設定」→「ボイスチェンジャー（RVC）」→「モデルと実行環境」から準備し直してください。保存したフォルダーに以前の種類が入っているときは、そのページに表示されます。同じフォルダーに入るので、保存した実行環境の設定はそのまま使えます。新しい実行環境の準備が済むと、以前のファイル（venv、python、engineなど）は消えます。フォルダーに置いたモデルと音声ファイルは残ります。
+
+#### 機能
+
+- **asr:** speech.cppのカタログの各項目に、利用者が選ぶ前に比べる情報を載せる（[ec8c8dd](https://github.com/kein5/astarot/commit/ec8c8dd439a76596756371c58b0c78cd7b9d697c)）
+- **tts:** 読み上げのモデルの選択肢を説明し、ライセンスの各リンクに名前を付ける（[538cae9](https://github.com/kein5/astarot/commit/538cae991a5c3eb4ce382f9ebbb6a2b24c217a13)）
+- **tts:** Irodori-TTS Small、Irodori-TTS Large、Qwen3-TTS 1.7Bをダウンロードできるようにする（[6d5cd4d](https://github.com/kein5/astarot/commit/6d5cd4d91b80f0ca29ef903485ef94d4f0b53842)）
+- **asr:** ダウンロードの前に認識モデルとそのファイルの種類を選ぶ（[91f8127](https://github.com/kein5/astarot/commit/91f8127246a306e7e13d343492c4d31077496f05)）
+- **asr:** speech.cppのすべての認識モデルとファイルの種類をダウンロードできるようにする（[3f30886](https://github.com/kein5/astarot/commit/3f308865e7875e5ddb5b3356ad15565a4f2cf90f)）
+- **overlay:** 字幕の移動と大きさの段階を保存し、設定で元に戻せるようにする（[3fdcba0](https://github.com/kein5/astarot/commit/3fdcba07d72311181ff3ab1229289de0b2c12e79)）
+- **overlay:** Ctrlを押しながらドラッグしてデスクトップ字幕を動かす（[0ab423d](https://github.com/kein5/astarot/commit/0ab423d828881008ec410e2c405d78f8b75cd214)）
+- **overlay:** デスクトップ字幕のウィンドウをドラッグした位置を保存する（[bc687e2](https://github.com/kein5/astarot/commit/bc687e2811914ba2fec822a1380570473675b566)）
+- **voice:** Windowsの利用者を仮想マイクへ案内し、テスト音で確かめる（[fff36d6](https://github.com/kein5/astarot/commit/fff36d6c3cda2b7f4811bf70ac868243eea1d1ab)）
+- **ui:** 起動時に更新を確認し、設定から更新する（[13733cb](https://github.com/kein5/astarot/commit/13733cbeea9dbd0189d18747aec4b00db69da8da)）
+- **config:** 起動時に更新を確認する設定を足す（[2074821](https://github.com/kein5/astarot/commit/20748216bba5bb6c1f2a49fc831966199cc8f509)）
+- **app:** Tauriのアップデーターで署名付きの更新を確認してインストールする（[86e52a9](https://github.com/kein5/astarot/commit/86e52a9af929aedd9ebc369e73c89dee3caf0310)）
+- **ui:** メインウィンドウを通常の大きさとシステムの言語で開く（[cb070a0](https://github.com/kein5/astarot/commit/cb070a05aecc54c0a7fa6fbb26f94610693ad24c)）
+- **ui:** 処理部分の起動中はスプラッシュ画面ではなくメイン画面を出す（[fb42f4b](https://github.com/kein5/astarot/commit/fb42f4b3b57c00fe07659e0607e5823bf837d4aa)）
+- **ui:** 処理部分が起動できなかった理由を残し、起動の段階を割り出す（[51b58c3](https://github.com/kein5/astarot/commit/51b58c3a54023f280a3cdf30ee036112cb7ad3f4)）
+- **vr:** 準備が済むまでVRのランチャーのスイッチを灰色にし、理由を示す（[b828df9](https://github.com/kein5/astarot/commit/b828df994183b22c05d10104d2480d23648365a9)）
+- **ui:** 灰色のチャット読み取りのスイッチから、そのモデルの区画へ案内する（[ecf79b1](https://github.com/kein5/astarot/commit/ecf79b181721d75a76fabad758bf6d151657bf82)）
+- **ui:** 準備が済むまでメインスイッチを灰色にし、理由を示す（[7925f40](https://github.com/kein5/astarot/commit/7925f40aee81ba70ef7f09dff2581e82d9cb533e)）
+- **ui:** まだ準備が済んでいないメインスイッチを割り出す（[28ead80](https://github.com/kein5/astarot/commit/28ead80faca60cdc353c4a13cc59ef9cb5761185)）
+- **ocr:** ウィンドウを探さずに、チャット読み取りのモデルがあるかどうかを返す（[1d38f43](https://github.com/kein5/astarot/commit/1d38f439044e79bdf14389ace420afdee0fd928d)）
+
+#### 改善
+
+- **site:** ガイドのトップページからお使いのOS向けのファイルをダウンロードする（[d93e6d9](https://github.com/kein5/astarot/commit/d93e6d925a6bfa4cc40beb2b4e34a179adf91dda)）
+
+#### 不具合の修正
+
+- **installer:** アプリが自分を更新するときに言語、エディション、ショートカットを保つ（[488824e](https://github.com/kein5/astarot/commit/488824e97bb1abc5194f435834b097d7c5ab530f)）
+- **privacy:** 送ったメッセージと話したメッセージをprocess.logに残さない（[4c26fa1](https://github.com/kein5/astarot/commit/4c26fa144fde93b5fdae180c69f889d34a633c9f)）
+
+### 内部の変更
+
+#### リファクタリング
+
+- **core:** 接続した領域ごとに、それぞれのモジュールからエンドポイントを足せるようにする（[27db2f0](https://github.com/kein5/astarot/commit/27db2f080a5ebe70d9f629b3f3bf1f372ec18910)）
+- **ui:** 使えないメインスイッチを一度だけ割り出し、共有のatomに置く（[591ce9a](https://github.com/kein5/astarot/commit/591ce9a5e9a2f980571056ebb771953dab1aaecc)）
+- **websocket:** CodeQLがガードを認識できるよう、確かめたアドレスを新しい値として束縛する（[a0120c9](https://github.com/kein5/astarot/commit/a0120c9d4a3c3f4fbd4e0f947cc4d1ddcbcef669)）
+
+#### 依存
+
+- **deps:** speech.cpp 0.11.0を同梱する（[939efed](https://github.com/kein5/astarot/commit/939efedd1f67c2a67e0413ed4f209857c4acb72c)）
+- **deps:** Cargoのロックファイルを更新する（[be70d57](https://github.com/kein5/astarot/commit/be70d57be39fbdd3da47c9d23614f27cc329bde9)）
+- **deps:** tauri-plugin-openerを2.7.3に更新する（[bb03525](https://github.com/kein5/astarot/commit/bb03525143055363acdf597e87d3f3e355ea46d3)）
+
+#### ビルドとCI
+
+- **linux:** native/opsが取り込むバックエンドのファイルをビルドの作業領域へコピーする（[74bb5c5](https://github.com/kein5/astarot/commit/74bb5c54c33ae50ad8851e0f6011b502d50ea808)）
+- 中核の結合ジョブで使うRustをmise.tomlから取る（[e1ee6ae](https://github.com/kein5/astarot/commit/e1ee6ae44e76743cf24668bc5a2c15ab74fe1c4b)）
+- webpki-rootsを同梱するときは、Rustのライセンス一覧にCCADBを記載する（[5b70ce5](https://github.com/kein5/astarot/commit/5b70ce5ebe7a859f90172ebefaba8bb3ee0be44d)）
+- **linux:** アプリがパスで参照するクレートをビルドの作業領域へコピーする（[c1471a0](https://github.com/kein5/astarot/commit/c1471a08fb7bcc3a1d976698cb4f8d1e4b4d33c2)）
+- 画面なしで動く音声のジョブにcocogittoを入れる（[d30f8ff](https://github.com/kein5/astarot/commit/d30f8ffa9869f95c0c98a1a79a2e2625b35ce570)）
+- Rustのライセンス一覧を作れないときはcargoのエラーを表示する（[064b050](https://github.com/kein5/astarot/commit/064b050b64c8f49ffcc1f52149cd2ad1af7c30e4)）
+- 各パッケージにRustのクレートのライセンス文を入れる（[3fe265a](https://github.com/kein5/astarot/commit/3fe265a99eca9a984be309b6cc7820a51b3a7dde)）
+- node、rust、python、uv、cocogittoをmiseで入れる（[111209d](https://github.com/kein5/astarot/commit/111209de152a9c16efcd27d530d00f6a5a026eae)）
+- Rustの中核の結合テストをLinuxとWindowsで実行する（[0e6744e](https://github.com/kein5/astarot/commit/0e6744e987a77415eb36aa20babd93250b336b16)）
+- **release:** アップデーター用のファイルに署名し、下書きと一緒にlatest.jsonを公開する（[c47a99a](https://github.com/kein5/astarot/commit/c47a99a33161508f7c95e92528d4d256184bbeac)）
+- **rust:** アプリと開発用のサイドカーをedition 2024に移す（[2b03569](https://github.com/kein5/astarot/commit/2b03569c1425aa082331388147a260b6675dfd00)）
+- **rust:** ネイティブのクレートをedition 2024に移す（[7b5ae8a](https://github.com/kein5/astarot/commit/7b5ae8ada590fba2ca5c0640815e60e2228729ec)）
+- **translation:** ONNXのモデルで語彙の行列を1回だけ格納する（[ee74b01](https://github.com/kein5/astarot/commit/ee74b010eb6504cf75e5f7e33d0feb2e23946847)）
+- **translation:** optimumを使わず、transformers 5.22.1でONNXのグラフを書き出す（[bad0399](https://github.com/kein5/astarot/commit/bad039918b60139293f7557cd4379b2a253b2016)）
+
+#### 試験
+
+- **core:** 失敗した音声サーバーの世代番号が落ち着くのを待つ（[54f4823](https://github.com/kein5/astarot/commit/54f482358ff7acdc06d8031d0c14dbbb7cec25dc)）
+- **release:** 音声の試験の環境でアップデーターの署名を確かめる（[c4649d7](https://github.com/kein5/astarot/commit/c4649d7224c24d9e7c92a44f39a64afcb51c31b7)）
+- **platform:** 入力欄ではなくメイン画面の準備ができるのを待つ（[d181064](https://github.com/kein5/astarot/commit/d181064feafa5a7ceab71695d1ef41275acd7a37)）
+- **devtools:** ネイティブのワーカーに移った後も残るRVCの実行環境の版の固定を確かめる（[25d30e7](https://github.com/kein5/astarot/commit/25d30e7b1e2adcad732d130d6e91e2e5b86e21b8)）
+
+#### 文書
+
+- **brand:** ASTAROTの元ファイルを、参照画像をなぞった一式に置き換える（[0bd6183](https://github.com/kein5/astarot/commit/0bd6183e3ba4ca2db969749cad8cedb8a0c2edc2)）
+- **brand:** ADR-011とASTAROTのブランドの元ファイルを足す（[e831352](https://github.com/kein5/astarot/commit/e831352d58abc6568109911dbf3f7502f109ac56)）
+- 追加した音声のモデルのライセンスと、drama-3を外した理由を記録する（[a61420d](https://github.com/kein5/astarot/commit/a61420dc96b8ddef7cc8a659fb90a1cd2dc5564c)）
+- **asr:** ガイドとダウンロードの説明にspeech.cppの認識モデルをすべて載せる（[20cf06a](https://github.com/kein5/astarot/commit/20cf06aa92fb61fa3ed8670b3a1f0cfaecb00f5a)）
+- **overlay:** デスクトップ字幕の移動と大きさの変更を説明する（[b40e920](https://github.com/kein5/astarot/commit/b40e9202b3101482638258097d232fd3e9a57f16)）
+- **site:** GPUでのRVCにドライバー580が要ることを書き、Seed-VCを外す（[f8f3aad](https://github.com/kein5/astarot/commit/f8f3aad4d3d5fcf1e13a52bcbdec741a012e5997)）
+- **voice:** rmvpe.onnxを使い続ける承認を記録する（[431a6bc](https://github.com/kein5/astarot/commit/431a6bc869a054df7cf20c26316d459fbffa708e)）
+- **voice:** 中核が足したクレートとライセンス台帳を突き合わせる（[a0158eb](https://github.com/kein5/astarot/commit/a0158ebf02f4ee3605c55310cf3cf72623045fc0)）
+- **voice:** 中核は0.4.0では試用のままで、0.5.0で既定になることを記録する（[4bd5ee9](https://github.com/kein5/astarot/commit/4bd5ee9839e64d78455bc5dc0db09940363c7c96)）
+- コードオーナー、行動規範、サポートの案内を足す（[d02b71e](https://github.com/kein5/astarot/commit/d02b71eb289a5bfa648ee5115ec0865c47ba449a)）
+- **voice:** 中核がまだ接続していないエンドポイントの一覧に、更新の確認のエンドポイントを加える（[bbe6ee6](https://github.com/kein5/astarot/commit/bbe6ee6b1d6b5548cdd8ecb5be23dea7f38262e3)）
+- **voice:** RustのクレートとRVCのベースモデルに合わせてライセンス台帳を更新する（[8a8ed9c](https://github.com/kein5/astarot/commit/8a8ed9c85e5245b998d7de094ad8f13b4019d5c3)）
+- **dev:** miseの準備とタスクを説明する（[7477927](https://github.com/kein5/astarot/commit/7477927bc801530be0d6bb44206a3883abe352c7)）
+- **core:** アプリがRustの中核にどう届くかと、中核が何を返すかを書く（[4fa1a58](https://github.com/kein5/astarot/commit/4fa1a583d29039da82605f349ac9e2152a6071be)）
+- **voice:** 中核の統合の状況と残りの作業を記録する（[58903d5](https://github.com/kein5/astarot/commit/58903d5dfb04d88603b6805de3080234bfc75e79)）
+- アプリ内の更新と、そのためのリリースの署名の仕方を説明する（[d07ea15](https://github.com/kein5/astarot/commit/d07ea150829ee9658189c2d5c0c992554fd6a438)）
+- **ui:** ロックされたメイン画面と起動失敗のダイアログを説明する（[33bd8a3](https://github.com/kein5/astarot/commit/33bd8a394ea39fd5916279d885b76bbf5372b506)）
+- **voice:** ビルドの手順にspeech.cpp 0.11.0と書く（[6ec0cc3](https://github.com/kein5/astarot/commit/6ec0cc32fb505c039f09f690a15f15c96a27345e)）
+- **translation:** 小さくしたONNXのモデルと、4ビットにする得失を記録する（[f938b47](https://github.com/kein5/astarot/commit/f938b479931737300390fd6f2fb38919c603a2ff)）
+- **translation:** optimumを使わずに書き出したグラフで比較を記録し直す（[c98de11](https://github.com/kein5/astarot/commit/c98de11573b9cfdb4024cd5d009d6f56e19d6a82)）
+- **spec:** スイッチを使えなくする共通の判定と、VRのランチャーの灰色のボタンを説明する（[6648bfb](https://github.com/kein5/astarot/commit/6648bfb9fa02445c340bcb4d25e26e7b55a5105e)）
+- **ui:** ウィンドウの大きさごとにメイン画面のレイアウトが崩れる箇所を記録する（[32cc404](https://github.com/kein5/astarot/commit/32cc404c4ebc905c55bfe43c66b325245b140e9e)）
+- **voice:** 判断の索引にADR-009を載せる（[9fdf684](https://github.com/kein5/astarot/commit/9fdf684cdd3abc34a5ba171dff39772ff7f5d534)）
+- **voice:** Windowsでは外部の仮想ケーブルに頼り、そのことをストアに開示する方針を採用する（[7baca37](https://github.com/kein5/astarot/commit/7baca3728d83eb297f1c1db91d56fd8a14ff4d30)）
+- **voice:** 署名、ストア、仮想マイクに関するプラットフォームの制約をまとめる（[a2fbff0](https://github.com/kein5/astarot/commit/a2fbff08e1f5e71a0b9959dc8746a1eec2487ed4)）
+- **site:** ダウンロードボタンのために最新のリリースのファイルを振り分ける（[7df5b4d](https://github.com/kein5/astarot/commit/7df5b4d298427f24a99389b59e8063e656722a41)）
+- **spec:** チャット読み取りのモデルのエンドポイントを、TTSエンジンのエンドポイントと一緒に数える（[8238809](https://github.com/kein5/astarot/commit/823880912f3995d43e7ca1143e1108fe259cb765)）
+- **rvc:** CPUでの変換、CUDA 13の実行環境、以前の実行環境の片付けを説明する（[debddd0](https://github.com/kein5/astarot/commit/debddd065ee2cdc09edcb07cdb0584042fa096bb)）
+- **rvc:** 同梱のワーカー、その実行環境、比べた結果を説明する（[0363c82](https://github.com/kein5/astarot/commit/0363c823f6fde4aeca63fbfee45bae1d71739c66)）
+- **translation:** ONNXの翻訳器とCTranslate2の比較を記録する（[7b25fb7](https://github.com/kein5/astarot/commit/7b25fb7fcb2e22b38856c70e8727edc01ccbca46)）
+
+#### 保守
+
+- **app:** 正式版の更新のメタデータを、プロジェクトのWorkerを通して読む（[c801df9](https://github.com/kein5/astarot/commit/c801df96486ce3b4647664b28dedc59941a749d0)）
+- **models:** ダウンロードできる各モデルに、選ぶ人に向けた説明を付ける（[054c5c2](https://github.com/kein5/astarot/commit/054c5c20fcc0318724665461e19248d12ef75a2a)）
+- **dev:** speech.cpp自身のモデルのカタログを、道具を使ってアプリへ写す（[1c0b180](https://github.com/kein5/astarot/commit/1c0b1808f02699730145cd257b7601fa40556a43)）
+- **core:** 中核が既定のバックエンドになったら、CTranslate2の重みを使うのをやめる（[cc7cb37](https://github.com/kein5/astarot/commit/cc7cb3795205a73934affbe971016e4517c90ef8)）
+- **core:** 起動時の確認に失敗したエンジンのサーバーのモデルを、Pythonのときと同じく記録から消す（[bee9317](https://github.com/kein5/astarot/commit/bee93179036ae8ff652c8f9be44a3a340ebdd777)）
+- **core:** developで足された、起動時に更新を確認する設定を残す（[c615e5c](https://github.com/kein5/astarot/commit/c615e5ca2267a8ec71c4ab21020c44a578dbadd3)）
+- **dev:** miseにCocogittoがあるときだけ、miseのCocogittoを使う（[1a7c39b](https://github.com/kein5/astarot/commit/1a7c39b50bfd23f294c5b7e276726d36ea8a43b0)）
+- **dev:** mise.tomlでツールチェーンの版を固定し、miseのタスクを足す（[e74337f](https://github.com/kein5/astarot/commit/e74337fad79975d40ce57b0845210253adb3c1fc)）
+- **core:** OSC、WebSocketサーバー、OBSのページをRustの中核につなぐ（[f618f37](https://github.com/kein5/astarot/commit/f618f3749e42cda3e8cfcc3077542cbe03bf56e4)）
+- **core:** モデルのダウンロードと利用状況のイベントをRustの中核につなぐ（[1949b90](https://github.com/kein5/astarot/commit/1949b90ad063ab6aa4833803fb80490473c7114c)）
+- **core:** 同梱のspeech.cppを、パッケージにしたアプリが置く場所から見つける（[de1fdd8](https://github.com/kein5/astarot/commit/de1fdd8f5869cc984bbb90580d52e5af1dde5fa5)）
+- **core:** speech.cppのサーバーをRustの中核につなぐ（[045949d](https://github.com/kein5/astarot/commit/045949d7ad067189aeedc3bcf492ac67aa29d83f)）
+- **core:** 開発用に、サイドカーの代わりにRustの中核をアプリで動かせるようにする（[69211d5](https://github.com/kein5/astarot/commit/69211d56f2309b36bbfbe6307e930c371d4cb577)）
+- **core:** Pythonから引き継いだ設定を持つRustのバックエンドの中核を足す（[876d889](https://github.com/kein5/astarot/commit/876d8891b15ff128acbb38a6dcb5f47dbc8764cd)）
+- **rvc:** GPUを使えないときはCPUで変換し、CUDA 13を読み込む（[c3e798b](https://github.com/kein5/astarot/commit/c3e798ba65652d4415255d868911cf9f01052382)）
+- **rvc:** リアルタイム変換のワーカーを足し、HuBERTをチェックポイントから組み立てる（[a0ba230](https://github.com/kein5/astarot/commit/a0ba2300c196016b046de5c59ad4c7cdabf145e2)）
+- **translation:** SentencePieceの語彙にない文字には、アプリが付けるIDを割り当てる（[7682da0](https://github.com/kein5/astarot/commit/7682da060dcb0cb0e27102d2fe2d2be91723bc0c)）
+- **translation:** ローカルのモデル向けにONNX Runtimeの翻訳器を足す（[0c0ec7c](https://github.com/kein5/astarot/commit/0c0ec7c92bbf6d683738ac8f9d792d008fafd4b1)）
+
+## 0.3.0（2026-11-15）
+
+[v0.2.0](https://github.com/kein5/astarot/compare/v0.2.0...v0.3.0)からの変更です。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **asr:** ローカルのWhisperエンジンをspeech.cppに置き換える（[c78b369](https://github.com/kein5/astarot/commit/c78b369517e9c7fab2947e616e8c2f0b8813b0c9)）
+  - ローカルのWhisperエンジンを選んでいた設定は「ローカル（speech.cpp）」に移り、Windowsではリアルタイム音声認識のサーバーが同梱サーバーになります。最初の起動で必要なモデルが表示されます。ライセンスとサイズを確かめてから、「設定」→「音声認識（ASR）」→「モデルとサーバー」でダウンロードしてください。以前のWhisperのモデルはもう使わないので、「設定」→「音声認識（ASR）」で消せます。開発者向けには、Whisperの重みのIPCエンドポイント（selectable_whisper_weight_type_dict、selected_whisper_weight_type、/run/download_whisper_weightとその通知）と、文字起こしの計算デバイスと計算の型のエンドポイントがなくなりました。設定キーのWHISPER_WEIGHT_TYPE、SELECTED_TRANSCRIPTION_COMPUTE_DEVICE、SELECTED_TRANSCRIPTION_COMPUTE_TYPE、MIC_/SPEAKER_NO_REPEAT_NGRAM_SIZE（古いconfig.jsonにあっても無視します）と、エラーコードのTRANSCRIPTION_MODEL_MISSING、TRANSCRIPTION_VRAM_*、TRANSCRIPTION_*_DISABLED_VRAM、WEIGHT_WHISPER_DOWNLOADもなくなりました。新しいエンドポイントは/get/data/local_asr_notice、/set/disable/local_asr_notice、/get/data/old_whisper_weights、/run/delete_old_whisper_weightsです。
+
+#### 機能
+
+- **tts:** TTSのページから、VOICEVOXなどのインストール済みのエンジンで日本語を読み上げる（[b9dd441](https://github.com/kein5/astarot/commit/b9dd4414756a59fb360bc0ffebb10c4cc8900952)）
+- **ui:** TTSの空の欄に例を表示する（[0bed154](https://github.com/kein5/astarot/commit/0bed1549cd5aa2ffeced729ba491cf1a5a380b5e)）
+- **ocr:** モデルがないままチャット読み取りをオンにしたとき、モデルのダウンロードへ案内する（[f8d4a45](https://github.com/kein5/astarot/commit/f8d4a45878724fc6d3e3307b883a70935d63ee03)）
+- **asr:** ローカルのspeech.cppエンジンを足し、スイッチがそのサーバーを起動しないように設定できるようにする（[744acea](https://github.com/kein5/astarot/commit/744acea991f03e2801864a81db492d85ec4919f5)）
+- **ui:** RVCのモデルのファイルを欄にドロップできるようにし、ダウンロードとサーバーの起動が終わったことを表示する（[fefcc70](https://github.com/kein5/astarot/commit/fefcc700b7a3995a894a104f3ff2dac1863ac65c)）
+- **linux:** debとrpmのパッケージを配布する（[9020f1c](https://github.com/kein5/astarot/commit/9020f1ca515f232578f72a4b7c06c33d96d83219)）
+
+#### 不具合の修正
+
+- **translation:** 止めたCTranslate2のダウンロードを失敗として報告しない（[8a9552c](https://github.com/kein5/astarot/commit/8a9552c2cf40836d4b9440afa5b7fd197f26ad51)）
+- **translation:** CTranslate2のダウンロードが失敗した理由を示し、やり直せるようにする（[ac9cc26](https://github.com/kein5/astarot/commit/ac9cc268115c18c164fb8f8c40e7b3f4909938bf)）
+
+#### セキュリティ
+
+- **security:** 各ウィンドウには、使うネイティブの権限だけを与える（[c013a43](https://github.com/kein5/astarot/commit/c013a43977a9c4d65d14f18b94d574bbaa751c8f)）
+- **release:** リリースのすべてのファイルにビルドの来歴の署名を付ける（[60176d4](https://github.com/kein5/astarot/commit/60176d430647b94b14e6939065b8d2d33b7df0b4)）
+- **security:** リンクを開けるのはメインウィンドウだけにし、開く先も一覧にあるサイトだけにする（[111033c](https://github.com/kein5/astarot/commit/111033cbcaa9b370af48feceaaea02f197ffbbdb)）
+- **windows:** WebView2のSmartScreenの保護をオンのままにする（[b3d7ba4](https://github.com/kein5/astarot/commit/b3d7ba4902ce1a01f4d279c36c99c762ebb3a02a)）
+- **voice:** ボイスチェンジャーのエンジンのアーカイブ全体を、インストールの前に確かめる（[06c1de9](https://github.com/kein5/astarot/commit/06c1de9a4506a0c1c54219a24459800793e1ff3a)）
+- **vr:** VR UIには表示する状態だけを専用の経路で送る（[f64b5ff](https://github.com/kein5/astarot/commit/f64b5ffffc19eef2764a9ee4b6a3596b5441cda0)）
+- **websocket:** サーバーにメッセージを大量に送るクライアントを切断する（[c34298c](https://github.com/kein5/astarot/commit/c34298ca022526cc417a6468279a0e06bd865d42)）
+
+### 内部の変更
+
+#### ビルドとCI
+
+- **asr:** Silero VADのモデルをfaster-whisperから読まずに配布物に入れる（[d7fc532](https://github.com/kein5/astarot/commit/d7fc532aa0a86a8b9318b52f03bc7beb7947bc03)）
+- **windows:** パッケージのハッシュをインストーラーに組み込む（[05ad543](https://github.com/kein5/astarot/commit/05ad543274e956d0e8953cf5331b5659bc6a3226)）
+- **release:** 版が変わったら仕様の一覧を作り直す（[ca66544](https://github.com/kein5/astarot/commit/ca66544ff84152fca9eeb27bdfd529ad5980899e)）
+
+#### 試験
+
+- **tts:** エンジンの声の確認が起動時の収集に入らないことを確かめる（[e1011d6](https://github.com/kein5/astarot/commit/e1011d6d4a900573dc18c606cb8cf05527d81cfb)）
+- **voice:** 音声サーバーのUIの試験で現在のGPUの説明文を探す（[f1b2413](https://github.com/kein5/astarot/commit/f1b24136354ec04ba84933c5f931503a1e9011b9)）
+- **downloads:** どのOSでも同じ方法でカタログの参照を比べる（[5e1410e](https://github.com/kein5/astarot/commit/5e1410e09bc50cda3c5a63af483e0b1f66ad78e3)）
+- **audio:** 監視のスレッドを待ち、新しいスナップショットがなくてもグラフの時間を進める（[f38ee0f](https://github.com/kein5/astarot/commit/f38ee0fdbb6744cef42563d10b7b143139654e48)）
+- **overlay:** RustのVRオーバーレイを、記録したPythonの値と突き合わせる（[64827eb](https://github.com/kein5/astarot/commit/64827eb540b64448c7dc6d50f97f5c514bb2f73c)）
+- **voice:** 遅いCIのランナーでもダウンロードの試験に余裕を持たせる（[8947143](https://github.com/kein5/astarot/commit/894714331743bed77ffaaa50bb6d5fe9a5be8675)）
+- **rvc:** 実行環境を客観的な指標で参照実装と比べる（[551a7cc](https://github.com/kein5/astarot/commit/551a7cc2539500f9e6c3c0bf70da9f9d18c71ae4)）
+- **rvc:** 参照実装とのブラインドのABX聴き比べを足す（[de32dc4](https://github.com/kein5/astarot/commit/de32dc48fe8f24700e1872d08e3935b6a1270594)）
+
+#### 文書
+
+- **ocr:** RustのOCRの実行環境、その検証、未決の点を説明する（[2eb2d33](https://github.com/kein5/astarot/commit/2eb2d334de4059ebb6ce3e8dbdeb38d4df303493)）
+- **site:** 言語の選択を先に出さずに、お使いの言語でガイドを開く（[62d3b72](https://github.com/kein5/astarot/commit/62d3b7247cbbe5c307b3baafa8d03daadf0d6e0b)）
+- **site:** ガイドに手順の進み、OSのタブ、コピーのボタン、用語の説明、ページのパレットを足す（[014084a](https://github.com/kein5/astarot/commit/014084aa93296dd5ae672e293b39c5137f67c5b4)）
+- **rvc:** ストリーミング変換とその計測を説明する（[ca38e02](https://github.com/kein5/astarot/commit/ca38e0261b825cc12277f2e59e5bcbe50df57bc2)）
+- **adapters:** Rustのアダプターを説明し、rustのチェックでその試験を実行する（[e0ae6d3](https://github.com/kein5/astarot/commit/e0ae6d3f295465692a8969f581005a72dd1640ce)）
+- **audio:** Pythonの音声のモジュールとRustのクレートの対応を示し、残っていることを挙げる（[2184f31](https://github.com/kein5/astarot/commit/2184f3108148ad809ea996ce8884b615cef2a7fb)）
+- **tts:** Rustの読み上げのクレートと、その外に残るものを説明する（[1d7567b](https://github.com/kein5/astarot/commit/1d7567b6bd495e6461c1b5b4e1850dca09a4ea29)）
+- **readme:** ビルド、リリース、環境のバッジを表示する（[545cd6f](https://github.com/kein5/astarot/commit/545cd6feb21339d769df7fe8391bb36af9a310dd)）
+- **overlay:** 記録した値に含まれないものと、その実行の仕方を書く（[d3466c0](https://github.com/kein5/astarot/commit/d3466c08fc11e1f057a142282c23180280c594de)）
+- **overlay:** VRオーバーレイをRustへ移す設計を足す（[d45cd6a](https://github.com/kein5/astarot/commit/d45cd6a5a83789de263bfea2083f3d6fadac7734)）
+- **site:** トップページで各機能を短いアニメーションで見せる（[93e5d27](https://github.com/kein5/astarot/commit/93e5d27907b79112be3a9aad917d5b31d1ec4186)）
+- **rvc:** 40 kHzのピッチの一致がシードによるばらつきの範囲内だと書く（[b5691ba](https://github.com/kein5/astarot/commit/b5691ba2f927854037d6316d27d35984709e17f7)）
+- **rvc:** 公開した例の聴き比べの判定を記録する（[03fd001](https://github.com/kein5/astarot/commit/03fd0019200dc4164a3dfc6cbe7a15985717f63e)）
+- **site:** ガイドの見た目をアプリに合わせ、Windowsを先に置く（[6d2407f](https://github.com/kein5/astarot/commit/6d2407f750254ae9ef118ed80debf5a584402dcb)）
+- **voice:** RVCの推論の実行環境の仕様を足す（[f0f0c54](https://github.com/kein5/astarot/commit/f0f0c54ea9706e5d19c924ffefcc2bbf154d1294)）
+- **site:** VRCTから追加したものを、それぞれの見出しの下に挙げる（[f1eeddd](https://github.com/kein5/astarot/commit/f1eedddaae37694209539ab90212b3a155756013)）
+- **site:** 動作環境のページを足す（[6315a9f](https://github.com/kein5/astarot/commit/6315a9f13e368f56d219efb9fdc8c0293599b1f6)）
+- **voice:** 読み上げのために、利用者のVOICEVOX系とCOEIROINKのエンジンへ接続する方針を採用する（[9acea14](https://github.com/kein5/astarot/commit/9acea140fd89cf376fe6e9d401e5e1fa2a1ed6d4)）
+- WebView2とWebKitGTKでUIが使ってよいWebの機能を書く（[03aba77](https://github.com/kein5/astarot/commit/03aba77c64f6f6c21eac4105165ec402b5b29efc)）
+
+#### 保守
+
+- **ocr:** 失敗をログに残して単語を返さない読み取りを、道具に用意する（[4ce5f9c](https://github.com/kein5/astarot/commit/4ce5f9c1d199882981de56269846ef7cc35710a3)）
+- **ocr:** RustのOCRの実行環境で、VRChatのウィンドウとヘッドセットの視界を取り込む（[5582f1b](https://github.com/kein5/astarot/commit/5582f1b045cab87d3c18619d4634a69fdcb040cd)）
+- **ocr:** RustのOCRの実行環境で、チャットの吹き出しを見つけ、まとめ、重複を除く（[4814268](https://github.com/kein5/astarot/commit/4814268c1730ad0d3ee1b3ee56a61b033f57a859)）
+- **ocr:** RustのOCRエンジンでチャットの文字を読み、参照実装と突き合わせる（[e528e77](https://github.com/kein5/astarot/commit/e528e77ab80ebb61300c98cb126fbf8b4c7b5918)）
+- **ocr:** RustのOCRの実行環境の画像処理を足す（[6736218](https://github.com/kein5/astarot/commit/67362186f567dd6dd2016bfd2013706441b15ff2)）
+- **rvc:** ファイルからのストリーミング変換の時間をブロックごとに測る（[3ebb0cf](https://github.com/kein5/astarot/commit/3ebb0cf98e926ec81523193934a721ca08186d02)）
+- **rvc:** RustのRVCの実行環境でブロックごとに変換する（[24237a8](https://github.com/kein5/astarot/commit/24237a87404d5bcb9c329aedded16397be702213)）
+- **rvc:** ストリーミングのために入力のハイパスを因果的に近似する（[0e4020e](https://github.com/kein5/astarot/commit/0e4020e99318698e85d33c4954e7a92ad040cfef)）
+- **rvc:** ストリーミングのために左の文脈の後の窓だけを合成する（[5fac041](https://github.com/kein5/astarot/commit/5fac041a37a47497809ba4bc80bc9bfc2b5d3f03)）
+- **rvc:** ストリーミングのブロックより長いクロスフェードを受け付けない（[a1d23fd](https://github.com/kein5/astarot/commit/a1d23fdff15f826e8f460373159d8f858ce8a1c0)）
+- **rvc:** 聴き比べのページをどこで開いても音声を再生できるようにする（[f0fbe67](https://github.com/kein5/astarot/commit/f0fbe67d8842a8f47cacdc36c095f3969ed65ec5)）
+- **adapters:** rustlsとtokioを、セキュリティ勧告の対象より新しい版に更新する（[d3d883b](https://github.com/kein5/astarot/commit/d3d883b9f5cbb0d7bfad45f4cd2732ec81eb1348)）
+- **adapters:** OSCQuery、mDNS、WebSocketのトークンの変更の安全性を高める（[38e112e](https://github.com/kein5/astarot/commit/38e112ed45df8a3552d94c65c7637fc512c05250)）
+- **dev:** rustのチェックのスコープで音声経路のクレートの試験を実行する（[caa99c9](https://github.com/kein5/astarot/commit/caa99c95c9ef272c3ed156cf95126fdc009cb4ed)）
+- **adapters:** Rustのアダプターに、自動で貼り付けるクリップボードを足す（[933e3cf](https://github.com/kein5/astarot/commit/933e3cfbe47a10df03b961998ad491c896a1b735)）
+- **audio:** 管理対象の経路、仮想マイク、入力の転送をRustから制御する（[2d080de](https://github.com/kein5/astarot/commit/2d080debbdb0471c539b9f3a9f268c7e4db1127e)）
+- **dev:** rustのチェックのスコープでRustのopsクレートを試験する（[9731133](https://github.com/kein5/astarot/commit/97311339dfa827684b535544c13c677983b81abb)）
+- **watchdog:** UIがないときにバックエンドを止めるRustのウォッチドッグを足す（[3dece6a](https://github.com/kein5/astarot/commit/3dece6a0fb5d0cf57404e72bbe8f2ae4dc7cf961)）
+- **telemetry:** 2つの利用状況のイベントを送るRustの送信部を足す（[eef8ed2](https://github.com/kein5/astarot/commit/eef8ed2e1c4a5682aeae359a115723bd51053b1a)）
+- **adapters:** RustのアダプターにOSCとOSCQueryを足す（[32b0b4a](https://github.com/kein5/astarot/commit/32b0b4a1526bf24bbb2d7f16d2b5a9ab68f15eb0)）
+- **downloads:** 同意を条件とするモデルのダウンロードを受け持つRustの部分を足す（[8ce8a20](https://github.com/kein5/astarot/commit/8ce8a204483ff1dbc3df489f032579ffe7448a9f)）
+- **tts:** Rustでインストール済みのエンジンの設定を読み、日本語をエンジンへ送る（[c51ebf3](https://github.com/kein5/astarot/commit/c51ebf3c7b92becfd4d40dc6d336f64ff945ed92)）
+- **audio:** 読み上げと入力の転送（RVC）の声を、ネイティブのWASAPIとPipeWireのストリームで再生する（[86f38a5](https://github.com/kein5/astarot/commit/86f38a56423787e5c8cd0b9dbfdc95004e4445e7)）
+- **tts:** Rustで読み上げの順番を決め、そのPCMを出力へ渡す（[08c1dc0](https://github.com/kein5/astarot/commit/08c1dc0e33fecaa0363e76b6c6f980b947d7d98c)）
+- **tts:** Rustでspeech.cppのPCMをストリーミングし、サーバーが失われたことを検知する（[c79e32b](https://github.com/kein5/astarot/commit/c79e32b7d18a86f77266d6e042ea05789df5658a)）
+- **tts:** Rustの読み上げの設定とモデルの選択肢を足す（[1ec8165](https://github.com/kein5/astarot/commit/1ec8165eec073373dda091173d2c2db8fe53b084)）
+- **adapters:** RustのアダプターにOBSのブラウザーソースを足す（[b658cdc](https://github.com/kein5/astarot/commit/b658cdccefcad11fcaddabeca6b4b34503564549)）
+- **audio:** ネイティブのクライアントAPIでPipeWireのグラフを監視する（[d4635c5](https://github.com/kein5/astarot/commit/d4635c560b524b9a272050b35f7c5da94768baa0)）
+- **overlay:** RustでVRのツールチップの要求とマーカーを確かめる（[b655bd5](https://github.com/kein5/astarot/commit/b655bd5cf68808b987a86fc1132c9068c15fd3e5)）
+- **overlay:** RustでVRの字幕のフェードとウィンドウの表示の時間を管理する（[8724bbe](https://github.com/kein5/astarot/commit/8724bbe22b136241dccb9bd47215c979c5c81578)）
+- **overlay:** RustでVRのウィンドウを置き、指し示し、つかむ（[b6ad6eb](https://github.com/kein5/astarot/commit/b6ad6ebfb7b5b411f36e83b7eb81415a41cd3b87)）
+- **overlay:** RustでVRのレイアウトとオーバーレイの姿勢を計算する（[b2a5316](https://github.com/kein5/astarot/commit/b2a53161f982e8edf58b38a7cf48ec8b5b665d41)）
+- **adapters:** RustのアダプターにWebSocketサーバーを足す（[886ba68](https://github.com/kein5/astarot/commit/886ba6820d959d4932fdbc2b7aad486791ce8727)）
+- **audio:** Rustのデバイス管理、識別の規則、スピーカーのピークの追跡を足す（[37c52f7](https://github.com/kein5/astarot/commit/37c52f75b02076a6ce1423b9ab63c4d1262a6248)）
+- **adapters:** 外部とのアダプターのRustのクレートと、そのTLSの規則を足す（[217822b](https://github.com/kein5/astarot/commit/217822b14e34c27720978c34dd6c3daac8d8dcc8)）
+- **speech:** 同梱のspeech.cppサーバーを受け持つRustの部分を足す（[b8c1e4d](https://github.com/kein5/astarot/commit/b8c1e4d2cf7fd8079a527afc0a6f898a810a3040)）
+- **rvc:** 聴き比べのページのフォントを、デザインシステムの一覧どおりに宣言する（[d8d2499](https://github.com/kein5/astarot/commit/d8d24996ac81d5aaca48c751062bdcc3d73af5c7)）
+- **rvc:** RustのRVCの実行環境でオフライン変換し、参照実装と突き合わせる（[aeeef0e](https://github.com/kein5/astarot/commit/aeeef0ea8f1b8551d4eb8dc70c337833890b66ee)）
+- **rvc:** RustのRVCの実行環境に、モデル、インデックス、信号の前処理を足す（[3b5c8ef](https://github.com/kein5/astarot/commit/3b5c8ef9ca3292c8bbfcc9e473947277da9c6c02)）
+- **tts:** 日本語の読み上げのために、利用者のVOICEVOX系とCOEIROINKのエンジンに接続する（[a1a46ba](https://github.com/kein5/astarot/commit/a1a46bab5775f8559e665ebaa5f6da950cbab1f3)）
+
+## 0.2.0（2026-11-15）
+
+[v0.1.0](https://github.com/kein5/astarot/compare/v0.1.0...v0.2.0)からの変更です。
+
+この版には下に挙げる0.2.0-beta.1の変更が入っています。
+
+### 利用者に関わる変更
+
+#### 互換性が変わる変更
+
+- **websocket:** ほかのPCからの接続はTLSでだけ受け付け、接続キーを置き換えられるようにする（[bb0c5fe](https://github.com/kein5/astarot/commit/bb0c5fe37c6c34f64171b45ad975f4f7538dba06)）
+  - 127.0.0.x以外のWebSocketのホストには証明書と鍵が必要です。証明書と鍵なしで保存したLANのホストは起動時に127.0.0.1に戻り、アプリがそのことを知らせます。
+- **ocr:** 上流VRCTのチャット吹き出しのモデルをリポジトリから消す（[78a1ad2](https://github.com/kein5/astarot/commit/78a1ad254a3b6e0331c8288a270200f84723ab85)）
+  - model_pathを渡さないBubbleDetector()にはモデルがありません。
+- **ui:** UIの言語を英語と日本語だけにする（[87ecf44](https://github.com/kein5/astarot/commit/87ecf442a8be5ab9d214d399e565383033c96306)）
+  - UI_LANGUAGEは"en"と"ja"だけを受け付けます。
+
+#### 機能
+
+- **ui:** モデルの各設定から、自分のモデルの使い方へリンクする（[f215c44](https://github.com/kein5/astarot/commit/f215c448d77f91b244fd5832004038bbc462c61d)）
+- **ui:** 機能をその働きで名付け、短い名前を括弧で添える（[6510ebe](https://github.com/kein5/astarot/commit/6510ebe9b9ba337ed749ca59d824cf01e8a158b5)）
+- **flow:** 入力ごとの行き先を図にして、パネル、VR、デスクトップに描く（[cf26e26](https://github.com/kein5/astarot/commit/cf26e2684153eacf8976bb268fb10aadb9d11d7e)）
+- **flow:** 自分の声とチャットの行き先を、各段階にかかった時間と一緒にアプリ、デスクトップ、VRで表示する（[cd16585](https://github.com/kein5/astarot/commit/cd16585e694df8734c00bcc38d6994ba8a6920b8)）
+- **flow:** 利用者の声とチャットの行き先と、各段階にかかる時間を記録する（[197fb24](https://github.com/kein5/astarot/commit/197fb241b588b9ada517de18fe628e521cb6a3b2)）
+- **voice:** 翻訳を変換した声で読み上げる（ADR-007）（[8b4f190](https://github.com/kein5/astarot/commit/8b4f190fa8d05dfdb4b968b9803c2320bdf8f429)）
+- **voice:** NVIDIAのGPUがないときは、RVCとSeed-VCを開始の時点で止める（[9b5453e](https://github.com/kein5/astarot/commit/9b5453e66fe4de72229ce90b02ede8582459628c)）
+- **captions:** LinuxのX11とXWaylandでデスクトップの字幕オーバーレイを表示する（[1528fc5](https://github.com/kein5/astarot/commit/1528fc53af2f3d5ba3bc16b5117310cf5af7d23c)）
+
+#### 不具合の修正
+
+- **telemetry:** 利用状況の送信はお知らせへの回答があってから始める（[13da826](https://github.com/kein5/astarot/commit/13da8260d92c19d2734186a57aec2fd6e68a7608)）
+- **vr:** VR UIが送る要求だけを中継し、バックエンドでも確かめる（[8692fa6](https://github.com/kein5/astarot/commit/8692fa69c893e177799a324758632f7be5ccc2b6)）
+- **site:** 濁点を含む日本語の見出しへのリンクが、その見出しに飛ぶようにする（[7abb9d9](https://github.com/kein5/astarot/commit/7abb9d96e7b5f2febbcda68746a7c9d63b83f282)）
+- **site:** Intl.Segmenterのないブラウザーでも検索が動くようにする（[1cd1ad8](https://github.com/kein5/astarot/commit/1cd1ad8030f2a68e2a6586b7623a985885757f05)）
+- **ui:** 音声のエラーをメイン画面で説明し、英語のヒントに音声認識の名前を書く（[60f4758](https://github.com/kein5/astarot/commit/60f4758c7a77c1df6c29291808ff076f7c6a416e)）
+- **ui:** 設定のメニューとVR UIで長い機能名を途中で切らない（[f740307](https://github.com/kein5/astarot/commit/f740307fe406966b0f4d0cae858f019649e9bf44)）
+- **voice:** ボイスチェンジャーが起動できなかったとき、コードではなく理由を示す（[97aa51b](https://github.com/kein5/astarot/commit/97aa51b2582ad82fcf35173f9e2133ff0377a2ac)）
+- **flow:** パネル、デスクトップの帯、VRのウィンドウに収まるようにし、文書に書く（[8888d17](https://github.com/kein5/astarot/commit/8888d17033a3fb88c1403357287877e0953d404f)）
+- **voice:** 何も抑えていないときは、ルーターの制御フレームを以前のままにする（[3000d35](https://github.com/kein5/astarot/commit/3000d35c0ff0c55777f8c98c2b91cc865a6f0852)）
+- **captions:** Linuxのオーバーレイのウィンドウを、クリックを透過させる前に実体化する（[b143251](https://github.com/kein5/astarot/commit/b1432518ebac0eaf54bb62115f92278c809f8e9e)）
+- **downloads:** 旧方式のダウンロードを止めるとき、指定より長く待たない（[4465fe1](https://github.com/kein5/astarot/commit/4465fe13fd539d262c0b5f25e03f3fec0bb16e2f)）
+- **speech:** メーカーを問わず、同梱サーバーはまず専用GPUで起動する（[8c1f74c](https://github.com/kein5/astarot/commit/8c1f74c5a60e8f9eb1fabd11da2da5519569ec6b)）
+- **translation:** 一度もダウンロードしていないモデルをエラーとして扱わない（[250b4bc](https://github.com/kein5/astarot/commit/250b4bc2b046b645f313b8d1331e9c8687421396)）
+- **ui:** 音声サーバーのメッセージでは利用者に見える区画の名前を書く（[f5f2e08](https://github.com/kein5/astarot/commit/f5f2e08a09286fdad925b2445d32e612814d3431)）
+
+### 内部の変更
+
+#### ビルドとCI
+
+- **release:** CHANGELOG.mdには正式版だけを載せ、ベータ版のノートはそのコミットから作る（[65a52cf](https://github.com/kein5/astarot/commit/65a52cfbfc36437f7724c9c026ddcd9a8637e89f)）
+- **release:** 正式版のノートにプレリリースの利用者に関わる変更を載せる（[b7fe1a2](https://github.com/kein5/astarot/commit/b7fe1a2b2adad2d4ab96c316531b26b05e9b4611)）
+- **release:** cogのフックでコミットメッセージを確かめ、リリースの準備のときにCHANGELOG.mdを書く（[239b93d](https://github.com/kein5/astarot/commit/239b93da434620eb246324d935f0bedcda37a757)）
+
+#### 試験
+
+- **websocket:** 試験のModelに、アプリと同じ再入可能なOBSのロックを持たせる（[2db2497](https://github.com/kein5/astarot/commit/2db2497006bdbd0da052a5871648328f90c868ca)）
+- **websocket:** Windowsでデータを失わないasyncioのクライアントを使い、wssで接続する（[ba65507](https://github.com/kein5/astarot/commit/ba65507710b8c2b50f889c726d071c9b6a918ecf)）
+- **voice:** ほかの音声の試験と同じやり方でcontrollerのフィクスチャを読み込む（[70a6959](https://github.com/kein5/astarot/commit/70a6959293631c556ca12a2c20bde9e97399c207)）
+
+#### 文書
+
+- **websocket:** LANの証明書の文言で「必要」と「接続できない」と書く（[86ce481](https://github.com/kein5/astarot/commit/86ce4818e403ca9f125eac5c935f1dfb6d9e8a24)）
+- **site:** ほかのPCからOBSとWebSocketを使う方法と、新しいキーの作り方を説明する（[9b4398a](https://github.com/kein5/astarot/commit/9b4398a0ae80cfe27a2e0a1ead7e2e038e30c6bc)）
+- **site:** 各機能が何をするかを、読む人にわかる言葉で書く（[7e52250](https://github.com/kein5/astarot/commit/7e52250eae4b24a96f6bfebcfc403dca4c7139f5)）
+- **site:** 自分のWhisperサーバーには必ずキーが要ると書き、残っていた古い名前を直す（[b2655d4](https://github.com/kein5/astarot/commit/b2655d4b287dea423f9c1929b7679b4d99439e14)）
+- 機能の名付け方を、デザインガイドとユースケースに記録する（[422313f](https://github.com/kein5/astarot/commit/422313f3ca9ed556498e6dd9c89dd0d04cb760aa)）
+- **site:** 新しい機能名でスクリーンショットを撮り直し、入力から出力への図で名前を途中で切らない（[56aa7b3](https://github.com/kein5/astarot/commit/56aa7b3f789e19d086d3abd1d8ac6280d1d3633a)）
+- **site:** すべての機能とガイドのページを共通の順序にそろえ、新しい機能名にする（[508f024](https://github.com/kein5/astarot/commit/508f024ddee089b8d6187cb850790f0c7abc2772)）
+- 人とエージェントに向けて、コミットと変更履歴の決まりを書く（[175d3c2](https://github.com/kein5/astarot/commit/175d3c217dff3037eb553056b45f52ca4e8bbc66)）
+- **site:** テキスト読み上げのページを共通の順序にそろえる（[2733f87](https://github.com/kein5/astarot/commit/2733f8717220ff92796be997ed25e3f87f07831a)）
+- **site:** やりたいこと、声と文字の流れ、自分のモデルのページを足す（[12bcb02](https://github.com/kein5/astarot/commit/12bcb024cc383c6db24796680640e43522fdfe22)）
+- **site:** ページをやりたいことでまとめ、日本語を単語で検索できるようにする（[7d7d89d](https://github.com/kein5/astarot/commit/7d7d89db248f81e9d76a777a9e465620f2d5eda4)）
+- **superpowers:** 利用者向けの文書の組み直し、機能名、自分のモデルのガイドを計画する（[f9caf31](https://github.com/kein5/astarot/commit/f9caf31dddbad4395735124de94cad9937847008)）
+- **site:** AMDとIntelのGPUを使う人を、ローカルLLMとリアルタイム字幕へ案内する（[17b3281](https://github.com/kein5/astarot/commit/17b328177a2a1e144e90cc0b703d729f592c49ab)）
+- **voice:** 声質変換を通して翻訳を読み上げることを提案する（ADR-007）（[1240014](https://github.com/kein5/astarot/commit/124001460085cf2d3d1504ccce0a258037312c8d)）
+- **tts:** クイックスタートで、設定にいま出ている表示名を使う（[bd70a52](https://github.com/kein5/astarot/commit/bd70a52b463cd12c708eff26e98e888d0f4cf1c4)）
+- **site:** デスクトップ字幕を画面の上で見せ、GPU版で加わるものを書く（[d07032a](https://github.com/kein5/astarot/commit/d07032a9b93a958223a3cf7cb554592f8d49b8be)）
+- **release:** 0.1.0のリリースと、パッケージの検査が必ず残すログの行を記録する（[d6d347d](https://github.com/kein5/astarot/commit/d6d347dfecb1c19974d8dae4719f7dea9ea1c202)）
+- **site:** アプリを使っている様子を見せ、古いパスを直し、スクリーンショットを大きく開けるようにする（[821e911](https://github.com/kein5/astarot/commit/821e911f9c99b286d1088353faf4be98589588f8)）
+
+#### 保守
+
+- VR UIのプレビュー、上流の時代のメモ、ko/zhのロゴを消し、取り残されていた単体テストを実行する（[f148d04](https://github.com/kein5/astarot/commit/f148d040b8d373cb6c8f88e75047faa65680e728)）
+- どこからも使われていないファイルを消す（[f5377bb](https://github.com/kein5/astarot/commit/f5377bb3fcfdfb231f6c70c3edfd920be32d7523)）
+
+## それより前の版
+
+0.1.0までの版は[GitHub Releases](https://github.com/kein5/astarot/releases)で説明しています。

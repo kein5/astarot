@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -6,21 +6,29 @@ import type { AsyncStdoutToPython } from "@useStdoutToPython";
 import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
+import { isSettingsWindow } from "./settingsWindow.ts";
+import { isNarrowWidth } from "./breakPoint.ts";
 
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.
 const SHUTDOWN_WAIT_MS = 2000;
 let closing: Promise<void> | null = null;
+// The main window's width in CSS pixels, as innerSize last answered (asyncUpdateBreakPoint).
+let measuredWidth: number | undefined;
 let releaseCloseRequest: (() => void) | null = null;
 
-// The main window, which its entry point (views/app/index.tsx) sets before anything here runs.
+// This page's window, which its entry point sets before anything here runs: the main window
+// (views/app/index.tsx), or the settings window (views/settings_window/index.tsx, #1236).
 // Without it each use fails where it did before, at the window's first call.
 const mainWindow = (appWindow: AppWindow | undefined): AppWindow => {
     if (!appWindow) throw new TypeError("The main window is not set (store.appWindow).");
     return appWindow;
 };
 
-// The main window's position and size, as /set/data/main_window_geometry takes them.
+// Where a window's position and size are saved: the main window's, or the settings window's own (#1236).
+const geometryEndpoint = () => isSettingsWindow() ? "/set/data/settings_window_geometry" : "/set/data/main_window_geometry";
+
+// A window's position and size, as /set/data/main_window_geometry takes them.
 export interface WindowGeometry {
     x_pos: number;
     y_pos: number;
@@ -82,26 +90,39 @@ export const useWindow = () => {
         const minimized = await mainWindow(appWindow).isMinimized();
         if (minimized === true) return; // don't save while the window is minimized.
         const data = await asyncGetWindowGeometry();
-        asyncStdoutToPython("/set/data/main_window_geometry", data);
+        asyncStdoutToPython(geometryEndpoint(), data);
     };
 
     // The saved geometry is applied before the window is first shown
     // (src-tauri/src/window_placement.rs), not here.
 
+    const applyBreakPoint = (width: number) => {
+        const narrow = isNarrowWidth(width, currentUiScaling.data);
+        // Every update re-renders whatever reads IsBreakPoint, so only send changes.
+        if (document.documentElement.hasAttribute("data-narrow") === narrow) return;
+        // Drawn as a transition: a flushSync elsewhere (virtua's, in the ResizeObserver callback where
+        // it measures the log) would draw a waiting update with it. The rail turning to icons then
+        // resized the log inside that callback, and WebKit reported
+        // "ResizeObserver loop completed with undelivered notifications" (#1200, as MessageContainer).
+        startTransition(() => updateIsBreakPoint(narrow));
+        // CSS width queries miss the UI size: at 200% an 870px window lays
+        // out like a 435px one. Narrow styles also key on this attribute.
+        document.documentElement.toggleAttribute("data-narrow", narrow);
+    };
+
     const asyncUpdateBreakPoint = async () => {
+        // Decided at once from the width last measured, then again from the window's size. A new UI
+        // size (the saved one, at the start) then changes the layout in the render that brought it,
+        // before the settings page that render mounts is laid out. Decided only after the window
+        // answered, the change came about 0.3 s later, at that page's first layout; WebKitGTK 2.52
+        // then sometimes stopped laying the page out, and the settings menu stayed outside the window.
+        if (measuredWidth !== undefined) applyBreakPoint(measuredWidth);
         const size = await mainWindow(appWindow).innerSize();
         // innerSize is in physical pixels; the breakpoint, like the CSS
         // (max-width: 800px) queries, is in CSS pixels. At 150% display
         // scaling an 800px-wide window is 1200 physical pixels.
-        const width = size.width / (globalThis.devicePixelRatio || 1);
-        const dynamicBreakPoint = 800 * (currentUiScaling.data / 100);
-        const narrow = width <= dynamicBreakPoint;
-        // Every update re-renders whatever reads IsBreakPoint, so only send changes.
-        if (document.documentElement.hasAttribute("data-narrow") === narrow) return;
-        updateIsBreakPoint(narrow);
-        // CSS width queries miss the UI size: at 200% an 870px window lays
-        // out like a 435px one. Narrow styles also key on this attribute.
-        document.documentElement.toggleAttribute("data-narrow", narrow);
+        measuredWidth = size.width / (globalThis.devicePixelRatio || 1);
+        applyBreakPoint(measuredWidth);
     };
 
     const asyncToggleMaximizeApp = async () => {
@@ -120,7 +141,10 @@ export const useWindow = () => {
     // The app lives in the tray: closing the window only puts it away there, and the tray menu's Quit
     // ends the app (asyncQuitApp). CompanionController sets store.companion_hide; it quits instead
     // when there is no tray icon to bring the window back from.
-    const asyncCloseApp = () => store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
+    // The settings window's close button closes only it (#1236): nothing asks, as the settings save by
+    // themselves (#1111).
+    const asyncCloseApp = () => isSettingsWindow() ? mainWindow(appWindow).destroy()
+        : store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
     const asyncQuitApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
 
     return {
@@ -132,6 +156,28 @@ export const useWindow = () => {
         asyncToggleMaximizeApp,
         asyncMinimizeApp,
     };
+};
+
+// Whether this page's window is maximized, kept in step with it: read when the page starts, and
+// again after each resize, which maximizing and restoring are. The title bar's button draws what
+// pressing it does from it (#1258), and the corners follow it (CornerRadiusController). A read the
+// window cannot answer (it is closing) leaves the last answer.
+export const useWindowMaximized = (): boolean => {
+    const [maximized, setMaximized] = useState(false);
+    useEffect(() => {
+        const appWindow = mainWindow(store.appWindow);
+        let live = true;
+        const read = () => {
+            appWindow.isMaximized().then(value => { if (live) setMaximized(value); }, () => {});
+        };
+        read();
+        const unlisten = appWindow.onResized(read);
+        return () => {
+            live = false;
+            unlisten.then(stop => stop());
+        };
+    }, []);
+    return maximized;
 };
 
 // Saves the window geometry and keeps the narrow layout in step with the window.
@@ -152,7 +198,8 @@ export const WindowGeometryController = ({ saveGeometry = true }: { saveGeometry
 
     // Also decide at startup and once the saved UI size arrives: a window that opens
     // narrow (or at a large UI size) never fires a resize event, so it kept the wide layout.
-    useEffect(() => {
+    // Before the browser paints, as the UI size itself is applied (UiSizeController).
+    useLayoutEffect(() => {
         asyncUpdateBreakPoint();
     }, [currentUiScaling.data]);
 

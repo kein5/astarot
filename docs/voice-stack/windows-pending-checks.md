@@ -1,4 +1,59 @@
-# Windowsで未確認の変更 — 2026-11-13
+# Changes not yet checked on Windows (2026-11-13)
+
+[日本語版](#windowsで未確認の変更--2026-11-13日本語版)
+
+This is a list of the changes that went into `develop` after 0.1.0-beta.6 (2026-11-12, `efa73156`) and have not been checked on a real Windows machine. Development and verification moved from a Linux PC to a Windows PC on 2026-11-13.
+
+Remove a row from this list once it is checked. Write the result in the [Windows voice verification record](windows-voice-report.md) or in the relevant spec. The steps for the field tests are in [Windows field tests](windows-field-tests.md).
+
+## What has been checked
+
+- The changes in this period were checked screen by screen by running the real app on a CachyOS PC (KDE Plasma, Wayland).
+- On Windows, the CI jobs `backend-windows` and `headless (windows-latest)` pass. Both are Python tests. They do not cover the screens, rendering in WebView2, the real VRChat or key input.
+- On 2026-11-13, the screen changes were checked with a development build on Windows 11. Hotkeys, the main screen's bar and sidebar, the layout of the settings pages, the position of notices, the display of messages that were not sent, detection of the real VRChat and downloading the translation model after consent are confirmed. The results are in the "Screen changes after beta.6" section of the [verification record](windows-voice-report.md).
+- On 2026-11-14, the 0.1.0-beta.7 package (`VRCT-VOX.zip`) was extracted into a working folder and started. Starting and quitting, the usage data notice and sending, each settings page, the desktop caption overlay, and everything from downloading the translation model to translating are confirmed. The steps are in [Release candidates](release-candidates.md), in the section on starting the Windows package to check it before publishing.
+- The app installed on a PC with the installer and the CUDA package have not been started.
+
+## What to check on Windows
+
+| Change | What to check | Why it remains |
+|---|---|---|
+| Translation model download (#213) | In the app installed with the installer, look at where the downloaded model is saved. | The 0.1.0-beta.7 package was extracted and started, and the steps from consent to a translation appearing were confirmed, as was the model going into `weights` next to the executable. This was not looked at in the app installed with the installer. |
+| Mute sync guidance (#208) | Turn it on in a state where mute sync cannot be used, such as sending to another machine, and see that the reason appears in the display language. | No state where it cannot be used was set up. Switching it in a state where it can be used was confirmed. |
+| Startup warning (#205) | Right after startup, see that the warning appears only when it applies. | The screen was looked at 25 seconds or more after startup, so the warning, which disappears after 10 seconds, was not seen. |
+| Desktop caption overlay (#229) | Look at captions produced by speech recognition of the microphone. Also look at the position on a monitor at 150% scaling or higher. | Appearing over VRChat in windowed and full-screen mode, passing clicks through and not changing the foreground window were confirmed with text passed directly to the caption window. Captions from speech recognition of game audio were confirmed to appear without starting VRChat (#231). Scaling was checked at 125% and 100%. |
+| Telling speakers apart (#231) | In conversation between human voices, see how well the speaker labels match. Also look at a real VRChat conversation, the combination with Haas-ja, and the app installed with the installer. | Checked with conversations of 2 to 6 people made with TTS voices. In the development build, downloading after consent, applying the model, and display in the log and the caption overlay were confirmed. The results are in [Choosing and testing speaker diarization](speaker-diarization-2026-11-13.md). |
+
+VRChat detection (#221) changed to "found" 17.7 seconds after the VRChat process appeared, and to "not found" 3.5 seconds after the process ended (once each on this Windows 11 PC). On the Linux PC it took 6 to 8 seconds after start and 3 to 4 seconds after exit (twice each). The Linux values were recorded only as "after start", so it is not known whether they were measured from the same point as the Windows values.
+
+## Changes that do not need checking on Windows
+
+The following changes only touch the tools for Linux field tests. They assume PipeWire, KDE and XWayland, and do not run on Windows.
+
+- #202, #204, #207, #209: the Linux native tests and the AppImage tests
+- #211, #212, #214: `tools/native_acceptance.py` and `tools/vrchat_voice_host.py` (acceptance tests that use real models and VRChat)
+
+## Not checked on either OS
+
+- Reading by a screen reader.
+- Cloud speech recognition with a real key entered. The collapsed view of the endpoints from #223 was looked at without a key.
+- The "Realtime captions" section of the speech recognition page is not collapsed. It remains the longest section on the page.
+
+The items still unchecked on Linux (a real headset, desktops other than KDE and so on) are in the limitations section of the [README](/README.md).
+
+## Worth fixing
+
+- The favicon in the main screen's HTML (`src-ui/index.html`) is still the original VRCT icon (`chato_icon_fill.png`). It does not appear in the app window, only in the developer tools tab. This applies to both OSes.
+- The screen that downloads models at startup and the screen shown during an update have not actually been displayed since their images were replaced with VRCT-VOX ones (#228). The normal startup screen was checked.
+
+## Release status
+
+- 0.1.0-beta.7 and the stable 0.1.0 were published on 2026-11-14. In the Windows packages up to 0.1.0-beta.6, local translation could not be turned on ([Release candidates](release-candidates.md) has the cause and the steps to check it with a package). The 0.1.0 package (`VRCT-VOX.zip`) was checked for the same items as beta.7.
+- The user documents (`site/`) and the screenshots were remade for the 0.1.0 screens on 2026-11-14. They also show the desktop caption overlay section and the speaker diarization model field (#231). The screenshots were drawn by `tools/docs_screenshots.py` from sample data, without real models or VRChat.
+
+---
+
+# Windowsで未確認の変更 — 2026-11-13（日本語版）
 
 0.1.0-beta.6（2026-11-12、`efa73156`）のあとに`develop`へ入った変更のうち、Windowsの実機で確かめていないものの一覧です。開発と検証は、2026-11-13にLinuxのPCからWindowsのPCへ移りました。
 

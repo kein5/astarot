@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, forwardRefRender, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { styleOf } from "../../../../../../logics/test/styleSource.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
 const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(tree).filter(predicate);
@@ -31,7 +34,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     t.onTestFinished(() => runtime.unmount());
     stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: (fn: () => void) => fn() });
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },
+        "./draftRebase": { rebaseDraft }, 
     });
     type WordList = { data: string[] };
     const state = { currentMicWordFilterList: { data: ["alpha", "日本語", "gamma"] },
@@ -40,7 +43,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },
@@ -53,7 +56,9 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
         setRef(findIn(tree, node => node.type === Entry), entryNode);
         rows = all(tree, node => node.props?.deleteAction).map(row => {
             const rendered = draw(row);
-            const button = findIn(rendered, node => node.type === "button");
+            // Each word's delete is the kit's danger icon Button.
+            const button = findIn(rendered, node => node.type === kitStandIns.Button);
+            assert.deepEqual([button.props.tone, button.props.size], ["danger", "icon"]);
             const node = buttons.get(row.key) ?? focusNode(document);
             buttons.set(row.key, node);
             setRef(button, node);
@@ -81,56 +86,123 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     assert.equal(document.activeElement, entryNode);
 });
 
-test("checkbox input stays mounted and focused through pending, including rejection", async t => {
+// The settings' on/off control is the kit's switch (K-02, decided on 2026-11-25), named by its row.
+const loadSettingSwitch = (runtime: ReturnType<typeof hooks>) => loadModule<typeof import("./setting_switch/SettingSwitch.tsx")>(
+    new URL("./setting_switch/SettingSwitch.tsx", import.meta.url), runtime);
+const switchIn = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Switch);
+
+test("a setting's switch stays mounted and focused through pending, including rejection", async t => {
     const runtime = hooks(), document: FakeDocument = { body: {} };
     stubGlobals(t, { document });
-    const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+    const { SettingSwitch } = await loadSettingSwitch(runtime);
     let toggles = 0;
     const props = { label: "Show resend button", variable: { state: "ok", data: false }, toggleFunction: () => toggles++ };
-    const render = () => runtime.render(Checkbox, props);
-    const original = findIn(render(), node => node.type === "input");
+    const render = () => runtime.render(SettingSwitch, props);
+    const original = switchIn(render());
+    // Named by its row's label; on and off as the store holds it.
+    assert.deepEqual([original.props["aria-label"], original.props.checked], ["Show resend button", false]);
     const focused = focusNode(document); focused.focus();
-    original.props.onChange();
+    original.props.onCheckedChange(true);
     assert.equal(toggles, 1);
     for (const state of ["pending", "ok"]) {
         props.variable.state = state;
-        const tree = render(), input = findIn(tree, node => node.type === "input");
-        assert.equal(input.type, original.type);
-        assert.equal(input.key, original.key);
-        assert.notEqual(input.props.disabled, true);
-        assert.equal(input.props["aria-busy"], state === "pending");
-        assert.equal(input.props["aria-disabled"], state === "pending");
-        // The input remains in the same child slot, immediately before its focus drawing.
+        const tree = render(), control = switchIn(tree);
+        assert.equal(control.key, original.key);
+        assert.equal(control.props.id, original.props.id);
+        assert.notEqual(control.props.disabled, true);
+        assert.equal(control.props["aria-busy"], state === "pending");
+        assert.equal(control.props["aria-disabled"], state === "pending");
+        assert.equal(control.props["data-disabled"], undefined, "drawn as usable while it waits");
+        // The switch stays in the first child of its label, which is the target around it.
         const label = findIn(tree, node => node.type === "label");
-        assert.equal(label.props.children[0].props, input.props);
-        assert.equal(label.props.children[1].props.className, "cbx");
+        assert.equal(label.props.htmlFor, control.props.id);
+        assert.equal(label.props.children[0].props.className, "slot");
+        assert.equal(label.props.children[0].props.children.props, control.props);
+        assert.equal(label.props["data-pending"], state === "pending" || undefined);
+        assert.equal(label.props["data-unavailable"], undefined);
         assert.equal(document.activeElement, focused);
         if (state === "pending") {
-            input.props.onChange();
-            const click = key(); input.props.onClick(click);
-            const space = key(" "); input.props.onKeyDown(space);
-            assert.equal(click.defaultPrevented, true);
-            assert.equal(space.defaultPrevented, true);
+            control.props.onCheckedChange(true);
+            const click = key(); control.props.onClick(click);
+            const space = key(" "); control.props.onKeyDown(space);
+            const enter = key("Enter"); control.props.onKeyDown(enter);
+            assert.deepEqual([click.defaultPrevented, space.defaultPrevented, enter.defaultPrevented], [true, true, true]);
             assert.equal(toggles, 1);
-            assert.equal(label.props.children[2].props["aria-hidden"], "true");
+            // The spinner beside it says that it waits; it is not read.
+            assert.deepEqual([label.props.children[1].props.className, label.props.children[1].props["aria-hidden"]], ["loader", "true"]);
+        } else {
+            assert.equal(label.props.children[1], false);
+            let stopped = false;
+            const click = { ...key(), stopPropagation() { stopped = true; } }; control.props.onClick(click);
+            const space = key(" "); control.props.onKeyDown(space);
+            const other = key("a"); control.props.onKeyDown(other);
+            assert.deepEqual([click.defaultPrevented, space.defaultPrevented, other.defaultPrevented], [false, false, false]);
+            // The press stays with the switch, as the checkbox's did: the row around it does not get it too.
+            assert.equal(stopped, true);
         }
     }
 });
 
+test("a setting's switch keeps the confirmed value while it waits, and a switch with its name beside it is named by it", async () => {
+    const runtime = hooks();
+    const { SettingSwitch } = await loadSettingSwitch(runtime);
+    let calls = 0;
+    const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => { calls++; } };
+    for (const confirmed of [false, true]) {
+        props.variable.data = confirmed;
+        const control = switchIn(runtime.render(SettingSwitch, props));
+        control.props.onCheckedChange(!confirmed);
+        assert.equal(control.props.checked, confirmed);
+        assert.equal(control.props["aria-disabled"], true);
+    }
+    assert.equal(calls, 0);
+    props.variable.state = "ok";
+    switchIn(runtime.render(SettingSwitch, props)).props.onCheckedChange(false);
+    assert.equal(calls, 1);
+    // A value that is not true is off.
+    assert.equal(switchIn(runtime.render(SettingSwitch, { ...props, variable: { state: "ok", data: "yes" } })).props.checked, false);
+    // With show_label the name is drawn beside the switch, inside its label, instead of aria-label.
+    const labelled = runtime.render(SettingSwitch, { ...props, show_label: true });
+    const label = findIn(labelled, node => node.type === "label");
+    assert.equal(switchIn(labelled).props["aria-label"], undefined);
+    assert.equal(label.props.htmlFor, switchIn(labelled).props.id);
+    assert.deepEqual([label.props.children[2].props.className, label.props.children[2].props.children], ["text", "Auto select"]);
+    assert.equal(label.props.className, "target");
+    // A switch among other controls has the smaller target.
+    assert.equal(findIn(runtime.render(SettingSwitch, { ...props, dense: true }), node => node.type === "label").props.className, "target dense");
+    // Without a toggle it does nothing.
+    switchIn(runtime.render(SettingSwitch, { label: "Detector", variable: { state: "ok", data: false } })).props.onCheckedChange(true);
+});
+
+test("a switch that cannot be used still shows its keyboard focus at full strength, as the box did", () => {
+    // The kit draws it half as strong, its ring too; the slot around it draws the kit's ring again.
+    const css = readFileSync(new URL("./setting_switch/SettingSwitch.css.ts", import.meta.url), "utf8");
+    assert.match(css, /import \{ focusRing \} from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/kit\/shared\.css\.ts";/);
+    assert.match(styleOf(css, "slot"), /'&:has\(> \[data-slot="switch"\]\[data-disabled\]:focus-visible\)': focusRing,/);
+    assert.match(styleOf(css, "slot"), /borderRadius: "999rem",/);
+});
+
 for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OCR detector not installed"]) {
-    test(`unavailable checkbox ignores click, Space and change: ${label}`, async () => {
+    test(`an unavailable switch ignores click, Space, Enter and change, still takes focus: ${label}`, async () => {
         const runtime = hooks();
-        const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+        const { SettingSwitch } = await loadSettingSwitch(runtime);
         let calls = 0;
-        const tree = runtime.render(Checkbox, { label, variable: { state: "ok", data: false }, is_available: false,
+        const tree = runtime.render(SettingSwitch, { label, variable: { state: "ok", data: false }, is_available: false,
             "aria-describedby": "warning", toggleFunction: () => calls++ });
-        const input = findIn(tree, node => node.type === "input");
-        assert.equal(input.props["aria-disabled"], true);
-        assert.equal(input.props["aria-describedby"], "warning");
+        const control = switchIn(tree);
+        assert.equal(control.props["aria-disabled"], true);
+        // Drawn as the kit draws a switch that cannot be used, and kept in the tab order to be read with its warning.
+        assert.equal(control.props["data-disabled"], "");
+        assert.notEqual(control.props.disabled, true);
+        assert.equal(control.props["aria-busy"], false);
+        assert.equal(control.props["aria-describedby"], "warning");
+        assert.equal(findIn(tree, node => node.type === "label").props["data-unavailable"], true);
         for (const [handler, name] of [["onClick", undefined], ["onKeyDown", " "], ["onKeyDown", "Enter"]] as const) {
-            const event = key(name); input.props[handler](event); assert.equal(event.defaultPrevented, true);
+            const event = key(name); control.props[handler](event); assert.equal(event.defaultPrevented, true);
         }
-        input.props.onChange();
+        // Tab and the other keys still move on from it.
+        const tab = key("Tab"); control.props.onKeyDown(tab); assert.equal(tab.defaultPrevented, false);
+        control.props.onCheckedChange(true);
         assert.equal(calls, 0);
     });
 }
@@ -153,6 +225,7 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
         const module = await loadModule(new URL(`./${path}/${name}.tsx`, import.meta.url), runtime, {
             clsx: { clsx }, "../_atoms/_entry/_Entry": { _Entry }, "react-colorful": { HexColorPicker: () => null },
+            "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         });
         // One of the three fields with a save button, picked by name; each takes the props below.
         const Component = componentNamed(module, name);
@@ -163,7 +236,7 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         const render = () => {
             const entry = findIn(runtime.render(Component, props), item => item.type === _Entry);
             if (refOf(entry)) setRef(entry, node);
-            return findIn(inputRuntime.render((p: unknown) => forwardRefRender(_Entry)(p, null), entry.props), item => item.type === "input");
+            return findIn(inputRuntime.render(_Entry, entry.props), item => item.type === "input");
         };
         let input = render();
         input.props.onKeyDown({ ...key("Enter"), target: node });
@@ -185,6 +258,212 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         runtime.unmount();
     });
 }
+
+// #1111: a field that saves by itself saves when focus leaves it, puts the saved value back on
+// Escape, and says its problem under it, tied to the field for screen readers.
+test("a text field that saves by itself saves on leaving, reverts on Escape and says its problem", async () => {
+    const runtime = hooks(), inputRuntime = hooks();
+    inputRuntime.api.useImperativeHandle = () => {};
+    const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
+    const { EntryWithSaveButton } = await loadModule<typeof import("./entry_with_save_button/EntryWithSaveButton.tsx")>(
+        new URL("./entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime, {
+            "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    let saves = 0, reverts = 0;
+    const props: Parameters<typeof EntryWithSaveButton>[0] = { label: "Field", variable: "x", state: "ok", "aria-describedby": "help",
+        saveFunction: () => saves++, onRevert: () => reverts++, error: null };
+    const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
+    let entry = entryOf(runtime.render(EntryWithSaveButton, props));
+    entry.props.onBlur();
+    assert.equal(saves, 1);
+    entry.props.onKeyDown(key("Escape"));
+    entry.props.onKeyDown(key("a"));
+    assert.equal(reverts, 1);
+    assert.equal(entry.props["aria-invalid"], undefined);
+    assert.equal(entry.props["aria-describedby"], "help");
+    props.error = "The window name is empty.";
+    const drawn = runtime.render(EntryWithSaveButton, props);
+    entry = entryOf(drawn);
+    const problem = findIn(drawn, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
+    assert.equal(entry.props["aria-invalid"], true);
+    assert.equal(entry.props["aria-describedby"], `help ${problem.props.id}`);
+    // While a save waits, leaving the field saves nothing more.
+    props.state = "pending";
+    entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur();
+    assert.equal(saves, 1);
+    // A field with its own leave function gets the blur, which says where focus goes (a field of a pair).
+    const left: unknown[] = [], blur = { relatedTarget: "the other field" };
+    props.state = "ok"; props.leaveFunction = event => { left.push(event); };
+    entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur(blur);
+    assert.deepEqual([saves, left], [1, [blur]]);
+    props.leaveFunction = undefined;
+    runtime.unmount();
+});
+
+// #1111, decided 2: an API key field that saves by itself leaves through its own function (an
+// empty field keeps the key), Enter still saves, Escape puts the saved key back, and the reason a
+// key was refused is under the field.
+test("an API key field that saves by itself leaves, reverts and says its problem", async () => {
+    const runtime = hooks(), inputRuntime = hooks();
+    inputRuntime.api.useImperativeHandle = () => {};
+    const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
+    const { AuthKey } = await loadModule<typeof import("./auth_key/AuthKey.tsx")>(new URL("./auth_key/AuthKey.tsx", import.meta.url), runtime, {
+        "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    let saves = 0, leaves = 0, reverts = 0;
+    const props: Parameters<typeof AuthKey>[0] = { label: "Key", variable: "", state: "ok", "aria-describedby": "help",
+        onChangeFunction: () => {}, saveFunction: () => saves++, leaveFunction: () => leaves++, onRevert: () => reverts++, error: null };
+    const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
+    let entry = entryOf(runtime.render(AuthKey, props));
+    entry.props.onBlur();
+    assert.deepEqual([saves, leaves], [0, 1], "leaving goes through the leave function, not the Enter one");
+    entry.props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1);
+    props.error = "The key was not accepted.";
+    const drawn = runtime.render(AuthKey, props);
+    entry = entryOf(drawn);
+    const problem = findIn(drawn, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
+    assert.equal(entry.props["aria-invalid"], true);
+    assert.equal(entry.props["aria-describedby"], `help ${problem.props.id}`);
+    runtime.unmount();
+});
+
+// #1111: a color field that saves by itself saves when focus leaves it and when the picker closes
+// after a color is chosen. Escape in the field puts the saved color back, but with the picker open
+// it only closes the picker, which keeps the chosen color. The picker is the kit's Popover (D-25):
+// the swatch opens it, and Radix tells when Escape or a press outside closes it.
+async function colorField(t: TestContext) {
+    const runtime = hooks();
+    stubGlobals(t, { document: eventTarget(), window: eventTarget() });
+    const { ColorEntryWithSaveButton } = await loadModule<typeof import("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx")>(
+        new URL("./color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
+            clsx: { clsx }, "@useI18n": { useI18n: () => ({ t: (key: string, values?: { label?: string }) => values?.label ? `${key}: ${values.label}` : key }) },
+            "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
+            "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    return { runtime, ColorEntryWithSaveButton };
+}
+const entryOf = (tree: unknown) => findIn(tree, node => node.type === "entry");
+const swatchOf = (tree: unknown) => findIn(tree, node => node.type === "button");
+const popoverOf = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.Popover);
+const pickerOf = (tree: unknown) => findIn(tree, node => node.type === kitStandIns.PopoverContent);
+const pressEvent = () => { const event = { prevented: false, preventDefault() { event.prevented = true; } }; return event; };
+
+test("a color field that saves by itself saves on leaving and on closing the picker", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
+    let saves: string[] = [], reverts = 0;
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "ok",
+        saveFunction: () => saves.push("first"), onRevert: () => reverts++, error: null };
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    entryOf(tree).props.onBlur();
+    assert.deepEqual(saves, ["first"], "leaving the field saves");
+    entryOf(tree).props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1, "Escape in the field puts the saved color back");
+    // Open the picker, choose a color (the page's save now reads it), and close the picker.
+    popoverOf(tree).props.onOpenChange(true);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.deepEqual([swatchOf(tree).props["aria-expanded"], popoverOf(tree).props.open], [true, true]);
+    entryOf(tree).props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1, "with the picker open, Escape does not revert");
+    saves = []; props.saveFunction = () => saves.push("chosen");
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    // Escape or a press outside: Radix closes it.
+    popoverOf(tree).props.onOpenChange(false);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.deepEqual([swatchOf(tree).props["aria-expanded"], popoverOf(tree).props.open], [false, false]);
+    assert.deepEqual(saves, ["chosen"], "closing the picker saves the chosen color with the latest save");
+    // The problem is said under the field and tied to it.
+    props.error = "Enter # and six characters.";
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    const problem = findIn(tree, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
+    assert.equal(entryOf(tree).props["aria-invalid"], true);
+    assert.equal(entryOf(tree).props["aria-describedby"], problem.props.id);
+    runtime.unmount();
+});
+
+test("the color picker is the kit's Popover after the swatch: it leaves the focus on the swatch and stays open until Escape or a press outside", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
+    const saves: string[] = [], chosen: string[] = [];
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: " #12ab34 ", state: "ok",
+        saveFunction: () => saves.push("save"), onChangeFunction: value => chosen.push(value) };
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    const trigger = findIn(tree, node => node.type === kitStandIns.PopoverTrigger);
+    assert.equal(trigger.props.asChild, true);
+    assert.equal(findIn(trigger, node => node.type === "button").props["aria-label"], "config_page.common.open_color_picker: Font color", "the swatch opens it");
+    const picker = pickerOf(tree);
+    assert.deepEqual([picker.props.portal, picker.props.side, picker.props.align, picker.props.collisionPadding, picker.props["aria-label"], picker.props.className],
+        [false, "bottom", "end", 8, "config_page.common.open_color_picker: Font color", undefined], "drawn after the swatch, so Tab goes into it");
+    assert.equal(findIn(picker, node => node.type === "picker").props.color, "#12ab34");
+    // Opening it leaves the focus on the swatch; the focus leaving it keeps it open.
+    for (const handler of ["onOpenAutoFocus", "onFocusOutside"]) {
+        const event = pressEvent();
+        picker.props[handler](event);
+        assert.equal(event.prevented, true, handler);
+    }
+    // Closed by Escape: the focus goes back to the swatch, without scrolling. Closed by a press
+    // outside: it stays where it went, once. A press on the swatch is not outside.
+    const focused: unknown[] = [];
+    const swatchNode = { focus: (options?: unknown) => focused.push(options) };
+    // A press, by the elements it went through, from the one pressed out to the page.
+    const pressOn = (...path: unknown[]) => ({ detail: { originalEvent: { composedPath: () => path } } });
+    setRef(swatchOf(tree), swatchNode);
+    const close = pressEvent();
+    picker.props.onCloseAutoFocus(close);
+    assert.deepEqual([close.prevented, focused], [true, [{ preventScroll: true }]]);
+    picker.props.onPointerDownOutside(pressOn({ id: "field" }, { id: "page" }));
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.deepEqual(focused, [{ preventScroll: true }]);
+    // A press on the swatch (on the color inside it too) is not outside.
+    picker.props.onPointerDownOutside(pressOn({ id: "color" }, swatchNode, { id: "page" }));
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.deepEqual(focused, [{ preventScroll: true }, { preventScroll: true }]);
+    // With no swatch drawn, a press is outside, and nothing is focused.
+    setRef(swatchOf(tree), null);
+    assert.doesNotThrow(() => picker.props.onPointerDownOutside(pressOn({ id: "page" })));
+    assert.doesNotThrow(() => picker.props.onCloseAutoFocus(pressEvent()));
+    setRef(swatchOf(tree), swatchNode);
+    picker.props.onCloseAutoFocus(pressEvent());
+    assert.equal(focused.length, 3, "the next close by Escape gives the focus back again");
+    // Pressing the swatch opens it; pressed again while open, it stays open.
+    let press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, false, "Radix opens it");
+    popoverOf(tree).props.onOpenChange(true);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, true, "pressing the swatch while open keeps it open");
+    findIn(pickerOf(tree), node => node.type === "picker").props.onChange("#000000");
+    assert.deepEqual([chosen, saves], [["#000000"], []]);
+    assert.equal(findIn(swatchOf(tree), node => node.type === "span").props.style.backgroundColor, "#12ab34");
+    // A color that is not #RRGGBB shows an empty swatch and a white picker.
+    for (const variable of ["red", "x#12ab34", "#12ab34x", "#12ab3", null]) {
+        props.variable = variable;
+        tree = runtime.render(ColorEntryWithSaveButton, props);
+        assert.equal(findIn(pickerOf(tree), node => node.type === "picker").props.color, "#FFFFFF", String(variable));
+        assert.equal(findIn(swatchOf(tree), node => node.type === "span").props.style.backgroundColor, "transparent", String(variable));
+    }
+    runtime.unmount();
+});
+
+test("while a save waits, the swatch does not open the picker, the picker does not change the color, and closing it does not save", async t => {
+    const { runtime, ColorEntryWithSaveButton } = await colorField(t);
+    const saves: string[] = [], chosen: string[] = [];
+    const props: Parameters<typeof ColorEntryWithSaveButton>[0] = { label: "Font color", variable: "#FFFFFF", state: "pending",
+        saveFunction: () => saves.push("save"), onChangeFunction: value => chosen.push(value) };
+    let tree = runtime.render(ColorEntryWithSaveButton, props);
+    assert.equal(swatchOf(tree).props["aria-disabled"], true);
+    const press = pressEvent();
+    swatchOf(tree).props.onClick(press);
+    assert.equal(press.prevented, true, "Radix does not open it");
+    // Opened before the save began: the picker changes nothing and closing it saves nothing.
+    popoverOf(tree).props.onOpenChange(true);
+    tree = runtime.render(ColorEntryWithSaveButton, props);
+    findIn(pickerOf(tree), node => node.type === "picker").props.onChange("#000000");
+    popoverOf(tree).props.onOpenChange(false);
+    assert.deepEqual([chosen, saves], [[], []]);
+    runtime.unmount();
+});
 
 test("threshold Enter commits without blur or a duplicate blur-triggered save", async t => {
     const runtime = hooks(), saves: string[] = [], document: FakeDocument = { body: {} };
@@ -209,7 +488,7 @@ test("_Entry forwards ARIA relations and Enter ignores IME confirmation", async 
     const aria = { "aria-label": "Name", "aria-labelledby": "label", "aria-describedby": "help error",
         "aria-invalid": true, "aria-busy": true, "aria-disabled": true, "aria-controls": "popup", "aria-expanded": false };
     let saves = 0;
-    const input = findIn(runtime.render((props: unknown) => forwardRefRender(_Entry)(props, null), { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input");
+    const input = findIn(runtime.render(_Entry, { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input");
     for (const [name, value] of Object.entries(aria)) assert.equal(input.props[name], value);
     input.props.onKeyDown({ ...key("Enter"), nativeEvent: { isComposing: true } });
     input.props.onKeyDown({ ...key("Enter"), keyCode: 229 });

@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { HARNESS_QUERY } from "./harnessModules.ts";
+import { HARNESS_QUERY, HOT_DEPENDENCY } from "./harnessModules.ts";
 import type { BabelOptions } from "@babel/standalone";
 import React from "react";
 import type { JSX, ReactElement } from "react";
 import * as jsx from "react/jsx-runtime";
 import clsx from "clsx";
 import { atom, createStore } from "jotai/vanilla";
+import * as settingsWindowModule from "../common/settingsWindow.ts";
+import * as noticeScopeModule from "../common/noticeScope.ts";
+import * as breakPointModule from "../common/breakPoint.ts";
 import type { Atom, PrimitiveAtom } from "jotai/vanilla";
 import type { TestContext } from "vitest";
 
@@ -16,6 +19,8 @@ export interface Slot {
     deps?: Deps;
     value?: unknown;
     cleanup?: unknown;
+    // An effect's slot: a layout effect's, or a passive one's.
+    layout?: boolean;
 }
 type SetState<S> = (value: S | ((previous: S) => S)) => void;
 
@@ -45,10 +50,21 @@ const runCleanup = (cleanup: unknown) => {
     cleanup();
 };
 
+// An effect waiting for the end of a render: its slot, and what to run.
+interface PendingEffect {
+    index: number;
+    deps: Deps;
+    run: () => unknown;
+}
+
 // Explicit renders exercise production handlers without a browser. Effects clean
-// up on dependency changes as well as unmount, so listener churn is observable.
+// up on dependency changes as well as unmount, so listener churn is observable. As in React, a
+// render's layout effects (useLayoutEffect) run before its passive ones (useEffect); for each
+// kind, the clean-ups of the effects that run again come first, then the effects, each in the
+// order the component calls them. Unmounting cleans up the layout effects before the passive ones.
 export function hooks() {
-    const slots: (Slot | undefined)[] = [], effects: (() => void)[] = [], targets: Atom<unknown>[] = [];
+    const slots: (Slot | undefined)[] = [], layoutEffects: PendingEffect[] = [], passiveEffects: PendingEffect[] = [];
+    const targets: Atom<unknown>[] = [];
     // Each atom's setter, kept as a slot's value: the one made for that atom, of its type.
     const setters = new Map<Atom<unknown>, Slot>();
     let index = 0, store: Store = createStore();
@@ -60,12 +76,24 @@ export function hooks() {
         const slot = slots[i];
         return held<T>(slot ?? {});
     };
-    const effect = (fn: () => unknown, deps?: Deps) => {
+    const effect = (queue: PendingEffect[]) => (run: () => unknown, deps?: Deps) => {
         const i = index++;
-        if (changed(slots[i], deps)) effects.push(() => {
-            runCleanup(slots[i]?.cleanup);
-            slots[i] = { deps, cleanup: fn() };
-        });
+        if (changed(slots[i], deps)) queue.push({ index: i, deps, run });
+    };
+    const runEffects = (queue: PendingEffect[], layout: boolean) => {
+        const pending = queue.splice(0);
+        for (const { index: i } of pending) runCleanup(slots[i]?.cleanup);
+        for (const { index: i, deps, run } of pending) slots[i] = { deps, cleanup: run(), layout };
+    };
+    // Every effect's clean-up, the layout effects' first.
+    const cleanUp = () => {
+        for (const layout of [true, false]) {
+            for (const slot of slots) {
+                if (!slot || (slot.layout ?? false) !== layout) continue;
+                runCleanup(slot.cleanup);
+                slot.cleanup = undefined;
+            }
+        }
     };
     const api = { ...React,
         useState: <S>(initial: S | (() => S)): [S, SetState<S>] => {
@@ -82,7 +110,7 @@ export function hooks() {
         useRef: <T>(initial: T) => memo(() => ({ current: initial }), []),
         useId: () => memo(() => `test-${index}`, []),
         useMemo: memo, useCallback: <F>(fn: F, deps: Deps) => memo(() => fn, deps),
-        useEffect: effect, useLayoutEffect: effect,
+        useEffect: effect(passiveEffects), useLayoutEffect: effect(layoutEffects),
     };
     const jotai = {
         atom: <T>(initial: T): PrimitiveAtom<T> => { const target = atom(initial); targets.push(target); return target; },
@@ -99,16 +127,17 @@ export function hooks() {
         index = 0;
         const tree = component(props);
         attach(tree);
-        effects.splice(0).forEach(fn => { fn(); });
+        runEffects(layoutEffects, true);
+        runEffects(passiveEffects, false);
         return tree;
     }
     return { api, jotai, targets, get store() { return store; }, set store(value: Store) { store = value; },
         render,
-        unmount: () => { for (const slot of slots) { runCleanup(slot?.cleanup); if (slot) slot.cleanup = undefined; } },
+        unmount: cleanUp,
         // Drawn again from scratch, as a changed React key does: the component's own state
         // goes; the atoms' store stays.
         remount: () => {
-            for (const slot of slots) runCleanup(slot?.cleanup);
+            cleanUp();
             slots.length = 0;
         },
     };
@@ -133,15 +162,168 @@ export function loaded(exports: Record<string, unknown>): unknown {
     return exports;
 }
 
-export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
-    // Vite builds the source into a function of require and exports (harnessModules.ts).
+// The kit's parts (views/kit) as a screen draws them, unless the test hands in its own. The kit's
+// looks are vanilla-extract recipes, which only the app's build can make, so each stand-in draws
+// the element the part draws, with the part's data-slot and defaults, and keeps the look it was
+// asked for as data attributes (data-tone, data-size): a test reads which look a control asked
+// for, and the class a screen added for its place, as it reads every other class (hookHarness.test.ts
+// holds the stand-ins to the kit's defaults).
+export const kitStandIns = {
+    Button: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+    // The kit's field marks a wrong value with aria-invalid and an address with the monospaced font.
+    TextField: ({ invalid = false, mono = false, type = "text", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("input", { type, "data-slot": "input", "aria-invalid": invalid || undefined, "data-mono": mono, ...rest }),
+    // The kit's switch is Radix's: a <button role="switch"> whose aria-checked and data-state follow checked.
+    Switch: ({ checked = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", role: "switch", "aria-checked": checked, "data-state": checked ? "checked" : "unchecked",
+            "data-slot": "switch", ...rest }),
+    // The kit's select is a native <select> named data-slot="native-select"; aria-invalid only while the value is wrong.
+    Select: ({ invalid = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("select", { "data-slot": "native-select", "aria-invalid": invalid || undefined, ...rest }),
+    SelectOption: (props: Record<string, unknown>) => jsx.jsx("option", { "data-slot": "native-select-option", ...props }),
+    SelectOptGroup: (props: Record<string, unknown>) => jsx.jsx("optgroup", { "data-slot": "native-select-optgroup", ...props }),
+    // The kit's toggle is Radix's: a <button> whose aria-pressed and data-state follow pressed; the
+    // accent tone and the regular size unless asked.
+    Toggle: ({ pressed = false, tone = "accent", size = "regular", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", "aria-pressed": pressed, "data-state": pressed ? "on" : "off", "data-slot": "toggle",
+            "data-tone": tone, "data-size": size, ...rest }),
+    ToggleGroup: (props: Record<string, unknown>) => jsx.jsx("div", { role: "group", "data-slot": "toggle-group", ...props }),
+    ToggleGroupItem: (props: Record<string, unknown>) => jsx.jsx("button", { type: "button", "data-slot": "toggle-group-item", ...props }),
+    // The kit's popover: its parts in place, the content drawn whether open or not, so a test reads it.
+    Popover: ({ children }: Record<string, unknown>) => children,
+    PopoverTrigger: (props: Record<string, unknown>) => jsx.jsx("button", { type: "button", "data-slot": "popover-trigger", ...props }),
+    PopoverAnchor: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "popover-anchor", ...props }),
+    PopoverContent: ({ portal: _portal, inset: _inset, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("div", { "data-slot": "popover-content", ...rest }),
+    // The kit's progress bar is the system's <progress> named data-slot="progress"; no value, no amount (indeterminate).
+    Progress: (props: Record<string, unknown>) => jsx.jsx("progress", { "data-slot": "progress", ...props }),
+    // The kit's Item list: a <ul> of <li> rows, each with the look it asked for (data-variant,
+    // data-size); a mark drawn for a state is hidden from screen readers, as its words say it.
+    ItemGroup: ({ variant = "default", size = "default", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("ul", { "data-slot": "item-group", "data-variant": variant, "data-size": size, ...rest }),
+    Item: ({ variant = "default", size = "default", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("li", { "data-slot": "item", "data-variant": variant, "data-size": size, ...rest }),
+    ItemMedia: ({ state, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("div", { "data-slot": "item-media", "data-state": state, "aria-hidden": state ? "true" : undefined, ...rest }),
+    ItemContent: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-content", ...props }),
+    ItemTitle: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-title", ...props }),
+    ItemDescription: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-description", ...props }),
+    ItemActions: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "item-actions", ...props }),
+    // The kit's card: a <div>, or an <li> when it is one item of a list; the one in use asks for the active look.
+    Card: ({ as, active = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx(as === "li" ? "li" : "div", { "data-slot": "card", "data-active": active, ...rest }),
+    CardHeader: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-header", ...props }),
+    CardTitle: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-title", ...props }),
+    CardDescription: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-description", ...props }),
+    CardContent: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-content", ...props }),
+    CardFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "card-footer", ...props }),
+    // The kit's badge: a <span> with its words, a neutral outline unless it asks for another look.
+    Badge: ({ tone = "neutral", variant = "outline", mark, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("span", { "data-slot": "badge", "data-tone": tone, "data-variant": variant, "data-mark": mark, ...rest }),
+    // The kit's confirmation inside a row: the root draws only what it holds; the trigger is a
+    // Button in the row's look; the content a named group; the way back a plain Button that takes
+    // the focus; the removal a danger Button.
+    InlineConfirm: ({ children }: Record<string, unknown>) => children,
+    InlineConfirmTrigger: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+    InlineConfirmContent: (props: Record<string, unknown>) => jsx.jsx("div", { role: "group", "data-slot": "inline-confirm-content", ...props }),
+    InlineConfirmDescription: (props: Record<string, unknown>) => jsx.jsx("p", { "data-slot": "inline-confirm-description", ...props }),
+    InlineConfirmCancel: ({ size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, autoFocus: true, "data-slot": "button", "data-tone": "plain", "data-size": size, ...rest }),
+    InlineConfirmAction: ({ size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": "danger", "data-size": size, ...rest }),
+    // The kit's textarea is a <textarea> named data-slot="textarea", marked as the text field is, in a form's shape unless it fills its
+    // screen, with a frame of its own unless it sits in its screen's frame.
+    Textarea: ({ invalid = false, mono = false, fill = false, inFrame = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("textarea", { "data-slot": "textarea", "aria-invalid": invalid || undefined, "data-mono": mono, "data-fill": fill,
+            "data-in-frame": inFrame, ...rest }),
+    // The kit's choice card: a <label> round a native radio, what the card shows and the choice's name.
+    ChoiceCard: ({ title, children, className, ...input }: Record<string, unknown>) =>
+        jsx.jsxs("label", { "data-slot": "field-label", className, children: [
+            jsx.jsx("input", { "data-slot": "radio-group-item", ...input, type: "radio" }), children,
+            jsx.jsx("span", { "data-slot": "field-title", children: title })] }),
+    // The kit's searchable choice (#1369): its button, a combobox named data-slot="combobox-trigger",
+    // usable and not waiting unless told; its choices, its value and what it calls back stay among
+    // its props, read by a test from the element the screen draws.
+    Combobox: ({ busy = false, disabled = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", role: "combobox", "data-slot": "combobox-trigger", busy, disabled, ...rest }),
+    // The kit's dialog is a <dialog> named data-slot="dialog-content"; open and onOpenChange are the
+    // owner's, read by a test from the element the screen draws, and do not reach the <dialog>.
+    Dialog: ({ open: _open, onOpenChange: _onOpenChange, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("dialog", { "data-slot": "dialog-content", ...rest }),
+    DialogHeader: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-header", ...props }),
+    DialogTitle: (props: Record<string, unknown>) => jsx.jsx("h2", { "data-slot": "dialog-title", ...props }),
+    DialogDescription: (props: Record<string, unknown>) => jsx.jsx("p", { "data-slot": "dialog-description", ...props }),
+    DialogFooter: (props: Record<string, unknown>) => jsx.jsx("div", { "data-slot": "dialog-footer", ...props }),
+    // The kit's entrance of a surface a screen shows itself: nothing moves without a page, and it
+    // keeps no hook of its own, so a screen's own hooks keep their places. A test that reads which
+    // surface a screen asks for hands in its own.
+    useAppear: () => undefined,
+};
+
+// A module as the harness builds it: a function of require and exports (harnessModules.ts).
+const buildModule = async (url: URL): Promise<(...args: unknown[]) => unknown> => {
     const built: unknown = Reflect.get(await import(/* @vite-ignore */ `${url.href}?${HARNESS_QUERY}`), "default");
     if (typeof built !== "function") throw new TypeError(`${url.pathname} did not build into a function`);
+    return built as (...args: unknown[]) => unknown;
+};
+const run = (built: (...args: unknown[]) => unknown, require: (name: string) => unknown) => {
+    const exports: Record<string, unknown> = {};
+    Reflect.apply(built, undefined, [require, exports]);
+    return exports;
+};
+
+// The settings openers every window shares (#1236), unless the test hands in its own. Outside the
+// app the settings open in-page, so the real modules are used: settingsWindow.ts and noticeScope.ts
+// as they are, and useOpenSettings with its showSetting built here on the test's own stand-ins (its
+// @store, and a revealSetting or useOcrSetup it gave under any path), so a test of a module that
+// opens the settings sees the tab, the page and the setting as before.
+const settingsOpeners = (async () => ({
+    useOpenSettings: await buildModule(new URL("../common/useOpenSettings.ts", import.meta.url)),
+    useIsOpenedConfigPage: await buildModule(new URL("../common/useIsOpenedConfigPage.ts", import.meta.url)),
+    showSetting: await buildModule(new URL("../common/showSetting.ts", import.meta.url)),
+}))();
+const named = (name: string, module: string) => new RegExp(`(^|/)${module}(\\.[jt]sx?)?$`).test(name);
+const sharedModule = (name: string, dependencies: Record<string, unknown>,
+    openers: Awaited<typeof settingsOpeners>): unknown => {
+    if (named(name, "settingsWindow")) return settingsWindowModule;
+    if (named(name, "noticeScope")) return noticeScopeModule;
+    if (named(name, "breakPoint")) return breakPointModule;
+    if (!named(name, "useOpenSettings") && !named(name, "showSetting")) return undefined;
+    // A stand-in the test gave for a module of that name, wherever it imported it from.
+    const given = (module: string) => Object.entries(dependencies).find(([key]) => named(key, module))?.[1];
+    const record = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null ? { ...value } : {};
+    const require = (dependency: string): unknown => {
+        // The test's @store; a test that does not look at the settings' tab gives none.
+        if (dependency === "@store") return { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: () => {} }),
+            ...record(dependencies["@store"]) };
+        if (named(dependency, "settingsWindow")) return settingsWindowModule;
+        if (named(dependency, "useIsOpenedConfigPage")) {
+            // The test's own, when it gave one in @logics_common; else the real one over its @store.
+            const common = record(dependencies["@logics_common"]).useIsOpenedConfigPage;
+            if (typeof common !== "function") return run(openers.useIsOpenedConfigPage, require);
+            return { useIsOpenedConfigPage: () => {
+                const hook = record(common());
+                return { ...hook, setIsOpenedConfigPage: hook.setIsOpenedConfigPage ?? hook.updateIsOpenedConfigPage };
+            } };
+        }
+        if (named(dependency, "showSetting")) return given("showSetting") ?? run(openers.showSetting, require);
+        if (named(dependency, "revealSetting")) return { revealSetting: () => {}, ...record(given("revealSetting")) };
+        if (named(dependency, "useOcrSetup")) return { OCR_MODELS_SETTING_ID: "ocr_models", focusOcrModels: () => {}, ...record(given("useOcrSetup")) };
+        throw new Error(`Unexpected dependency: ${dependency}`);
+    };
+    return run(named(name, "useOpenSettings") ? openers.useOpenSettings : openers.showSetting, require);
+};
+
+export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
+    // Vite builds the source into a function of require and exports (harnessModules.ts).
+    const built = await buildModule(url);
+    const openers = await settingsOpeners;
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx, jotai: runtime.jotai,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, ...imports };
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, [HOT_DEPENDENCY]: undefined, ...imports };
     const require = (name: string): unknown => {
-        if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         // vanilla-extract style modules: each export is its class name.
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
@@ -150,16 +332,18 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         // "tooltip" that keeps its words (title), its side and the control it wraps, so a test reads
         // what the bubble says without a page to draw it on.
         if (/^(\.\.?\/)+(views\/)?common_components\/tooltip\/Tooltip(\.tsx)?$/.test(name)) return { Tooltip: "tooltip" };
+        // The kit, by its index (views/kit/index.ts): the stand-ins above.
+        if (/^(\.\.\/)+(views\/)?kit\/index\.ts$/.test(name)) return kitStandIns;
         // While modules move from .js to .ts (ADR-010), a test may still name a dependency
         // with its old extension, or with none, as the importing module once did.
         const base = name.replace(/\.[jt]sx?$/, "");
         const alias = [base, `${base}.js`, `${base}.jsx`, `${base}.ts`, `${base}.tsx`].find(key => key in dependencies);
         if (alias !== undefined && /^\.\.?\//.test(name)) return dependencies[alias];
+        const shared = /^\.\.?\//.test(name) ? sharedModule(name, dependencies, openers) : undefined;
+        if (shared !== undefined) return shared;
         throw new Error(`Unexpected dependency: ${name}`);
     };
-    const exports: Record<string, unknown> = {};
-    Reflect.apply(built, undefined, [require, exports]);
-    return loaded<M>(exports);
+    return loaded<M>(run(built, require));
 }
 
 // A value a test gives the code under test without the declared type: test data with only the
@@ -243,13 +427,6 @@ export function componentNamed(module: object, name: string): DrawnComponent {
 export const draw = (node: TreeNode, props: unknown = node.props) => componentOf(node)(props);
 // The same, drawn by a runtime of the harness, so its hooks run there.
 export const drawWith = (runtime: HookRuntime, node: TreeNode, props: unknown = node.props) => runtime.render(componentOf(node), props);
-
-// The render function a forwardRef component wraps, which React's types leave out.
-export function forwardRefRender(component: unknown): (props: unknown, ref: unknown) => TreeNode {
-    const render: unknown = Reflect.get(Object(component), "render");
-    if (typeof render !== "function") throw new TypeError("not a forwardRef component");
-    return asComponent(render);
-}
 
 // An element's ref. React 19 passes it among the props; reading element.ref warns that it is
 // going away.

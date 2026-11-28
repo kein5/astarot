@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./Vr.module.scss";
+import * as styles from "./Vr.css.ts";
 import { ui_configs } from "@ui_configs";
 import { Slider } from "../_components";
 import { FormRow } from "../_components/form_row/FormRow";
 import {
     RadioButtonContainer,
-    CheckboxContainer,
+    SwitchContainer,
 } from "../_templates/Templates";
 import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
@@ -19,6 +19,7 @@ import {
 } from "../_components";
 
 import { ResetButton } from "@common_components";
+import { Button, ToggleGroup, ToggleGroupItem } from "../../../../../kit/index.ts";
 
 import {
     useVr,
@@ -30,6 +31,7 @@ import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
 import { DesktopCaptionOverlay } from "./DesktopCaptionOverlay";
 import { OverlayFontFamily } from "./OverlayFontFamily";
+import { SteamVrAutoLaunch } from "./SteamVrAutoLaunch";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import type { AtomState } from "@store";
 import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
@@ -87,13 +89,13 @@ export const Vr = () => {
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
-                <CheckboxContainer
+                <SwitchContainer
                     setting_id="overlay_small_log"
                     label={t("config_page.vr.overlay_enable_single")}
                     variable={currentIsEnabledOverlaySmallLog}
                     toggleFunction={toggleIsEnabledOverlaySmallLog}
                 />
-                <CheckboxContainer
+                <SwitchContainer
                     setting_id="overlay_large_log"
                     label={t("config_page.vr.overlay_enable_multi")}
                     variable={currentIsEnabledOverlayLargeLog}
@@ -101,6 +103,8 @@ export const Vr = () => {
                 />
             </div>
             <DesktopCaptionOverlay part="enable" />
+            {/* SteamVR starts ASTAROT with itself (#1384); only where SteamVR can start this build. */}
+            <SteamVrAutoLaunch />
             <AdvancedSection status={t("config_page.advanced_status.vr", {
                 only: onOff(currentOverlayShowOnlyTranslatedMessages), typing: onOff(currentVoiceTypingMode) })}>
             {/* The settings search leads here for the overlay's position, rotation, size and timing. */}
@@ -140,13 +144,13 @@ export const Vr = () => {
             </div>
             <DesktopCaptionOverlay part="details" />
             <CommonSettingsContainer />
-            <button
+            <Button
                 className={styles.restore_default_settings_button}
                 data-setting-id="restore_default_settings"
                 onClick={restoreDefaultSettings}
             >
                 {t("config_page.vr.restore_default_settings")}
-            </button>
+            </Button>
             </AdvancedSection>
             {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
             <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
@@ -297,30 +301,18 @@ type PageSwitcherContainerProps = {
     label_2: string;
 };
 
+// Which of two sets of settings is shown, as the kit's ToggleGroup (D-27, decided on 2026-11-25):
+// two radios, the half shown checked. They change what the page shows, not a setting. Each is a
+// stop of the Tab key, as the two halves were (rovingFocus off); choosing the half shown changes
+// nothing (Radix offers an empty value then).
 const PageSwitcherContainer = (props: PageSwitcherContainerProps) => {
-    const toggle_button_class_names__position = clsx(styles.controller_type_switcher, {
-        [styles.is_selected]: props.is_selected,
-    });
-    const toggle_button_class_names__rotation = clsx(styles.controller_type_switcher, {
-        [styles.is_selected]: !props.is_selected,
-    });
-
-    // Two pressable halves; choosing the shown half changes nothing.
-    const half = (selected: boolean, className: string, label: string) => {
-        const choose = () => { if (!selected) props.toggleFunction(); };
-        return (
-            <div className={className} role="button" tabIndex={0} aria-pressed={selected} onClick={choose}
-                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); choose(); } }}>
-                <p className={styles.controller_switcher_label}>{label}</p>
-            </div>
-        );
-    };
-
+    const shown = props.is_selected ? "first" : "second";
     return (
-        <div className={styles.controller_type_switch}>
-            {half(props.is_selected, toggle_button_class_names__position, props.label_1)}
-            {half(!props.is_selected, toggle_button_class_names__rotation, props.label_2)}
-        </div>
+        <ToggleGroup type="single" rovingFocus={false} className={styles.controller_type_switch} value={shown}
+            onValueChange={value => { if (value && value !== shown) props.toggleFunction(); }}>
+            <ToggleGroupItem value="first">{props.label_1}</ToggleGroupItem>
+            <ToggleGroupItem value="second">{props.label_2}</ToggleGroupItem>
+        </ToggleGroup>
     );
 };
 
@@ -362,8 +354,8 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
     } = useVariableControl("z_pos", settings, onChangeFunction, ui_configs);
 
     return (
-        <div className={styles.position_controls}>
-            <div className={styles.position_wrapper}>
+        <div>
+            <div>
                 <p className={clsx(styles.slider_label, styles.x_position_label)}>
                     {t("config_page.vr.x_position")}
                     <ResetButton onClickFunction={() => selectFunction("x_pos", default_ui_configs.x_pos)} label={`${t("config_page.vr.x_position")}: ${t("common.reset_to_default")}`} />
@@ -392,7 +384,7 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.position_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.y_position_label)}>
                     {t("config_page.vr.y_position")}
                     <ResetButton onClickFunction={() => selectFunction("y_pos", default_ui_configs.y_pos)} label={`${t("config_page.vr.y_position")}: ${t("common.reset_to_default")}`} />
@@ -422,7 +414,7 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.position_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.z_position_label)}>
                     {t("config_page.vr.z_position")}
                     <ResetButton onClickFunction={() => selectFunction("z_pos", default_ui_configs.z_pos)} label={`${t("config_page.vr.z_position")}: ${t("common.reset_to_default")}`} />
@@ -483,8 +475,8 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
     } = useVariableControl("z_rotation", settings, onChangeFunction, ui_configs);
 
     return (
-        <div className={styles.rotation_controls}>
-            <div className={styles.rotation_wrapper}>
+        <div>
+            <div>
                 <p className={clsx(styles.slider_label, styles.x_rotation_label)}>
                     {t("config_page.vr.x_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("x_rotation", default_ui_configs.x_rotation)} label={`${t("config_page.vr.x_rotation")}: ${t("common.reset_to_default")}`} />
@@ -516,7 +508,7 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.rotation_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.y_rotation_label)}>
                     {t("config_page.vr.y_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("y_rotation", default_ui_configs.y_rotation)} label={`${t("config_page.vr.y_rotation")}: ${t("common.reset_to_default")}`} />
@@ -545,7 +537,7 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.rotation_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.z_rotation_label)}>
                     {t("config_page.vr.z_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("z_rotation", default_ui_configs.z_rotation)} label={`${t("config_page.vr.z_rotation")}: ${t("common.reset_to_default")}`} />
@@ -627,13 +619,12 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
     return(
         <div className={styles.other_controls}>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.opacity_label)}>
+                <p className={styles.other_controls_slider_label}>
                     {t("config_page.vr.opacity")}
                     <span className={styles.other_controls_value}>{ui_variable_opacity}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.opacity")}
-                    className={clsx(styles.other_controls_slider, styles.opacity_slider)}
                     no_padding={true}
                     variable={settings.opacity * 100}
                     valueLabelFunction={(val) => val.toFixed(0)}
@@ -647,13 +638,12 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.ui_scaling_label)}>
+                <p className={styles.other_controls_slider_label}>
                     {t("config_page.vr.ui_scaling")}
                     <span className={styles.other_controls_value}>{ui_variable_ui_scaling}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.ui_scaling")}
-                    className={clsx(styles.other_controls_slider, styles.ui_scaling_slider)}
                     no_padding={true}
                     variable={settings.ui_scaling * 100}
                     valueLabelFunction={(val) => val.toFixed(0)}
@@ -667,11 +657,10 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.display_duration_label)}>{t("config_page.vr.display_duration")}
+                <p className={styles.other_controls_slider_label}>{t("config_page.vr.display_duration")}
                     <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.display_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.display_duration")}
-                    className={clsx(styles.other_controls_slider, styles.display_duration_slider)}
                     no_padding={true}
                     variable={settings.display_duration}
                     valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
@@ -684,11 +673,10 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.fadeout_duration_label)}>{t("config_page.vr.fadeout_duration")}
+                <p className={styles.other_controls_slider_label}>{t("config_page.vr.fadeout_duration")}
                     <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.fadeout_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.fadeout_duration")}
-                    className={clsx(styles.other_controls_slider, styles.fadeout_duration_slider)}
                     no_padding={true}
                     variable={settings.fadeout_duration}
                     valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
@@ -717,12 +705,12 @@ const CommonSettingsContainer = () => {
     return (
         <div className={styles.common_container}>
             <SectionLabelComponent sub label={t("config_page.vr.common_settings")} />
-            <CheckboxContainer
+            <SwitchContainer
                 label={t("config_page.vr.overlay_show_only_translated_messages.label")}
                 variable={currentOverlayShowOnlyTranslatedMessages}
                 toggleFunction={toggleOverlayShowOnlyTranslatedMessages}
             />
-            <CheckboxContainer
+            <SwitchContainer
                 label={t("config_page.vr.voice_typing_mode.label")}
                 desc={t("config_page.vr.voice_typing_mode.desc")}
                 variable={currentVoiceTypingMode}
@@ -736,19 +724,20 @@ const CommonSettingsContainer = () => {
 
 const SendSampleTextToggleButton = () => {
     const { t } = useI18n();
-    const { sendTextToOverlay } = useVr();
+    const { sendTextToOverlay, currentIsEnabledOverlaySmallLog, currentIsEnabledOverlayLargeLog } = useVr();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const [is_started, setIsStarted] = useState(false);
-    // Closing settings only hides this page; it stays mounted, so stop the
-    // samples here. Reopening settings does not restart them: only this button
-    // starts sending. The button follows is_sending, the same value as the
-    // interval, so it never says "stop" while nothing is being sent.
+    const note_id = useId();
+    // Samples only appear when at least one VR caption overlay log (small or large) is enabled (#1110).
+    // Closing settings only hides this page; it stays mounted, so stop the samples here too.
+    // Reopening settings or re-enabling a log does not restart them: only this button starts sending.
+    const has_enabled_overlay = currentIsEnabledOverlaySmallLog?.data === true || currentIsEnabledOverlayLargeLog?.data === true;
     const is_settings_open = currentIsOpenedConfigPage.data === true;
-    const is_sending = is_started && is_settings_open;
+    const is_sending = is_started && is_settings_open && has_enabled_overlay;
 
     useEffect(() => {
-        if (!is_settings_open) setIsStarted(false);
-    }, [is_settings_open]);
+        if (!is_settings_open || !has_enabled_overlay) setIsStarted(false);
+    }, [is_settings_open, has_enabled_overlay]);
 
     // t is the UI language's: the samples sent after a change of language (the VR panel's
     // settings can change it while this sends) are in the new one (#904).
@@ -765,6 +754,7 @@ const SendSampleTextToggleButton = () => {
     }, [is_sending, t]);
 
     const toggleFunction = () => {
+        if (!has_enabled_overlay) return;
         setIsStarted(is_settings_open && !is_started);
     };
 
@@ -772,15 +762,17 @@ const SendSampleTextToggleButton = () => {
         ? t("config_page.vr.sample_text_button.stop")
         : t("config_page.vr.sample_text_button.start");
 
-    // A plain button whose words say what pressing it does; the row beside it says why. It keeps the
-    // width of the longer words, so it does not shrink under the pointer when pressed (#912).
+    // The kit's plain button whose words say what pressing it does, Lilac (primary) while it sends;
+    // the row beside it says why. It keeps the width of the longer words, so it does not shrink
+    // under the pointer when pressed (#912).
     return (
         <div className={styles.sample_text_button_wrapper}>
-            <button
-                type="button"
-                className={clsx(styles.sample_text_button, { [styles.is_started]: is_sending })}
+            <Button
+                tone={is_sending ? "primary" : "plain"}
                 onClick={toggleFunction}
+                disabled={!has_enabled_overlay}
                 aria-label={label}
+                aria-describedby={!has_enabled_overlay ? note_id : undefined}
             >
                 {is_sending ? (
                     <SquareSvg className={styles.sample_text_button_square_svg} aria-hidden="true" />
@@ -788,7 +780,12 @@ const SendSampleTextToggleButton = () => {
                     <TriangleSvg className={styles.sample_text_button_triangle_svg} aria-hidden="true" />
                 )}
                 <StableWords current={label} words={[t("config_page.vr.sample_text_button.start"), t("config_page.vr.sample_text_button.stop")]} />
-            </button>
+            </Button>
+            {!has_enabled_overlay && (
+                <p id={note_id} className={styles.sample_text_hint}>
+                    {t("config_page.vr.sample_text_button.needs_overlay")}
+                </p>
+            )}
         </div>
     );
 };

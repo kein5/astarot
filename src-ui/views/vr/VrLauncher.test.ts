@@ -27,8 +27,12 @@ async function launcher(context: TestContext) {
             useVrPanelLauncherIntro: () => ({ currentVrPanelLauncherIntro: { data: "idle" } }),
         },
         "@logics_main": { useMainFunction: () => ({}) },
-        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: {} } }) },
+        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: {} } }), useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: false } }),
+            useStore_VrVoiceControls: () => ({ currentVrVoiceControls: { data: { tts: { on: false, pending: false }, stop: { offered: false, phase: "idle" } } } }) },
+        "../../logics/common/vrPanelSend": { sendToMain: async () => {} },
+        "./VrLauncherIcons": { StopSvg: "stop-svg", WindowsSvg: "windows-svg" },
         "../../logics/main/switchBlocks": switchBlocks,
+        "../../logics/transcription/micCaptureWait": { micWaitSystem: () => "windows" },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (path: string) => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
         "@images/brand/logo.svg": "logo",
@@ -111,12 +115,10 @@ test("the log button's tooltip shows with the tooltips turned off: only it says 
     const group = findIn(view.tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.windows_group");
     const children: TreeNode[] = group.props.children;
     const buttons = children.map(node => { view.runtime.remount(); return drawWith(view.runtime, node); });
-    // The log, the languages, the inputs and outputs, the settings.
+    // The log, and the button that lists the other windows (#1314).
     assert.deepEqual(buttons.map(button => [button.props.tipTitle, button.props.tipHelp, button.props.tipForce]), [
         ["vr_panel.window_log", "vr_panel.tooltip.log_open_help", true],
-        ["vr_panel.window_language", "vr_panel.tooltip.open_view", false],
-        ["io_flow.vr_window", "vr_panel.tooltip.open_view", false],
-        ["vr_panel.window_settings", "vr_panel.tooltip.open_view", false],
+        ["vr_panel.window_more", "vr_panel.tooltip.open_view", false],
     ]);
 });
 
@@ -139,8 +141,12 @@ async function functionButtons({ blocks = {}, statuses = {}, configOpen = false 
             toggleTranscriptionReceive: () => calls.push("transcription_receive"), currentTranscriptionReceiveStatus: status("transcription_receive"),
             toggleOcrCapture: () => calls.push("ocr"), currentOcrCaptureStatus: status("ocr"),
         }) },
-        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }) },
+        "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }), useStore_MicCaptureWaiting: () => ({ currentMicCaptureWaiting: { data: false } }),
+            useStore_VrVoiceControls: () => ({ currentVrVoiceControls: { data: { tts: { on: false, pending: false }, stop: { offered: false, phase: "idle" } } } }) },
+        "../../logics/common/vrPanelSend": { sendToMain: async () => {} },
+        "./VrLauncherIcons": { StopSvg: "stop-svg", WindowsSvg: "windows-svg" },
         "../../logics/main/switchBlocks": switchBlocks,
+        "../../logics/transcription/micCaptureWait": { micWaitSystem: () => "windows" },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (path: string) => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
         "@images/brand/logo.svg": "logo",
@@ -159,7 +165,7 @@ test("a VR switch whose setup is missing is greyed out, says why, and does nothi
     assert.match(ocr.props.className, /is_disabled/);
     assert.match(ocr.props.className, /is_blocked/);
     assert.equal(ocr.props["aria-disabled"], true);
-    assert.equal(ocr.props.tipState, "OFF · vr_panel.switch_blocked.state");
+    assert.equal(ocr.props.tipState, "vr_panel.tooltip.state_off · vr_panel.switch_blocked.state");
     assert.equal(ocr.props.tipHelp, "vr_panel.switch_blocked.ocr_models");
     assert.equal(ocr.props.tipForce, true); // readable even with the tooltips turned off
     ocr.props.onClick();

@@ -133,6 +133,10 @@ pub fn canonical_lock_key(endpoint: &str) -> String {
 /// [`src-python/models/vr_panel_policy.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/vr_panel_policy.py
 pub const VR_PANEL_ORIGIN: &str = "vr_panel";
 
+/// The settings window's requests (#1236). The app's shell names them so as it writes them; the
+/// settings window may ask for everything the main window may.
+pub const SETTINGS_WINDOW_ORIGIN: &str = "settings";
+
 pub fn vr_panel_endpoints() -> HashSet<String> {
     let toggle = |name: &str| [format!("/set/enable/{name}"), format!("/set/disable/{name}")];
     let mut set: HashSet<String> = [
@@ -174,6 +178,13 @@ pub fn vr_panel_endpoints() -> HashSet<String> {
 /// Where answers go, one line each, and the log of what came and went.
 pub trait Output: Send + Sync {
     fn answer(&self, status: u16, endpoint: Option<&str>, result: &Value);
+    /// The answer to a request that named its origin: the line names it too, so the window that
+    /// asked tells its answers from the others' (#1236). Without a line format of its own, the
+    /// plain answer.
+    fn answer_for(&self, status: u16, endpoint: Option<&str>, result: &Value, origin: Option<&Value>) {
+        let _ = origin;
+        self.answer(status, endpoint, result);
+    }
     fn received(&self, endpoint: &str, data: &Value);
     fn note(&self, text: &str);
 }
@@ -185,6 +196,7 @@ pub type Stamp = Arc<dyn Fn(&str, &mut Value) + Send + Sync>;
 struct Pending {
     endpoint: Option<String>,
     data: Value,
+    origin: Option<Value>,
     attempt: u32,
     ready_at: Instant,
     busy_until: Option<Instant>,
@@ -284,11 +296,12 @@ impl Dispatcher {
 
     pub fn receive(&self, request: Request) {
         let Request { endpoint, mut data, origin } = request;
-        if let Some(origin) = origin {
-            let allowed = origin.as_str() == Some(VR_PANEL_ORIGIN) && endpoint.as_deref().is_some_and(|e| self.vr_panel.contains(e));
+        if let Some(origin) = origin.as_ref() {
+            let allowed = origin.as_str() == Some(SETTINGS_WINDOW_ORIGIN)
+                || origin.as_str() == Some(VR_PANEL_ORIGIN) && endpoint.as_deref().is_some_and(|e| self.vr_panel.contains(e));
             if !allowed {
                 self.output.note("Refused a request relayed for the VR panel");
-                self.output.answer(403, endpoint.as_deref(), &json!({ "error_code": "vr_panel_request_refused" }));
+                self.output.answer_for(403, endpoint.as_deref(), &json!({ "error_code": "vr_panel_request_refused" }), Some(origin));
                 return;
             }
         }
@@ -304,19 +317,19 @@ impl Dispatcher {
             }
             if IMMEDIATE_ENDPOINTS.contains(&name) {
                 let reply = self.call(Some(name), &data);
-                self.output.answer(reply.status, Some(name), &reply.result);
+                self.output.answer_for(reply.status, Some(name), &reply.result, origin.as_ref());
                 return;
             }
             if let Some(stamp) = &self.stamp {
                 stamp(name, &mut data);
             }
         }
-        self.enqueue(endpoint, data);
+        self.enqueue(endpoint, data, origin);
     }
 
-    fn enqueue(&self, endpoint: Option<String>, data: Value) {
+    fn enqueue(&self, endpoint: Option<String>, data: Value, origin: Option<Value>) {
         let mut queue = self.queue.lock().unwrap();
-        queue.pending.push_back(Pending { endpoint, data, attempt: 0, ready_at: Instant::now(), busy_until: None });
+        queue.pending.push_back(Pending { endpoint, data, origin, attempt: 0, ready_at: Instant::now(), busy_until: None });
         queue.unfinished += 1;
         self.ready.notify_all();
     }
@@ -439,7 +452,7 @@ impl Dispatcher {
                 continue;
             }
             let result = request_error_result(endpoint.as_deref(), &request.data, reply.result, reply.status);
-            self.output.answer(reply.status, endpoint.as_deref(), &result);
+            self.output.answer_for(reply.status, endpoint.as_deref(), &result, request.origin.as_ref());
             self.finish(request, lock, false);
         }
     }
@@ -479,24 +492,14 @@ impl Dispatcher {
     }
 }
 
-/// A failed legacy weight download names the weight, and a failed typed message its
-/// row's id, without echoing the request (`_request_error_result`). Several of either
-/// can wait on one lock, so the UI cannot match a failure by its endpoint alone.
+/// A failed typed message names its row's id, without echoing the request
+/// (`_request_error_result`). Several can wait on one lock, so the UI cannot match a failure
+/// by its endpoint alone.
 fn request_error_result(endpoint: Option<&str>, data: &Value, result: Value, status: u16) -> Value {
     if !matches!(status, 404 | 423 | 500) {
         return result;
     }
     let identity = match endpoint {
-        Some("/run/download_ctranslate2_weight") => {
-            let weight_type = match data {
-                Value::Object(object) => object.get("weight_type").cloned(),
-                other => Some(other.clone()),
-            };
-            match weight_type {
-                Some(Value::String(weight_type)) => json!({ "weight_type": weight_type }),
-                _ => return result,
-            }
-        }
         // Only the id: the message itself never goes back out.
         Some("/run/send_message_box") => match data.get("id") {
             Some(Value::String(id)) => json!({ "id": id }),

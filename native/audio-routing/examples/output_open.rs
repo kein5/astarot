@@ -14,8 +14,8 @@
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 fn main() {
     use std::time::{Duration, Instant};
-    use vrct_audio_routing::pipewire::output::{PipeWireOutput, enumerate_outputs};
-    use vrct_audio_routing::router::{CancelToken, Output};
+    use astarot_audio_routing::pipewire::output::{PipeWireOutput, enumerate_outputs};
+    use astarot_audio_routing::router::{CancelToken, Output};
 
     let mut sink = None;
     let mut runs = 20usize;
@@ -37,7 +37,7 @@ fn main() {
         let lookup = started.elapsed();
         assert!(listed, "the sink is listed");
         let started = Instant::now();
-        let mut output = PipeWireOutput::open(&sink, rate, 1, None, "vrct.tts").expect("the output opens");
+        let mut output = PipeWireOutput::open(&sink, rate, 1, None, "astarot.tts").expect("the output opens");
         let opened = started.elapsed();
         output.write(&block, &token).expect("the first block is taken");
         let first = started.elapsed();

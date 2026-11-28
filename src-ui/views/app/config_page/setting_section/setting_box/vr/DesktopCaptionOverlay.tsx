@@ -4,12 +4,12 @@ import { useI18n } from "@useI18n";
 import { useVr } from "@logics_configs";
 import { ui_configs } from "@ui_configs";
 import { SectionLabelComponent } from "../_components";
-import { ActionButtonContainer, CheckboxContainer, RadioButtonContainer, SliderContainer } from "../_templates/Templates";
+import { ActionButtonContainer, SwitchContainer, RadioButtonContainer, SliderContainer } from "../_templates/Templates";
 import { placementOf } from "../../../../../../logics/captionOverlay/adjust";
 import type { OverlayDesktopSettings, SettingValues } from "../../../../../../logics/configs/config_page_setter/settingTypes.ts";
 import RedoSvg from "@images/redo.svg?react";
 import CheckMarkSvg from "@images/check_mark.svg?react";
-import styles from "./Vr.module.scss";
+import * as styles from "./Vr.css.ts";
 
 // Captions over the desktop, for VRChat without a headset. The section is
 // shown only where the overlay window exists (Windows for now), so nobody is
@@ -69,7 +69,7 @@ export const DesktopCaptionOverlay = ({ part }: DesktopCaptionOverlayProps) => {
     if (part === "enable") return (
         <div className={styles.common_container}>
             <SectionLabelComponent label={t("config_page.vr.section_label_desktop_overlay")} />
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="desktop_overlay"
                 label={t("config_page.vr.desktop_overlay.label")}
                 desc={t("config_page.vr.desktop_overlay.desc")}
@@ -140,7 +140,7 @@ export const DesktopCaptionOverlay = ({ part }: DesktopCaptionOverlayProps) => {
                 step={5}
                 show_label_values={[0, 20, 40, 60, 80, 100]}
             />
-            <CheckboxContainer
+            <SwitchContainer
                 setting_id="io_flow_overlay"
                 label={t("io_flow.settings.desktop")}
                 desc={t("io_flow.settings.desktop_description")}

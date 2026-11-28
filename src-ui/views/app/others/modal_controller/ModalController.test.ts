@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, refOf, setRef } from "../../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, stubGlobals, eventTarget, unchecked, setRef } from "../../../../logics/test/hookHarness.ts";
 
-async function fixture(context: TestContext) {
+async function fixture(context: TestContext, kit: Record<string, unknown> = kitStandIns) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
-    let opened = "update_software", dropdown = "";
+    let opened = "update_software";
     const control = (name: string) => ({ isConnected: true, disabled: false, tabIndex: 0,
         getAttribute: () => null, closest: () => null, matches: () => false,
         focus: () => focus.push(name) });
@@ -18,9 +18,9 @@ async function fixture(context: TestContext) {
         "@store": {
             useStore_OpenedQuickSetting: () => ({ currentOpenedQuickSetting: { data: opened },
                 updateOpenedQuickSetting: (value: string) => { changes.push([value, modal.open]); opened = value; } }),
-            useStore_IsOpenedDropdownMenu: () => ({ currentIsOpenedDropdownMenu: { data: dropdown } }),
         },
         "@setting_box": { Updater: "update-settings" },
+        "../../../kit/index.ts": kit,
     });
     const modal = { open: false, opens: 0, showModal() { this.open = true; this.opens++; },
         close() { this.open = false; } };
@@ -28,12 +28,10 @@ async function fixture(context: TestContext) {
     const render = () => runtime.render(ModalController, { fallback: unchecked<Parameters<typeof ModalController>[0]["fallback"]>(fallback) }, tree => {
         const dialog = find(tree, node => node.type === "dialog");
         if (dialog) setRef(dialog, modal);
-        const button = find(tree, node => node.type === "button");
-        if (button && refOf(button)) setRef(button, control("close"));
     });
     context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,
-        setDropdown: (value: string) => { dropdown = value; }, setOpened: (value: string) => { opened = value; } };
+        setOpened: (value: string) => { opened = value; } };
 }
 
 test("quick settings uses a named native modal with initial close focus", async context => {
@@ -44,11 +42,32 @@ test("quick settings uses a named native modal with initial close focus", async 
     // #939: the subtitle overlay switches in place; this dialog shows only the update page.
     assert.equal(s.modal.open, true);
     assert.equal(s.modal.opens, 1);
-    const close = find(tree, node => node.type === "button");
+    // The close button is the kit's plain Button (decided on 2026-11-25), in its row at the panel's top
+    // right; the frame and the backdrop stay the modal's own (decision 2 of #764).
+    const close = find(tree, node => node.type === kitStandIns.Button);
     assert.ok(close);
-    assert.equal(close.props.autoFocus, true);
+    assert.deepEqual([close.props.autoFocus, close.props.tone, close.props.children], [true, undefined, "common.close_button_label"]);
+    const row = find(tree, node => node.props?.className === "close_row");
+    assert.equal(find(row, node => node.type === kitStandIns.Button)?.props.children, "common.close_button_label");
+    assert.equal(tree.props.className, "container");
     s.render();
     assert.equal(s.modal.opens, 1, "ordinary rerenders do not reopen the dialog");
+});
+
+// #1378: shown, it comes in as the kit's dialogs do, through the kit; the dialog the kit moves is
+// the one the consent hook shows and closes.
+test("quick settings asks the kit for a dialog's entrance while it is open", async context => {
+    const asked: [unknown, boolean, string][] = [];
+    const s = await fixture(context, { ...kitStandIns, useAppear: (ref: unknown, shown: boolean, surface: string) => { asked.push([ref, shown, surface]); } });
+    const tree = s.render();
+    assert.ok(tree);
+    const [ref, shown, surface] = asked[0];
+    assert.equal(Reflect.get(Object(ref), "current"), s.modal, "the <dialog> it draws");
+    assert.deepEqual([shown, surface], [true, "dialog"]);
+    s.setOpened("");
+    asked.length = 0;
+    assert.equal(s.render(), null);
+    assert.deepEqual(asked.map(([, open, kind]) => [open, kind]), [[false, "dialog"]], "asked on every drawing, closed too");
 });
 
 for (const action of ["close button", "backdrop", "Escape"]) {
@@ -67,7 +86,7 @@ for (const action of ["close button", "backdrop", "Escape"]) {
                 assert.ok(backdrop);
                 backdrop.props.onClick();
             } else {
-                const close = find(tree, node => node.type === "button");
+                const close = find(tree, node => node.type === kitStandIns.Button);
                 assert.ok(close);
                 close.props.onClick();
             }
@@ -78,28 +97,6 @@ for (const action of ["close button", "backdrop", "Escape"]) {
         });
     }
 }
-
-test("dropdown Escape prevents native cancellation but still reaches the dropdown listener", async context => {
-    const s = await fixture(context);
-    s.setDropdown("overlay-position");
-    let tree = s.render(), prevented = false;
-    assert.ok(tree);
-    const event = { key: "Escape", preventDefault: () => { prevented = true; },
-        stopPropagation: () => assert.fail("the dropdown must receive Escape") };
-    tree.props.onKeyDownCapture(event);
-    assert.equal(prevented, true, "suppress the browser cancel before the dropdown clears its state");
-    tree.props.onCancel(event);
-    assert.deepEqual(s.changes, []);
-    assert.equal(s.modal.open, true);
-    s.setDropdown(""); // The existing document listener closes the dropdown.
-    tree = s.render();
-    assert.ok(tree);
-    prevented = false;
-    tree.props.onKeyDownCapture(event);
-    assert.equal(prevented, false);
-    tree.props.onCancel(event);
-    assert.deepEqual(s.changes, [["", false]]);
-});
 
 test("external dismissal returns focus to the main page when every fallback control is unavailable", async context => {
     const s = await fixture(context);

@@ -16,7 +16,7 @@ def validate_lock(path):
         label = f"{path}: {package['name']} {package['version']}"
         source = package['source']
         # This application is not installed. No other local sources are exempt.
-        if package['name'] == 'vrct-vox' and source == {'virtual': '.'}:
+        if package['name'] == 'astarot' and source == {'virtual': '.'}:
             continue
         if set(source) == {'git'}:
             url = urlsplit(source['git'])

@@ -7,9 +7,10 @@ mod common;
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use vrct_core::controller::Services;
-use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
+use astarot_core::controller::Services;
+use astarot_core::controller::updates::{SoftwareUpdates, UpdateOutcome};
 
 #[test]
 fn without_a_host_updater_no_update_and_no_release() {
@@ -235,4 +236,115 @@ fn the_host_updater_gets_the_channel_the_user_chose_and_the_versions_until_then(
         assert_eq!(*recording.channels.lock().unwrap(), [expected]);
         ui.stop();
     }
+}
+
+/// A host updater whose checks answer only when the test lets the channel answer, each with the
+/// newest version of its channel (#1017).
+#[derive(Default)]
+struct Gate {
+    /// The channels checked, in order, and those whose checks may answer.
+    state: Mutex<(Vec<String>, Vec<String>)>,
+    changed: Condvar,
+}
+
+impl Gate {
+    fn wait_until(&self, what: &str, ok: impl Fn(&(Vec<String>, Vec<String>)) -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut state = self.state.lock().unwrap();
+        while !ok(&state) {
+            let left = deadline.checked_duration_since(Instant::now()).unwrap_or_else(|| panic!("timed out: {what}"));
+            state = self.changed.wait_timeout(state, left).unwrap().0;
+        }
+    }
+
+    fn checked(&self) -> Vec<String> {
+        self.state.lock().unwrap().0.clone()
+    }
+
+    fn open(&self, channel: &str) {
+        self.state.lock().unwrap().1.push(channel.into());
+        self.changed.notify_all();
+    }
+}
+
+struct Gated(Arc<Gate>);
+
+impl SoftwareUpdates for Gated {
+    fn check(&self, channel: &str) -> Value {
+        self.0.state.lock().unwrap().0.push(channel.into());
+        self.0.changed.notify_all();
+        self.0.wait_until("the test lets the check answer", |(_, open)| open.iter().any(|c| c == channel));
+        let newest = if channel == "beta" { "0.7.0-beta.1" } else { "0.6.1" };
+        json!({ "is_update_available": true, "new_version": newest })
+    }
+
+    fn releases(&self, _channel: &str) -> Vec<Value> {
+        Vec::new()
+    }
+
+    fn install(&self, _target_version: Option<&str>, _channel: &str) -> UpdateOutcome {
+        UpdateOutcome::DownloadFailed
+    }
+}
+
+fn with_gate(saved: Option<Value>) -> (Ui, Arc<Gate>) {
+    let gate = Arc::new(Gate::default());
+    let services = Services { software_updates: Arc::new(Gated(Arc::clone(&gate))), ..Setup::default().services };
+    (Ui::with(Setup { services, saved, ..Setup::default() }), gate)
+}
+
+fn wait_for_log(ui: &Ui, text: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let path = ui.dir.join("logs").join("process.log");
+    while !std::fs::read_to_string(&path).unwrap_or_default().contains(text) {
+        assert!(Instant::now() < deadline, "timed out waiting for the log: {text}");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// #1017: the start-up check of the channel set before answers after another one was set. Its
+/// answer is dropped, the new channel is checked at once, and only that answer reaches the UI.
+#[test]
+fn a_check_of_the_channel_set_before_never_reports_after_another_is_set() {
+    let (ui, gate) = with_gate(None);
+    ui.ready();
+    gate.wait_until("the start-up check", |(checked, _)| checked.len() == 1);
+    assert_eq!(gate.checked(), ["stable"], "a stable build");
+
+    assert_eq!(ui.ok("/set/data/release_channel", Some(json!("beta"))), "beta");
+    gate.wait_until("the new channel's check", |(checked, _)| checked.len() == 2);
+    assert_eq!(gate.checked(), ["stable", "beta"]);
+    // The stable check answers now, after the switch: dropped.
+    gate.open("stable");
+    wait_for_log(&ui, "Software update check of the channel set before dropped");
+    assert!(ui.on(0, "/run/software_update_info").is_empty(), "the stable channel's answer reached the UI");
+
+    gate.open("beta");
+    let info = ui.wait_endpoint(0, "/run/software_update_info");
+    assert_eq!(info["result"], json!({ "is_update_available": true, "new_version": "0.7.0-beta.1" }));
+
+    // The same channel again is no change: it is not checked again.
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/data/release_channel", Some(json!("beta"))), "beta");
+    assert_eq!(ui.ok("/set/data/release_channel", Some(json!("stable"))), "stable");
+    let info = ui.wait_endpoint(mark, "/run/software_update_info");
+    assert_eq!(info["result"]["new_version"], "0.6.1");
+    assert_eq!(gate.checked(), ["stable", "beta", "stable"]);
+    let versions: Vec<Value> = ui.on(0, "/run/software_update_info").iter().map(|l| l["result"]["new_version"].clone()).collect();
+    assert_eq!(versions, [json!("0.7.0-beta.1"), json!("0.6.1")]);
+    ui.stop();
+}
+
+/// #1017: with the check at start off, another channel is "no update" again, without asking.
+#[test]
+fn with_the_check_turned_off_another_channel_reports_no_update_without_asking() {
+    let (ui, gate) = with_gate(Some(json!({ "CHECK_SOFTWARE_UPDATES": false })));
+    ui.ready();
+    ui.wait_endpoint(0, "/run/software_update_info");
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/data/release_channel", Some(json!("beta"))), "beta");
+    let info = ui.wait_endpoint(mark, "/run/software_update_info");
+    assert_eq!(info["result"], json!({ "is_update_available": false, "new_version": "" }));
+    assert!(gate.checked().is_empty());
+    ui.stop();
 }

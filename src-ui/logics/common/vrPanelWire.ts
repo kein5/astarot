@@ -159,10 +159,14 @@ export const VR_PANEL_STATE_CATEGORIES: readonly string[] = Object.freeze([
 export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
     // The log (and the names given to its speakers, #447), the launcher and its switches.
     "MessageLogs", "SpeakerNames", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
-    "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
+    "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "IsOpenedSettingsWindow", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
     // Which switches cannot be turned on yet and why (reason codes only; worked out in the main window).
     "SwitchBlocks",
+    // Whether Mic input's microphone is waiting to open, perhaps on Windows' question (#1300).
+    "MicCaptureWaiting",
+    // The text to speech switch and the stop, as the main window shows them (#1314, V-4).
+    "VrVoiceControls",
     // The empty log's setup list (main window only) opens a settings page; the shared view reads it.
     "SelectedConfigTabId",
     // The language window.
@@ -170,6 +174,7 @@ export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
     "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines",
     // The settings window: meters, threshold checks and fonts.
     "MicVolume", "SpeakerVolume", "MicThresholdCheckStatus", "SpeakerThresholdCheckStatus", "SelectableFontFamilyList",
+    "VrCustomTranslationModelNames",
     // The input and output view.
     "IoFlow", "IoTraces", "IsOpenedIoFlowPanel",
 ]);

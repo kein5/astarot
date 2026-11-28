@@ -11,11 +11,12 @@ import type vr_layout from "../../../views/vr/vr_layout.json";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
 import type { TelemetryPreview } from "../../common/telemetryRows.ts";
 import type { ExperimentalFeatureValues } from "../experimentalFeatures.ts";
+import type { ThemeSetting } from "../../theme/themes.ts";
 import type { OcrReadiness, OcrRegion, OcrRuntime } from "../ocrReadiness.ts";
 import type { SETTINGS_ARRAY } from "./ui_config_setter";
 
 export type SettingCategory = "Device" | "Appearance" | "Translation" | "Transcription" | "Ocr" | "Vr" | "Others"
-    | "AdvancedSettings" | "ExperimentalFeatures" | "UsagePresets";
+    | "AdvancedSettings" | "ExperimentalFeatures" | "UsagePresets" | "TalkAi";
 
 // The control the settings page shows for the setting.
 export type SettingUiTemplateId = "list" | "select" | "toggle" | "slider" | "input" | "custom" | "object";
@@ -80,6 +81,22 @@ export interface OverlayDesktopPlacement {
     y: number | null;
 }
 
+// Why SteamVR's auto-launch of ASTAROT cannot be shown or changed now (#1384;
+// native/core/src/controller/steamvr.rs): this build ships no SteamVR manifest (the Linux packages, a
+// development build), SteamVR does not run, or it runs but did not answer.
+export type SteamVrAutoLaunchReason = "unsupported" | "steamvr_not_running" | "steamvr_unreachable";
+
+// The core's answer: SteamVR's flag, or why there is none to show.
+export type SteamVrAutoLaunch =
+    | { available: true; enabled: boolean }
+    | { available: false; reason: SteamVrAutoLaunchReason; enabled: null };
+
+// Effective conversation log directory and last fallback error code (#1096, #1118).
+export interface LogDirectoryState {
+    path: string;
+    error_code: string | null;
+}
+
 // Each setting's value, as its atom holds it. The backend sends these (docs/spec/); they are
 // declared, not checked when they arrive, except for what /run/initialization_complete checks
 // (initializationFields.ts). Credentials and the chosen models may be null when none is set.
@@ -111,6 +128,7 @@ export interface SettingValues {
     MessageLogUiScaling: number;
     SendMessageButtonType: string;
     CatalogLayout: string;
+    Theme: ThemeSetting;
     ShowResendButton: boolean;
     SelectedFontFamily: string;
     Transparency: number;
@@ -220,6 +238,10 @@ export interface SettingValues {
     OverlayVrTooltip: boolean;
     OverlayVrPanelOpacity: number;
     VoiceTypingMode: boolean;
+    // Whether SteamVR can start this build at all (#1384): known from the start-up's answers.
+    SteamVrAutoLaunchSupported: boolean;
+    // What SteamVR holds of starting ASTAROT with itself (#1384); null until asked.
+    SteamVrAutoLaunch: SteamVrAutoLaunch | null;
 
     // Others
     EnableAutoClearMessageInputBox: boolean;
@@ -243,6 +265,8 @@ export interface SettingValues {
     TelemetryPreview: TelemetryPreview | null;
 
     // AdvancedSettings
+    PathConfig: string;
+    PathLogs: LogDirectoryState;
     OscIpAddress: string;
     OscPort: number;
     EnableOscQuery: boolean;
@@ -269,6 +293,13 @@ export interface SettingValues {
     TrayCompanionMonitor: string;
     ReleaseChannel: string;
     TrayCompanionWheelHintShown: boolean;
+
+    // TalkAi (#388): the service to talk with, the local server's address, and how the screen is sent.
+    TalkAiProvider: string;
+    TalkAiLocalUrl: string;
+    TalkAiScreenIntervalMs: number;
+    TalkAiScreenLongEdge: number;
+    TalkAiScreenDetail: string;
 
     // UsagePresets: the ids the user picked; null until the backend answers.
     UsagePresets: string[] | null;
@@ -332,7 +363,7 @@ type SettingFields<C extends SettingCategory> =
     & { [E in EntryWith<C, "weight_download_status"> as `updateDownloaded${E["Base_Name"]}`]: Receive<DownloadedWeights> }
     & { [E in EntryWith<C, "weight_download_status"> as `pending${E["Base_Name"]}`]: Receive<string> }
     & { [E in EntryWith<C, "weight_download_status"> as `downloaded${E["Base_Name"]}`]: Receive<WeightDownloaded> }
-    // The reviewed consent (legacyModelConsent.ts), sent unchanged.
+    // The request of a weight's download, sent unchanged (no weight is downloaded this way since #1015).
     & { [E in EntryWith<C, "weight_download_status"> as `download${E["Base_Name"]}`]: Receive<unknown> };
 
 // The functions a category has besides its settings (useConfigFunctions).

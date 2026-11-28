@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, findIn, setRef } from "../../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, setRef, kitStandIns } from "../../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
 import type { Hotkeys } from "../../../../../../../logics/store.ts";
 import type { HotkeysEntryProps } from "./HotkeysEntry.tsx";
@@ -79,7 +79,9 @@ test("blur cancels a partial chord; a fresh chord and the clear button still sav
     subject.field().onFocus();
     subject.key("w", { ctrlKey: true });
     assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "W"] }]);
-    const clear = findIn(subject.render(), node => node.type === "button");
+    // The clear button is the kit's danger icon Button.
+    const clear = findIn(subject.render(), node => node.type === kitStandIns.Button);
+    assert.deepEqual([clear.props.tone, clear.props.size, clear.props.disabled], ["danger", "icon", false]);
     assert.equal(clear.props["aria-label"], "quick_chat.clear_shortcut");
     clear.props.onClick();
     assert.deepEqual(subject.saves.at(-1), { open_quick_chat: null });
@@ -160,4 +162,25 @@ for (const newerEdit of [false, true]) test(`rejected hotkey restores committed 
     resolve(false);
     await Promise.resolve(); await Promise.resolve();
     assert.equal(s.field().ui_variable, newerEdit ? "Ctrl + N" : "Ctrl + E");
+});
+
+// The clear button, the kit's danger icon Button, names the action it clears, and cannot be pressed
+// while no key is set or while a key is being saved; while saving it takes no pointer either.
+test("the clear button names its action and waits while nothing is set or a key is saved", async () => {
+    const draw = async (value: Hotkeys, state: string) => {
+        const runtime = hooks();
+        const { HotkeysEntry } = await loadModule<typeof import("./HotkeysEntry.tsx")>(new URL("./HotkeysEntry.tsx", import.meta.url), runtime, {
+            "../_atoms/_entry/_Entry": { _Entry: () => null },
+            "@useI18n": { useI18n: () => ({ t: (key: string, values?: object) => values ? `${key}:${JSON.stringify(values)}` : key }) },
+        });
+        const props = { value, state, hotkey_id: "open_quick_chat", label: "Quick Chat", setHotkeys: async () => true };
+        return findIn(runtime.render(HotkeysEntry, props), node => node.type === kitStandIns.Button);
+    };
+    const set = await draw({ open_quick_chat: ["Ctrl", "Q"] }, "ok");
+    assert.equal(set.props["aria-label"], 'quick_chat.clear_shortcut:{"action":"Quick Chat"}');
+    assert.deepEqual([set.props.disabled, set.props.className], [false, ""]);
+    const unset = await draw({ open_quick_chat: null }, "ok");
+    assert.deepEqual([unset.props.disabled, unset.props.className], [true, ""]);
+    const saving = await draw({ open_quick_chat: ["Ctrl", "Q"] }, "pending");
+    assert.deepEqual([saving.props.disabled, saving.props.className], [true, "is_pending"]);
 });

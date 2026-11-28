@@ -1,4 +1,4 @@
-//! The backend core of VRCT-VOX, in Rust (Issue #285).
+//! The backend core of ASTAROT, in Rust (Issue #285).
 //!
 //! Codename: Ayperos (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!
@@ -34,4 +34,4 @@ pub mod voice_settings;
 
 pub use backend::{Backend, Options, STARTUP_FAILED_EXIT, STARTUP_LIMIT, STARTUP_TIMEOUT_EXIT, Sink};
 /// The VR overlay crate, for the app's VR panel surface (its layout).
-pub use vrct_vr_overlay as vr_overlay;
+pub use astarot_vr_overlay as vr_overlay;

@@ -1,4 +1,4 @@
-name: VRCT-VOX voice contracts (no models)
+name: ASTAROT voice contracts (no models)
 on:
   # Pushes run the jobs on develop and main only. A push to a pull request's branch would run the
   # same commit a second time (Issue #773). develop's runs keep the Rust caches that pull requests
@@ -46,7 +46,7 @@ jobs:
         # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
         run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
@@ -71,7 +71,7 @@ jobs:
       - run: uv run --no-project python tools/dev.py check --scope voice
       - run: uv run --no-project python tools/dev.py check --scope lint
       # Realtime recognition reads a microphone and a speaker's monitor through the PipeWire
-      # capture of vrct-audio-routing (decision 2 of #733), on a private graph.
+      # capture of astarot-audio-routing (decision 2 of #733), on a private graph.
       - name: Realtime recognition's capture on a private PipeWire graph
         if: runner.os == 'Linux'
         run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
@@ -106,7 +106,7 @@ jobs:
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: rust
+          install_args: rust python cargo-nextest
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: |
@@ -116,7 +116,22 @@ jobs:
             native/tts
       # The names the app goes by outside its code, and the VRCT-VOX ones they replace (ADR-014).
       - run: cargo test --locked --manifest-path native/app-identity/Cargo.toml
-      - run: cargo test --locked --manifest-path native/core/Cargo.toml
+      # native/core's tests run under cargo-nextest's ci profile (native/core/.config/nextest.toml):
+      # each test in a process of its own, a JUnit report, and two retries for the tests of #861
+      # until their waits are fixed. The next step lists every pass on a retry. native/core has no
+      # doctests (cargo-nextest runs none); python tools/dev.py check --scope rust runs them.
+      - run: cargo nextest run --locked --manifest-path native/core/Cargo.toml --profile ci
+      - name: List the tests that passed only on a retry
+        if: ${{ !cancelled() }}
+        run: python tools/ci/nextest_flaky_summary.py native/core/target/nextest/ci/junit.xml
+      - if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-tests-junit-${{ matrix.os }}
+          path: native/core/target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
       # The time the voice pipeline adds of its own, on stand-ins for the engines (#738;
       # docs/voice-stack/pipeline-latency-tracking.md). A measurement: its result never fails the
       # job. pipeline-latency.yml sends it to Bencher once this workflow has finished.
@@ -135,14 +150,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
-      # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test
-      # writes one item under a scope of its own and removes it. On the same bus, the move of the
-      # 0.5.x folders looks for a running app by its single-instance name (ADR-014).
+      # keyring on a private session bus; the tests start once that daemon owns the Secret Service
+      # (tools/ci/with_unlocked_keyring.sh, #1073). Windows: the runner user's Credential Manager.
+      # Each test writes one item under a scope of its own and removes it. On the same bus, the
+      # move of the 0.5.x folders looks for a running app by its single-instance name (ADR-014).
       - if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
-          dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
+          # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
+          for attempt in 1 2 3 4; do
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends gnome-keyring dbus && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+          dbus-run-session -- bash tools/ci/with_unlocked_keyring.sh bash -c 'cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
       - if: runner.os == 'Windows'
         run: |
           cargo test --locked --manifest-path native/core/Cargo.toml --lib credential_manager -- --ignored
@@ -160,8 +180,9 @@ jobs:
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
   # The crates no other job tests (#550, decision 3 of #871): the downloads and operations
-  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR and the
-  # RVC worker's runtime. ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
+  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR, the
+  # RVC worker's runtime and the talk AI's connection to its conversation service (#388).
+  # ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
   # build time (pyke's mirror, not ONNX Runtime's GitHub releases).
   crates:
     timeout-minutes: 30
@@ -186,11 +207,15 @@ jobs:
             native/adapters
             native/ocr-runtime
             native/rvc-runtime
+            native/talk-ai
       - run: cargo test --locked --manifest-path native/ops/Cargo.toml
       - run: cargo test --locked --manifest-path native/speech-server/Cargo.toml
       - run: cargo test --locked --manifest-path native/adapters/Cargo.toml
       - run: cargo test --locked --manifest-path native/ocr-runtime/Cargo.toml
       - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml
+      # The RVC worker builds only with its feature, so the run above skips its tests (#1270).
+      - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml --features worker --bin astarot-rvc-worker
+      - run: cargo test --locked --manifest-path native/talk-ai/Cargo.toml
   # The line, function and region coverage of each Rust crate with its own tests (#550, decision 1
   # of #871), in this job's summary. It is reported, never held to a threshold: the job never
   # fails the workflow, also when a crate cannot be measured. audio-routing builds against
@@ -210,7 +235,7 @@ jobs:
       - run: rustup component add llvm-tools
       - run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done

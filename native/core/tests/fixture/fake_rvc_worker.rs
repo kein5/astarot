@@ -13,7 +13,7 @@
 use std::io::{Read, Write};
 
 use serde_json::{Value, json};
-use vrct_voice_conversion::protocol::{self as p, Info};
+use astarot_voice_conversion::protocol::{self as p, Info};
 
 fn argument(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned()

@@ -1,4 +1,4 @@
-# rvc-runtime
+# astarot-rvc-runtime
 
 Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
 Phase 2: streaming conversion, Phase 3: the application's voice changer).
@@ -89,10 +89,10 @@ Windows dependency, as in `native/translate-onnx`); whether it runs depends on t
 library that is loaded (the DirectML build).
 
 The library and the process's one environment come from `native/onnx-runtime`
-(`vrct-onnx-runtime`), the crate the application's chat reading and local translation use
+(`astarot-onnx-runtime`), the crate the application's chat reading and local translation use
 too. `backend::load_runtime(path)` loads exactly that file (`ORT_DYLIB_PATH` is ignored) and
 refuses once the environment exists. The binaries stop ONNX Runtime's usage reports first
-thing (`vrct_onnx_runtime::disable_telemetry_for_process`).
+thing (`astarot_onnx_runtime::disable_telemetry_for_process`).
 
 `backend::set_intra_threads(Some(n))` limits each session's CPU thread pool (ONNX Runtime's
 default is one thread per physical core and ignores the process's CPU affinity);
@@ -183,8 +183,8 @@ below in a browser and could not tell the Rust output from the reference; all fo
 judged the same voice and phrasing. ABX trial counts were not recorded.
 
 **Not verified:** listening with v1, 32 kHz or F0-less models (no public model was
-available, see below); performance against the current external runtime (13.3) has
-not been measured; fp16 and CUDA have not been run; no real v1, 32 kHz or F0-less voice
+available, see below); performance against the external runtime of earlier versions (13.3)
+was measured later ([Measurements](#measurements-2026-11-15)); fp16 and CUDA have not been run; no real v1, 32 kHz or F0-less voice
 model was available, so those variants are verified with random weights and, for v1, the
 HuBERT v1 features.
 
@@ -441,9 +441,10 @@ the application puts `rvc-block-lengths.remeasure` beside it; the next automatic
 times the GPU instead of using its kept length, replaces that entry and removes the file
 (decided 2026-11-21). Delete the cache to have every pair timed again. `ready` then says the chosen block and the owner
 converts in it. The 1.4 leaves room for the round trip at the microphone's pace, when the
-GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner, the Linux
-launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,
-mute and the speech-through-conversion path are the same as with the external runtime.
+GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner
+(`native/voice-conversion`, on a thread of the app; on Linux the worker gets
+`PR_SET_PDEATHSIG`), the managed sink, mute and the speech-through-conversion path start and
+stop the worker.
 
 ```sh
 python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/astarot-rvc-worker
@@ -488,11 +489,18 @@ astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   #
   `vc_directml_unavailable`). Missing or broken libraries are `vc_runtime_incomplete`. The
   setup probes the DirectML runtime with `--device auto` on DirectML (exit 3 and a warning
   when no GPU can be used through it).
-- **GPU layout** (CUDA and DirectML): one stream block per packet, a crossfade of half the block searched over
-  10 ms, 2 s of context, every packet converted before it is answered. At 80 ms this is the
-  external runtime's profile (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`,
-  added delay 52 ms: crossfade, search and the two rate conversions); at 40 ms it is
-  `Layout { block: 4, crossfade: 2, search: 1, extra: 200 }` with an added delay of 32 ms.
+- **GPU layout** (CUDA and DirectML): one stream block per packet, a 20 ms crossfade at every
+  block length, a 10 ms search for it, 2 s of context, every packet converted before it is
+  answered. At 80 ms this is `Layout { block: 8, crossfade: 2, search: 1, extra: 200 }`: the
+  external runtime's profile with a 20 ms crossfade instead of 40 ms, which brings the added
+  delay (crossfade, search and the two rate conversions) from 52 ms to 32 ms. Every block
+  length adds the same 32 ms: at 40 ms the layout is `Layout { block: 4, crossfade: 2, search:
+  1, extra: 200 }`, and at 20 ms the crossfade is as long as the block (`Layout { block: 2,
+  crossfade: 2, search: 1, extra: 200 }`; 22 ms with the 10 ms crossfade it had before). The
+  length comes from a listening check: every 10 ms crossfade broke up at the joins, and every
+  one of 20 ms or more sounded fine
+  ([decisions](../../docs/voice-stack/rvc-low-latency-2026-11-20.md#decisions-2026-11-20), 2026-11-27
+  and 2026-11-28, #928).
   The 2026-11-18 measurements of `rvc-stream` ([pipeline latency](../../docs/voice-stack/pipeline-latency-2026-11-18.md),
   "声の変換") converted a 40 ms block in about 11 ms on average, but a few blocks per run
   took 55 to 72 ms and came too late.
@@ -618,8 +626,7 @@ Decided by the maintainer (2026-11-15, PR #312): the live output was checked by 
 accepted; Windows is accepted on the CI build without a check on a Windows PC.
 
 Not done: other GPUs; a CPU conversion in real time on a machine that is not busy; long runs
-under the mixed load of VRChat, TTS and captions; the GUI test with the real worker
-(`tests/platform/test_native_rvc_ui.py`).
+under the mixed load of VRChat, TTS and captions; a GUI test with the real worker.
 
 ## Decisions on the specification's open questions (section 15)
 
@@ -636,9 +643,9 @@ under the mixed load of VRChat, TTS and captions; the GUI test with the real wor
    random weights; verification with a real v1 model is open.
 5. **CPU**: offline conversion runs several times faster than real time on the test
    machine. Streaming on the test machine's CPU: see [Streaming](#streaming-spec-section-12).
-   Weaker CPUs have not been measured (below). The application keeps the GPU requirement
-   of the external runtime and does not convert on the CPU; a thread setting now exists
-   (`backend::set_intra_threads`), so a CPU measurement on weaker hardware is possible.
+   Weaker CPUs have not been measured (below). The application converts on the CPU too,
+   after a speed check at the start (see Application worker); `backend::set_intra_threads`
+   sets its threads.
 6. **Formant shift**: not included.
 
 Where the specification leaves a detail open, the behaviour was taken from black-box

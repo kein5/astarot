@@ -8,8 +8,8 @@ mod common;
 use std::path::PathBuf;
 
 use common::{npy, relative_error};
-use rvc_runtime::noise::Generator;
-use rvc_runtime::{Device, Error, FeatureIndex, NoiseMode, Synthesizer, Version, VoiceModel};
+use astarot_rvc_runtime::noise::Generator;
+use astarot_rvc_runtime::{Device, Error, FeatureIndex, NoiseMode, Synthesizer, Version, VoiceModel};
 
 fn data(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data").join(name)

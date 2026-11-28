@@ -6,7 +6,8 @@
 //! surface starts at the default atlas size; tests check both agree with this module.
 use super::math::{self, Mat34, Mat4, Vec3};
 
-/// Width of the launcher band in logical px (seven buttons and their separators).
+/// Width of the launcher band in logical px. Its eight buttons and the divider fit inside it
+/// (`src-ui/views/vr/launcherSizes.ts`, #1248).
 pub const LAUNCHER_WIDTH_PX: u32 = 880;
 /// The width the stored launcher `ui_scaling` refers to. Saved values predate a 72 px mark
 /// that was removed, so the stored metres-per-band stay meaningful by converting with this.
@@ -18,6 +19,13 @@ pub const TOOLBAR_M_PER_PX: f64 = 0.4 / 900.0;
 pub const TOOLBAR_GAP_M: f64 = 0.012;
 /// Rounded corners of each region in logical px.
 pub const PANEL_CORNER_RADIUS_PX: u32 = 24;
+/// The VR windows' title bar in logical px (`title_bar` in `src-ui/views/vr/VrWindow.css.ts`).
+/// The log's background turns see-through only below it (#1247).
+pub const PANEL_TITLE_BAR_PX: u32 = 56;
+/// The page draws the log's background colours as two squares of this size, one under the
+/// other, in the gap right of the log (it is at least 8 px wide at every log size; see
+/// [`VrLayout::for_panel`]): the window's fill, then the log's (`VrApp.tsx`, #1247).
+pub const PANEL_BACKGROUND_SWATCH_PX: u32 = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Region {
@@ -118,13 +126,13 @@ impl VrLayout {
         (at(x), at(y), at(x + w), at(y + h))
     }
 
-    /// `setOverlayTextureBounds` as (uMin, uMax, vMin, vMax). In the OpenGL texture row `y` from
-    /// the top is `v = 1 - y / H`; vMin is the top edge of the shown region (`regionBounds`).
+    /// Bounds within the captured image as (uMin, uMax, vMin, vMax). The native capture is
+    /// uploaded from the top row down, so the top edge of the texture is v = 0.
     pub fn region_bounds(&self, region: Region) -> (f64, f64, f64, f64) {
         let (aw, ah) = (f64::from(self.atlas.0), f64::from(self.atlas.1));
         let (x, y, w, h) = self.region(region);
         let (x, y, w, h) = (f64::from(x), f64::from(y), f64::from(w), f64::from(h));
-        (x / aw, (x + w) / aw, 1.0 - y / ah, 1.0 - (y + h) / ah)
+        (x / aw, (x + w) / aw, y / ah, (y + h) / ah)
     }
 }
 

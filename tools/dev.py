@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VRCT-VOX developer commands. Python 3.11+, standard library only.
+"""ASTAROT developer commands. Python 3.11+, standard library only.
 
 doctor/check never install dependencies or enable native/model/audio tests.
 setup is the explicit dependency installation boundary; it does not install
@@ -28,7 +28,8 @@ GROUPS = {"quick": ("tooling", "node", "lint"),
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
-                 "native/translate-onnx", "native/tts", "native/core", "native/ocr-runtime", "native/rvc-runtime")
+                 "native/translate-onnx", "native/tts", "native/core", "native/ocr-runtime", "native/rvc-runtime",
+                 "native/talk-ai")
 # Every Cargo workspace with a lock file of its own: the Tauri app, the crates above and the
 # integration tests' host (check --scope integration builds it). cargo-deny reads them all.
 CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/browser-core-bridge")
@@ -59,7 +60,8 @@ LINT_PATHS = [
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/rust_coverage.py", "tools/app_resources.py",
-    "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tools/update_channels.py", "tests/devtools",
+    "tools/adr_catalog.py", "tools/bilingual_docs.py", "tools/component_map.py", "tools/rvc_worker_bench.py",
+    "tools/update_channels.py", "tools/mutation_changed.py", "tests/devtools",
 ]
 
 
@@ -164,6 +166,16 @@ def scopes(args):
     return GROUPS.get(args.scope, (args.scope,))
 
 
+def feature_binaries(root, crate):
+    """The binaries of a crate that build only with features (`required-features`), with those
+    features. A run of the crate without them skips these binaries and their tests (#1270)."""
+    manifest = root / crate / "Cargo.toml"
+    if not manifest.is_file():
+        return []
+    targets = tomllib.loads(manifest.read_text(encoding="utf-8")).get("bin", [])
+    return [(target["name"], target["required-features"]) for target in targets if target.get("required-features")]
+
+
 def checks_plan(args, root):
     steps = []
     selected = scopes(args)
@@ -176,9 +188,9 @@ def checks_plan(args, root):
             if scope == "ui" and "node" in selected:
                 pass
             else:
-                # vitest.config.js lists the same patterns (plus the i18n gate's own tests in
-                # tools/i18n_gate); this guard keeps a moved or renamed tree from passing as an
-                # empty run.
+                # vitest.config.js lists the same patterns (plus the i18n and writing gates' own
+                # tests in tools/i18n_gate and tools/writing_gate); this guard keeps a moved or
+                # renamed tree from passing as an empty run.
                 if not any(p for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
                            for p in (root / "src-ui").rglob(pattern)):
                     raise DevError("No UI tests found under src-ui; refusing an empty check.")
@@ -191,6 +203,10 @@ def checks_plan(args, root):
                 # and no new text is written straight into the UI.
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
                     "tools/i18n_gate/check.mjs"]))
+                # The rules of docs/writing/ that a pattern can check, in every document git
+                # tracks; the findings already there are in tools/writing_gate/baseline.json.
+                steps.append(Step("writing gate", ["node", "--disable-warning=ExperimentalWarning",
+                    "tools/writing_gate/check.mjs"]))
             if scope == "ui":
                 # Biome (biome.json, pinned in mise.toml): its lint rules, then the format of the
                 # files its formatter covers. Both only read; `biome format --write` formats.
@@ -198,6 +214,10 @@ def checks_plan(args, root):
                 steps.append(Step("Biome format", ["biome", "format"]))
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
+                # The UI kit's component catalog (Storybook, src-ui/views/kit_catalog/) into
+                # build/storybook/: the type check reads the stories, but only Storybook's own
+                # build shows a problem in its plugins or configuration (#1153, decision 5).
+                steps.append(Step("Component catalog build", ["npm", "--ignore-scripts", "run", "build:catalog"]))
         elif scope == "voice":
             steps.append(Step("voice pytest", [python, "-m", "pytest", "-c", "tests/voice/pytest.ini", "tests/voice",
                 *PLATFORM_UNIT_TESTS, "-q"]))
@@ -221,6 +241,12 @@ def checks_plan(args, root):
                 # so a crate with a library runs them with cargo test --doc as before.
                 steps.append(Step(f"Cargo nextest {crate}", ["cargo", "nextest", "run", "--locked", "--offline",
                     "--manifest-path", f"{crate}/Cargo.toml", "--no-tests", "pass"]))
+                # That run skips a binary that needs features, so its tests run on their own with
+                # the features (the RVC worker, #1270). CI runs them the same way (voice-tests.yml).
+                for binary, features in feature_binaries(root, crate):
+                    steps.append(Step(f"Cargo nextest {crate} {binary}", ["cargo", "nextest", "run", "--locked",
+                        "--offline", "--manifest-path", f"{crate}/Cargo.toml", "--features", ",".join(features),
+                        "--bin", binary]))
                 if (root / crate / "src/lib.rs").is_file():
                     steps.append(Step(f"Cargo doctests {crate}", ["cargo", "test", "--doc", "--locked", "--offline",
                         "--manifest-path", f"{crate}/Cargo.toml"]))

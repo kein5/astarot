@@ -7,8 +7,8 @@
 mod common;
 
 use std::collections::BTreeSet;
-use vrct_core::controller::{Core, Services};
-use vrct_core::dispatch::{IMMEDIATE_ENDPOINTS, Routes};
+use astarot_core::controller::{Core, Services};
+use astarot_core::dispatch::{IMMEDIATE_ENDPOINTS, Routes};
 
 struct Spec {
     endpoint: String,
@@ -36,18 +36,18 @@ fn spec() -> Vec<Spec> {
 fn routes() -> Routes {
     let dir = tempfile::tempdir().unwrap();
     // Only the routes are listed; the keys stay in memory, never in the PC's credential store.
-    let config = vrct_core::config::Config::open_with(
-        common::environment(dir.path(), vrct_core::config::Platform::current()),
-        vrct_core::config::secrets::MemoryStore::new(),
+    let config = astarot_core::config::Config::open_with(
+        common::environment(dir.path(), astarot_core::config::Platform::current()),
+        astarot_core::config::secrets::MemoryStore::new(),
     );
     struct Quiet;
-    impl vrct_core::dispatch::Output for Quiet {
+    impl astarot_core::dispatch::Output for Quiet {
         fn answer(&self, _: u16, _: Option<&str>, _: &serde_json::Value) {}
         fn received(&self, _: &str, _: &serde_json::Value) {}
         fn note(&self, _: &str) {}
     }
-    let core = Core::new(config, std::sync::Arc::new(vrct_core::log::Log::disabled()), std::sync::Arc::new(Quiet), Services::default());
-    vrct_core::controller::routes(&core)
+    let core = Core::new(config, std::sync::Arc::new(astarot_core::log::Log::disabled()), std::sync::Arc::new(Quiet), Services::default());
+    astarot_core::controller::routes(&core)
 }
 
 /// The endpoints listed between `<!-- {name}:begin -->` and `<!-- {name}:end -->` in the
@@ -104,7 +104,7 @@ fn ui_vr_panel_list() -> BTreeSet<String> {
 fn the_vr_panel_list_is_the_uis_and_every_entry_is_wired() {
     let ui = ui_vr_panel_list();
     assert!(ui.len() > 60, "the UI's list was not read: {ui:?}");
-    let core: BTreeSet<String> = vrct_core::dispatch::vr_panel_endpoints().into_iter().collect();
+    let core: BTreeSet<String> = astarot_core::dispatch::vr_panel_endpoints().into_iter().collect();
     assert_eq!(core, ui, "native/core/src/dispatch.rs and src-ui/logics/common/vrPanelWire.ts list the same requests");
     let routes = routes();
     for endpoint in &core {

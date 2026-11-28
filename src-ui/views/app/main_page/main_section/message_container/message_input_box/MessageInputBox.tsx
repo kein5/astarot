@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "jotai";
-import styles from "./MessageInputBox.module.scss";
+import * as styles from "./MessageInputBox.css.ts";
 import SendMessageSvg from "@images/send_message.svg?react";
 import { useMessageActions } from "@logics_common";
 import { useSettingValue } from "@logics_configs";
@@ -10,7 +10,9 @@ import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs, useStore_MessageInputValue } from "@store";
 import { chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
 import { CHATBOX_LENGTH_WARNING_ID } from "./ChatboxLengthWarning";
+import { LogFontButtons } from "../log_font_buttons/LogFontButtons";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
+import { Textarea } from "../../../../../kit/index.ts";
 import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
 
 // Enter in the box or a press of the send button. Only a key repeats.
@@ -122,10 +124,16 @@ export const MessageInputBox = memo(function MessageInputBox() {
 
     return (
         <div className={styles.container}>
+            {/* The log's font size, in sight (#1314, M-8). */}
+            <LogFontButtons />
+            {/* The composer's frame; the field inside it has none of its own (decided on 2026-11-25). */}
             <div className={styles.message_box_wrapper}>
-                <textarea
+                <Textarea
                     ref={log_box_ref}
+                    inFrame
+                    fill
                     className={styles.message_box_input_area}
+                    data-message-input=""
                     onChange={onChangeFunction}
                     onBlur={stopTyping}
                     aria-label={t("studio.message_input")}
@@ -149,6 +157,7 @@ const SendMessageButton = ({ onSubmitFunction, pending }: { onSubmitFunction: (e
         <Tooltip bare placement="top" title={t("studio.send_message")}>
             <button
                 className={styles.message_send_button}
+                data-message-send=""
                 aria-label={t("studio.send_message")}
                 type="button"
                 disabled={pending}

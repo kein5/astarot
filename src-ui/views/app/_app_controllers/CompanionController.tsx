@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
 import { store, useStore_NotificationStatus, useStore_SwitchBlocks } from "@store";
 import { useIsBackendReady, useNotificationStatus, useWindow } from "@logics_common";
-import { useExperimentalFeature, useExperimentalFeatures } from "@logics_configs";
+import { useAppearance, useExperimentalFeature, useExperimentalFeatures } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
 import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
@@ -34,6 +34,8 @@ export const CompanionController = () => {
     const on = useExperimentalFeature(TRAY_COMPANION);
     const { currentTrayCompanionEdge: edge, setTrayCompanionEdge, currentTrayCompanionMonitor: monitor,
         setTrayCompanionMonitor, currentTrayCompanionWheelHintShown: hinted, setTrayCompanionWheelHintShown } = useExperimentalFeatures();
+    const { currentTheme } = useAppearance();
+    const savedTheme = JSON.stringify(currentTheme?.data ?? null);
     const { currentIsBackendReady } = useIsBackendReady();
     const main = useMainFunction();
     const { asyncQuitApp } = useWindow();
@@ -158,10 +160,10 @@ export const CompanionController = () => {
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
             // The settings came with the backend's start, so until it is ready the hint is not known.
             blocked, edge: edge?.data, monitor: monitor?.data, hinted: currentIsBackendReady.data === true ? hinted?.data : undefined,
-            language: i18n.language, t,
+            theme: JSON.parse(savedTheme), language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
-        ocr?.data, ocr?.state, voiceStates, blockedKey, edge?.data, monitor?.data, hinted?.data, i18n.language, t]);
+        ocr?.data, ocr?.state, voiceStates, blockedKey, edge?.data, monitor?.data, hinted?.data, savedTheme, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user. The main
     // window may be put away in the tray in any run, so this watches in every run.

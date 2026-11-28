@@ -10,10 +10,15 @@ from tqdm import tqdm # tqdmをインポート
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from check_voice_distribution import check
 
-# ONNX Runtime and DirectML, when a crate in vrct-vox.exe links them dynamically: ort's
+# ONNX Runtime and DirectML, when a crate in astarot.exe links them dynamically: ort's
 # copy-dylibs puts them beside the binary in target/release, and Windows loads them from there
 # (decision 2 in docs/voice-stack/core-integration.md).
 ONNX_RUNTIME_LIBRARIES = ("onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll")
+
+# The files at the top of the package, beside each other once installed: the app, and the
+# SteamVR application manifest that names it (#1384). SteamVR starts the binary the manifest
+# names relative to the manifest's own folder, so the two must sit together.
+PACKAGE_FILES = ("src-tauri/target/release/astarot.exe", "src-tauri/steamvr/astarot.vrmanifest")
 
 def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):
     # Reject missing inputs and stale forbidden resources before touching a
@@ -54,12 +59,12 @@ def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):
 if __name__ == "__main__":
     start_time = time.time()
     parser = argparse.ArgumentParser(description="Create a zip file from specified files and directories.")
-    parser.add_argument("--zip_name", type=str, default="VRCT-VOX.zip", help="Name of the output zip file.")
+    parser.add_argument("--zip_name", type=str, default="ASTAROT.zip", help="Name of the output zip file.")
     parser.add_argument(
         "--file_paths",
         type=str,
         nargs="*",
-        default=["src-tauri/target/release/vrct-vox.exe"],
+        default=list(PACKAGE_FILES),
         help="List of file paths to include in the zip."
     )
     parser.add_argument(
@@ -67,7 +72,7 @@ if __name__ == "__main__":
         type=str,
         nargs="*",
         default=[f"src-tauri/target/release/{name}" for name in ONNX_RUNTIME_LIBRARIES],
-        help="Libraries that sit beside vrct-vox.exe when the build put them there."
+        help="Libraries that sit beside astarot.exe when the build put them there."
     )
     parser.add_argument(
         "--dir_paths",

@@ -33,22 +33,32 @@ In "Language settings" on the left of the main screen, choose the two below. Tra
 
 ## 4. Turn on Translation and send
 
-Turn on "Translation" on the left of the main screen. If the translation model has not been downloaded, a review of what will be downloaded opens. Check the provider, license and size and agree; the download starts, and Translation turns on when it finishes.
+Turn on "Translation" on the left of the main screen. Until the translation model is downloaded, the Translation switch cannot be turned on, so download the model first.
+
+- "Open setup" on the first screen lets you choose the speech recognition, translation and text to speech models for each feature and download them in one go.
+  - With the screen in Japanese, your own voice uses a Japanese speech recognition model (ReazonSpeech v2), and Listening gets a model that tells the language it hears (Qwen3-ASR 0.6B) too, so that it captions the other side in any language.
+  - When the uses chosen under "Used for" show only Mic input or only Listening, setup takes one model that tells the language (Qwen3-ASR 0.6B), so one model is enough.
+  - A model already on your PC is checked and used, not downloaded.
+- For the translation model alone, the icon beside the Translation switch ("Review the translation model download") downloads it too.
+
+Either way, check the license and size and agree before the download. When it finishes, turn on "Translation".
+
+Setup does not open by itself. Until you finish it, the "Open setup" line on the first screen stands out. After "Done", the main screen's switches for the features you prepared ("Mic input" and "Listening", "Translation", "Text to speech (TTS)") are outlined in lilac until you turn them on. Setup never turns a switch on or changes a setting.
 
 Type in the box at the bottom and send. The original and its translation appear in the log, and the same text appears in the VRChat chatbox.
 
 ::: tip Without a local model
-Choose an external translation API under Settings → "Translation" → "More settings". See [Translation](../features/translation).
+To use an external translation API, enter its key under Settings → "Translation" → "More settings", then choose it under "Translator" on the main screen. See [Translation](../features/translation).
 :::
 
-Models you have not downloaded yet are also listed under "Before you start", which the main screen shows while the conversation log is empty.
+"Before you start", which the main screen shows while the conversation log is empty, lists what is left to prepare. While speech recognition or translation is not ready, it shows "Open setup".
 
 ## 5. Choose your microphone and speaker
 
-Do this before you use a voice feature (captions, text to speech, the voice changer). Open the settings with the gear at the bottom left of the main screen, then open "Device".
+Do this before you use a voice feature (captions, text to speech, the voice changer). Open the settings with the gear at the bottom left of the main screen.
 
-- "Mic" is the microphone that picks up your voice. On Linux it lists PipeWire inputs.
-- "Speaker" is the output device ASTAROT listens to when it turns other players' voices into text.
+- For captions with "Local (speech.cpp)", choose the microphone and what Listening hears under "Speech recognition (ASR)" → "More settings" → "Realtime captions", in "Microphone input" and "Listening output". At first they follow the system's defaults ([Speech recognition (ASR) and realtime captions](../features/transcription)). The rows under the microphone and the speaker on the "Device" page open these fields too.
+- "Mic" and "Speaker" under "Device" are used by the cloud speech recognition engines. "Mic" is also where the voice changer's "Input to forward" starts. On Linux it lists PipeWire inputs.
 
 "Auto select" follows the default microphone. On Windows, automatic speaker selection can also follow the output that is playing sound.
 
@@ -77,3 +87,5 @@ The names of the uses may change after we hear from people who tried them.
 - To speak your translations: [Text to speech (TTS)](../features/tts)
 - To turn speech into text: [Speech recognition (ASR) and realtime captions](../features/transcription)
 - To read other people's chatboxes: [Chat reading (OCR)](../features/chat-reading)
+
+After setup, [find what you want to do](./tasks). If a step did not work, see [Troubleshooting](./troubleshooting).

@@ -8,7 +8,7 @@
 # checked on 2026-11-21 with `cargo tree -i` in the workspaces that hold it.
 
 # chrono: unmaintained (alternatives: jiff, time). Since #879 no crate of this repository uses it:
-# vrct-core and vrct-ops moved to jiff. It stays only in src-tauri/Cargo.lock, as an optional
+# astarot-core and astarot-ops moved to jiff. It stays only in src-tauri/Cargo.lock, as an optional
 # dependency of serde_with that the app does not turn on (`cargo tree -i chrono` prints nothing).
 # Cargo keeps unused optional dependencies in a lock file, and osv-scanner reads the lock file.
 # tests/devtools/test_lockfile_exceptions.py fails if chrono comes back into the build.
@@ -18,30 +18,30 @@ ignoreUntil = 2027-02-21
 reason = "chrono is only in src-tauri/Cargo.lock as an optional dependency of serde_with that the app does not build; no crate of this repository uses it since #879"
 
 # ttf-parser: unmaintained (alternative: skrifa). It comes through ab_glyph, which draws the VR
-# subtitles in vrct-vr-overlay; leaving it means changing how the subtitles are drawn.
+# subtitles in astarot-vr-overlay; leaving it means changing how the subtitles are drawn.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0192"
 ignoreUntil = 2027-02-21
-reason = "ttf-parser comes through ab_glyph (vrct-vr-overlay's subtitles); no ab_glyph release leaves it"
+reason = "ttf-parser comes through ab_glyph (astarot-vr-overlay's subtitles); no ab_glyph release leaves it"
 
 # zbus_names, zvariant, zvariant_derive: no longer separate crates; zbus 6 holds them. zbus 5
-# comes from vrct-core's Secret Service code, from the Tauri app's own crate (vrct-vox), and from
+# comes from astarot-core's Secret Service code, from the Tauri app's own crate (astarot), and from
 # tauri-plugin-opener and tauri-plugin-single-instance, so the app keeps them until those plugins
 # move to zbus 6 too.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0371"
 ignoreUntil = 2027-02-21
-reason = "zbus_names is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zbus_names is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0370"
 ignoreUntil = 2027-02-21
-reason = "zvariant is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zvariant is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0372"
 ignoreUntil = 2027-02-21
-reason = "zvariant_derive is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zvariant_derive is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 # paste: unmaintained. It comes through tokenizers (the local translation's tokenizer).
 [[IgnoredVulns]]
@@ -67,3 +67,20 @@ reason = "The same notice as RUSTSEC-2024-0429 (glib 0.18 through GTK 3)"
 id = "RUSTSEC-2024-0370"
 ignoreUntil = 2027-02-21
 reason = "proc-macro-error comes through glib-macros and gtk3-macros (GTK 3, the Tauri app on Linux)"
+
+# glob 13.0.7 and minimatch 10.2.6: development only, through the component catalog (Storybook,
+# src-ui/views/kit_catalog/). @storybook/react-vite 10.6 asks for
+# @joshwooding/vite-plugin-react-docgen-typescript ^0.7.0, which asks for glob ^13, and glob 13 for
+# minimatch ^10; the fixes are in glob 14.0.2 and minimatch 11.0.1, outside those ranges. Storybook
+# loads that plugin only for the react-docgen-typescript option, which .storybook/main.ts does not
+# use (reactDocgen: false), so neither package runs. Storybook 11.0.0-rc.0 no longer depends on the
+# plugin. tests/devtools/test_lockfile_exceptions.py fails if either comes in another way.
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-02-25
+reason = "glob 13.0.7 comes only through @storybook/react-vite 10.6's react-docgen-typescript plugin (glob ^13), which the catalog does not load; the fix is glob 14.0.2"
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-25
+reason = "minimatch 10.2.6 comes only through glob 13 of @storybook/react-vite 10.6's react-docgen-typescript plugin, which the catalog does not load; the fix is minimatch 11.0.1"

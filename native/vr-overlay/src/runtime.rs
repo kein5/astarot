@@ -74,6 +74,25 @@ pub struct SceneApp {
     pub process_id: u32,
 }
 
+/// A call on SteamVR's list of applications that SteamVR refused (its `EVRApplicationError`), or
+/// [`ApplicationError::UNAVAILABLE`] when the session cannot make it. Paths and keys stay out of
+/// it, as they hold the user's name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ApplicationError(pub i32);
+
+impl ApplicationError {
+    /// `IVRApplications` is not there, or this session does not make the call.
+    pub const UNAVAILABLE: Self = Self(-1);
+    /// `VRApplicationError_AppKeyAlreadyExists`: another manifest holds the key.
+    pub const KEY_TAKEN: Self = Self(100);
+    /// `VRApplicationError_UnknownApplication`.
+    pub const UNKNOWN_APPLICATION: Self = Self(104);
+    /// `VRApplicationError_InvalidManifest`.
+    pub const INVALID_MANIFEST: Self = Self(107);
+    /// `VRApplicationError_InvalidParameter`: here, a path that is not valid Unicode.
+    pub const INVALID_PARAMETER: Self = Self(203);
+}
+
 /// SteamVR on this machine.
 pub trait Vr: Send + Sync {
     /// Whether SteamVR runs (its `vrserver` or `vrmonitor` process, #944). Cheap; polled every
@@ -134,6 +153,32 @@ pub trait Session: Send {
     fn tip_offset(&mut self, _device: Device) -> Option<Mat4> {
         None
     }
+    /// Adds an application manifest to the list SteamVR builds its installed applications from,
+    /// for good (`AddApplicationManifest`, not temporary): SteamVR reads the file again at each
+    /// start. `manifest` is a full path ([`crate::registration`]).
+    fn add_application_manifest(&mut self, _manifest: &std::path::Path) -> Result<(), ApplicationError> {
+        Err(ApplicationError::UNAVAILABLE)
+    }
+    /// Takes a manifest out of that list (`RemoveApplicationManifest`).
+    fn remove_application_manifest(&mut self, _manifest: &std::path::Path) -> Result<(), ApplicationError> {
+        Err(ApplicationError::UNAVAILABLE)
+    }
+    /// The binary SteamVR starts for the application `key` (`VRApplicationProperty_BinaryPath_String`,
+    /// "" when it names none); `None` while no application of the key is installed
+    /// (`IsApplicationInstalled`).
+    fn application_binary(&mut self, _key: &str) -> Result<Option<String>, ApplicationError> {
+        Err(ApplicationError::UNAVAILABLE)
+    }
+    /// Whether SteamVR starts the application `key` with itself (`SetApplicationAutoLaunch`;
+    /// only for a dashboard overlay application).
+    fn set_auto_launch(&mut self, _key: &str, _on: bool) -> Result<(), ApplicationError> {
+        Err(ApplicationError::UNAVAILABLE)
+    }
+    /// SteamVR's auto-launch flag of `key` (`GetApplicationAutoLaunch`), which its own startup
+    /// settings change too.
+    fn auto_launch(&mut self, _key: &str) -> Result<bool, ApplicationError> {
+        Err(ApplicationError::UNAVAILABLE)
+    }
 }
 
 /// A stand-in SteamVR for tests: records what is asked and lets a test choose what runs, where
@@ -154,6 +199,9 @@ pub mod fake {
         /// (`ASTAROT0`…, not the pointer's `ASTAROT_pointer_*` marks): connecting still works, showing
         /// a message does not.
         pub fail_pictures: bool,
+        /// How long a picture larger than the 1×1 clear takes to show on a window, as on a busy
+        /// GPU. `None`: at once.
+        pub slow_pictures: Option<std::time::Duration>,
         pub quit: bool,
         pub connects: usize,
         pub sessions_open: usize,
@@ -190,6 +238,47 @@ pub mod fake {
         pub bounds: HashMap<Handle, [f32; 4]>,
         /// The texture each overlay shows and its size.
         pub textures: HashMap<Handle, (TextureSlot, (u32, u32))>,
+        /// The manifests in SteamVR's list (`AddApplicationManifest`), in the order added.
+        pub manifests: Vec<std::path::PathBuf>,
+        /// The applications read from them: key → (its manifest, the binary it names, made
+        /// absolute from the manifest's folder as SteamVR does).
+        pub applications: HashMap<String, (std::path::PathBuf, String)>,
+        /// The auto-launch flags by key. SteamVR keeps them apart from the manifests, so a key
+        /// taken out of the list and added again has its flag still.
+        pub auto_launch: HashMap<String, bool>,
+        /// Every call on the list of applications fails with this `EVRApplicationError`.
+        pub refuse_applications: Option<i32>,
+        /// The calls on the list of applications, as short lines ("add <path>", "auto_launch
+        /// <key> true").
+        pub application_calls: Vec<String>,
+    }
+
+    impl State {
+        /// Reads a manifest as SteamVR would: its applications' keys and binaries.
+        fn read_manifest(manifest: &std::path::Path) -> Result<Vec<(String, String)>, ApplicationError> {
+            let text = std::fs::read_to_string(manifest).map_err(|_| ApplicationError::INVALID_MANIFEST)?;
+            let json: serde_json::Value = serde_json::from_str(&text).map_err(|_| ApplicationError::INVALID_MANIFEST)?;
+            let folder = manifest.parent().unwrap_or(std::path::Path::new(""));
+            let order = if cfg!(windows) { ["binary_path_windows", "binary_path_linux"] } else { ["binary_path_linux", "binary_path_windows"] };
+            let applications = json["applications"].as_array().ok_or(ApplicationError::INVALID_MANIFEST)?;
+            applications
+                .iter()
+                .map(|application| {
+                    let key = application["app_key"].as_str().ok_or(ApplicationError::INVALID_MANIFEST)?;
+                    let binary = order.iter().find_map(|field| application[*field].as_str()).unwrap_or("");
+                    let binary = if binary.is_empty() { String::new() } else { folder.join(binary).to_string_lossy().into_owned() };
+                    Ok((key.to_string(), binary))
+                })
+                .collect()
+        }
+
+        fn refused(&mut self, line: String) -> Result<(), ApplicationError> {
+            self.application_calls.push(line);
+            match self.refuse_applications {
+                Some(code) => Err(ApplicationError(code)),
+                None => Ok(()),
+            }
+        }
     }
 
     impl State {
@@ -250,6 +339,13 @@ pub mod fake {
         pub fn calls_on(&self, handle: Handle, prefix: &str) -> Vec<String> {
             let tag = format!("{prefix} {handle} ");
             self.with(|s| s.calls.iter().filter(|c| c.starts_with(&tag)).cloned().collect())
+        }
+
+        /// Whether the overlays of the latest connection are built (#861). The engine makes the
+        /// five of them first and gives each its first, empty picture after: an overlay that
+        /// exists may still get that picture. Count pictures only once this holds.
+        pub fn built(&self) -> bool {
+            (0..5).all(|i| self.handle(&format!("ASTAROT{i}")).is_some_and(|handle| !self.calls_on(handle, "raw").is_empty()))
         }
 
         /// Puts a device somewhere (index 0 is the headset); `None` loses its tracking.
@@ -326,11 +422,18 @@ pub mod fake {
             Ok(())
         }
         fn set_raw(&mut self, overlay: Handle, rgba: &[u8], width: u32, height: u32) -> Result<(), VrError> {
-            let mut s = self.state.lock().unwrap();
-            let window = s.created.iter().rev().find(|(_, h)| *h == overlay).is_some_and(|(key, _)| !key.contains('_'));
-            if s.fail_raw || (s.fail_pictures && window && width * height > 1) {
-                return Err(VrError("VROverlayError_RequestFailed".into()));
+            let slow = {
+                let s = self.state.lock().unwrap();
+                let window = s.created.iter().rev().find(|(_, h)| *h == overlay).is_some_and(|(key, _)| !key.contains('_'));
+                if s.fail_raw || (s.fail_pictures && window && width * height > 1) {
+                    return Err(VrError("VROverlayError_RequestFailed".into()));
+                }
+                s.slow_pictures.filter(|_| window && width * height > 1)
+            };
+            if let Some(slow) = slow {
+                std::thread::sleep(slow);
             }
+            let mut s = self.state.lock().unwrap();
             assert_eq!(rgba.len(), (width * height * 4) as usize);
             s.raw.insert(overlay, (width, height));
             s.textures.remove(&overlay);
@@ -448,6 +551,51 @@ pub mod fake {
         }
         fn tip_offset(&mut self, device: Device) -> Option<Mat4> {
             self.state.lock().unwrap().tips.get(&device).copied()
+        }
+        /// As SteamVR: a key another manifest holds is refused, and the same manifest added again
+        /// is read again.
+        fn add_application_manifest(&mut self, manifest: &std::path::Path) -> Result<(), ApplicationError> {
+            let mut s = self.state.lock().unwrap();
+            s.refused(format!("add {}", manifest.display()))?;
+            let read = State::read_manifest(manifest)?;
+            if read.iter().any(|(key, _)| s.applications.get(key).is_some_and(|(held, _)| held != manifest)) {
+                return Err(ApplicationError::KEY_TAKEN);
+            }
+            s.applications.retain(|_, (held, _)| held != manifest);
+            for (key, binary) in read {
+                s.applications.insert(key, (manifest.to_path_buf(), binary));
+            }
+            if !s.manifests.iter().any(|listed| listed == manifest) {
+                s.manifests.push(manifest.to_path_buf());
+            }
+            Ok(())
+        }
+        fn remove_application_manifest(&mut self, manifest: &std::path::Path) -> Result<(), ApplicationError> {
+            let mut s = self.state.lock().unwrap();
+            s.refused(format!("remove {}", manifest.display()))?;
+            let before = s.manifests.len();
+            s.manifests.retain(|listed| listed != manifest);
+            s.applications.retain(|_, (held, _)| held != manifest);
+            if s.manifests.len() == before { Err(ApplicationError::UNKNOWN_APPLICATION) } else { Ok(()) }
+        }
+        fn application_binary(&mut self, key: &str) -> Result<Option<String>, ApplicationError> {
+            let mut s = self.state.lock().unwrap();
+            s.refused(format!("binary {key}"))?;
+            Ok(s.applications.get(key).map(|(_, binary)| binary.clone()))
+        }
+        fn set_auto_launch(&mut self, key: &str, on: bool) -> Result<(), ApplicationError> {
+            let mut s = self.state.lock().unwrap();
+            s.refused(format!("auto_launch {key} {on}"))?;
+            if !s.applications.contains_key(key) {
+                return Err(ApplicationError::UNKNOWN_APPLICATION);
+            }
+            s.auto_launch.insert(key.to_string(), on);
+            Ok(())
+        }
+        fn auto_launch(&mut self, key: &str) -> Result<bool, ApplicationError> {
+            let mut s = self.state.lock().unwrap();
+            s.refused(format!("read auto_launch {key}"))?;
+            Ok(s.applications.contains_key(key) && s.auto_launch.get(key).copied().unwrap_or(false))
         }
     }
 }

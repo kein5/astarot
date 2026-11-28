@@ -6,11 +6,12 @@ import { unchecked } from "../test/hookHarness.ts";
 const t = (key: string) => `t:${key}`;
 const off = { on: false, pending: false, blocked: false };
 
-test("the reported state holds only the six switches, the UI language and the tray's words", () => {
+test("the reported state holds only the six switches, the UI language, the theme and the tray's words", () => {
+    const theme = { preset: "forest", custom: { base: "#15261c", accent: "#62c98c" } };
     const status = companionStatus({ ready: true, mic: { state: "ok", data: true },
         translation: { state: "pending", data: false }, listening: { state: "ok", data: true },
         ocr: { state: "ok", data: false }, tts: { on: true, pending: false }, rvc: { on: false, pending: true },
-        edge: "bottom", monitor: "\\\\.\\DISPLAY2", hinted: true, language: "ja", t });
+        edge: "bottom", monitor: "\\\\.\\DISPLAY2", hinted: true, theme, language: "ja", t });
     assert.deepEqual(status, {
         ready: true,
         mic: { on: true, pending: false, blocked: false },
@@ -23,20 +24,22 @@ test("the reported state holds only the six switches, the UI language and the tr
         edge: "bottom",
         monitor: "\\\\.\\DISPLAY2",
         hinted: true,
+        theme,
         menu: { start: "t:companion.menu_start", stop: "t:companion.menu_stop", panel: "t:companion.menu_panel",
-            main: "t:companion.menu_main", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
+            main: "t:companion.menu_main", settings: "t:companion.menu_settings", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
             primary: "t:companion.menu_monitor_primary", display: "t:companion.menu_monitor_display",
             missing: "t:companion.menu_monitor_missing" },
     });
 });
 
 test("an unknown language or edge falls back to English and the right edge, and a missing switch reads as off", () => {
-    const status = companionStatus({ ready: undefined, mic: undefined, translation: { data: "yes" }, edge: "middle", language: "fr", t });
+    const status = companionStatus({ ready: undefined, mic: undefined, translation: { data: "yes" }, edge: "middle", theme: { preset: "bad", custom: { base: "nope", accent: "#123456" } }, language: "fr", t });
     assert.equal(status.ready, false);
     assert.equal(status.language, "en");
     assert.equal(status.edge, "right");
     assert.equal(status.monitor, "", "no monitor chosen: the primary one");
     assert.equal(status.hinted, null, "the wheel's hint is not known yet: the hexagram does not tell of it");
+    assert.equal(status.theme, null, "an invalid theme falls back to the default theme");
     for (const feature of FEATURES) assert.deepEqual(status[feature], off, feature);
 });
 

@@ -1,26 +1,38 @@
 import { useI18n } from "@useI18n";
-import { useWindow } from "@logics_common";
+import { useWindow, useWindowMaximized } from "@logics_common";
 import { closeButtonLabelKey, useCloseHides } from "../../../../logics/common/closeBehavior.ts";
 // import clsx from "clsx";
-import styles from "./WindowTitleBar.module.scss";
+import * as styles from "./WindowTitleBar.css.ts";
 import XMarkSvg from "@images/cancel.svg?react";
 import SquareSvg from "@images/square.svg?react";
+import RestoreSvg from "@images/restore.svg?react";
 import LineSvg from "@images/line.svg?react";
 import { Tooltip } from "../../../common_components/tooltip/Tooltip";
+import { isSettingsWindow } from "../../../../logics/common/settingsWindow.ts";
+
+// The settings window's close button closes only it (#1236): there is nothing to ask the tray.
+const notAsked = async () => false;
 
 export const WindowTitleBar = () => {
     const { t } = useI18n();
     const { asyncCloseApp, asyncToggleMaximizeApp, asyncMinimizeApp} = useWindow();
+    // The middle button draws what pressing it does, as Windows does (#1258): a square while the
+    // window can be maximized, two squares while it is maximized and can be restored. Its name and
+    // tooltip say both, so they stay the same.
+    const maximized = useWindowMaximized();
     // Closing keeps the app in the tray only where a tray icon is shown; elsewhere it quits.
     // The three buttons are icons: each name is also its tooltip, so what closing does here
     // (quit, or stay in the tray) is seen before the button is pressed.
-    const closeLabel = t(closeButtonLabelKey(useCloseHides()));
+    // The settings window (#1236) has its own title, and its close button closes only it.
+    const settingsWindow = isSettingsWindow();
+    const hides = useCloseHides(settingsWindow ? notAsked : undefined);
+    const closeLabel = t(settingsWindow ? "studio.close_settings" : closeButtonLabelKey(hides));
 
     return (
         <div className={styles.container}>
             <div className={styles.wrapper} data-tauri-drag-region>
                 <div className={styles.title_wrapper}>
-                    <span>ASTAROT</span>
+                    <span>{settingsWindow ? t("studio.settings_window_title") : "ASTAROT"}</span>
                 </div>
 
                 <div className={styles.window_control_wrapper}>
@@ -31,11 +43,13 @@ export const WindowTitleBar = () => {
                     </Tooltip>
                     <Tooltip bare placement="bottom" title={t("studio.maximize")}>
                         <button type="button" aria-label={t("studio.maximize")} className={styles.maximize_button} onClick={asyncToggleMaximizeApp}>
-                            <SquareSvg aria-hidden="true" className={styles.square_svg}/>
+                            {maximized
+                                ? <RestoreSvg aria-hidden="true" className={styles.restore_svg}/>
+                                : <SquareSvg aria-hidden="true" className={styles.square_svg}/>}
                         </button>
                     </Tooltip>
                     <Tooltip bare placement="bottom" title={closeLabel}>
-                        <button type="button" aria-label={closeLabel} className={styles.close_button} onClick={asyncCloseApp}>
+                        <button type="button" aria-label={closeLabel} className={styles.close_button} data-window-close="" onClick={asyncCloseApp}>
                             <XMarkSvg aria-hidden="true" className={styles.x_mark_svg}/>
                         </button>
                     </Tooltip>

@@ -1,10 +1,12 @@
+import { useId } from "react";
 import { useI18n } from "@useI18n";
+import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useVoiceAudition } from "../../../../../../logics/voice/useVoiceAudition";
 import { RVC_AUDITION_SECONDS, auditionBlock, isAuditionProfile, rvcAuditionBlock } from "../../../../../../logics/voice/voiceAudition";
 import type { RvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 
 // The voice audition of one catalog card (#415), on the monitor output only. A TTS card: the model
 // its profile's running server uses reads a short fixed sentence. An RVC card: the user's voice,
@@ -33,7 +35,9 @@ const useAuditionCard = (target: string, status: string, entry?: string, values?
 };
 
 // In the card's row of actions, after the card's own action. While it plays it is the stop; while
-// the press waits for the engine it says so and ignores more presses, keeping its focus.
+// the press waits for the engine it says so and ignores more presses, keeping its focus. What the
+// sample does is the app's tooltip, on the pointer and on keyboard focus, and the button's
+// description, kept in the page while the tooltip is closed.
 // `target` is the card's catalog target; the TTS targets and RVC have an audition.
 export interface AuditionProps {
     target: string;
@@ -48,15 +52,21 @@ export interface AuditionProps {
 export const AuditionButton = ({ target, status, entry, values, input }: AuditionProps) => {
     const { t } = useI18n();
     const card = useAuditionCard(target, status, entry, values, input);
+    const aboutId = useId();
     if (!card || (card.block && !card.playing && !card.pending)) return null;
     const { playing, pending, kind } = card;
-    return <button type="button" className={playing ? styles.quiet : undefined} data-voice-audition={kind === "rvc" ? entry : target}
-        aria-disabled={pending || undefined} aria-busy={pending || undefined}
-        title={kind === "rvc" ? t("voice_audition.rvc_tooltip", { seconds: RVC_AUDITION_SECONDS }) : t("voice_audition.tooltip")}
-        onClick={() => {
-            if (pending) return;
-            if (playing) card.stop(); else card.play();
-        }}>{t(pending ? "voice_audition.pending" : playing ? "voice_audition.stop" : "voice_audition.play")}</button>;
+    const about = kind === "rvc" ? t("voice_audition.rvc_tooltip", { seconds: RVC_AUDITION_SECONDS }) : t("voice_audition.tooltip");
+    return <Tooltip bare title={about}>
+        <button type="button" className={playing ? styles.quiet : undefined} data-voice-audition={kind === "rvc" ? entry : target}
+            aria-disabled={pending || undefined} aria-busy={pending || undefined} aria-describedby={aboutId}
+            onClick={() => {
+                if (pending) return;
+                if (playing) card.stop(); else card.play();
+            }}>
+            {t(pending ? "voice_audition.pending" : playing ? "voice_audition.stop" : "voice_audition.play")}
+            <span id={aboutId} hidden>{about}</span>
+        </button>
+    </Tooltip>;
 };
 
 // Under the row: what the audition does now, why this card cannot play one, or else why the last

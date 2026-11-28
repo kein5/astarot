@@ -11,6 +11,7 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import type { VoiceSettings } from "../../../../../../logics/voice/useVoice";
 import type { DraftState } from "../../../../../../logics/voice/useSettingsDraft";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
+import { Button, Select, SelectOptGroup, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 export type TtsEngineId = "voicevox" | "coeiroink" | "aivis" | "sharevox";
 // url: the setting that holds the engine's address; example: its own address.
@@ -101,9 +102,9 @@ const numberFields = <F extends ReadingNumber>({ t, numbers, label, value, set, 
     numbers.map(item => {
         const invalid = !validNumber(item, { [item.key]: value(item.key) });
         return <label key={item.key}>{label(item)}
-            <input type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
+            <TextField type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
                 placeholder={t("voice_ui.example", { value: item.fallback })}
-                aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined}
+                invalid={invalid} aria-describedby={invalid ? errorId : undefined}
                 onChange={event => set(item.key, event.target.value)} />
         </label>;
     });
@@ -113,9 +114,11 @@ export interface AudioQueryOptionsProps {
     engine: TtsEngineId;
     draft: VoiceSettings;
     setDraft: TtsDraftSetter;
+    // Saves at once (#1111): the reset is a choice, not typing.
+    resetDraft?: TtsDraftSetter;
 }
 
-export const AudioQueryOptions = ({ engine, draft, setDraft }: AudioQueryOptionsProps) => {
+export const AudioQueryOptions = ({ engine, draft, setDraft, resetDraft = setDraft }: AudioQueryOptionsProps) => {
     const { t } = useI18n();
     const errorId = useId();
     const numbers = audioQueryNumbers(engine);
@@ -129,13 +132,13 @@ export const AudioQueryOptions = ({ engine, draft, setDraft }: AudioQueryOptions
         status={t("voice_ui.engine.audio_query.status", { speed: value(`${engine}_speed`) })}>
         {numberFields({ t, numbers, label: item => t(`voice_ui.engine.audio_query.${item.name}`), value, set, errorId })}
         {!validAudioQueryOptions({ ...defaults, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.audio_query.invalid")}</p>}
-        {/* Back to the engine's own values; saved from the save bar. */}
-        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...defaults }))}>
-            {t("voice_ui.engine.audio_query.reset")}</button>
+        {/* Back to the engine's own values, saved at once. */}
+        <Button disabled={!changed} onClick={() => resetDraft(current => ({ ...current, ...defaults }))}>
+            {t("voice_ui.engine.audio_query.reset")}</Button>
     </SetupSection>;
 };
 
-export const CoeiroinkOptions = ({ draft, setDraft }: { draft: VoiceSettings; setDraft: TtsDraftSetter }) => {
+export const CoeiroinkOptions = ({ draft, setDraft, resetDraft = setDraft }: { draft: VoiceSettings; setDraft: TtsDraftSetter; resetDraft?: TtsDraftSetter }) => {
     const { t } = useI18n();
     const errorId = useId();
     const value = (key: string) => draft[key] ?? COEIROINK_DEFAULTS[key];
@@ -145,28 +148,34 @@ export const CoeiroinkOptions = ({ draft, setDraft }: { draft: VoiceSettings; se
         status={t("voice_ui.engine.coeiroink.status", { speed: value("coeiroink_speed"), rate: value("coeiroink_sampling_rate") })}>
         {numberFields({ t, numbers: COEIROINK_NUMBERS, label: item => t(`voice_ui.engine.coeiroink.${item.key}`), value, set, errorId })}
         <label>{t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")}
-            <select aria-label={t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")} value={value("coeiroink_sampling_rate")}
+            <Select aria-label={t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")} value={value("coeiroink_sampling_rate")}
                 onChange={event => set("coeiroink_sampling_rate", event.target.value)}>
-                {COEIROINK_RATES.map(rate => <option key={rate} value={rate}>{t("voice_ui.engine.coeiroink.rate_option", { rate })}</option>)}
-            </select>
+                {COEIROINK_RATES.map(rate => <SelectOption key={rate} value={rate}>{t("voice_ui.engine.coeiroink.rate_option", { rate })}</SelectOption>)}
+            </Select>
         </label>
         {!validCoeiroinkOptions({ ...COEIROINK_DEFAULTS, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.coeiroink.invalid")}</p>}
-        {/* Back to the values the app used before they could be set; saved from the save bar. */}
-        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
-            {t("voice_ui.engine.coeiroink.reset")}</button>
+        {/* Back to the values the app used before they could be set, saved at once. */}
+        <Button disabled={!changed} onClick={() => resetDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
+            {t("voice_ui.engine.coeiroink.reset")}</Button>
     </SetupSection>;
 };
 
 // Which engine reads Japanese, and for an installed engine its URL, whether it answers and which
 // of its voices to use. The app never installs or starts an engine; checking only asks it for
-// its version and voices. Everything is saved from the save bar, like the rest of the page.
+// its version and voices. It saves with the rest of the page's form, by itself (#1111).
 export interface TtsEngineProps {
     draft: VoiceSettings;
     setDraft: TtsDraftSetter;
+    // What a reset button changes the draft with: saved at once (#1111). setDraft otherwise.
+    resetDraft?: TtsDraftSetter;
     saved: VoiceSettings | null;
+    // Which part to draw (#1266, ★17): the choice of the engine, with the language's way to read,
+    // or an installed engine's own settings (its address, check, voice and reading), with the
+    // other external servers and engines after the models. Both when not given.
+    part?: "choice" | "details";
 }
 
-export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
+export const TtsEngine = ({ draft, setDraft, resetDraft, saved, part }: TtsEngineProps) => {
     const { t } = useI18n();
     const { engineVoices, send } = useVoice();
     const [linkError, setLinkError] = useState<string | null>(null);
@@ -174,9 +183,11 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
     const spec = ttsEngineSpec(engine), terms = spec?.terms;
     const url = spec ? draft[spec.url] ?? "" : "";
     const check = () => send("/get/data/tts_engine_voices", { engine, url });
-    // Check when an engine is chosen or the page opens with one; a typed URL is checked with the button.
+    const choice = part !== "details", details = part !== "choice";
+    // Check when an engine is chosen or the page opens with one; a typed URL is checked with the
+    // button. The part with the engine's settings checks it; the choice alone does not.
     // biome-ignore lint/correctness/useExhaustiveDependencies: only the engine starts a check (see above), not the typed URL.
-    useEffect(() => { if (spec) check(); }, [engine]);
+    useEffect(() => { if (spec && details) check(); }, [engine]);
 
     const choose = (value: string) => setDraft(current => {
         // A voice belongs to its engine. Coming back to the saved engine brings its saved voice back.
@@ -202,21 +213,21 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
 
     return <>
         {/* The description follows the chosen engine: AI voice needs a speech server, the others are installed by the user. */}
-        <FormRow label={t("voice_ui.engine.label")} description={t(spec ? "voice_ui.engine.description" : "voice_ui.engine.description_speechcpp")}>
-            <select aria-label={t("voice_ui.engine.label")} value={engine} onChange={event => choose(event.target.value)}>
-                <option value="speechcpp">{t("voice_ui.engine.speechcpp")}</option>
-                {Object.entries(TTS_ENGINES).map(([id, item]) => <option key={id} value={id}>{item.name}</option>)}
-            </select>
-        </FormRow>
-        {spec && <>
+        {choice && <FormRow label={t("voice_ui.engine.label")} description={t(spec ? "voice_ui.engine.description" : "voice_ui.engine.description_speechcpp")}>
+            <Select aria-label={t("voice_ui.engine.label")} value={engine} onChange={event => choose(event.target.value)}>
+                <SelectOption value="speechcpp">{t("voice_ui.engine.speechcpp")}</SelectOption>
+                {Object.entries(TTS_ENGINES).map(([id, item]) => <SelectOption key={id} value={id}>{item.name}</SelectOption>)}
+            </Select>
+        </FormRow>}
+        {details && spec && <>
             <p>
                 <a href={spec.site} target="_blank" rel="noreferrer" onClick={event => open(event, spec.site)}>{t("voice_ui.engine.site", { engine: spec.name })}</a>
                 {terms && <>{" · "}<a href={terms} target="_blank" rel="noreferrer" onClick={event => open(event, terms)}>{t("voice_ui.engine.terms")}</a></>}
             </p>
             {linkError && <p role="alert">{t("model_downloads.link_error")} <code>{linkError}</code></p>}
             <FormRow label={t("voice_ui.engine.url")} description={t("voice_ui.engine.url_hint")}
-                actions={<button type="button" disabled={state === "checking" && !!result?.pending} onClick={check}>{t("voice_ui.engine.recheck")}</button>}>
-                <input aria-label={t("voice_ui.engine.url")} value={url} maxLength={512} spellCheck={false}
+                actions={<Button disabled={state === "checking" && !!result?.pending} onClick={check}>{t("voice_ui.engine.recheck")}</Button>}>
+                <TextField mono aria-label={t("voice_ui.engine.url")} value={url} maxLength={512} spellCheck={false}
                     placeholder={t("voice_ui.example", { value: spec.example })}
                     onChange={event => setDraft(current => ({ ...current, [spec.url]: event.target.value }))} />
             </FormRow>
@@ -227,24 +238,24 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
                         state === "url_invalid" ? t("voice_ui.errors.tts_engine_url_invalid") : t("voice_ui.engine.not_connected")}</p>
             </EnvReadout>
             <label>{t("voice_ui.engine.voice")}
-                <select aria-label={t("voice_ui.engine.voice")} value={draft.engine_voice_id || ""}
+                <Select aria-label={t("voice_ui.engine.voice")} value={draft.engine_voice_id || ""}
                     onChange={event => {
                         const voice = voices.find(item => item.id === event.target.value);
                         setDraft(current => ({ ...current, engine_voice_id: voice?.id ?? "",
                             engine_voice_speaker: voice?.speaker ?? "", engine_voice_style: voice?.style ?? "" }));
                     }}>
-                    <option value="">{t("voice_ui.engine.voice_unset")}</option>
+                    <SelectOption value="">{t("voice_ui.engine.voice_unset")}</SelectOption>
                     {/* The saved voice stays visible while the engine is off or has changed its list. */}
-                    {draft.engine_voice_id && !voiceKnown && <option value={draft.engine_voice_id}>
-                        {t("voice_ui.engine.voice_saved", { speaker: draft.engine_voice_speaker, style: draft.engine_voice_style })}</option>}
-                    {speakers.map(speaker => <optgroup key={speaker} label={speaker}>
-                        {voices.filter(voice => voice.speaker === speaker).map(voice => <option key={voice.id} value={voice.id}>{voice.style}</option>)}
-                    </optgroup>)}
-                </select>
+                    {draft.engine_voice_id && !voiceKnown && <SelectOption value={draft.engine_voice_id}>
+                        {t("voice_ui.engine.voice_saved", { speaker: draft.engine_voice_speaker, style: draft.engine_voice_style })}</SelectOption>}
+                    {speakers.map(speaker => <SelectOptGroup key={speaker} label={speaker}>
+                        {voices.filter(voice => voice.speaker === speaker).map(voice => <SelectOption key={voice.id} value={voice.id}>{voice.style}</SelectOption>)}
+                    </SelectOptGroup>)}
+                </Select>
             </label>
             {state === "connected" && !voices.length && <p>{t("voice_ui.engine.no_voices")}</p>}
-            {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} />}
-            {audioQuery && <AudioQueryOptions key={audioQuery} engine={audioQuery} draft={draft} setDraft={setDraft} />}
+            {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
+            {audioQuery && <AudioQueryOptions key={audioQuery} engine={audioQuery} draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
             {/* The voices' credit and terms: what their licenses ask, kept in sight (#614). */}
             <Description text={t(`voice_ui.engine.credit.${engine}`)} />
         </>}

@@ -7,14 +7,14 @@
 //! `/run/initialization_progress` 1 to 4, `/run/enable_ai_models`, the engines.
 
 use super::Core;
-use crate::dispatch::Dispatcher;
+use crate::dispatch::{Dispatcher, Routes};
 use crate::errors::ErrorReply;
 use crate::languages::{RETIRED_TRANSLATION_WEIGHTS, RETIRED_TRANSLATION_WEIGHT_RESET, TRANSLATION_WEIGHTS};
 use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 11] = [
+pub const INIT_EXCLUDED: [&str; 12] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -30,6 +30,8 @@ pub const INIT_EXCLUDED: [&str; 11] = [
     "/get/data/voice_audition_state",
     // Core only: the GPU check (#288); asked only on its section of the settings.
     "/get/data/gpu_check_state",
+    // Core only: asks SteamVR (#1384); the VR page asks when it opens.
+    "/get/data/steamvr_auto_launch",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
@@ -115,6 +117,7 @@ impl Core {
         }
         self.step("Init Overlay");
         self.sync_overlay_running();
+        self.start_steamvr_watch();
         self.start_adapters();
         self.start_audio_devices();
 
@@ -128,7 +131,7 @@ impl Core {
         }
 
         self.step("Update settings");
-        self.notify("initialization_complete", Value::Object(self.snapshot(dispatcher)));
+        self.notify("initialization_complete", Value::Object(self.snapshot_of(dispatcher.routes())));
         self.notify_adapters_started();
         self.notify_after_start();
     }
@@ -146,6 +149,7 @@ impl Core {
         self.step("The run was stopped during the start-up; stopping what it started");
         self.stop_conversation_log();
         self.stop_overlay();
+        self.stop_steamvr_watch();
         self.stop_adapters();
         self.stop_audio_devices();
         self.stop_telemetry();
@@ -154,13 +158,15 @@ impl Core {
 
     /// The answers of the `/get/data/...` endpoints the UI needs at start (`updateConfigSettings`).
     /// A getter that fails gives `null`; the rest still go out.
-    fn snapshot(&self, dispatcher: &Dispatcher) -> Map<String, Value> {
+    /// The answers of every `/get/data/` endpoint of `routes` but [`INIT_EXCLUDED`]: what
+    /// `/run/initialization_complete` carries, and `/run/settings_snapshot` answers (#1236).
+    pub(crate) fn snapshot_of(&self, routes: &Routes) -> Map<String, Value> {
         let mut settings = Map::new();
-        for endpoint in dispatcher.routes().endpoints() {
+        for endpoint in routes.endpoints() {
             if !endpoint.starts_with("/get/data/") || INIT_EXCLUDED.contains(&endpoint) {
                 continue;
             }
-            let route = dispatcher.routes().get(endpoint).expect("listed above");
+            let route = routes.get(endpoint).expect("listed above");
             let handler = route.handler.clone();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(&Value::Null)));
             let value = match result {

@@ -5,7 +5,7 @@
 //! `IVROverlay_028`, `IVRApplications_007`, `IVRRenderModels_006`), the version the Python sidecar's pyopenvr
 //! 2.12.1401 shipped. They are called by position; each position is declared with its
 //! function's name, and the tests check every one against pyopenvr's tables
-//! ([`vrct_openvr_client::fn_table!`]).
+//! ([`astarot_openvr_client::fn_table!`]).
 //!
 //! Where the library is looked for (the first that loads): `ASTAROT_OPENVR_API` (or
 //! `VRCT_OPENVR_API`), the folders the host gives, next to the executable, the Python bundle's
@@ -14,17 +14,21 @@
 
 use crate::math::{Mat34, Mat4, Vec3};
 use crate::runtime::{
-    ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, SceneApp, Session, TextureSlot, Vr,
-    VrError,
+    ApplicationError, ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, SceneApp, Session,
+    TextureSlot, Vr, VrError,
 };
 use std::ffi::{CStr, CString, c_char, c_void};
-use std::path::PathBuf;
-use vrct_openvr_client::FnTable;
+use std::path::{Path, PathBuf};
+use astarot_openvr_client::FnTable;
 
 /// `k_unMaxApplicationKeyLength`.
 const MAX_APPLICATION_KEY: usize = 128;
 /// `VRApplicationProperty_Name_String`.
 const PROPERTY_NAME: i32 = 0;
+/// `VRApplicationProperty_BinaryPath_String`.
+const PROPERTY_BINARY_PATH: i32 = 13;
+/// `VRApplicationError_PropertyNotSet`.
+const PROPERTY_NOT_SET: i32 = 201;
 /// `Prop_RenderModelName_String`.
 const PROP_RENDER_MODEL_NAME: i32 = 1003;
 /// `sizeof(VRControllerState_t)`: packed to 4 bytes outside Windows, like `VREvent_t`.
@@ -47,7 +51,7 @@ const WORN_LEVELS: [i32; 3] = [-1, 1, 2];
 // function there in pyopenvr. The tests below check every one: a wrong position calls another
 // function without any error (#610).
 mod system {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRSystem_023";
         DEVICE_TO_ABSOLUTE_TRACKING_POSE = 11 => "getDeviceToAbsoluteTrackingPose",
         ACTIVITY_LEVEL = 15 => "getTrackedDeviceActivityLevel",
@@ -59,13 +63,13 @@ mod system {
     }
 }
 mod render_models {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRRenderModels_006";
         COMPONENT_STATE = 14 => "getComponentState",
     }
 }
 mod overlay {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVROverlay_028";
         CREATE = 1 => "createOverlay",
         DESTROY = 3 => "destroyOverlay",
@@ -84,10 +88,15 @@ mod overlay {
     }
 }
 mod applications {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRApplications_007";
+        ADD_MANIFEST = 0 => "addApplicationManifest",
+        REMOVE_MANIFEST = 1 => "removeApplicationManifest",
+        IS_INSTALLED = 2 => "isApplicationInstalled",
         KEY_BY_PROCESS_ID = 5 => "getApplicationKeyByProcessId",
         PROPERTY_STRING = 14 => "getApplicationPropertyString",
+        SET_AUTO_LAUNCH = 17 => "setApplicationAutoLaunch",
+        GET_AUTO_LAUNCH = 18 => "getApplicationAutoLaunch",
         CURRENT_SCENE_PROCESS_ID = 29 => "getCurrentSceneProcessId",
     }
 }
@@ -165,7 +174,7 @@ fn matrix(pose: &Mat34) -> Matrix34 {
 
 /// The real SteamVR.
 ///
-/// The connection is the process's one ([`vrct_openvr_client`]): the OCR capture holds it too,
+/// The connection is the process's one ([`astarot_openvr_client`]): the OCR capture holds it too,
 /// and closing the overlay's session leaves the OCR's connected.
 pub struct OpenVr {
     folders: Vec<PathBuf>,
@@ -184,7 +193,7 @@ impl OpenVr {
             ("libopenvr_api.so", "libopenvr_api_64.so")
         };
         let mut out = Vec::new();
-        if let Some(path) = app_identity::env::OPENVR_API.value_os() {
+        if let Some(path) = astarot_app_identity::env::OPENVR_API.value_os() {
             out.push(PathBuf::from(path));
         }
         for folder in &self.folders {
@@ -205,7 +214,7 @@ impl Vr for OpenVr {
     }
 
     fn connect(&self) -> Result<Box<dyn Session>, VrError> {
-        let lease = vrct_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
+        let lease = astarot_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
         let table = |wanted: &FnTable| -> Result<*const *const c_void, VrError> {
             let name = format!("FnTable:{}", wanted.interface);
             lease.interface(&name).map_err(|error| VrError(format!("interface {name} error {error}")))
@@ -231,7 +240,7 @@ struct OpenVrSession {
     /// The page's texture and the resize frame's ([`TextureSlot`]).
     textures: [Option<d3d::SharedTexture>; 2],
     /// The hold on the process's connection; released after the textures (field order).
-    lease: vrct_openvr_client::Lease,
+    lease: astarot_openvr_client::Lease,
 }
 
 // The tables are used from one thread at a time, behind the engine's lock.
@@ -245,6 +254,11 @@ macro_rules! call {
 }
 
 impl OpenVrSession {
+    /// `IVRApplications`, for the calls on SteamVR's list of applications.
+    fn applications_table(&self) -> Result<*const *const c_void, ApplicationError> {
+        if self.applications.is_null() { Err(ApplicationError::UNAVAILABLE) } else { Ok(self.applications) }
+    }
+
     fn check(&self, error: i32, what: &str) -> Result<(), VrError> {
         if error == 0 { Ok(()) } else { Err(VrError(format!("{what}: VROverlayError {error}"))) }
     }
@@ -445,26 +459,9 @@ impl Session for OpenVrSession {
             return Ok(None);
         }
         let key = unsafe { CStr::from_ptr(key.as_ptr()) }.to_owned();
-        let mut name = vec![0 as c_char; 256];
-        loop {
-            let mut error = 0i32;
-            let needed = call!(self.applications, applications::PROPERTY_STRING,
-                fn(*const c_char, i32, *mut c_char, u32, *mut i32) -> u32,
-                key.as_ptr(), PROPERTY_NAME, name.as_mut_ptr(), name.len() as u32, &mut error);
-            if (needed as usize) > name.len() && name.len() < 65536 {
-                name = vec![0 as c_char; needed as usize];
-                continue;
-            }
-            if error != 0 {
-                return Err(VrError(format!("getApplicationPropertyString: VRApplicationError {error}")));
-            }
-            break;
-        }
-        Ok(Some(SceneApp {
-            key: key.to_string_lossy().into_owned(),
-            name: unsafe { CStr::from_ptr(name.as_ptr()) }.to_string_lossy().into_owned(),
-            process_id,
-        }))
+        let name = property_string(self.applications, &key, PROPERTY_NAME)
+            .map_err(|error| VrError(format!("getApplicationPropertyString: VRApplicationError {error}")))?;
+        Ok(Some(SceneApp { key: key.to_string_lossy().into_owned(), name, process_id }))
     }
 
     fn controller_state(&mut self, device: Device) -> Option<ControllerState> {
@@ -506,6 +503,78 @@ impl Session for OpenVrSession {
         let _ = component.tracking_to_render_model;
         let _ = component.properties;
         found.then(|| mat4(&component.tracking_to_local))
+    }
+
+    fn add_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        let table = self.applications_table()?;
+        let path = c_path(manifest)?;
+        let error = call!(table, applications::ADD_MANIFEST, fn(*const c_char, bool) -> i32, path.as_ptr(), false);
+        application_result(error)
+    }
+
+    fn remove_application_manifest(&mut self, manifest: &Path) -> Result<(), ApplicationError> {
+        let table = self.applications_table()?;
+        let path = c_path(manifest)?;
+        let error = call!(table, applications::REMOVE_MANIFEST, fn(*const c_char) -> i32, path.as_ptr());
+        application_result(error)
+    }
+
+    fn application_binary(&mut self, key: &str) -> Result<Option<String>, ApplicationError> {
+        let table = self.applications_table()?;
+        let key = CString::new(key).map_err(|_| ApplicationError::INVALID_PARAMETER)?;
+        let installed = call!(table, applications::IS_INSTALLED, fn(*const c_char) -> bool, key.as_ptr());
+        if !installed {
+            return Ok(None);
+        }
+        match property_string(table, &key, PROPERTY_BINARY_PATH) {
+            Ok(binary) => Ok(Some(binary)),
+            // Installed, with no binary to start (another launch type).
+            Err(PROPERTY_NOT_SET) => Ok(Some(String::new())),
+            Err(error) => Err(ApplicationError(error)),
+        }
+    }
+
+    fn set_auto_launch(&mut self, key: &str, on: bool) -> Result<(), ApplicationError> {
+        let table = self.applications_table()?;
+        let key = CString::new(key).map_err(|_| ApplicationError::INVALID_PARAMETER)?;
+        let error = call!(table, applications::SET_AUTO_LAUNCH, fn(*const c_char, bool) -> i32, key.as_ptr(), on);
+        application_result(error)
+    }
+
+    fn auto_launch(&mut self, key: &str) -> Result<bool, ApplicationError> {
+        let table = self.applications_table()?;
+        let key = CString::new(key).map_err(|_| ApplicationError::INVALID_PARAMETER)?;
+        Ok(call!(table, applications::GET_AUTO_LAUNCH, fn(*const c_char) -> bool, key.as_ptr()))
+    }
+}
+
+/// A path as OpenVR takes it: UTF-8, without NUL.
+fn c_path(path: &Path) -> Result<CString, ApplicationError> {
+    let text = path.to_str().ok_or(ApplicationError::INVALID_PARAMETER)?;
+    CString::new(text).map_err(|_| ApplicationError::INVALID_PARAMETER)
+}
+
+fn application_result(error: i32) -> Result<(), ApplicationError> {
+    if error == 0 { Ok(()) } else { Err(ApplicationError(error)) }
+}
+
+/// A string property of the application `key` (`GetApplicationPropertyString`), with a buffer
+/// as large as SteamVR asks for; the `EVRApplicationError` when it refuses.
+fn property_string(applications: *const *const c_void, key: &CStr, property: i32) -> Result<String, i32> {
+    let mut value = vec![0 as c_char; 256];
+    loop {
+        let mut error = 0i32;
+        let needed = call!(applications, applications::PROPERTY_STRING,
+            fn(*const c_char, i32, *mut c_char, u32, *mut i32) -> u32,
+            key.as_ptr(), property, value.as_mut_ptr(), value.len() as u32, &mut error);
+        if (needed as usize) > value.len() && value.len() < 65536 {
+            value = vec![0 as c_char; needed as usize];
+            continue;
+        }
+        if error != 0 {
+            return Err(error);
+        }
+        return Ok(unsafe { CStr::from_ptr(value.as_ptr()) }.to_string_lossy().into_owned());
     }
 }
 
@@ -595,7 +664,7 @@ mod tests {
 
     /// The names of `interface`'s functions in table order, from pyopenvr 2.12.1401.
     fn reference(interface: &str) -> Vec<String> {
-        let tables: serde_json::Value = serde_json::from_str(vrct_openvr_client::REFERENCE_FN_TABLES).unwrap();
+        let tables: serde_json::Value = serde_json::from_str(astarot_openvr_client::REFERENCE_FN_TABLES).unwrap();
         let names = tables["tables"][interface]
             .as_array()
             .unwrap_or_else(|| panic!("no {interface} in the reference: add it to native/openvr-client/reference/dump_reference.py"));

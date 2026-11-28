@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, eventTarget, stubGlobals, findIn, nodesIn, componentName, componentOf, setRef } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, componentOf, kitStandIns } from "../../../../../logics/test/hookHarness.ts";
 import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
+import { voiceActions, voiceStopState } from "../../../../../logics/voice/voiceActions.ts";
 import * as stopShapes from "../../../../../logics/voice/stopVoice.ts";
 import type { StopPress } from "../../../../../logics/voice/stopVoice.ts";
+import { styleOf } from "../../../../../logics/test/styleSource.ts";
 
 interface MenuState {
     foreground: boolean;
@@ -56,15 +57,20 @@ const describedBy = (control: TreeNode) => {
     return words.props.children;
 };
 
+// Stop and mute, as the kit's stand-ins draw them (hookHarness): the Button and the Toggle.
+const kitControls = (tree: unknown) => {
+    const stop = find(tree, node => node.type === kitStandIns.Button), mute = find(tree, node => node.type === kitStandIns.Toggle);
+    assert.ok(stop && mute);
+    return [stop, mute] as const;
+};
+
 // The part of the bar named `name`, found in its tree: a function of the bar's own module (not
 // exported), which the test draws as React would.
 const partNamed = (tree: TreeNode, name: string): DrawnComponent => componentOf(findIn(tree, item => componentName(item) === name));
 
 async function menu(context: TestContext, values: Partial<MenuState> = {}) {
-    const runtime = hooks(), calls: unknown[][] = [], document = eventTarget();
-    // Unmount first: the menu's cleanup still needs the document this test provides.
+    const runtime = hooks(), calls: unknown[][] = [];
     context.onTestFinished(() => runtime.unmount());
-    stubGlobals(context, { document });
     const state: MenuState = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
     const button = await loadModule<typeof import("./right_side_components/_buttons/OpenQuickSettingButton.tsx")>(new URL("./right_side_components/_buttons/OpenQuickSettingButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
@@ -98,46 +104,68 @@ async function menu(context: TestContext, values: Partial<MenuState> = {}) {
     const right = runtime.render(RightSideComponents);
     const Menu = partNamed(right, "QuickSettingsMenu");
     const FlowButton = partNamed(right, "IoFlowButton");
-    const focused: string[] = [];
+    // The menu as the kit's stand-ins draw it (hookHarness): the Popover, which holds whether it is
+    // open, its trigger round the kit's Button, and its content, drawn open or not (Radix shows it).
     const draw = () => {
-        const tree = runtime.render(Menu, {}, node => {
-            setRef(node, { contains: (target: unknown) => target === "inside" });
-            const opener = find(node, child => child.type === "button");
-            assert.ok(opener);
-            setRef(opener, { focus: () => focused.push("opener") });
-        });
-        const rows = all(tree, node => node.type === button.OpenQuickSettingButton).map(node => {
+        const tree = runtime.render(Menu);
+        const popover = find(tree, node => node.type === kitStandIns.Popover);
+        const trigger = find(tree, node => node.type === kitStandIns.PopoverTrigger);
+        const content = find(tree, node => node.type === kitStandIns.PopoverContent);
+        assert.ok(popover && trigger && content);
+        const opener = find(trigger, node => node.type === kitStandIns.Button);
+        assert.ok(opener);
+        const rows = all(content, node => node.type === button.OpenQuickSettingButton).map(node => {
             // The node's type is OpenQuickSettingButton (the predicate above): draw it with its props.
             const drawn = button.OpenQuickSettingButton(node.props);
-            const rowButton = find(drawn, child => child.type === "button");
+            const rowButton = find(drawn, child => child.type === kitStandIns.Toggle);
             assert.ok(rowButton);
-            return { props: node.props, button: rowButton, note: find(drawn, child => child.type === "p" && child.props.className === "note") };
+            return { props: node.props, button: rowButton, note: find(drawn, child => child.type === "p" && child.props.className === "note"),
+                // The name, then the state in words (the state's span also holds the warning mark).
+                words: all(rowButton, child => child.type === "span" && child.props.className !== "words")
+                    .map(child => [child.props.children].flat().find(item => typeof item === "string")) };
         });
-        const opener = find(tree, node => node.type === "button");
-        assert.ok(opener);
-        return { tree, opener, panel: find(tree, node => node.props?.role === "group"), rows,
-            state: find(tree, node => node.props?.className === "menu_state")?.props.children };
+        return { tree, popover, trigger, opener, content, panel: popover.props.open ? content : null, rows,
+            state: find(opener, node => node.props?.className === "menu_state")?.props.children };
     };
     const UpdateButton = partNamed(right, "SoftwareUpdateAvailableButton");
-    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
+    return { draw, calls, state, button, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
 }
 
 test("the quick settings button says how many of its toggles are on, and opens them in place", async context => {
     const s = await menu(context, { foreground: true, large: true });
     let view = s.draw();
-    assert.equal(view.opener.props["aria-expanded"], false);
+    // The kit's plain Button at the compact size, as the bar's other buttons are; Radix's trigger
+    // opens the kit's Popover, which this menu holds open or closed.
+    assert.deepEqual([view.opener.props.tone, view.opener.props.size], [undefined, "compact"]);
+    assert.equal(view.trigger.props.asChild, true);
+    // Its tooltip and its words are its name; the words go out of sight in a narrow bar.
+    assert.equal(tipped(find(view.tree, node => node.type === "tooltip") as TreeNode).words, "main_page.quick_settings");
+    assert.equal(find(view.opener, node => node.props?.className === "menu_label")?.props.children, "main_page.quick_settings");
+    assert.equal(view.trigger.props["aria-expanded"], false);
     assert.equal(view.panel, null);
     assert.equal(view.state, 'main_page.quick_settings_on:{"count":2}');
     assert.match(view.opener.props.className, /has_on/);
-    view.opener.props.onClick();
+    view.popover.props.onOpenChange(true);
     view = s.draw();
-    assert.equal(view.opener.props["aria-expanded"], true);
+    assert.equal(view.trigger.props["aria-expanded"], true);
     assert.ok(view.panel);
-    assert.equal(view.opener.props["aria-controls"], view.panel.props.id);
+    assert.equal(view.trigger.props["aria-controls"], view.panel.props.id);
+    // A group of toggles named as its button, not a dialog: the button does not say it opens one.
+    assert.equal(view.panel.props.role, "group");
+    assert.equal(view.panel.props["aria-label"], "main_page.quick_settings");
+    // Only its controls take the focus: Radix's tabindex="-1" on the panel is replaced.
+    assert.ok("tabIndex" in view.panel.props && view.panel.props.tabIndex === undefined);
+    assert.equal(view.trigger.props["aria-haspopup"], "false", "Radix's aria-haspopup=\"dialog\" is replaced");
+    // In the bar, at its button's end, with the tight inset for rows: sized by the column (portal={false}).
+    assert.deepEqual([view.panel.props.portal, view.panel.props.inset, view.panel.props.align], [false, "tight", "end"]);
     assert.deepEqual(view.rows.map(row => [row.props.label, row.props.variable]), [
         ["main_page.foreground", true], ["config_page.others.vrc_mic_mute_sync.label", false], ["config_page.vr.section_label_overlay", true]]);
     // #939: the subtitle overlay is a toggle too, switched in place: it reports pressed and opens no dialog.
-    assert.deepEqual(view.rows.map(row => row.button.props["aria-pressed"]), [true, false, true]);
+    // Each row is the kit's Toggle at the compact size, pressed by the reported state.
+    assert.deepEqual(view.rows.map(row => [row.button.props.pressed, row.button.props["aria-pressed"], row.button.props.size]),
+        [[true, true, "compact"], [false, false, "compact"], [true, true, "compact"]]);
+    assert.deepEqual(view.rows.map(row => row.words), [["main_page.foreground", "main_page.state_text_enabled"],
+        ["config_page.others.vrc_mic_mute_sync.label", "main_page.state_text_disabled"], ["config_page.vr.section_label_overlay", "main_page.state_text_enabled"]]);
     assert.equal(view.rows[2].button.props["aria-haspopup"], undefined);
     assert.ok(find(view.panel, node => node.type === "vrchat-presence"), "the open menu says whether VRChat can be reached");
 });
@@ -151,7 +179,7 @@ test("nothing on reads as all off", async context => {
 
 test("a toggle is pressed in the open menu, the subtitle overlay too; its settings are a link to the captions and VR page", async context => {
     const s = await menu(context);
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const view = s.draw();
     view.rows[0].button.props.onClick();
     view.rows[1].button.props.onClick();
@@ -164,18 +192,23 @@ test("a toggle is pressed in the open menu, the subtitle overlay too; its settin
     assert.equal(link.props.children, "link:vr:main_page.overlay_settings_action");
     link.props.onClick();
     assert.deepEqual(s.calls.slice(-3), [["tab", "vr"], ["settings", true], ["reveal", { setting_id: "vr_overlay" }]]);
-    assert.equal(s.draw().panel, null, "the menu closes as the settings open");
+    const closed = s.draw();
+    assert.equal(closed.panel, null, "the menu closes as the settings open");
+    // The settings cover the bar: the focus is not sent back to the button they hide. Only that
+    // once: the next close gives it back as usual.
+    assert.equal(closing(closed.content), true);
+    assert.equal(closing(closed.content), false);
 });
 
 test("while a subtitle overlay is switching, its row waits as the other toggles do", async context => {
     const s = await menu(context, { overlayPending: true });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     assert.equal(s.draw().rows[2].button.props["aria-disabled"], true);
 });
 
 test("mute sync that cannot be used is disabled and says why", async context => {
     const s = await menu(context, { osc: false });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const row = s.draw().rows[1];
     assert.equal(row.button.props.disabled, true);
     assert.ok(row.note);
@@ -185,34 +218,78 @@ test("mute sync that cannot be used is disabled and says why", async context => 
     assert.equal(s.draw().rows[0].note, null);
 });
 
+test("mute sync that can be used has no note under it", async context => {
+    const s = await menu(context, { osc: true });
+    s.draw().popover.props.onOpenChange(true);
+    const row = s.draw().rows[1];
+    assert.deepEqual([row.button.props.disabled, row.note], [false, null]);
+});
+
+// One row, drawn by itself: the kit's Toggle with the row's name and state, the state's look by its classes.
+test("a row says its state in words, marks a toggle on that cannot be used, and dims its words while it waits", async context => {
+    const { button } = await menu(context);
+    const press = () => {};
+    const row = (props: Partial<Parameters<typeof button.OpenQuickSettingButton>[0]>) => {
+        const drawn = button.OpenQuickSettingButton({ label: "name", onClickFunction: press, ...props });
+        const toggle = find(drawn, node => node.type === kitStandIns.Toggle);
+        assert.ok(toggle);
+        const label = find(toggle, node => node.props?.children === "name");
+        assert.ok(label);
+        const state = find(toggle, node => String(node.props?.className).includes("button_indicator_label"));
+        return { toggle, label: String(label.props.className), state: state ? String(state.props.className) : null,
+            warning: find(toggle, node => node.props?.className === "warning_svg") !== null };
+    };
+    const on = row({ variable: true });
+    assert.deepEqual([on.toggle.props.className, on.toggle.props["aria-disabled"], on.toggle.props.onClick, on.toggle.props.disabled],
+        ["", undefined, press, false]);
+    assert.equal(on.label, "button_label");
+    assert.equal(on.state, "button_indicator_label is_enabled is_available");
+    assert.equal(on.warning, false);
+    assert.equal(row({ variable: false }).state, "button_indicator_label is_disabled is_available");
+    // On, but it cannot be used: the warning's color and mark beside "On"; off, no mark.
+    const blocked = row({ variable: true, is_available: false });
+    assert.deepEqual([blocked.toggle.props.disabled, blocked.state, blocked.warning], [true, "button_indicator_label is_enabled", true]);
+    assert.equal(row({ variable: false, is_available: false }).warning, false);
+    // Waiting: its words are dimmed, it takes no pointer, and it stays focusable.
+    for (const waiting of [row({ variable: true, state: "pending" }), row({ variable: true, is_pending: true })]) {
+        assert.deepEqual([waiting.toggle.props.className, waiting.toggle.props["aria-disabled"], waiting.toggle.props.onClick],
+            ["is_pending", true, undefined]);
+        assert.equal(waiting.label, "button_label is_pending");
+        assert.equal(waiting.state, "button_indicator_label is_enabled is_available is_pending");
+    }
+    // No state yet: no words for it, and not a toggle that says it is pressed or not.
+    const unknown = row({});
+    assert.deepEqual([unknown.state, unknown.toggle.props.pressed, unknown.toggle.props["aria-pressed"]], [null, false, undefined]);
+});
+
 test("a pending toggle keeps the keyboard's place: not disabled, and a second press does nothing", async context => {
     const s = await menu(context, { pending: true });
-    s.draw().opener.props.onClick();
+    s.draw().popover.props.onOpenChange(true);
     const row = s.draw().rows[0];
     assert.equal(row.button.props.disabled, false);
     assert.equal(row.button.props["aria-disabled"], true);
     assert.equal(row.button.props.onClick, undefined);
 });
 
-test("Escape closes the menu and returns focus; a press or focus outside closes it; inside does not", async context => {
+// What Radix's focus handling is told, as the content's onOpenAutoFocus and onCloseAutoFocus get
+// it: true when the menu prevents Radix's own move of the focus.
+const opening = (content: TreeNode) => { let prevented = false; content.props.onOpenAutoFocus({ preventDefault: () => { prevented = true; } }); return prevented; };
+const closing = (content: TreeNode) => { let prevented = false; content.props.onCloseAutoFocus({ preventDefault: () => { prevented = true; } }); return prevented; };
+
+test("the menu is the kit's popover, never modal: Escape, a press or focus outside close it; opening leaves the focus on its button", async context => {
     const s = await menu(context);
-    s.draw().opener.props.onClick();
-    assert.ok(s.draw().panel);
-    s.document.dispatch("keydown", { key: "a" });
-    s.document.dispatch("pointerdown", { target: "inside" });
-    s.document.dispatch("focusin", { target: "inside" });
-    assert.ok(s.draw().panel);
-    s.document.dispatch("keydown", { key: "Escape" });
-    assert.equal(s.draw().panel, null);
-    assert.deepEqual(s.focused, ["opener"]);
-    for (const type of ["pointerdown", "focusin"]) {
-        s.draw().opener.props.onClick();
-        assert.ok(s.draw().panel);
-        s.document.dispatch(type, { target: "outside" });
-        assert.equal(s.draw().panel, null);
-    }
-    assert.deepEqual(s.focused, ["opener"], "leaving does not pull focus back");
-    assert.equal(s.document.added.length, s.document.removed.length, "listeners are removed with the menu");
+    let view = s.draw();
+    // Radix's non-modal popover closes on Escape (focus goes back to the button), a press outside or
+    // focus moving outside (docs: Popover.tsx); each reaches the menu as onOpenChange(false).
+    assert.equal(view.popover.props.modal, undefined, "not modal (Radix's default)");
+    view.popover.props.onOpenChange(true);
+    view = s.draw();
+    assert.ok(view.panel);
+    assert.equal(opening(view.content), true, "opening leaves the focus on the button");
+    view.popover.props.onOpenChange(false);
+    view = s.draw();
+    assert.equal(view.panel, null);
+    assert.equal(closing(view.content), false, "Radix returns the focus to the button after Escape, unless it left the menu");
 });
 
 test("the main bar leads with stop and mute, drawn with its own short and shortest words", async () => {
@@ -222,7 +299,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
     const actions = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies(world),
     });
     const { TopBar } = await loadModule<typeof import("./TopBar.tsx")>(new URL("./TopBar.tsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -235,12 +312,16 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const [first, second] = leading.props.children;
     assert.equal(first.type, "compact");
     assert.equal(second.type, actions.StopActions);
+    assert.equal(second.props.size, "compact", "the bar's buttons are the kit's compact ones");
     const group = runtime.render(second.type, second.props);
-    const [stop, mute] = all(group, node => node.type === "button");
+    // Stop is the kit's danger Button (D-10) and mute the kit's Toggle in its warning tone (D-27),
+    // both at the size the bar asks for.
+    const [stop, mute] = kitControls(group);
+    assert.deepEqual([stop.props.tone, stop.props.size, mute.props.tone, mute.props.size], ["danger", "compact", "warning", "compact"]);
     assert.deepEqual(words(stop), { long: 'voice_ui.topbar_stop_count:{"count":2}', short: 'voice_ui.topbar_stop_short_count:{"count":2}',
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
-    assert.match(stop.props.className, /is_attention/);
+    assert.equal(stop.props["aria-disabled"], undefined, "offered while something is spoken");
     // One name at every width and on every route (#436); the tooltip says what it silences.
     assert.deepEqual(words(mute), { long: "voice_ui.mute_row", short: "voice_ui.mute_row", tiny: "voice_ui.topbar_muted",
         muted_badge: "voice_ui.topbar_muted" });
@@ -253,7 +334,8 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(describedBy(stop), "voice.stop");
     assert.equal(describedBy(mute), "voice.mute_scope_managed");
     assert.deepEqual([stop.props.title, mute.props.title], [undefined, undefined]);
-    assert.equal(mute.props["aria-pressed"], true);
+    // The reported state presses the toggle; the toggle keeps none of its own.
+    assert.deepEqual([mute.props.pressed, mute.props["aria-pressed"], mute.props.onPressedChange], [true, true, undefined]);
     stop.props.onClick(); mute.props.onClick();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
 
@@ -268,7 +350,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(sent.at(-1), "/run/mute_voice");
     // Resume is refused while the route is not ready, for the button and the hotkey alike.
     voice.route = { requested_muted: true, ready: false, pending: false };
-    const blocked = all(runtime.render(second.type, second.props), node => node.type === "button")[1];
+    const blocked = kitControls(runtime.render(second.type, second.props))[1];
     assert.equal(blocked.props.disabled, true);
     const before = sent.length;
     voiceActions.toggleMute(); blocked.props.onClick();
@@ -283,27 +365,29 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
     const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies(world),
     });
-    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", is_attention: "is_attention",
-        is_pressed: "is_pressed", is_stopping: "is_stopping", is_stopped: "is_stopped", is_idle: "is_idle", muted_badge: "muted_badge",
+    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", muted_badge: "muted_badge",
         stop_status: "stop_status" };
     const draw = () => {
         const group = runtime.render(StopActions, { classes });
-        const stop = all(group, node => node.type === "button")[0];
+        const [stop] = kitControls(group);
         const status = find(group, node => node.props?.role === "status");
         assert.ok(status);
         return { stop, tip: tipped(all(group, node => node.type === "tooltip")[0]), status: status.props.children };
     };
-    // Nothing runs: disabled to the eye and to a screen reader, still focusable, and its tooltip
-    // says when it can be pressed. Neither the button nor the hotkey sends anything.
+    // Nothing runs: disabled to the eye (the kit draws an aria-disabled button at half strength) and
+    // to a screen reader, still focusable, and its tooltip says when it can be pressed. Neither the
+    // button nor the hotkey sends anything. The bar gives it only its place.
     const idle = draw();
     assert.equal(idle.stop.props["aria-disabled"], true);
     assert.equal(idle.stop.props.disabled, undefined, "it keeps its place in the tab order and its tooltip");
-    assert.match(idle.stop.props.className, /is_idle/);
+    assert.deepEqual([idle.stop.props.tone, idle.stop.props.className], ["danger", "stop"]);
     assert.equal(idle.tip.words, "voice_ui.topbar_stop_idle");
     idle.stop.props.onClick(); voiceActions.stop?.();
     assert.deepEqual(sent, []);
+    // The VR panel's launcher shows the same stop (#1314).
+    assert.deepEqual(voiceStopState.get(), { offered: false, phase: "idle" });
     // An audition or the virtual microphone's test tone is stopped too, so either offers it.
     for (const running of [{ audition: "playing" }, { check: "running" }]) {
         Object.assign(world, { audition: "idle", check: "idle" }, running);
@@ -315,41 +399,40 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
     assert.deepEqual([offered.stop.props["aria-disabled"], offered.tip.words], [undefined, "voice.stop"]);
     offered.stop.props.onClick();
     assert.deepEqual(sent, ["/run/stop_voice"]);
-    // Waiting for the answer: it says so in the room its words keep, sinks and takes no press;
-    // the shortest words stay, so the narrowest bar does not grow.
+    // Waiting for the answer: it says so in the room its words keep and takes no press; the
+    // shortest words stay, so the narrowest bar does not grow.
     world.stop = { phase: "stopping", press: 1 };
     const stopping = draw();
     assert.deepEqual(words(stopping.stop), { long: "voice_ui.topbar_stopping", short: "voice_ui.topbar_stopping", tiny: "voice_ui.topbar_stop_tiny" });
-    assert.match(stopping.stop.props.className, /is_stopping/);
-    assert.doesNotMatch(stopping.stop.props.className, /is_attention/);
     assert.deepEqual([stopping.stop.props["aria-busy"], stopping.stop.props["aria-disabled"]], [true, true]);
+    assert.deepEqual(voiceStopState.get(), { offered: true, phase: "stopping" });
     stopping.stop.props.onClick();
     assert.equal(sent.length, 1);
     const kept = find(stopping.stop, node => node.type === "stable-words");
     assert.ok(kept);
     // The room also holds a two-digit queue, so the queue emptying does not move mute either.
     assert.deepEqual(kept.props.words, ["voice_ui.topbar_stop", 'voice_ui.topbar_stop_count:{"count":99}', "voice_ui.topbar_stopping", "voice_ui.topbar_stopped"]);
-    // Answered: "stopped" with the lilac flash, and a line for screen readers.
+    // Answered: "stopped", and a line for screen readers.
     world.stop = { phase: "stopped", press: 1 };
     voice.status = { active: false, queued: 0 };
     const stopped = draw();
     assert.equal(words(stopped.stop).long, "voice_ui.topbar_stopped");
-    assert.match(stopped.stop.props.className, /is_stopped/);
+    assert.equal(stopped.stop.props["aria-busy"], undefined);
     assert.equal(stopped.status, "voice_ui.topbar_stopped_announce");
     assert.equal(stopped.stop.props["aria-disabled"], true, "nothing more to press until something runs again");
     world.stop = { phase: "idle", press: 1 };
     assert.equal(draw().status, "");
 });
 
-test("the stop's answer is styled alike in both bars, and its words are in en and ja", () => {
-    for (const sheet of ["./TopBar.module.scss", "../../../config_page/topbar/Topbar.module.scss"]) {
+test("both bars give stop and mute only their place, and the stop's words are in en and ja", () => {
+    // The kit draws them (D-10, D-27): a bar's class on them sets no look of its own, which would
+    // win or lose by the order of the stylesheets.
+    for (const sheet of ["./TopBar.css.ts", "../../../config_page/topbar/Topbar.css.ts"]) {
         const css = readFileSync(new URL(sheet, import.meta.url), "utf8");
-        assert.match(css, /\.stop\.is_stopping, \.stop\.is_stopping:hover:not\(:disabled\) \{ background: var\(--dark_925_color\); cursor: progress; \}/, sheet);
-        assert.match(css, /\.stop\.is_stopped, [^{]*\{ color: var\(--primary_200_color\); border-color: var\(--primary_600_color\); animation: stop_answered \.8s ease-out; \}/, sheet);
-        assert.match(css, /@keyframes stop_answered \{ from \{ background: var\(--vox_highlight_tint\); \} \}/, sheet);
-        assert.match(css, /prefers-reduced-motion: reduce\) \{ \.stop\.is_stopped \{ animation: none; \} \}/, sheet);
-        assert.match(css, /\.stop\.is_idle, [^{]*\{ opacity: \.5; cursor: not-allowed;/, sheet);
-        assert.match(css, /\.stop_status \{ position: absolute; width: 1px; height: 1px;/, sheet);
+        assert.doesNotMatch(styleOf(css, "stop"),
+            /padding|fontSize|fontWeight|color|background|border|minHeight|maxWidth|opacity|outline|cursor|animation|selectors/, sheet);
+        assert.doesNotMatch(css, /keyframes|is_attention|is_pressed|is_stopping|is_stopped|is_idle/, sheet);
+        assert.match(styleOf(css, "stop_status"), /position: "absolute",\s*width: "1px",\s*height: "1px",/, sheet);
     }
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
@@ -363,28 +446,42 @@ test("the settings bar draws the same actions without the shortest words", async
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
+        "../../../../logics/voice/voiceActions.ts": { voiceActions, voiceStopState }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
     });
-    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
-        is_pressed: "is_pressed", muted_badge: "muted_badge" };
+    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", muted_badge: "muted_badge" };
     const group = runtime.render(StopActions, { classes });
     assert.deepEqual(all(group, node => node.type === "span" && node.props.className !== undefined).map(node => node.props.className),
         ["long", "short", "long", "short"]);
-    const [, mute] = all(group, node => node.type === "button");
-    assert.equal(mute.props["aria-pressed"], undefined, "no reported state, no toggle");
+    // The settings bar asks for no size: the kit's regular one, 4rem high as search and back.
+    const [stop, mute] = kitControls(group);
+    assert.deepEqual([stop.props.size, mute.props.size], [undefined, undefined]);
+    // No reported state, no toggle: the kit's Toggle is drawn off and says nothing of being pressed.
+    assert.deepEqual([mute.props.pressed, mute.props["aria-pressed"]], [false, undefined], "no reported state, no toggle");
+    assert.ok("aria-pressed" in mute.props, "the toggle's own aria-pressed is replaced, not left to the kit");
 });
 
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
-    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    assert.match(css, /\.long, \.tiny \{ display: none; \}/);
-    const narrow = css.split("@mixin narrow_bar")[1].split("@container")[0];
-    assert.match(narrow, /\.short \{ display: none; \}/);
-    assert.match(narrow, /\.tiny \{ display: inline; \}/);
+    const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
+    assert.match(styleOf(css, "long"), /display: "none"/);
+    // The stop and mute's words have their own, narrower threshold, so the default window's column
+    // (63rem) says "Stop speech", not "Stop" (#1314, M-9).
+    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[TINY_STOP\]: \{ display: "inline" \} \}/);
+    assert.match(styleOf(css, "short"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(styleOf(css, "muted_badge"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(css, /const TINY_STOP = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{TINY_STOP_COLUMN\}\)`;/);
     // The conversation column's width decides, not the window's (a wide rail leaves less room).
-    assert.match(css, /@container main_section \(max-width: 64rem\) \{ @include narrow_bar; \}/);
-    assert.doesNotMatch(css, /@media \(max-width: 800px\)|data-narrow/);
-    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
-    assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
+    const narrowColumn = /const NARROW = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{NARROW_COLUMN\}\)`;/;
+    assert.match(css, narrowColumn);
+    const layout = readFileSync(new URL("../../layout.ts", import.meta.url), "utf8");
+    assert.match(layout, /MAIN_SECTION_CONTAINER = "main_section";/);
+    assert.match(layout, /NARROW_COLUMN = "64rem";/);
+    // Narrower than the default window's column: 870px less the 240px rail is 63rem.
+    const tinyStop = /TINY_STOP_COLUMN = "(\d+)rem";/.exec(layout);
+    assert.ok(tinyStop && Number(tinyStop[1]) < 63, "the default window keeps the stop's words");
+    assert.doesNotMatch(css, /max-width: 800px|data-narrow/);
+    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
+    assert.match(menu, narrowColumn);
+    assert.match(styleOf(menu, "menu_text"), /"@container": \{ \[NARROW\]: readOnly \}/);
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof localeAt(strings, `main_page.${key}`), "string");
@@ -393,34 +490,28 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
 });
 
 test("stop and mute keep their width in a narrow bar, and nothing runs past it; the update button keeps only its arrow there", async context => {
-    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    // A rule at the top level of a stylesheet: the declarations between its braces.
-    const rule = (sheet: string, selector: string) => {
-        const lines = sheet.split("\n"), start = lines.findIndex(line => line.startsWith(`${selector} {`));
-        assert.ok(start >= 0, selector);
-        const rest = lines.slice(start).join("\n");
-        return rest.slice(rest.indexOf("{") + 1, rest.indexOf("}"));
-    };
+    const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
     // #562: the bar takes a second line rather than run past the column; the buttons on the right
     // go there, at its end, and never over stop and mute.
-    const bar = rule(css, ".container");
-    assert.match(bar, /flex-wrap: wrap/);
-    assert.match(bar, /min-height: var\(--main_page_topbar_height\)/);
-    assert.doesNotMatch(bar, /(^|[^-])height: var/, "a second line makes it taller");
+    const bar = styleOf(css, "container");
+    assert.match(bar, /flexWrap: "wrap"/);
+    assert.match(bar, /minHeight: vars\.main_page_topbar_height/);
+    assert.doesNotMatch(bar, /(^|[^A-Za-z])height: vars/, "a second line makes it taller");
     // A narrower column still: mute goes under stop, and neither button gets narrower than its words.
-    assert.match(rule(css, ".stop_actions"), /flex-wrap: wrap/);
-    assert.match(rule(css, ".stop"), /flex-shrink: 0/);
-    const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
-    const group = rule(right, ".container");
-    assert.match(group, /margin-inline-start: auto/, "at the bar's end on either line");
-    assert.match(group, /flex-shrink: 0/);
-    const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
-    assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
+    assert.match(styleOf(css, "stop_actions"), /flexWrap: "wrap"/);
+    assert.match(styleOf(css, "stop"), /flexShrink: 0/);
+    const right = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
+    const group = styleOf(right, "container");
+    assert.match(group, /marginInlineStart: "auto"/, "at the bar's end on either line");
+    assert.match(group, /flexShrink: 0/);
+    assert.match(styleOf(right, "software_update_label"), /"@container": \{ \[NARROW\]: readOnly \}/);
+    assert.match(right.slice(right.indexOf("const readOnly")), /^[^;]*clipPath: "inset\(50%\)"/);
     // The icon and its mark stay in a narrow bar: only the words are clipped.
-    assert.doesNotMatch(narrow, /\.update_(icon|mark)/);
+    for (const name of ["update_icon", "update_mark"]) assert.doesNotMatch(styleOf(right, name), /@container/, name);
     const { control: button, words, side } = tipped((await menu(context, { update: "available", version: "0.6.1" })).updateButton());
-    assert.equal(button.type, "button");
-    assert.equal(button.props.type, "button");
+    // The kit's plain Button at the compact size, which is a button that submits nothing.
+    assert.equal(button.type, kitStandIns.Button);
+    assert.deepEqual([button.props.tone, button.props.size, button.props.type], [undefined, "compact", undefined]);
     assert.equal(button.props.title, undefined);
     // #766: a version being out is a state. It is a mark on the icon and the short word with the
     // version; the sentence that announces it is the tooltip and the button's description.
@@ -454,10 +545,10 @@ test("the update button names the version when the check found one, shows while 
 });
 
 test("the words added to the main page are never smaller than 12px (1.2rem at the 10px base)", () => {
-    for (const file of ["./TopBar.module.scss", "./right_side_components/RightSideComponents.module.scss",
-        "./right_side_components/_buttons/OpenQuickSettingButton.module.scss",
-        "../../sidebar_section/language_readout/LanguageReadout.module.scss"]) {
-        const sizes = [...readFileSync(new URL(file, import.meta.url), "utf8").matchAll(/font-size: ([\d.]+)rem/g)].map(match => Number(match[1]));
+    for (const file of ["./TopBar.css.ts", "./right_side_components/RightSideComponents.css.ts",
+        "./right_side_components/_buttons/OpenQuickSettingButton.css.ts",
+        "../../sidebar_section/language_readout/LanguageReadout.css.ts"]) {
+        const sizes = [...readFileSync(new URL(file, import.meta.url), "utf8").matchAll(/fontSize: "([\d.]+)rem"/g)].map(match => Number(match[1]));
         assert.ok(sizes.length > 0, file);
         assert.ok(sizes.every(size => size >= 1.2), `${file}: ${sizes}`);
     }
@@ -467,7 +558,9 @@ test("the inputs and outputs button opens and closes the panel it controls", asy
     const s = await menu(context);
     const drawn = tipped(s.flowButton());
     let button = drawn.control;
-    assert.equal(button.type, "button");
+    // The kit's plain Button at the compact size, as the update button is.
+    assert.equal(button.type, kitStandIns.Button);
+    assert.deepEqual([button.props.tone, button.props.size], [undefined, "compact"]);
     assert.equal(button.props["aria-expanded"], false);
     assert.equal(button.props["aria-controls"], "io_flow_panel");
     // What the panel shows is the button's tooltip and, kept in the page, its description.

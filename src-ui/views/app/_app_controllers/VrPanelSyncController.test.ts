@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import { createStore } from "jotai";
+import * as translationCatalog from "../../../logics/translation/translationCatalogState.ts";
+import type { TranslationCatalog } from "../../../logics/translation/translationCatalog.ts";
 import type { TestContext } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 import * as wire from "../../../logics/common/vrPanelWire.ts";
@@ -10,6 +13,9 @@ interface SyncSetup {
     values?: Record<string, unknown>;
     settings?: unknown[];
     openFailure?: unknown;
+    catalogStore?: ReturnType<typeof createStore>;
+    // The app's main window, where the settings have a window of their own (#1236).
+    windowed?: boolean;
 }
 type Listener = (event?: unknown) => void;
 interface InvokeArgs {
@@ -18,11 +24,11 @@ interface InvokeArgs {
 }
 type MainFunctionsMemory = { translation: boolean; transcription_send: boolean; transcription_receive: boolean };
 
-async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null }: SyncSetup = {}) {
+async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null, catalogStore = createStore(), windowed = false }: SyncSetup = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
-    const state = { enabled: true, configOpen: false, mic: true };
+    const state = { enabled: true, configOpen: false, settingsWindowOpen: false, mic: true };
     const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
-        emitted: unknown[][] = [], notices: unknown[][] = [];
+        emitted: unknown[][] = [], notices: unknown[][] = [], settingsWindow: unknown[][] = [], voice: unknown[] = [];
     let memory: MainFunctionsMemory = { translation: false, transcription_send: false, transcription_receive: false };
     const common = {
         useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: state.configOpen },
@@ -43,8 +49,15 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
             listeners.set(name, handler);
             return Promise.resolve(() => { if (listeners.get(name) === handler) listeners.delete(name); });
         } },
-        jotai: { getDefaultStore: () => ({ get: (atom: string) => values[atom], sub: () => () => {} }) },
-        "@store": { dynamicStoreRegistry: registry },
+        jotai: { getDefaultStore: () => ({
+            get: (atom: string | typeof translationCatalog.vrCustomTranslationModelNamesAtom) =>
+                typeof atom === "string" ? values[atom] : catalogStore.get(atom),
+            sub: (atom: string | typeof translationCatalog.vrCustomTranslationModelNamesAtom, listener: () => void) =>
+                typeof atom === "string" ? () => {} : catalogStore.sub(atom, listener),
+        }) },
+        "@store": { dynamicStoreRegistry: registry,
+            useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: state.settingsWindowOpen } }) },
+        "../../../logics/translation/translationCatalogState.ts": translationCatalog,
         "../../../logics/configs/config_page_setter/ui_config_setter": { SETTINGS_ARRAY: settings },
         "@logics_common": common,
         "@logics_configs": { useVr: () => ({ currentIsEnabledOverlayVrPanel: { data: state.enabled } }) },
@@ -53,6 +66,12 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
         "../../../logics/common/windowFailures.ts": windowFailures,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
+        "../../../logics/voice/voiceActions.ts": { runVrVoiceAction: (action: unknown) => { voice.push(action); return true; } },
+        ...(windowed ? {
+            "../../../logics/common/useOpenSettings.ts": { useOpenSettings: () => (place: unknown, options: unknown) => settingsWindow.push(["open", place, options]) },
+            "../../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => true,
+                closeSettingsWindow: async () => { settingsWindow.push(["close"]); } },
+        } : {}),
     });
     const { ConfigPageCloseTriggerController } = await loadModule<typeof import("./ConfigPageCloseTriggerController.tsx")>(new URL("./ConfigPageCloseTriggerController.tsx", import.meta.url), lifecycle, {
         "@logics_common": common,
@@ -75,7 +94,7 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
     };
     const config = (value: boolean) => { listener("vr-panel-config-page")({ payload: value }); render(); };
     render();
-    return { state, actions, requests, windows, pushes, emitted, notices, listeners, listener, runtime, render, config };
+    return { state, actions, requests, windows, pushes, emitted, notices, settingsWindow, voice, listeners, listener, runtime, render, config };
 }
 
 // SEC-03: only the listed state goes to the VR panel, through its channel.
@@ -97,6 +116,36 @@ test("the VR panel gets the listed state through invoke, and nothing else", asyn
     assert.deepEqual(view.emitted, []); // nothing goes out as an event any more
     view.listener("vr-panel-ready")();
     assert.equal(view.pushes.length, 2);
+});
+
+test("the VR channel gets only the local custom model names and tracks catalog changes", async context => {
+    const catalogStore = createStore();
+    const { catalogAtom } = translationCatalog;
+    const entry = { id: "tr-1", weight: "user:tr-1", name: "My model", origin: "user", runtime: "onnx",
+        available: true, in_use: true, folder: "/fixtures/model" } as const;
+    const catalog: TranslationCatalog = {
+        engine: [entry, { ...entry, origin: "builtin", weight: "builtin" }],
+        api: [{ id: "api", name: "My API", origin: "user", url: "https://example.invalid/translate" }],
+        runtimes: [],
+        protocols: [],
+    };
+    const view = await setup(context, { registry: { Atom_VrCustomTranslationModelNames: "receiver" }, catalogStore });
+    const assertNames = (index: number, expected: Record<string, string>) => {
+        const [command, { payload }] = view.pushes[index];
+        assert.equal(command, "vr_panel_state_push");
+        assert.ok(payload);
+        assert.deepEqual(Object.keys(payload), ["VrCustomTranslationModelNames"]);
+        assert.deepEqual(wire.decodeOrdered(payload.VrCustomTranslationModelNames), { state: "ok", data: expected });
+    };
+    assertNames(0, {});
+    catalogStore.set(catalogAtom, catalog);
+    assertNames(1, { "user:tr-1": "My model" });
+    view.listener("vr-panel-ready")();
+    assertNames(2, { "user:tr-1": "My model" });
+    catalogStore.set(catalogAtom, { ...catalog, engine: [{ ...entry, name: "Renamed" }] });
+    assertNames(3, { "user:tr-1": "Renamed" });
+    catalogStore.set(catalogAtom, { ...catalog, engine: [] });
+    assertNames(4, {});
 });
 
 test("recreating the VR panel leaves settings open and microphone paused", async context => {
@@ -171,6 +220,43 @@ test("a live panel cannot close settings first opened on the desktop", async con
     assert.equal(view.state.mic, false);
 });
 
+// In the app the desktop's settings are a window (#1236): the VR panel's settings open it without
+// taking the focus from VR, and close it again when they were what opened it.
+test("in the app the VR panel's settings open the settings window, leaving the focus, and close only their own", async context => {
+    const view = await setup(context, { windowed: true });
+    view.config(true);
+    view.config(false);
+    assert.deepEqual(view.settingsWindow, [["open", {}, { focus: false }], ["close"]]);
+    // The settings window the desktop opened stays when the VR panel's settings close.
+    const desktop = await setup(context, { windowed: true });
+    desktop.state.settingsWindowOpen = true;
+    desktop.render();
+    desktop.config(true);
+    desktop.config(false);
+    assert.deepEqual(desktop.settingsWindow, [["open", {}, { focus: false }]]);
+});
+
+// Nothing pauses while the settings window is open (decided on 2026-11-26): the features keep
+// running, and the VR panel's requests go through as on any other day.
+test("while the settings window is open nothing pauses, and the VR panel's requests go through", async context => {
+    const view = await setup(context, { windowed: true });
+    view.config(true);
+    view.state.settingsWindowOpen = true;
+    view.render();
+    view.listener("vr-panel-stdout")({ payload: { path: "/set/enable/translation" } });
+    assert.deepEqual(view.requests, [["/set/enable/translation", undefined, undefined, "vr_panel"]]);
+    assert.equal(view.state.configOpen, false);
+    assert.equal(view.state.mic, true);
+    assert.deepEqual(view.actions, []);
+    // Closed on the desktop, the window ends the VR panel's part: VR opening its settings again
+    // opens the window again, and their closing closes it.
+    view.state.settingsWindowOpen = false;
+    view.render();
+    view.config(true);
+    view.config(false);
+    assert.deepEqual(view.settingsWindow, [["open", {}, { focus: false }], ["open", {}, { focus: false }], ["close"]]);
+});
+
 test("a VR panel window that cannot be opened is said once, and turning it off says nothing", async context => {
     const view = await setup(context, { openFailure: "vr_panel_surface_unavailable" });
     await new Promise(resolve => setImmediate(resolve));
@@ -182,4 +268,25 @@ test("a VR panel window that cannot be opened is said once, and turning it off s
     const other = await setup(context, { openFailure: "Os { code: 1400 }" });
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(other.notices, [["common_error.window.vr_panel_open_failed", { category_id: "vr_panel_open_failed" }]]);
+});
+
+// #1314 (V-4): the launcher's text to speech switch and stop press the main window's own. Nothing goes
+// to the backend from here. The switch waits while the settings page pauses the main features, as the
+// launcher's other switches do; the stop always works.
+test("the launcher's text to speech switch and stop press the main window's own, and the stop is never held", async context => {
+    const view = await setup(context);
+    view.listener("vr-panel-voice")({ payload: "toggle_tts" });
+    view.listener("vr-panel-voice")({ payload: "stop" });
+    assert.deepEqual(view.voice, ["toggle_tts", "stop"]);
+    assert.deepEqual(view.requests, []);
+    view.state.configOpen = true;
+    view.render();
+    view.listener("vr-panel-voice")({ payload: "toggle_tts" });
+    view.listener("vr-panel-voice")({ payload: "stop" });
+    assert.deepEqual(view.voice, ["toggle_tts", "stop", "stop"]);
+    // Off, the panel's requests are not heard.
+    view.state.enabled = false;
+    view.render();
+    await Promise.resolve();
+    assert.equal(view.listeners.has("vr-panel-voice"), false);
 });

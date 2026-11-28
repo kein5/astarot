@@ -1,11 +1,13 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
 import { Fold } from "../_components/fold/Fold";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import * as css from "./catalogLayout.css.ts";
+import { Badge, CardContent, ToggleGroup, ToggleGroupItem } from "../../../../../kit/index.ts";
+import type { BadgeProps } from "../../../../../kit/index.ts";
 
 // The two layouts of the model catalogs (the speech recognition, text to speech and voice changer
 // catalogs, and the translation catalog): every model with the same words and the same actions.
@@ -32,32 +34,68 @@ export const CatalogList = ({ layout, children }: { layout: CatalogLayout; child
     <ul className={styles.catalog} role="list" data-layout={layout}>{children}</ul>;
 
 // A card's facts (its table of languages, size, hardware and terms, or of an entry's file and
-// address): beside what the model is in the list, in a fold under it in the grid. summary: the
-// fold's words, when they say more than "Details" (the file a model card would get).
+// address): beside what the model is in the list, as the card's content (the kit's CardContent),
+// in a fold under it in the grid. summary: the fold's words, when they say more than "Details"
+// (the file a model card would get).
 export const CatalogFacts = ({ layout, summary, children }: { layout: CatalogLayout; summary?: string; children: ReactNode }) => {
     const { t } = useI18n();
     return layout === "grid"
         ? <Fold size="link" className={css.facts} summary={summary ?? t("model_catalog.layout.facts")}>{children}</Fold>
-        : <>{children}</>;
+        : <CardContent>{children}</CardContent>;
 };
 
-// The two layouts, as a pair of buttons on the catalog's heading line: the one in use is pressed.
-// Its words say the layout; the icon only repeats them.
+// How a card's state looks at the end of its name's line (the kit's Badge, D-29). Whether the
+// thing is on the PC is told by the badge's fill and mark as well as its words, in both layouts and
+// every catalog. On the PC, or there and usable: a filled badge with a check (downloaded, a model
+// the user registered); in use: filled in the active colour the card's frame has; checked and
+// ready to apply, or an entry that can be used: the active outline, tinted. Not yet (not
+// downloaded, an API without its key): an outline with an empty ring, its words quieter. Working
+// or not answering: amber; a problem: red; connected: the active outline. Any other state is a
+// plain outline.
+type StateLook = Pick<BadgeProps, "tone" | "variant" | "mark">;
+const STATE_LOOKS: ReadonlyMap<string, StateLook> = new Map([
+    ["downloaded", { variant: "solid", mark: "check" }],
+    ["in_use", { tone: "active", variant: "solid", mark: "check" }],
+    ["ready", { tone: "active", variant: "tint", mark: "check" }],
+    ["not_downloaded", { tone: "muted", mark: "ring" }],
+    ["not_set", { tone: "muted", mark: "ring" }],
+    ["connected", { tone: "active" }],
+    ["working", { tone: "warning" }],
+    ["checking", { tone: "warning" }],
+    ["not_connected", { tone: "warning" }],
+    ["changed", { tone: "warning" }],
+    ["url_invalid", { tone: "failed" }],
+    ["missing", { tone: "failed" }],
+]);
+export const stateLook = (state: string): StateLook => STATE_LOOKS.get(state) ?? {};
+
+// A card's state, its words given: the badge that ends the name's line, in the same place on every card.
+export const CatalogState = ({ state, children }: { state: string; children: ReactNode }) =>
+    <Badge className={styles.status} {...stateLook(state)}>{children}</Badge>;
+
+// The two layouts, as the kit's ToggleGroup on the catalog's heading line (D-27, decided on
+// 2026-11-25): a group of two radios named "Catalog layout", the one in use checked. Each is a
+// stop of the Tab key, as the two buttons were (rovingFocus off), and pressing the one in use
+// keeps it: Radix offers an empty value then, which changes nothing. Its words say the layout;
+// the icon only repeats them.
 export const CatalogLayoutSwitch = () => {
     const { t } = useI18n();
     const { setCatalogLayout } = useAppearance();
     const chosen = useCatalogLayout();
-    return <div className={css.layoutSwitch} role="group" aria-label={t("model_catalog.layout.label")}>
-        {LAYOUTS.map(layout => <button key={layout} type="button" className={css.option} aria-pressed={chosen === layout}
-            onClick={() => { if (chosen !== layout) setCatalogLayout(layout); }}>
+    const choose = (value: string) => {
+        const layout = LAYOUTS.find(each => each === value);
+        if (layout && layout !== chosen) setCatalogLayout(layout);
+    };
+    return <ToggleGroup type="single" rovingFocus={false} value={chosen} onValueChange={choose} aria-label={t("model_catalog.layout.label")}>
+        {LAYOUTS.map(layout => <ToggleGroupItem key={layout} value={layout}>
             {layout === "grid"
                 ? <svg className={css.icon} viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1" />
                     <rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>
                 : <svg className={css.icon} viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="3" rx="1" />
                     <rect x="2" y="6.5" width="12" height="3" rx="1" /><rect x="2" y="10.5" width="12" height="3" rx="1" /></svg>}
             <span>{t(`model_catalog.layout.${layout}`)}</span>
-        </button>)}
-    </div>;
+        </ToggleGroupItem>)}
+    </ToggleGroup>;
 };
 
 // One part of a catalog under its heading (a use of the models, the speech engines, a group of
@@ -76,13 +114,18 @@ export interface CatalogSectionProps {
     // The heading's id, when the page points at it.
     id?: string;
     fold?: boolean;
+    // needed: what the page's feature needs is missing from this part (the chat reading models of
+    // the chosen language, #1230). It starts open then, and opens when it becomes needed, so the
+    // missing step is seen first; it can still be closed.
+    needed?: boolean;
     "data-catalog-group"?: string;
     children: ReactNode;
 }
 
-export const CatalogSection = ({ title, help, readout, level, id, fold = true, children, ...data }: CatalogSectionProps) => {
+export const CatalogSection = ({ title, help, readout, level, id, fold = true, needed = false, children, ...data }: CatalogSectionProps) => {
     const hints = useHintDescriptions();
-    const [opened, setOpened] = useState(false);
+    const [opened, setOpened] = useState(needed);
+    useEffect(() => { if (needed) setOpened(true); }, [needed]);
     const own = useId();
     const headingId = id ?? `${own}-heading`;
     if (!fold) {

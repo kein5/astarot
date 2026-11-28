@@ -3,16 +3,98 @@ date: 2026-11-20
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-20
+implementation_status: implemented
+implementation_checked: 2026-11-23
 evidence:
   - docs/adr/adr-017-integration-tests-through-the-core.md
   - src-ui/logics/common/backendCommand.ts
   - src-tauri/src/backend_host.rs
   - native/core/src/backend.rs
   - native/core/tests/common/mod.rs
+  - tests/integration
+  - native/browser-core-bridge
+  - .github/workflows/voice-tests.yml
 ---
-# ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ
+# ADR-017: Write tests from the screen through the core as Playwright integration tests, and call only tests on the distributed app E2E
+
+[日本語版](#adr-017-画面から中核まで通す試験を-playwright-の結合テストにし配布物で通す試験だけを-e2e-と呼ぶ日本語版)
+
+Status: Accepted (2026-11-20). The decided items are those listed under "What was decided" in Issue #821.
+Date: 2026-11-20
+Decision owners: The repository's maintainers
+Related: Issue #821, Issue #810, PR #816, [the development guide](../development.md), `tests/platform/`, `tools/native_acceptance.py`
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT (ADR-011), and its identifiers remain VRCT-VOX.
+
+## 1. Context
+
+As of 0.6.0, the UI is drawn with React in Tauri's WebView (WebView2 on Windows, WebKitGTK on Linux), and the core (`native/core`) runs inside the app process. The UI exchanges messages with the core one line at a time through `invoke("backend_start" / "backend_write" / "backend_kill")` and a Tauri Channel (`src-ui/logics/common/backendCommand.ts`, `src-tauri/src/backend_host.rs`).
+
+There were three kinds of tests:
+
+- Vitest: checks UI logic and components by rendering each component inside Node (`hookHarness`). It does not go through the core.
+- Rust: checks the processing of the core and the crates. The core's tests replace recording, audio output, OSC, the key store and other services with fakes in `Options.services`, and send IPC lines directly. They do not go through the UI.
+- GUI tests that actually run the distributed app (`tests/platform`, tauri-driver, Python): they need a screen and a desktop, and most are run by hand before a release.
+
+No test checked, on every PR, the whole path from a request the UI sends, through the real core that handles it, to the screen changing with the core's answer. There was a Playwright test (in Python) that rendered the translation catalog in Chromium, but the other side was a fake and every CI skipped it, so #816 moved it to Vitest. When #810 took stock of the Python tests and decided to move them to Vitest and Rust in stages, it also decided where tests that go from the screen through the core belong and what to call them.
+
+## 2. Decision
+
+1. **Tests are split into three layers.**
+   - Unit and contract: Vitest and Rust. They check UI logic and components, the processing of the core and the crates, and the promises about routes and names.
+   - Integration tests: a single test operates the screen, goes through the core and the Rust crates, and checks both the exits to the outside (translation and TTS servers, the OSC receiver, the settings file) and the result on screen. The UI is the same bundle as in the distribution, and the core and the crates are real. What is faked is the app shell (Tauri's windows and IPC), the OS and devices, outside services, and models.
+   - E2E: goes through the shell and the OS for real, in the form of the distribution. It checks that the distribution starts, its integration with the OS (windows, the tray, shortcuts, the subtitle window) and the real VRChat. Today's `tests/platform` and `tools/native_acceptance.py` are in this layer.
+2. **Names**: tests that go from the screen to Rust are called "integration tests". "E2E" is used only for tests that run in the form of the distribution. The name of the tool (Playwright) does not decide what a test is called.
+3. **Integration tests are written with Playwright (`@playwright/test`, TypeScript) and placed in `tests/integration/`.** They run in a dedicated CI job on every PR, on Linux and Windows, in both Chromium and WebKit. Chromium is the same family as WebView2, and Playwright's WebKit is the same engine as WebKitGTK (its version and build are not the same as the WebKitGTK of the distribution).
+4. **How the screen and the core are connected**:
+   - On the screen side, the real entry point is loaded without changing the app's code. Tauri calls are received by Tauri's official fake (`mockIPC` from `@tauri-apps/api/mocks`), and only the exchanges with the core (`backend_start`, `backend_write`, `backend_kill`) are passed to the host over WebSocket. Fakes answer the other calls.
+   - On the core side, a crate dedicated to test tooling starts `vrct_core::Backend` with the same fake `Services` as the core's tests, and connects it to the WebSocket. It is not made an example in `native/core`, because an example does not represent a feature, and the purpose and dependencies of the test tooling are kept separate.
+5. **What does not change**: integration tests check flows (the request sent, the core's answer, the state of the screen, saved values, what was sent outside). Checking rendering, such as overflow in a narrow window, is not their aim (the decision in #816). Checks of the OS and the distribution stay with E2E.
+
+## 3. Alternatives considered
+
+| Option | What it is | Why it was not chosen |
+|---|---|---|
+| Call tests that go from the screen to Rust "E2E" | Call them E2E even when a test host replaces the shell, and call tests on the distribution "acceptance tests" | "E2E passed" would then mean a result that did not go through Tauri's IPC and the OS |
+| Use neither "integration" nor "E2E" | Call them "UI pass-through tests" and "distribution acceptance tests" | Each document would need an explanation of how these map to the common names |
+| Add more tests that run the distributed app (tauri-driver) to check flows | Run them on the real app on every PR | They need a screen and a desktop and wait for the distribution build, which is too heavy for every PR. Playwright cannot drive a WebKitGTK WebView, so the tools would also stay split |
+| Make the core's host an example in `native/core` | Build it with `cargo build --example` | An example does not represent a feature. The purpose and dependencies of the test tooling are kept apart from the core crate |
+| Run only in Chromium | Takes about half the downloads and time | The Linux distribution renders with WebKitGTK. We want to see both families every time |
+| Continue with Vitest's `hookHarness` only | Render each component, with the core faked | It does not go through the real core, so it cannot find mismatches between the UI and the core |
+
+## 4. Consequences
+
+- What we gain: mismatches in the flow between the UI and the core are found on every PR, in both engine families. E2E can focus on checks of the OS and the distribution.
+- Costs:
+  - CI spends more time building the host crate and downloading and starting the browsers (Chromium and WebKit, several hundred MB together).
+  - When the app starts to use a new Tauri call, the entry point of the integration tests needs a fake for it. The tests are made to detect a call that has no fake and stop.
+  - Playwright's WebKit differs from the distribution's WebKitGTK in version and build. Problems that occur only in WebKitGTK are checked with E2E.
+- Migration: of today's `tests/platform` tests, the flows that do not need a real window (saving and reading back settings, a sent message reaching translation, OSC and TTS, and so on) move to integration tests when someone next works on the area they cover, and E2E narrows to checks of the OS and the distribution. Playwright in Python (such as the tool for the screenshots in the documents) is aligned with Playwright in Node once the integration test foundation is in place.
+
+## 5. Verification and acceptance criteria
+
+| Aspect | What to check | How |
+|---|---|---|
+| Location | The integration tests are in `tests/integration/`, and the host is in a crate dedicated to test tooling | The repository layout |
+| CI | A dedicated job runs on every PR, on Linux and Windows, in Chromium and WebKit | The jobs in `.github/workflows/` and their run history |
+| Coverage | The tests operate the screen and check the real core's answer and what reached the exits to the outside | The first scenario (Issue #821) |
+| App code | No test-only branches were added to the app's code for the integration tests | The diff of the entry point and the host |
+
+## 6. Revisit triggers
+
+- When Tauri's IPC changes so that the official fake can no longer stand in for the exchanges with the core.
+- When Playwright can drive a WebKitGTK WebView, so that tests can run on every PR in the form of the distribution.
+- When the CI time of the integration tests grows longer than the other jobs and visibly lengthens the wait on PRs.
+
+## 7. Open questions
+
+- The prefix of the host crate's package name: whether it uses `vrct-`, like the current crates, or the form after package names are aligned to `astarot-` (P2 of ADR-014) is decided in the foundation PR.
+
+> **Decision note** (2026-11-21, PR #824): the prefix was set to `vrct-`, the same as the current crates. The host is `vrct-browser-core-bridge`, and it changes to `astarot-` together with the other crates in PR 12 of ADR-014. The item above is kept as the record of the time it was written.
+
+---
+
+# ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ（日本語版）
 
 Status: 採用（2026-11-20）。決定の項目は Issue #821 の「決まったこと」のとおりである。
 Date: 2026-11-20

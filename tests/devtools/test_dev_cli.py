@@ -191,15 +191,17 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("setup --scope ui", output)
 
-    def test_node_scope_runs_the_i18n_gate_and_its_tests(self):
+    def test_node_scope_runs_the_i18n_and_writing_gates_and_their_tests(self):
         (self.root / "src-ui").mkdir(parents=True)
         (self.root / "src-ui/one.test.js").write_text('')
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 0)
-        # The gate runs after the tests; Vitest runs the gate's own tests (vitest.config.js).
+        # The gates run after the tests; Vitest runs the gates' own tests (vitest.config.js).
         self.assertLess(output.index("vitest.mjs run"), output.index("tools/i18n_gate/check.mjs"))
+        self.assertLess(output.index("tools/i18n_gate/check.mjs"), output.index("tools/writing_gate/check.mjs"))
         config = (Path(__file__).resolve().parents[2] / "vitest.config.js").read_text(encoding="utf-8")
         self.assertIn("tools/i18n_gate/**/*.test.mjs", config)
+        self.assertIn("tools/writing_gate/**/*.test.mjs", config)
 
     def test_ui_scope_runs_the_type_check_before_the_build(self):
         folder = self.root / "src-ui"
@@ -208,6 +210,21 @@ class DeveloperCLITests(unittest.TestCase):
         code, output = self.call("check", "--scope", "ui", "--dry-run")
         self.assertEqual(code, 0)
         self.assertLess(output.index("typecheck"), output.index("vite-build"))
+
+    def test_ui_scope_builds_the_component_catalog_after_the_app(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        # Storybook's build of the kit's stories (#1153, decision 5), after the app's own build.
+        self.assertLess(output.index("vite-build"), output.index("run build:catalog"))
+        # The script builds into build/, which Git ignores, not into the app's dist/.
+        scripts = json.loads((Path(__file__).resolve().parents[2] / "package.json").read_text(encoding="utf-8"))["scripts"]
+        self.assertEqual(scripts["build:catalog"], "storybook build --output-dir build/storybook")
+        # The node scope (part of quick) does not build it.
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertNotIn("build:catalog", output)
 
     def test_ui_scope_runs_biome_before_the_type_check(self):
         folder = self.root / "src-ui"
@@ -306,6 +323,28 @@ class DeveloperCLITests(unittest.TestCase):
         # nextest does not run doctests: a crate with a library runs them with cargo test --doc.
         self.assertIn("cargo test --doc --locked --offline --manifest-path native/core/Cargo.toml", output)
         self.assertNotIn("--doc --locked --offline --manifest-path native/tts/Cargo.toml", output)
+
+    def test_rust_check_runs_a_binary_that_needs_features_with_them(self):
+        # The crate's own run skips a binary with required-features, and its tests with it (#1270).
+        (self.root / "native/rvc-runtime").mkdir(parents=True)
+        (self.root / "native/rvc-runtime/Cargo.toml").write_text(
+            '[package]\nname = "x"\n\n[[bin]]\nname = "plain"\n\n'
+            '[[bin]]\nname = "astarot-rvc-worker"\nrequired-features = ["worker", "extra"]\n', encoding="utf-8")
+        code, output = self.call("check", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("cargo nextest run --locked --offline --manifest-path native/rvc-runtime/Cargo.toml "
+                      "--features worker,extra --bin astarot-rvc-worker", output)
+        self.assertNotIn("--bin plain", output)
+        self.assertEqual(output.count("--features"), 1)
+
+    def test_ci_runs_every_binary_that_needs_features(self):
+        # The same binaries in the repository, run by the crates job of voice-tests.yml.
+        workflow = (ROOT / ".github/workflows/voice-tests.yml").read_text(encoding="utf-8")
+        found = [(crate, *binary) for crate in self.dev.NATIVE_CRATES for binary in self.dev.feature_binaries(ROOT, crate)]
+        self.assertIn(("native/rvc-runtime", "astarot-rvc-worker", ["worker"]), found)
+        for crate, binary, features in found:
+            command = f"cargo test --locked --manifest-path {crate}/Cargo.toml --features {','.join(features)} --bin {binary}"
+            self.assertTrue(command in workflow, f"voice-tests.yml does not run: {command}")
 
     def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
         code, output = self.call("check", "--scope", "crates", "--dry-run")

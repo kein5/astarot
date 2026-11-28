@@ -20,22 +20,22 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--a-radius-small);
   background: none;
   color: var(--rp-c-text-2);
   cursor: pointer;
   transition:
-    background-color var(--vox-motion-fast) var(--vox-ease),
-    color var(--vox-motion-fast) var(--vox-ease);
+    background-color var(--a-motion-fast) var(--a-ease),
+    color var(--a-motion-fast) var(--a-ease);
 }
 
 .copyText button:hover {
-  background: var(--vox-surface);
+  background: var(--a-surface);
   color: var(--rp-c-text-1);
 }
 
 .copyText button:focus-visible {
-  outline: 2px solid var(--vox-focus);
+  outline: 2px solid var(--a-focus);
   outline-offset: 1px;
 }
 
@@ -49,8 +49,8 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   transition:
-    opacity var(--vox-motion-fast) var(--vox-ease),
-    transform var(--vox-motion) var(--vox-ease-settle);
+    opacity var(--a-motion-fast) var(--a-ease),
+    transform var(--a-motion) var(--a-ease-settle);
 }
 
 /* Copied: the copy icon shrinks away and a check pops in. */
@@ -58,7 +58,7 @@
   opacity: 0;
   transform: scale(0.4);
   stroke-width: 2.4;
-  color: var(--vox-mine);
+  color: var(--a-state-active);
 }
 
 .copied .iconCopy {
@@ -77,9 +77,9 @@
   bottom: calc(100% + 4px);
   right: 0;
   padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--vox-surface);
-  border: 1px solid var(--vox-border);
+  border-radius: var(--a-radius-small);
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
   font-size: 12px;
   line-height: 18px;
   white-space: nowrap;
@@ -88,8 +88,8 @@
   opacity: 0;
   transform: translateY(4px);
   transition:
-    opacity var(--vox-motion-fast) var(--vox-ease),
-    transform var(--vox-motion) var(--vox-ease);
+    opacity var(--a-motion-fast) var(--a-ease),
+    transform var(--a-motion) var(--a-ease);
 }
 
 .copied .status,

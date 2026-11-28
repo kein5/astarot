@@ -1,8 +1,6 @@
-export { Checkbox } from "./checkbox/Checkbox";
 export { ResetButton } from "./reset_button/ResetButton";
 export { default as MarqueeText } from "./marquee_text/MarqueeText";
 export { CloseButton } from "./close_button/CloseButton";
 export { CircularProgress } from "./circular_progress/CircularProgress";
 export { Tooltip } from "./tooltip/Tooltip";
-export { ToggleSwitch } from "./toggle_switch/ToggleSwitch";
 export { Empty, EmptyDescription } from "./empty/Empty";

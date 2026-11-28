@@ -12,11 +12,11 @@ test("an API entry is added, used against its server and removed, and its key is
     try {
         const page = app.page;
         await app.openSettings("Translation");
-        const catalog = page.getByRole("region", { name: "Translation catalog" });
-        // The catalog's groups start closed, their bars reading out what they hold: the API group,
-        // where the entry is added and its card shown, is opened by its name first.
+        // The catalog's API group is in the page's API part (#1266 ★17). It starts closed, its bar
+        // reading out what it holds: it is opened by its name first, where the entry is added.
+        const catalog = page.getByRole("region", { name: "APIs you added" });
         const api = catalog.locator("[data-catalog-group=api]");
-        await api.getByRole("heading", { name: "APIs", exact: true }).click();
+        await api.getByRole("heading", { name: "APIs you added", exact: true }).click();
         await expect(api.locator(":scope > details")).toHaveJSProperty("open", true);
         const form = catalog.locator("[data-catalog-add=api]");
         await form.locator("summary").click();
@@ -45,7 +45,7 @@ test("an API entry is added, used against its server and removed, and its key is
         // Removing asks first; going back keeps it.
         await card.getByRole("button", { name: "Remove", exact: true }).click();
         const confirm = card.getByRole("group", { name: "Remove Home server" });
-        await expect(confirm).toContainText("The entry and its API key are removed from the app.");
+        await expect(confirm).toContainText("The entry and its API key will be removed from the app.");
         await confirm.getByRole("button", { name: "Back" }).click();
         await expect(card).toBeVisible();
         await card.getByRole("button", { name: "Remove", exact: true }).click();
@@ -55,4 +55,64 @@ test("an API entry is added, used against its server and removed, and its key is
     } finally {
         await server.stop();
     }
+});
+
+test("switching catalog layout persists without showing the saved toast, and so do settings that save by themselves", async ({ app }) => {
+    const page = app.page;
+    await app.openSettings("Translation");
+    // The layout is chosen at the top of the catalog's models, in the page's part for this PC
+    // (#1266 ★17): its fold is opened first.
+    await page.locator("[data-catalog-group=engine]").getByRole("heading", { name: "Model catalog", exact: true }).click();
+    // The kit's ToggleGroup: a radio group whose layout in use is checked.
+    const switcher = page.getByRole("radiogroup", { name: "Catalog layout" });
+    const listButton = switcher.getByRole("radio", { name: "List", exact: true });
+    const gridButton = switcher.getByRole("radio", { name: "Grid", exact: true });
+
+    // Record every toast that opens so even a short 1 s save toast cannot slip past the check.
+    await page.evaluate(() => {
+        const seen: string[] = [];
+        document.documentElement.dataset.seenToasts = "[]";
+        const record = () => {
+            for (const toast of document.querySelectorAll(".Toastify__toast")) {
+                const text = toast.textContent?.trim();
+                if (text && !seen.includes(text)) {
+                    seen.push(text);
+                    document.documentElement.dataset.seenToasts = JSON.stringify(seen);
+                }
+            }
+        };
+        record();
+        new MutationObserver(record).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await listButton.click();
+    await expect(listButton).toBeChecked();
+    await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("list");
+
+    await gridButton.click();
+    await expect(gridButton).toBeChecked();
+    await expect.poll(() => app.settings().CATALOG_LAYOUT).toBe("grid");
+    // SnackbarController waits 100 ms before opening a toast; give it time to fire if it were going to.
+    await page.waitForTimeout(250);
+    const readToasts = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.seenToasts ?? "[]") as string[]);
+    expect(await readToasts()).toEqual([]);
+
+    // Immediate settings controls (such as toggles) also persist without raising the saved toast.
+    await page.getByRole("button", { name: "Advanced", exact: true }).first().click();
+    const logToggle = page.getByRole("switch", { name: "Auto save message logs" });
+    const wasChecked = await logToggle.isChecked();
+    await logToggle.click();
+    await expect.poll(() => app.settings().LOGGER_FEATURE).toBe(!wasChecked);
+    await page.waitForTimeout(250);
+    expect(await readToasts()).toEqual([]);
+
+    // A field that saves by itself (#1111) saves without the toast too. Since the advanced settings
+    // save by themselves, no settings save raises it; the toast itself goes with the save bar.
+    const portInput = page.getByLabel("OSC port");
+    await app.unfold(portInput);
+    await portInput.fill("9005");
+    await portInput.press("Tab");
+    await expect.poll(() => app.settings().OSC_PORT).toBe(9005);
+    await page.waitForTimeout(250);
+    expect(await readToasts()).toEqual([]);
 });

@@ -3,7 +3,7 @@
 # collects the outputs afterwards. Up to 0.5 a second job built VRCT-VOX_cuda.zip with these
 # steps; there is one package since #288.
 name: Build a Windows package
-description: Build and inspect VRCT-VOX.zip
+description: Build and inspect ASTAROT.zip
 inputs:
   script:
     description: npm script that builds the package (release)

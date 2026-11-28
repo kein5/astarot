@@ -14,17 +14,23 @@ export interface IntegrationRecord {
 declare global {
     interface Window {
         __integration: IntegrationRecord;
+        // Answers a run puts before the page loads, over the ones below: the documentation's
+        // screenshots show the app's version and a desktop that can draw the caption window.
+        __integrationAnswers?: Record<string, unknown>;
     }
 }
 
 const answers: Record<string, unknown> = {
     get_font_list: ["Noto Sans", "Noto Sans JP"],
+    pick_folder: null,
+    pick_file: null,
     caption_overlay_supported: false,
     screencast_support: { supported: false, active: false },
     quick_chat_shortcut_platform: "x11",
     // Nothing waits in the Quick Chat window or the companion.
     quick_chat_take: null,
     companion_take: [],
+    companion_monitors: [],
     app_update_info: { kind: "development", mode: "disabled", channel: "stable", current_version: "0.0.0", package_manager: null },
 };
 
@@ -51,6 +57,8 @@ function windowAnswers(): Record<string, unknown> {
 }
 
 export function standIn(command: string, payload: Record<string, unknown>): unknown {
+    const given = window.__integrationAnswers ?? {};
+    if (command in given) return given[command];
     if (command in answers) return answers[command];
     if (settings.has(command)) return null;
     const [plugin, name = ""] = command.split("|");

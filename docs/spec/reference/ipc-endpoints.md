@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（474件: 削除 13、取得 212、実行 49、有効化 41、無効化 43、設定 116）
+## 要求（514件: 削除 13、取得 228、実行 54、有効化 45、無効化 47、設定 127）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -88,6 +88,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/ui_language` | 設定 | 可 | useAppearance.setSuccessUiLanguage |  |
 | `/get/data/main_window_geometry` | 取得 | 可 | （受け取るだけ） |  |
 | `/set/data/main_window_geometry` | 設定 | 可 | （受け取るだけ） |  |
+| `/get/data/settings_window_geometry` | 取得 | 可 | （受け取るだけ） |  |
+| `/set/data/settings_window_geometry` | 設定 | 可 | （受け取るだけ） |  |
 | `/get/data/compute_mode` | 取得 | 可 | useComputeMode.updateComputeMode |  |
 | `/get/data/selectable_translation_compute_device_list` | 取得 | 可 | useTranslation.updateFromBackendSelectableTranslationComputeDeviceList |  |
 | `/get/data/selected_translation_compute_device` | 取得 | 可 | useTranslation.updateFromBackendSelectedTranslationComputeDevice |  |
@@ -121,6 +123,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.setSuccessUsagePresets |  |
 | `/get/data/catalog_layout` | 取得 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
 | `/set/data/catalog_layout` | 設定 | 可 | useAppearance.setSuccessCatalogLayout |  |
+| `/get/data/theme` | 取得 | 可 | useAppearance.updateFromBackendTheme |  |
+| `/set/data/theme` | 設定 | 可 | useAppearance.setSuccessTheme |  |
 | `/get/data/llm_translation_temperature` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationTemperature |  |
 | `/set/data/llm_translation_temperature` | 設定 | 可 | useTranslation.setSuccessLLMTranslationTemperature |  |
 | `/get/data/llm_translation_instructions` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationInstructions | ログで伏せる |
@@ -260,6 +264,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/refresh_model_download_hardware` | 実行 | 可 | useModelDownloads.updateHardware |  |
 | `/get/data/model_download_state` | 取得 | 可 | useModelDownloads.updateState |  |
 | `/run/start_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
+| `/run/check_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/run/cancel_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/run/apply_model_download` | 実行 | 可 | useModelDownloads.acknowledge |  |
 | `/get/data/user_models` | 取得 | 可 | useModelDownloads.updateUserModels | ログで伏せる |
@@ -339,6 +344,28 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/deepgram_auth_key` | 取得 | 可 | useTranscription.updateFromBackendDeepgramAuthKey | ログで伏せる |
 | `/delete/data/deepgram_auth_key` | 削除 | 可 | useTranscription.deleteSuccessDeepgramAuthKey | ログで伏せる |
 | `/set/data/custom_whisper_url` | 設定 | 可 | useTranscription.setSuccessCustomWhisperURL |  |
+| `/get/data/talk_ai_catalog` | 取得 | 可 | useTalkAiSession.updateCatalog |  |
+| `/get/data/talk_ai_provider` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiProvider |  |
+| `/get/data/talk_ai_local_url` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiLocalUrl |  |
+| `/set/data/talk_ai_provider` | 設定 | 可 | useTalkAi.setSuccessTalkAiProvider |  |
+| `/set/data/talk_ai_local_url` | 設定 | 可 | useTalkAi.setSuccessTalkAiLocalUrl |  |
+| `/get/data/talk_ai_auth_key` | 取得 | 可 | useTalkAiSession.updateKey | ログで伏せる |
+| `/set/data/talk_ai_auth_key` | 設定 | 可 | useTalkAiSession.answerKey | ログで伏せる |
+| `/get/data/talk_ai_status` | 取得 | 可 | useTalkAiSession.updateStatus |  |
+| `/get/data/talk_ai_screen_interval_ms` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenIntervalMs |  |
+| `/set/data/talk_ai_screen_interval_ms` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenIntervalMs |  |
+| `/get/data/talk_ai_screen_long_edge` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenLongEdge |  |
+| `/set/data/talk_ai_screen_long_edge` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenLongEdge |  |
+| `/get/data/talk_ai_screen_detail` | 取得 | 可 | useTalkAi.updateFromBackendTalkAiScreenDetail |  |
+| `/set/data/talk_ai_screen_detail` | 設定 | 可 | useTalkAi.setSuccessTalkAiScreenDetail |  |
+| `/get/data/talk_ai_screen_sources` | 取得 | 可 | useTalkAiSession.updateSources |  |
+| `/set/enable/talk_ai_screen` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/disable/talk_ai_screen` | 無効化 | 可 | useTalkAiSession.answer |  |
+| `/set/enable/talk_ai_audio` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/data/talk_ai_interrupt` | 設定 | 可 | （受け取るだけ） |  |
+| `/set/data/talk_ai_end_turn` | 設定 | 可 | （受け取るだけ） |  |
+| `/set/enable/talk_ai` | 有効化 | 可 | useTalkAiSession.answer |  |
+| `/set/disable/talk_ai` | 無効化 | 可 | useTalkAiSession.answer |  |
 | `/set/data/ocr_window_title` | 設定 | 可 | useOcr.setSuccessOcrWindowTitle |  |
 | `/set/data/ocr_poll_interval_ms` | 設定 | 可 | useOcr.setSuccessOcrPollIntervalMs |  |
 | `/set/data/ocr_min_confidence` | 設定 | 可 | useOcr.setSuccessOcrMinConfidence |  |
@@ -380,7 +407,12 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/overlay_font_family` | 取得 | 可 | useVr.updateFromBackendOverlayFontFamily |  |
 | `/set/data/overlay_font_family` | 設定 | 可 | useVr.setSuccessOverlayFontFamily |  |
 | `/get/data/overlay_font_missing_languages` | 取得 | 可 | useVr.updateFromBackendOverlayFontMissingLanguages |  |
+| `/get/data/steamvr_auto_launch_supported` | 取得 | 可 | useVr.updateFromBackendSteamVrAutoLaunchSupported |  |
+| `/get/data/steamvr_auto_launch` | 取得 | 可 | useVr.updateFromBackendSteamVrAutoLaunch |  |
+| `/set/enable/steamvr_auto_launch` | 有効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
+| `/set/disable/steamvr_auto_launch` | 無効化 | 可 | useVr.setSuccessSteamVrAutoLaunch |  |
 | `/set/data/speaker_names` | 設定 | 可 | useSpeakerNames.updateNames | ログで伏せる |
+| `/get/data/path_config` | 取得 | 可 | useAdvancedSettings.updateFromBackendPathConfig |  |
 | `/run/open_filepath_config_file` | 実行 | 可 | useOpenFolder.openedFolder_ConfigFile |  |
 | `/run/open_filepath_logs` | 実行 | 可 | useOpenFolder.openedFolder_MessageLogs |  |
 | `/run/export_vocabulary` | 実行 | 可 | （受け取るだけ） | ログで伏せる |
@@ -421,7 +453,13 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/register_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/remove_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/use_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
+| `/get/data/transcription_catalog` | 取得 | 可 | useTranscriptionCatalog.updateCatalog | ログで伏せる |
+| `/run/register_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/remove_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/use_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
 | `/run/send_message_box` | 実行 | 待つ | useMessage.updateSentMessageLogById |  |
+| `/get/data/path_logs` | 取得 | 可 | useAdvancedSettings.updateFromBackendPathLogs |  |
+| `/set/data/path_logs` | 設定 | 可 | useAdvancedSettings.setSuccessPathLogs |  |
 | `/get/data/logger_feature` | 取得 | 可 | useOthers.updateFromBackendEnableAutoExportMessageLogs |  |
 | `/set/enable/logger_feature` | 有効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
 | `/set/disable/logger_feature` | 無効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
@@ -474,6 +512,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/enable_tts` | 実行 | 可 | useVoice.updateStatus |  |
 | `/run/disable_tts` | 実行 | 可 | useVoice.updateStatus | 即時（キューを通らない） |
 | `/get/data/voice_route` | 取得 | 可 | useVoice.updateRoute |  |
+| `/set/disable/managed_route_rename_notice` | 無効化 | 可 | useVoice.updateRoute |  |
 | `/run/mute_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/run/resume_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/get/data/direct_voice_sources` | 取得 | 可 | useVoice.updateDirectSources |  |
@@ -490,6 +529,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/start_vc_runtime_setup` | 実行 | 可 | useVcRuntimes.acknowledge |  |
 | `/run/cancel_vc_runtime_setup` | 実行 | 可 | useVcRuntimes.acknowledge |  |
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
+| `/run/settings_snapshot` | 実行 | 待つ | （受け取るだけ） |  |
 
 
 ## 通知（中核からUIへ、92件）
@@ -527,9 +567,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `word_filter` | `/run/word_filter` | useMessage.addSystemMessageLog_FromBackend |
 | `transcription_recognition_error` | `/run/transcription_recognition_error` | useMessage.addSystemMessageLog_FromBackend |
 | `vad_unavailable` | `/run/vad_unavailable` | — |
-| `download_progress_ctranslate2_weight` | `/run/download_progress_ctranslate2_weight` | useTranslation.updateDownloadProgressCTranslate2WeightTypeStatus |
 | `downloaded_ctranslate2_weight` | `/run/downloaded_ctranslate2_weight` | useTranslation.downloadedCTranslate2WeightTypeStatus |
-| `error_ctranslate2_weight` | `/run/error_ctranslate2_weight` | — |
 | `ctranslate2_license_notice` | `/run/ctranslate2_license_notice` | — |
 | `translation_model_retired` | `/run/translation_model_retired` | — |
 | `translation_language_unsupported` | `/run/translation_language_unsupported` | — |
@@ -589,10 +627,12 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `config_save_failed` | `/run/config_save_failed` | （受け取るだけ） |
 | `config_save_recovered` | `/run/config_save_recovered` | （受け取るだけ） |
 | `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
+| `talk_ai_status` | `/run/talk_ai_status` | useTalkAiSession.updateStatus |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
+| `steamvr_auto_launch` | `/run/steamvr_auto_launch` | useVr.updateFromBackendSteamVrAutoLaunch |
 
 
-## UIに受信先がないエンドポイント（17件）
+## UIに受信先がないエンドポイント（16件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -601,7 +641,6 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/enable_transcription_receive`
 - `/run/enable_transcription_send`
 - `/run/enable_translation`
-- `/run/error_ctranslate2_weight`
 - `/run/error_device`
 - `/run/error_translation_chat_vram_overflow`
 - `/run/error_translation_enable_vram_overflow`
@@ -615,12 +654,13 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/vad_unavailable`
 
 
-## UIだけにあるルート（60件）
+## UIだけにあるルート（62件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
 - `/run/download_ctranslate2_weight`
+- `/run/download_progress_ctranslate2_weight`
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
 - `/run/realtime_caption`
@@ -674,6 +714,7 @@ UIに受信先が定義されているが、中核の要求と通知にはない
 - `/set/data/show_resend_button`
 - `/set/data/speaker_automatic_threshold`
 - `/set/data/speaker_vad_filter`
+- `/set/data/steamvr_auto_launch`
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`

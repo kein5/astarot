@@ -56,7 +56,7 @@ pub fn transcription() -> &'static Map<String, Value> {
 }
 
 /// Upstream VRCT's web translators. Their module is licensed for the official VRCT only, so no
-/// VRCT-VOX build could ever run them; they are not offered (`languages.yml` keeps their columns).
+/// ASTAROT build could ever run them; they are not offered (`languages.yml` keeps their columns).
 pub const RETIRED_WEB_TRANSLATORS: [&str; 3] = ["Google", "Bing", "Papago"];
 
 /// The translation engines, in the order of `languages.yml`, without the retired web translators.

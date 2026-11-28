@@ -1,0 +1,18 @@
+# cargo-nextest's settings for native/core's tests (https://nexte.st/docs/configuration/).
+#
+# The default profile is what `python tools/dev.py check --scope rust` runs: no retries, so a test
+# that fails now and then fails there too. The ci profile is what the core-integration job runs
+# (.github/workflows/voice-tests.yml): it writes a JUnit report, from which the job lists the
+# tests that passed only on a retry (tools/ci/nextest_flaky_summary.py).
+#
+# The ci profile retries no test. Until 2026-11-23 it retried the ten tests of issue #861 twice;
+# repeated runs on Linux and Windows showed they no longer fail, and #861 records it. To retry a
+# test again, write why in an issue first, then add a `[[profile.ci.overrides]]` with its
+# `filter` and `retries` here (docs/development.md, "CIでの中核の試験の再試行").
+
+[profile.ci]
+fail-fast = false
+
+[profile.ci.junit]
+# target/nextest/ci/junit.xml
+path = "junit.xml"

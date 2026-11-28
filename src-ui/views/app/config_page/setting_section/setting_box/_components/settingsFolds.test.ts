@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, stubGlobals } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, stubGlobals, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The word filter's registered words and the sent message format's other examples fold as the
 // rest of the settings do, with the app's one fold (#820): a bar for the list of words, the
@@ -17,12 +18,12 @@ async function wordFilter(context: Parameters<typeof stubGlobals>[0], words: str
     const store = { opened, updates: [] as boolean[] };
     let draft: string[] | null = null;
     const state = { currentMicWordFilterList: { data: words }, setMicWordFilterList() {} };
-    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: store.opened },
             updateIsOpenedMicWordFilterList: (open: boolean) => { store.opened = open; store.updates.push(open); } }) },
-        [draftPath]: { useSettingsDraft: () => ({ draft, setDraft: (next: string[]) => { draft = next; }, navigationDialog: null }) },
+        [draftPath]: { useSettingsDraft: () => ({ draft, setDraft: (next: string[]) => { draft = next; }, change: (next: string[]) => { draft = next; }, navigationDialog: null }) },
         "../_atoms/_entry/_Entry": { _Entry: "entry" },
         "../fold/Fold": { Fold: "fold" },
     });
@@ -69,17 +70,22 @@ test("with no word the bar says 0 and, opened, that there is none; adding words 
     // Closed again, words added open it.
     fold.props.onToggle({ currentTarget: { open: false } });
     const tree = s.render();
-    findIn(tree, node => node.type === "entry").props.onChange({ target: { value: "alpha, beta" } });
-    findIn(s.render(), node => node.type === "button").props.onClick();
+    const entry = findIn(tree, node => node.type === "entry");
+    assert.equal(entry.props["aria-label"], "config_page.transcription.mic_word_filter.label");
+    entry.props.onChange({ target: { value: "alpha, beta" } });
+    // Add, the kit's primary Button, beside the entry.
+    const add = findIn(s.render(), node => node.type === kitStandIns.Button);
+    assert.deepEqual([add.props.tone, add.props.children], ["primary", "config_page.transcription.mic_word_filter.add_button_label"]);
+    add.props.onClick();
     assert.deepEqual(s.store.updates, [true, false, true]);
 });
 
 const defaults = { message: { prefix: "", suffix: "" }, separator: "\n", translation: { prefix: "", suffix: "", separator: "\n" }, translation_first: false };
 
-async function messageFormat(format_id: "send" | "received", shown: "Simplified" | "All") {
+async function messageFormat(format_id: "send" | "received", shown: "Simplified" | "All", data = defaults) {
     const runtime = hooks();
-    const views = { data: { send: shown, received: "Simplified" } }, updates: unknown[] = [];
-    const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, {
+    const views = { data: { send: shown, received: "Simplified" } }, updates: unknown[] = [], drafts: (typeof defaults)[] = [];
+    const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "react-i18next": { useTranslation: () => ({ t }) },
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }),
             useStore_MessageFormat_ExampleViewFilter: () => ({ currentMessageFormat_ExampleViewFilter: views,
@@ -87,14 +93,15 @@ async function messageFormat(format_id: "send" | "received", shown: "Simplified"
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "ja" } }) },
         "@ui_configs": { ui_configs: { send_message_format_parts: defaults, received_message_format_parts: defaults } },
         "@common_components": { ResetButton: "reset" },
-        [draftPath]: { useSettingsDraft: () => ({ draft: null, setDraft() {}, submit() {}, navigationDialog: null }) },
+        [draftPath]: { useSettingsDraft: () => ({ draft: null, setDraft: (value: typeof defaults) => drafts.push(value), change: (value: typeof defaults) => drafts.push(value), submit() {}, commit() {}, navigationDialog: null }) },
         "../_atoms/_entry/_Entry": { _Entry: "entry" },
         "../fold/Fold": { Fold: "fold" },
     });
-    const props = { variable: { state: "ok", data: defaults }, setFunction: async () => true, format_id, label: "Format" };
-    // ExampleComponent is private to MessageFormat: drawn with the props its parent gives it.
+    const props = { variable: { state: "ok", data }, setFunction: async () => true, format_id, label: "Format" };
+    // ExampleComponent and InputComponent are private to MessageFormat: drawn with the props its parent gives them.
     const examples = () => draw(findIn(runtime.render(MessageFormat, props), node => componentName(node) === "ExampleComponent"));
-    return { examples, updates };
+    const input = () => draw(findIn(runtime.render(MessageFormat, props), node => componentName(node) === "InputComponent"));
+    return { examples, input, updates, drafts };
 }
 
 const boxes = (tree: TreeNode) => nodesIn(tree).filter(node => node.props?.className === "example_label").map(node => node.props.children);
@@ -122,4 +129,23 @@ test("the received format shows its three examples without a fold", async () => 
     const tree = s.examples();
     assert.equal(find(tree, node => node.type === "fold"), null);
     assert.deepEqual(boxes(tree), [example("original_translated"), example("original_only"), example("translated_only")]);
+});
+
+// The swap of the original and the translation is the kit's plain Button. Its words name both
+// parts in their order, and the pointer, Enter and Space swap them; Enter and Space hold back the
+// button's own press, so a key swaps once.
+test("the message format's swap names both parts in their order and swaps by pointer, Enter and Space", async () => {
+    const settings = (id: string) => `config_page.others.message_format_common.settings.${id}`;
+    for (const first of [false, true]) {
+        const s = await messageFormat("send", "Simplified", { ...defaults, translation_first: first });
+        const swap = findIn(s.input(), node => node.type === kitStandIns.Button && node.props.className === "swap_button");
+        assert.equal(swap.props.tone, undefined);
+        const words = nodesIn(swap).filter(node => node.type === "span").map(node => node.props.children);
+        assert.deepEqual(words, first ? [settings("translated"), settings("original")] : [settings("original"), settings("translated")]);
+        const held: string[] = [];
+        for (const key of ["Enter", " ", "Tab"]) swap.props.onKeyDown({ key, preventDefault: () => held.push(key) });
+        swap.props.onClick();
+        assert.deepEqual(held, ["Enter", " "]);
+        assert.deepEqual(s.drafts.map(draft => draft.translation_first), [!first, !first, !first]);
+    }
 });

@@ -2,9 +2,11 @@ import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useI18n } from "@useI18n";
 import * as styles from "./VocabularyList.css.ts";
-import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
+import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { Fold } from "../_components/fold/Fold";
+import { Button, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle, TextField } from "../../../../../kit/index.ts";
+import type { ItemProps } from "../../../../../kit/index.ts";
 import { addTerm, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut }
     from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { AddResult, DictionaryRow, ReadingsChange, Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
@@ -20,6 +22,10 @@ type Props = {
     // The vocabulary after a change; the form keeps it until the settings are saved.
     onVocabulary: (vocabulary: Vocabulary) => void;
 };
+
+// A row's state, read from its place and its look (#792): a term whose readings the user changed
+// stands on a tinted ground; one taken out keeps its place, quiet and struck through.
+const ROW_LOOK: Record<DictionaryRow["state"], ItemProps["variant"]> = { own: "default", builtin: "default", changed: "muted", removed: "removed" };
 
 // What the last add did, said under the fields: the term it named, or why nothing was added.
 type Added = { result: AddResult; term: string };
@@ -90,59 +96,66 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
             {/* A new term: its written form and readings, at the head of the list it joins. */}
             <div className={styles.add}>
                 <label className={styles.addField}>{t("realtime.vocabulary_new_written")}
-                    <input value={written} readOnly={disabled} spellCheck={false} maxLength={300}
+                    <TextField value={written} readOnly={disabled} spellCheck={false} maxLength={300}
                         placeholder={t("realtime.vocabulary_new_written_placeholder")}
                         onChange={event => typing(setWritten)(event.target.value)} onKeyDown={onAddKey} /></label>
                 <label className={styles.addField}>{t("realtime.vocabulary_new_readings")}
-                    <input value={readings} readOnly={disabled} spellCheck={false} maxLength={300}
+                    <TextField value={readings} readOnly={disabled} spellCheck={false} maxLength={300}
                         placeholder={t("realtime.vocabulary_new_readings_placeholder")}
                         onChange={event => typing(setReadings)(event.target.value)} onKeyDown={onAddKey} /></label>
-                <button type="button" disabled={disabled || !written.trim()} onClick={add}>{t("realtime.vocabulary_add")}</button>
+                <Button disabled={disabled || !written.trim()} onClick={add}>{t("realtime.vocabulary_add")}</Button>
             </div>
             <p role="status" className={added && !added.result.ok ? styles.problem : undefined}>{added ? addedText(t, added) : ""}</p>
-            <ul className={styles.rows} aria-label={t("realtime.vocabulary_list", { count: rows.length - removed })}>
+            {/* The kit's compact Item rows: the written form, its readings beside it (under it in a
+                narrow list), and what can be done at the row's end (H-08). */}
+            <ItemGroup size="compact" aria-label={t("realtime.vocabulary_list", { count: rows.length - removed })}>
                 {rows.map(row => {
                     const term = row.written;
                     const isEditing = editing === row.term;
-                    return <li key={`${row.state === "own" ? "own" : "builtin"}:${row.term}`} className={styles.row} data-state={row.state}>
-                        <span className={styles.written}>{term}</span>
-                        {isEditing
-                            ? <span className={styles.edit}>
-                                <span className={styles.editLine}>
-                                    <input value={typed} readOnly={disabled} spellCheck={false} maxLength={300} autoFocus
-                                        aria-label={t("realtime.vocabulary_readings_of", { term })}
-                                        aria-describedby={trial && !trial.ok ? `${id}-problem` : undefined}
-                                        aria-invalid={trial && !trial.ok ? true : undefined}
-                                        onChange={event => setTyped(event.target.value)} onKeyDown={onEditKey} />
-                                    <button type="button" disabled={disabled || !trial?.ok} onClick={apply}>{t("realtime.vocabulary_readings_apply")}</button>
-                                    <button type="button" onClick={() => setEditing(null)}>{t("realtime.vocabulary_readings_cancel")}</button>
+                    return <Item key={`${row.state === "own" ? "own" : "builtin"}:${row.term}`} size="compact" variant={ROW_LOOK[row.state]}
+                        data-state={row.state}>
+                        <ItemContent>
+                            <ItemTitle>{term}</ItemTitle>
+                            {isEditing
+                                ? <span className={styles.edit}>
+                                    <span className={styles.editLine}>
+                                        <TextField value={typed} readOnly={disabled} spellCheck={false} maxLength={300} autoFocus
+                                            aria-label={t("realtime.vocabulary_readings_of", { term })}
+                                            aria-describedby={trial && !trial.ok ? `${id}-problem` : undefined}
+                                            invalid={!!trial && !trial.ok}
+                                            onChange={event => setTyped(event.target.value)} onKeyDown={onEditKey} />
+                                        <Button disabled={disabled || !trial?.ok} onClick={apply}>{t("realtime.vocabulary_readings_apply")}</Button>
+                                        <Button onClick={() => setEditing(null)}>{t("realtime.vocabulary_readings_cancel")}</Button>
+                                    </span>
+                                    {trial && !trial.ok && <span id={`${id}-problem`} className={styles.problem} role="status">
+                                        {t(trial.reason === "full" ? "realtime.vocabulary_readings_full" : "realtime.vocabulary_readings_invalid")}</span>}
                                 </span>
-                                {trial && !trial.ok && <span id={`${id}-problem`} className={styles.problem} role="status">
-                                    {t(trial.reason === "full" ? "realtime.vocabulary_readings_full" : "realtime.vocabulary_readings_invalid")}</span>}
-                            </span>
-                            : <span className={styles.readings}>
-                                {row.readings.length ? <span>{readingsText(row.readings)}</span>
-                                    : <span className={styles.none}>{t("realtime.vocabulary_no_reading")}</span>}
-                            </span>}
-                        {!isEditing && <span className={styles.actions}>
-                            {row.state !== "removed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => startEdit(row)}
-                                aria-label={t("realtime.vocabulary_change_readings_of", { term })}>{t("realtime.vocabulary_change_readings")}</button>}
-                            {row.state === "changed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
-                                aria-label={t("realtime.vocabulary_restore_of", { term })}>{t("realtime.vocabulary_restore")}</button>}
+                                : <ItemDescription>
+                                    {row.readings.length ? <span>{readingsText(row.readings)}</span>
+                                        : <span className={styles.none}>{t("realtime.vocabulary_no_reading")}</span>}
+                                </ItemDescription>}
+                        </ItemContent>
+                        {/* The kit's compact plain buttons (H-09: quiet is never used alone); deleting a
+                            term of the user's removes something, so it is the danger one. */}
+                        {!isEditing && <ItemActions>
+                            {row.state !== "removed" && <Button size="compact" disabled={disabled} onClick={() => startEdit(row)}
+                                aria-label={t("realtime.vocabulary_change_readings_of", { term })}>{t("realtime.vocabulary_change_readings")}</Button>}
+                            {row.state === "changed" && <Button size="compact" disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
+                                aria-label={t("realtime.vocabulary_restore_of", { term })}>{t("realtime.vocabulary_restore")}</Button>}
                             {row.state === "own"
-                                ? <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(deleteOwn(vocabulary, row.term))}
-                                    aria-label={t("realtime.vocabulary_remove", { term })}>{t("realtime.vocabulary_remove_short")}</button>
+                                ? <Button tone="danger" size="compact" disabled={disabled} onClick={() => onVocabulary(deleteOwn(vocabulary, row.term))}
+                                    aria-label={t("realtime.vocabulary_remove", { term })}>{t("realtime.vocabulary_remove_short")}</Button>
                                 : row.state === "removed"
-                                    ? <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
-                                        aria-label={t("realtime.vocabulary_put_back_of", { term })}>{t("realtime.vocabulary_put_back")}</button>
-                                    : <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => onVocabulary(takeOut(vocabulary, row.term))}
-                                        aria-label={t("realtime.vocabulary_take_out_of", { term })}>{t("realtime.vocabulary_take_out")}</button>}
-                        </span>}
-                    </li>;
+                                    ? <Button size="compact" disabled={disabled} onClick={() => onVocabulary(restoreBuiltin(vocabulary, row.term))}
+                                        aria-label={t("realtime.vocabulary_put_back_of", { term })}>{t("realtime.vocabulary_put_back")}</Button>
+                                    : <Button size="compact" disabled={disabled} onClick={() => onVocabulary(takeOut(vocabulary, row.term))}
+                                        aria-label={t("realtime.vocabulary_take_out_of", { term })}>{t("realtime.vocabulary_take_out")}</Button>}
+                        </ItemActions>}
+                    </Item>;
                 })}
-            </ul>
-            {builtin && vocabulary.builtin !== false && <div><button type="button" disabled={disabled || (!changed && !removed)}
-                onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</button></div>}
+            </ItemGroup>
+            {builtin && vocabulary.builtin !== false && <div><Button disabled={disabled || (!changed && !removed)}
+                onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</Button></div>}
         </Fold>
     );
 };

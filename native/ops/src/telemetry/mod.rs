@@ -1,4 +1,4 @@
-//! Usage events to VRCT-VOX's own receiver (`src-python/models/telemetry/`).
+//! Usage events to ASTAROT's own receiver (`src-python/models/telemetry/`).
 //!
 //! Two events are sent, and only these:
 //!

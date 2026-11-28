@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime } from "../../../../../../logics/test/hookHarness.ts";
 
 // What the runtime setup's hook gives the section, as far as it reads it.
@@ -12,10 +12,16 @@ interface VcRuntimes {
 
 // llama.cpp's server for the translation LLMs (ADR-015): offered only where the backend offers
 // it, set up through the runtime setup after the user's consent, never fetched unasked.
-const load = async (runtime: HookRuntime) => (await loadModule<typeof import("./TranslationLlamaRuntimes.tsx")>(new URL("./TranslationLlamaRuntimes.tsx", import.meta.url), runtime, {
-    "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
-    "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },
-})).TranslationLlamaRuntimes;
+const load = async (runtime: HookRuntime, hints = false) => {
+    const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
+        new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
+    return (await loadModule<typeof import("./TranslationLlamaRuntimes.tsx")>(new URL("./TranslationLlamaRuntimes.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
+        "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },
+        "../advanced_settings/catalogHeading": heading,
+        "../_components/hint/Hint": { useHintDescriptions: () => hints },
+    })).TranslationLlamaRuntimes;
+};
 
 let vc: VcRuntimes;
 
@@ -51,4 +57,23 @@ test("the build set up or removed makes the catalog ask again", async () => {
     assert.deepEqual(asked, ["catalog"]);
     runtime.render(TranslationLlamaRuntimes, { onInstalled });
     assert.deepEqual(asked, ["catalog"]);
+});
+
+test("under HintDescriptions the llama.cpp explanation moves into the heading's hint (#1112)", async () => {
+    vc = { catalog: { runtimes: [{ id: "llamacpp-vulkan" }] }, state: { jobs: {}, installed: {} }, send: () => {} };
+    const hintedRuntime = hooks();
+    const Hinted = await load(hintedRuntime, true);
+    const hintedTree = hintedRuntime.render(Hinted);
+    assert.ok(hintedTree);
+    const hint = findIn(hintedTree, node => node.type === "hint");
+    assert.equal(hint.props.text, "translation_catalog.llamacpp.desc");
+    assert.equal(hint.props.focusable, true);
+    assert.equal(nodesIn(hintedTree).filter(node => node.type === "p").length, 0);
+
+    const plainRuntime = hooks();
+    const Plain = await load(plainRuntime, false);
+    const plainTree = plainRuntime.render(Plain);
+    assert.ok(plainTree);
+    assert.equal(find(plainTree, node => node.type === "hint"), null);
+    assert.equal(findIn(plainTree, node => node.type === "p").props.children, "translation_catalog.llamacpp.desc");
 });

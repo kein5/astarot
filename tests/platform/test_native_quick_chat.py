@@ -147,7 +147,7 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
 
 def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
     from pythonosc.osc_packet import OscPacket
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'), ExitStack() as stack:
+    with private_graph(config_fragment=ROOT / 'config/pipewire/90-astarot-managed.conf'), ExitStack() as stack:
         translation = stack.enter_context(TranslationFixture(['Quick chat translation']))
         tts = stack.enter_context(SpeechServerFixture())
         osc = stack.enter_context(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
@@ -252,9 +252,13 @@ def test_wayland_says_the_portal_registers_the_shortcut_and_opens_from_button(tm
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
         # Native Wayland registers the shortcut with the desktop's GlobalShortcuts portal; the page says so.
         ui.wait("return document.body.innerText.includes(\"desktop's GlobalShortcuts portal\")")
+        # The main window opens Quick Chat, and the settings window stays open (#1236).
         ui.click_text('button', 'Open input window')
-        ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
-        chat, = [handle for handle in ui.command('GET', '/window/handles') if handle != main]
+        deadline = time.monotonic() + 10
+        while (chat := ui.window_showing('quick-chat.html')) is None:
+            assert time.monotonic() < deadline, f'Quick Chat did not open; see {ui.output}'
+            time.sleep(.2)
+        assert 'settings.html' in ui.window_pages()
         ui.command('POST', '/window', {'handle': chat})
         ui.wait("return document.activeElement?.getAttribute('aria-label') === 'Message'")
         ui.fill('Message', 'Wayland draft')

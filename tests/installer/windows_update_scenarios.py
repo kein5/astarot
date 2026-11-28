@@ -5,6 +5,7 @@ release URL and makes build stubs. No production URL override is introduced.
 """
 
 import argparse
+import base64
 from contextlib import contextmanager
 import ctypes
 from hashlib import sha256
@@ -13,6 +14,8 @@ import io
 import json
 import os
 from pathlib import Path
+import re
+import secrets
 import shutil
 import struct
 import subprocess
@@ -23,14 +26,31 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_URL = "https://github.com/kein5/astarot/releases/download/$release_revision"
-APP = "vrct-vox.exe"
+# The main binary from 0.7.0, and the one up to 0.6.x (ADR-014, 2.5 and 2.6). The "old" package
+# plays a release up to 0.6.x and carries the old one; every other package carries the new one.
+APP = "astarot.exe"
+OLD_APP = "vrct-vox.exe"
 # Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
 # installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
-PACKAGE = "VRCT-VOX.zip"
-UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
-PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
+# The SteamVR application manifest, beside the main binary in packages from 0.7.0 (#1384). It goes
+# with the app: a package without it (the "old" one) removes the one it replaces, and the
+# uninstaller removes it after asking the binary beside it to take the install out of SteamVR's
+# list. The stub binary cannot run, which the uninstaller must survive.
+STEAMVR_MANIFEST = "astarot.vrmanifest"
+# The package from 0.7.0, and its name in a release up to 0.6.x, which the installer asks for when
+# /VERSION names such a release (ADR-014, 2.10). "0.6.99" plays one.
+PACKAGE = "ASTAROT.zip"
+OLD_PACKAGE = "VRCT-VOX.zip"
+OLD_RELEASE = "0.6.99"
+# The keys up to 0.6.x, and the keys from ADR-014's step 5 on (2.5).
+OLD_UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
+OLD_PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ASTAROT"
+PRODUCT_KEY = r"Software\kein5\ASTAROT"
+# The file a moved install leaves for the app: the old folder, UTF-16 after a byte order mark.
+MOVED_FROM = "installer_moved_from.txt"
 # No single ANSI code page holds all of these characters.
 NON_ANSI_FOLDER = "ユーザー 한글 😀"
 ARCHIVE_TIME = (2026, 1, 1, 0, 0, 0)
@@ -40,15 +60,23 @@ ARCHIVE_TIME = (2026, 1, 1, 0, 0, 0)
 OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
 
 
+def package_name(version):
+    """The package's name in the release of `version`. The installer's own release has the new
+    name whatever its number: that is how this code builds it."""
+    return OLD_PACKAGE if version != OWN and re.fullmatch(r"0\.[0-6]\..+", version) else PACKAGE
+
+
 def payload_files(version):
     files = {
-        APP: f"{version} executable stub".encode(),
+        (OLD_APP if version == "old" else APP): f"{version} executable stub".encode(),
         "_internal/shared.txt": f"{version} dependency".encode(),
         f"_internal/{version}-only.txt": f"{version} only".encode(),
         "_internal/nested/padding.bin": bytes(range(256)) * 2048,
     }
     if version == "old":
         files[SIDECAR] = f"{version} sidecar stub".encode()
+    else:
+        files[STEAMVR_MANIFEST] = (ROOT / "src-tauri/steamvr" / STEAMVR_MANIFEST).read_bytes()
     return files
 
 
@@ -82,6 +110,10 @@ def payloads():
         "range-fallback": good,
         # Served damaged (one byte changed, same length) the first time only.
         "damaged-once": good,
+        # Each transfer stops after its first block until the test releases it, so that a second
+        # run can start while the first one is downloading.
+        "held": good,
+        OLD_RELEASE: archive_bytes(payload_files("old")),
         OWN: good,
     }
 
@@ -95,6 +127,9 @@ class PackageServer(ThreadingHTTPServer):
         self.damaged = False
         self.requests = []
         self.request_lock = threading.Lock()
+        # "held": set once a transfer has sent its first block; the rest waits for release.
+        self.holding = threading.Event()
+        self.release = threading.Event()
 
 
 class PackageHandler(BaseHTTPRequestHandler):
@@ -117,7 +152,8 @@ class PackageHandler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         data = self.server.payloads[version]
-        if parts[1] == PACKAGE + ".sha256":
+        package = package_name(version)
+        if parts[1] == package + ".sha256":
             if version == "checksum-404":
                 self.send_error(404)
                 return
@@ -126,7 +162,7 @@ class PackageHandler(BaseHTTPRequestHandler):
                 data = b"invalid"
             elif version == "hash-mismatch":
                 data = b"0" * 64
-        elif parts[1] != PACKAGE:
+        elif parts[1] != package:
             self.send_error(404)
             return
         status, start, end = 200, 0, len(data) - 1
@@ -162,6 +198,9 @@ class PackageHandler(BaseHTTPRequestHandler):
                         time.sleep(0.2)
                     self.wfile.write(data[offset:min(offset + 8192, end + 1)])
                     self.wfile.flush()
+                    if version == "held" and parts[1] == PACKAGE and offset == start:
+                        self.server.holding.set()
+                        self.server.release.wait(timeout=120)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
 
@@ -213,10 +252,12 @@ def prepare(port):
         path.write_bytes(data)
 
 
-def installer_command(installer, directory, version, silent=True, extra=""):
+def installer_command(installer, directory, version, silent=True, extra="", uilang="en"):
+    """`uilang`: the /UILANG= the app passes when it runs the installer; None for a run by hand."""
     # NSIS requires /D last, without quotes even when its value contains spaces.
     flags = "/S " if silent else ""
-    return f'"{installer}" {flags}/NS /UILANG=en /VERSION={version} {extra}/D={directory}'
+    language = f"/UILANG={uilang} " if uilang else ""
+    return f'"{installer}" {flags}/NS {language}/VERSION={version} {extra}/D={directory}'
 
 
 def installer_environment(temp):
@@ -225,12 +266,28 @@ def installer_environment(temp):
 
 
 def run_install(installer, directory, version, temp, success, extra=""):
+    before = snapshot(temp) if temp.exists() else {}
     result = subprocess.run(installer_command(installer, directory, version, extra=extra),
                             env=installer_environment(temp), timeout=180, check=False)
     assert result.returncode == (0 if success else 2), f"{version}: exit {result.returncode}"
-    assert not list(temp.glob(PACKAGE + ".p*")), "Background transfer fragments remain"
-    assert not (temp / PACKAGE).exists(), "Downloaded archive was not removed"
-    assert not (temp / (PACKAGE + ".sha256")).exists(), "Checksum sidecar remains"
+    assert_own_downloads_gone(temp, before)
+
+
+# The archive a failed install keeps in TEMP for diagnosis, under the name of the release it
+# installs; a successful one removes it.
+KEPT = {PACKAGE + ".bad", OLD_PACKAGE + ".bad"}
+
+
+def assert_own_downloads_gone(temp, before):
+    """A run downloads into a folder of its own in TEMP and removes it: what was in TEMP before
+    is untouched (the kept archive aside), and nothing it downloaded is left."""
+    after = snapshot(temp)
+    changed = [name for name, digest in before.items() if name not in KEPT and after.get(name) != digest]
+    assert not changed, f"The installer changed files it did not make in TEMP: {changed}"
+    left = [name for name in after.keys() - before.keys()
+            if name not in KEPT
+            and (Path(name).name.startswith((PACKAGE, OLD_PACKAGE)) or Path(name).name == "package")]
+    assert not left, f"Downloads remain in TEMP: {left}"
 
 
 def add_user_data(directory):
@@ -248,10 +305,19 @@ def add_user_data(directory):
     (directory / "weights/empty").mkdir()
 
 
-def expect_updated(directory, before):
+def moved_from_bytes(folder):
+    return b"\xff\xfe" + str(folder).encode("utf-16-le")
+
+
+def expect_updated(directory, before, moved_from=None, version="new"):
+    """`moved_from`: the folder the installer moved the install from, named in the file it leaves.
+    The main binary under either name goes with the rest of the app: only `version`'s stays."""
     expected = {k: v for k, v in before.items()
-                if k not in (APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
-    for name, value in payload_files("new").items():
+                if k not in (APP, OLD_APP, SIDECAR, STEAMVR_MANIFEST, "update.exe", "_internal")
+                and not k.startswith("_internal/")}
+    if moved_from is not None:
+        expected[MOVED_FROM] = sha256(moved_from_bytes(moved_from)).hexdigest()
+    for name, value in payload_files(version).items():
         expected[name] = sha256(value).hexdigest()
         for parent in Path(name).parents:
             if str(parent) != ".":
@@ -279,6 +345,8 @@ def hold_file(path):
 
 
 def interrupted_commit(directory, checkpoint):
+    """An update that stopped half way, by an installer up to 0.6.x: the main binary is the old
+    one on both sides."""
     work = directory / ".upd"
     for name in ("new", "old", "add", "discard"):
         (work / name).mkdir(parents=True)
@@ -289,10 +357,10 @@ def interrupted_commit(directory, checkpoint):
         (directory / name).rename(work / "old" / name)
     if checkpoint == "uninstallers":
         return
-    (directory / APP).rename(work / "old" / APP)
+    (directory / OLD_APP).rename(work / "old" / OLD_APP)
     if checkpoint == "exe-backup":
         return
-    (directory / APP).write_bytes(payload_files("new")[APP])
+    (directory / OLD_APP).write_bytes(payload_files("new")[APP])
     if checkpoint == "exe-replaced":
         return
     (directory / "_internal").rename(work / "old/_internal")
@@ -307,6 +375,86 @@ def interrupted_commit(directory, checkpoint):
         # Marker still present: rerunning rollback must tolerate this point.
 
 
+def wait_for(condition, timeout=60):
+    """The first truthy value of condition(), polled until the timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = condition()
+        if value:
+            return value
+        time.sleep(0.2)
+    raise AssertionError(f"Timed out waiting for {condition}")
+
+
+def installer_language():
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, PRODUCT_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            return winreg.QueryValueEx(key, "Installer Language")[0]
+    except FileNotFoundError:
+        return None
+
+
+def set_installer_language(value):
+    import winreg
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, PRODUCT_KEY, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
+        if value is None:
+            try:
+                winreg.DeleteValue(key, "Installer Language")
+            except FileNotFoundError:
+                pass
+        else:
+            winreg.SetValueEx(key, "Installer Language", 0, winreg.REG_SZ, value)
+
+
+@contextmanager
+def held_first_run(installer, directory, temp, server):
+    """A silent run that is downloading: the server holds its transfer until the block ends.
+    Then the run finishes, and must succeed and leave no downloads in TEMP."""
+    server.holding.clear()
+    server.release.clear()
+    before = snapshot(temp) if temp.exists() else {}
+    first = subprocess.Popen(installer_command(installer, directory, "held"), env=installer_environment(temp))
+    try:
+        assert server.holding.wait(timeout=120), "The first run never started its download"
+        # It downloads into a folder of its own in TEMP, not into TEMP itself.
+        downloading = wait_for(lambda: [p for p in temp.rglob(PACKAGE + "*") if p.is_file()])
+        assert all(p.parent.name == "package" and p.parent != temp for p in downloading), downloading
+        yield first
+        server.release.set()
+        assert first.wait(timeout=180) == 0, f"first run: exit {first.returncode}"
+        assert_own_downloads_gone(temp, before)
+    finally:
+        server.release.set()
+        if first.poll() is None:
+            first.kill()
+            first.wait(timeout=10)
+
+
+def second_run_scenario(installer, work, server, directory, before):
+    """An in-app update and a setup started by hand at once: the second run says so and ends
+    with exit code 2 before it changes anything, and the first one finishes as if alone."""
+    with held_first_run(installer, directory, work / "temp-first-run", server):
+        during = snapshot(directory)
+        language = installer_language()
+        # The first run is past the point where it writes this value; the second one must not.
+        set_installer_language("1041")
+        with server.request_lock:
+            seen = len(server.requests)
+        second_temp = work / "temp-second-run"
+        result = subprocess.run(installer_command(installer, directory, "new"),
+                                env=installer_environment(second_temp), timeout=60, check=False)
+        assert result.returncode == 2, f"second run: exit {result.returncode}"
+        assert snapshot(directory) == during, "The second run changed the install folder"
+        assert installer_language() == "1041", "The second run wrote the installer language"
+        set_installer_language(language)
+        with server.request_lock:
+            asked = [r["path"] for r in server.requests[seen:] if not r["path"].startswith("/vheld/")]
+        assert not asked, f"The second run downloaded: {asked}"
+        assert not list(second_temp.rglob(PACKAGE + "*")), "The second run left downloads in TEMP"
+    expect_updated(directory, before)
+
+
 def silent_scenarios(installer, work, server):
     baseline = work / "fresh install"
     run_install(installer, baseline, "old", work / "temp-fresh", True)
@@ -318,6 +466,7 @@ def silent_scenarios(installer, work, server):
                           "uninstall.exe": sha256((baseline / "uninstall.exe").read_bytes()).hexdigest(),
                           "installer_language.txt": sha256(b"").hexdigest()})
     assert_tree(baseline, expected_fresh)
+    assert installed_version() == "old"
     print("PASS fresh install", flush=True)
     add_user_data(baseline)
     before = snapshot(baseline)
@@ -330,7 +479,40 @@ def silent_scenarios(installer, work, server):
     updated = clone("update success")
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
+    assert not (updated / OLD_APP).exists()
+    # The Apps list shows the version /VERSION installed, not the installer's own.
+    assert OWN != "new" and installed_version() == "new", installed_version()
     print("PASS update success and user data retention", flush=True)
+    print("PASS the main binary up to 0.6.x is replaced by the new one", flush=True)
+
+    # A release up to 0.6.x (/VERSION) has its package under the name of then, with its main
+    # binary under that name too: both are taken as they are, and the binary under the new name
+    # goes (ADR-014, 2.5 and 2.10).
+    directory = clone("back to a release up to 0.6.x")
+    run_install(installer, directory, "new", work / "temp-forward", True)
+    with server.request_lock:
+        seen = len(server.requests)
+    run_install(installer, directory, OLD_RELEASE, work / "temp-back", True)
+    expect_updated(directory, before, version="old")
+    assert not (directory / APP).exists()
+    with server.request_lock:
+        names = {request["path"].rsplit("/", 1)[-1] for request in server.requests[seen:]}
+    assert names == {OLD_PACKAGE, OLD_PACKAGE + ".sha256"}, names
+    print("PASS a release up to 0.6.x installs from VRCT-VOX.zip with its main binary", flush=True)
+
+    second_run_scenario(installer, work, server, clone("second run"), before)
+    print("PASS a second run while one runs changes nothing and exits with code 2", flush=True)
+
+    # Files with the names of the download in TEMP belong to another program, or to an installer
+    # without its own download folder: run_install checks that they stay as they are.
+    temp = work / "temp-foreign"
+    temp.mkdir()
+    for name in (PACKAGE, PACKAGE + ".sha256", PACKAGE + ".p0", PACKAGE + ".p3"):
+        (temp / name).write_bytes(f"{name} of another program".encode())
+    directory = clone("files of another program in TEMP")
+    run_install(installer, directory, "new", temp, True)
+    expect_updated(directory, before)
+    print("PASS a run leaves files with the names of its download in TEMP alone", flush=True)
 
     # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE. The app's language setting
     # stays: no installer_language.txt for the app to apply at start.
@@ -363,6 +545,8 @@ def silent_scenarios(installer, work, server):
     with server.request_lock:
         fetched = [request["path"] for request in server.requests if request["path"].startswith(f"/v{OWN}/")]
     assert fetched and not any(path.endswith(".sha256") for path in fetched), fetched
+    assert all(path.endswith("/" + PACKAGE) for path in fetched), fetched
+    assert installed_version() == OWN
     print("PASS own version checked against the built-in hash", flush=True)
 
     # Someone who can replace release files swaps the package and its .sha256 together. The
@@ -387,8 +571,10 @@ def silent_scenarios(installer, work, server):
 
     for version in ("checksum-404", "invalid-checksum", "hash-mismatch", "corrupt", "partial", "no-exe", "no-internal"):
         directory = clone(version)
+        recorded = installed_version()
         run_install(installer, directory, version, work / f"temp-{version}", False)
         assert_tree(directory, before)
+        assert installed_version() == recorded, "A failed install changed the recorded version"
         if version in ("corrupt", "partial", "no-exe", "no-internal"):
             assert (work / f"temp-{version}" / (PACKAGE + ".bad")).read_bytes() == server.payloads[version]
         if version == "hash-mismatch":
@@ -429,10 +615,10 @@ def silent_scenarios(installer, work, server):
 
     directory = clone("blocked recovery")
     interrupted_commit(directory, "exe-replaced")
-    with hold_file(directory / APP):
+    with hold_file(directory / OLD_APP):
         run_install(installer, directory, "checksum-404", work / "temp-blocked", False)
         assert (directory / ".upd/committing").exists()
-        assert (directory / ".upd/old" / APP).read_bytes() == payload_files("old")[APP]
+        assert (directory / ".upd/old" / OLD_APP).read_bytes() == payload_files("old")[OLD_APP]
     run_install(installer, directory, "checksum-404", work / "temp-unblocked", False)
     assert_tree(directory, before)
     print("PASS blocked restoration retains backups and can be retried", flush=True)
@@ -451,16 +637,48 @@ def silent_scenarios(installer, work, server):
     print("PASS failed fresh install removes install folder", flush=True)
 
 
-def register_old_install(directory):
+def write_key(path, values):
     import winreg
-    for path, values in {
-        PRODUCT_KEY: {"": str(directory), "Installer Language": "1033"},
-        UNINSTALL_KEY: {"": str(directory), "DisplayVersion": "0.0.1", "DisplayName": "VRCT-VOX",
-                        "UninstallString": f'"{directory / "uninstall.exe"}"'},
-    }.items():
-        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
-            for name, value in values.items():
-                winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
+        for name, value in values.items():
+            winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+
+
+def read_key(path):
+    """Every value of the key, or None when there is no key."""
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            values = {}
+            for index in range(winreg.QueryInfoKey(key)[1]):
+                name, value, _kind = winreg.EnumValue(key, index)
+                values[name] = value
+            return values
+    except FileNotFoundError:
+        return None
+
+
+def clear_registration():
+    import winreg
+    for path in (PRODUCT_KEY, UNINSTALL_KEY, OLD_PRODUCT_KEY, OLD_UNINSTALL_KEY):
+        try:
+            winreg.DeleteKeyEx(winreg.HKEY_CURRENT_USER, path, winreg.KEY_WOW64_64KEY, 0)
+        except FileNotFoundError:
+            pass
+
+
+def register_old_keys(directory, language="1033"):
+    """The keys an installer up to 0.6.x wrote for an install in `directory`."""
+    write_key(OLD_PRODUCT_KEY, {"": str(directory), "Installer Language": language})
+    write_key(OLD_UNINSTALL_KEY, {"": str(directory), "DisplayVersion": "0.0.1", "DisplayName": "VRCT-VOX",
+                                  "InstallLocation": f'"{directory}"',
+                                  "UninstallString": f'"{directory / "uninstall.exe"}"'})
+
+
+def register_old_install(directory, language="1033"):
+    """A machine with an install of 0.5.x: its keys, and none of this version's."""
+    clear_registration()
+    register_old_keys(directory, language)
 
 
 def gui_scenario(installer, work):
@@ -514,6 +732,105 @@ def gui_scenario(installer, work):
             process.wait(timeout=10)
 
 
+def gui_language_scenario(installer, work, uilang, saved, expected):
+    """#1261: the UI language page preselects /UILANG= (the app's run), or, in a run by hand, the
+    language of the settings the install goes over; clicking through keeps it for the app
+    (installer_language.txt). It always preselected English: it read $UILang above its Var line."""
+    from pywinauto import Desktop
+    directory = work / f"gui language {uilang or 'by hand'} {saved or 'no settings'}"
+    run_install(installer, directory, "old", work / f"temp-gui-language-seed-{uilang}-{saved}", True)
+    if saved:
+        # As the app writes it: one key a line, four spaces in (native/core/src/config/mod.rs).
+        (directory / "config.json").write_text(json.dumps({"MESSAGE_FORMAT": "日本語 😀", "UI_LANGUAGE": saved, "UI_SCALING": 100},
+                                                           indent=4, ensure_ascii=False), encoding="utf-8")
+    else:
+        (directory / "config.json").unlink(missing_ok=True)
+    language = installer_language()
+    # The installer's own words in English, for the captions below.
+    set_installer_language("1033")
+    process = subprocess.Popen(installer_command(installer, directory, "new", silent=False, uilang=uilang),
+                               env=installer_environment(work / f"temp-gui-language-{uilang}-{saved}"))
+    desktop = Desktop(backend="win32")
+    preselected = None
+    # Each page the wizard showed, once: its title and its controls (kind, ID, words, checked).
+    events = []
+    deadline = time.monotonic() + 180
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            for window in desktop.windows(process=process.pid, visible_only=True):
+                controls = window.descendants()
+                text = "\n".join(control.window_text() for control in controls)
+                buttons = [b for b in window.descendants(class_name="Button") if b.is_visible() and b.is_enabled()]
+                page = [window.window_text()] + [
+                    f"{c.friendly_class_name()} {c.control_id()} {c.window_text()!r}"
+                    + (f" checked={c.get_check_state()}" if c.friendly_class_name() in ("CheckBox", "RadioButton") else "")
+                    for c in controls if c.is_visible()]
+                if not events or events[-1] != page:
+                    events.append(page)
+                if "UI Language" in text and preselected is None:
+                    combos = [c for c in window.descendants(class_name="ComboBox") if c.is_visible()]
+                    preselected = combos[0].window_text() if combos else ""
+                # Keeping 日本語 turns the wizard's own words Japanese from the next page on, so the
+                # controls are found by kind and ID, not by their English words. The page over the
+                # install of before keeps its first choice, as clicking through does.
+                # The finish page's boxes: neither start the app (a stub here) nor add a shortcut.
+                for box in buttons:
+                    if box.friendly_class_name() == "CheckBox" and box.get_check_state() == 1:
+                        box.uncheck()
+                # OK, Next, Install, Close and Finish are the dialog's default button, ID 1.
+                forward = [b for b in buttons if b.control_id() == 1]
+                if forward:
+                    forward[0].click()
+                    time.sleep(0.2)
+            time.sleep(0.1)
+        assert process.poll() is not None, f"Wizard timed out on {json.dumps(events[-1:], ensure_ascii=False)}"
+        assert process.returncode == 0, f"install: exit {process.returncode}"
+        assert preselected == {"ja": "日本語", "en": "English"}[expected], f"preselected {preselected!r}"
+        assert (directory / "installer_language.txt").read_text(encoding="ascii") == expected
+        print(f"PASS the language page preselects {expected} (/UILANG={uilang}, settings in {saved}) and keeps it", flush=True)
+    finally:
+        set_installer_language(language)
+        # gui-controls.json, as the workflow keeps it for diagnosis.
+        record = work / f"gui-language-{uilang}-{saved}"
+        record.mkdir(exist_ok=True)
+        (record / "gui-controls.json").write_text(json.dumps(events, indent=2, ensure_ascii=False), encoding="utf-8")
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+
+
+def gui_second_run_scenario(installer, work, server):
+    """A second run with a window tells the user that another run is active, in a message box,
+    and ends with exit code 2 once it is closed."""
+    from pywinauto import Desktop
+    directory = work / "gui first run"
+    with held_first_run(installer, directory, work / "temp-gui-first-run", server):
+        second = subprocess.Popen(installer_command(installer, directory, "new", silent=False),
+                                  env=installer_environment(work / "temp-gui-second-run"))
+        desktop = Desktop(backend="win32")
+        told = False
+        deadline = time.monotonic() + 60
+        try:
+            while second.poll() is None and time.monotonic() < deadline:
+                for window in desktop.windows(process=second.pid, visible_only=True):
+                    text = "\n".join([window.window_text()] + [c.window_text() for c in window.descendants()])
+                    if "already running" in text or "すでに動いています" in text:
+                        told = True
+                        ok = [b for b in window.descendants(class_name="Button")
+                              if b.window_text().replace("&", "").strip() == "OK"]
+                        if ok:
+                            ok[0].click()
+                time.sleep(0.1)
+            assert second.poll() is not None, "The second run did not end"
+            assert second.returncode == 2, f"second run: exit {second.returncode}"
+            assert told, "The second run did not say that another run is active"
+        finally:
+            if second.poll() is None:
+                second.kill()
+                second.wait(timeout=10)
+    print("PASS a second run with a window says another run is active and exits with code 2", flush=True)
+
+
 PRODUCT_NAME = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["productName"]
 OLD_FOLDER = "VRCT-VOX"
 OLD_SHORTCUT = "vrct-vox.lnk"
@@ -533,21 +850,22 @@ def programs_folder():
     return shell_folder(0x02)  # CSIDL_PROGRAMS: the user's Start menu programs
 
 
-def make_shortcut(link, target):
+def make_shortcut(link, target, arguments=""):
     link.parent.mkdir(parents=True, exist_ok=True)
     script = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
-              f"$s.TargetPath='{target}';$s.Save()")
+              f"$s.TargetPath='{target}';$s.Arguments='{arguments}';$s.Save()")
     subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, timeout=60)
 
 
 def uninstall_entry():
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
-            return {name: winreg.QueryValueEx(key, name)[0]
-                    for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
-    except FileNotFoundError:
-        return None
+    entry = read_key(UNINSTALL_KEY)
+    return None if entry is None else {name: entry.get(name) for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
+
+
+def installed_version():
+    """The version the Apps list shows for the install (DisplayVersion)."""
+    entry = uninstall_entry()
+    return entry and entry["DisplayVersion"]
 
 
 def uninstall_entries_named(*names):
@@ -566,9 +884,10 @@ def uninstall_entries_named(*names):
     return found
 
 
-def run_default_install(installer, version, temp, extra=""):
+def run_default_install(installer, version, temp, extra="", uilang="en"):
     """No /D and no /NS: the default folder, the stored location and shortcuts as a user gets them."""
-    command = f'"{installer}" /S /UILANG=en /VERSION={version} {extra}'.strip()
+    language = f"/UILANG={uilang} " if uilang else ""
+    command = f'"{installer}" /S {language}/VERSION={version} {extra}'.strip()
     result = subprocess.run(command, env=installer_environment(temp), timeout=180, check=False)
     assert result.returncode == 0, f"{version}: exit {result.returncode}"
 
@@ -579,20 +898,23 @@ def run_uninstall(directory):
 
 
 def rename_scenarios(installer, work):
-    """The display name moves to productName (Issue #535); identifiers and data stay."""
+    """The display name moves to productName (Issue #535). An update of an install made under the
+    old name moves it as well (ADR-014, 2.5): move_scenarios."""
     local = Path(os.environ["LOCALAPPDATA"])
     new_dir, old_dir = local / PRODUCT_NAME, local / OLD_FOLDER
     desktop, programs = desktop_folder(), programs_folder()
     assert PRODUCT_NAME != OLD_FOLDER
     for path in (new_dir, old_dir):
         assert not path.exists(), f"Run on a disposable machine: {path} exists"
-    assert uninstall_entry() is None, "Run on a disposable machine: an install is registered"
+    assert uninstall_entry() is None and read_key(OLD_UNINSTALL_KEY) is None, \
+        "Run on a disposable machine: an install is registered"
 
     # A new install: folder, Apps list and shortcuts carry the display name.
     run_default_install(installer, "new", work / "temp-rename-fresh")
     assert (new_dir / APP).is_file() and not old_dir.exists()
     entry = uninstall_entry()
     assert entry["DisplayName"] == PRODUCT_NAME, entry
+    assert entry["DisplayVersion"] == "new", entry
     assert entry["InstallLocation"].strip('"') == str(new_dir), entry
     assert (desktop / f"{PRODUCT_NAME}.lnk").is_file()
     assert list(programs.rglob(f"{PRODUCT_NAME}.lnk")), "No Start menu shortcut"
@@ -602,33 +924,466 @@ def rename_scenarios(installer, work):
     assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk"))
     shutil.rmtree(new_dir)
     print("PASS a new install uses the display name for folder, Apps list and shortcuts", flush=True)
+    # The location the uninstaller keeps for a later install goes too: the next mode starts clean.
+    clear_registration()
 
-    # An install made under the old name, with the shortcuts 0.5.0 made, updated in place.
-    run_install(installer, old_dir, "old", work / "temp-rename-seed", True)
-    add_user_data(old_dir)
-    register_old_install(old_dir)
-    old_links = [desktop / OLD_SHORTCUT, programs / OLD_FOLDER / OLD_SHORTCUT, programs / OLD_SHORTCUT]
+
+def same_path(a, b):
+    return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+
+
+def shortcut_property(link, name):
+    script = f"(New-Object -ComObject WScript.Shell).CreateShortcut('{link}').{name}"
+    result = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                            capture_output=True, text=True, check=True, timeout=60)
+    return result.stdout.strip()
+
+
+def shortcut_target(link):
+    return shortcut_property(link, "TargetPath")
+
+
+def shortcut_places():
+    desktop, programs = desktop_folder(), programs_folder()
+    new = [desktop / f"{PRODUCT_NAME}.lnk", programs / PRODUCT_NAME / f"{PRODUCT_NAME}.lnk", programs / f"{PRODUCT_NAME}.lnk"]
+    old = [desktop / OLD_SHORTCUT, programs / OLD_FOLDER / OLD_SHORTCUT, programs / OLD_SHORTCUT]
+    return new, old
+
+
+def remove_shortcuts():
+    new, old = shortcut_places()
+    for link in new + old:
+        # Windows may still have the new shortcut open after the installer exits.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                link.unlink(missing_ok=True)
+                break
+            except PermissionError as error:
+                if getattr(error, "winerror", None) != 32 or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
+    for folder in (programs_folder() / PRODUCT_NAME, programs_folder() / OLD_FOLDER):
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+
+
+def seed_install(installer, directory, temp):
+    """The old package with user data in `directory`; no keys and no shortcuts: each scenario sets
+    those up as the version it plays left them."""
+    run_install(installer, directory, "old", temp, True)
+    add_user_data(directory)
+    clear_registration()
+    remove_shortcuts()
+    return snapshot(directory)
+
+
+def expect_registration(directory, language=None):
+    """The keys of this version record `directory`; the keys up to 0.6.x are gone; one Apps entry."""
+    product = read_key(PRODUCT_KEY)
+    assert product is not None and same_path(product[""], directory), product
+    if language is not None:
+        assert product.get("Installer Language") == language, product
+    entry = read_key(UNINSTALL_KEY)
+    assert entry is not None and entry["DisplayName"] == PRODUCT_NAME, entry
+    assert same_path(entry["InstallLocation"].strip('"'), directory), entry
+    assert same_path(entry["UninstallString"].strip('"'), directory / "uninstall.exe"), entry
+    # ADR-014, 2.5, 8: the main binary under its new name.
+    assert entry.get("MainBinaryName") == APP, entry
+    assert same_path(entry["DisplayIcon"].strip('"'), directory / APP), entry
+    assert read_key(OLD_PRODUCT_KEY) is None, read_key(OLD_PRODUCT_KEY)
+    assert read_key(OLD_UNINSTALL_KEY) is None, read_key(OLD_UNINSTALL_KEY)
+    assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [UNINSTALL_KEY.rsplit("\\", 1)[1]]
+
+
+def reset_machine(*folders):
+    remove_shortcuts()
+    clear_registration()
+    for folder in folders:
+        if folder.exists():
+            shutil.rmtree(folder)
+
+
+def move_scenarios(installer, work):
+    """ADR-014, 2.5: the default folder up to 0.5.0 and the registry keys move to ASTAROT."""
+    local = Path(os.environ["LOCALAPPDATA"])
+    new_dir, old_dir = local / PRODUCT_NAME, local / OLD_FOLDER
+    for path in (new_dir, old_dir):
+        assert not path.exists(), f"Run on a disposable machine: {path} exists"
+    assert read_key(UNINSTALL_KEY) is None and read_key(OLD_UNINSTALL_KEY) is None, \
+        "Run on a disposable machine: an install is registered"
+    reset_machine()
+    new_links, old_links = shortcut_places()
+    desktop_link = new_links[0]
+
+    # 0.5.0 and earlier: the old default folder, the old keys with the language the installer
+    # last ran in, and the shortcuts 0.5.0 made. The in-app update moves the folder by renaming
+    # it, leaves the file for the app, moves the keys, and points the shortcuts at the new place.
+    seed_install(installer, old_dir, work / "temp-seed-0.5.0")
+    register_old_install(old_dir, language="1041")
     for link in old_links:
-        make_shortcut(link, old_dir / APP)
+        make_shortcut(link, old_dir / OLD_APP)
     before = snapshot(old_dir)
-    run_default_install(installer, "new", work / "temp-rename-update", extra="/UPDATE /EDITION=cpu")
+    run_default_install(installer, "new", work / "temp-move", extra="/UPDATE /EDITION=cpu", uilang=None)
+    assert not old_dir.exists(), "Nothing, no link or junction, is left at the old place"
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir, language="1041")
+    assert not any(link.exists() for link in old_links), [str(link) for link in old_links if link.exists()]
+    for link in new_links:
+        assert same_path(shortcut_target(link), new_dir / APP), link
+    print("PASS the default folder of 0.5.0 moves with its data, keys, language and shortcuts", flush=True)
+
+    # The next update finds the install by the new keys and moves nothing more. The app has not
+    # started yet, so the file for it is still there.
+    run_default_install(installer, "new", work / "temp-move-again", extra="/UPDATE", uilang=None)
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir, language="1041")
+    print("PASS the next update leaves the moved install where it is", flush=True)
+
+    # The uninstaller removes the keys of both names; an update that stopped half way may have
+    # left the old ones. It keeps the settings, and the file for the app goes.
+    register_old_keys(old_dir)
+    run_uninstall(new_dir)
+    assert read_key(UNINSTALL_KEY) is None and read_key(OLD_UNINSTALL_KEY) is None
+    assert read_key(OLD_PRODUCT_KEY) is None
+    assert "Installer Language" not in (read_key(PRODUCT_KEY) or {})
+    assert not any(link.exists() for link in new_links + old_links)
+    assert (new_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
+    assert not (new_dir / MOVED_FROM).exists()
+    assert not (new_dir / STEAMVR_MANIFEST).exists(), "The SteamVR manifest goes with the app"
+    print("PASS the uninstaller removes the keys of both names and keeps the settings", flush=True)
+    reset_machine(new_dir)
+
+    # 0.5.1 and later installed into the new default folder already: only the keys move. The
+    # main binary takes its new name (2.5, 8): the shortcuts the installer made lead to it, and one
+    # the user made under another name is left as it is.
+    seed_install(installer, new_dir, work / "temp-seed-0.5.1")
+    register_old_install(new_dir)
+    for link in new_links[:2]:
+        make_shortcut(link, new_dir / OLD_APP)
+    own = desktop_folder() / "my ASTAROT.lnk"
+    make_shortcut(own, new_dir / OLD_APP)
+    before = snapshot(new_dir)
+    run_default_install(installer, "new", work / "temp-keys-only", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before)
+    expect_registration(new_dir)
+    for link in new_links[:2]:
+        assert same_path(shortcut_target(link), new_dir / APP), link
+    assert not new_links[2].exists(), "A shortcut the user removed is not made again"
+    assert same_path(shortcut_target(own), new_dir / OLD_APP)
+    own.unlink()
+    print("PASS an install of 0.5.1 in the new folder keeps its place; only the keys move", flush=True)
+    print("PASS the shortcuts the installer made lead to the main binary under its new name", flush=True)
+
+    # The next update, with the main binary already under its new name, leaves the shortcuts as
+    # they are: what the user changed in them stays.
+    make_shortcut(desktop_link, new_dir / APP, arguments="--kept")
+    run_default_install(installer, "new", work / "temp-keys-only-again", extra="/UPDATE")
+    assert shortcut_property(desktop_link, "Arguments") == "--kept"
+    print("PASS an update under the same name leaves the shortcuts alone", flush=True)
+    reset_machine(new_dir)
+
+    # A folder the user chose stays, even under the old name.
+    chosen = work / "chosen place" / OLD_FOLDER
+    seed_install(installer, chosen, work / "temp-seed-chosen")
+    register_old_install(chosen)
+    make_shortcut(desktop_link, chosen / OLD_APP)
+    before = snapshot(chosen)
+    run_default_install(installer, "new", work / "temp-chosen", extra="/UPDATE")
+    expect_updated(chosen, before)
+    expect_registration(chosen)
+    assert same_path(shortcut_target(desktop_link), chosen / APP)
+    assert not new_dir.exists() and not old_dir.exists()
+    print("PASS a folder the user chose stays where it is", flush=True)
+    reset_machine()
+
+    # Something else in the new folder: nothing moves and nothing there is touched. The keys
+    # record the old folder under the new names, and the next update moves the install once the
+    # folder is empty (an empty folder is taken over).
+    seed_install(installer, old_dir, work / "temp-seed-occupied")
+    register_old_install(old_dir)
+    new_dir.mkdir()
+    (new_dir / "someone else's.txt").write_text("not the app's", encoding="utf-8")
+    theirs = snapshot(new_dir)
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-occupied", extra="/UPDATE")
     expect_updated(old_dir, before)
-    assert not new_dir.exists(), "An update must not move settings and models to a new folder"
-    entry = uninstall_entry()
-    assert entry["DisplayName"] == PRODUCT_NAME and entry["InstallLocation"].strip('"') == str(old_dir), entry
-    assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [OLD_FOLDER]
-    assert not any(link.exists() for link in old_links), [str(l) for l in old_links if l.exists()]
-    assert not (programs / OLD_FOLDER).exists()
-    for link in (desktop / f"{PRODUCT_NAME}.lnk", programs / PRODUCT_NAME / f"{PRODUCT_NAME}.lnk",
-                 programs / f"{PRODUCT_NAME}.lnk"):
-        assert link.is_file(), link
-    print("PASS an update keeps folder and data, renames the Apps entry and the shortcuts", flush=True)
-    run_uninstall(old_dir)
-    assert uninstall_entry() is None
-    assert not (desktop / f"{PRODUCT_NAME}.lnk").exists()
-    assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk")) and not list(programs.rglob(OLD_SHORTCUT))
-    assert (old_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
-    print("PASS the uninstaller removes the renamed shortcuts", flush=True)
+    assert snapshot(new_dir) == theirs
+    expect_registration(old_dir)
+    (new_dir / "someone else's.txt").unlink()
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-occupied-retry", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir)
+    print("PASS an occupied new folder keeps the install in place until the next update", flush=True)
+    reset_machine(new_dir)
+
+    # A file open in the old folder: the rename is refused, the update is still installed where
+    # the install is, and the next update moves it.
+    seed_install(installer, old_dir, work / "temp-seed-open")
+    register_old_install(old_dir)
+    before = snapshot(old_dir)
+    with hold_file(old_dir / "weights/custom/model.bin"):
+        run_default_install(installer, "new", work / "temp-open", extra="/UPDATE")
+    expect_updated(old_dir, before)
+    expect_registration(old_dir)
+    assert not new_dir.exists()
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-open-retry", extra="/UPDATE")
+    assert not old_dir.exists()
+    expect_updated(new_dir, before, moved_from=old_dir)
+    expect_registration(new_dir)
+    print("PASS a refused rename keeps the install in place until the next update", flush=True)
+    reset_machine(new_dir)
+
+    # A run that stopped after the rename: the folder and the file for the app are in the new
+    # place. Stopped before the keys, only the old keys record the install, at the old place, and
+    # the shortcuts may still lead there. Stopped between the keys, both record it (the old keys
+    # at the old place), and the shortcuts lead to the new place already. The next update finds
+    # the install, records it, removes the old keys and points the shortcuts at it.
+    for keys in ("old keys", "both keys"):
+        seed_install(installer, old_dir, work / f"temp-seed-stopped-{keys}")
+        register_old_install(old_dir)
+        (old_dir / MOVED_FROM).write_bytes(moved_from_bytes(old_dir))
+        os.rename(old_dir, new_dir)
+        if keys == "both keys":
+            write_key(PRODUCT_KEY, {"": str(new_dir)})
+            write_key(UNINSTALL_KEY, {"DisplayName": PRODUCT_NAME, "InstallLocation": f'"{new_dir}"',
+                                      "UninstallString": f'"{new_dir / "uninstall.exe"}"'})
+        # Stopped between the keys, the shortcuts were pointed at the new place and name already.
+        make_shortcut(desktop_link, new_dir / APP if keys == "both keys" else old_dir / OLD_APP)
+        before = snapshot(new_dir)
+        run_default_install(installer, "new", work / f"temp-stopped-{keys}", extra="/UPDATE")
+        assert not old_dir.exists()
+        expect_updated(new_dir, before)
+        expect_registration(new_dir)
+        assert same_path(shortcut_target(desktop_link), new_dir / APP)
+        print(f"PASS a move that stopped before the keys ({keys}) is finished at the next update", flush=True)
+        reset_machine(new_dir)
+
+    # Keys up to 0.6.x that record another install, which still has its uninstaller (0.5.0 put
+    # back beside a newer install), stay with it, through the update and the uninstall.
+    other = work / "other install"
+    other.mkdir()
+    (other / "uninstall.exe").write_bytes(b"another install's uninstaller")
+    seed_install(installer, new_dir, work / "temp-seed-other")
+    write_key(PRODUCT_KEY, {"": str(new_dir)})
+    register_old_keys(other)
+    run_default_install(installer, "new", work / "temp-other", extra="/UPDATE")
+    assert same_path(read_key(PRODUCT_KEY)[""], new_dir)
+    assert read_key(OLD_PRODUCT_KEY)[""] == str(other) and read_key(OLD_UNINSTALL_KEY) is not None
+    run_uninstall(new_dir)
+    assert read_key(UNINSTALL_KEY) is None
+    assert read_key(OLD_PRODUCT_KEY)[""] == str(other) and read_key(OLD_UNINSTALL_KEY) is not None
+    print("PASS keys up to 0.6.x of another install stay with it", flush=True)
+    reset_machine(new_dir)
+
+
+# The API keys of a settings folder are generic credentials named <prefix>/<store_id>/<entry> in
+# the Credential Manager (ADR-013); 0.6.0 used the prefix VRCT-VOX.
+CREDENTIAL_PREFIXES = ("ASTAROT", "VRCT-VOX")
+ERROR_NOT_FOUND = 1168
+
+
+def credential_api():
+    from ctypes import wintypes
+
+    class Credential(ctypes.Structure):
+        _fields_ = [("Flags", wintypes.DWORD), ("Type", wintypes.DWORD), ("TargetName", wintypes.LPWSTR),
+                    ("Comment", wintypes.LPWSTR), ("LastWritten", wintypes.FILETIME),
+                    ("CredentialBlobSize", wintypes.DWORD), ("CredentialBlob", ctypes.c_void_p),
+                    ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD),
+                    ("Attributes", ctypes.c_void_p), ("TargetAlias", wintypes.LPWSTR),
+                    ("UserName", wintypes.LPWSTR)]
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    advapi.CredWriteW.argtypes = [ctypes.POINTER(Credential), wintypes.DWORD]
+    advapi.CredWriteW.restype = wintypes.BOOL
+    advapi.CredReadW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                 ctypes.POINTER(ctypes.POINTER(Credential))]
+    advapi.CredReadW.restype = wintypes.BOOL
+    advapi.CredDeleteW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD]
+    advapi.CredDeleteW.restype = wintypes.BOOL
+    advapi.CredFree.argtypes = [ctypes.c_void_p]
+    return advapi, Credential
+
+
+def write_credential(name):
+    """A generic credential as the app writes one (CRED_PERSIST_LOCAL_MACHINE)."""
+    advapi, Credential = credential_api()
+    value = ctypes.create_string_buffer(b"not a real key", 14)
+    credential = Credential(Type=1, TargetName=name, CredentialBlobSize=14,
+                            CredentialBlob=ctypes.cast(value, ctypes.c_void_p), Persist=2, UserName="test")
+    if not advapi.CredWriteW(ctypes.byref(credential), 0):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def credential_exists(name):
+    advapi, Credential = credential_api()
+    found = ctypes.POINTER(Credential)()
+    if advapi.CredReadW(name, 1, 0, ctypes.byref(found)):
+        advapi.CredFree(found)
+        return True
+    error = ctypes.get_last_error()
+    if error != ERROR_NOT_FOUND:
+        raise ctypes.WinError(error)
+    return False
+
+
+def delete_credential(name):
+    advapi, _Credential = credential_api()
+    if not advapi.CredDeleteW(name, 1, 0) and ctypes.get_last_error() != ERROR_NOT_FOUND:
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+# What the app keeps in its folder on Windows (docs/spec/data-and-persistence.md), with the files
+# set aside next to the settings and those an interrupted write leaves.
+APP_DATA = {
+    "config.json": '{"UI_LANGUAGE": "ja"}',
+    "config.json.lock": "",
+    "config.json.unreadable-20260101-000000-0123456789ab": "not JSON",
+    "config.json.before-migration-2": "{}",
+    "config.json.0123456789ab.tmp": "{}",
+    "secrets.json.lock": "",
+    "secrets.json.unreadable-20260101-000000-0123456789ab": "{",
+    "secrets.json.0123456789ab.tmp": "{}",
+    "user_models.json": '{"version": 1, "models": []}',
+    ".user_models.json.0123456789abcdef0123456789abcdef.tmp": "{}",
+    "translation_catalog.json": '{"version": 1, "entries": []}',
+    "voice_mute_state.json": '{"version": 1, "muted": false}',
+    ".voice-mute-0123456789ab": "{}",
+    "telemetry_state.json": "{}",
+    "telemetry_state.json.1234.tmp": "{}",
+    "process.log": "log",
+    "startup_timing.log": "log",
+    "logs/process.log": "log",
+    "logs/2026-01-01_00-00-00.log": "conversation",
+    "downloaded_models/model/1/receipt.json": "{}",
+    "vc_runtimes/rvc/receipt.json": "{}",
+    "weights/whisper/base/model.bin": "weights",
+}
+# The user's own files in the folder, which stay: model folders put there for versions before
+# #597, and exported vocabulary files.
+USER_FILES = {
+    "translation-models/my-model/model.bin": "the user's model",
+    "exports/vocabulary-20260101-000000.txt": "VRChat",
+}
+
+
+def secrets_file(store_id):
+    """secrets.json as the app writes it: one key per line, the sealed entries longer than an
+    NSIS string."""
+    entries = base64.b64encode(os.urandom(12000)).decode()
+    return json.dumps({"entries": entries, "protection": "dpapi", "store_id": store_id, "version": 1}, indent=4)
+
+
+def after_uninstall(directory):
+    """The folder after an uninstall run with _?=, which keeps the uninstaller in place: it
+    cannot remove itself then, so it is left out."""
+    if not directory.exists():
+        return {}
+    return {k: v for k, v in snapshot(directory).items() if k != "uninstall.exe"}
+
+
+def tree_difference(actual, expected):
+    return json.dumps({
+        "missing": sorted(expected.keys() - actual.keys()),
+        "extra": sorted(actual.keys() - expected.keys()),
+        "changed": sorted(k for k in actual.keys() & expected.keys() if actual[k] != expected[k]),
+    }, indent=2)
+
+
+def add_app_data(directory, store_id):
+    for name, value in {**APP_DATA, **USER_FILES, "secrets.json": secrets_file(store_id)}.items():
+        path = directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(value, encoding="utf-8")
+
+
+def gui_uninstall(directory, delete_app_data):
+    """Runs the uninstaller with its pages, ticking "Delete the application data" if asked."""
+    from pywinauto import Desktop
+    process = subprocess.Popen(f'"{directory / "uninstall.exe"}" _?={directory}')
+    desktop = Desktop(backend="win32")
+    ticked = False
+    events = []
+    deadline = time.monotonic() + 120
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            for window in desktop.windows(process=process.pid, visible_only=True):
+                buttons = [b for b in window.descendants(class_name="Button") if b.is_visible() and b.is_enabled()]
+                events.append([b.window_text() for b in buttons])
+                box = [b for b in buttons if "delete the application data" in b.window_text().lower()
+                       or "アプリケーションデータを削除する" in b.window_text()]
+                if box and delete_app_data and not ticked:
+                    box[0].check()
+                    ticked = box[0].get_check_state() == 1
+                    continue
+                for caption in ("OK", "Uninstall", "Close"):
+                    matches = [b for b in buttons if b.window_text().replace("&", "").strip() == caption]
+                    if matches:
+                        matches[0].click()
+                        time.sleep(0.2)
+                        break
+            time.sleep(0.1)
+        assert process.poll() is not None, "The uninstaller timed out"
+        assert process.returncode == 0, f"uninstaller: exit {process.returncode}"
+        assert ticked or not delete_app_data, "The box to delete the application data was never reached"
+    finally:
+        (directory.parent / f"{directory.name}-uninstall-controls.json").write_text(json.dumps(events, indent=2), encoding="utf-8")
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+
+
+def delete_app_data_scenario(installer, work):
+    """The uninstaller's "Delete the application data" removes everything the app keeps in its
+    folder, and this folder's API keys under both names; the user's own folders and another
+    folder's keys stay. Without it, all of that stays."""
+    mine, other = secrets.token_hex(8), secrets.token_hex(8)
+    keys = [f"{prefix}/{mine}/{entry}" for prefix in CREDENTIAL_PREFIXES
+            for entry in ("AUTH_KEYS/DeepL_API", "TRANSLATION_CATALOG/0123456789abcdef")]
+    # Another settings folder's keys, and a name that only starts like this folder's.
+    others = [f"{prefix}/{other}/AUTH_KEYS/DeepL_API" for prefix in CREDENTIAL_PREFIXES] + [
+        f"ASTAROT/{mine}0/AUTH_KEYS/DeepL_API"]
+    try:
+        for name in keys + others:
+            write_credential(name)
+
+        directory = work / "uninstall keeps app data"
+        run_install(installer, directory, "new", work / "temp-uninstall-keeps", True)
+        add_app_data(directory, mine)
+        # The SteamVR manifest is part of the app (#1384): it goes with the binary.
+        data = {k: v for k, v in snapshot(directory).items()
+                if not k.startswith("_internal") and k not in (APP, STEAMVR_MANIFEST, "uninstall.exe", "installer_language.txt")}
+        run_uninstall(directory)
+        left = after_uninstall(directory)
+        assert left == data, "An uninstall without the box changed app data: " + tree_difference(left, data)
+        assert all(credential_exists(name) for name in keys + others), "An uninstall without the box removed keys"
+        print("PASS an uninstall keeps app data and API keys unless asked", flush=True)
+
+        directory = work / "uninstall deletes app data"
+        run_install(installer, directory, "new", work / "temp-uninstall-deletes", True)
+        add_app_data(directory, mine)
+        gui_uninstall(directory, delete_app_data=True)
+        kept = after_uninstall(directory)
+        user = {}
+        for name, value in USER_FILES.items():
+            user[name] = sha256(value.encode()).hexdigest()
+            for parent in Path(name).parents:
+                if str(parent) != ".":
+                    user[parent.as_posix()] = "directory"
+        assert kept == user, json.dumps({"left": sorted(kept.keys() - user.keys()),
+                                         "lost": sorted(user.keys() - kept.keys())}, indent=2)
+        assert not [name for name in keys if credential_exists(name)], "This folder's API keys remain"
+        assert all(credential_exists(name) for name in others), "Another folder's API keys were removed"
+        print("PASS Delete the application data removes app data and this folder's API keys only", flush=True)
+    finally:
+        for name in keys + others:
+            delete_credential(name)
 
 
 def system_tar():
@@ -678,7 +1433,7 @@ def verify_extraction_outside_ansi(work):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui", "rename"), required=True)
+    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui", "rename", "move"), required=True)
     parser.add_argument("--port", type=int, default=18765)
     parser.add_argument("--installer", type=Path)
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".review/tmp/windows-update")
@@ -701,8 +1456,16 @@ def main():
             silent_scenarios(args.installer.resolve(), work, server)
         elif args.mode == "rename":
             rename_scenarios(args.installer.resolve(), work)
+        elif args.mode == "move":
+            move_scenarios(args.installer.resolve(), work)
         else:
+            delete_app_data_scenario(args.installer.resolve(), work)
             gui_scenario(args.installer.resolve(), work)
+            # #1261: a run by hand over settings in Japanese, the app's run with /UILANG=ja, and a
+            # run by hand without settings (a first install keeps English).
+            for uilang, saved, expected in ((None, "ja", "ja"), ("ja", "en", "ja"), (None, None, "en")):
+                gui_language_scenario(args.installer.resolve(), work, uilang, saved, expected)
+            gui_second_run_scenario(args.installer.resolve(), work, server)
 
 
 if __name__ == "__main__":

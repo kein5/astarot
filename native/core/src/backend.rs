@@ -60,7 +60,7 @@ impl Options {
         Self {
             env,
             workers: dispatch::DEFAULT_WORKER_COUNT,
-            watchdog: Some((vrct_ops::watchdog::TIMEOUT, vrct_ops::watchdog::INTERVAL)),
+            watchdog: Some((astarot_ops::watchdog::TIMEOUT, astarot_ops::watchdog::INTERVAL)),
             grace: Duration::from_secs(30),
             startup_limit: Some(STARTUP_LIMIT),
             logs: true,
@@ -77,8 +77,12 @@ struct LineOutput {
 
 impl Output for LineOutput {
     fn answer(&self, status: u16, endpoint: Option<&str>, result: &Value) {
+        self.answer_for(status, endpoint, result, None);
+    }
+
+    fn answer_for(&self, status: u16, endpoint: Option<&str>, result: &Value, origin: Option<&Value>) {
         self.log.response(status, endpoint, result);
-        (self.sink.line)(crate::protocol::response_line(status, endpoint, result));
+        (self.sink.line)(crate::protocol::response_line_for(status, endpoint, result, origin));
     }
 
     fn received(&self, endpoint: &str, data: &Value) {

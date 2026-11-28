@@ -9,6 +9,9 @@ import type { AsrProfile } from "../main/setupNeeds.ts";
 // here, but for the state rows below; the settings pages read the other fields.
 
 export type SpeechProfile = "japanese" | "multilingual" | "asr";
+// A server the state lists: one for each settings profile, and Listening's own recognition server
+// (#1242), which runs the asr profile's settings with Listening's model and has no profile of its own.
+export type SpeechServerName = SpeechProfile | "asr_listening";
 export type SpeechServerPhase = "stopped" | "preparing" | "ready" | "stopping" | "failed";
 
 // One profile of /get/data/speech_server_settings (native/speech-server/src/settings.rs, to_json):
@@ -17,6 +20,9 @@ export interface SpeechServerProfileSettings extends AsrProfile {
     readonly model: string;
     readonly vad_model: string;
     readonly diarization_model: string;
+    // Listening's own recognition model (#1242), in the asr profile: empty, Listening uses `model`.
+    // Absent from a core before it.
+    readonly listening_model?: string;
     readonly voice_file: string;
     readonly device: string;
     readonly low_latency: boolean;
@@ -40,7 +46,7 @@ export interface SpeechServerRow {
     readonly [key: string]: unknown;
 }
 
-export type SpeechServerStates = Partial<Record<SpeechProfile, SpeechServerRow>>;
+export type SpeechServerStates = Partial<Record<SpeechServerName, SpeechServerRow>>;
 
 // One device `speech devices` lists: kind "gpu" is a separate GPU, name its device name (Vulkan0).
 export interface SpeechServerDevice {
@@ -75,7 +81,9 @@ const pendingAtom = atom<Partial<Record<string, { generation: number }>>>({}), e
 const buildsAtom = atom<SpeechServerBuilds>({ cpu_build: null, gpu_build: null });
 const BUILD_STATES: Readonly<Record<keyof SpeechServerBuilds, readonly string[]>> = { cpu_build: ["separate", "shared", "missing"], gpu_build: ["ready", "unavailable", "missing"] };
 const phases: Readonly<Record<SpeechServerPhase, number>> = { stopped: 0, preparing: 1, ready: 2, stopping: 3, failed: 4 };
-const profiles: readonly SpeechProfile[] = ["japanese", "multilingual", "asr"];
+// Listening's own server is kept too (#1396): the settings page shows it and starts it with Mic
+// input's, and the state is polled while it runs.
+const servers: readonly SpeechServerName[] = ["japanese", "multilingual", "asr", "asr_listening"];
 
 // A known build state, or null for one an older backend does not send.
 const knownBuild = (known: readonly string[], value: unknown): string | null =>
@@ -109,7 +117,7 @@ export const useSpeechServers = () => {
     const updateState = useCallback((value: Readonly<Record<string, unknown>> | null | undefined) => {
         const current = atoms.get(stateAtom), pending = atoms.get(pendingAtom);
         let next = current, waiting = pending;
-        for (const name of profiles) {
+        for (const name of servers) {
             const row = value?.[name], previous = next[name];
             if (!isServerRow(row)) continue;
             if (previous && (row.generation < previous.generation ||
@@ -131,7 +139,7 @@ export const useSpeechServers = () => {
         updateError("backend_unavailable");
         atoms.set(stateAtom, value => {
             const stopped: SpeechServerStates = {};
-            for (const name of profiles) {
+            for (const name of servers) {
                 const row = value[name];
                 if (row) stopped[name] = { ...row, state: "failed", error_code: "backend_unavailable" };
             }
@@ -150,7 +158,7 @@ export const useSpeechServers = () => {
     const send = useCallback(async (endpoint: string, data?: SpeechServerRequestData | null): Promise<StdoutResult> => {
         if (!["/get/data/speech_server_state", "/get/data/speech_server_devices"].includes(endpoint)) setError(null);
         if (["/run/start_speech_server", "/run/stop_speech_server"].includes(endpoint)) {
-            const known = profiles.find(name => name === data?.profile);
+            const known = servers.find(name => name === data?.profile);
             const generation = (known ? atoms.get(stateAtom)[known]?.generation : undefined) ?? -1;
             atoms.set(pendingAtom, { ...atoms.get(pendingAtom), [`${data?.profile}`]: { generation } });
         }

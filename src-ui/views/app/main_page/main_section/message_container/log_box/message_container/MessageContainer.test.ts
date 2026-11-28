@@ -6,6 +6,7 @@ import type { HookRuntime, TreeNode } from "../../../../../../../logics/test/hoo
 import { applyRealtimeCaption } from "../../../../../../../logics/transcription/realtimeCaptionState.ts";
 import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.ts";
 import * as speakerNamesLogic from "../../../../../../../logics/common/speakerNames.ts";
+import { styleOf } from "../../../../../../../logics/test/styleSource.ts";
 
 type RowModule = typeof import("./MessageContainer.tsx");
 type RowProps = Parameters<RowModule["MessageContainer"]["type"]>[0];
@@ -54,6 +55,14 @@ test("the voices are written with the names given, and the main window names the
     assert.equal(whoButton(tree).props.children, "ミカ・話者B");
     assert.equal(whoButton(tree).props["aria-label"], "ミカ・話者Bに名前を付ける");
     assert.equal(whoButton(tree).props["aria-expanded"], false);
+    // What naming does is the app's tooltip round the button (bare: the button keeps its place in
+    // the row), not a native title, and the button's description, which stays in the page.
+    const tip = findIn(tree, node => node.type === "tooltip");
+    assert.deepEqual([tip.props.title, tip.props.bare, tip.props.placement], ["main_page.message_log.speaker_names_tooltip", true, undefined]);
+    assert.equal(findIn(tip, node => node.type === "button").props["aria-label"], "ミカ・話者Bに名前を付ける");
+    assert.equal(whoButton(tree).props.title, undefined);
+    const about = findIn(tree, node => node.props?.id !== undefined && node.props.id === whoButton(tree).props["aria-describedby"]);
+    assert.deepEqual([about.type, about.props.hidden, about.props.children], ["span", true, "main_page.message_log.speaker_names_tooltip"]);
     assert.equal(find(tree, node => node.type === speakerNames.SpeakerNamesEditor), null);
     whoButton(tree).props.onClick();
     tree = runtime.render(MessageContainer.type, row);
@@ -67,6 +76,7 @@ test("the voices are written with the names given, and the main window names the
         store.is_vr_panel = isVr;
         tree = runtime.render(MessageContainer.type, props);
         assert.equal(who(tree), null);
+        assert.equal(find(tree, node => node.type === "tooltip"), null, "no tooltip without the button");
         assert.ok(find(tree, node => node.type === "p" && node.props.children === "ミカ・話者B"));
     }
 });
@@ -163,12 +173,12 @@ test("VR pending label is static; only the desktop renders the animated loader",
     const label = find(vr, node => node.props.children === "main_page.message_log.sending");
     assert.ok(label);
     assert.equal(label.props.className, "category sent_message");
-    const css = await readFile(new URL("./MessageContainer.module.scss", import.meta.url), "utf8");
-    assert.doesNotMatch(css.slice(css.indexOf(".category {")), /animation:|@include loader/);
+    const css = await readFile(new URL("./MessageContainer.css.ts", import.meta.url), "utf8");
+    assert.doesNotMatch(styleOf(css, "category"), /animation:|spinner\(/);
     store.is_vr_panel = false;
     const desktop = runtime.render(MessageContainer.type, rowProps(props));
     assert.ok(find(desktop, node => node.props.className === "loader"));
-    assert.match(css, /\.loader\s*\{\s*@include loader/);
+    assert.match(styleOf(css, "loader"), /style\(spinner\(/);
     for (const isVr of [false, true]) {
         store.is_vr_panel = isVr;
         const failed = runtime.render(MessageContainer.type, rowProps({ ...props, status: "failed" }));

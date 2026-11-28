@@ -55,6 +55,7 @@
 /tools/speechcpp_bundle.py @kein5
 /tools/sudachi_dictionary.py @kein5
 /tools/runtime_libraries.py @kein5
+/tools/download_retry.py @kein5
 /tools/rust_licenses.py @kein5
 /tools/distribution_policy.py @kein5
 /tools/check_voice_distribution.py @kein5

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useTranscription } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import type { TranscriptionConsentRequest } from "../../../logics/transcription/useTranscriptionConsent";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "../../kit/index.ts";
 
 // The engine the user chose, and the request it answers.
 type Selection = { engine: string; request: TranscriptionConsentRequest };
@@ -17,8 +18,7 @@ export const TranscriptionConsentController = () => {
     const { request, setRequest } = useTranscriptionConsent();
     const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine } = useTranscription();
     const { setTranscriptionSend, setTranscriptionReceive } = useMainFunction();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const openSettingsAt = useOpenSettings();
     const { dialog, close } = useConsentDialog(!!request);
     const selection = useRef<Selection | null>(null);
     const [choice, setChoice] = useState<Selection | null>(null);
@@ -53,22 +53,22 @@ export const TranscriptionConsentController = () => {
         if (sent === false && selection.current === waiting) selection.current = null;
     };
     const pending = currentSelectedTranscriptionEngine.state === "pending";
-    const openSettings = () => { cancel(); updateSelectedConfigTabId("transcription"); updateIsOpenedConfigPage(true); };
+    const openSettings = () => { cancel(); openSettingsAt({ page: "transcription" }); };
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("transcription_consent.title")}
-            onCancel={event => { event.preventDefault(); cancel(); }}>
-            <div className={styles.dialog_text}>
-                <h3>{t("transcription_consent.title")}</h3>
+        <Dialog ref={dialog} open={!!request} onOpenChange={cancel} aria-describedby={undefined}>
+            <DialogHeader>
+                <DialogTitle>{t("transcription_consent.title")}</DialogTitle>
                 {request.mode === "choose" ? <>
                     <p>{t("transcription_consent.speechcpp_notice")}</p>
                     <p>{t("transcription_consent.cloud_notice")}</p>
                 </> : <p>{t("backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE")}</p>}
-            </div>
-            <div className={styles.actions}>
-                <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
-                <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
-                {request.mode === "choose" && <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>}
-            </div>
-        </dialog>
+            </DialogHeader>
+            <DialogFooter>
+                <Button autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</Button>
+                <Button onClick={openSettings}>{t("transcription_consent.settings")}</Button>
+                {request.mode === "choose" && <Button disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</Button>}
+            </DialogFooter>
+        </Dialog>
     </div>;
 };

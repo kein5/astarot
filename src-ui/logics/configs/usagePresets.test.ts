@@ -47,7 +47,7 @@ test("the table follows the design: what each preset shows", () => {
             tabs.filter(tab => !ALWAYS_SHOWN_TABS.includes(tab)), id);
     }
     // Design, hotkeys and the app's own pages are in every preset.
-    assert.deepEqual([...ALWAYS_SHOWN_TABS], ["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct"]);
+    assert.deepEqual([...ALWAYS_SHOWN_TABS], ["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct", "talk_ai"]);
 });
 
 test("several presets show what any of them shows (Q-09)", () => {
@@ -69,14 +69,21 @@ test("nothing that runs is hidden, and nothing is hidden before the presets are 
         assert.equal(isTabShown(pickedPresets(unknown), "ocr"), true);
     }
     assert.deepEqual(pickedPresets(["voice_changer", "a_later_one", "basic"]), ["basic", "voice_changer"]);
+    assert.deepEqual(pickedPresets(["basic", "all"]), ["all"], "a saved mix of specific and all collapses to all (#1107)");
 });
 
-test("picking and unpicking keeps the table's order and never leaves nothing picked", () => {
+test("picking and unpicking keeps the table's order, keeps all mutually exclusive with specific uses, and never leaves nothing picked", () => {
     assert.deepEqual(togglePreset(["basic"], "voice_changer"), ["basic", "voice_changer"]);
     assert.deepEqual(togglePreset(["voice_changer"], "basic"), ["basic", "voice_changer"]);
     assert.deepEqual(togglePreset(["basic", "voice_changer"], "basic"), ["voice_changer"]);
     assert.deepEqual(togglePreset(["basic"], "basic"), ["basic"], "the last one stays picked");
-    assert.deepEqual(togglePreset(null, "basic"), ["basic", "all"], "unknown counts as showing everything");
+    // "all" and specific presets are mutually exclusive in both directions (#1107).
+    assert.deepEqual(togglePreset(["all"], "basic"), ["basic"], "picking a specific use leaves show-all mode");
+    assert.deepEqual(togglePreset(null, "basic"), ["basic"], "unknown counts as show-all, so picking a specific use leaves it");
+    assert.deepEqual(togglePreset(["basic"], "all"), ["all"], "picking all clears a specific use");
+    assert.deepEqual(togglePreset(["basic", "voice_changer"], "all"), ["all"], "picking all clears every specific use");
+    assert.deepEqual(togglePreset(["all"], "all"), ["all"], "all stays picked when it is the only choice");
+    assert.deepEqual(togglePreset(["basic", "all"], "basic"), ["basic"], "mixed state resolves to the chosen specific use");
 });
 
 test("every preset has a name and a description in both languages", () => {
@@ -88,4 +95,9 @@ test("every preset has a name and a description in both languages", () => {
             assert.equal(typeof lookup(usagePresetDescKey(id)), "string", `${language}: ${id}`);
         }
     }
+});
+
+test("an id that is not a preset changes nothing, and with the presets not known all stays picked", () => {
+    assert.deepEqual(togglePreset(null, "no_such_preset"), ["all"]);
+    assert.deepEqual(togglePreset(["basic"], "no_such_preset"), ["basic"]);
 });

@@ -6,16 +6,21 @@ import { useTranslationCatalog } from "../../../../../../logics/translation/useT
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState, weightLabel } from "../../../../../../logics/translation/translationCatalog";
 import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
-import { SectionLabelComponent } from "../_components";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, CatalogState, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
+import * as catalogStyles from "./TranslationCatalog.css.ts";
+import * as cardPress from "../advanced_settings/catalogLayout.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
+import { FormRow } from "../_components/form_row/FormRow";
+import { PathField } from "../_components/path_field/PathField";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle, InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent,
+    InlineConfirmDescription, InlineConfirmTrigger, Select, SelectOption, TextField } from "../../../../../kit/index.ts";
 
 // The two groups of the catalog, and an entry with the group it is in.
 type CatalogGroupId = "engine" | "api";
@@ -32,27 +37,27 @@ const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogE
 // Its cards are laid out as the model catalog's (DESIGN.md "Components", #614): the name with the
 // state at the end of its line, the facts in one table, then the notes and the actions; the entry
 // in use carries the active frame.
-export const TranslationCatalogSection = () => {
+// How a built-in model is chosen or downloaded, from the page that holds the model list (#1228):
+// the same steps as there, a license confirmed first and a model not on the PC reviewed first.
+export interface WeightActions {
+    chooseWeight?: (weight: string) => void;
+    reviewWeight?: (weight: string) => void;
+}
+
+// One group of the catalog, in its system's part of the page (#1266 ★17): the models on this PC,
+// or the APIs the user added. The page asks for the catalog once for both. A refusal is said in
+// the group whose change was refused; the catalog's own (it could not be read) in the models'.
+export const TranslationCatalogGroup = ({ group, chooseWeight, reviewWeight }: { group: CatalogGroupId } & WeightActions) => {
     const { t } = useI18n();
-    const { catalog, error, send } = useTranslationCatalog();
+    const { catalog, error, errorGroup } = useTranslationCatalog();
     const layout = useCatalogLayout();
-    // Asked again when the page opens: which entries can be used follows the keys and the
-    // downloads set up elsewhere since.
-    useEffect(() => { send("/get/data/translation_catalog"); }, [send]);
+    const problems = [error && (errorGroup === "api" ? "api" : "engine") === group ? error : null,
+        group === "engine" ? catalog?.error_code : null].filter((code): code is string => !!code);
     return (
-        <section className={styles.container} aria-label={t("translation_catalog.title")}>
-            {/* The cards' layout, chosen on the section's heading line, as on the model catalogs. */}
-            <div className={`${styles.catalog_head} ${styles.section_head}`}>
-                {/* What the catalog holds is the heading's hint (#614), a line under it elsewhere. */}
-                <SectionLabelComponent label={t("translation_catalog.title")} desc={t("translation_catalog.intro")} />
-                <CatalogLayoutSwitch />
-            </div>
-            {error && <p role="alert">{errorText(t, error)}</p>}
-            {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
-            {catalog ? <>
-                <CatalogGroup group="engine" catalog={catalog} layout={layout} />
-                <CatalogGroup group="api" catalog={catalog} layout={layout} />
-            </> : <p>{t("translation_catalog.loading")}</p>}
+        <section className={styles.container} aria-label={t(`translation_catalog.group.${group}`)}>
+            {problems.map(code => <p key={code} role="alert">{errorText(t, code)}</p>)}
+            {catalog ? <CatalogGroup group={group} catalog={catalog} layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />
+                : <p>{t("translation_catalog.loading")}</p>}
         </section>
     );
 };
@@ -60,55 +65,72 @@ export const TranslationCatalogSection = () => {
 // i18next takes the first key it has: a code without its own text gets the general one.
 const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
 
-const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout }) => {
+const CatalogGroup = ({ group, catalog, layout, chooseWeight, reviewWeight }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout } & WeightActions) => {
     const { t } = useI18n();
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
     // A built-in model is listed here as in the model list above (#565): only the ones the user has,
     // can download, has selected or is downloading. The rest could only show "not downloaded".
+    // The APIs the app ships are the providers above this group, each with its key: they are not
+    // listed again here (#1266 T-8).
     const listed = useListedLocalWeights();
-    const entries = entriesOf(catalog, group).filter(entry =>
-        entry.group !== "engine" || entry.item.origin !== "builtin" || listed.has(entry.item.weight));
+    const entries = entriesOf(catalog, group).filter(entry => entry.item.origin !== "builtin"
+        || (entry.group === "engine" && listed.has(entry.item.weight)));
     const shipped = entries.filter(entry => entry.item.origin === "builtin");
     const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
-        // A part of the catalog of its own, folded as the model catalogs' parts are. What the group is:
-        // its name's hint on a page that shows descriptions as hints, a line inside it elsewhere.
-        <CatalogSection level={3} data-catalog-group={group} title={t(`translation_catalog.group.${group}`)}
+        // A part of the catalog of its own, folded as the model catalogs' parts are, under its system's
+        // subheading. What the group is: its name's hint on a page that shows descriptions as hints, a
+        // line inside it elsewhere. The cards' layout is chosen at its top, where the cards are.
+        <CatalogSection level={4} data-catalog-group={group} title={t(`translation_catalog.group.${group}`)}
             help={[t(`translation_catalog.group_help.${group}`)]} readout={t("translation_catalog.group_readout", { count: entries.length })}>
+            {entries.length > 0 && <div className={catalogStyles.layout_line}><CatalogLayoutSwitch /></div>}
             {own.length > 0
                 ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
-                : <p>{t("translation_catalog.none_added")}</p>}
-            <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
-                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
-            </Fold>
+                : <p>{t("translation_catalog.none_added", { add: t(`translation_catalog.add.${group}`) })}</p>}
+            {shipped.length > 0 && <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
+                <CatalogList layout={layout}>{shipped.map(entry => entry.group === "engine" && <ShippedCard key={entry.item.id} item={entry.item}
+                    layout={layout} chooseWeight={chooseWeight} reviewWeight={reviewWeight} />)}</CatalogList>
+            </Fold>}
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
         </CatalogSection>
     );
 };
 
-// An entry the app ships: its name and whether it can be used now. Its settings stay in the
-// sections above. The state ends the name's line, where every card of the catalog has it; in the
-// grid the entry's kind is the line under it, so every card's state is in the same place.
-const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
+// An entry the app ships: its name and whether it can be used now. The state ends the name's line,
+// where every card of the catalog has it; in the grid its marks are the line under it, so every
+// card's state is in the same place.
+// A built-in model's card is pressed anywhere to use it, or, when it is not downloaded, to review
+// its download (#1228); the card in use has nothing to press. Only the models are listed: the
+// APIs the app ships are the providers of the page's API part (#1266 T-8).
+const ShippedCard = ({ item, layout, chooseWeight, reviewWeight }: { item: EngineItem; layout: CatalogLayout } & WeightActions) => {
     const { t } = useI18n();
-    const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
-    const kind = <>
-        <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
-        {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
-        {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
-    </>;
-    return <li className={styles.card} data-catalog-item={item.id} data-status={state}>
+    const state = item.in_use ? "in_use" : item.available ? "ready" : "not_downloaded";
+    const weight = item.weight;
+    const name = weightLabel(weight, null);
+    const press = state === "ready" && chooseWeight ? { run: () => chooseWeight(weight), label: t("translation_catalog.use.engine"),
+            named: t("translation_catalog.use_named.engine", { name }), tone: "primary" as const }
+        : state === "not_downloaded" && reviewWeight ? { run: () => reviewWeight(weight), label: t("model_downloads.review"),
+            named: t("model_catalog.review_named", { name }), tone: undefined }
+        : null;
+    // A license that bars commercial use is a caution: amber. What the app provides carries no mark
+    // of its own (DESIGN.md "Roles in settings"): the fold's title says the entries are the app's
+    // (#1266 T-6).
+    const kind = item.non_commercial ? <Badge tone="warning">{t("translation_catalog.badge.non_commercial")}</Badge> : null;
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} className={press ? cardPress.pressable : undefined}>
         <div className={styles.card_head}>
             {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
-            <strong>{group === "engine" ? weightLabel(item.weight, null) : item.name}</strong>
+            <CardTitle>{name}</CardTitle>
             {layout === "list" && kind}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`translation_catalog.state.${state}`)}</span>
+            <CatalogState state={state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
-    </li>;
+        {layout === "grid" && kind && <div className={styles.card_badges}>{kind}</div>}
+        {press && <div className={styles.actions}>
+            <Button tone={press.tone} className={cardPress.press} aria-label={press.named} onClick={press.run}>{press.label}</Button>
+        </div>}
+    </Card>;
 };
 
 // The states of an entry that cannot be used as it is, drawn as a problem.
@@ -123,25 +145,29 @@ const stateHelp = (item: EngineItem | ApiItem, state: string) => state === "unav
 const keyText = (item: ApiItem) => item.key_in_memory ? "translation_catalog.key_memory"
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
-// An entry the user added: what it points at, and Use and Remove.
+// An entry the user added: what it points at, and Use and Remove. An entry that can be used is
+// pressed anywhere on its card to use it, as a built-in model is (#1254); its Remove and the
+// facts' fold stay pressed on their own.
 const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
     const state = entryState(item);
     const busy = !!pending;
+    const pressable = state === "ready" && !removing;
     // Laid out as a card of the model catalog: what it is and its state, its facts, then its
     // notes and actions.
-    return <li className={styles.card} data-catalog-item={item.id} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+    return <Card as="li" data-catalog-item={item.id} active={state === "in_use"} data-status={state} tabIndex={-1} role="group" aria-label={item.name}
+        className={pressable ? cardPress.pressable : undefined}>
         {/* In the grid the "added by you" mark is the line under the name, as on the shipped cards. */}
-        <div className={styles.card_intro}><div className={styles.card_head}>
-            <strong>{item.name}</strong>
-            {layout === "list" && <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
+        <CardHeader><div className={styles.card_head}>
+            <CardTitle>{item.name}</CardTitle>
+            {layout === "list" && <Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge>}
+            <CatalogState state={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</CatalogState>
         </div>
-        {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span></div>}
-        </div>
-        <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
+        {layout === "grid" && <div className={styles.card_badges}><Badge tone="strong" variant="dashed">{t("translation_catalog.badge.user")}</Badge></div>}
+        </CardHeader>
+        <CatalogFacts layout={layout}><dl className={styles.facts}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
                 {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
@@ -156,25 +182,30 @@ const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayo
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
         </dl></CatalogFacts>
-        <div className={styles.card_foot}>
+        <CardFooter>
             {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
-            {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
-                    <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
-                    <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
-                    <button type="button" disabled={busy} onClick={() => {
-                        setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
-                    }}>{t("translation_catalog.remove_do")}</button>
-                </div>
-                : <div className={styles.actions}>
-                    {state !== "in_use" && <button type="button" className="primary" disabled={busy || state !== "ready"}
-                        onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</button>}
-                    <button type="button" disabled={busy || (group === "engine" && state === "in_use")}
-                        onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</button>
-                    {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
-                </div>}
-        </div>
-    </li>;
+            {/* Removing asks first, in the card (the kit's InlineConfirm, H-07). */}
+            <InlineConfirm>
+                {removing ? <InlineConfirmContent aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
+                        <InlineConfirmDescription>{t(`translation_catalog.remove_confirm.${group}`)}</InlineConfirmDescription>
+                        <InlineConfirmCancel onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</InlineConfirmCancel>
+                        <InlineConfirmAction disabled={busy} onClick={() => {
+                            setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
+                        }}>{t("translation_catalog.remove_do")}</InlineConfirmAction>
+                    </InlineConfirmContent>
+                    : <div className={styles.actions}>
+                        {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"}
+                            className={pressable ? cardPress.press : undefined} aria-label={t(`translation_catalog.use_named.${group}`, { name: item.name })}
+                            onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</Button>}
+                        {/* The kit's danger Button: it removes something. */}
+                        <InlineConfirmTrigger tone="danger" disabled={busy || (group === "engine" && state === "in_use")}
+                            onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</InlineConfirmTrigger>
+                        {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
+                    </div>}
+            </InlineConfirm>
+        </CardFooter>
+    </Card>;
 };
 
 const REGISTER = "/run/register_translation_catalog_entry";
@@ -197,6 +228,10 @@ const onEnter = (submit: () => void, busy: boolean) => (event: KeyboardEvent<HTM
     if (event.key === "Enter" && "tagName" in event.target && event.target.tagName === "INPUT") { event.preventDefault(); if (!busy) submit(); }
 };
 
+// What the engine form's path is: the model's folder (ONNX), or its GGUF file (llama.cpp).
+const MODEL_FOLDER = { kind: "folder" } as const;
+const GGUF_FILE = { kind: "file", extensions: ["gguf"] } as const;
+
 const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
@@ -217,40 +252,47 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    // What to fill in is the title's hint (#614); whose model it is stays in view, as a warning.
+    // What to fill in and the user's responsibility for provenance/terms sit in the fold's hint (#614, #1112).
     const help = t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine");
-    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")} hint={hints ? help : undefined}>
+    const terms = t("translation_catalog.terms_help");
+    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")} hint={hints ? `${help}\n${terms}` : undefined}>
         {/* The note about the translation-models folder leads here (revealSetting). */}
         <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)} data-setting-id={ENGINE_FORM_SETTING_ID}>
-            {!hints && <p>{help}</p>}
-            <p>{t("translation_catalog.terms_help")}</p>
+            {!hints && <>
+                <p>{help}</p>
+                <p>{terms}</p>
+            </>}
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}
             <label>{t("translation_catalog.field.name")}
-                <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
+                <TextField value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.engine_name")} onChange={set("name")} />
             </label>
             {/* The engine first: it says whether a folder or a file is asked for. */}
             <label>{t("translation_catalog.field.runtime")}
-                <select value={form.runtime} disabled={busy || runtimes.length < 2} onChange={set("runtime")}>
+                <Select value={form.runtime} disabled={busy || runtimes.length < 2} onChange={set("runtime")}>
                     {(runtimes.length ? runtimes : ["onnx"]).map(runtime =>
-                        <option key={runtime} value={runtime}>{t(`translation_catalog.runtime.${runtime}`, { defaultValue: runtime })}</option>)}
-                </select>
+                        <SelectOption key={runtime} value={runtime}>{t(`translation_catalog.runtime.${runtime}`, { defaultValue: runtime })}</SelectOption>)}
+                </Select>
             </label>
-            <label>{t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}
-                <input type="text" value={form.folder} maxLength={4096} disabled={busy} spellCheck={false}
-                    aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("folder")} />
-            </label>
+            {/* A path, in the kit's monospaced font (#476), typed, pasted or picked (#1231): the model's
+                folder, or its GGUF file for the llama.cpp engine. */}
+            <FormRow label={t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}>
+                <PathField value={form.folder} maxLength={4096} disabled={busy} pick={llamacpp ? GGUF_FILE : MODEL_FOLDER}
+                    label={t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}
+                    aria-describedby={problem ? `${id}-problem` : undefined}
+                    onChange={value => setForm(current => ({ ...current, folder: value }))} />
+            </FormRow>
             {llamacpp && <label>{t("translation_catalog.field.device")}
-                <select value={form.device} disabled={busy} onChange={set("device")}>
-                    {LLAMA_DEVICES.map(device => <option key={device} value={device}>{t(`translation_catalog.device.${device}`)}</option>)}
-                </select>
+                <Select value={form.device} disabled={busy} onChange={set("device")}>
+                    {LLAMA_DEVICES.map(device => <SelectOption key={device} value={device}>{t(`translation_catalog.device.${device}`)}</SelectOption>)}
+                </Select>
             </label>}
             <label>{t("translation_catalog.field.languages")}
-                <input type="text" value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
+                <TextField value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.languages")} onChange={set("languages")} />
             </label>
             <div className={`${styles.actions} ${styles.control_column}`}>
-                <button type="button" disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</button>
+                <Button disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</Button>
             </div>
             {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
             <div className={styles.problem_slot}>
@@ -286,17 +328,18 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
             {!hints && <p>{t("translation_catalog.add_help.api")}</p>}
             <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
             <label>{t("translation_catalog.field.name")}
-                <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
+                <TextField value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.api_name")} onChange={set("name")} />
             </label>
             <label>{t("translation_catalog.field.protocol")}
-                <select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
+                <Select value={form.protocol} disabled={busy || protocols.length < 2} onChange={set("protocol")}>
                     {(protocols.length ? protocols : ["openai_compatible"]).map(protocol =>
-                        <option key={protocol} value={protocol}>{t(`translation_catalog.protocol.${protocol}`, { defaultValue: protocol })}</option>)}
-                </select>
+                        <SelectOption key={protocol} value={protocol}>{t(`translation_catalog.protocol.${protocol}`, { defaultValue: protocol })}</SelectOption>)}
+                </Select>
             </label>
             <label>{t("translation_catalog.field.url")}
-                <input type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
+                {/* An address, in the kit's monospaced font (#476). */}
+                <TextField mono type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
                     placeholder="http://192.168.1.10:8000/v1" aria-describedby={[`${id}-url`, urlWarning ? `${id}-url-warning` : null].filter(Boolean).join(" ")} onChange={set("url")} />
             </label>
             {/* What leaves the PC is one sentence in view; what the address may be and that it is checked
@@ -305,15 +348,16 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
             <Lead id={`${id}-url`} text={t("translation_catalog.url_lead")} details={t("translation_catalog.url_details")} />
             {urlWarning && <p id={`${id}-url-warning`} role="note">{urlWarning}</p>}
             <label>{t("translation_catalog.field.model")}
-                <input type="text" value={form.model} maxLength={200} disabled={busy} spellCheck={false}
+                <TextField value={form.model} maxLength={200} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.model")} onChange={set("model")} />
             </label>
             <label>{t("translation_catalog.field.key")}
-                <input type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
+                {/* A key, in the kit's monospaced font (#476); still a password field that is never filled in by the browser. */}
+                <TextField mono type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("auth_key")} />
             </label>
             <div className={`${styles.actions} ${styles.control_column}`}>
-                <button type="button" disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</button>
+                <Button disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</Button>
             </div>
             {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
             <div className={styles.problem_slot}>

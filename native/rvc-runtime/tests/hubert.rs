@@ -4,7 +4,7 @@
 
 mod common;
 
-use rvc_runtime::{Device, FeatureExtractor, Version};
+use astarot_rvc_runtime::{Device, FeatureExtractor, Version};
 
 fn relative_error(found: &[f32], wanted: &[f32]) -> f64 {
     let difference: f64 = found.iter().zip(wanted).map(|(a, b)| (*a as f64 - *b as f64).powi(2)).sum();

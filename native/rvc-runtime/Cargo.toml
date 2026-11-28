@@ -1,14 +1,14 @@
 [package]
-name = "rvc-runtime"
+name = "astarot-rvc-runtime"
 version = "0.1.0"
-description = "Inference-only RVC voice conversion runtime for VRCT-VOX"
+description = "Inference-only RVC voice conversion runtime for ASTAROT"
 edition = "2024"
 rust-version = "1.92"
 license = "MIT"
 publish = false
 
 [lib]
-name = "rvc_runtime"
+name = "astarot_rvc_runtime"
 
 [[bin]]
 name = "rvc-infer"
@@ -32,7 +32,7 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 cuda = ["ort/cuda"]
 # Load ONNX Runtime from a library file at run time (`backend::load_runtime`, through
 # native/onnx-runtime) instead.
-load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
+load-dynamic = ["astarot-onnx-runtime/load-dynamic"]
 # The application worker: no ONNX Runtime of its own, it loads the one set up with consent.
 worker = ["load-dynamic", "cuda"]
 
@@ -43,7 +43,7 @@ hound = "3.5"
 libloading = "=0.9.1"
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 # The ONNX Runtime library and environment, as the app's chat reading and translation make them.
-vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
+astarot-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 prost = "0.14"
 rustfft = "6.4"
 serde_json = "1"

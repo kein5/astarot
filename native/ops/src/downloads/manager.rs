@@ -28,7 +28,9 @@ const CHUNK: usize = 1024 * 1024;
 /// The phases of a job that still owns the root or its files.
 pub const ACTIVE: [&str; 4] = ["queued", "downloading", "verifying", "cancelling"];
 /// Failure codes a job reports as they are; anything else is `download_failed`.
-const KNOWN: [&str; 8] = ["insufficient_space", "size_mismatch", "hash_mismatch", "unsafe_destination", "destination_exists", "download_url_rejected", "download_http_error", "download_busy"];
+const KNOWN: [&str; 10] = ["insufficient_space", "size_mismatch", "hash_mismatch", "unsafe_destination", "destination_exists", "download_url_rejected", "download_http_error", "download_busy",
+    // A check of the files on the PC (`Downloads::check`, #1263): they changed, or went.
+    "model_files_changed", "model_not_downloaded"];
 
 type FreeSpace = dyn Fn(&Path) -> io::Result<u64> + Send + Sync;
 
@@ -141,6 +143,8 @@ type SyncHook = Box<dyn Fn(&File) -> io::Result<()> + Send + Sync>;
 pub(crate) struct TestHooks {
     pub sync: Option<SyncHook>,
     pub before_lease_close: Option<Box<dyn Fn() + Send + Sync>>,
+    /// The download's thread cannot be started, as when the system has no thread left to give.
+    pub thread_unavailable: bool,
 }
 
 struct Inner {
@@ -265,12 +269,9 @@ impl Downloads {
     }
 
     /// `{observation_id, jobs: {id: {job_id, phase, received_bytes, total_bytes, paths, error_code}},
-    /// downloaded: {id: {role: path}}}`.
+    /// downloaded: {id: {role: path}}}`. A start, a check, a cancel and an apply answer the same.
     pub fn state(&self) -> Json {
-        let downloaded = self.downloaded();
-        let Json::Object(mut state) = self.inner.state.lock().unwrap().to_json() else { unreachable!("the state is an object") };
-        state.insert("downloaded", downloaded);
-        Json::Object(state)
+        self.inner.answer(&self.inner.state.lock().unwrap())
     }
 
     /// `{id: {role: path}}` for every entry whose files are on disk, including those of earlier
@@ -278,11 +279,7 @@ impl Downloads {
     ///
     /// [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
     pub fn downloaded(&self) -> Json {
-        let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
-        self.inner.entries.iter().fold(Object::new(), |o, m| match self.inner.present(m) {
-            Some(found) => o.with(m.id.as_str(), paths(found)),
-            None => o,
-        }).into()
+        self.inner.downloaded()
     }
 
     /// Starts downloading one entry. The request is exactly `{id, consent, catalog_version}`,
@@ -315,6 +312,36 @@ impl Downloads {
         if restrictions.iter().any(|kind| !acknowledged.contains(kind)) {
             return Err(Error::Code("model_download_restriction_unacknowledged"));
         }
+        self.begin(entry, true)
+    }
+
+    /// Checks an entry whose files are on the PC (#1263): their sizes and SHA-256, as a download
+    /// checks files it finds published, and nothing more. It never reaches the network, and files
+    /// that do not match are left as they are: the job fails with `model_files_changed`, and
+    /// getting them again is a download, which asks for the consent. The request is exactly
+    /// `{id, catalog_version}`: nothing is acquired, so no consent is asked; it was given when the
+    /// files were downloaded. A checked job is ready, and applied as a downloaded one is.
+    ///
+    /// Errors: `download_request_invalid`, `catalog_changed`, `model_not_downloaded` (a file is
+    /// missing or not of its size), `downloads_closed`, `download_busy`. A refused request writes
+    /// nothing.
+    pub fn check(&self, request: &serde_json::Value) -> Result<Json, Error> {
+        const REQUIRED: [&str; 2] = ["id", "catalog_version"];
+        let fields = request.as_object().filter(|o| o.len() == REQUIRED.len() && REQUIRED.iter().all(|k| o.contains_key(*k)));
+        let Some(fields) = fields else { return Err(Error::Code("download_request_invalid")) };
+        let entry = match (fields["id"].as_str(), fields["catalog_version"].as_str()) {
+            (Some(id), Some(CATALOG_VERSION)) => self.inner.entries.iter().find(|e| e.id == id),
+            _ => None,
+        };
+        let Some(entry) = entry.cloned() else { return Err(Error::Code("catalog_changed")) };
+        if self.inner.present(&entry).is_none() {
+            return Err(Error::Code("model_not_downloaded"));
+        }
+        self.begin(entry, false)
+    }
+
+    /// Starts the job of an entry: a download when `fetch`, else a check of its files on the PC.
+    fn begin(&self, entry: Model, fetch: bool) -> Result<Json, Error> {
         let mut state = self.inner.state.lock().unwrap();
         if state.closed || self.inner.closing.load(Ordering::SeqCst) {
             return Err(Error::Code("downloads_closed"));
@@ -324,25 +351,60 @@ impl Downloads {
         }
         let job = Job { job_id: uuid::Uuid::new_v4().simple().to_string(), phase: "queued", received_bytes: 0, total_bytes: entry.total_bytes(), paths: Vec::new(), error_code: None };
         let job_id = job.job_id.clone();
-        match state.job(&entry.id) {
-            Some(slot) => *slot = job,
-            None => state.jobs.push((entry.id.clone(), job)),
-        }
+        let id = entry.id.clone();
+        // What the new job replaces, put back if its thread cannot be started.
+        let replaced = match state.job(&id) {
+            Some(slot) => Some(std::mem::replace(slot, job)),
+            None => {
+                state.jobs.push((id.clone(), job));
+                None
+            }
+        };
         let cancel = Arc::new(AtomicBool::new(false));
-        *self.inner.cancel.lock().unwrap() = Some(cancel.clone());
-        let previous = state.worker.take();
+        let replaced_cancel = self.inner.cancel.lock().unwrap().replace(cancel.clone());
+        // The new worker joins the previous one first. It stays here until the new one has
+        // started, so that a start that fails keeps it.
+        let previous = Arc::new(Mutex::new(state.worker.take()));
+        let handed = previous.clone();
         let done = Arc::new(Flag::default());
         let inner = self.inner.clone();
         let finished = done.clone();
-        let handle = thread::Builder::new()
-            .name("model-download".into())
-            .spawn(move || {
-                inner.run(entry, job_id, cancel, previous);
-                finished.set();
-            })
-            .map_err(Error::Io)?;
-        state.worker = Some(Worker { handle, done });
-        Ok(state.to_json())
+        let started = self.spawn_worker(move || {
+            let previous = handed.lock().unwrap().take();
+            inner.run(entry, job_id, cancel, previous, fetch);
+            finished.set();
+        });
+        match started {
+            Ok(handle) => {
+                state.worker = Some(Worker { handle, done });
+                Ok(self.inner.answer(&state))
+            }
+            Err(error) => {
+                // Nothing runs: the entry, the worker and the cancel flag are put back as they
+                // were, so that the entry is not left "queued" for good and can be asked for
+                // again.
+                state.worker = previous.lock().unwrap().take();
+                match replaced {
+                    Some(earlier) => {
+                        if let Some(slot) = state.job(&id) {
+                            *slot = earlier;
+                        }
+                    }
+                    None => state.jobs.retain(|(key, _)| *key != id),
+                }
+                *self.inner.cancel.lock().unwrap() = replaced_cancel;
+                Err(Error::Io(error))
+            }
+        }
+    }
+
+    /// Starts the download's thread.
+    fn spawn_worker(&self, work: impl FnOnce() + Send + 'static) -> io::Result<JoinHandle<()>> {
+        #[cfg(test)]
+        if self.inner.hooks.lock().unwrap().thread_unavailable {
+            return Err(io::Error::other("no thread"));
+        }
+        thread::Builder::new().name("model-download".into()).spawn(work)
     }
 
     /// Cancels the job if it is still active. A job id that is not the entry's current one:
@@ -357,7 +419,7 @@ impl Downloads {
                 response.abort();
             }
         }
-        Ok(state.to_json())
+        Ok(self.inner.answer(&state))
     }
 
     /// Re-verifies a ready download and hands its paths to `callback`, which saves them in the
@@ -405,7 +467,7 @@ impl Downloads {
             callback(&entry, &job.paths.clone())?;
             job.phase = "applied";
             job.error_code = None;
-            Ok(state.to_json())
+            Ok(inner.answer(&state))
         })();
         let outcome = match result {
             Ok(answer) => Ok(answer),
@@ -482,6 +544,25 @@ impl Drop for Downloads {
 }
 
 impl Inner {
+    /// `{id: {role: path}}` for every entry whose files are on disk ([`Downloads::downloaded`]).
+    fn downloaded(&self) -> Json {
+        let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
+        self.entries.iter().fold(Object::new(), |o, m| match self.present(m) {
+            Some(found) => o.with(m.id.as_str(), paths(found)),
+            None => o,
+        }).into()
+    }
+
+    /// What every answer carries ([`Downloads::state`]): the jobs and the files on disk. A
+    /// command's answer is a newer observation than the last poll, so the UI takes it in place of
+    /// the state it holds; without the files, the pages that read them lost every model on the PC
+    /// until they asked again (#1297, #1301).
+    fn answer(&self, state: &State) -> Json {
+        let Json::Object(mut answer) = state.to_json() else { unreachable!("the state is an object") };
+        answer.insert("downloaded", self.downloaded());
+        Json::Object(answer)
+    }
+
     fn destination(&self, entry: &Model) -> PathBuf {
         self.root.join(&entry.id).join(&entry.revision)
     }
@@ -539,14 +620,14 @@ impl Inner {
         file.sync_all()
     }
 
-    fn run(&self, entry: Model, job_id: String, cancel: Arc<AtomicBool>, previous: Option<Worker>) {
+    fn run(&self, entry: Model, job_id: String, cancel: Arc<AtomicBool>, previous: Option<Worker>, fetch: bool) {
         // A finished job is reported before its worker releases the root lease.
         if let Some(previous) = previous {
             let _ = previous.handle.join();
         }
         let mut staging = None;
         let mut lease = RootLease::new(&self.root);
-        let outcome = self.download(&entry, &job_id, &cancel, &mut staging, &mut lease);
+        let outcome = self.download(&entry, &job_id, &cancel, &mut staging, &mut lease, fetch);
         let cancelled = cancel.load(Ordering::SeqCst);
         let mut terminal: Option<(&'static str, Option<&'static str>)> = match outcome {
             Ok(()) => None,
@@ -577,18 +658,26 @@ impl Inner {
         }
     }
 
-    fn download(&self, entry: &Model, job_id: &str, cancel: &AtomicBool, staging: &mut Option<PathBuf>, lease: &mut RootLease) -> Result<(), Stop> {
+    /// The job of an entry. `fetch` false: a check of the files on the PC, which never downloads
+    /// and leaves files that do not match as they are (`Downloads::check`).
+    fn download(&self, entry: &Model, job_id: &str, cancel: &AtomicBool, staging: &mut Option<PathBuf>, lease: &mut RootLease, fetch: bool) -> Result<(), Stop> {
         directory(&self.root.join(&entry.id))?;
         lease.acquire()?;
         recover_owned(&self.root, &self.entries, &[])?;
         let destination = self.destination(entry);
         let mut published = fs::symlink_metadata(&destination).is_ok();
+        // Gone since the check was asked for.
+        if !fetch && !published {
+            return Err(Error::Code("model_not_downloaded").into());
+        }
         if published {
             directory(&destination)?;
             self.set_phase(job_id, &entry.id, "verifying");
             let checked = entry.artifacts.iter().try_for_each(|artifact| self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel));
             match checked {
                 Ok(()) => {}
+                // A check only says so: getting them again is a download, with its consent.
+                Err(Stop::Failed(error)) if is_damage(&error) && !fetch => return Err(Error::Code("model_files_changed").into()),
                 // Files this app published that are now damaged or missing are moved out of the
                 // way and downloaded again; anything it does not recognize stays, and fails.
                 Err(Stop::Failed(error)) if is_damage(&error) => {

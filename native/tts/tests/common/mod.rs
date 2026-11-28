@@ -9,8 +9,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use vrct_tts::playback::{AudioRouter, OutputSink};
-use vrct_tts::{CancelToken, Source, SpeechMessageEvent, TtsError};
+use astarot_tts::playback::{AudioRouter, OutputSink};
+use astarot_tts::{CancelToken, Source, SpeechMessageEvent, TtsError};
 
 pub type Hook = Arc<dyn Fn() + Send + Sync>;
 pub type ChunkHook = Arc<dyn Fn(usize) + Send + Sync>;
@@ -221,8 +221,8 @@ fn reserve_send_buffer(socket: &TcpStream, bytes: usize) {
 /// socket alive, as a real TCP backlog would.
 pub struct BufferedServer {
     pub server: PcmServer,
-    pub sent: vrct_tts::sync::Event,
-    pub finish: vrct_tts::sync::Event,
+    pub sent: astarot_tts::sync::Event,
+    pub finish: astarot_tts::sync::Event,
 }
 
 impl BufferedServer {
@@ -231,8 +231,8 @@ impl BufferedServer {
     }
 
     pub fn start_on(host: &str, pcm: Vec<u8>) -> Self {
-        let sent = vrct_tts::sync::Event::new();
-        let finish = vrct_tts::sync::Event::new();
+        let sent = astarot_tts::sync::Event::new();
+        let finish = astarot_tts::sync::Event::new();
         let (hook_sent, hook_finish) = (sent.clone(), finish.clone());
         // The whole response, framing included, is queued before `sent`.
         let send_buffer = Some(pcm.len() + 64 * 1024);
@@ -338,6 +338,6 @@ pub fn mic(id: &str) -> SpeechMessageEvent {
 /// Settings that speak through the external servers these tests start: new settings use the
 /// bundled server (#566).
 #[allow(dead_code)]
-pub fn external() -> vrct_tts::settings::VoiceSettings {
-    vrct_tts::settings::VoiceSettings { japanese_server: "external".into(), multilingual_server: "external".into(), ..Default::default() }
+pub fn external() -> astarot_tts::settings::VoiceSettings {
+    astarot_tts::settings::VoiceSettings { japanese_server: "external".into(), multilingual_server: "external".into(), ..Default::default() }
 }

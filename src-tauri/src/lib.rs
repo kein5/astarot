@@ -9,8 +9,11 @@ mod backend_host;
 mod app_update;
 mod caption_overlay;
 mod companion;
+mod path_picker;
+mod settings_window;
 mod quick_chat;
 mod single_instance;
+mod startup_theme;
 mod vr_panel_state;
 mod webview_environment;
 mod window_placement;
@@ -118,11 +121,20 @@ pub(crate) fn startup_log(message: &str) {
     let _ = writeln!(log_file, "[{timestamp}] {message}");
 }
 
+/// The argument the Windows uninstaller starts the installed binary with, before it removes the
+/// files (`src-tauri/nsis/template.nsi`, #1384): the binary takes this install out of SteamVR's
+/// list of applications and ends, with [`astarot_core::controller::steamvr::Unregistered`] as its
+/// exit code. Nothing of the app starts: no window, no backend, no single-instance check.
+const STEAMVR_UNREGISTER: &str = "--steamvr-unregister";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
     // variable when chat reading or translation first loads it; the RVC worker inherits it.
-    unsafe { vrct_core::shipped_libraries::disable_onnx_runtime_telemetry() };
+    unsafe { astarot_core::shipped_libraries::disable_onnx_runtime_telemetry() };
+    if std::env::args_os().nth(1).is_some_and(|argument| argument == STEAMVR_UNREGISTER) {
+        std::process::exit(astarot_core::controller::steamvr::unregister_this_install() as i32);
+    }
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]
     let vr_panel = vr_panel_surface::prepare();
@@ -174,7 +186,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     if single_instance::single_instance_enabled(
         cfg!(debug_assertions),
-        app_identity::env::CONFIG_DIR.value_os().as_deref(),
+        astarot_app_identity::env::CONFIG_DIR.value_os().as_deref(),
     ) {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let Some(window) = app.get_webview_window("main") else {
@@ -252,6 +264,10 @@ pub fn run() {
             if window.label() == "main" && matches!(event, WindowEvent::Destroyed) {
                 window.app_handle().exit(0);
             }
+            // The settings window closes as any window does; nothing is left to save (#1111, #1236).
+            if window.label() == settings_window::LABEL && matches!(event, WindowEvent::Destroyed) {
+                settings_window::closed(window.app_handle());
+            }
         })
         // Only the plugins the windows use. The UI reads and writes no files and makes no HTTP
         // requests of its own, so the fs and http plugins are gone (security audit SEC-05). It starts
@@ -270,9 +286,15 @@ pub fn run() {
         .manage(vr_panel_state::VrPanelState::default())
         .manage(backend_host::BackendHost::default())
         .manage(companion::CompanionState::default())
+        .manage(settings_window::SettingsWindowState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
+            path_picker::pick_folder,
+            path_picker::pick_file,
             backend_host::backend_start, backend_host::backend_write,
-            backend_host::backend_kill,
+            backend_host::backend_kill, backend_host::backend_attach,
+            settings_window::settings_window_open, settings_window::settings_window_take_navigation,
+            settings_window::settings_window_is_open, settings_window::settings_window_close,
+            settings_window::settings_window_hand_over,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,
             quick_chat::quick_chat_show, quick_chat::quick_chat_shortcut_platform,
@@ -408,7 +430,7 @@ async fn get_font_list() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{startup_log_path, BROWSER_ARGS};
+    use super::{startup_log_path, BROWSER_ARGS, STEAMVR_UNREGISTER};
     use std::path::Path;
 
     #[test]
@@ -492,6 +514,14 @@ mod tests {
                 assert!(!unused.iter().any(|prefix| name.starts_with(prefix)), "{} grants {name}", capability["identifier"]);
             }
         }
+    }
+
+    #[test]
+    fn the_uninstaller_asks_for_the_steamvr_removal_by_the_argument_the_binary_knows() {
+        let template = include_str!("../nsis/template.nsi");
+        assert!(template.contains(&format!("\" {STEAMVR_UNREGISTER}'")), "the uninstaller does not pass {STEAMVR_UNREGISTER}");
+        // The manifest the uninstaller looks for is the one the package ships beside the binary.
+        assert!(template.contains(&format!("!define STEAMVRMANIFEST \"{}\"", astarot_app_identity::steamvr::MANIFEST)));
     }
 
     #[test]

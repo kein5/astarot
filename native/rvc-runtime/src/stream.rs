@@ -402,6 +402,11 @@ mod tests {
         assert!(short.validate().is_ok());
         assert!(Layout { block: 0, ..layout }.validate().is_err());
         assert!(Layout { block: 1, crossfade: 1, search: 0, extra: 0 }.validate().is_err());
+        // A crossfade as long as the block is accepted (the RVC worker's 20 ms GPU blocks, #928),
+        // one frame more is not.
+        let whole = Layout { block: 2, crossfade: 2, search: 1, extra: 200 };
+        assert!(whole.validate().is_ok());
+        assert!(Layout { crossfade: 3, ..whole }.validate().is_err());
     }
 
     #[test]
@@ -446,5 +451,18 @@ mod tests {
         assert_eq!(offset, 0);
         let expected: Vec<f32> = sola.fade_in.iter().map(|fade| 1.0 - fade).chain([0.0, 0.0]).collect();
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn a_crossfade_as_long_as_the_block_fades_all_of_it_and_keeps_a_block_for_the_next() {
+        // The RVC worker's 20 ms GPU blocks have a 20 ms crossfade (#928).
+        let mut sola = Sola::new(4, 0, 4);
+        sola.tail.fill(1.0);
+        let (output, offset) = sola.join(&[0.0, 0.0, 0.0, 0.0, 0.5, 0.25, 0.5, 0.25]);
+        assert_eq!(offset, 0);
+        let expected: Vec<f32> = sola.fade_in.iter().map(|fade| 1.0 - fade).collect();
+        assert_eq!(output, expected);
+        // Everything after the block is the next block's tail.
+        assert_eq!(sola.tail, [0.5, 0.25, 0.5, 0.25]);
     }
 }

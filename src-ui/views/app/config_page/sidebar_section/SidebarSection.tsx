@@ -1,12 +1,12 @@
-import styles from "./SidebarSection.module.scss";
-import { useState } from "react";
+import * as styles from "./SidebarSection.css.ts";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import {
     useStore_SelectedConfigTabId,
     useStore_IsBreakPoint,
 } from "@store";
-import { useUsagePresets } from "@logics_configs";
+import { useUsagePresets, useSettingValue } from "@logics_configs";
 
 import MicSvg from "@images/mic.svg?react";
 import TtsSpeakerSvg from "@images/tts_speaker.svg?react";
@@ -21,15 +21,18 @@ import ScienceSvg from "@images/mui_science.svg?react";
 import RefreshSvg from "@images/refresh.svg?react";
 import ChatTranscribeSvg from "@images/chat_transcribe.svg?react";
 import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
+import TalkAiSvg from "@images/talk_ai.svg?react";
 
 import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel";
 import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
-import { visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
+import { isTabAvailable, visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
+import { isExperimentalFeatureEnabled } from "../../../../logics/configs/experimentalFeatures.ts";
 import { isTabShown, pickedPresets } from "../../../../logics/configs/usagePresets.ts";
 import { UsagePresetSelector } from "./usage_presets/UsagePresetSelector.tsx";
 import type { SettingsMenuGroup } from "../../../../logics/configs/settingsMenu.ts";
+import { Tooltip } from "../../../common_components/tooltip/Tooltip";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -60,9 +63,15 @@ export const SidebarSection = () => {
     // The uses picked at the top choose the pages in the menu (usagePresets.ts). The page open
     // now stays in it, also when the search or a main page button opened it.
     const { currentUsagePresets } = useUsagePresets();
-    const { currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const { currentSelectedConfigTabId, updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const picked = pickedPresets(currentUsagePresets.data);
-    const groups = visibleMenuGroups(tab => isTabShown(picked, tab, tab === currentSelectedConfigTabId.data));
+    // A page of an experimental feature is in the menu only while the feature is on (#969, decision 2).
+    const { data: features, state: featuresState } = useSettingValue("ExperimentalFeatures");
+    const available = (tab: string) => isTabAvailable(tab, id => isExperimentalFeatureEnabled(features, id));
+    const groups = visibleMenuGroups(tab => available(tab) && isTabShown(picked, tab, tab === currentSelectedConfigTabId.data));
+    // The page open now went away with its feature: the menu opens the page with the feature's switch.
+    const gone = featuresState === "ok" && typeof currentSelectedConfigTabId.data === "string" && !available(currentSelectedConfigTabId.data);
+    useEffect(() => { if (gone) updateSelectedConfigTabId("experimental_features"); }, [gone]);
 
     return (
         <div
@@ -103,6 +112,7 @@ export const TabIcon = ({ tab_id, className }: TabIconProps) => {
         case "transcription": return <GraphicEqSvg className={clsx(className, styles.mui_icon)} />;
         case "vrchat": return <ChatTranscribeSvg className={clsx(className, styles.mui_icon, styles.ocr_icon)} />;
         case "ocr": return <DocumentScannerSvg className={clsx(className, styles.mui_icon)} />;
+        case "talk_ai": return <TalkAiSvg className={clsx(className, styles.mui_icon)} />;
         case "vr": return <HMDSvg className={clsx(className, styles.mui_icon)} />;
         case "hotkeys": return <KeyboardAltSvg className={clsx(className, styles.mui_icon)} />;
         case "advanced_settings": return <CodeBlocksSvg className={clsx(className, styles.mui_icon)} />;
@@ -163,13 +173,15 @@ const Tab = (props: TabProps) => {
     // Every tab is one line, so the tabs are all the same height and the menu does not change
     // its layout with the language or the font. A feature's short name in brackets (「（ASR）」)
     // did not fit beside its name in the 20.8rem rail and took a second line; the menu shows the
-    // name, and the full name stays in the tooltip, for screen readers and on the page itself.
+    // name, and the full name stays in the app's tooltip (beside the rail, on the pointer and on
+    // keyboard focus), in the accessible name and on the page itself.
     const fullLabel = getLabel();
     const label = splitFeatureLabel(fullLabel);
 
     return (
+        <Tooltip bare placement="right" title={label.abbr ? fullLabel : undefined}>
         <button type="button" className={tab_container_class_names} aria-label={fullLabel} aria-current={is_selected ? "page" : undefined}
-            title={label.abbr ? fullLabel : undefined} onClick={onclickFunction}>
+            onClick={onclickFunction}>
             <div className={styles.tab_icon_wrapper} aria-hidden="true">
                 <TabIcon tab_id={props.tab_id} className={styles.tab_icon} />
             </div>
@@ -178,5 +190,6 @@ const Tab = (props: TabProps) => {
             })}>{label.name}</p>
             <div className={switch_indicator_class_names}></div>
         </button>
+        </Tooltip>
     );
 };

@@ -32,6 +32,15 @@ jobs:
           # The tags and history: a beta's notes list the commits since the previous release tag.
           fetch-depth: 0
           persist-credentials: false
+      # Issue #1018: the Windows installer checks another version's package (/VERSION) only against
+      # the .sha256 file on the same release page, so the draft is made only while GitHub's
+      # immutable releases keep published assets from being replaced. Reading that setting needs
+      # admin read access, which GITHUB_TOKEN cannot have: this step, and no other, gets a
+      # fine-grained token with Administration: read on this repository only.
+      - name: Require immutable releases before making a draft
+        env:
+          GH_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_READ_TOKEN }}
+        run: python -m tools.prepare_release immutable-releases
       - name: Verify origin, successful runs, commit, version, every asset hash and its signed build provenance
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,9 +51,11 @@ jobs:
         run: |
           python -m tools.prepare_release --linux-run "$LINUX_RUN" --windows-run "$WINDOWS_RUN" \
             --commit "$CANDIDATE_COMMIT" --branch "$RELEASE_BRANCH" --output build/release-draft
-      # The in-app updater (issue #330) takes VRCT-VOX_setup.exe and the AppImage from this
+      # The in-app updater (issue #330) takes ASTAROT_setup.exe and the AppImage from this
       # release, checked against the public key in src-tauri/tauri.conf.json. Sign exactly the
-      # files verified above, then write latest.json from the signatures.
+      # files verified above, then write latest.json from the signatures. Their copies under the
+      # names up to 0.6.x (VRCT-VOX…, tools/release_candidate.py) are not signed: latest.json
+      # never names them.
       # Node and Cocogitto at the versions in mise.toml, from the URLs and SHA-256 in mise.lock.
       # This job's token can write the repository, so the action does not get it, and the tools
       # are downloaded and checked afresh instead of restored from the Actions cache.
@@ -58,7 +69,7 @@ jobs:
       - name: Install the Tauri CLI and the signature verifier
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          sudo apt-get install -y --no-install-recommends python3-cryptography
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends python3-cryptography
       # The updater key is a second key, separate from any code signing. Its private key and the
       # password (empty when the key has none) are repository secrets; only this step sees them.
       - name: Sign the updater files and write latest.json
@@ -72,7 +83,7 @@ jobs:
           fi
           version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
           payload=build/release-draft/payload
-          for file in "$payload/VRCT-VOX_setup.exe" "$payload"/*.AppImage; do
+          for file in "$payload/ASTAROT_setup.exe" "$payload/ASTAROT-$version-linux-x64-release.AppImage"; do
             # Bind each signature to this version: the app requires it (requireSignedVersion).
             node node_modules/@tauri-apps/cli/tauri.js signer sign --app-version "$version" "$file" < /dev/null
           done

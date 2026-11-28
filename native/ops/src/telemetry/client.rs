@@ -1,4 +1,4 @@
-//! Sends VRCT-VOX's usage events to VRCT-VOX's own receiver ([`client.py`]).
+//! Sends ASTAROT's usage events to ASTAROT's own receiver ([`client.py`]).
 //!
 //! Two events exist and the receiver takes no others: `app_started`, and `error` with its fixed
 //! error code. Each carries the time (ISO 8601, UTC), the app's version, the OS and its
@@ -22,12 +22,12 @@ use crate::net;
 
 /// The receiver (Cloudflare Workers).
 pub const ENDPOINT: &str = "https://vrct-vox-telemetry.kei9d09.workers.dev/v1/events";
-/// Marks a request as VRCT-VOX's. It is public and not a credential: it grants nothing but
+/// Marks a request as ASTAROT's. It is public and not a credential: it grants nothing but
 /// posting these two events.
 pub const INGEST_KEY: &str = "e77471acded45435be55c2fed04a05636e4eb00be5a277fb";
 /// A developer's stand-in receiver on this PC. Only a loopback HTTP address is taken, so the
 /// variable cannot send anyone's events to another host.
-pub const ENDPOINT_OVERRIDE: &str = app_identity::env::TELEMETRY_URL;
+pub const ENDPOINT_OVERRIDE: &str = astarot_app_identity::env::TELEMETRY_URL;
 pub const EVENTS: [&str; 2] = ["app_started", "error"];
 /// The version of the event's shape. 1 had no "v" and no "hw".
 pub const SCHEMA: u64 = 2;

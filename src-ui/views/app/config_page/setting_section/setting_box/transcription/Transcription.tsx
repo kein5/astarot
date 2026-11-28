@@ -1,14 +1,18 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SpeechServers } from "../advanced_settings/SpeechServers";
+import { useRecognitionState } from "../../../../../../logics/setup/useRecognitionState";
 import { useI18n } from "@useI18n";
-import styles from "./Transcription.module.scss";
-import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "./Transcription.css.ts";
+import { Badge } from "../../../../../kit/index.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
+import { AsrApiEntries } from "./AsrApiEntries";
+import { AsrServer } from "./AsrServer";
+import { SourceModels } from "./SourceModels";
 import { genNumObjArray } from "@utils";
 import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
-import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { DropdownSelection } from "../_components/dropdown_menu/DropdownMenu";
 
 import {
     useTranscription,
@@ -37,6 +41,10 @@ import { HintDescriptions } from "../_components/hint/Hint";
 export const Transcription = () => {
     const { t } = useI18n();
     const { currentMicPhraseTimeout, currentSpeakerPhraseTimeout } = useTranscription();
+    // The bundled server is chosen and its models are not set (#1230): its fold starts open, so the
+    // missing models are the first thing seen. A cloud engine, or a server of the user's own, needs none.
+    const { state: recognition, server } = useRecognitionState();
+    const asrModelsNeeded = recognition === "needs_setup" && server === "bundled";
     // Reviewed against #614: the rows' descriptions are their labels' hints, and what the two
     // systems and the folds are for are their headings' and titles'. The engine in use, the
     // readouts, the warnings and the model downloads stay in sight.
@@ -46,12 +54,16 @@ export const Transcription = () => {
             {/* Which engine listens comes first: it decides what else on this page applies.
                 Then the two systems it chooses from, as the translation catalog splits them
                 (#413, #414): speech.cpp on your PC, with its models (the catalog's and your own)
-                and its server, and the APIs, one fold per provider with its key. The word filter,
-                how speech is cut into messages and the realtime captions' server are set once, in
+                and its server, and the APIs, one fold per provider with its key. The speech.cpp part
+                starts with which server it uses (#1266), under the engine choice. The word filter,
+                how speech is cut into messages and the realtime captions are set once, in
                 「詳細設定」 (#554), whose line shows the pauses that end a message. */}
             <TranscriptionEngine_Container />
             <EngineGroup group="speechcpp">
-                <SpeechServers profiles={["asr"]} />
+                <AsrServer />
+                {/* Each input's model, side by side (#1308 ★1); the catalog below downloads them. */}
+                <SourceModels />
+                <SpeechServers profiles={["asr"]} needed={asrModelsNeeded} />
             </EngineGroup>
             <EngineGroup group="api">
                 <CloudTranscription_Container />
@@ -351,8 +363,8 @@ const CloudTranscription_Container = () => {
                 const name = t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`);
                 return (
                     <SetupSection key={engine.id} attention={in_use}
-                        title={engine.own ? <>{name} <span className={catalogStyles.badge} data-tone="own">
-                            {t("config_page.transcription.select_transcription_engine.badge_own")}</span></> : name}
+                        title={engine.own ? <>{name} <Badge tone="strong" variant="dashed">
+                            {t("config_page.transcription.select_transcription_engine.badge_own")}</Badge></> : name}
                         status={t(`config_page.translation.provider_${in_use ? "in_use" : usable ? "ready" : "not_set"}`)}>
                         {withUrl(engine)
                             ? <CredentialPair settings={transcription} base={engine.base} provider={engine.key} section="transcription" />
@@ -363,6 +375,8 @@ const CloudTranscription_Container = () => {
                     </SetupSection>
                 );
             })}
+            {/* The APIs the user added (#414): Use points the custom Whisper server at one. */}
+            <AsrApiEntries />
             <WhisperSegmentFilter_Box />
         </>
     );
@@ -418,12 +432,12 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
     const current = transcription[`current${engine.base}AuthKey`];
     const label = t(`config_page.transcription.${engine.key}_auth_key.label`);
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: current.data,
         state: current.state,
         setFunction: transcription[`set${engine.base}AuthKey`],
         deleteFunction: transcription[`delete${engine.base}AuthKey`],
-        label,
+        endpoint: `/set/data/${engine.key}_auth_key`,
     });
 
     return (
@@ -435,6 +449,9 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
             state={current.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
+            leaveFunction={leaveFunction}
+            onRevert={revert}
+            error={error}
             remove_border_bottom={true}
         />
     );

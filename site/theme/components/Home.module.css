@@ -21,44 +21,39 @@
 
 /* The app's control radius instead of pills. */
 .button {
+  composes: control from "./Control.module.css";
   display: inline-flex;
   align-items: center;
   height: 44px;
   padding: 0 20px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--a-radius-control);
   font-size: 15px;
-  font-weight: 600;
   white-space: nowrap;
   text-decoration: none;
   transition:
-    background-color var(--vox-motion-fast) var(--vox-ease),
-    border-color var(--vox-motion-fast) var(--vox-ease);
+    background-color var(--a-motion-fast) var(--a-ease),
+    border-color var(--a-motion-fast) var(--a-ease);
 }
 
 .brand {
-  background: var(--vox-button-bg);
-  color: var(--vox-button-text);
+  background: var(--a-primary);
+  color: var(--a-on-primary);
 }
 
 .brand:hover {
-  background: var(--vox-button-hover-bg);
+  background: var(--a-primary-hover);
 }
 
 .alt {
-  border-color: var(--vox-border);
-  background: var(--vox-surface);
+  border-color: var(--a-border);
+  background: var(--a-surface);
   color: var(--rp-c-text-1);
 }
 
 .alt:hover {
-  border-color: var(--vox-border-strong);
-  background: var(--vox-surface-hover);
-}
-
-.button:focus-visible {
-  outline: 2px solid var(--vox-focus);
-  outline-offset: 2px;
+  border-color: var(--a-field-border);
+  background: var(--a-surface-hover);
 }
 
 /* ---------- The picture of the app ---------- */
@@ -73,9 +68,9 @@
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--vox-border);
-  border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-dialog);
+  box-shadow: 0 24px 60px var(--a-shadow);
 }
 
 @media (min-width: 640px) {
@@ -104,7 +99,7 @@
   align-items: center;
   gap: 48px;
   padding: 40px 0;
-  border-top: 1px solid var(--vox-hairline);
+  border-top: 1px solid var(--a-border);
 }
 
 .row.flip {
@@ -120,8 +115,8 @@
   width: 100%;
   height: auto;
   aspect-ratio: 1280 / 500;
-  border: 1px solid var(--vox-hairline);
-  border-radius: 12px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-dialog);
   background: var(--rp-c-bg);
 }
 
@@ -144,7 +139,7 @@
   font-weight: 500;
   color: var(--rp-c-link);
   text-decoration: underline;
-  text-decoration-color: rgba(128, 172, 255, 0.45);
+  text-decoration-color: var(--a-link-underline);
   text-underline-offset: 4px;
 }
 
@@ -159,7 +154,7 @@
 .note {
   margin: 0;
   padding-top: 32px;
-  border-top: 1px solid var(--vox-hairline);
+  border-top: 1px solid var(--a-border);
   font-size: 15px;
   color: var(--rp-c-text-2);
 }

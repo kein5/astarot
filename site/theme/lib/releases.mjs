@@ -4,6 +4,10 @@
 // by its extension and the words in its name (os, engine, cpu). A file that none of the rules
 // knows is left out of the list, and the menu points to the release page for it.
 //
+// The files are named ASTAROT from 0.7.0. Releases of 0.7.x also carry each one under its name
+// up to 0.6.x (VRCT-VOX…, tools/release_candidate.py), so that older links keep working. Such a
+// copy is neither listed a second time nor counted as a file left out.
+//
 // tools/check_site_downloads.mjs checks these rules against past and expected asset lists.
 
 export const REPO = 'kein5/astarot'
@@ -41,6 +45,14 @@ const FORMATS = [
   { test: /\.zip$/i, format: 'zip', os: null },
   { test: /\.(tar\.gz|tgz|tar\.xz|tar\.zst)$/i, format: 'tar', os: null },
 ]
+
+const PREFIX = 'ASTAROT'
+const LEGACY_PREFIX = 'VRCT-VOX'
+
+/** Whether `name` is the copy of another file of the release under its name up to 0.6.x. */
+function isLegacyCopy(name, names) {
+  return name.startsWith(LEGACY_PREFIX) && names.has(PREFIX + name.slice(LEGACY_PREFIX.length))
+}
 
 // Words are split at - _ . and spaces, so "linux-x64-vulkan" and "VRCT-VOX_cuda" both read.
 const words = (name) => name.toLowerCase().split(/[-_.\s]+/)
@@ -88,7 +100,9 @@ const variantRank = (variant) => (variant === null ? 0 : variant === 'cuda' ? 2 
  * @param {{ tag_name?: string, html_url?: string, assets?: unknown[] }} release
  */
 export function readRelease(release) {
-  const assets = Array.isArray(release?.assets) ? release.assets : []
+  const all = Array.isArray(release?.assets) ? release.assets : []
+  const names = new Set(all.map((asset) => asset?.name).filter((name) => typeof name === 'string'))
+  const assets = all.filter((asset) => !(typeof asset?.name === 'string' && isLegacyCopy(asset.name, names)))
   const downloads = assets.map(classify).filter(Boolean)
   // A file with no engine word beside one with "cuda" is the CPU build (VRCT-VOX.zip next to
   // VRCT-VOX_cuda.zip). Alone, it stays unnamed: then there is only one build to take.
@@ -113,7 +127,8 @@ export function readRelease(release) {
   return { tag, page, groups, downloads, skipped }
 }
 
-// What the button offers first on each OS. Windows: the installer, which also asks CPU or GPU.
+// What the button offers first on each OS. Windows: the installer (up to 0.5 it also asked for the
+// CPU or the GPU package; from 0.6.0 there is one package).
 // Linux: the AppImage, which runs on most distributions; deb and rpm wait in the menu.
 const PREFERRED = {
   windows: ['installer', 'msi', 'zip'],

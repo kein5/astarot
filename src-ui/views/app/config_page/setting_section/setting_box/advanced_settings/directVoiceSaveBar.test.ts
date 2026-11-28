@@ -4,11 +4,9 @@ import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDra
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, nodesIn, kitStandIns, componentName, componentOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
 
@@ -22,11 +20,11 @@ const rvcSettings = { mode: "converted", engine: "rvc", runtime: "", reference: 
     rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, rvc_device: "auto", rvc_threads: 0, rvc_highpass: true };
 
 async function open(variant: Variant, settings: typeof rvcSettings) {
-    const runtime = hooks(), entries = new Map<string, SaveBarEntry>(), writes: Record<string, unknown>[] = [];
+    const runtime = hooks(), entries = new Map<string, unknown>(), writes: Record<string, unknown>[] = [];
     const ui = { "@useI18n": { useI18n: () => ({ t: (key: string) => key }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
-        "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
+        
     });
     const { DirectVoiceSettings } = await loadModule<typeof import("./DirectVoiceSettings.tsx")>(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
@@ -47,8 +45,10 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link", PagePointer: "page-pointer" }, "../_components/fold/Fold": { Fold: "fold" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
+        "../_components/path_field/PathField": { PathField: "path-field" },
         "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },
@@ -65,42 +65,62 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
     return { runtime, tree, entry, writes, render };
 }
 
-test("#429: opening input forwarding with RVC saved leaves the save bar empty", async () => {
-    const page = await open("legacy", rvcSettings);
-    assert.equal(page.entry.dirty, false);
-    assert.equal(page.entry.edited, false);
-    assert.deepEqual(page.entry.changes, []);
-    page.runtime.unmount();
-});
+// The monitor's row is a component of its own, which the RVC page moves into its 「詳細設定」 (#1230).
+// It holds no state, so it is drawn here as React would draw it.
+const monitorRow = (tree: unknown) => {
+    const node = nodesIn(tree).find(node => componentName(node) === "VcMonitorRow");
+    return node ? componentOf(node)(node.props) : undefined;
+};
 
-test("#429: a save from input forwarding keeps the RVC selection", async () => {
+// #1111: the form saves by itself, when focus leaves one of its groups. It is not in the save bar,
+// and leaving it with nothing changed writes nothing.
+const leave = (page: { render: () => unknown }) => {
+    // Focus leaves one group at a time: the first, which holds the numbers.
+    const group = nodesIn(page.render()).find(node => node.type === "fieldset" && typeof node.props.onBlur === "function");
+    group?.props.onBlur({ currentTarget: { contains: () => false }, relatedTarget: null });
+    page.render(); page.render();
+};
+
+test("#429: opening input forwarding with RVC saved writes nothing, and leaving it writes nothing", async () => {
+    // A write here would have saved forwarding over the RVC selection.
     const page = await open("legacy", rvcSettings);
-    // The save bar saves only forms with changes, so this form is not written at all;
-    // a write that does happen keeps the saved mode and engine.
-    await page.entry.save();
-    assert.equal(page.writes.length, 1);
-    assert.equal(page.writes[0].mode, "converted");
-    assert.equal(page.writes[0].engine, "rvc");
-    assert.equal(page.writes[0].rvc_model, "voice.pth");
-    page.render();
-    assert.deepEqual(page.entry.changes, []);
+    assert.equal(page.entry, undefined, "not in the save bar");
+    leave(page);
+    assert.equal(page.writes.length, 0);
     page.runtime.unmount();
 });
 
 test("input forwarding with RVC saved still shows forwarding, not the conversion", async () => {
     const page = await open("legacy", rvcSettings);
-    const text = JSON.stringify(page.tree, (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
-    assert.match(text, /voice\.vc_monitor_passthrough/);
+    const text = JSON.stringify([page.tree, monitorRow(page.tree)], (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
+    // Forwarded input is not played on the monitor: the row says so (#614).
+    assert.match(text, /voice\.vc_monitor_not_converted/);
     assert.doesNotMatch(text, /voice\.vc_rvc_pitch/);
     page.runtime.unmount();
 });
 
-const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
+// #614: the monitor is set on the TTS page. Here a row says what it does for this voice now, and
+// its button opens the TTS page on that setting; what it covers is the row's hint.
+test("the monitor row says what it plays now and leads to the TTS page's setting", async () => {
+    for (const [variant, settings, value] of [["legacy", rvcSettings, "voice.vc_monitor_not_converted"], ["rvc", rvcSettings, "voice.monitor_off"]] as const) {
+        const page = await open(variant, settings);
+        const row = nodesIn(monitorRow(page.tree)).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
+        assert.ok(row, variant);
+        assert.deepEqual([row.props.description, row.props.group], ["voice.vc_monitor_help", true]);
+        const state = nodesIn(row.props.status).find(node => node.props?.["data-vc-monitor"] !== undefined);
+        assert.equal(state?.props.children, value, variant);
+        const link = nodesIn(row).find(node => node.type === "page-link");
+        assert.deepEqual([link?.props.tab, link?.props.action, link?.props.target], ["tts", "voice.vc_monitor_action", "tts_monitor"]);
+        page.runtime.unmount();
+    }
+});
+
+const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "voice_ui.select_rvc");
 
 test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
-    assert.equal(forwarding.entry.dirty, false, "opening the page changes nothing");
-    assert.deepEqual(forwarding.entry.changes, []);
+    leave(forwarding);
+    assert.equal(forwarding.writes.length, 0, "opening the page changes nothing");
     const button = selectButton(forwarding.tree);
     assert.ok(button, "the page offers to switch to RVC");
     await button.props.onClick();
@@ -110,15 +130,22 @@ test("#436: opening the RVC page with forwarding saved leaves the save bar empty
     assert.equal(forwarding.writes[0].rvc_model, "voice.pth");
     forwarding.runtime.unmount();
     const converted = await open("rvc", rvcSettings);
-    assert.deepEqual(converted.entry.changes, []);
+    leave(converted);
+    assert.equal(converted.writes.length, 0);
     assert.equal(selectButton(converted.tree), undefined, "no button once RVC is selected");
     converted.runtime.unmount();
 });
 
 test("#436: saving an RVC field with forwarding saved keeps forwarding", async () => {
     const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
-    await page.entry.save();
+    const pitch = nodesIn(page.render()).find(node => node.props?.type === "number" && node.props.min === -24);
+    assert.ok(pitch);
+    pitch.props.onChange({ target: { valueAsNumber: 3 } });
+    page.render();
+    leave(page);
+    await Promise.resolve();
     assert.equal(page.writes.length, 1);
+    assert.equal(page.writes[0].rvc_pitch, 3);
     assert.equal(page.writes[0].mode, "passthrough");
     page.runtime.unmount();
 });
@@ -129,7 +156,7 @@ test("#436: saving an RVC field with forwarding saved keeps forwarding", async (
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const forms: [Variant, string, string][] = [
     ["rvc", "config_page.rvc.rvc_settings.label", "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"],
-    ["legacy", "voice.input_title", "voice.input_description\nvoice.input_scope"],
+    ["legacy", "voice.passthrough_title", "voice.input_description\nvoice.input_scope"],
 ];
 for (const [variant, heading, intro] of forms) test(`${variant}: the form's description is its heading's`, async () => {
     const page = await open(variant, rvcSettings);
@@ -147,10 +174,10 @@ for (const [variant, heading, intro] of forms) test(`${variant}: the form's desc
     page.runtime.unmount();
 });
 
-test("#614: that the input does not use RVC yet stays in sight beside its button", async () => {
+test("#614: that the input does not use RVC yet is the row's hint", async () => {
     const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
     const [row] = all(page.tree, node => node.type === "row" && node.props.label === "voice_ui.select_rvc_label");
     assert.equal(row.props.description, "voice_ui.select_rvc_pending");
-    assert.equal(row.props.keepDescription, true);
+    assert.equal(row.props.keepDescription, undefined);
     page.runtime.unmount();
 });

@@ -1,12 +1,12 @@
 [package]
-name = "vrct-translation"
+name = "astarot-translation"
 version = "0.0.0"
-description = "Online translation providers and the kana and romaji readings of VRCT-VOX (codename Hael)"
+description = "Online translation providers and the kana and romaji readings of ASTAROT (codename Hael)"
 edition = "2024"
 publish = false
 
 [lib]
-name = "vrct_translation"
+name = "astarot_translation"
 
 # Versions are pinned to the ones native/ops and src-tauri already lock, so linking this crate
 # into the core adds no second copy of any of them.
@@ -34,7 +34,7 @@ fake-server = []
 sudachi = ["dep:sudachi", "dep:memmap2"]
 
 [dev-dependencies]
-vrct-translation = { path = ".", features = ["fake-server", "sudachi"] }
+astarot-translation = { path = ".", features = ["fake-server", "sudachi"] }
 
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]

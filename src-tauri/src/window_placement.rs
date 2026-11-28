@@ -7,6 +7,10 @@
 //! window appears once, where it stays. The rules are the ones the UI used
 //! (`src-ui/logics/common/useWindow.ts`, `windowGeometry.ts`), except that a first launch is
 //! centred on its monitor instead of put at the top left.
+//!
+//! The settings window (#1236) keeps a place of its own (`SETTINGS_WINDOW_GEOMETRY`) and goes there
+//! by the same rules each time it is made; its first time, it is centred on the main window's
+//! monitor.
 
 use serde_json::Value;
 use std::path::Path;
@@ -49,12 +53,16 @@ pub struct Monitor {
     pub scale: f64,
 }
 
-/// The saved geometry in `config.json`, or `None` when there is none to read. A value that is
-/// not a whole number keeps the default's, as the backend's own check does.
-pub fn saved(state_dir: &Path) -> Option<Geometry> {
+/// Where each window's geometry is saved in `config.json`.
+pub const MAIN_KEY: &str = "MAIN_WINDOW_GEOMETRY";
+pub const SETTINGS_KEY: &str = "SETTINGS_WINDOW_GEOMETRY";
+
+/// The geometry saved under `key` in `config.json`, or `None` when there is none to read. A value
+/// that is not a whole number keeps the default's, as the backend's own check does.
+pub fn saved(state_dir: &Path, key: &str) -> Option<Geometry> {
     let text = std::fs::read_to_string(state_dir.join("config.json")).ok()?;
     let value: Value = serde_json::from_str(&text).ok()?;
-    parse(value.get("MAIN_WINDOW_GEOMETRY")?)
+    parse(value.get(key)?)
 }
 
 fn parse(value: &Value) -> Option<Geometry> {
@@ -122,17 +130,25 @@ fn monitor(m: &tauri::Monitor) -> Monitor {
 /// Moves and sizes the hidden main window to its saved place. Failures are logged; the window
 /// then shows where it was made (centred).
 pub fn apply(window: &tauri::WebviewWindow, state_dir: &Path) {
+    apply_saved(window, saved(state_dir, MAIN_KEY), window);
+}
+
+/// Moves and sizes the hidden `window` to `saved`. `near` is the window whose monitor it goes to
+/// when it has no place yet or its place is on no monitor: itself for the main window, the main
+/// window for the settings window.
+pub fn apply_saved(window: &tauri::WebviewWindow, saved: Option<Geometry>, near: &tauri::WebviewWindow) {
+    let label = window.label();
     let monitors: Vec<Monitor> = window.available_monitors().unwrap_or_default().iter().map(monitor).collect();
-    let fallback = window.current_monitor().ok().flatten().or_else(|| window.primary_monitor().ok().flatten());
-    let Some(target) = place(saved(state_dir), &monitors, fallback.as_ref().map(monitor)) else {
-        crate::startup_log("Main window placement: no monitor found; it opens centred");
+    let fallback = near.current_monitor().ok().flatten().or_else(|| window.primary_monitor().ok().flatten());
+    let Some(target) = place(saved, &monitors, fallback.as_ref().map(monitor)) else {
+        crate::startup_log(&format!("Window placement ({label}): no monitor found; it opens centred"));
         return;
     };
     if let Err(error) = window.set_size(tauri::PhysicalSize::new(target.width, target.height)) {
-        crate::startup_log(&format!("Main window size failed: {error}"));
+        crate::startup_log(&format!("Window size ({label}) failed: {error}"));
     }
     if let Err(error) = window.set_position(tauri::PhysicalPosition::new(target.x, target.y)) {
-        crate::startup_log(&format!("Main window position failed: {error}"));
+        crate::startup_log(&format!("Window position ({label}) failed: {error}"));
     }
 }
 
@@ -186,6 +202,8 @@ mod tests {
     fn the_built_in_geometry_is_the_backends_default() {
         let schema = include_str!("../../native/core/src/config/schema.rs");
         assert!(schema.contains(r#"("MAIN_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 }))"#));
+        // The settings window's starts the same, so its first time is a first launch's (#1236).
+        assert!(schema.contains(r#"("SETTINGS_WINDOW_GEOMETRY", json!({ "x_pos": 0, "y_pos": 0, "width": 870, "height": 654 }))"#));
         assert_eq!(BUILT_IN, g(0, 0, 870, 654));
     }
 
@@ -197,11 +215,14 @@ mod tests {
         assert_eq!(parse(&serde_json::json!([1, 2])), None);
         let dir = std::env::temp_dir().join(format!("vrct-window-placement-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        assert_eq!(saved(&dir), None, "no config.json");
-        std::fs::write(dir.join("config.json"), r#"{"MAIN_WINDOW_GEOMETRY":{"x_pos":5,"y_pos":6,"width":700,"height":500}}"#).unwrap();
-        assert_eq!(saved(&dir), Some(g(5, 6, 700, 500)));
+        assert_eq!(saved(&dir, MAIN_KEY), None, "no config.json");
+        std::fs::write(dir.join("config.json"), r#"{"MAIN_WINDOW_GEOMETRY":{"x_pos":5,"y_pos":6,"width":700,"height":500},
+            "SETTINGS_WINDOW_GEOMETRY":{"x_pos":50,"y_pos":60,"width":800,"height":600}}"#).unwrap();
+        assert_eq!(saved(&dir, MAIN_KEY), Some(g(5, 6, 700, 500)));
+        // Each window reads its own.
+        assert_eq!(saved(&dir, SETTINGS_KEY), Some(g(50, 60, 800, 600)));
         std::fs::write(dir.join("config.json"), "not json").unwrap();
-        assert_eq!(saved(&dir), None);
+        assert_eq!(saved(&dir, MAIN_KEY), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_ops::downloads::catalog::{Artifact, CATALOG_VERSION, Model};
-use vrct_ops::downloads::transport::{Body, Transport};
-use vrct_ops::downloads::{Downloads, Error, Options};
+use astarot_core::controller::Services;
+use astarot_ops::downloads::catalog::{Artifact, CATALOG_VERSION, Model};
+use astarot_ops::downloads::transport::{Body, Transport};
+use astarot_ops::downloads::{Downloads, Error, Options};
 
 const REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
 /// "GGUF" and 60 times "x", and its SHA-256.
@@ -191,7 +191,7 @@ fn the_catalog_lists_each_entry_with_its_size_destination_and_sources() {
     let catalog = ui.ok("/get/data/model_download_catalog", None);
     assert_eq!(catalog["catalog_version"], CATALOG_VERSION);
     assert_eq!(snapshot["/get/data/model_download_catalog"]["catalog_version"], CATALOG_VERSION, "in the start-up snapshot");
-    assert_eq!(catalog["legacy_models"], json!([]), "the built-in CTranslate2 download is not offered by the core");
+    assert!(catalog.get("legacy_models").is_none(), "the built-in CTranslate2 download is gone (#1015)");
     let models = catalog["models"].as_array().unwrap();
     assert!(!models.is_empty());
     let root = root(&ui);
@@ -411,6 +411,34 @@ fn an_asr_apply_sets_only_the_recognizer_and_keeps_the_vad() {
     ui.stop();
 }
 
+// #1242: a recognition model applied for Listening (`"source": "speaker"`) goes to the asr
+// profile's `listening_model`, checked against that field, and leaves Mic input's model alone. Only
+// a recognition model is applied for Listening, and Listening is the only other source.
+#[test]
+fn a_recognizer_applied_for_listening_sets_its_own_model_and_keeps_mic_inputs() {
+    let world = World::default();
+    let saved = json!({ "SPEECH_SERVER_SETTINGS": { "version": 1, "profiles": { "asr": { "model": "/ja.gguf", "vad_model": "/vad.gguf" } } } });
+    let ui = world.start_with(Some(saved));
+    let job = download(&ui, "asr-x");
+    let for_listening = |expected: Value, source: Value| {
+        ui.request("/run/apply_model_download", Some(json!({ "id": "asr-x", "job_id": job["job_id"], "expected": expected, "source": source })))
+    };
+    // expected names the replaced field, listening_model, not Mic input's model.
+    assert_eq!(failure(&for_listening(json!({ "model": "/ja.gguf" }), json!("speaker"))), (409, "settings_changed"));
+    assert_eq!(failure(&for_listening(json!({ "model": "" }), json!("mic"))), (400, "download_request_invalid"));
+    world.set_busy(&["asr"]);
+    assert_eq!(failure(&for_listening(json!({ "model": "" }), json!("speaker"))), (409, "model_target_busy"));
+    world.set_busy(&[]);
+    assert_eq!(for_listening(json!({ "model": "" }), json!("speaker"))["status"], 200);
+    let asr = speech_settings(&ui)["profiles"]["asr"].clone();
+    assert_eq!((asr["model"].clone(), asr["listening_model"].clone()), (json!("/ja.gguf"), job["paths"]["model"].clone()));
+
+    let vad = download(&ui, "vad-x");
+    let answer = ui.request("/run/apply_model_download", Some(json!({ "id": "vad-x", "job_id": vad["job_id"], "expected": { "model": "/vad.gguf" }, "source": "speaker" })));
+    assert_eq!(failure(&answer), (400, "download_request_invalid"), "only a recognizer is Listening's");
+    ui.stop();
+}
+
 #[test]
 fn a_vad_apply_sets_only_the_asr_vad_path_and_checks_that_field() {
     let world = World::default();
@@ -606,25 +634,62 @@ fn bad_user_model_requests_fail_with_a_code_and_write_nothing() {
     assert!(!ui.dir.join("user_models.json").exists());
     ui.stop();
 }
-/// Chat reading resolves its models from a table of its own (`ocr_runtime::models::CATALOG`),
+/// Chat reading resolves its models from a table of its own (`astarot_ocr_runtime::models::CATALOG`),
 /// which repeats the OCR entries of the download catalog: the same models, revisions and files.
 /// Python's catalog was the reference until 0.6.0 (`ocr-runtime/tests/models.rs` compared them);
 /// the download catalog is now.
 #[test]
 fn chat_reading_s_table_repeats_the_ocr_entries_of_the_download_catalog() {
-    let downloads: Vec<Value> = vrct_ops::downloads::catalog::catalog()
+    let downloads: Vec<Value> = astarot_ops::downloads::catalog::catalog()
         .into_iter()
         .filter(|m| m.target == "ocr")
         .map(|m| json!([m.id, m.revision, m.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
         .collect();
-    let reading: Vec<Value> = ocr_runtime::models::CATALOG
+    let reading: Vec<Value> = astarot_ocr_runtime::models::CATALOG
         .iter()
         .map(|e| json!([e.id, e.revision, e.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
         .collect();
     assert!(!reading.is_empty());
     assert_eq!(reading, downloads);
     assert_eq!(
-        (ocr_runtime::models::DETECTOR_MODEL_ID, ocr_runtime::models::DETECTOR_FILE_NAME),
-        (vrct_ops::downloads::catalog::DETECTOR_MODEL_ID, vrct_ops::downloads::catalog::DETECTOR_FILE_NAME)
+        (astarot_ocr_runtime::models::DETECTOR_MODEL_ID, astarot_ocr_runtime::models::DETECTOR_FILE_NAME),
+        (astarot_ops::downloads::catalog::DETECTOR_MODEL_ID, astarot_ops::downloads::catalog::DETECTOR_FILE_NAME)
     );
+}
+
+// #1263: a model already on the PC is used without its acquisition's review: its files are
+// checked, never downloaded, and the checked job is applied as a downloaded one is.
+fn check(ui: &Ui, id: &str) -> Value {
+    ui.request("/run/check_model_download", Some(json!({ "id": id, "catalog_version": CATALOG_VERSION })))
+}
+
+#[test]
+fn a_model_on_the_pc_is_checked_without_consent_and_applied_and_a_changed_one_is_said() {
+    let world = World::default();
+    let ui = world.start();
+    // Not on the PC: refused, and nothing starts.
+    assert_eq!(failure(&check(&ui, "voice-ja")), (409, "model_not_downloaded"));
+    assert!(world.opened().is_empty());
+    let downloaded = download(&ui, "voice-ja");
+    assert_eq!(world.opened().len(), 1);
+    // On the PC: checked without the network, then applied.
+    assert_eq!(check(&ui, "voice-ja")["status"], 200);
+    let job = wait_phase(&ui, "voice-ja", &["ready", "failed"]);
+    assert_eq!((job["phase"].clone(), job["paths"].clone()), (json!("ready"), downloaded["paths"].clone()));
+    assert_eq!(world.opened().len(), 1, "a check downloads nothing");
+    let answer = apply(&ui, "voice-ja", &job, json!({ "model": "" }));
+    assert_eq!(answer["status"], 200, "{answer}");
+    assert_eq!(speech_settings(&ui)["profiles"]["japanese"]["model"], job["paths"]["model"]);
+    // Of its size, other bytes: the check fails and says so, and the file is left for a download.
+    let published = PathBuf::from(job["paths"]["model"].as_str().unwrap());
+    std::fs::write(&published, [b'z'; 64]).unwrap();
+    assert_eq!(check(&ui, "voice-ja")["status"], 200);
+    let job = wait_phase(&ui, "voice-ja", &["ready", "failed"]);
+    assert_eq!((job["phase"].as_str(), job["error_code"].as_str()), (Some("failed"), Some("model_files_changed")));
+    assert_eq!(std::fs::read(&published).unwrap(), [b'z'; 64]);
+    assert_eq!(world.opened().len(), 1);
+    // A request with a consent is not a check.
+    let consented = ui.request("/run/check_model_download", Some(consent("voice-ja")));
+    assert_eq!(failure(&consented), (400, "download_request_invalid"));
+    ui.stop();
 }

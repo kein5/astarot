@@ -58,12 +58,13 @@ def run(argv, *, cwd=ROOT, env=None):
 # dependencies of those Cargo.toml files.
 # translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
 # reads its manifest to resolve the core, so it is copied too.
-APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server',
+APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server', 'talk-ai',
               'transcription', 'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/vr-overlay checks its layout against the VR page's.
+# the workspace: native/vr-overlay checks its layout against the VR page's, and its SteamVR
+# registration against the manifest the Windows package ships (#1384).
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
-CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json',)
+CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json', 'src-tauri/steamvr/astarot.vrmanifest')
 
 
 def tauri_workspace(work, internal):
@@ -141,7 +142,7 @@ def stage_internal(work, archives, *, offline=False, download=False, dictionary=
     run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', build])
     run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', build,
          '--target-dir', work / 'cargo-rvc', *(['--offline'] if offline else [])])
-    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
+    # The license texts of the Rust crates in astarot and the worker (NOTICE.md).
     run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', build / 'licenses/rust',
          '--platform', 'linux', *(['--offline'] if offline else [])])
     manifest = load_manifest()
@@ -206,12 +207,13 @@ def main():
     env['CARGO_PROFILE_DEV_DEBUG_ASSERTIONS'] = 'false'
     run([ROOT / 'node_modules/.bin/tauri', 'build', '--no-bundle',
          *(['--debug'] if args.profile == 'debug' else []), '--', '--locked'], cwd=workspace, env=env)
-    candidate = work / 'candidate/VRCT-VOX'
+    # The tar.gz unpacks to this folder (VRCT-VOX up to 0.6.x).
+    candidate = work / 'candidate/ASTAROT'
     if candidate.exists():
         shutil.rmtree(candidate)
     candidate.mkdir(parents=True)
     shutil.copytree(internal, candidate / '_internal', symlinks=True)
-    shutil.copy2(work / 'cargo' / args.profile / 'vrct-vox', candidate / 'vrct-vox')
+    shutil.copy2(work / 'cargo' / args.profile / 'astarot', candidate / 'astarot')
     normalize_modes(candidate)
     check_tree(candidate, require_runtime=True)
     for _, folder in SPEECH_BUILDS:
@@ -228,7 +230,8 @@ def main():
     (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
+    # The release file's name (ADR-014, 2.10; VRCT-VOX-… up to 0.6.x).
+    output = args.output_dir / f'ASTAROT-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
     pack(candidate, output)
     shutil.copyfile(candidate / 'build-manifest.json', output.with_suffix('').with_suffix('.manifest.json'))
     print(f'Unpublished candidate: {output.resolve()}')

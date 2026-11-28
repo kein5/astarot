@@ -1,4 +1,4 @@
-# vrct-voice-conversion
+# astarot-voice-conversion
 
 Direct voice and voice conversion for ASTAROT in Rust: one direct producer at a time
 (the microphone passed through or converted), the owner of the RVC worker process
@@ -33,8 +33,8 @@ running conversion (ADR-007) and `/get/data/vc_runtime_*`, `/run/*_vc_runtime_se
 ## Tests
 
 ```sh
-cargo test --locked
-cargo clippy --locked --all-targets
+cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
+cargo clippy --locked --manifest-path native/voice-conversion/Cargo.toml --all-targets
 ```
 
 The unit tests cover the pipe contract, the archive reader and the setup's pinned versions.

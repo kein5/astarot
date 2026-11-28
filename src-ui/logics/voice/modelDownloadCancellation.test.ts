@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, unchecked, kitStandIns } from "../test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as polledState from "../common/polledState.ts";
@@ -155,13 +155,19 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "./EngineCatalog": { EngineCatalog: "engines" },
     "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
     "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+    "./InputChoice": { InputChoice: "input-choice" },
+    "../../../../../../logics/transcription/listeningModel": await import("../transcription/listeningModel.ts"),
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),
     "./catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
-        CatalogSection: "catalog-section" },
+        CatalogSection: "catalog-section", CatalogState: "catalog-state" },
     ...words,
 });
+// A card's parts by name: the kit's Card parts, the catalog's fold, or the class of a part of its own.
+const KIT_PARTS = new Map<unknown, string>([[kitStandIns.CardHeader, "CardHeader"], [kitStandIns.CardContent, "CardContent"],
+    [kitStandIns.CardFooter, "CardFooter"]]);
+const partName = (part: TreeNode) => part.type === "catalog-facts" ? "catalog-facts" : KIT_PARTS.get(part.type) ?? String(part.props.className);
 
 test("the cards take the layout chosen on the heading's line, and one model asked about stays a list", async t => {
     const s = await setup(t), ui = hooks();
@@ -176,24 +182,24 @@ test("the cards take the layout chosen on the heading's line, and one model aske
     ] }));
     const draw = (only?: string[]) => ui.render(ModelDownloads, { targets: ["asr"], expected: { asr: {} }, only });
     const cards = (tree: object) => nodesIn(tree).filter(node => node.props?.["data-model-download"] !== undefined);
-    const parts = (card: TreeNode) => [card.props.children].flat(2).filter(Boolean).map(part => String(part.type === "catalog-facts" ? "catalog-facts" : part.props.className));
+    const parts = (card: TreeNode) => [card.props.children].flat(2).filter(Boolean).map(partName);
     let tree = draw();
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons on the heading's line");
     assert.equal(findIn(tree, node => node.type === "ul").props.layout, "grid");
     // A grid card is four parts: what the model is, its size and hardware, its details folded,
     // and its actions.
     const [model, other] = cards(tree);
-    assert.deepEqual(parts(model), ["card_intro", "card_key", "catalog-facts", "card_foot"]);
+    assert.deepEqual(parts(model), ["CardHeader", "card_key", "catalog-facts", "CardFooter"]);
     assert.equal(findIn(model, node => node.props?.className === "card_key").props.part, "key", "the size and the hardware on the card");
     const details = findIn(model, node => node.type === "catalog-facts");
     assert.equal(details.props.summary, "model_catalog.layout.facts_of", "the fold names the file type");
     assert.equal(findIn(other, node => node.type === "catalog-facts").props.summary, undefined, "one file of the model's name: Details");
-    assert.ok(find(details, node => node.type === "select"), "the choice of the file is in the fold");
+    assert.ok(find(details, node => node.type === kitStandIns.Select), "the choice of the file is in the fold");
     assert.equal(findIn(details, node => componentName(node) === "ModelFacts").props.part, "rest", "the languages and the terms in the fold");
-    assert.equal(find(findIn(model, node => node.props?.className === "card_intro"), node => node.type === "select"), null);
-    assert.ok(find(findIn(model, node => node.props?.className === "card_foot"), node => node.type === "button"), "the actions stay on the card");
-    // Whom it is suggested for is one short word: how many languages, or the one.
-    const badge = (card: TreeNode) => findIn(card, node => node.props?.["data-tone"] === "recommended").props.children;
+    assert.equal(find(findIn(model, node => node.type === kitStandIns.CardHeader), node => node.type === kitStandIns.Select), null);
+    assert.ok(find(findIn(model, node => node.type === kitStandIns.CardFooter), node => node.type === "button"), "the actions stay on the card");
+    // Whom it is suggested for is one short word: how many languages, or the one, in the accent badge.
+    const badge = (card: TreeNode) => findIn(card, node => node.type === kitStandIns.Badge && node.props.tone === "accent").props.children;
     assert.equal(badge(model), "model_catalog.recommended_for_count");
     assert.equal(badge(other), "model_catalog.recommended_for");
     assert.equal(findIn(tree, node => node.type === "user-model-cards").props.layout, "grid");
@@ -201,7 +207,7 @@ test("the cards take the layout chosen on the heading's line, and one model aske
     tree = draw(["model-q8", "model-q4"]);
     assert.equal(find(tree, node => node.type === "catalog-layout-switch"), null);
     assert.equal(findIn(tree, node => node.type === "ul").props.layout, "list");
-    assert.deepEqual(parts(cards(tree)[0]), ["card_intro", "card_spec", "card_foot"]);
+    assert.deepEqual(parts(cards(tree)[0]), ["CardHeader", "CardContent", "CardFooter"]);
     assert.equal(find(tree, node => node.type === "catalog-facts"), null);
     assert.equal(badge(cards(tree)[0]), "model_catalog.recommended_for");
 });
@@ -241,8 +247,8 @@ test("the catalog groups models by use, one card per recognizer with its file ty
     // Each use is a part of the catalog of its own (catalogLayout.tsx's CatalogSection), named by it.
     const groups = () => nodesIn(render()).filter(node => node.type === "catalog-section").map(node => node.props.title);
     const cards = () => nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
-    const select = (card: TreeNode) => find(card, node => node.type === "select");
-    const choice = (card: TreeNode) => findIn(card, node => node.type === "select");
+    const select = (card: TreeNode) => find(card, node => node.type === kitStandIns.Select);
+    const choice = (card: TreeNode) => findIn(card, node => node.type === kitStandIns.Select);
     const values = (node: TreeNode) => [node.props.children].flat(2).filter(Boolean).map(option => option.props.value);
     assert.deepEqual(groups(), ["model_catalog.group.asr", "model_catalog.group.vad"]);
     assert.deepEqual(cards().map(card => card.props["aria-label"]), ["qwen", "v3", "VAD"]);
@@ -274,15 +280,15 @@ test("a model downloaded before a restart says so, and in use only when its file
     const action = (card: TreeNode) => findIn(card, node => node.type === "button" && node.props.children?.startsWith?.("model_"));
     const actionOf = (card: TreeNode) => nodesIn(card).find(node => node.type === "button" && node.props.children?.startsWith?.("model_"))?.props.children ?? null;
     // In use, it is ready: nothing to check or prepare, so no button offers it (#947). On the PC but
-    // not set, it still needs its check and its path; not on the PC, its review.
-    assert.deepEqual(cards.map(actionOf), [null, "model_catalog.prepare", "model_downloads.review"]);
-    assert.ok(!nodesIn(cards[0]).some(node => node.props?.children === "model_catalog.prepare_hint"));
-    assert.ok(nodesIn(cards[1]).some(node => node.props?.children === "model_catalog.prepare_hint"));
-    // Getting a downloaded file ready still goes through the review and consent.
+    // not set, it is used from its card (#1263); not on the PC, its review.
+    assert.deepEqual(cards.map(actionOf), [null, "model_catalog.use", "model_downloads.review"]);
+    assert.ok(!nodesIn(cards[0]).some(node => node.props?.children === "model_catalog.use_hint"));
+    assert.ok(nodesIn(cards[1]).some(node => node.props?.children === "model_catalog.use_hint"));
+    // Using a downloaded file checks it, with no review or consent in between (#1263).
     action(cards[1]).props.onClick();
-    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
-    const dialog = find(render(), node => node.type === "dialog");
-    assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
+    assert.deepEqual(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")),
+        [["/run/check_model_download", { id: "b", catalog_version: "v" }]]);
+    assert.equal(find(render(), node => node.type === kitStandIns.Dialog), null);
     // The audition (#415) follows the card's own action in its row, with the card's status and
     // model id; the RVC form's values and the chosen input reach it when the page has them.
     const row = findIn(cards[1], node => node.props?.className === "actions");
@@ -345,11 +351,12 @@ test("a card says its state at the end of its name's line, and what speaks for i
     s.render().updateState(downloadState({ observation_id: "1", jobs: {}, downloaded: { a: { model: "/m/a.gguf" } } }));
     const cards = nodesIn(ui.render(ModelDownloads, { targets: ["asr"], expected: { asr: { model: "/m/a.gguf" } } }))
         .filter(node => node.props?.["data-model-download"] !== undefined);
-    // The card in use is told by its frame, as well as by its badge.
-    assert.deepEqual(cards.map(card => card.props["data-status"]), ["in_use", "not_downloaded"]);
+    // Each is the kit's Card, an item of the list; the card in use is told by its frame, as well as by its badge.
+    assert.deepEqual(cards.map(card => [card.type, card.props.as, card.props.active, card.props["data-status"]]),
+        [[kitStandIns.Card, "li", true, "in_use"], [kitStandIns.Card, "li", false, "not_downloaded"]]);
     for (const card of cards) {
         const head = findIn(card, node => node.props?.className === "card_head");
-        assert.deepEqual(head.props.children.map((child: TreeNode) => child.type === "strong" ? "name" : componentName(child)), ["name", "StatusBadge"]);
+        assert.deepEqual(head.props.children.map((child: TreeNode) => child.type === kitStandIns.CardTitle ? "name" : componentName(child)), ["name", "StatusBadge"]);
     }
     const badges = findIn(cards[0], node => node.props?.className === "card_badges");
     assert.ok(find(badges, node => node.props?.children === "model_catalog.recommended_for"));

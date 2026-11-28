@@ -4,7 +4,7 @@ import i18next from "i18next";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { rvcBlockChoiceId, rvcBlockChoices } from "./rvcBlockChoices.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find, findIn, componentName, componentOf, forwardRefRender, unchecked } from "../test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, findIn, componentName, componentOf, nodesIn, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
@@ -12,6 +12,8 @@ import type { SaveButtonLogicOptions } from "./config_page_setter/useSettingsLog
 import type { SettingsDraftOptions } from "../voice/useSettingsDraft.tsx";
 import type { EntryProps } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx";
 import type { EntryWithSaveButtonProps } from "../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx";
+import * as fieldErrors from "./fieldErrors.ts";
+import * as fieldChecks from "./fieldChecks.ts";
 
 
 test("port drafts accept only digits in range and serialize as integers", () => {
@@ -51,7 +53,10 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../_components/telemetry/TelemetryContents": { TelemetryContents: () => null },
         "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
+        "../../../../../../logics/configs/logDestination": {},
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
         "../../../../../../logics/configs/rvcBlockChoices": { rvcBlockChoiceId, rvcBlockChoices },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, _error: unknown, _updateError: unknown, options: SettingsDraftOptions<unknown>) => {
@@ -83,6 +88,8 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         },
         "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null, DropdownMenuContainer: "DropdownMenuContainer" },
         "../_components": { SectionLabelComponent: () => null },
+        "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
+        "../_components/path_field/PathField": { PathPickButton: "path-pick" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const root = runtime.render(module.AdvancedSettings);
@@ -158,13 +165,11 @@ test("native number input receives min, max and step through the shared componen
     runtime.api.useImperativeHandle = () => {};
     const { _Entry } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx")>(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
     const { EntryWithSaveButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx")>(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
-        { "../_atoms/_entry/_Entry": { _Entry } });
+        { "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     // Test data: only the props the number input reads, without a save.
     const wrapper = runtime.render(EntryWithSaveButton, unchecked<EntryWithSaveButtonProps>({ type: "number", variable: 2231, ...PORT_INPUT_LIMITS }));
     const entry = findIn(wrapper, node => node.type === _Entry);
-    // forwardRef keeps the component's render function, which React's types leave out.
-    const entryRender = forwardRefRender(_Entry);
-    const tree = runtime.render((props: EntryProps) => entryRender(props, null), entry.props);
+    const tree = runtime.render(_Entry, unchecked<EntryProps>(entry.props));
     const input = findIn(tree, node => node.type === "input");
     for (const key of ["min", "max", "step"] as const) assert.equal(input.props[key], PORT_INPUT_LIMITS[key]);
 });
@@ -193,8 +198,42 @@ test("the certificate and key are saved together as one pair", async () => {
     cert.props.onChangeFunction("D:/new.pem");
     await key.props.saveFunction();
     assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "D:/new.pem", key_file: "C:/certs/vox-key.pem" }]);
-    // The save bar lists the field by its own label.
-    assert.equal(s.draftOptions.label?.(["key_file"]), "config_page.advanced_settings.websocket_tls_key_file.label");
+    // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields and their
+    // pickers (#1231). The pair's rows tell focus moving inside the pair from focus leaving it; a
+    // field's own blur saves nothing by itself.
+    const other = {}, outside = {};
+    const pair = s.runtime.render(s.tlsComponent);
+    pair.props.ref({ contains: (target: unknown) => target === other });
+    const sentBefore = s.sent.length;
+    assert.equal(await cert.props.leaveFunction({ relatedTarget: outside }), undefined);
+    assert.equal(s.sent.length, sentBefore, "a field's blur is the pair's to judge");
+    await pair.props.onBlur({ relatedTarget: other });
+    assert.equal(s.sent.length, sentBefore, "focus moving inside the pair saves nothing");
+    await pair.props.onBlur({ relatedTarget: outside });
+    assert.equal(s.sent.length, sentBefore + 1, "focus leaving the pair saves it");
+    // One path without the other is said under the pair and not sent.
+    cert.props.onChangeFunction("");
+    await key.props.saveFunction();
+    assert.equal(s.sent.length, sentBefore + 1);
+    const refused = s.runtime.render(s.tlsComponent).props.children.filter(Boolean)
+        .find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file");
+    assert.equal(refused.props.error, "config_page.advanced_settings.websocket_tls_errors.one_side");
+    // Beside each field, the button that picks a file: a PEM file of any name, so every file shows.
+    // A picked path is an edit as a typed one is, and a picker that cannot open is said under the pair.
+    const drawn = s.runtime.render(s.tlsComponent).props.children.filter(Boolean);
+    const pickers = drawn.map((row: TreeNode) => row.props.trailing);
+    assert.deepEqual(pickers.map((picker: TreeNode) => [picker.type, picker.props.pick, picker.props.label, picker.props.disabled]), [
+        ["path-pick", { kind: "file" }, "config_page.advanced_settings.websocket_tls_cert_file.label", false],
+        ["path-pick", { kind: "file" }, "config_page.advanced_settings.websocket_tls_key_file.label", false]]);
+    // The picked path goes into the drawn pair's draft, which the key's Enter saves.
+    pickers[0].props.onPicked("E:/picked.pem");
+    await drawn.find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file").props.saveFunction();
+    assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "E:/picked.pem", key_file: "C:/certs/vox-key.pem" }]);
+    const keyRow = () => s.runtime.render(s.tlsComponent).props.children.filter(Boolean)
+        .find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file");
+    assert.equal(keyRow().props.error, null, "a picked path clears what was said");
+    pickers[1].props.onUnavailable("file_picker_unavailable");
+    assert.equal(keyRow().props.error, "path_picker.file_picker_unavailable");
 });
 
 test("a new connection key is made only after the question is answered", async () => {
@@ -205,23 +244,30 @@ test("a new connection key is made only after the question is answered", async (
     button.props.onclickFunction();
     assert.deepEqual(s.ipc, []);
     tree = s.runtime.render(s.tokenComponent);
-    const dialog = find(tree, node => node.type === "dialog");
+    // The kit's Dialog (D-23), named by its title alone, as before (D-43).
+    const dialog = find(tree, node => node.type === kitStandIns.Dialog);
     assert.ok(dialog && s.dialogs.at(-1) === true);
-    const [cancel] = findIn(dialog, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
+    assert.deepEqual([dialog.props.open, "aria-describedby" in dialog.props, dialog.props["aria-describedby"]], [true, true, undefined]);
+    assert.equal(findIn(dialog, node => node.type === kitStandIns.DialogTitle).props.children, "config_page.advanced_settings.websocket_token.confirm_title");
+    // What stops working, under the title in the header.
+    assert.deepEqual(nodesIn(findIn(dialog, node => node.type === kitStandIns.DialogHeader)).filter(node => node.type === "p").map(node => node.props.children),
+        ["config_page.advanced_settings.websocket_token.confirm_body"]);
+    // Cancel, then making the key, both plain as before, in the kit's footer (D-24).
+    const footerButtons = (node: TreeNode) => nodesIn(findIn(node, child => child.type === kitStandIns.DialogFooter)).filter(child => child.type === kitStandIns.Button);
+    const [cancel, make] = footerButtons(dialog);
+    assert.deepEqual([cancel.props.children, cancel.props.tone, make.props.children, make.props.tone],
+        ["config_page.advanced_settings.websocket_token.confirm_cancel", undefined, "config_page.advanced_settings.websocket_token.confirm_ok", undefined]);
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
-    // Drawn in the app's dialog frame: the forms' container (border, padding, buttons) and the
-    // shared frame (width), as every dialog on that frame; with the frame alone it was bare.
+    // Inside the forms' container (the words) and the shared host, which takes no room of its own.
     assert.deepEqual(String(tree.props.children[1].props.className).split(" ").sort(), ["container", "host"]);
     cancel.props.onClick();
     assert.deepEqual(s.ipc, []);
     assert.equal(s.runtime.render(s.tokenComponent).props.children[1], false);
 
     s.runtime.render(s.tokenComponent).props.children[0].props.onclickFunction();
-    const again = find(s.runtime.render(s.tokenComponent), node => node.type === "dialog");
-    const buttons = findIn(again, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
-    await buttons[1].props.onClick();
+    const again = find(s.runtime.render(s.tokenComponent), node => node.type === kitStandIns.Dialog);
+    assert.ok(again);
+    await footerButtons(again)[1].props.onClick();
     assert.deepEqual(s.ipc, [["/run/regenerate_websocket_auth_token", undefined]]);
     assert.deepEqual(s.notices, ["config_page.advanced_settings.websocket_token.done"]);
 });

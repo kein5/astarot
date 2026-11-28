@@ -20,8 +20,8 @@ See [First setup](./first-setup) and [Translation](../features/translation).
 
 <Needs>You need: a speech recognition (ASR) model</Needs>
 
-1. Under Settings → "Device", choose the microphone that picks up your voice.
-2. Under Settings → "Speech recognition (ASR)", download a recognition model.
+1. Under Settings → "Speech recognition (ASR)", download a recognition model. The [first setup](./first-setup) screen can download it too.
+2. On the same page, under "More settings" → "Realtime captions", choose the microphone that picks up your voice in "Microphone input". It is saved at once. At first it follows the system's default input.
 3. Turn on "Mic input" on the main screen and speak. With "Translation" on too, the translation is sent with it.
 
 See [Speech recognition (ASR) and realtime captions](../features/transcription).
@@ -30,7 +30,7 @@ See [Speech recognition (ASR) and realtime captions](../features/transcription).
 
 <Needs>You need: a speech recognition (ASR) model, and SteamVR to see them in VR</Needs>
 
-1. Under Settings → "Speech recognition (ASR)", in "Game audio captions", choose an output device that plays only VRChat's sound.
+1. Under Settings → "Speech recognition (ASR)" → "More settings" → "Realtime captions", choose an output device that plays only VRChat's sound in "Listening output". It is saved at once.
 2. Turn on "Listening" on the main screen. Captions appear in the main screen's log.
 3. To lay them over the screen, turn on the desktop caption overlay; to see them in VR, turn on the caption overlay.
 
@@ -50,7 +50,7 @@ See [Chat reading (OCR)](../features/chat-reading).
 
 <Needs>You need: a text to speech (TTS) model and a virtual microphone</Needs>
 
-1. Under Settings → "Text to speech (TTS)", download a model.
+1. Under Settings → "Text to speech (TTS)", download a model. The [first setup](./first-setup) screen can download it too.
 2. Choose a virtual microphone under "Output device", and choose the same one as your microphone in VRChat. On Windows use a virtual cable you install separately ("CABLE Input" and "CABLE Output"); on Linux, the managed virtual microphone.
 3. In "Chat voice", choose whether to speak the original or the translation.
 4. Turn on "Text to speech (TTS)" on the main screen.
@@ -101,9 +101,9 @@ See [Inputs and outputs](../features/io-flow).
 
 ## Stop speech or voice at once
 
-- "Stop speech" stops the speech playing now and the speech waiting.
-- "Mute" stops everything sent to the virtual microphone.
+- "Stop speech" stops the speech playing now and the speech waiting, as well as a voice sample and the virtual microphone's test tone.
+- "Mute" stops speech and the changed voice on the managed virtual microphone, and speech only on an external virtual cable.
 
-Both are always at the top of the main screen, and both can have hotkeys.
+Both are always at the top of the main screen. "Stop speech" looks unavailable while there is nothing to stop. Both can have hotkeys.
 
 See [Text to speech (TTS)](../features/tts) and [Quick Chat and hotkeys](../features/quick-chat).

@@ -1,4 +1,4 @@
-//! Direct voice and voice conversion for VRCT-VOX: the Rust counterpart of
+//! Direct voice and voice conversion for ASTAROT: the Rust counterpart of
 //! `src-python/models/voice_conversion/` without its Python engines.
 //!
 //! - [`direct`]: one direct producer at a time, the microphone passed through or converted

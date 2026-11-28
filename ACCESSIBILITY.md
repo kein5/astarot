@@ -1,8 +1,8 @@
 # Accessibility
 
-ASTAROT puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
+[日本語版](#アクセシビリティ日本語)
 
-日本語は[後半](#アクセシビリティ日本語)にあります。
+ASTAROT puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
 
 ## Help the app gives
 
@@ -67,7 +67,7 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 
 - リアルタイム字幕：マイクの声とゲームの音声を文字にして、会話ログに出します。翻訳を有効にすると訳文も出ます。
 - デスクトップの字幕オーバーレイ：会話ログの文をほかのウィンドウの上に字幕として重ねます。ヘッドセットを使わない VRChat の画面にも出せます。自分の発言は青、相手の発言は紫の文字です。字幕はクリックを通すので、下のウィンドウをそのまま操作できます。
-- VR の字幕オーバーレイ：SteamVR の中に字幕を出します。出す位置（頭か左右の手）と大きさ、表示時間、透明度を変えられます。
+- VR の字幕オーバーレイ：SteamVR の中に字幕を出します。出す位置（ヘッドセットか左右の手）と大きさ、表示時間、透明度を変えられます。
 - OBS ブラウザソース：配信の画面に字幕を出せます。
 - 音の注記（0.6.0 で予定）：話し声でない音に、[拍手] のような注記を字幕で付けます（[#386](https://github.com/kein5/astarot/issues/386)）。0.5.0 にはありません。
 
@@ -90,13 +90,13 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 
 ### アプリ自体の配慮
 
-- キーボード：メイン画面と設定画面のボタン、スイッチ、入力欄、選択肢は、キーボードで操作できるように作っています。スライダーは矢印キーと Page Up、Page Down、Home、End で動きます。選択肢の一覧は Enter か Space か矢印キーで開き、Esc で閉じます。設定の「ホットキー」では次の操作にキーを割り当てられます：ウィンドウの最小化と表示、入力の小窓、翻訳と音声認識のオンとオフ、読み上げの停止、ミュート、TTS とボイスチェンジャーのオンとオフ。最初はどれも割り当てていません。設定画面を開いている間は、ホットキーは効きません。
+- キーボード：メイン画面と設定画面のボタン、スイッチ、入力欄、選択肢は、キーボードで操作できるように作っています。スライダーは矢印キーと Page Up、Page Down、Home、End で動きます。選択肢の一覧は Enter か Space か矢印キーで開き、Esc で閉じます。設定の「ホットキー」では次の操作にキーを割り当てられます：ウィンドウの表示と非表示、入力の小窓、翻訳と音声認識のオンとオフ、読み上げの停止、ミュート、TTS とボイスチェンジャーのオンとオフ。最初はどれも割り当てていません。設定画面を開いている間は、ホットキーは効きません。
   - デスクトップの字幕をドラッグで動かすには、マウスが要ります。設定で字幕を画面の上か下に出す選択は、キーボードでもできます。
   - VR UI は VR のコントローラーで操作します。
 - フォーカスの表示：キーボードで移動すると、選んでいる部品に青い枠が付きます。
 - コントラスト：暗い背景に明るい文字の配色です。一部の文字と背景の組み合わせは、コントラスト比が 4.5:1 以上（WCAG の AA の基準）あることをテストで確かめています。すべての画面を確かめたわけではありません。
 - 動きを減らす：OS で動きを減らす設定にすると（Windows では「アニメーション効果」をオフ）、アプリのアニメーションと画面の移り変わりを止めます。
-- 言語：画面の表示は日本語と英語です。
+- 言語：画面の表示は英語と日本語です。
 
 ### 既知の制限
 
@@ -109,5 +109,5 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 ### 困ったときは
 
 - 使い方はガイドと [SUPPORT.md](SUPPORT.md) を見てください。
-- この文書にある配慮が使えないときや、使いにくいところがあるときは、[不具合の報告](https://github.com/kein5/astarot/issues/new?template=bug_report.yml)か[機能の要望](https://github.com/kein5/astarot/issues/new?template=feature_request.yml)を出してください。タイトルに「アクセシビリティ」と入れてください。使っているもの（スクリーンリーダー、キーボードだけ、など）と、どこで困ったかを書いてもらえると助かります。
+- この文書にある配慮が使えないときや、使いにくいところがあるときは、[不具合の報告](https://github.com/kein5/astarot/issues/new?template=bug_report.yml)か[機能の要望](https://github.com/kein5/astarot/issues/new?template=feature_request.yml)を出してください。タイトルに「accessibility」と入れてください。使っているもの（スクリーンリーダー、キーボードだけ、など）と、どこで困ったかを書いてもらえると助かります。
 - 添付するものからは音声やチャットの本文などの個人情報を取り除いてください。詳しくは [SUPPORT.md](SUPPORT.md) にあります。

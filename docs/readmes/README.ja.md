@@ -33,26 +33,32 @@ ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、�
 
 ## できること
 
-- **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
+- **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori-TTS、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
 - **モニター出力**: 同じ読み上げ音声を自分のスピーカーやヘッドホンでも聞けます（任意）。
 - **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。CUDAでの変換にはGeForce GTX 16・RTX 20シリーズ以降のGPUとドライバー580以降が必要です。Windowsでは0.6.0から、DirectX 12対応のGPUもDirectMLで使えます。CPUでも処理が間に合えば変換できますが、声は遅れて届きます。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
-- **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデルと、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
+- **モデルの取得**: Irodori-TTS、Qwen3-TTS、RVCの既定モデル、翻訳のモデル（M2M100、NLLB-200）と、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
 - **Linux対応**: Waylandでのグローバルショートカット（XDG portal）、PipeWireの仮想マイクとマイク選択、AppImageでの日本語入力（fcitx/Mozc、ibus）に対応しています。VR UI、Waylandネイティブのウィンドウを共有するチャット読み取り、音声タイピングモードの貼り付け（X11/XWaylandのウィンドウ）も使えます。
 
 RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です。[モデル取得の仕様](/docs/voice-stack/model-downloads.md)と、Windowsでは[Windowsで音声機能を使う](/docs/voice-stack/local-setup-windows.md)、Linuxでは[Linuxの手順](/docs/voice-stack/local-setup-linux.md)を参照してください。
+
+## 速度の比較
+
+![棒グラフ。話し終わってから字幕がOSCでVRChatに届くまでの秒数の中央値（p50）と95%値（p95）。ASTAROT 0.6.0は0.61と0.64。VRCS 0.3.12は0.69と0.78。Polyvox VRC 2026.11.23は0.81と1.84。Mutelink 2.0.3は1.57と3.85。VRCT 3.6.1は1.73と1.84。TranslateVR 1.2.3は2.18と2.49。TTS Voice Wizard 1.8.0.2は3.69と3.74。VRC Translator 1.4.5は4.93と5.16。](../measurements/subtitle-latency.png)
+
+話した声の字幕をVRChatに送る8つのアプリで、話し終わってから字幕がVRChatに届くまでの秒数を比べました。2026年11月に1台のPC（Surface Laptop 5と外付けのRTX 3060 Ti）で測った値で、ほかのPCでは時間が変わります。計測の方法、各アプリの設定、結果の注意点は[Issue #558](https://github.com/kein5/astarot/issues/558)にあります。
 
 ## 配布状況
 
 最新の版は **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
 - **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。0.5より前の版は、CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しました。
-- **Windows**: インストーラーとzip。どのPCも同じ配布物です（0.5までのリリースには、同じ中身のCUDA版のzipもあります）。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
+- **Windows**: インストーラーとzip。どのPCも同じ配布物です（0.5系のリリースには、同じ中身のCUDA版のzipもあります）。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
 
 いまの版で配布形式と機能ごとにどこまで確かめたか、CIで確かめたことと実機で確かめたことの違いは、**[対応環境と検証の範囲](https://kein5.github.io/astarot/ja/guide/support)** にあります。
 
-各ファイルの`.sha256`と`SHA256SUMS-*`でダウンロードしたファイルを確認できます（電子署名ではありません）。インストーラー版とAppImage版は、署名を確かめてからアプリ内で更新します。ZIP版とtar.gz版は新しい版を知らせるだけで、deb・rpmはパッケージマネージャーで更新します。AURでの配布は予定していますが、まだ登録していません。
+ダウンロードしたファイルは`SHA256SUMS-*`で確認できます（WindowsのZIPにはインストーラー用の個別`.sha256`も付きます。いずれも電子署名ではありません）。インストーラー版とAppImage版は、署名を確かめてからアプリ内で更新します。ZIP版とtar.gz版は新しい版を知らせるだけで、deb・rpmはパッケージマネージャーで更新します。AURでの配布は予定していますが、まだ登録していません。
 
 次の制限があります。
 
@@ -72,7 +78,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 ## 名称と保存先
 
-画面にはASTAROTと表示しますが、実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`のままです。Linuxでは、0.6.0から設定とデータを`astarot`ディレクトリ（`~/.config/astarot`と`~/.local/share/astarot`）に保存します。0.6.0の最初の起動で、0.5.xの`vrct-vox`ディレクトリをそこへ移し、古い名前のリンクを残します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
+0.7.0から、実行ファイル、パッケージ、リリースのファイルもASTAROTの名前になりました。実行ファイルは`astarot`（Windowsでは`astarot.exe`）、debとrpmのパッケージは`astarot`です。リリースのファイルは`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.*`で、アプリIDは`io.github.kein5.astarot`です。0.6.xまでは`vrct-vox`、`VRCT-VOX`、`io.github.kein5.vrct-vox`でした。0.7.xのリリースには、古い名前のリリースのファイルも入っています。更新すると、インストールも新しい名前に移ります。Windowsのインストーラーは`vrct-vox.exe`を置き換え、`%LOCALAPPDATA%\VRCT-VOX`のインストールを`%LOCALAPPDATA%\ASTAROT`へ移します。debとrpmでは、`astarot`のパッケージが`vrct-vox`のパッケージを置き換えます。Linuxでは、0.6.0から設定とデータを`astarot`ディレクトリ（`~/.config/astarot`と`~/.local/share/astarot`）に保存します。0.6.0以降の最初の起動で、0.5.xの`vrct-vox`ディレクトリをそこへ移し、古い名前のリンクを残します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
 
 ## プライバシーとモデル
 

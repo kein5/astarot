@@ -3,7 +3,7 @@
 //! One request per connection (`Connection: close`), no redirects, no cookies. Plain HTTP is
 //! allowed only to a local address (as [`models/network_policy.py`] allows it); everything else
 //! goes over TLS with the Mozilla roots. No proxy is used, except by [`system_proxy`], which
-//! speech recognition uses ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
+//! the core gives the translation providers and speech recognition ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
 //! or a body: the URL of a provider may carry a key in Python's SDKs, and the bodies carry the
 //! user's text.
 //!
@@ -107,6 +107,15 @@ impl Watched {
     pub fn release(&mut self) -> io::Result<()> {
         self.cancel = None;
         self.stream.set_read_timeout(self.limit)
+    }
+
+    /// How long one read may wait from now on; `None` waits without end.
+    pub fn set_limit(&mut self, limit: Option<Duration>) -> io::Result<()> {
+        self.limit = limit;
+        if self.cancel.is_none() {
+            self.stream.set_read_timeout(limit)?;
+        }
+        Ok(())
     }
 }
 
@@ -424,9 +433,22 @@ fn tls_config() -> Arc<ClientConfig> {
         .clone()
 }
 
-enum Stream {
+/// A connection opened by [`open_stream`]: plain on this PC and the LAN, TLS with the Mozilla
+/// roots everywhere else. A read that waits longer than the limit fails with `TimedOut`, after
+/// which the stream can still be read.
+pub enum Stream {
     Plain(Watched),
     Tls(Box<StreamOwned<ClientConnection, Watched>>),
+}
+
+impl Stream {
+    /// How long one read may wait from now on ([`Watched::set_limit`]).
+    pub fn set_read_limit(&mut self, limit: Option<Duration>) -> io::Result<()> {
+        match self {
+            Stream::Plain(s) => s.set_limit(limit),
+            Stream::Tls(s) => s.sock.set_limit(limit),
+        }
+    }
 }
 
 impl Read for Stream {
@@ -549,6 +571,20 @@ fn connect(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>, proxy: Option
     let name = ServerName::try_from(url.host.clone()).map_err(|_| HttpError::Url)?;
     let connection = ClientConnection::new(tls_config(), name).map_err(|_| HttpError::Io)?;
     Ok(Stream::Tls(Box::new(StreamOwned::new(connection, tcp))))
+}
+
+/// Opens a connection to the URL's host for a protocol of its own over it (a WebSocket), under the
+/// same rules as a request: plain HTTP only to this PC and the LAN, TLS with the Mozilla roots
+/// otherwise, and an HTTPS one through `proxy` when given. Each read waits at most
+/// `timeouts.read`; a `cancel` gives the connection up and ends a read within about 20 ms.
+pub fn open_stream(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>, proxy: Option<&Proxy>) -> Result<Stream, HttpError> {
+    connect(url, timeouts, cancel, proxy)
+}
+
+/// The proxy the environment or Windows' Internet Settings name for the URL, read now: none for
+/// plain HTTP, this PC, the LAN and the hosts the settings leave out ([`system_proxy`]).
+pub fn system_proxy_for(url: &Url) -> Option<Proxy> {
+    url.tls.then(|| crate::proxy::Settings::current().proxy_for(&url.host, url.port)).flatten()
 }
 
 /// Sends one request and reads the whole answer. A request whose [`Cancel`] is cancelled fails
@@ -741,7 +777,7 @@ pub fn direct() -> Transport {
 /// ([`crate::proxy`], decision 15 (4)). Speech recognition's engines use it.
 pub fn system_proxy() -> Transport {
     Arc::new(|request, timeouts| {
-        let proxy = Url::parse(request.url).ok().filter(|url| url.tls).and_then(|url| crate::proxy::Settings::current().proxy_for(&url.host, url.port));
+        let proxy = Url::parse(request.url).ok().and_then(|url| system_proxy_for(&url));
         send_through(request, timeouts, proxy.as_ref())
     })
 }

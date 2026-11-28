@@ -1,9 +1,23 @@
 // Settings components built for the #452 experiment: ASTAROT's look on Radix behaviour and
-// vanilla-extract recipes (ADR-010). Not used by the app's pages yet; whether they replace the
-// current settings atoms is decided from the experiment (docs/design/components/README.md).
+// vanilla-extract recipes (ADR-010). From 2026-11-24 the app's screens use them in place of their
+// hand-built controls, row by row (docs/design/components/hand-built-inventory.md, H-04).
 export { Button, type ButtonProps } from "./Button.tsx";
 export { TextField, type TextFieldProps } from "./TextField.tsx";
 export { Select, SelectOptGroup, SelectOption, type SelectOptGroupProps, type SelectOptionProps, type SelectProps } from "./Select.tsx";
 export { Switch, type SwitchProps } from "./Switch.tsx";
 export { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, type DialogProps } from "./Dialog.tsx";
 export { SettingGroup, SettingRow, type SettingGroupProps, type SettingRowProps, type SettingControlProps } from "./Setting.tsx";
+export { Toggle, ToggleGroup, ToggleGroupItem, type ToggleGroupItemProps, type ToggleGroupProps, type ToggleProps } from "./Toggle.tsx";
+export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger, type PopoverContentProps } from "./Popover.tsx";
+export { Progress, type ProgressProps } from "./Progress.tsx";
+export { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle,
+    type ItemGroupProps, type ItemMediaProps, type ItemProps, type ItemState } from "./Item.tsx";
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, type CardProps } from "./Card.tsx";
+export { Badge, type BadgeProps } from "./Badge.tsx";
+export { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmContent, InlineConfirmDescription, InlineConfirmTrigger,
+    type InlineConfirmContentProps, type InlineConfirmProps } from "./InlineConfirm.tsx";
+export { Textarea, type TextareaProps } from "./Textarea.tsx";
+export { ChoiceCard, type ChoiceCardProps } from "./ChoiceCard.tsx";
+export { Combobox, type ComboboxGroup, type ComboboxOption, type ComboboxProps } from "./Combobox.tsx";
+// How a surface that a screen shows itself comes in (#1378).
+export { useAppear, type MotionSurface } from "./motion.ts";

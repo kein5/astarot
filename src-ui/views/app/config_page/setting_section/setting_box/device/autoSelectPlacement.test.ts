@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, findIn, draw } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { styleOf } from "../../../../../../logics/test/styleSource.ts";
 
 // 「自動選択」 heads the field column of the microphone row and of the speaker row alike, over the
-// lists it chooses for, its box where the lists start. It was put beside the lists, between the
+// lists it chooses for, its switch where the lists start. It was put beside the lists, between the
 // label column and the field column, where it lined up with neither.
-const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, Checkbox = () => null;
+const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, SettingSwitch = () => null, PagePointer = () => null;
 
 
 const load = async () => {
@@ -25,10 +26,9 @@ const load = async () => {
         }) },
         "../_templates/Templates": { MultiDropdownMenuContainer },
         "../_components": { SectionLabelComponent: () => null, LabelComponent: () => null, DropdownMenu,
-            ThresholdComponent: () => null, RadioButton: () => null },
-        "@common_components": { Checkbox },
+            ThresholdComponent: () => null, RadioButton: () => null, SettingSwitch },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: () => null },
-        "../_components/page_pointer/PagePointer": { PagePointer: () => null },
+        "../_components/page_pointer/PagePointer": { PagePointer },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const page = runtime.render(device.Device).props.children;
@@ -41,19 +41,17 @@ const load = async () => {
 test("the microphone's 自動選択 is the first part of the column of lists, over the host and the device", async () => {
     const { device, mic } = await load();
     const settings = findIn(mic, node => node.type === MultiDropdownMenuContainer).props.dropdown_settings;
-    assert.equal(settings[0].insert_component, device.AutoSelectCheckbox);
+    assert.equal(settings[0].insert_component, device.AutoSelectSwitch);
     assert.equal(settings[0].insert_to, undefined, "not beside the lists, but in their column");
     assert.deepEqual(settings.slice(1).map((row: { dropdown_id?: string }) => row.dropdown_id), ["mic_host", "mic_device"]);
 
     // The shared lists draw an insert without a side in the column of lists, in its order.
     const runtime = hooks();
-    const { MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL("../_components/dropdown_menu/DropdownMenu.tsx", import.meta.url), runtime, {
-        "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: () => null },
-    });
+    const { MultiDropdownMenu } = await loadModule<typeof import("../_components/dropdown_menu/DropdownMenu.tsx")>(new URL("../_components/dropdown_menu/DropdownMenu.tsx", import.meta.url), runtime);
     const drawn = runtime.render(MultiDropdownMenu, { dropdown_settings: settings });
     const column = findIn(drawn, node => node.props?.className === "wrapper");
     const [first, ...lists] = column.props.children;
-    assert.equal(first.type, device.AutoSelectCheckbox);
+    assert.equal(first.type, device.AutoSelectSwitch);
     assert.equal(lists.length, 2);
     // Nothing before or after the column: the inserts beside it are empty.
     const [before, , after] = drawn.props.children.props.children;
@@ -64,24 +62,39 @@ test("the speaker's 自動選択 sits over its list in the same way", async () =
     const { device, speaker } = await load();
     const contents = findIn(speaker, node => node.props?.className === "device_contents");
     const [check, list] = contents.props.children;
-    assert.equal(check.type, device.AutoSelectCheckbox);
+    assert.equal(check.type, device.AutoSelectSwitch);
     assert.equal(list.type, DropdownMenu);
     // One over the other, as the microphone's column of lists, with the same space between.
-    const scss = (await import("node:fs")).readFileSync(new URL("./Device.module.scss", import.meta.url), "utf8");
-    const rule = scss.split(".device_contents {")[1].split("}")[0];
-    assert.match(rule, /flex-direction: column;/);
-    assert.match(rule, /gap: 1\.2rem;/);
+    const css = (await import("node:fs")).readFileSync(new URL("./Device.css.ts", import.meta.url), "utf8");
+    const rule = styleOf(css, "device_contents");
+    assert.match(rule, /flexDirection: "column",/);
+    assert.match(rule, /gap: "1\.2rem",/);
 });
 
-test("the box starts where the lists start: the checkbox's padding goes into the gap between the columns", async () => {
+test("the switch starts where the lists start: the space around it goes into the gap between the columns", async () => {
     const { device } = await load();
     const runtime = hooks();
-    const drawn = runtime.render(device.AutoSelectCheckbox, { secondary_label: "Auto select", variable: { data: true }, toggleFunction() {} });
+    const drawn = runtime.render(device.AutoSelectSwitch, { secondary_label: "Auto select", variable: { data: true }, toggleFunction() {} });
     assert.equal(drawn.props.className, "auto_select");
     const box = drawn.props.children;
-    assert.equal(box.type, Checkbox);
-    assert.deepEqual([box.props.show_label, box.props.padding], [true, "0.8rem"]);
-    const scss = (await import("node:fs")).readFileSync(new URL("./Device.module.scss", import.meta.url), "utf8");
-    const rule = scss.split(".auto_select {")[1].split("}")[0];
-    assert.match(rule, /margin-inline-start: -0\.8rem;/, "as wide as the padding given to the checkbox");
+    // The settings' switch with its name beside it, and the smaller target of a control among others.
+    assert.equal(box.type, SettingSwitch);
+    assert.deepEqual([box.props.show_label, box.props.dense, box.props.label], [true, true, "Auto select"]);
+    const css = (await import("node:fs")).readFileSync(new URL("./Device.css.ts", import.meta.url), "utf8");
+    const rule = styleOf(css, "auto_select");
+    assert.match(rule, /marginInlineStart: "-0\.8rem",/, "as wide as the space before the dense switch");
+    const target = styleOf((await import("node:fs")).readFileSync(new URL("../_components/setting_switch/SettingSwitch.css.ts", import.meta.url), "utf8"), "target");
+    assert.match(target, /\[`&\.\$\{dense\}`\]: \{ padding: "\.8rem 0 \.8rem \.8rem" \},/);
+});
+
+// #1266 ★3 (decided on 2026-11-27): the speech recognition on this PC listens to the microphone and
+// the output of its realtime captions, chosen on the speech recognition page. Under the Device
+// page's microphone and speaker, a row leads there, to the very field.
+test("under the microphone and the speaker, a row leads to the realtime captions' own choice", async () => {
+    const { mic, speaker } = await load();
+    const pointer = (part: TreeNode) => findIn(part, node => node.type === PagePointer).props;
+    assert.deepEqual(pointer(mic), { label: "config_page.device.realtime_mic_pointer.label", description: "config_page.device.realtime_mic_pointer.desc",
+        tab: "transcription", target: "realtime_mic", action: "config_page.device.realtime_mic_pointer.action" });
+    assert.deepEqual(pointer(speaker), { label: "config_page.device.realtime_speaker_pointer.label", description: "config_page.device.realtime_speaker_pointer.desc",
+        tab: "transcription", target: "realtime_speaker", action: "config_page.device.realtime_speaker_pointer.action" });
 });

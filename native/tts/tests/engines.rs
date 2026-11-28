@@ -8,9 +8,9 @@ use std::thread;
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use vrct_tts::engines::{EngineApi, EngineClient, Reading, VoiceRow};
-use vrct_tts::settings::{AudioQueryScales, CoeiroinkParams, EngineVoice};
-use vrct_tts::CancelToken;
+use astarot_tts::engines::{EngineApi, EngineClient, Reading, VoiceRow};
+use astarot_tts::settings::{AudioQueryScales, CoeiroinkParams, EngineVoice};
+use astarot_tts::CancelToken;
 
 type Seen = Arc<Mutex<Vec<(String, String, Vec<u8>)>>>;
 type Route = Arc<dyn Fn(&str, &str, &[u8]) -> (u16, &'static str, Vec<u8>) + Send + Sync>;

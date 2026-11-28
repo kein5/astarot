@@ -11,6 +11,7 @@ pub mod adapters;
 pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
+pub mod talk_ai;
 mod files;
 pub mod gpu_check;
 mod gpu_memory;
@@ -24,10 +25,12 @@ mod routes;
 mod settings;
 mod speakers;
 pub mod speech;
+pub mod steamvr;
 mod telemetry;
 mod terms;
 pub mod translation;
 mod translation_catalog;
+mod transcription_catalog;
 pub mod translation_llama;
 mod transcription;
 mod realtime_asr;
@@ -41,8 +44,8 @@ pub use realtime_asr::RealtimeLimits;
 pub use routes::routes;
 
 /// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
-pub fn speech_launch_from(folder: std::path::PathBuf) -> vrct_speech_server::server::Launch {
-    vrct_speech_server::server::Launch::bundled(folder)
+pub fn speech_launch_from(folder: std::path::PathBuf) -> astarot_speech_server::server::Launch {
+    astarot_speech_server::server::Launch::bundled(folder)
 }
 
 use crate::config::Config;
@@ -91,9 +94,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
     // volume (`VAD_UNAVAILABLE`, with the reason).
     ("vad_unavailable", "/run/vad_unavailable"),
-    ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
-    ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
     // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
     ("translation_model_retired", "/run/translation_model_retired"),
@@ -154,7 +155,11 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("config_save_failed", "/run/config_save_failed"),
     ("config_save_recovered", "/run/config_save_recovered"),
     ("secret_store_failed", "/run/secret_store_failed"),
+    ("talk_ai_status", "/run/talk_ai_status"),
     ("enable_osc_query", "/run/enable_osc_query"),
+    // The core's own (#1384): what SteamVR holds of starting ASTAROT with itself, when SteamVR
+    // comes or goes.
+    ("steamvr_auto_launch", "/run/steamvr_auto_launch"),
 ];
 
 pub fn run_endpoint(name: &str) -> &'static str {
@@ -167,7 +172,7 @@ pub struct Services {
     /// Whether the local translation model of a weight is present and complete.
     pub translation_weight_available: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// How the speech.cpp servers are launched: the app's checked bundle, or a stand-in in tests.
-    pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> vrct_speech_server::server::Launch + Send + Sync>,
+    pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> astarot_speech_server::server::Launch + Send + Sync>,
     /// The model download manager of a root: the reviewed catalog over the public transport.
     /// Tests give a catalog and a transport of their own.
     pub model_downloads: downloads::DownloadsSource,
@@ -179,8 +184,8 @@ pub struct Services {
     /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
     /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
-    /// The usage-event sender, to VRCT-VOX's own receiver by default.
-    pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
+    /// The usage-event sender, to ASTAROT's own receiver by default.
+    pub telemetry: Arc<dyn Fn() -> astarot_ops::telemetry::Telemetry + Send + Sync>,
     /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
@@ -195,15 +200,16 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`vrct_translation::http::direct`]),
-    /// and speech.cpp's server on this PC is asked for its models.
-    pub translation_transport: vrct_translation::http::Transport,
+    /// How the translation providers reach the network, and speech.cpp's server on this PC is
+    /// asked for its models: through the proxy of the environment or Windows' Internet Settings,
+    /// as the recognition engines (#924, item 18). This PC and the LAN go straight.
+    pub translation_transport: astarot_translation::http::Transport,
     /// How the cloud recognition engines reach the network: through the proxy of the
-    /// environment or Windows' Internet Settings ([`vrct_translation::http::system_proxy`],
+    /// environment or Windows' Internet Settings ([`astarot_translation::http::system_proxy`],
     /// decision 15 (4)). Tests keep it on this PC.
-    pub transcription_transport: vrct_translation::http::Transport,
+    pub transcription_transport: astarot_translation::http::Transport,
     /// Where the providers with a fixed address are.
-    pub translation_endpoints: vrct_translation::providers::Endpoints,
+    pub translation_endpoints: astarot_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
     pub local_translation: translation::LocalTranslationSource,
     /// The morphological analyzer of the readings for the settings' environment, made on the
@@ -216,32 +222,42 @@ pub struct Services {
     pub clipboard: clipboard::ClipboardFn,
     /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
     /// the speech outputs and the virtual microphone check. Tests give fakes.
-    pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
+    pub audio: Arc<dyn astarot_audio_routing::platform::AudioPlatform>,
     /// SteamVR for the VR overlays and the clipboard: OpenVR, loaded when SteamVR runs
-    /// ([`overlay`]). One connection serves both ([`vrct_vr_overlay::shared::SharedVr`]).
-    pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
+    /// ([`overlay`]). One connection serves both ([`astarot_vr_overlay::shared::SharedVr`]).
+    pub vr: Arc<dyn astarot_vr_overlay::runtime::Vr>,
     /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
-    pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
+    pub vr_panel_surface: Option<Arc<dyn astarot_vr_overlay::surface::PanelSurface>>,
     /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
-    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
-    /// How often the overlay looks for SteamVR while it does not run (10 seconds).
+    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<astarot_vr_overlay::fonts::FontLibrary> + Send + Sync>,
+    /// How often the overlay looks for SteamVR while it does not run (10 seconds), and the
+    /// watch of SteamVR's auto-launch looks whether it runs ([`steamvr`]).
     pub steamvr_poll: Duration,
+    /// This install as SteamVR starts it: the executable with the manifest the Windows package
+    /// ships beside it ([`steamvr::this_install`]). `None` where there is none (the Linux
+    /// packages, a development build): the VR page says SteamVR cannot start this build. Tests
+    /// give a folder of their own.
+    pub steamvr_install: Option<astarot_vr_overlay::registration::Install>,
     /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
     pub ocr: Arc<dyn ocr::OcrPlatform>,
+    /// Opens the source selected for a Talk AI session on a screen worker.
+    pub talk_screen: talk_ai::ScreenFactory,
+    /// OpenAI Realtime endpoint. Tests replace it with a loopback service.
+    pub talk_cloud_url: &'static str,
     /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
     pub ocr_message: ocr::OcrDelivery,
     /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
     /// default, as Python shipped it; the app gives the updater of its update page.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
     /// The microphone and speaker captures of speech recognition (WASAPI, or the PipeWire capture
-    /// of `vrct-audio-routing` on Linux); tests feed PCM of their own.
+    /// of `astarot-audio-routing` on Linux); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
-    pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    pub transcription_endpoints: astarot_transcription::providers::Endpoints,
     /// A VAD engine the recorders use while `*_ENABLE_VAD` is on, in place of Silero VAD on the
-    /// speech.cpp server of realtime recognition ([`vrct_transcription::server_vad`], decision
+    /// speech.cpp server of realtime recognition ([`astarot_transcription::server_vad`], decision
     /// 13). `None` uses the server. Tests give a fake.
-    pub vad: Option<vrct_transcription::vad::Vad>,
+    pub vad: Option<astarot_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
@@ -258,15 +274,15 @@ pub struct Services {
     /// shorten them.
     pub realtime_limits: RealtimeLimits,
     /// How long turning a recorder off waits for an engine request in flight
-    /// ([`vrct_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
+    /// ([`astarot_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
     pub recorder_stop_wait: Duration,
 }
 
 impl Default for Services {
     fn default() -> Self {
         // OpenVR has one connection per process: the overlays and the clipboard share it.
-        let vr: Arc<dyn vrct_vr_overlay::runtime::Vr> = Arc::new(vrct_vr_overlay::shared::SharedVr::new(Arc::new(
-            vrct_vr_overlay::openvr::OpenVr::new(Vec::new()),
+        let vr: Arc<dyn astarot_vr_overlay::runtime::Vr> = Arc::new(astarot_vr_overlay::shared::SharedVr::new(Arc::new(
+            astarot_vr_overlay::openvr::OpenVr::new(Vec::new()),
         )));
         Self {
             translation_weight_available: Arc::new(|_| false),
@@ -274,34 +290,37 @@ impl Default for Services {
             model_downloads: Arc::new(downloads::default_downloads),
             speech_binary: Arc::new(downloads::default_speech_binary),
             model_target_idle: Arc::new(|_| true),
-            telemetry: Arc::new(vrct_ops::telemetry::Telemetry::default),
+            telemetry: Arc::new(astarot_ops::telemetry::Telemetry::default),
             telemetry_forced_off: Arc::new(telemetry::forced_off_from_environment),
             osc: Arc::new(adapters::open_osc),
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
-            translation_transport: vrct_translation::http::direct(),
-            transcription_transport: vrct_translation::http::system_proxy(),
-            translation_endpoints: vrct_translation::providers::Endpoints::default(),
+            translation_transport: astarot_translation::http::system_proxy(),
+            transcription_transport: astarot_translation::http::system_proxy(),
+            translation_endpoints: astarot_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),
-            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(vrct_adapters::clipboard::system_desktop)),
-            audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
+            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(astarot_adapters::clipboard::system_desktop)),
+            audio: Arc::new(astarot_audio_routing::platform::NativePlatform),
             vr,
-            vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
+            vr_panel_surface: Some(astarot_vr_overlay::surface::platform()),
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
+            steamvr_install: steamvr::this_install(),
             ocr: ocr::real_platform(),
+            talk_screen: Arc::new(talk_ai::open_native_screen),
+            talk_cloud_url: talk_ai::OPENAI_URL,
             ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
-            transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            transcription_endpoints: astarot_transcription::providers::Endpoints::default(),
             vad: None,
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),
             realtime_limits: RealtimeLimits::default(),
-            recorder_stop_wait: vrct_transcription::recorder::STOP_WAIT,
+            recorder_stop_wait: astarot_transcription::recorder::STOP_WAIT,
         }
     }
 }
@@ -312,7 +331,7 @@ pub struct Core {
     log: Arc<Log>,
     output: Arc<dyn Output>,
     services: Services,
-    watchdog: Mutex<Option<vrct_ops::watchdog::Watchdog>>,
+    watchdog: Mutex<Option<astarot_ops::watchdog::Watchdog>>,
     shutdown_requested: AtomicBool,
     shut_down: Mutex<bool>,
     /// The language and engine settings change together under this lock.
@@ -331,6 +350,8 @@ pub struct Core {
     audio: Arc<audio_devices::AudioDevices>,
     /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
+    /// SteamVR's auto-launch of ASTAROT: the watch and its lock ([`steamvr`]).
+    steamvr: steamvr::SteamVr,
     /// Chat reading's pipeline and switch.
     ocr: Arc<ocr::Ocr>,
     /// Speech recognition: the recorders and realtime recognition ([`transcription`]).
@@ -341,16 +362,19 @@ pub struct Core {
     gpu_memory: gpu_memory::GpuMemory,
     /// The GPU check the user starts to report how speech.cpp runs here ([`gpu_check`], #288).
     gpu_check: gpu_check::GpuCheck,
+    /// Which update channel's start-up check may still report ([`updates`], #1017).
+    update_checks: Arc<updates::UpdateChecks>,
+    talk_ai: Mutex<talk_ai::Session>,
 }
 
 /// The captures of speech recognition for the settings' environment.
 pub type TranscriptionCapture =
-    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
+    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn astarot_transcription::capture::CapturePlatform> + Send + Sync>;
 
-/// This computer's devices: WASAPI on Windows, the PipeWire capture of `vrct-audio-routing` on
+/// This computer's devices: WASAPI on Windows, the PipeWire capture of `astarot-audio-routing` on
 /// Linux (the `vrct-asr-capture` helper of 0.5.x is gone; decision 2 of #733).
-fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
-    Arc::new(vrct_transcription::capture::NativeCapture::new())
+fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn astarot_transcription::capture::CapturePlatform> {
+    Arc::new(astarot_transcription::capture::NativeCapture::new())
 }
 
 impl Core {
@@ -380,11 +404,14 @@ impl Core {
             messages: messages::Messages::default(),
             audio,
             vr: std::sync::OnceLock::new(),
+            steamvr: steamvr::SteamVr::default(),
             ocr: Arc::default(),
             transcription,
             voice: std::sync::OnceLock::new(),
             gpu_memory: gpu_memory::GpuMemory::default(),
             gpu_check: gpu_check::GpuCheck::default(),
+            update_checks: Arc::default(),
+            talk_ai: Mutex::default(),
         })
     }
 
@@ -438,7 +465,7 @@ impl Core {
     }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
-        let watchdog = vrct_ops::watchdog::Watchdog::new(timeout, interval);
+        let watchdog = astarot_ops::watchdog::Watchdog::new(timeout, interval);
         watchdog.set_callback(move || on_timeout());
         watchdog.start_in_thread();
         *self.watchdog.lock().unwrap() = Some(watchdog);
@@ -464,15 +491,18 @@ impl Core {
         *done = true;
         self.step("Shutdown");
         self.close_gpu_check();
+        self.stop_talk_ai();
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();
+        self.close_local_translation();
         self.close_model_downloads();
         self.stop_audio_devices();
         self.stop_ocr();
         self.stop_adapters();
         self.stop_conversation_log();
         self.stop_overlay();
+        self.stop_steamvr_watch();
         self.config.save_now();
         self.stop_telemetry();
     }
@@ -540,4 +570,106 @@ pub fn error(code: &'static str, data: Value) -> Reply {
 
 pub fn ok_true() -> Reply {
     ok(json!(true))
+}
+
+/// What [`Core::shutdown`] does with each field of [`Core`] (#1341). The stop is a list written
+/// by hand, and a server left off it runs on until the last `Arc<Core>` goes (the routed
+/// llama.cpp server did). A field added to `Core` fails the test below until it is named here,
+/// with the steps of `shutdown` that stop what it runs or why it runs nothing that outlives the
+/// run.
+#[cfg(test)]
+mod shutdown_duties {
+    enum Duty {
+        /// The calls on `self` in `shutdown` (`close_voice`, `config.save_now`).
+        Stops(&'static [&'static str]),
+        /// Why nothing of it runs on after the run.
+        Nothing(&'static str),
+    }
+    use Duty::{Nothing, Stops};
+
+    const DUTIES: &[(&str, Duty)] = &[
+        ("config", Stops(&["config.save_now"])),
+        ("log", Nothing("each line is written as it comes")),
+        ("output", Nothing("the host's: each line goes out as it is answered")),
+        ("services", Nothing("what the parts are made with")),
+        ("watchdog", Nothing("Core::close stops it, after the shutdown")),
+        ("shutdown_requested", Nothing("the shutdown's own flag")),
+        ("shut_down", Nothing("the shutdown's own guard")),
+        ("language_lock", Nothing("a lock")),
+        ("credential_lock", Nothing("a lock")),
+        ("vr_window_lock", Nothing("a lock")),
+        ("translation_available", Nothing("a value")),
+        ("speech", Stops(&["close_speech_servers"])),
+        ("ops", Stops(&["close_model_downloads", "stop_telemetry"])),
+        ("adapters", Stops(&["stop_adapters"])),
+        // The local model's server; the providers are asked request by request.
+        ("translation", Stops(&["close_local_translation"])),
+        ("messages", Stops(&["stop_conversation_log"])),
+        ("audio", Stops(&["stop_audio_devices"])),
+        ("vr", Stops(&["stop_overlay"])),
+        ("steamvr", Stops(&["stop_steamvr_watch"])),
+        ("ocr", Stops(&["stop_ocr"])),
+        ("transcription", Stops(&["stop_transcription"])),
+        ("voice", Stops(&["close_voice"])),
+        ("gpu_memory", Nothing("each reading is one run of its own thread, which ends by itself")),
+        ("gpu_check", Stops(&["close_gpu_check"])),
+        ("update_checks", Nothing("a counter; the checks read shutdown_requested before they report")),
+        ("talk_ai", Stops(&["stop_talk_ai"])),
+    ];
+
+    /// Calls in `shutdown` that stop no field: its own bookkeeping.
+    const BOOKKEEPING: &[&str] = &["shutdown_requested.store", "step"];
+
+    const SOURCE: &str = include_str!("mod.rs");
+
+    /// The fields of `Core`, read from this file.
+    fn fields() -> Vec<&'static str> {
+        let body = SOURCE.split_once("\npub struct Core {\n").expect("pub struct Core").1;
+        let body = body.split_once("\n}\n").expect("the end of Core").0;
+        body.lines()
+            .filter_map(|line| line.strip_prefix("    ").filter(|rest| !rest.starts_with(' ')))
+            .map(|line| line.trim_start_matches("pub(crate) ").trim_start_matches("pub "))
+            .filter_map(|line| line.split_once(':').map(|(name, _)| name))
+            .filter(|name| !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
+            .collect()
+    }
+
+    /// The calls on `self` in the body of `shutdown`, in order.
+    fn steps() -> Vec<&'static str> {
+        let body = SOURCE.split_once("    pub fn shutdown(&self) {\n").expect("Core::shutdown").1;
+        let body = body.split_once("\n    }\n").expect("the end of Core::shutdown").0;
+        body.lines()
+            .filter_map(|line| line.trim().strip_prefix("self."))
+            .filter_map(|call| call.split_once('(').map(|(name, _)| name))
+            .collect()
+    }
+
+    #[test]
+    fn every_field_of_the_core_is_stopped_at_shutdown_or_says_why_not() {
+        let (fields, steps) = (fields(), steps());
+        let named: Vec<&str> = DUTIES.iter().map(|(field, _)| *field).collect();
+        for field in &fields {
+            assert!(
+                named.contains(field),
+                "Core::{field} is not in DUTIES: name the steps of Core::shutdown that stop what it runs, or why it runs nothing"
+            );
+        }
+        for field in &named {
+            assert!(fields.contains(field), "DUTIES names Core::{field}, which Core no longer has");
+        }
+        for (field, duty) in DUTIES {
+            match duty {
+                Stops(calls) => {
+                    for call in *calls {
+                        assert!(steps.contains(call), "Core::shutdown does not call self.{call}, which stops Core::{field}");
+                    }
+                }
+                Nothing(why) => assert!(!why.trim().is_empty(), "Core::{field} does not say why nothing of it runs on"),
+            }
+        }
+        for step in &steps {
+            let claimed = DUTIES.iter().any(|(_, duty)| matches!(duty, Stops(calls) if calls.contains(step)));
+            assert!(claimed || BOOKKEEPING.contains(step), "Core::shutdown calls self.{step}, which no field in DUTIES names");
+        }
+    }
 }

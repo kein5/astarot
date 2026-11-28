@@ -1,21 +1,18 @@
 import { useEffect, useState } from "react";
 import type { MouseEvent } from "react";
-import { atom, useAtom } from "jotai";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useOthers } from "@logics_configs";
-import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
+import { useOpenSettings } from "../../../logics/common/useOpenSettings";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
-import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
-import { setupComesFirst } from "../../../logics/setup/firstRunSetup.ts";
-import { guideOpensByItself, preferredCable } from "../../../logics/voice/virtualMic.ts";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
-import noticeStyles from "./TelemetryNoticeController.module.scss";
-import guideStyles from "./VirtualMicGuideController.module.scss";
+import { preferredCable, sameOutput } from "../../../logics/voice/virtualMic.ts";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle, Select, SelectOption } from "../../kit/index.ts";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import * as noticeStyles from "./TelemetryNoticeController.css.ts";
+import * as guideStyles from "./VirtualMicGuideController.css.ts";
 
 export const VB_CABLE_URL = "https://vb-audio.com/Cable/";
 // How often the guide looks again for a cable that is being installed.
@@ -26,41 +23,25 @@ const CHECK_ERRORS = ["virtual_mic_voice_muted", "virtual_mic_recording_unavaila
 type CableLabels = { playback?: string; recording?: string };
 
 // The virtual microphone guide on Windows (#321). VRChat hears TTS and converted voice only
-// through a virtual cable, which the app cannot install. At start-up the guide opens by
-// itself only when no cable is found (and after the usage notice and the first-run setup); it
-// can also be opened from Settings → Text to speech at any time.
+// through a virtual cable, which the app cannot install. It opens only when the user opens it:
+// from the first-run setup's "Virtual microphone" row or from Settings → Text to speech (#943).
+// It never opens by itself.
 //
 // It leads with what is needed and why, points to the cable's own download page, looks
 // again every few seconds until a cable appears, plays a test tone through the cable while
 // a meter shows what comes out of its other end, and ends with the microphone to pick in
 // VRChat. It changes no setting and no device choice; the tone plays only when asked.
 //
-// "Later" and Escape put it away for this run. "Don't show again" and "Done" stop it from
-// opening by itself; the entry in the settings stays.
-//
-// Put away for this run, outside the component: changing the UI language draws the main page
-// again (App.jsx), and a guide put away must not open again then (#563).
-const laterAtom = atom(false);
+// "Close" (or "Done" once a cable is found) and Escape close it; it opens again only when asked.
 
 export const VirtualMicGuideController = () => {
     const { t } = useI18n();
-    const { notice, status, check, opened, refreshStatus, startCheck, resetCheck, dismissNotice, closeGuide } = useVirtualMic();
-    const { currentTelemetryNotice } = useOthers();
-    const firstRunSetup = useFirstRunSetup();
-    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    const [later, setLater] = useAtom(laterAtom);
-    // Once open by itself it stays open while a cable is installed, until the user closes it.
-    const [shown, setShown] = useState(false);
+    const { status, check, opened, refreshStatus, startCheck, resetCheck, closeGuide } = useVirtualMic();
+    const openSettings = useOpenSettings();
     const [chosen, setChosen] = useState<string | null>(null);
     const [linkFailed, setLinkFailed] = useState(false);
 
-    // Other first-run notices and the first-run setup come first; one dialog at a time.
-    const othersFirst = (currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true)
-        || setupComesFirst(firstRunSetup);
-    const byItself = !later && !othersFirst && guideOpensByItself(notice, status);
-    useEffect(() => { if (byItself) setShown(true); }, [byItself]);
-    const open = opened || shown;
+    const open = opened;
     const { dialog, close } = useConsentDialog(open);
 
     const cables = status?.cables ?? [];
@@ -78,19 +59,15 @@ export const VirtualMicGuideController = () => {
     if (!open) return null;
     const cable = cables.find(item => item.playback === chosen) ?? preferredCable(status);
     const running = check.phase === "running";
-    const finish = (forGood: boolean) => {
+    const finish = () => {
         close();
-        if (forGood) dismissNotice();
-        setShown(false);
-        setLater(true);
         setChosen(null);
         closeGuide();
     };
-    const putAway = () => { if (!running) finish(false); };
+    const putAway = () => { if (!running) finish(); };
     const openTtsSettings = () => {
-        finish(false);
-        updateSelectedConfigTabId("tts");
-        updateIsOpenedConfigPage(true);
+        finish();
+        openSettings({ page: "tts" });
     };
     // Opens the cable's own page in the browser; nothing is downloaded by the app.
     const openDownloadPage = async (event: MouseEvent<HTMLElement>) => {
@@ -100,16 +77,18 @@ export const VirtualMicGuideController = () => {
         catch { setLinkFailed(true); }
     };
     const labels: CableLabels = cable ? { playback: cable.playback_label, recording: cable.recording_label } : {};
-    const outputOnCable = cable && status?.tts_output_is_cable && status.tts_output !== null;
+    // TTS plays into the cable shown, not only into some cable: another cable chosen in the list is
+    // not the output (#1262).
+    const outputOnCable = !!cable && !!status?.tts_output_is_cable && status.tts_output !== null && sameOutput(cable.playback, status.tts_output);
 
+    // Named by its title, without a description, as before the kit (D-23, D-43).
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("virtual_mic.title")}
-            onCancel={event => { event.preventDefault(); putAway(); }}>
-            <div className={noticeStyles.notice}>
-                <h3>{t("virtual_mic.title")}</h3>
+        <Dialog ref={dialog} open={open} onOpenChange={putAway} aria-describedby={undefined}>
+            <DialogHeader className={noticeStyles.notice}>
+                <DialogTitle>{t("virtual_mic.title")}</DialogTitle>
                 <p className={noticeStyles.purpose}>{t("virtual_mic.purpose")}</p>
                 <p>{t("virtual_mic.not_needed")}</p>
-            </div>
+            </DialogHeader>
 
             {!found && <section className={guideStyles.step} aria-labelledby="virtual-mic-install">
                 <h4 id="virtual-mic-install">{t("virtual_mic.install.heading")}</h4>
@@ -133,10 +112,10 @@ export const VirtualMicGuideController = () => {
                     <h4 id="virtual-mic-found">{t("virtual_mic.found.heading")}</h4>
                     {cables.length > 1 && <label className={guideStyles.choice}>
                         <span>{t("virtual_mic.found.choose")}</span>
-                        <select value={cable.playback} disabled={running}
+                        <Select value={cable.playback} disabled={running}
                             onChange={event => { setChosen(event.target.value); resetCheck(); }}>
-                            {cables.map(item => <option key={item.playback} value={item.playback}>{item.playback_label}</option>)}
-                        </select>
+                            {cables.map(item => <SelectOption key={item.playback} value={item.playback}>{item.playback_label}</SelectOption>)}
+                        </Select>
                     </label>}
                     <dl className={dialogStyles.facts}>
                         <div className={dialogStyles.fact}>
@@ -147,7 +126,7 @@ export const VirtualMicGuideController = () => {
                         </div>
                     </dl>
                     <p>{outputOnCable ? t("virtual_mic.found.output_set", labels) : t("virtual_mic.found.output_unset", labels)}</p>
-                    {!outputOnCable && <p><button type="button" onClick={openTtsSettings}>{t("virtual_mic.found.open_tts")}</button></p>}
+                    {!outputOnCable && <p><Button onClick={openTtsSettings}>{t("virtual_mic.found.open_tts")}</Button></p>}
                 </section>
 
                 <section className={guideStyles.step} aria-labelledby="virtual-mic-test">
@@ -155,10 +134,10 @@ export const VirtualMicGuideController = () => {
                     <p>{t("virtual_mic.test.what", labels)}</p>
                     <p className={guideStyles.note}>{t("virtual_mic.test.heard_by_others")}</p>
                     <div className={guideStyles.meter_row}>
-                        <button type="button" className="primary" autoFocus disabled={running}
+                        <Button tone="primary" autoFocus disabled={running}
                             onClick={() => startCheck(cable.playback)}>
                             {t(running ? "virtual_mic.test.running" : "virtual_mic.test.start")}
-                        </button>
+                        </Button>
                         <div className={guideStyles.meter} role="meter" aria-label={t("virtual_mic.test.meter", labels)}
                             aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(check.level * 100)}>
                             <div className={guideStyles.meter_fill} style={{ transform: `scaleX(${check.level})` }} />
@@ -174,16 +153,16 @@ export const VirtualMicGuideController = () => {
                 </section>
             </>}
 
-            <div className={styles.actions}>
-                <button type="button" disabled={running} onClick={() => finish(false)}>{t("virtual_mic.later")}</button>
+            {/* One way out: "Done" once a cable is found, "Close" while there is none. */}
+            <DialogFooter>
                 {found
-                    ? <button type="button" disabled={running} onClick={() => finish(true)}>{t("virtual_mic.done")}</button>
-                    : <button type="button" className="primary" autoFocus onClick={openDownloadPage}>{t("virtual_mic.install.open_page")}</button>}
-            </div>
-            {!found && notice === true && <div className={dialogStyles.alternative}>
-                <button type="button" onClick={() => finish(true)}>{t("virtual_mic.dont_show")}</button>
-            </div>}
-        </dialog>
+                    ? <Button disabled={running} onClick={finish}>{t("virtual_mic.done")}</Button>
+                    : <>
+                        <Button onClick={finish}>{t("virtual_mic.close")}</Button>
+                        <Button tone="primary" autoFocus onClick={openDownloadPage}>{t("virtual_mic.install.open_page")}</Button>
+                    </>}
+            </DialogFooter>
+        </Dialog>
     </div>;
 };
 

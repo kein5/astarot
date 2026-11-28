@@ -20,20 +20,25 @@
 use tauri::utils::config::WindowConfig;
 use tauri::{App, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-/// A window with the browser arguments every window shares and, on Windows, the shared
-/// environment. Every window but the main one starts here.
+/// A window with the browser arguments every window shares, the theme its page starts with
+/// (#1259) and, on Windows, the shared environment. Every window but the main one starts here.
 pub(crate) fn window<'a, R: Runtime, M: Manager<R>>(
     manager: &'a M,
     label: &str,
     url: WebviewUrl,
 ) -> WebviewWindowBuilder<'a, R, M> {
-    shared(manager, WebviewWindowBuilder::new(manager, label, url).additional_browser_args(crate::BROWSER_ARGS))
+    let builder = WebviewWindowBuilder::new(manager, label, url)
+        .additional_browser_args(crate::BROWSER_ARGS)
+        .initialization_script(crate::startup_theme::script(manager));
+    shared(manager, builder)
 }
 
-/// Makes the main window from its entry in tauri.conf.json, with the shared environment.
+/// Makes the main window from its entry in tauri.conf.json, with the theme its page starts with
+/// (#1259) and the shared environment.
 pub(crate) fn main_window<R: Runtime>(app: &App<R>, config: &WindowConfig) -> tauri::Result<WebviewWindow<R>> {
     let handle = app.handle();
-    shared(handle, WebviewWindowBuilder::from_config(handle, config)?).build()
+    let builder = WebviewWindowBuilder::from_config(handle, config)?.initialization_script(crate::startup_theme::script(handle));
+    shared(handle, builder).build()
 }
 
 /// Makes the shared environment. On the main thread, before any window: WebView2 answers through

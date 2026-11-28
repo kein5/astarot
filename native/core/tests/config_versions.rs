@@ -3,8 +3,8 @@
 
 use serde_json::{Map, Value, json};
 use std::path::Path;
-use vrct_core::config::secrets::MemoryStore;
-use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
+use astarot_core::config::secrets::MemoryStore;
+use astarot_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn environment(dir: &Path) -> Environment {
     Environment {
@@ -93,7 +93,7 @@ fn the_settings_of_the_removed_local_whisper_are_not_written_back() {
         "LOCAL_ASR_NOTICE_PENDING": true,
     });
     assert_eq!(retired.as_object().unwrap().len(), RETIRED_KEYS.len());
-    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    let known: Vec<&str> = astarot_core::config::schema::keys().iter().map(|key| key.name).collect();
     for key in RETIRED_KEYS {
         assert!(retired.get(key).is_some(), "{key} is checked here");
         assert!(!known.contains(&key), "{key} is retired but still a setting");
@@ -217,6 +217,54 @@ fn a_saved_file_that_never_chose_a_speech_server_keeps_the_external_one() {
     config.close();
 }
 
+#[test]
+fn a_saved_file_keeps_its_recognition_server_and_a_new_install_takes_the_bundled_one() {
+    // New settings recognize through the bundled server (#1266). Before that the default was the
+    // external server, so a saved file keeps it unless it chose the bundled one itself; a value
+    // the core cannot read counts as no choice. A new install, or a file that could not be read,
+    // takes the bundled server.
+    let cases: [(Option<&str>, &str); 9] = [
+        (None, "bundled"),
+        (Some("{}"), "bundled"),
+        (Some("{not json"), "bundled"),
+        (Some(r#"{"UI_LANGUAGE": "ja"}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"version": 1}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "cloud"}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": "not settings"}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "external", "base_url": "http://127.0.0.1:8090"}}"#), "external"),
+        (Some(r#"{"REALTIME_ASR_SETTINGS": {"server": "bundled"}}"#), "bundled"),
+    ];
+    for (file, want) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(text) = file {
+            std::fs::write(dir.path().join("config.json"), text).unwrap();
+        }
+        let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+        assert_eq!(config.get("REALTIME_ASR_SETTINGS")["server"], want, "{file:?}");
+        let written = read(dir.path())["REALTIME_ASR_SETTINGS"].clone();
+        assert_eq!(written["server"], want, "{file:?}: the choice is saved");
+        // The rest of a saved choice is kept as it was.
+        if file.is_some_and(|text| text.contains("8090")) {
+            assert_eq!(written["base_url"], "http://127.0.0.1:8090");
+        }
+        config.close();
+    }
+
+    // A choice this version saved stays on the next start.
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    let mut realtime = config.get("REALTIME_ASR_SETTINGS");
+    assert_eq!(realtime["server"], "bundled");
+    realtime["server"] = json!("external");
+    config.set("REALTIME_ASR_SETTINGS", realtime).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("REALTIME_ASR_SETTINGS")["server"], "external", "the external server chosen here stays");
+    config.close();
+}
+
 #[cfg(unix)]
 #[test]
 fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
@@ -301,6 +349,24 @@ fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
     config.close();
 }
 
+/// The installer preselects the UI language of the settings it installs over (#1261). It does not
+/// parse `config.json` (src-tauri/nsis/template.nsi, ReadSavedUiLanguage): it finds the line of
+/// `"UI_LANGUAGE"` as text and reads `"ja"` or `"en"` on it. So the saved file keeps the key on a
+/// line of its own, with nothing else on that line that could read as a language.
+#[test]
+fn the_saved_ui_language_is_on_a_line_of_its_own_for_the_installer() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    config.set("UI_LANGUAGE", json!("ja")).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+    let text = std::fs::read_to_string(dir.path().join("config.json")).unwrap();
+    let lines: Vec<&str> = text.lines().filter(|line| line.contains("\"UI_LANGUAGE\"")).collect();
+    assert_eq!(lines.len(), 1, "one line names the key");
+    assert_eq!(lines[0].trim_end_matches(','), "    \"UI_LANGUAGE\": \"ja\"");
+}
+
 /// A value a newer version saved that this version cannot use (here a choice of the catalog's
 /// layout this version does not have) is not used, but it is written back as it was, also after
 /// this version saved and started again, until it is changed here (#560). The file names the
@@ -309,7 +375,7 @@ fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
 #[test]
 fn a_value_only_a_newer_version_accepts_is_written_back_until_it_is_changed_here() {
     let dir = tempfile::tempdir().unwrap();
-    let mark = vrct_core::config::NEWEST_SAVING_VERSION;
+    let mark = astarot_core::config::NEWEST_SAVING_VERSION;
     let write = |saved: Value| std::fs::write(dir.path().join("config.json"), serde_json::to_string(&saved).unwrap()).unwrap();
     let open = || Config::open_with(environment(dir.path()), MemoryStore::new());
 

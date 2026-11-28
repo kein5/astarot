@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { find, hooks, loadModule, nodesIn, componentName } from "../../../../../../logics/test/hookHarness.ts";
+import { find, hooks, loadModule, nodesIn, componentName, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import * as sharedWindow from "../../../../../../logics/configs/ocrSharedWindow.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
-const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button");
+// Share and stop sharing are the kit's plain Button.
+const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === kitStandIns.Button);
 
 const mount = async (context: TestContext, state: Partial<sharedWindow.SharedWindowState>) => {
     const runtime = hooks();
@@ -43,7 +44,7 @@ test("the button asks for a window only when it is pressed", async context => {
     const [share, ...others] = buttons(tree);
     assert.equal(others.length, 0);
     assert.equal(share.props.children, "config_page.ocr.shared_window.share");
-    assert.equal(share.props.type, "button");
+    assert.equal(share.props.tone, undefined, "the kit's plain Button");
     assert.deepEqual(page.calls, [["refresh"]]);
     share.props.onClick();
     // The saved choice may be restored: this is "share", not "choose another".

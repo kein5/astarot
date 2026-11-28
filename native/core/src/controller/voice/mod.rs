@@ -3,8 +3,8 @@
 //! `get/set/start/stopDirectVoice*`, `getVcRuntime*`, `getIoFlow`, `_publishChatVoice`,
 //! `_publishMicVoice` and `_speechServerEnded` for the TTS profiles).
 //!
-//! The speech bus is `vrct-tts`; direct voice, the RVC worker's owner and its runtime setup
-//! are `vrct-voice-conversion`; the route's mute and the devices are `vrct-audio-routing`.
+//! The speech bus is `astarot-tts`; direct voice, the RVC worker's owner and its runtime setup
+//! are `astarot-voice-conversion`; the route's mute and the devices are `astarot-audio-routing`.
 //! What reaches the PC's devices is behind [`VoicePlatform`].
 //!
 //! Nothing here writes text, audio, device names or paths to the log.
@@ -29,28 +29,30 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::{Source, SourceId, parse_source};
-use vrct_audio_routing::monitor::{MonitorOptions, MonitorSpec, MonitorTee};
-use vrct_audio_routing::mute_state::MuteState;
-use vrct_audio_routing::router::{Output, PlaybackToken};
-use vrct_audio_routing::voice_route::{MuteBus, RouteOptions, VoiceRoute};
-use vrct_speech_server::Profile;
-use vrct_tts::converted::{Chunks, ConversionSpeaker, ConvertedSpeechRouter, SpeakError};
-use vrct_tts::engines::EngineClient;
-use vrct_tts::listener::{ListenerMonitor, ListenerMonitors, ProcessExit};
-use vrct_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event};
-use vrct_tts::playback::{AudioRouter, FirstAudio, Monitor, OutputSink};
-use vrct_tts::scheduler::{BusOptions, MonitorRequest};
-use vrct_tts::settings::{self as tts_settings, VoiceSettings};
-use vrct_tts::{CancelToken, SpeechCppTts, SpeechError, TtsError, VoiceEventBus};
-use vrct_voice_conversion::direct::{ConvertedFactory, PassthroughFactory};
-use vrct_voice_conversion::runtime::{RuntimeSetup, SetupOptions};
-use vrct_voice_conversion::{DeviceRoute, DirectVoice, ManagedRoute, SpeakFailure, VcProcess, VcRoute};
+use astarot_audio_routing::graph::{Source, SourceId, parse_source};
+use astarot_audio_routing::monitor::{MonitorOptions, MonitorSpec, MonitorTee};
+use astarot_audio_routing::mute_state::MuteState;
+use astarot_audio_routing::router::{Output, PlaybackToken};
+use astarot_audio_routing::voice_route::{MuteBus, RouteOptions, VoiceRoute};
+use astarot_speech_server::Profile;
+use astarot_tts::converted::{Chunks, ConversionSpeaker, ConvertedSpeechRouter, SpeakError};
+use astarot_tts::engines::EngineClient;
+use astarot_tts::listener::{ListenerMonitor, ListenerMonitors, ProcessExit};
+use astarot_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event, microphone_original_event};
+use astarot_tts::playback::{AudioRouter, FirstAudio, Monitor, OutputSink};
+use astarot_tts::scheduler::{BusOptions, MonitorRequest};
+use astarot_tts::settings::{self as tts_settings, VoiceSettings};
+use astarot_tts::{CancelToken, SpeechCppTts, SpeechError, TtsError, VoiceEventBus};
+use astarot_voice_conversion::direct::{ConvertedFactory, PassthroughFactory};
+use astarot_voice_conversion::runtime::{RuntimeSetup, SetupOptions};
+use astarot_voice_conversion::{DeviceRoute, DirectVoice, ManagedRoute, SpeakFailure, VcProcess, VcRoute};
 
 const SETTINGS_KEY: &str = "VOICE_SETTINGS";
 const DIRECT_KEY: &str = "DIRECT_VOICE_SETTINGS";
+/// The notice that the Linux virtual microphone has a new name (ADR-014, 2.8).
+const RENAME_NOTICE_KEY: &str = "MANAGED_ROUTE_RENAME_NOTICE_PENDING";
 /// A started server enforces its own start timeout; this only bounds the toggle's wait.
-const TTS_SERVER_WAIT: Duration = Duration::from_secs(vrct_speech_server::server::START_TIMEOUT.as_secs() + 5);
+const TTS_SERVER_WAIT: Duration = Duration::from_secs(astarot_speech_server::server::START_TIMEOUT.as_secs() + 5);
 /// Server failures with their own next step; the rest share a generic code.
 const TTS_START_FAILURES: [&str; 5] = [
     "speech_server_out_of_memory",
@@ -138,12 +140,12 @@ pub struct Voice {
 /// The speech bus's token as an output's.
 struct Token<'a>(&'a CancelToken);
 
-fn speech_error(error: SpeechError) -> vrct_audio_routing::Error {
-    vrct_audio_routing::Error::speech(error.code())
+fn speech_error(error: SpeechError) -> astarot_audio_routing::Error {
+    astarot_audio_routing::Error::speech(error.code())
 }
 
 impl PlaybackToken for Token<'_> {
-    fn check(&self) -> vrct_audio_routing::Result<()> {
+    fn check(&self) -> astarot_audio_routing::Result<()> {
         self.0.check().map_err(speech_error)
     }
     fn is_set(&self) -> bool {
@@ -152,21 +154,21 @@ impl PlaybackToken for Token<'_> {
     fn wait(&self, timeout: Duration) -> bool {
         self.0.wait(timeout)
     }
-    fn begin_playback(&self) -> vrct_audio_routing::Result<()> {
+    fn begin_playback(&self) -> astarot_audio_routing::Result<()> {
         self.0.begin_playback().map_err(speech_error)
     }
-    fn commit_audio_write(&self, pcm: &[u8], write: &mut dyn FnMut() -> std::io::Result<usize>) -> vrct_audio_routing::Result<std::io::Result<usize>> {
+    fn commit_audio_write(&self, pcm: &[u8], write: &mut dyn FnMut() -> std::io::Result<usize>) -> astarot_audio_routing::Result<std::io::Result<usize>> {
         let mut failure = None;
         match self.0.commit_audio_write(pcm, || write().map_err(|error| failure.insert(error).kind())) {
             Ok(count) => Ok(Ok(count)),
-            Err(vrct_tts::cancel::CommitError::Write(kind)) => Ok(Err(failure.take().unwrap_or_else(|| kind.into()))),
-            Err(vrct_tts::cancel::CommitError::Speech(error)) => Err(speech_error(error)),
+            Err(astarot_tts::cancel::CommitError::Write(kind)) => Ok(Err(failure.take().unwrap_or_else(|| kind.into()))),
+            Err(astarot_tts::cancel::CommitError::Speech(error)) => Err(speech_error(error)),
         }
     }
 }
 
-fn tts_error(error: vrct_audio_routing::Error) -> TtsError {
-    if error.kind == vrct_audio_routing::Kind::Speech { TtsError::Speech(SpeechError::from_code(&error.code)) } else { TtsError::Output }
+fn tts_error(error: astarot_audio_routing::Error) -> TtsError {
+    if error.kind == astarot_audio_routing::Kind::Speech { TtsError::Speech(SpeechError::from_code(&error.code)) } else { TtsError::Output }
 }
 
 /// A device output as the speech bus's sink.
@@ -276,8 +278,8 @@ impl Voice {
                 let options = with_block(options, settings.upgrade().map(|core| core.config().get("RVC_BLOCK_MS")));
                 // The DirectML runtime (shared with the translation), looked up at each start: it
                 // may have been set up since the app started.
-                let directml = vrct_voice_conversion::runtime::directml_libraries(&runtimes_root).map(|found| found.lib);
-                Ok(Box::new(VcProcess::rvc(&options, &worker, directml.as_deref(), route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
+                let directml = astarot_voice_conversion::runtime::directml_libraries(&runtimes_root).map(|found| found.lib);
+                Ok(Box::new(VcProcess::rvc(&options, &worker, directml.as_deref(), route, monitor)?) as Box<dyn astarot_voice_conversion::DirectBackend>)
             })
         };
         let direct = Arc::new(DirectVoice::new(passthrough, Some(converted)));
@@ -287,7 +289,7 @@ impl Voice {
             Ok(Box::new(Sink(output_platform.speech_output(device, rate, channels).map_err(tts_error)?)))
         };
         let mut options = BusOptions::new(Arc::new(AudioRouter::new(Arc::new(factory))));
-        options.engine_factory = Some(vrct_tts::engines::engine_factory());
+        options.engine_factory = Some(astarot_tts::engines::engine_factory());
         options.enabled = false;
         let servers = weak.clone();
         options.resolve_server = Some(Arc::new(move |role: &str| {
@@ -334,11 +336,24 @@ impl Voice {
         let muted_direct = direct.clone();
         let store = MuteState::new(config.path().with_file_name("voice_mute_state.json"));
         let audition = audition::Audition::new();
+        // The units of the route's old names stopped: the microphone VRChat had chosen is gone.
+        // Kept until the user closes the notice, so that a start that ends first still shows it.
+        let renamed = weak.clone();
+        let on_retired = Arc::new(move || {
+            if let Some(core) = renamed.upgrade() {
+                let _ = core.config().set(RENAME_NOTICE_KEY, json!(true));
+                core.step("[voice] the managed route retired its legacy units");
+            }
+        });
         let route = VoiceRoute::new(
             Arc::new(BusMute(bus.clone(), audition.clone())),
             platform.gate(&app_dir),
             Arc::new(store),
-            RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))) },
+            RouteOptions {
+                poll_interval: Duration::from_millis(100),
+                on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))),
+                on_retired: Some(on_retired),
+            },
         );
         let emitter = weak.clone();
         let traces = IoTraces::new(Arc::new(move |payload| {
@@ -356,7 +371,7 @@ impl Voice {
                 Arc::new(move || platform.nvidia_driver())
             },
             worker: platform.rvc_worker(&app_dir),
-            free_space: Arc::new(|path: &Path| vrct_ops::downloads::free_space(path).ok()),
+            free_space: Arc::new(|path: &Path| astarot_ops::downloads::free_space(path).ok()),
             entries: platform.runtime_entries(),
             loaded: {
                 let platform = platform.clone();
@@ -398,7 +413,7 @@ impl Voice {
     // ------------------------------------------------------------ policies
 
     fn suppresses_direct(settings: &VoiceSettings) -> bool {
-        settings.mic_mode == "translated" && settings.direct_policy == "suppress"
+        settings.mic_mode != "off" && settings.direct_policy == "suppress"
     }
 
     /// Speech through the conversion leaves by the conversion's sink, so the OS gate cannot
@@ -430,14 +445,25 @@ impl Voice {
 
     fn route_status(&self) -> Value {
         let status = self.route.status();
-        json!({
+        let mut reply = json!({
             "managed": status.managed, "requested_muted": status.requested_muted, "observed_muted": status.observed_muted,
             "ready": status.ready, "pending": status.pending, "error": status.error, "preparing": status.preparing,
             "generation": status.generation, "closed": status.closed,
             "requested_direct_suppressed": status.requested_direct_suppressed,
             "observed_direct_suppressed": status.observed_direct_suppressed,
             "observation_id": status.observation_id, "covers_direct": self.windows,
-        })
+        });
+        // The virtual microphone has a new name: VRChat has to be pointed at it once (ADR-014, 2.8).
+        if self.core().is_some_and(|core| core.config().get_bool(RENAME_NOTICE_KEY)) {
+            reply["notice"] = json!("managed_route_renamed");
+        }
+        reply
+    }
+
+    /// The user closed the notice of the virtual microphone's new name.
+    fn close_rename_notice(&self, core: &Core) -> Reply {
+        let _ = core.config().set(RENAME_NOTICE_KEY, json!(false));
+        ok(self.route_status())
     }
 
     fn direct_state(&self) -> Value {
@@ -485,20 +511,24 @@ impl Voice {
         }
         let config = core.config();
         let tab = config.get_str("SELECTED_TAB_NO");
+        let your_language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
         let mut languages = Vec::new();
         if settings.mode == "original" {
-            let language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
-            languages.push(language.as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+            languages.push(your_language.as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+        }
+        if settings.mic_mode == "original" {
+            languages.push(core.mic_speech_language(your_language.as_str()).ok_or("speech_server_or_settings_not_ready")?);
         }
         if settings.mode == "translated" || settings.mic_mode == "translated" {
             let target = config.get("SELECTED_TARGET_LANGUAGES")[&tab][&settings.target_slot].clone();
-            if target.is_null() {
+            if target.is_null() && settings.mic_mode != "original" {
                 return Err("speech_server_or_settings_not_ready");
             }
-            if !config.get_bool("ENABLE_TRANSLATION") || target["enable"] != true {
+            if config.get_bool("ENABLE_TRANSLATION") && target["enable"] == true {
+                languages.push(target["language"].as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+            } else if settings.mic_mode != "original" {
                 return Err("tts_translation_not_ready");
             }
-            languages.push(target["language"].as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
         }
         let mut roles = Vec::new();
         for language in languages {
@@ -605,8 +635,8 @@ impl Voice {
             let current = row(role);
             match current.health.state {
                 // Started from Settings: wait for it, but never own it.
-                vrct_speech_server::State::Ready | vrct_speech_server::State::Preparing => continue,
-                vrct_speech_server::State::Stopping => return Err("speech_server_busy"),
+                astarot_speech_server::State::Ready | astarot_speech_server::State::Preparing => continue,
+                astarot_speech_server::State::Stopping => return Err("speech_server_busy"),
                 _ => {}
             }
             let options = core.speech_servers().start_options(core, profile(role)).map_err(|code| if code == "speech_server_model_invalid" { code } else { "speech_server_start_failed" })?;
@@ -625,17 +655,17 @@ impl Voice {
             let deadline = Instant::now() + TTS_SERVER_WAIT;
             while !attempt.load(Ordering::SeqCst) {
                 let state = hub.state();
-                let rows: Vec<(&str, vrct_speech_server::servers::ProfileState)> = roles.iter().map(|role| (*role, state.iter().find(|(p, _)| *p == profile(role)).map(|(_, s)| s.clone()).expect("every profile"))).collect();
+                let rows: Vec<(&str, astarot_speech_server::servers::ProfileState)> = roles.iter().map(|role| (*role, state.iter().find(|(p, _)| *p == profile(role)).map(|(_, s)| s.clone()).expect("every profile"))).collect();
                 // Report a failure before the TTS epoch change that it causes.
-                if let Some((_, failed)) = rows.iter().find(|(_, row)| row.health.state == vrct_speech_server::State::Failed) {
+                if let Some((_, failed)) = rows.iter().find(|(_, row)| row.health.state == astarot_speech_server::State::Failed) {
                     let code = failed.health.error_code.unwrap_or("speech_server_start_failed");
                     return Err(if TTS_START_FAILURES.contains(&code) { code } else { "speech_server_start_failed" });
                 }
-                if rows.iter().any(|(role, row)| matches!(row.health.state, vrct_speech_server::State::Stopped | vrct_speech_server::State::Stopping) || started.get(role).is_some_and(|run| *run != row.generation)) {
+                if rows.iter().any(|(role, row)| matches!(row.health.state, astarot_speech_server::State::Stopped | astarot_speech_server::State::Stopping) || started.get(role).is_some_and(|run| *run != row.generation)) {
                     // Stopped from Settings meanwhile.
                     return Err("speech_server_not_ready");
                 }
-                if rows.iter().all(|(_, row)| row.health.state == vrct_speech_server::State::Ready) {
+                if rows.iter().all(|(_, row)| row.health.state == astarot_speech_server::State::Ready) {
                     return Ok(());
                 }
                 if self.bus.generation() != generation {
@@ -957,17 +987,17 @@ impl Voice {
     fn audition_capture(&self) -> Option<audition::CaptureOpener> {
         if self.windows {
             let devices = self.platform.route_devices()?;
-            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+            Some(Arc::new(move |input: &astarot_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
         } else {
             let devices = self.platform.managed_vc_devices()?;
-            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+            Some(Arc::new(move |input: &astarot_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
         }
     }
 
     /// The checked worker of an RVC audition: the model's files by its id, the request's pitch and
     /// index rate, the runtime and the worker's choices of the live conversion. Refused while a
     /// conversion runs: it holds the GPU, and the audition would compete with the voice heard.
-    fn rvc_audition_worker(&self, core: &Core, request: &audition::RvcRequest) -> Result<vrct_voice_conversion::PreparedRvc, String> {
+    fn rvc_audition_worker(&self, core: &Core, request: &audition::RvcRequest) -> Result<astarot_voice_conversion::PreparedRvc, String> {
         let health = self.direct.health();
         if self.direct_engine.lock().unwrap().is_some() && (health.requested || health.pending || health.stopping) {
             return Err("voice_audition_conversion_running".into());
@@ -978,12 +1008,12 @@ impl Voice {
         let installed = self.runtimes.state()["installed"]["rvc"].as_str().unwrap_or_default().to_owned();
         let runtime = [direct["rvc_runtime"].as_str().unwrap_or_default().to_owned(), installed]
             .into_iter()
-            .find(|path| !path.trim().is_empty() && vrct_voice_conversion::worker::runtime_complete(Path::new(path)))
+            .find(|path| !path.trim().is_empty() && astarot_voice_conversion::worker::runtime_complete(Path::new(path)))
             .ok_or("vc_runtime_missing")?;
         let options = with_block(&audition::rvc_start_options(request, &runtime, &model, &index, &direct), Some(core.config().get("RVC_BLOCK_MS")));
         let env = core.config().environment();
-        let directml = vrct_voice_conversion::runtime::directml_libraries(&env.state_dir.join("vc_runtimes")).map(|found| found.lib);
-        vrct_voice_conversion::process::prepare_rvc(&options, &self.platform.rvc_worker(&env.app_dir), directml.as_deref())
+        let directml = astarot_voice_conversion::runtime::directml_libraries(&env.state_dir.join("vc_runtimes")).map(|found| found.lib);
+        astarot_voice_conversion::process::prepare_rvc(&options, &self.platform.rvc_worker(&env.app_dir), directml.as_deref())
     }
 
     fn stop_audition(&self) -> Reply {
@@ -1018,7 +1048,7 @@ impl Voice {
     fn preferred_source(&self, core: &Core, sources: &[Source]) -> Option<SourceId> {
         let config = core.config();
         let selected = config.get("SELECTED_MIC_DEVICE");
-        let names = vrct_audio_routing::graph::microphone_names(sources);
+        let names = astarot_audio_routing::graph::microphone_names(sources);
         if !self.windows {
             if config.get("SELECTED_MIC_HOST") != "PipeWire" {
                 return None;
@@ -1026,7 +1056,7 @@ impl Voice {
             return sources.iter().zip(&names).find(|(_, name)| selected == **name).map(|(s, _)| s.id.clone());
         }
         // The Device page's choice is the same hardware under a possibly cut name.
-        let found = selected.as_str().and_then(|selected| sources.iter().zip(&names).find(|(_, name)| vrct_audio_routing::naming::same_output(name, selected)).map(|(s, _)| s.id.clone()));
+        let found = selected.as_str().and_then(|selected| sources.iter().zip(&names).find(|(_, name)| astarot_audio_routing::naming::same_output(name, selected)).map(|(s, _)| s.id.clone()));
         if found.is_some() || sources.is_empty() {
             return found;
         }
@@ -1140,7 +1170,7 @@ fn start_options(mode: &str, options: &Value) -> Result<Value, ()> {
     }
     let object = options.as_object().filter(|_| mode == "converted").ok_or(())?;
     if object.get("engine").and_then(Value::as_str) == Some("rvc") {
-        vrct_voice_conversion::process::rvc_options(options).map_err(|_| ())?;
+        astarot_voice_conversion::process::rvc_options(options).map_err(|_| ())?;
         return Ok(options.clone());
     }
     let keys: Vec<&str> = object.keys().map(String::as_str).collect();
@@ -1216,6 +1246,12 @@ pub struct MicVoiceSnapshot {
     settings: Arc<VoiceSettings>,
 }
 
+impl MicVoiceSnapshot {
+    pub(crate) fn speaks_original(&self) -> bool {
+        self.settings.mic_mode == "original"
+    }
+}
+
 impl Core {
     pub(crate) fn voice(&self) -> Option<&Arc<Voice>> {
         self.voice.get()
@@ -1246,27 +1282,33 @@ impl Core {
     /// languages or of translation).
     pub fn cancel_mic_voice(&self) {
         if let Some(voice) = self.voice() {
-            voice.bus.cancel_source(&vrct_tts::Source::Mic);
+            voice.bus.cancel_source(&astarot_tts::Source::Mic);
+        }
+    }
+
+    /// Translation being turned off only revokes microphone speech of translations.
+    pub(crate) fn cancel_translated_mic_voice(&self) {
+        if let Some(voice) = self.voice() {
+            let _settings = voice.settings_lock.lock().unwrap();
+            if voice.bus.settings().mic_mode != "original" {
+                voice.bus.cancel_source(&astarot_tts::Source::Mic);
+            }
         }
     }
 
     /// Taken when a microphone final arrives: the speech it may become is refused once the
     /// settings or the microphone's session change.
-    /// `None` unless microphone finals speak translated and translation is on
-    /// (`_snapshotMicVoice`).
+    /// Translated microphone speech additionally requires translation to be on.
     pub fn mic_voice_snapshot(&self) -> Option<MicVoiceSnapshot> {
         let voice = self.voice()?;
         let _settings = voice.settings_lock.lock().unwrap();
-        if voice.bus.settings().mic_mode != "translated" || !self.config().get_bool("ENABLE_TRANSLATION") {
+        let settings = voice.bus.settings();
+        if settings.mic_mode == "off" || (settings.mic_mode == "translated" && !self.config().get_bool("ENABLE_TRANSLATION")) {
             return None;
         }
-        Some(MicVoiceSnapshot { generation: voice.bus.generation(), source_generation: voice.bus.source_generation(&vrct_tts::Source::Mic), settings: voice.bus.settings() })
+        Some(MicVoiceSnapshot { generation: voice.bus.generation(), source_generation: voice.bus.source_generation(&astarot_tts::Source::Mic), settings })
     }
 
-    /// A realtime microphone final, translated (`_publishMicVoice`). Only a successful
-    /// translation of the selected target speaks. `targets` is the target languages of the
-    /// message's tab as they were when it was admitted. Returns whether it was queued.
-    #[allow(clippy::too_many_arguments)]
     /// Readies the speech server that will speak a message's translation while it is translated
     /// (#556): the speech of `mic` (the microphone's translated voice) or of a typed or
     /// recognised message, in the language of the speech's target slot among `destinations`.
@@ -1274,10 +1316,13 @@ impl Core {
         let Some(voice) = self.voice() else { return };
         let settings = voice.bus.settings();
         let Some(language) = destinations[&settings.target_slot]["language"].as_str() else { return };
-        let source = if mic { vrct_tts::events::Source::Mic } else { vrct_tts::events::Source::Chat };
+        let source = if mic { astarot_tts::events::Source::Mic } else { astarot_tts::events::Source::Chat };
         voice.bus.warm(&source, language);
     }
 
+    /// Queue a realtime microphone final. Translated mode requires a successful translation
+    /// of the selected target captured at admission.
+    #[allow(clippy::too_many_arguments)]
     pub fn publish_mic_voice(
         &self,
         snapshot: &MicVoiceSnapshot,
@@ -1293,17 +1338,22 @@ impl Core {
         let Some(voice) = self.voice() else { return false };
         let _settings = voice.settings_lock.lock().unwrap();
         let config = self.config();
-        if !current() || *voice.bus.settings() != *snapshot.settings || !config.get_bool("ENABLE_TRANSLATION") || config.get_str("SELECTED_TAB_NO") != tab {
+        if !current() || *voice.bus.settings() != *snapshot.settings || config.get_str("SELECTED_TAB_NO") != tab {
             return false;
         }
-        // Text keeps its snapshot; speech also requires the selected target to remain current.
-        let slot = &snapshot.settings.target_slot;
-        if config.get("SELECTED_TARGET_LANGUAGES")[tab][slot] != targets[slot] {
-            return false;
-        }
-        let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
-        let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
-        let Some(mut event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        let event = if snapshot.speaks_original() {
+            microphone_original_event(update, source_language)
+        } else {
+            // Text keeps its snapshot; translated speech also requires the target to remain current.
+            let slot = &snapshot.settings.target_slot;
+            if !config.get_bool("ENABLE_TRANSLATION") || config.get("SELECTED_TARGET_LANGUAGES")[tab][slot] != targets[slot] {
+                return false;
+            }
+            let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
+            let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
+            microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot)
+        };
+        let Some(mut event) = event else { return false };
         super::terms::read_terms(&mut event, &self.term_dictionary());
         voice.bus.publish(event, Some(snapshot.generation), Some(snapshot.source_generation))
     }
@@ -1317,7 +1367,7 @@ impl Core {
         }
         let Some(voice) = self.voice() else { return false };
         let output = voice.bus.settings().output_device.clone();
-        vrct_audio_routing::naming::carries_own_voice(endpoint, &output)
+        astarot_audio_routing::naming::carries_own_voice(endpoint, &output)
     }
 
     /// Tells the flow panel whether the microphone's realtime recognition is requested (the
@@ -1409,7 +1459,7 @@ impl Core {
                 Some(false) => "superseded",
                 None => "off",
             };
-            trace.output("chatbox", state, (state == "sent").then(vrct_tts::clock::monotonic_ns), &[]);
+            trace.output("chatbox", state, (state == "sent").then(astarot_tts::clock::monotonic_ns), &[]);
         }
     }
 
@@ -1444,12 +1494,14 @@ impl Core {
         let direct = voice.direct.health();
         let realtime_requested = voice.realtime_mic.lock().unwrap().clone().is_some_and(|probe| probe());
         let realtime = !voice.windows || config.get("SELECTED_TRANSCRIPTION_ENGINE") == "SpeechCpp";
+        let source_language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
         let state = FlowState {
             mic_on: config.get_bool("ENABLE_TRANSCRIPTION_SEND") || realtime_requested,
             realtime,
             engine: config.get("SELECTED_TRANSCRIPTION_ENGINE"),
             translation: config.get_bool("ENABLE_TRANSLATION"),
-            source_language: config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone(),
+            mic_language: json!(self.mic_speech_language(source_language.as_str())),
+            source_language,
             targets: enabled,
             speech_language: if selected["enable"] == true { selected["language"].clone() } else { Value::Null },
             send_to_vrc: config.get_bool("SEND_MESSAGE_TO_VRC"),
@@ -1511,7 +1563,7 @@ fn uuid_text() -> String {
 
 /// The end of a server run, as the speech server reports it: the run's listener is gone when
 /// its child has exited or is being stopped.
-struct RunEnd(vrct_tts::sync::Event);
+struct RunEnd(astarot_tts::sync::Event);
 
 impl ProcessExit for RunEnd {
     fn wait(&self) -> std::io::Result<()> {
@@ -1522,7 +1574,7 @@ impl ProcessExit for RunEnd {
 
 /// The TTS servers this app started, each with the monitor its requests subscribe to.
 #[derive(Default)]
-struct ServerOwners(Mutex<HashMap<Profile, (ListenerMonitor, vrct_tts::sync::Event)>>);
+struct ServerOwners(Mutex<HashMap<Profile, (ListenerMonitor, astarot_tts::sync::Event)>>);
 
 impl ServerOwners {
     /// A server of `profile` listens on `(port, pid)`, or no longer does (`None`).
@@ -1534,7 +1586,7 @@ impl ServerOwners {
             registry.forget(&monitor);
         }
         if let Some((port, _pid)) = listener {
-            let end = vrct_tts::sync::Event::new();
+            let end = astarot_tts::sync::Event::new();
             let monitor = registry.own(("127.0.0.1".to_owned(), port), Arc::new(RunEnd(end.clone())));
             owners.insert(profile, (monitor, end));
         }
@@ -1566,7 +1618,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     //
     // [`runtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py
     let owners = ServerOwners::default();
-    core.speech_servers().on_listener(Arc::new(move |profile, listener| owners.heard(vrct_tts::listener::listener_monitors(), profile, listener)));
+    core.speech_servers().on_listener(Arc::new(move |profile, listener| owners.heard(astarot_tts::listener::listener_monitors(), profile, listener)));
     // A TTS server that ends turns TTS off.
     let ended = Arc::downgrade(core);
     core.speech_servers().on_end(Arc::new(move |end| {
@@ -1590,6 +1642,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/enable_tts", OPEN, |core, data| with_voice(core, |voice| voice.enable_tts(core, data)));
     b.with("/run/disable_tts", OPEN, |core, _| with_voice(core, |voice| voice.disable_tts(core)));
     b.with("/get/data/voice_route", OPEN, |core, _| with_voice(core, |voice| ok(voice.route_status())));
+    b.with("/set/disable/managed_route_rename_notice", OPEN, |core, _| with_voice(core, |voice| voice.close_rename_notice(core)));
     b.with("/run/mute_voice", OPEN, |core, _| with_voice(core, |voice| voice.mute(core)));
     b.with("/run/resume_voice", OPEN, |core, _| with_voice(core, Voice::resume));
     b.with("/get/data/direct_voice_sources", OPEN, |core, _| with_voice(core, |voice| voice.sources(core)));
@@ -1632,8 +1685,8 @@ fn runtime_status(code: &str) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vrct_tts::listener::{Address, Probe};
-    use vrct_tts::sync::Event;
+    use astarot_tts::listener::{Address, Probe};
+    use astarot_tts::sync::Event;
 
     /// A probe that must never run: an owned server's port is not probed.
     fn no_probe() -> Probe {

@@ -8,9 +8,10 @@ import { TTS_ENGINES } from "../tts/TtsEngine";
 import type { TtsEngineSpec } from "../tts/TtsEngine";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
-import { CatalogFacts, CatalogList, CatalogSection } from "./catalogLayout";
+import { CatalogFacts, CatalogList, CatalogSection, CatalogState } from "./catalogLayout";
 import type { CatalogLayout } from "./catalogLayout";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
+import { Badge, Card, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../../../kit/index.ts";
 
 // The speech engines a user installs and runs themselves (ADR-008), listed beside the models.
 // The app never downloads, installs or starts them: each card sends the user to the official
@@ -60,26 +61,26 @@ export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) =
                 const state: EngineState = !result ? "unchecked" : result.pending ? "checking" : result.connected ? "connected" :
                     result.error_code === "tts_engine_url_invalid" ? "url_invalid" : "not_connected";
                 // Laid out as a model's card: what it is and its state, its facts, its readout, its actions.
-                return <li key={id} data-engine-card={id} role="group" aria-label={spec.name} className={styles.card}
-                    data-status={inUse === id ? "in_use" : undefined}>
-                    <div className={styles.card_intro}>
+                return <Card as="li" key={id} data-engine-card={id} role="group" aria-label={spec.name}
+                    active={inUse === id} data-status={inUse === id ? "in_use" : undefined}>
+                    <CardHeader>
                         <div className={styles.card_head}>
-                            <strong>{spec.name}</strong>
-                            {layout === "list" && inUse === id && <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span>}
-                            <span className={`${styles.badge} ${styles.status}`} data-tone={state}>
-                                <StableWords current={t(`model_catalog.engine.state.${state}`)} words={BADGE_STATES.map(each => t(`model_catalog.engine.state.${each}`))} /></span>
+                            <CardTitle>{spec.name}</CardTitle>
+                            {layout === "list" && inUse === id && <Badge tone="active">{t("model_catalog.status.in_use")}</Badge>}
+                            <CatalogState state={state}>
+                                <StableWords current={t(`model_catalog.engine.state.${state}`)} words={BADGE_STATES.map(each => t(`model_catalog.engine.state.${each}`))} /></CatalogState>
                         </div>
                         {/* In the grid "in use" is the line under the name, so the state ends the name's line on every card. */}
                         {layout === "grid" && inUse === id && <div className={styles.card_badges}>
-                            <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span></div>}
-                        <p>{t(`model_catalog.engine.summary.${id}`)}</p>
-                    </div>
-                    <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
+                            <Badge tone="active">{t("model_catalog.status.in_use")}</Badge></div>}
+                        <CardDescription>{t(`model_catalog.engine.summary.${id}`)}</CardDescription>
+                    </CardHeader>
+                    <CatalogFacts layout={layout}><dl className={styles.facts}>
                         <div><dt>{t("model_catalog.languages")}</dt><dd>{t("model_catalog.engine.languages")}</dd></div>
                         <div><dt>{t("model_catalog.engine.get")}</dt><dd>{t("model_catalog.engine.get_value")}</dd></div>
                         <div><dt>{t("model_catalog.engine.address")}</dt><dd><code>{address(spec)}</code></dd></div>
                     </dl></CatalogFacts>
-                    <div className={styles.card_foot}>
+                    <CardFooter>
                         <EnvReadout tone={state === "connected" ? "active" : state === "url_invalid" ? "failed" : state === "not_connected" ? "warning" : "neutral"}
                             progress={state === "checking" ? "working" : state === "connected" ? "done" : undefined} reserveMark>
                             <p><StableWords align="start" current={readout(state, spec, result?.version ?? "")} words={STATES.map(each => readout(each, spec))} /></p>
@@ -92,8 +93,8 @@ export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) =
                                 {t("voice_ui.engine.site", { engine: spec.name })}</a>
                             {terms && <a href={terms} target="_blank" rel="noreferrer" onClick={event => open(event, terms)}>{t("voice_ui.engine.terms")}</a>}
                         </div>
-                    </div>
-                </li>;
+                    </CardFooter>
+                </Card>;
             })}
         </CatalogList>
     </CatalogSection>;

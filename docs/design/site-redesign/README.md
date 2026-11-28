@@ -1,8 +1,364 @@
-# マニュアルサイトの再設計の提案
+# Redesign proposal for the manual site
+
+[日本語版](#マニュアルサイトの再設計の提案日本語版)
+
+This is a design for reworking how the user-facing site (`site/`) is built. It merges the guide and the manual into one site, brings the look in line with the app's ASTAROT palette, and rebuilds the components after the design of shadcn/ui. The rework is split into 9 stages, not one large PR.
+
+- Status: the approach is decided (2026-11-19). The overall direction, the order of the stages and S-01 to S-11 all went to option A, the one this document recommended ([Decisions made](#decisions-made)). Implementation proceeds in order from stage 1 of section 5. On 2026-11-20 it was decided to move the site's base from VitePress to Rspress (React) ([ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md)). "Base" was added to the table of decisions, and sections 2, 3 and 5 were brought in line with Rspress. Moving the base was added as stage 2, so the earlier stages 2 to 8 became stages 3 to 9. Stage 2 went in with #761. On 2026-11-22 stage 3 (tokens) was implemented. Of the light values in 3.2, `primary-hover` became `#9c72ec`, one step lower in chroma, after a check was added. Rspress draws `--rp-c-brand` as text, so it was mapped to `state-active`, not `primary`.
+- Basis: [the inventory](inventory.md). Problem numbers (P-01 and so on) are the inventory's numbers.
+- Related: #371 (creating the manual), #554 (the app's information architecture), #680 (the policy of aligning components with shadcn/ui), #673 (updating the guide for 0.6.0), #690 (the site's Vite)
+
+## What was already decided when the review began
+
+- The base stays VitePress. The Japanese and English structure, search and the publishing to GitHub Pages stay in use. On 2026-11-20 it was decided to move the base to Rspress (React) (ADR-016). Keeping the Japanese and English structure, search and publishing to GitHub Pages does not change.
+- The components are rebuilt as our own Vue components modeled on the design of shadcn/ui. shadcn-vue is not added. From 2026-11-20 the components are written in React.
+- Colors use the ASTAROT brand tokens. The sources of truth are DESIGN.md and `docs/brand/`. The visual vocabulary matches the app's settings screen.
+- A new model of the animated mascot (the devil penguin) has been finished in separate work. It goes into the site only after this design is settled. This document gives only the candidate places for it and the approach to building it in.
+
+## The approach in brief
+
+1. The guide and the manual become one. The guide pages (under `/ja/` and `/en/`) hold the source of truth for the text, and the layout of the manual's home page approved in #371 moves to the site's home page. `/manual/` becomes a redirect page (P-01, P-02, P-03, P-04).
+2. URLs do not change. The page files stay where they are; only the sidebar and the navigation are rearranged. Every URL that released versions of the app open ([inventory](inventory.md#外から参照されているurl)) opens the same content.
+3. The names of the sidebar groups match the groups of the app's settings menu (#554) (P-08).
+4. DESIGN.md's tokens are the source of truth for color. Dark uses the same values as the app, and light uses values made by the same rule. The navy palette leaves the site (P-05).
+5. Components are built in `site/.vitepress/theme/ui/`, with the same names and `data-slot` values as shadcn/ui's components. Components that come in pairs become one (P-06).
+6. Every stage is merged in a state that can be published on its own, because changes merged into develop are published as they are.
+
+## 1. Information architecture
+
+### 1.1 Approach
+
+- Each fact is written on one page only. The home page does not copy facts from other pages; it carries summaries and links (P-02).
+- URLs and order are handled separately. URLs are referenced from outside, which makes them a promise, so they do not move. The order shown to readers is set by the sidebar.
+- Pages are grouped in the app's words. A reader who compares the guide with the app's settings can look for a feature under the same group names.
+- The pages a first-time reader goes through before sending a first message are kept short. Reference tables move to where they are read when they are needed.
+
+### 1.2 Sidebar
+
+| Group (English / Japanese) | Pages (in this order) | Current groups |
+|---|---|---|
+| Getting started / はじめに | What is ASTAROT, Install, First setup, Find what you want to do, How voice and text flow | Getting started, What you want to do |
+| Conversation / 会話の基本 | Translation, Speech recognition (ASR) and realtime captions, Captions and VR, Quick Chat and hotkeys | Voice and text, Screens and integrations |
+| Voice and reading / 声と読み取り | Text to speech (TTS), Voice changer (RVC), Chat reading (OCR) | Voice and text |
+| Audio routes and other apps / 音声経路と連携 | Inputs and outputs, Windows audio route, Linux audio route, OBS and WebSocket | Screens and integrations, Setup and operation |
+| Models / モデル | Model downloads, Use your own models | Setup and operation, What you want to do |
+| Help and reference / 困ったときと資料 | Troubleshooting, System requirements, Platform support, Privacy, License and credits | Getting started, Setup and operation |
+
+- "Conversation" and "Voice and reading" are names of groups in the app's settings menu (DESIGN.md's "Layout"). The app's "Conversation" also holds the VRChat page. The guide describes the OSC settings in "First setup", so this group does not include that page.
+- In the app, the hotkey settings are in the "Ease of use" group. The guide's "Quick Chat and hotkeys" is mostly about the small window for sending text in the middle of a conversation, so it goes in "Conversation".
+- The system requirements and platform support tables move to "Help and reference" and are linked from the top of "Install" and from the home page. A first-time reader can send a first message after three pages: "What is ASTAROT", "Install" and "First setup".
+- "Use your own models" sits beside "Model downloads". Both are pages about preparing model files.
+- The audio route pages sit beside "Inputs and outputs". This carries over the thinking of the manual's "Audio routes and VR" chapter.
+
+### 1.3 Top bar
+
+From left to right:
+
+1. The ASTAROT icon and name (to the home page in the page's language)
+2. Search (a button that opens the palette; `Ctrl`+`K` and `/` open it too)
+3. "Install", "Find what you want to do", "Troubleshooting"
+4. "Release notes" (to GitHub Releases, with a mark showing that it leads to another site)
+5. The language menu (日本語, English)
+6. GitHub
+
+The download button goes at the top of the "Install" page as well as in the home page's hero (P-09). Both are the same component (`DownloadButton` in 2.3). On narrow screens, items 3 to 6 are gathered into Rspress's menu button.
+
+### 1.4 Home page
+
+The home pages at `/ja/` and `/en/` are laid out in this order.
+
+| Order | Section | Content | Based on |
+|---|---|---|---|
+| 1 | Hero | The icon and wordmark, a two-sentence introduction, the download button, a button to "First setup", the rename note, the mascot | The manual's hero (#371), the guide's `HomeActions` |
+| 2 | The app's screen | A screenshot of the main screen | The guide's `HomeShot` |
+| 3 | Three steps | "Download and install", "Connect to VRChat", "Send something". The steps lead to "Install", "First setup" and "Translation" in turn | The manual's quick start |
+| 4 | What it does | Five features. Each has a video, a two-sentence description and a link to its page | The guide's `HomeShowcase` |
+| 5 | Contents | The sidebar's six groups as cards, with links to each page | The manual's contents of 10 chapters |
+| 6 | Looking things up | Links to system requirements, platform support, troubleshooting, bug reports, release notes and privacy | The manual's "System requirements" and "Support" |
+
+- Section 6 carries no version numbers or numeric conditions. Numbers are written only in "System requirements" and "Platform support". The system requirements and the list of seven file kinds that the manual's home page kept in `content.mjs` go away (P-02).
+- The "Filter the chapters" box on the manual's home page goes away, because the site-wide search (the palette) searches the text as well (P-04).
+- The manual's "five pillars" (a description for each word of the subtitle) and its "Your guide" and "Reading the callouts" sections leave the home page. The subtitle stays in the wordmark, and how to read the faces and callouts goes at the end of "What is ASTAROT" (S-05).
+
+The language selection page at `/` keeps its current behavior; only its look moves to the new tokens.
+
+### 1.5 Handling of `/manual/`
+
+`/manual/` and the 10 chapter pages become redirect pages that send the reader to the matching guide page. GitHub Pages cannot set up server-side redirects, so the redirect pages are built as follows.
+
+- Each has a `<link rel="canonical">` that points to the destination.
+- A script in `<head>` picks the language the same way `/` does (`preferredLocale()` in `theme/locale.ts`) and moves there. When JavaScript does not run, a `<meta http-equiv="refresh">` inside `<noscript>` moves to the Japanese page. The current manual's HTML is in Japanese, so this sends the reader to a page in the same language.
+- The body also carries a link to the destination.
+
+| Manual path | Destination (under `/<language>/`) |
+|---|---|
+| `/manual/` | Home page |
+| `/manual/introduction` | `guide/introduction` |
+| `/manual/install` | `guide/install` |
+| `/manual/screens` | `guide/how-it-works` |
+| `/manual/translation` | `features/translation` |
+| `/manual/speech` | `features/transcription` |
+| `/manual/voice` | `features/tts` |
+| `/manual/chat-reading` | `features/chat-reading` |
+| `/manual/audio-and-vr` | `features/io-flow` |
+| `/manual/models` | `guide/models` |
+| `/manual/help` | `guide/troubleshooting` |
+
+`tools/check_site_manual.mjs` is rewritten into a check that the redirect pages go to the destinations in the table above and that the destination pages are built in both Japanese and English. The redirect pages stay with no end date (S-08).
+
+### 1.6 Page types
+
+Pages fall into four types, and each type puts the same things at its start and at its end. The text is rewritten bit by bit in per-feature PRs; this table is the shape those PRs bring the pages to.
+
+| Type | Pages | At the start | At the end |
+|---|---|---|---|
+| How-to | Install, First setup, Windows audio route, Linux audio route | What you need (`Alert`), the list of steps (`StepProgress`) | Pages to read next |
+| Feature | The 9 pages in `features/` | The route strip (now on the 5 pages of the voice and text features), what you need | How to check when it does not work, related pages |
+| Finding | Find what you want to do, Troubleshooting | An in-page table of contents | — |
+| Reference | System requirements, Platform support, Privacy, License and credits | The date written and the version covered | — |
+
+## 2. Components
+
+### 2.1 Rules for building them
+
+- They live in `site/theme/ui/`. As in shadcn/ui, one component is written in one `.tsx` file, and its parts are exported by name (`Card`, `CardHeader`, `CardTitle` and so on). shadcn/ui's React code is copied over, translated by the rules in DESIGN.md.
+- The root element of each part carries a `data-slot` with the same name as in shadcn/ui (`card`, `card-header` and so on).
+- Visual variants come in through the `variant` and `size` props. How the styles are written (CSS Modules, or vanilla-extract's `recipe()` as in the app) and whether the site shares components with the app's `src-ui/views/kit/` are decided in stage 4 (section 7 of ADR-016). Either way, colors, radii, spacing, text sizes and motion use only the tokens of section 3, and a check confirms that no component file holds a color value written directly.
+- Keyboard handling (menus, tabs, tooltips, dialogs) is gathered into our own hooks. The starting point is `OsTabs`, `Term` and the menu handling that stage 2 carried over to React. Native elements (`<button>`, `<dialog>`, `<details>`) come first. No headless component library is added (S-09).
+- The components' strings are gathered in `theme/i18n/ja.ts` and `theme/i18n/en.ts`, and a check confirms that the Japanese and English keys and interpolation variables match (P-12).
+- CSS features that are Baseline Widely available are used as they are; newer ones are used only with `@supports` and a fallback. The UI rules of AGENTS.md apply to the site as well. The site opens in the reader's browser, so it is built on the assumption that it can be read in Chrome, Edge, Firefox and Safari.
+- Translating shadcn/ui follows the rules in DESIGN.md's "Components". The site's 1 rem is 16 px, the same as Tailwind, so shadcn/ui's lengths can be read as they are (the app's 1 rem is 10 px). Colors do not take shadcn/ui's values; they are replaced with ASTAROT tokens through the mapping in 3.2. Where shadcn/ui and DESIGN.md differ (the roles of buttons, the focus ring), DESIGN.md is followed.
+- The shadcn/ui section of NOTICE.md is written to cover "the app's components". The first PR that aligns the site's components adds that the site's components are covered too.
+
+### 2.2 Base components (`theme/ui/`)
+
+| Component | Role | shadcn/ui component it follows | What it replaces |
+|---|---|---|---|
+| `Button` | Buttons for actions and links. Variants `primary`, `plain`, `quiet`, `link`; sizes `sm`, `default`, `lg`, `icon`. Given `href`, it renders an `<a>` | Button. Renders by `href` in place of `asChild` | The buttons in the home page's hero (now `HomeActions`), the manual's `.secondary` and `.more` |
+| `ButtonGroup` | Makes the main button and the button that opens a menu look like one pair | Button Group | The download button pair |
+| `Badge` | A short status mark (recommended, experimental feature) | Badge | `.chip` in the manual's contents, "Recommended" in the menu |
+| `Kbd` | Key names | Kbd, KbdGroup | How keys are written in the text, the `/` in the search box |
+| `Card` | One unit of content in a frame | Card (Header, Title, Description, Action, Content, Footer) | The features and contents on the home page, the manual's related pages and previous and next chapters |
+| `Item` | A row with a name, a one-line description and a destination | Item (Media, Content, Title, Description, Actions), ItemGroup | `{.feature-rows}`, the support list |
+| `Alert` | Callouts in the text | Alert (Title, Description) | Markdown callouts (`:::`), `ManualCallout`, `{.needs}` |
+| `Separator` | A dividing line | Separator | The line to the right of h2, separators in the bar |
+| `Spinner` | A loading mark | Spinner | The download button's display while it checks |
+| `DropdownMenu` | A menu that opens from a button | Dropdown Menu (Trigger, Content, Label, Group, Item, RadioGroup, RadioItem, Separator) | The two download menus, `ManualLangMenu`, `useMenu` |
+| `Tabs` | Switches content in the same place | Tabs (List, Trigger, Content) | The switching in `OsTabs` |
+| `Tooltip` | A short explanation of a term | Tooltip. Opening and closing on tap follows Popover | `Term`, `TermTooltip` |
+| `Dialog` | A window that opens over the page | Dialog | Enlarged screenshots, the frame of the search palette |
+| `InputGroup` | Puts an input and an icon or button in one frame | Input Group (Addon, Button, Input) | `CopyText`, the button that opens search |
+| `Command` | The contents of the search palette | Command (Input, List, Empty, Group, Item, Shortcut) | The look of `LocalSearchBox` |
+| `Empty` | What shows when there is nothing | Empty (Media, Title, Description, Content) | No search results, the 404 page |
+| `Breadcrumb` | Which group a page is in | Breadcrumb | The manual's "Back to contents" |
+| `Collapsible` | A fold (extra detail folded away) | Collapsible. Drawn with the native `<details>` | `::: details` |
+| `Table` | Tables | Table. Styles Markdown tables | Tables in `.vp-doc` |
+
+`Alert` comes in GitHub's five kinds (note, tip, important, warning, caution) plus the fold, and each kind gets a mascot face (S-06). How a callout is written in Markdown (keep the current `::: warning`, or move to GitHub's `> [!NOTE]` form) was not decided in S-06, so it is treated as a decision needed in the stage 4 PR. Whichever form is used, Markdown callouts are drawn with `Alert`.
+
+### 2.3 Site components (`theme/components/`)
+
+| Component | Built from | What it replaces |
+|---|---|---|
+| `DownloadButton` | `ButtonGroup`, `DropdownMenu`, `Badge`, `Spinner` | `DownloadButton.vue` and `ManualDownload.vue`. The menu lists, by OS, only the files in the latest release, with links to all versions and to the install steps. The manual's seven fixed slots go away (P-02) |
+| `OsTabs` | `Tabs` and the OS choice shared across all pages (`os.ts`) | `OsTabs.vue`. It keeps the current approach of leaving both contents in the page so that search finds them |
+| `Term` | `Tooltip` | `Term.vue`, `TermTooltip.vue` |
+| `CopyText` | `InputGroup`, `Button` | `CopyText.vue` |
+| `Callout` | `Alert` and a mascot face for each kind (S-06) | `ManualCallout.vue`, the custom blocks |
+| `StepProgress` | Our own. shadcn/ui has no matching component | `StepProgress.vue`. Its colors and motion move to tokens |
+| `RouteStrip` | Our own | `RouteStrip.vue`. It does not color by direction; it marks only this page's step in Lilac (S-04) |
+| `FeatureShowcase` | `Card` and videos | `HomeShowcase.vue` |
+| `QuickStart` | Numbered `Card`s | The manual's quick start |
+| `ContentsGrid` | `Card`, `Item` | The manual's contents |
+| `MascotStage` | Our own (section 4) | The mascot in the manual's hero |
+| `ShotZoom` | `Dialog` | `zoom()` in `theme/index.ts` |
+| `PagePager` | `Card`, following the previous and next links of shadcn/ui's Pagination | The theme's previous and next page links, the manual's previous and next chapters |
+
+The "What it replaces" column gives the names of the Vue components as of 2026-11-19. Stage 2 first carries them over to React components with the same roles. Stages 4 and 5 rebuild them on top of the base components of 2.2.
+
+### 2.4 Components of the Rspress default theme
+
+The top bar, the sidebar, the in-page table of contents, the narrow-screen menu and the search screen keep using the components of Rspress's default theme, and tokens and a minimum of CSS match their look. Our own components go into the layout slots (`afterHeroActions`, `afterHero`, `beforeDocContent`, `bottom` and others). The shadcn/ui components they follow are these.
+
+| Rspress component | shadcn/ui component it follows |
+|---|---|
+| `Nav` (the top bar) | Navigation Menu |
+| `Sidebar` | Sidebar (Group, GroupLabel, Menu, the selected state of MenuButton) |
+| `Outline` (the in-page table of contents) | The small size of Sidebar |
+| `NavHamburger` (narrow screens) | Sheet |
+| `SearchPanel` (the search screen) | Command, Empty |
+
+Rspress components are not copied and modified (`rspress eject`), because a copy has to be brought back in line every time Rspress is upgraded. The copy of VitePress's search (`LocalSearchBox.vue`, P-11) goes away in stage 2.
+
+## 3. Color and type tokens
+
+### 3.1 Layers
+
+Tokens are kept in three layers.
+
+1. Brand colors: Dark Plum `#261633`, Lilac `#A47AF5`, Off-White `#FAFAFC`, White (`docs/brand/README.md`).
+2. Role tokens: the names of DESIGN.md's `colors` with `--a-` in front (`--a-canvas`, `--a-surface` and so on). Components use this layer only. `--a-` is the prefix of the current manual's tokens.
+3. Rspress variables (`--rp-c-*`): they take their values from the role tokens. Through this layer, the components of Rspress's default theme get the same palette.
+
+The dark values are DESIGN.md's `colors` as they are. So that copying values from DESIGN.md cannot introduce mismatches, `tools/site_tokens.mjs` writes the dark values of `site/theme/tokens.css` from DESIGN.md's front matter, and the Pages workflow runs it with `--check` (S-02).
+
+### 3.2 Color mapping
+
+The light values are a proposal made by the rule in DESIGN.md's "Colors". Where the brand has a color that fits the role, it is used as it is; otherwise only the lightness of Dark Plum or Lilac changes (OKLCH hue within 3°, chroma no higher than the original's). The contrast values were calculated on 2026-11-19 and are against the canvas, the surface and the rail.
+
+| DESIGN.md name | Site token | shadcn/ui role | Rspress variable (proposed) | Dark (DESIGN.md) | Light (proposed) |
+|---|---|---|---|---|---|
+| `canvas` | `--a-canvas` | `background` | `--rp-c-bg` | `#261633` | `#fafafc` (Off-White) |
+| `rail` | `--a-rail` | `sidebar` | `--rp-c-bg-soft` | `#1c0f27` | `#f6f1fa` (Dark Plum, lightened) |
+| `surface` | `--a-surface` | `card`, `popover` | `--rp-c-bg-mute` | `#332341` | `#ffffff` (White) |
+| `border` | `--a-border` | `border` | `--rp-c-divider-light` | `#4e3d5d` | `#dfd7e8` (Dark Plum, lightened) |
+| `field-border` | `--a-field-border` | `input` | `--rp-c-divider` | `#877a94` | `#887995` (3.62 to 4.03:1) |
+| `text` | `--a-text` | `foreground` | `--rp-c-text-1` | `#fafafc` | `#261633` (Dark Plum, 15.17 to 16.87:1) |
+| `secondary-text` | `--a-secondary-text` | — | `--rp-c-text-2` | `#cfc4d6` | `#544760` (7.72 to 8.58:1) |
+| `description-text` | `--a-description-text` | `muted-foreground` | `--rp-c-text-3` | `#aba0b5` | `#6a5d75` (5.50 to 6.11:1) |
+| `primary` | `--a-primary` | `primary` | `--rp-c-brand` | `#a47af5` | `#a47af5` (Lilac. 3.02:1 against the canvas) |
+| (Text on Lilac) | `--a-on-primary` | `primary-foreground` | — | `#261633` | `#261633` (5.37:1) |
+| `primary-hover` | `--a-primary-hover` | `primary`, darker | `--rp-c-brand-dark` | `#b897f7` | `#9c72ed` (Lilac, darkened. Text on it 4.85:1) |
+| `state-active` | `--a-state-active`, `--a-link` | — | `--rp-c-link` | `#b797f8` (6.03 to 7.67:1) | `#7046b6` (Lilac, darkened, 5.83 to 6.48:1) |
+| `focus` | `--a-focus` | `ring` | — | `#d9c8fc` | `#7e55c7` (4.71 to 5.24:1) |
+| `state-warning` | `--a-state-warning` | — | — | `#d4a162` | `#865813` (5.52 to 6.14:1) |
+| `state-failed` | `--a-state-failed` | `destructive` | — | `#e4938e` | `#944a47` (5.67 to 6.31:1) |
+| `readout-rule` | `--a-readout-rule` | — | — | `#a47af5` | `#a47af5` |
+
+- The link color (`--a-link`) takes the same value as `state-active` in both dark and light. DESIGN.md uses Lilac for primary actions, selected navigation and focus. A link is an action that picks a destination, so it belongs to the Lilac family.
+- The light `primary-hover` gets darker, the opposite of dark. Lightening it would drop the button's contrast against the background it sits on below 3:1.
+- The light `state-warning` and `state-failed` follow how DESIGN.md makes the dark ones: the same lightness as the light `state-active` (0.50) and a low chroma (0.10).
+- Of the manual's current light values, `--a-link` (`#6a3fd2`) and `--a-trouble` (`#8a4a9e`) do not follow this rule ([inventory](inventory.md#3つの配色が並んでいる)). They are replaced with the values in the table above.
+- The values are settled in stage 3, after the site gets a check (hue, chroma, contrast) on the same criteria as `brandPalette.test.js`.
+
+Light and dark follow the OS setting, and there is a switch as well (S-01).
+
+### 3.3 Typography
+
+| Role | Current guide | Proposal | Relation to DESIGN.md |
+|---|---|---|---|
+| Typeface | The list of fonts on the reader's PC (`custom.css`) | Use the guide's current list everywhere. Outfit, the manual's heading font, is not used (S-07) | No web fonts are loaded (DESIGN.md's "Do's and Don'ts") |
+| Body | 16 px | 16 px, line height 1.75 | The 1.6 rem step (`body-large`) |
+| Small text (tables, callout body text) | 15 px | 15 px | The 1.5 rem step |
+| Supporting text (captions, marks) | — | 12 px | The 1.2 rem step (`description`) |
+| h3 | 18 px | 18 px | The 1.8 rem step (`title`) |
+| h2 | 22 px | 24 px. The current thin line drawn to the right stays | The 2.4 rem step. 22 px falls between steps, so it moves to 24 px, which is easier to tell apart from h3's 18 px. The line takes the form of the settings' `category-heading` |
+| h1 | 30 px | 30 px | Outside the app's scale. Kept as the heading of a reading surface |
+
+Only headings larger than 24 px take sizes that are not on the app's scale (12, 13, 14, 15, 16, 18, 20, 24 px). The product name on the home page is shown with the icon and wordmark images, as in the manual's hero. The size of headings set in text is decided in stage 6b. A Japanese line stays at about 40 characters, as now (the text column is 640 px).
+
+### 3.4 Radius, spacing and motion
+
+| Kind | Proposal | Change from now |
+|---|---|---|
+| Radius | Steps of 2, 4, 8 and 12 px (DESIGN.md's `rounded`). Buttons and inputs 8 px, cards and dialogs 12 px, `Badge` 4 px | Radii that are not on the scale go away (the manual's 18 px, 14 px, 10 px, 7 px, 6 px and 5 px; the guide components' 14 px, 10 px, 7 px, 6 px and 5 px) |
+| Spacing | Steps of 4, 8, 16, 24 and 40 px (DESIGN.md's `spacing`), plus 64 px and 96 px between sections of a page | — |
+| Motion | 120 ms and 220 ms, `--a-ease` and `--a-ease-settle` (the same values as DESIGN.md's "Motion"). 0 ms with reduced motion | Brings the guide's 140 ms and 240 ms and the manual's 140 ms in line |
+| Focus | A 2 px ring in `--a-focus`, drawn 2 px away | Removes the `#a9ccff` written directly in the guide's components |
+
+## 4. Mascot
+
+### 4.1 Candidate places
+
+| Candidate | Motion | Recommended | Reason |
+|---|---|---|---|
+| M-1 The home page's hero (right side) | The animated model | Yes | The position approved in #371. It is the face of the site, and it does not get in the way of reading the text |
+| M-2 Callouts in the text (`Callout`) | Still faces | Yes (S-06) | The current eight faces are used as marks for the kinds. The faces do not carry meaning on their own; the title's words name the kind |
+| M-3 The 404 page and no search results (`Empty`) | A still face, or one short animation played once | Yes | These are the places where the reader is at a dead end. They do not get in the way of the text |
+| M-4 The top of "Troubleshooting" | A still face | Depends | The "Dizzy" face fits. An image added at the top of the page pushes the start of the text down |
+| M-5 A guide that is always in the corner of every page | The animated model | No | It covers text on narrow screens, and its motion catches the eye on every read |
+| M-6 A happy face after the download button is pressed | One animation played once | No | The site does not know whether the download finished. DESIGN.md uses motion that shows success only when something has actually succeeded |
+
+### 4.2 Approach to building it in
+
+- It is drawn by one component, `MascotStage`. The built HTML contains a still image (one with the same role as the current `mascot-hero.webp`), and the first paint uses that image.
+- The files needed to play the animated model (the runtime and the model) are loaded later, and only when all of the following hold.
+  - Reduced motion (`prefers-reduced-motion`) is off
+  - The mascot is on screen (`IntersectionObserver`)
+  - The page's first paint has finished
+- If it keeps moving for more than 5 seconds, it gets a button that stops it (WCAG 2.2 success criterion 2.2.2). The stopped state is saved.
+- The motion carries no meaning. The words in the speech bubble are placed as HTML text, and the alternative text (`alt`) describes how the mascot looks, as now.
+- It makes no sound.
+- Placement starts with M-1. M-2 and M-3 use still faces, so they can go in at stage 4 without waiting for the animated model.
+
+### 4.3 Formats and acceptance conditions
+
+The animated model's format follows what the separate work delivers. The formats differ as follows.
+
+| Format | Handling on the site | What to check |
+|---|---|---|
+| Video with transparency (WebM and MP4) | Needs no runtime. Plays the same way as the home page videos (`HomeShowcase`) | Support for transparency differs between browsers (Safari needs HEVC with transparency) |
+| Rive (`.riv`) | The runtime is loaded later. State changes can switch the face | The runtime's size and license |
+| Lottie (JSON) | The runtime is loaded later | The runtime's size and license |
+| Live2D | Needs a dedicated SDK | The SDK's license and distribution terms |
+| 3D (glTF or VRM) | Needs a rendering library such as three.js | The amount loaded and the load on the GPU |
+| Image sequence | Needs no runtime | The amount of images |
+
+Whatever the format, the following are checked before it is built in (S-10).
+
+- A cap on the transfer size. The amount the hero loads first must not grow
+- The licenses of the model and the runtime are recorded in `NOTICE.md` and `docs/voice-stack/licensing.md`
+- If the assets were made with generative AI, the site shows what the tool requires (a credit, or a statement that they were made with AI)
+- Where the originals of the assets live. The originals go in `docs/brand/astarot/mascot/`, and the site gets copies of the exported files (S-11). The current face images (`site/public/manual/mascot/`) also move to `site/public/mascot/` in the stage that turns the manual into redirect pages
+
+## 5. Staged rollout
+
+Each stage is one to three PRs. Every PR passes the build and the four Pages checks, and is merged in a state that can be published on its own.
+
+| Stage | Content | Prerequisite | What changes when it is published |
+|---|---|---|---|
+| 0 | This proposal (documents only) | — | Nothing |
+| 1 | Fix wording that breaks the rules (P-10). Also fix the old page names in `content.mjs` (#704) | None. Can run alongside the other stages | Text only |
+| 2 | Moving the base (ADR-016). Replace VitePress with Rspress, keeping the Japanese and English URLs, section anchors, search and publishing to GitHub Pages. Pages that use components inside Markdown become `.mdx`, and the components of the pages and the home page are carried over to React. The search and heading link checks are adjusted to Rspress's output. Whether `/manual/` becomes redirects in this stage is decided in the stage 2 PR | None | The base. The look keeps the current components' shapes, on top of Rspress's theme |
+| 3 | Tokens. `tokens.css` (dark and light), the `--rp-c-*` mapping, replacing colors with tokens, the palette check, updating DESIGN.md's "The user guide (site/)" | Stage 2 | From navy to Dark Plum. A light scheme that follows the OS setting, and the switch |
+| 4 | Base components (`Button`, `Badge`, `Kbd`, `Card`, `Item`, `Alert`, `Separator`, `Spinner`, `Collapsible`, `Table`). Replace the look of the current components, and draw Markdown callouts with `Alert`. Put the still faces in M-2 and M-3 | Stage 3 | The look of callouts and buttons |
+| 5 | Interactive components (`DropdownMenu`, `Tabs`, `Tooltip`, `Dialog`, `InputGroup`). Make `DownloadButton` one component, and rebuild `OsTabs`, `Term`, `CopyText`, `ShotZoom` and the language menu | Stage 4 | Menus, tabs, tooltips |
+| 6 | Information architecture. 6a: the sidebar and the top bar (URLs do not change). 6b: merge the home pages. 6c: turn `/manual/` into redirect pages and remove the manual's components (there is no 6c if stage 2 made the redirects) | Stage 5 | The order and the home page. `/manual/` turns into redirects |
+| 7 | Make the look of the search screen follow `Command` and `Empty` (style Rspress's `SearchPanel`) | Stage 4 | The look of search |
+| 8 | Images and videos. Retake the screenshots in the Dark Plum app (`tools/docs_screenshots.py`), match `site/motion/src/theme.ts` to the tokens and export the videos again, and fix the colors of the How voice and text flow diagrams and of the route strip | Stage 3. The app's screens can be captured in Dark Plum | Images and videos |
+| 9 | Building in the mascot (`MascotStage`, M-1) | Stage 6b. The animated model meets the conditions of 4.3 | The mascot on the home page moves |
+
+- Stage 1 can ship without waiting for the other stages. It touches the same pages as #673, so it is merged after #673.
+- From stage 3, the palette has the same source of truth as the app's. From stage 3 until stage 8, the screenshots and videos still show the navy app. The stages go in numeric order, and stage 8 is not moved up to right after stage 3 (decided on 2026-11-19; by the numbers at the time of the decision, stages 7 and 2).
+- The information architecture of stage 6 is rearranged after the components are in place, so that the home page is rebuilt with the new components only once.
+- Stage 2 removes VitePress, so the move to VitePress 2 (option B of #690) does not happen. Stages 3 to 7 are built to rely on layout slots and CSS variables, not on Rspress internals.
+
+### What to check at each stage
+
+- `npm run build` in `site/`, and the four checks of the Pages workflow
+- From stage 3: the palette check (hue, chroma, contrast)
+- From stage 4: the check that component files hold no color values written directly, and the check of the Japanese and English string keys
+- In a browser: at widths of 360 px, 768 px and 1280 px, nothing overflows sideways. Menus, tabs, tooltips, dialogs and search work with the keyboard alone. Focus is visible. Motion stops with reduced motion. Both light and dark
+- Browser engines: besides Chromium-based browsers and Firefox, WebKit-based ones (Safari) are checked too. Whatever cannot be checked locally is written as "not verified" in the PR
+
+## Decisions made
+
+On 2026-11-19, all of the following went to option A, the one this document recommended. The rejected options are kept for when the same question is considered again.
+
+| Number | What was decided | Option chosen | Options rejected | Reason |
+|---|---|---|---|---|
+| Base | The site's base | Move to Rspress (React) (2026-11-20) | Keep VitePress and build the components in Vue | The app's UI and shadcn/ui are in React, so the components and what is learned about them are consolidated on React. Details in [ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md) |
+| Direction | How the review proceeds | Merge the guide and the manual, and rework the site in stages (8 stages when decided; on 2026-11-20 moving the base was added as stage 2, making 9) | Write the text in the manual's chapters and shrink the guide. Keep both and only match their look | The text is in the guide, and released versions of the app open guide URLs. The manual's English pages cannot be seen by search engines or by readers without JavaScript |
+| Order | The order of the stages | As numbered in section 5. The images and videos stage is not moved up to right after the tokens stage (stages 7 and 2 by the numbers at the time of the decision, now stages 8 and 3) | Move the images and videos stage up to right after the tokens stage | Between the tokens stage and the images and videos stage, images of the navy app sit on Dark Plum pages. The images and videos stage needs the app's screens to be capturable in Dark Plum |
+| S-01 | Handling of light and dark | Follow the OS setting, and add a switch as well | Dark only (the current guide). Follow the OS setting with no switch (the current manual) | The manual approved in #371 supports both light and dark. Readers can pick light when they read long text in a bright place. Dark uses the same values as the app, so in dark the look matches the app |
+| S-02 | Whether to write the dark values from DESIGN.md | Write them with `tools/site_tokens.mjs` and run `--check` in CI | Copy them by hand | It keeps the site from being left with old values when the app's palette changes. The current state, still navy (P-05), is an example |
+| S-03 | Sidebar groups (1.2) | Six groups matched to the names of the app's settings menu | Keep the current five and only fix the order | Readers can look things up by the same names as in the app |
+| S-04 | What colors mean in the route strip and the diagrams | The strip does not color by direction and marks only this page's step in Lilac. The direction is given by the strip's name ("You to others"). The How voice and text flow diagrams use the same line colors as the app's "Inputs and outputs" diagram (voice, chat, speech) | Keep the colors by direction and only move them toward the brand | Lilac then means what is selected (this page), as in the app. The diagrams read in the same color vocabulary as the app's screen. The direction is already written in the strip's names, so dropping the color loses no meaning |
+| S-05 | The manual home page's "five pillars" and its "Your guide" and "Reading the callouts" sections | Remove both from the home page. The subtitle stays in the wordmark, and how to read the faces and callouts goes at the end of "What is ASTAROT" | Keep them on the home page | The home page gets shorter and shows the contents and the feature introduction first. The five pillars overlap with the feature introduction |
+| S-06 | Callout kinds and faces | GitHub's five kinds (note, tip, important, warning, caution) plus the fold. Each kind gets a face | The manual's six kinds (including "when it does not work"). No faces | They match the kinds VitePress can write in Markdown (the reason as of 2026-11-19; how to write them in Rspress is checked in stage 4). "When it does not work" can be handled by a section of the page types (1.6). How they are written in Markdown is not decided (2.2) |
+| S-07 | Typeface for headings | The same typeface as the body | Outfit only on PCs that have it | The shape of headings no longer depends on the reader's PC. The brand typeface can be shown in the wordmark (an image) |
+| S-08 | How long to keep the `/manual/` redirect pages | Keep them with no end date | Keep them until the next stable release, then remove them | Nothing in the repository links to `/manual/` (checked on 2026-11-19). But it has been public since 0.5.0, so readers may come from bookmarks or search engines. The redirect pages are small, and keeping them adds no work |
+| S-09 | Whether to write the behavior of the interactive components ourselves | Our own composables (hooks in React) and native elements | Add a headless component library such as Reka UI | The site needs four interactions (menus, tabs, tooltips, dialogs), and the current code has a base for them. It adds no dependencies or license checks either |
+| S-10 | Acceptance conditions for the animated mascot | The conditions of 4.3 (transfer size, licenses, the generative AI notice, where the originals live). The format is decided in stage 9 against these conditions, once the deliverable is known | — | As of 2026-11-19, the animated model's format cannot be told from this repository |
+| S-11 | Where the originals of the mascot's assets live | `docs/brand/astarot/mascot/` | Only inside `site/` | Like the icon and the logo, they can be managed in one place as brand assets |
+
+---
+
+# マニュアルサイトの再設計の提案（日本語版）
 
 利用者向けのサイト（`site/`）の作りを見直す設計です。ガイドとマニュアルを1つのサイトにまとめ、見た目をアプリと同じASTAROTの配色にそろえ、部品をshadcn/uiの設計にならって作り直します。作り替えは9段に分け、1つの大きなPRにはしません。
 
-- 状態: 方針は決定済み（2026-11-19）。全体の方向、段の順序、S-01〜S-11は、すべてこの文書で推したA案に決まりました（[決まったこと](#決まったこと)）。実装は5章の段1から順に進めます。2026-11-20に、土台をVitePressからRspress（React）に替えると決まりました（[ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md)）。決まったことの表に「土台」を足し、2章、3章、5章をRspressに合わせました。土台を替える段を段2として足したので、前の段2から段8は段3から段9になりました。
+- 状態: 方針は決定済み（2026-11-19）。全体の方向、段の順序、S-01〜S-11は、すべてこの文書で推したA案に決まりました（[決まったこと](#決まったこと)）。実装は5章の段1から順に進めます。2026-11-20に、土台をVitePressからRspress（React）に替えると決まりました（[ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md)）。決まったことの表に「土台」を足し、2章、3章、5章をRspressに合わせました。土台を替える段を段2として足したので、前の段2から段8は段3から段9になりました。段2は#761で入りました。2026-11-22に段3（トークン）を実装しました。3.2のライトの値のうち`primary-hover`は、検査を足して1段だけ彩度を下げた`#9c72ec`にしました。Rspressの`--rp-c-brand`は文字として描かれるので、`primary`ではなく`state-active`に割り当てました。
 - 前提: [棚卸し](inventory.md)。問題の番号（P-01など）は棚卸しの番号です。
 - 関係: #371（マニュアルの新設）、#554（アプリの情報設計）、#680（部品をshadcn/uiに寄せる方針）、#673（0.6.0に向けたガイドの更新）、#690（サイトのVite）
 

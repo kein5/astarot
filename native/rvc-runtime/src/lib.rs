@@ -1,4 +1,4 @@
-//! Inference-only RVC voice conversion for VRCT-VOX.
+//! Inference-only RVC voice conversion for ASTAROT.
 //!
 //! The design is tracked in issue #275.
 //! Voice models (`.pth`) and retrieval indexes (`.index`) are read as they are; the three

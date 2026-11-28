@@ -10,9 +10,9 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use common::{case, case_json, log_spectral_distance, npy, relative_error};
-use rvc_runtime::noise::Generator;
-use rvc_runtime::stream::BlockTrace;
-use rvc_runtime::{Converter, Device, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Options, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
+use astarot_rvc_runtime::noise::Generator;
+use astarot_rvc_runtime::stream::BlockTrace;
+use astarot_rvc_runtime::{Converter, Device, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Options, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
 
 fn serial() -> MutexGuard<'static, ()> {
     static LOCK: Mutex<()> = Mutex::new(());
@@ -171,7 +171,7 @@ fn streaming_stays_close_to_offline_conversion() {
     let start = 100 * per_frame;
     let distance = |output: &[f32], layout: &Layout| log_spectral_distance(&output[delay(layout) + start..delay(layout) + end], &reference[start..end]);
 
-    let mut sola = rvc_runtime::stream::Sola::new(recorded.crossfade * per_frame, recorded.search * per_frame, recorded.block * per_frame);
+    let mut sola = astarot_rvc_runtime::stream::Sola::new(recorded.crossfade * per_frame, recorded.search * per_frame, recorded.block * per_frame);
     let joined: Vec<f32> = (0..blocks).flat_map(|block| sola.join(&npy(&folder.join(format!("output_{block}.npy"))).f32()).0).collect();
     let baseline = distance(&joined, &recorded);
     println!("METRIC stream vs offline: reference real-time output (block {} ms, extra {} ms, no input filter): log-spectral distance {baseline:.2} dB", recorded.block * 10, recorded.extra * 10);
@@ -212,9 +212,9 @@ fn causal_input_filter_is_close_to_the_zero_phase_one() {
     let _guard = serial();
     let Some(folder) = case("stream_saisho_48k") else { return };
     let input: Vec<f64> = npy(&folder.join("input_16k.npy")).f64();
-    let zero_phase: Vec<f32> = rvc_runtime::filter::filtfilt(&rvc_runtime::filter::input_highpass(), &input).iter().map(|&x| x as f32).collect();
+    let zero_phase: Vec<f32> = astarot_rvc_runtime::filter::filtfilt(&astarot_rvc_runtime::filter::input_highpass(), &input).iter().map(|&x| x as f32).collect();
     let mut causal = input.clone();
-    rvc_runtime::filter::CausalFilter::new(rvc_runtime::filter::input_highpass()).process(&mut causal);
+    astarot_rvc_runtime::filter::CausalFilter::new(astarot_rvc_runtime::filter::input_highpass()).process(&mut causal);
     let causal: Vec<f32> = causal.iter().map(|&x| x as f32).collect();
     // Past the first 0.1 s, where the causal filter starts from rest.
     let start = 1_600;

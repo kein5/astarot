@@ -1,13 +1,23 @@
 // The guide's theme: Rspress's default theme with the guide's own parts in its layout slots.
 // Parts that pages use in Markdown (Term, CopyText, OsTabs, StepProgress, Needs, FeatureRows,
 // PageToc, ManualRedirect) are registered in rspress.config.ts (`markdown.globalComponents`).
-import { Head, useLang, usePage } from '@rspress/core/runtime'
-import { Layout as BaseLayout, HomeLayout as BaseHomeLayout, type HomeLayoutProps } from '@rspress/core/theme-original'
+import { Head, useLang, usePage, withBase } from '@rspress/core/runtime'
+import {
+  Layout as BaseLayout,
+  HomeLayout as BaseHomeLayout,
+  HomeBackground,
+  HomeFeature,
+  HomeFooter,
+  HomeHero,
+  type HomeLayoutProps,
+} from '@rspress/core/theme-original'
 import { useEffect } from 'react'
 import { HomeActions, HomeShot, HomeShowcase } from './components/Home'
+import { HomeMascot } from './components/HomeMascot'
 import { RouteStrip } from './components/RouteStrip'
 import { TermTooltip } from './components/TermTooltip'
 import { LOCALE_KEY } from './lib/locale'
+import './tokens.css'
 import './custom.css'
 
 export * from '@rspress/core/theme-original'
@@ -66,23 +76,37 @@ function DocumentListeners() {
 }
 
 const FOOTER = {
-  ja: {
-    message: 'ASTAROT（旧名VRCT-VOX）はVRCTの非公式な派生版です。VRChat Inc.とは関係ありません。',
-    copyright: 'MIT License · 元のVRCTの著作権表示を保持しています',
-  },
   en: {
     message: 'ASTAROT (formerly VRCT-VOX) is an unofficial derivative of VRCT. It is not affiliated with VRChat Inc.',
     copyright: 'MIT License · The original VRCT copyright notice is retained',
+    privacy: 'Privacy',
+    license: 'License and credits',
+    links: 'About the guide',
+  },
+  ja: {
+    message: 'ASTAROT（旧名VRCT-VOX）はVRCTの非公式な派生版です。VRChat Inc.とは関係ありません。',
+    copyright: 'MIT License · 元のVRCTの著作権表示を保持しています',
+    privacy: 'プライバシー',
+    license: 'ライセンスと謝辞',
+    links: 'ガイドについて',
   },
 }
 
-// The footer of the home pages, in the page's language (the default theme has one for all).
-function SiteFooter() {
-  const words = useLang() === 'ja' ? FOOTER.ja : FOOTER.en
+function SiteFooter({ home = false }: { home?: boolean }) {
+  const lang = useLang() === 'ja' ? 'ja' : 'en'
+  const words = FOOTER[lang]
   return (
     <footer className="site-footer">
-      <p>{words.message}</p>
-      <p>{words.copyright}</p>
+      <nav aria-label={words.links}>
+        <a href={withBase(`/${lang}/guide/privacy`)}>{words.privacy}</a>
+        <a href={withBase(`/${lang}/guide/license`)}>{words.license}</a>
+      </nav>
+      {home && (
+        <>
+          <p>{words.message}</p>
+          <p>{words.copyright}</p>
+        </>
+      )}
     </footer>
   )
 }
@@ -103,7 +127,19 @@ function PageTitle() {
 // The hero's buttons, the download button first (front matter `heroActions`). Rspress 2.1.3's
 // Layout does not pass afterHeroActions on to the home layout, so the home layout takes it here.
 function HomeLayout(props: HomeLayoutProps) {
-  return <BaseHomeLayout {...props} afterHeroActions={<HomeActions />} />
+  if (import.meta.env.SSG_MD) return <BaseHomeLayout {...props} />
+  return (
+    <>
+      <HomeBackground />
+      {props.beforeHero}
+      <HomeHero afterHeroActions={<HomeActions />} image={<HomeMascot />} />
+      {props.afterHero}
+      {props.beforeFeatures}
+      <HomeFeature />
+      {props.afterFeatures}
+      <HomeFooter />
+    </>
+  )
 }
 
 export function Layout() {
@@ -113,7 +149,8 @@ export function Layout() {
       afterHero={<HomeShot />}
       // The features, each beside a short loop of what it does (front matter `showcase`).
       beforeFeatures={<HomeShowcase />}
-      afterFeatures={<SiteFooter />}
+      afterFeatures={<SiteFooter home />}
+      afterDocFooter={<SiteFooter />}
       // Feature pages open with their part of the voice and text route (front matter `route`).
       beforeDocContent={<RouteStrip />}
       bottom={

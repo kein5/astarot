@@ -3,7 +3,13 @@ set -eu
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 export APPDIR
 # Keep the host environment before linuxdeploy's GUI hooks modify it.
+# A record that is already there stays: the app restarting itself after an in-app update starts
+# this image with the GUI's environment, and recording that again would give the programs the app
+# starts the old mount's paths as the host's (#1016).
 for name in LD_LIBRARY_PATH PATH GIO_EXTRA_MODULES GSETTINGS_SCHEMA_DIR GTK_PATH GTK_EXE_PREFIX GTK_DATA_PREFIX GTK_IM_MODULE_FILE GTK_THEME GDK_PIXBUF_MODULE_FILE GI_TYPELIB_PATH XDG_DATA_DIRS GDK_BACKEND WEBKIT_DISABLE_DMABUF_RENDERER GTK_IM_MODULE XMODIFIERS; do
+    recorded=
+    eval 'recorded=${ASTAROT_APPIMAGE_HOST_'"$name"'_SET+x}'
+    [ "$recorded" = x ] && continue
     eval 'present=${'"$name"'+x}'
     eval 'value=${'"$name"'-}'
     export "ASTAROT_APPIMAGE_HOST_${name}_SET=$present"

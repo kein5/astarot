@@ -1,12 +1,12 @@
-# vrct-ops
+# astarot-ops
 
 バックエンドの運用基盤を受け持つ Rust クレートです。Issue #284 の範囲で、次の Python モジュールの置き換え先です。
 
 | Python | Rust |
 |---|---|
-| `src-python/models/model_downloads/`（モデルの取得、サイズと SHA-256 の検証、進捗、中断と後片付け） | `downloads` |
-| `src-python/models/telemetry/`（利用状況イベント `app_started` と `error`） | `telemetry` |
-| `src-python/models/watchdog/`（UI からの feed が途絶えたときにバックエンドを止める） | `watchdog` |
+| [`src-python/models/model_downloads/`](https://github.com/kein5/astarot/tree/v0.5.2/src-python/models/model_downloads)（モデルの取得、サイズと SHA-256 の検証、進捗、中断と後片付け） | `downloads` |
+| [`src-python/models/telemetry/`](https://github.com/kein5/astarot/tree/v0.5.2/src-python/models/telemetry)（利用状況イベント `app_started` と `error`） | `telemetry` |
+| [`src-python/models/watchdog/`](https://github.com/kein5/astarot/tree/v0.5.2/src-python/models/watchdog)（UI からの feed が途絶えたときにバックエンドを止める） | `watchdog` |
 
 ## アプリとの接続
 

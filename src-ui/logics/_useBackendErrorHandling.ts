@@ -1,4 +1,6 @@
 import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent";
+import { useRecognitionFix } from "./transcription/useRecognitionFix";
+import { recognitionFixOf } from "./transcription/recognitionFix";
 import { useTranslationSetup } from "./translation/useTranslationSetup";
 import { useOcrSetup } from "./ocr/useOcrSetup";
 import { createElement } from "react";
@@ -32,8 +34,6 @@ import {
     useAdvancedSettings,
 } from "@logics_configs";
 import { ui_configs } from "./ui_configs";
-import { clearLegacyConsentPending, clearLegacyDownloadFailure, legacyDownloadFailure } from "./configs/legacyModelConsent";
-import * as noticeStyles from "./common/noticeAction.css.ts";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./configs/cloudTranscription";
 import type { CloudTranscriptionBase } from "./configs/cloudTranscription";
 
@@ -46,6 +46,9 @@ export interface BackendErrorReport {
     data: unknown;
     endpoint: string;
     result: unknown;
+    // A field waits for this answer and says the refusal itself (fieldErrors.ts); the receiving
+    // side has already ended that wait.
+    saidInline?: boolean;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
@@ -77,7 +80,7 @@ const CLOUD_TRANSCRIPTION_BASES = Object.fromEntries(CLOUD_TRANSCRIPTION_ENGINES
 const cloudTranscriptionBase = (key: string | undefined): CloudTranscriptionBase | undefined =>
     key === undefined ? undefined : CLOUD_TRANSCRIPTION_BASES[key];
 
-const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "message_box_ratio"]);
+const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "settings_window_geometry", "message_box_ratio"]);
 
 const ENDPOINT_URL_ERRORS = new Set([
     "CONNECTION_LMSTUDIO_URL_INVALID",
@@ -102,30 +105,16 @@ const RetiredWeightNotice = ({ retired, selected }: { retired: unknown; selected
     return t("config_page.translation.ctranslate2_weight_type.retired_reset", { weight_type: name(retired), selected: name(selected) });
 };
 
-type DownloadFailureNoticeProps = {
-    titleKey: string;
-    reasonKey: string;
-    onRetry: (() => void) | null;
-};
-
-// A failed download says why and offers to try again where the user is. Retrying
-// reopens the review for that model, so the download still starts from consent.
-const DownloadFailureNotice = ({ titleKey, reasonKey, onRetry }: DownloadFailureNoticeProps) => {
-    const { t } = useI18n();
-    return createElement("span", { className: noticeStyles.notice },
-        createElement("span", null, `${t(titleKey)} ${t(reasonKey)}`),
-        onRetry && createElement("button", { type: "button", className: noticeStyles.action, onClick: onRetry }, t("common_error.retry_download")));
-};
-
 export const _useBackendErrorHandling = () => {
     const { t, i18n } = useI18n();
-    const { showNotification_Error, showNotification_Warning, dismissNotification } = useNotificationStatus();
+    const { showNotification_Error: notifyError, showNotification_Warning } = useNotificationStatus();
     const { asyncStdoutToPython } = useStdoutToPython();
     const { updateIsSoftwareUpdating } = useIsSoftwareUpdating();
 
     const { updateMicThresholdCheckStatus, updateSpeakerThresholdCheckStatus } = useVolume();
     const transcription = useTranscription();
     const transcriptionConsent = useTranscriptionConsent();
+    const recognitionFix = useRecognitionFix();
     const translationSetup = useTranslationSetup();
     const ocrSetup = useOcrSetup();
     const {
@@ -204,7 +193,11 @@ export const _useBackendErrorHandling = () => {
         updateIsLMStudioConnected,
     } = useLLMConnection();
 
-    const errorHandling_Backend = ({error_code, message, data, endpoint, result}: BackendErrorReport) => {
+    const errorHandling_Backend = ({error_code, message, data, endpoint, result, saidInline = false}: BackendErrorReport) => {
+        // A settings field that saves by itself says the refusal of its own save under the field
+        // (#1111), so its notice is not shown as well. Everything else here, such as putting back
+        // the kept value, runs.
+        const showNotification_Error: typeof notifyError = saidInline ? () => undefined : notifyError;
         // The sidecar's `message` is English for the log; show the UI language
         // when a translation exists for the code.
         const key = `backend_errors.${error_code}`;
@@ -235,6 +228,17 @@ export const _useBackendErrorHandling = () => {
                 // Nothing was started or stopped; only the switch has to show what is saved.
                 showNotification_Error(localized, { category_id: error_code });
                 asyncStdoutToPython("/get/data/overlay_vr_panel");
+                break;
+            case "STEAMVR_AUTO_LAUNCH_UNAVAILABLE":
+                // SteamVR stopped before the change reached it: the switch reads SteamVR again
+                // and says why it cannot be pressed (#1384).
+                showNotification_Warning(localized, { category_id: error_code });
+                asyncStdoutToPython("/get/data/steamvr_auto_launch");
+                break;
+            case "STEAMVR_AUTO_LAUNCH_FAILED":
+                // SteamVR refused the change: the switch shows what SteamVR holds now.
+                showNotification_Error(localized, { category_id: error_code });
+                asyncStdoutToPython("/get/data/steamvr_auto_launch");
                 break;
             case "OVERLAY_FONT_NOT_FOUND":
                 // The saved font stays; the list shows it again.
@@ -314,6 +318,13 @@ export const _useBackendErrorHandling = () => {
             case "TRANSCRIPTION_SEND_NOT_READY":
             case "TRANSCRIPTION_RECEIVE_NOT_READY": {
                 (error_code === "TRANSCRIPTION_SEND_NOT_READY" ? updateTranscriptionSendStatus : updateTranscriptionReceiveStatus)(false);
+                // Missing models or a language the model does not take: the main screen offers the
+                // fix where the switch is, instead of a notice that names a settings page (#1225).
+                const fix = recognitionFixOf(endpoint, fieldOf(result, "details"));
+                if (fix) {
+                    recognitionFix.open(fix);
+                    return;
+                }
                 const named = fieldOf(fieldOf(result, "details"), "reason");
                 const reason = typeof named === "string" ? named : "";
                 showNotification_Error(t(`realtime_toggle.${reason || "generic"}`, {
@@ -366,30 +377,9 @@ export const _useBackendErrorHandling = () => {
             // ウェイトダウンロード関連エラー (WEIGHT_*)
             // ============================================================================
             case "WEIGHT_DOWNLOAD_CONSENT_REQUIRED":
-                if (endpoint === "/run/download_ctranslate2_weight") {
-                    updateCTranslate2WeightTypeStatus(old => clearLegacyConsentPending(old.data, fieldOf(data, "weight_type")));
-                }
                 showNotification_Warning(t(fieldOf(data, "startup") ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
                     { model: fieldOf(data, "weight_type") }), { category_id: `${error_code}:${fieldOf(data, "kind")}:${fieldOf(data, "weight_type")}`, hide_duration: null });
                 return;
-            case "WEIGHT_CTRANSLATE2_DOWNLOAD": {
-                // The failure's {weight_type, job_id, reason, ...}, as `data?.` reads it.
-                const failure = isRecord(data) ? data : undefined;
-                updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, failure));
-                // CTranslate2 goes away with #288; this only keeps today's users from a dead end.
-                const { notify, reasonKey, retryable } = legacyDownloadFailure(failure);
-                if (!notify) return;
-                const weightType = failure?.weight_type;
-                const category_id = `${error_code}:${weightType}`;
-                // Only a failure that names its model is retryable (legacyDownloadFailure).
-                const onRetry = retryable ? () => { dismissNotification(category_id); translationSetup.open(false, typeof weightType === "string" ? weightType : null); } : null;
-                // A notice that never hides keeps its id; close an older one so this one shows its reason.
-                dismissNotification(category_id);
-                showNotification_Error(createElement(DownloadFailureNotice, {
-                    titleKey: "common_error.failed_download_weight_ctranslate2", reasonKey, onRetry,
-                }), { category_id, hide_duration: onRetry ? null : undefined });
-                return;
-            }
             case "WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED":
                 // Normally unreachable: Config -> Translation asks before sending.
                 // Undo the optimistic UI state of whichever request was refused.

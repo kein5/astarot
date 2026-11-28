@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -23,24 +24,89 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def names(platform, version, files):
+# The release files are named ASTAROT from 0.7.0 and were VRCT-VOX up to 0.6.x (ADR-014, 2.10).
+PREFIX = "ASTAROT"
+LEGACY_PREFIX = "VRCT-VOX"
+WINDOWS_PACKAGE = f"{PREFIX}.zip"
+WINDOWS_INSTALLER = f"{PREFIX}_setup.exe"
+LINUX_FORMATS = (".tar.gz", ".AppImage", ".deb", ".rpm")
+# Releases before this version also carry each file under its name up to 0.6.x: the same bytes,
+# with its line in SHA256SUMS (and .sha256 for Windows ZIPs), so that links such as
+# releases/latest/download/VRCT-VOX_setup.exe keep working. latest.json names only the new
+# files (tools/updater_manifest.py). This is the one place that decides how long.
+LEGACY_COPIES_UNTIL = (0, 8, 0)
+
+
+def needs_sidecar(platform, name):
+    """Whether a release asset carries an individual .sha256 sidecar file.
+
+    Only Windows ZIP packages carry one: the NSIS installer downloads <zip>.sha256
+    when /VERSION installs another version (or in a build without PACKAGE_SHA256).
+    Every release file on both platforms is listed in SHA256SUMS.
+    """
+    return platform == "windows" and name.endswith(".zip")
+
+
+def linux_stem(version):
+    return f"{PREFIX}-{version}-linux-x64-release"
+
+
+def release_files(platform, version):
+    """The files a candidate of `platform` builds, under their names."""
     if platform == "windows":
-        # One package for every PC (#288); up to 0.5 there was VRCT-VOX_cuda.zip as well.
-        expected = {"VRCT-VOX.zip", "VRCT-VOX_setup.exe"}
-        if set(files) != expected:
-            raise ValueError(
-                "Windows candidate must include the ZIP and the stable setup asset"
-            )
-    elif platform == "linux":
+        # One package for every PC (#288); up to 0.5 there was a CUDA package as well.
+        return {WINDOWS_PACKAGE, WINDOWS_INSTALLER}
+    if platform == "linux":
         # One package per architecture carries both speech.cpp builds (CPU and Vulkan), so the
         # names no longer name an engine variant.
-        stem = f"VRCT-VOX-{version}-linux-x64-release"
-        if set(files) != {stem + suffix for suffix in (".tar.gz", ".AppImage", ".deb", ".rpm")}:
-            raise ValueError(
-                "Linux candidate must include the versioned archive, AppImage, deb and rpm"
-            )
-    else:
-        raise ValueError("Unsupported candidate platform")
+        return {linux_stem(version) + suffix for suffix in LINUX_FORMATS}
+    raise ValueError("Unsupported candidate platform")
+
+
+def keeps_legacy_copies(version):
+    """Whether a release of `version` carries the copies. A prerelease goes with its release:
+    0.8.0-beta.1 carries none, as 0.8.0 does not."""
+    core = re.match(r"([0-9]+)\.([0-9]+)\.([0-9]+)", version)
+    if not core:
+        raise ValueError("A semantic version is required")
+    return tuple(int(part) for part in core.groups()) < LEGACY_COPIES_UNTIL
+
+
+def legacy_copies(platform, version):
+    """{name up to 0.6.x: the release file it copies}, empty once the copies stop."""
+    if not keeps_legacy_copies(version):
+        return {}
+    return {
+        LEGACY_PREFIX + name.removeprefix(PREFIX): name
+        for name in release_files(platform, version)
+    }
+
+
+def _incomplete(platform):
+    if platform == "windows":
+        return ValueError(
+            "Windows candidate must include the ZIP and the stable setup asset"
+            " (and, while the version carries them, their copies under the names up to 0.6.x)"
+        )
+    return ValueError(
+        "Linux candidate must include the versioned archive, AppImage, deb and rpm"
+        " (and, while the version carries them, their copies under the names up to 0.6.x)"
+    )
+
+
+def names(platform, version, files):
+    """The release files, and their copies while the version carries them."""
+    expected = release_files(platform, version) | set(legacy_copies(platform, version))
+    if set(files) != expected:
+        raise _incomplete(platform)
+
+
+def _copy(source, destination):
+    """A hard link where it can be: a copy is the same bytes, and the Linux files are large."""
+    try:
+        os.link(source, destination)
+    except OSError:
+        shutil.copyfile(source, destination)
 
 
 def stage(output, assets, platform, commit, version):
@@ -49,16 +115,19 @@ def stage(output, assets, platform, commit, version):
     for asset in assets:
         if asset.is_symlink() or not asset.is_file() or asset.stat().st_size == 0:
             raise ValueError(f"Not a regular nonempty build output: {asset.name}")
+        # Tauri names the installer after the version; the release keeps one stable name.
         name = (
-            "VRCT-VOX_setup.exe"
+            WINDOWS_INSTALLER
             if platform == "windows"
-            and asset.name == f"ASTAROT_{version}_x64-setup.exe"
+            and asset.name == f"{PREFIX}_{version}_x64-setup.exe"
             else asset.name
         )
         if name in mapping:
             raise ValueError("Duplicate candidate asset")
         mapping[name] = asset
-    names(platform, version, mapping)
+    # The build outputs are the release files themselves; the copies are made here.
+    if set(mapping) != release_files(platform, version):
+        raise _incomplete(platform)
     output.mkdir(parents=True, exist_ok=False)
     entries = []
     for name, source in sorted(mapping.items()):
@@ -67,10 +136,20 @@ def stage(output, assets, platform, commit, version):
         entries.append(
             dict(name=name, size=destination.stat().st_size, sha256=digest(destination))
         )
-        # NSIS reads exactly 64 ASCII bytes, without a trailing newline.
-        (output / (name + ".sha256")).write_text(
-            entries[-1]["sha256"], encoding="ascii"
-        )
+        if needs_sidecar(platform, name):
+            # NSIS reads exactly 64 ASCII bytes, without a trailing newline.
+            (output / (name + ".sha256")).write_text(
+                entries[-1]["sha256"], encoding="ascii"
+            )
+    sources = {entry["name"]: entry for entry in entries}
+    for copy, name in legacy_copies(platform, version).items():
+        _copy(output / name, output / copy)
+        entries.append(dict(sources[name], name=copy))
+        if needs_sidecar(platform, copy):
+            (output / (copy + ".sha256")).write_text(
+                sources[name]["sha256"], encoding="ascii"
+            )
+    entries.sort(key=lambda entry: entry["name"])
     manifest = dict(
         schema=1,
         repository=REPOSITORY,
@@ -110,8 +189,12 @@ def verify(directory, platform, commit, version):
     ):
         raise ValueError("Unsafe or duplicate candidate filenames")
     names(platform, version, filenames)
+    by_name = {entry["name"]: entry for entry in entries}
+    for copy, name in legacy_copies(platform, version).items():
+        if by_name[copy]["sha256"] != by_name[name]["sha256"] or by_name[copy]["size"] != by_name[name]["size"]:
+            raise ValueError(f"A copy under the name up to 0.6.x differs from its file: {copy}")
     if {path.name for path in directory.iterdir()} != set(filenames) | {
-        name + ".sha256" for name in filenames
+        name + ".sha256" for name in filenames if needs_sidecar(platform, name)
     } | {
         "candidate-manifest.json",
         "SHA256SUMS",
@@ -127,11 +210,12 @@ def verify(directory, platform, commit, version):
             or digest(path) != entry["sha256"]
         ):
             raise ValueError(f"Candidate checksum mismatch: {entry['name']}")
-        checksum = directory / (entry["name"] + ".sha256")
-        if checksum.is_symlink() or checksum.read_bytes() != entry["sha256"].encode(
-            "ascii"
-        ):
-            raise ValueError(f"Installer checksum sidecar mismatch: {entry['name']}")
+        if needs_sidecar(platform, entry["name"]):
+            checksum = directory / (entry["name"] + ".sha256")
+            if checksum.is_symlink() or checksum.read_bytes() != entry["sha256"].encode(
+                "ascii"
+            ):
+                raise ValueError(f"Installer checksum sidecar mismatch: {entry['name']}")
     expected_sums = "".join(
         f"{entry['sha256']}  {entry['name']}\n" for entry in entries
     )

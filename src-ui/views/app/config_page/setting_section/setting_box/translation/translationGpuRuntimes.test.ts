@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, kitStandIns, loadModule, find, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime } from "../../../../../../logics/test/hookHarness.ts";
 
 // What the runtime setup's hook gives the section, as far as it reads it.
@@ -107,4 +107,25 @@ test("a build set up here makes the device list come again", async () => {
     // Drawn again with the same builds: not asked again.
     runtime.render(TranslationGpuRuntimes);
     assert.deepEqual(refreshed, ["list"]);
+});
+
+// Where the build cannot run (no NVIDIA GPU), its name says which build it is and a plain badge
+// under it says what it needs.
+test("a build that cannot run is named, and a plain badge says what it needs", async () => {
+    const runtime = hooks();
+    const vc: VcRuntimes = { catalog: { runtimes: [{ id: "onnxruntime-directml" }] }, state: { jobs: {}, installed: {} }, send: () => {} };
+    const { TranslationGpuRuntimes } = await loadModule<typeof import("./TranslationGpuRuntimes.tsx")>(new URL("./TranslationGpuRuntimes.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key} ${JSON.stringify(options)}` : key }) },
+        "@logics_configs": { useTranslation: () => ({ getSelectableTranslationComputeDeviceList: () => undefined }) },
+        "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
+        "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },
+        "../_components": { SectionLabelComponent: "section-label" },
+    });
+    const unavailable = find(runtime.render(TranslationGpuRuntimes), node => node.props?.["data-fit"] === "unavailable");
+    assert.ok(unavailable);
+    const name = 'vc_runtime.title {"name":"ONNX Runtime · CUDA"}';
+    assert.equal(unavailable.props["aria-label"], name);
+    assert.deepEqual(nodesIn(unavailable).filter(node => node.type === "strong").map(node => node.props.children), [name]);
+    assert.deepEqual(nodesIn(unavailable).filter(node => node.type === kitStandIns.Badge).map(node => [node.props.tone, node.props.children]),
+        [[undefined, "config_page.translation.gpu_runtimes.needs_nvidia"]]);
 });

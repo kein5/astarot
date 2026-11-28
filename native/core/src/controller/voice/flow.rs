@@ -18,6 +18,7 @@ pub(crate) struct FlowState {
     pub engine: Value,
     pub translation: bool,
     pub source_language: Value,
+    pub mic_language: Value,
     pub targets: Vec<Value>,
     pub speech_language: Value,
     pub send_to_vrc: bool,
@@ -82,9 +83,10 @@ fn translation(state: &FlowState) -> Value {
 }
 
 fn voice(state: &FlowState) -> Value {
-    let reason = if state.voice["mic_mode"] != "translated" {
+    let mode = state.voice["mic_mode"].as_str().unwrap_or("off");
+    let reason = if mode == "off" {
         Some("mic_speech_off")
-    } else if !state.translation {
+    } else if mode == "translated" && !state.translation {
         Some("translation_off")
     } else if !state.realtime {
         Some("not_realtime")
@@ -92,10 +94,11 @@ fn voice(state: &FlowState) -> Value {
         speech_block(state)
     };
     let speaking = reason.is_none();
+    let language = if mode == "original" { &state.mic_language } else { &state.speech_language };
     let live = if state.muted {
         "muted"
     } else if state.direct_mode == "off" || !state.direct_active {
-        // VRCT-VOX does not carry the voice; VRChat reads the microphone itself.
+        // ASTAROT does not carry the voice; VRChat reads the microphone itself.
         "vrchat_mic"
     } else {
         state.direct_mode.as_str()
@@ -107,7 +110,7 @@ fn voice(state: &FlowState) -> Value {
             "speech",
             speaking,
             reason.unwrap_or(""),
-            &[("path", if speaking { json!(speech_path(state)) } else { Value::Null }), ("language", if speaking { state.speech_language.clone() } else { Value::Null })],
+            &[("path", if speaking { json!(speech_path(state)) } else { Value::Null }), ("language", if speaking { language.clone() } else { Value::Null })],
         ),
         output("live_voice", live != "muted", "muted", &[("carried", json!(live)), ("engine", json!(state.direct_engine)), ("during_speech", during_speech)]),
         output("desktop_caption", state.desktop, "setting_off", &[]),

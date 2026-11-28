@@ -79,7 +79,7 @@ export interface TranslatorStatus {
 
 export const translator_status: TranslatorStatus[] = [
     // Upstream VRCT's web translators (Google, Bing, Papago) are not listed: their module is
-    // licensed for the official VRCT only, so VRCT-VOX could never run them.
+    // licensed for the official VRCT only, so ASTAROT could never run them.
     // i18n-exempt-start: names of translation engines and services
     // The local translation. Its id stays CTranslate2 for the settings; the UI shows it by the name of
     // its section in Settings through translatorLabel (#565), so this label is only a fallback.
@@ -150,13 +150,19 @@ export const papago_auth_key_url = "https://www.ncloud.com/product/aiService/pap
 
 
 
-// VRCT-VOX's own user guide (site/, published by .github/workflows/pages.yml).
+// ASTAROT's own user guide (site/, published by .github/workflows/pages.yml).
 // It has Japanese and English pages; other UI languages get the English ones.
 export const vrct_document_home_url = "https://kein5.github.io/astarot";
 export const vrct_document_url_chunk_faq = "guide/troubleshooting";
 export const vrct_document_url_chunk_ui_guide = "guide/first-setup";
+// Installing again, where a damaged or missing part of the app is fixed (#1314).
+export const vrct_document_url_chunk_install = "guide/install";
 // Each model setting links to its own section: #tts, #asr, #whisper-server, #rvc, #seed-vc, #translation.
 export const vrct_document_url_chunk_custom_models = "guide/custom-models";
+
+// Official ASTAROT Discord server invite URL (#1087). Kept in one place so a rotated invite
+// only needs a single update here and in src-tauri/capabilities/vrct_capability.json.
+export const astarot_discord_invite_url = "https://discord.gg/2kd3MSTnbE";
 
 // The upstream VRCT documentation, linked from the credits for the original VRCT on About.
 export const upstream_vrct_document_url = (lang_code = "en") =>
@@ -175,6 +181,7 @@ export const generateLocalizedDocumentUrl = (lang_code = "en") => {
         vrct_document_home_url: `${vrct_document_home_url}/${lang_path}`,
         vrct_document_faq_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_faq}`,
         vrct_document_ui_guide_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_ui_guide}`,
+        vrct_document_install_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_install}`,
         vrct_document_custom_models_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_custom_models}`,
     };
 };

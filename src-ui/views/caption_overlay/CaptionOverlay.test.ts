@@ -8,6 +8,7 @@ import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as lines from "../../logics/captionOverlay/lines.ts";
 import * as speakerLabels from "../../logics/common/speakerLabels.ts";
 import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge.ts";
+import { styleOf } from "../../logics/test/styleSource.ts";
 
 // Every node the match picks, with the keys the overlay gave them: nodesIn walks the children
 // through React.Children.toArray, which keys every child, and the line test reads the keys.
@@ -70,20 +71,20 @@ test("the overlay reads its captions through the command, draws them and applies
 });
 
 test("the user's own words and the other side are drawn in different colours and on different sides", async () => {
-    const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
-    const rule = (name: string) => scss.match(new RegExp(`^\\.${name} \\{([^}]*)\\}`, "m"))?.[1] ?? "";
-    const ink = (name: string) => rule(name).match(/--caption_ink: (#[0-9a-f]{6});/)?.[1];
-    const soft = (name: string) => rule(name).match(/--caption_ink_soft: (#[0-9a-f]{6});/)?.[1];
+    const css = await readFile(new URL("./CaptionOverlay.css.ts", import.meta.url), "utf8");
+    const rule = (name: string) => styleOf(css, name);
+    const ink = (name: string) => rule(name).match(/"--caption_ink": "(#[0-9a-f]{6})"/)?.[1];
+    const soft = (name: string) => rule(name).match(/"--caption_ink_soft": "(#[0-9a-f]{6})"/)?.[1];
     assert.ok(ink("sent") && ink("received") && soft("sent") && soft("received"));
     assert.notEqual(ink("sent"), ink("received"));
     assert.notEqual(soft("sent"), soft("received"));
     // Both the original and its translation take the colour of their side.
-    assert.match(scss, /^\.text \{ color: var\(--caption_ink\); \}/m);
-    assert.match(scss, /^\.translation \{ color: var\(--caption_ink_soft\); \}/m);
-    assert.match(scss, /^\.translation:first-child \{ color: var\(--caption_ink\); \}/m);
+    assert.match(rule("text"), /\n\s*color: "var\(--caption_ink\)",/);
+    assert.match(rule("translation"), /\n\s*color: "var\(--caption_ink_soft\)",/);
+    assert.match(rule("translation"), /"&:first-child": \{ color: "var\(--caption_ink\)" \}/);
     // Not by colour alone: the bar sits on the side the message log uses.
-    assert.match(rule("sent"), /border-right:/); assert.doesNotMatch(rule("sent"), /border-left:/);
-    assert.match(rule("received"), /border-left:/); assert.doesNotMatch(rule("received"), /border-right:/);
+    assert.match(rule("sent"), /borderRight:/); assert.doesNotMatch(rule("sent"), /borderLeft:/);
+    assert.match(rule("received"), /borderLeft:/); assert.doesNotMatch(rule("received"), /borderRight:/);
 });
 
 test("a heard line leads with who spoke and takes that voice's colour", async context => {
@@ -121,13 +122,13 @@ test("a voice with a name is written by its name and keeps its label's colour", 
 });
 
 test("each voice has a colour of its own, none of them the user's blue", async () => {
-    const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
-    const ink = (name: string) => scss.match(new RegExp(`^\\.${name} \\{[^}]*--caption_ink: (#[0-9a-f]{6});`, "m"))?.[1];
+    const css = await readFile(new URL("./CaptionOverlay.css.ts", import.meta.url), "utf8");
+    const ink = (name: string) => styleOf(css, name).match(/"--caption_ink": "(#[0-9a-f]{6})"/)?.[1];
     const inks = [ink("received"), ink("voice_1"), ink("voice_2"), ink("voice_3")];
     assert.ok(inks.every(Boolean));
     assert.equal(new Set([...inks, ink("sent")]).size, 5);
     // The label is dark on the voice's colour, so it reads without the plate.
-    assert.match(scss, /^\.who \{[^}]*background: var\(--caption_bar\);/m);
+    assert.match(styleOf(css, "who"), /background: "var\(--caption_bar\)",/);
 });
 
 test("a line fades and then goes when its time has passed, without a new notice", async context => {
@@ -179,6 +180,6 @@ test("while Ctrl is held over it the overlay outlines itself and shows the text 
 });
 
 test("the outline never takes the mouse: the native side does the drag", async () => {
-    const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
-    assert.match(scss, /^\.adjust \{[^}]*pointer-events: none;/m);
+    const css = await readFile(new URL("./CaptionOverlay.css.ts", import.meta.url), "utf8");
+    assert.match(styleOf(css, "adjust"), /pointerEvents: "none",/);
 });
