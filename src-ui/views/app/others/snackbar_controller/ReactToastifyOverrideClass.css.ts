@@ -38,7 +38,9 @@ globalStyle(":root", {
         "--toastify-toast-max-height": "80rem",
         "--toastify-toast-bd-radius": "0.6rem",
         "--toastify-toast-shadow": ".0 0.4rem 1.2rem rgba(0, 0, 0, 0.1)",
-        "--toastify-font-family": vars.font_family,
+        // The same stack as the rest of the window (root.css): with the chosen font alone, a PC without it
+        // drew the notices' Latin text in the browser's default serif font (#1314, M-10).
+        "--toastify-font-family": `${vars.font_family}, "Noto Sans", system-ui, sans-serif`,
         "--toastify-z-index": "9999",
         "--toastify-text-color-light": "#757575",
         "--toastify-text-color-dark": vars.dark_basic_text_color,
