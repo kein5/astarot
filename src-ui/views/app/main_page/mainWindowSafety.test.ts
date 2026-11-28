@@ -592,12 +592,23 @@ test("#955: a switch the first-run setup leads to stands out and stays in sight 
     assert.equal(rows.at(-1)?.props.count, 2);
     // The led switches stand out, the others do not; nothing is turned on and nothing is settled yet.
     assert.deepEqual(["translation", "transcription_send", "tts"].map(id => row(rows, id).props.lead), [true, false, true]);
-    assert.equal(s.SwitchRow(row(rows, "tts").props).props["data-lead"], true);
-    assert.equal(s.SwitchRow(row(rows, "transcription_send").props).props["data-lead"], undefined);
     assert.deepEqual([s.requests, setup.settled], [[], []]);
-    // The row draws the frame; its switch does not draw a second one. In the icon rail, the switch does.
-    assert.equal(inTooltip(s.SwitchContainer({ ...row(rows, "tts").props, inRow: true })).props["data-lead"], undefined);
-    assert.equal(inTooltip(s.SwitchContainer(row(rows, "tts").props)).props["data-lead"], true);
+    // The toggle is what stands out, not its row: the slot round the kit's switch carries the ring.
+    const slotOf = (label: TreeNode, className: string) => {
+        const slot = find(label, part => part.props.className === className);
+        assert.ok(slot);
+        return slot;
+    };
+    const led = inTooltip(s.SwitchContainer({ ...row(rows, "tts").props, inRow: true }));
+    assert.equal(s.SwitchRow(row(rows, "tts").props).props["data-lead"], undefined);
+    assert.deepEqual([led.props["data-lead"], slotOf(led, "switch_slot").props["data-lead"]], [undefined, true]);
+    const other = inTooltip(s.SwitchContainer({ ...row(rows, "transcription_send").props, inRow: true }));
+    assert.equal(slotOf(other, "switch_slot").props["data-lead"], undefined);
+    // The icon rail hides the toggle: the row, drawn as its icon, carries the ring instead.
+    setup.compact = true;
+    const rail = inTooltip(s.SwitchContainer(row(rows, "tts").props));
+    assert.deepEqual([rail.props["data-lead"], slotOf(rail, "visually_hidden").props["data-lead"]], [true, undefined]);
+    setup.compact = false;
     // Turned on: it no longer stands out, and the lead is settled.
     b.runtime.store.set(b.stores.Atom_TranslationStatus, { data: true, state: "ok" });
     rows = draw();
@@ -677,5 +688,30 @@ test("D-19: the row keeps its gap, the switch keeps its size, and the icon rail'
     // The screen sets no look of the kit's switch: it greys it out through the kit's own data-disabled,
     // and names the switch only inside :has(), for the row's and the slot's own rules.
     assert.equal(css.match(/\[data-slot="switch"\]/g)?.length, css.match(/:has\((> )?\[data-slot="switch"\]/g)?.length);
-    assert.doesNotMatch(css, /opacity/);
+    // The one opacity is the blink of the first-run setup's ring (#955), drawn round the switch, not on it.
+    assert.doesNotMatch(css.replace('const leadBlink = keyframes({ "50%": { opacity: .3 } });', ""), /opacity/);
+});
+
+test("#955: the lead is a gradient ring round the toggle that blinks for under five seconds, and stays still under reduced motion", () => {
+    const css = readFileSync(new URL("./sidebar_section/main_function_switch/MainFunctionSwitch.css.ts", import.meta.url), "utf8");
+    // The row is not lit any more: the toggle's slot carries the ring, and in the icon rail the row, round its icon.
+    assert.doesNotMatch(styleOf(css, "switch_row"), /data-lead/);
+    assert.match(styleOf(css, "switch_slot"), /"&\[data-lead\]::before": \{ \.\.\.leadRing, inset: "-\.25rem", padding: "\.35rem", borderRadius: "999rem" \}/);
+    assert.match(styleOf(css, "switch_container"),
+        /"&\[data-lead\]::before": \{ \.\.\.leadRing, inset: 0, margin: "auto", width: "3\.4rem", height: "3\.4rem", padding: "\.25rem", borderRadius: "50%" \}/);
+    // A Lilac gradient, only its frame painted, so the kit's switch inside keeps its look and reads as off.
+    assert.match(css, /background: `linear-gradient\(90deg, \$\{vars\.primary_200_color\}, \$\{vars\.primary_600_color\}\)`/);
+    assert.match(css, /mask: `\$\{LEAD_FRAME\} exclude, linear-gradient\(#000 0 0\)`/);
+    assert.match(css, /pointerEvents: "none"/);
+    // Under keyboard focus only the focus ring is drawn round the toggle.
+    assert.match(styleOf(css, "switch_slot"), /'&\[data-lead\]:has\(> \[data-slot="switch"\]:focus-visible\)::before': \{ display: "none" \}/);
+    // It blinks a few times and stops by itself within five seconds (WCAG 2.2.2), then the ring stays as it is.
+    const blink = css.match(/animation: `\$\{leadBlink\} ([\d.]+)s ease-in-out (\d+)`/);
+    assert.ok(blink);
+    const [period, times] = [Number(blink[1]), Number(blink[2])];
+    assert.ok(period >= 1 && times >= 2 && period * times <= 5, `${times} blinks of ${period}s`);
+    // Under reduced motion neither ring blinks.
+    for (const name of ["switch_slot", "switch_container"])
+        assert.match(styleOf(css, name), /"@media": stillUnderReducedMotion\("&\[data-lead\]::before"\)/);
+    assert.match(css, /"\(prefers-reduced-motion: reduce\)": \{ selectors: \{ \[selector\]: \{ animation: "none" \} \} \}/);
 });
