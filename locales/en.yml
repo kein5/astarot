@@ -1478,6 +1478,8 @@ vr_panel:
     mic_threshold: "Mic sensitivity"
     speaker_threshold: "Speaker sensitivity"
     automatic: "Auto"
+    # #1371: shown in the VR settings window only where the settings are a page of the main window (a browser),
+    # which pauses these. The app's settings window pauses nothing (#1236), so the window does not show it there.
     paused_while_settings: "Translation and transcription are paused while settings are open. They resume when you close this."
     overlay_small_log: "Subtitles (single line)"
     overlay_large_log: "Subtitles (multiple lines)"
