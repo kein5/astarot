@@ -460,14 +460,21 @@ test("the settings bar draws the same actions without the shortest words", async
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
     const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
     assert.match(styleOf(css, "long"), /display: "none"/);
-    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[NARROW\]: \{ display: "inline" \} \}/);
-    assert.match(styleOf(css, "short"), /"@container": \{ \[NARROW\]: \{ display: "none" \} \}/);
+    // The stop and mute's words have their own, narrower threshold, so the default window's column
+    // (63rem) says "Stop speech", not "Stop" (#1314, M-9).
+    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[TINY_STOP\]: \{ display: "inline" \} \}/);
+    assert.match(styleOf(css, "short"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(styleOf(css, "muted_badge"), /"@container": \{ \[TINY_STOP\]: \{ display: "none" \} \}/);
+    assert.match(css, /const TINY_STOP = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{TINY_STOP_COLUMN\}\)`;/);
     // The conversation column's width decides, not the window's (a wide rail leaves less room).
     const narrowColumn = /const NARROW = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{NARROW_COLUMN\}\)`;/;
     assert.match(css, narrowColumn);
     const layout = readFileSync(new URL("../../layout.ts", import.meta.url), "utf8");
     assert.match(layout, /MAIN_SECTION_CONTAINER = "main_section";/);
     assert.match(layout, /NARROW_COLUMN = "64rem";/);
+    // Narrower than the default window's column: 870px less the 240px rail is 63rem.
+    const tinyStop = /TINY_STOP_COLUMN = "(\d+)rem";/.exec(layout);
+    assert.ok(tinyStop && Number(tinyStop[1]) < 63, "the default window keeps the stop's words");
     assert.doesNotMatch(css, /max-width: 800px|data-narrow/);
     const menu = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
     assert.match(menu, narrowColumn);
