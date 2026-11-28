@@ -15,6 +15,11 @@ from check_voice_distribution import check
 # (decision 2 in docs/voice-stack/core-integration.md).
 ONNX_RUNTIME_LIBRARIES = ("onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll")
 
+# The files at the top of the package, beside each other once installed: the app, and the
+# SteamVR application manifest that names it (#1384). SteamVR starts the binary the manifest
+# names relative to the manifest's own folder, so the two must sit together.
+PACKAGE_FILES = ("src-tauri/target/release/astarot.exe", "src-tauri/steamvr/astarot.vrmanifest")
+
 def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):
     # Reject missing inputs and stale forbidden resources before touching a
     # previous candidate. A partial ZIP must never masquerade as a release.
@@ -59,7 +64,7 @@ if __name__ == "__main__":
         "--file_paths",
         type=str,
         nargs="*",
-        default=["src-tauri/target/release/astarot.exe"],
+        default=list(PACKAGE_FILES),
         help="List of file paths to include in the zip."
     )
     parser.add_argument(

@@ -498,7 +498,7 @@ On Windows, the folder that holds `config.json` is the install folder, so the it
 - The logs that the Python backend up to 0.5 wrote next to the app (`process.log`, `error.log`, `crash_trace.log`, `freeze_trace.log`, `startup_timing.log`)
 - WebView2 data (the folders of the app ID in `%APPDATA%` and `%LOCALAPPDATA%`)
 
-`translation-models/` and `exports/` hold files the user placed or exported, so they are not deleted. If either holds files, the install folder also stays. `installer_language.txt` is deleted whether or not the option was chosen. When adding a file or folder to the table, update `Section Uninstall` too (`tests/devtools/test_nsis_staged_update.py` compares it with the table).
+`translation-models/` and `exports/` hold files the user placed or exported, so they are not deleted. If either holds files, the install folder also stays. `installer_language.txt` is deleted whether or not the option was chosen. So is the SteamVR manifest `astarot.vrmanifest`, which is part of the app: before it goes, the uninstaller asks the binary to take the install out of SteamVR's list of applications ([SteamVR's list of applications](external-interfaces.md#steamvrs-list-of-applications)). SteamVR keeps its own record of the registration and of the auto-launch flag, outside the install folder; the app keeps no copy. When adding a file or folder to the table, update `Section Uninstall` too (`tests/devtools/test_nsis_staged_update.py` compares it with the table).
 
 ### Transcription diagnostic log
 
@@ -1047,7 +1047,7 @@ Windowsでは`config.json`を置くフォルダーがインストール先なの
 - 0.5までのPythonバックエンドがアプリの隣に書いたログ（`process.log`、`error.log`、`crash_trace.log`、`freeze_trace.log`、`startup_timing.log`）
 - WebView2のデータ（`%APPDATA%`と`%LOCALAPPDATA%`のアプリIDのフォルダー）
 
-`translation-models/`と`exports/`は利用者が置いたか書き出したファイルなので消さない。この2つにファイルがあれば、インストール先のフォルダーも残る。`installer_language.txt`は、選んだかどうかにかかわらず消す。表にファイルやフォルダーを足すときは、`Section Uninstall`も直す（`tests/devtools/test_nsis_staged_update.py`が表と照らし合わせる）。
+`translation-models/`と`exports/`は利用者が置いたか書き出したファイルなので消さない。この2つにファイルがあれば、インストール先のフォルダーも残る。`installer_language.txt`は、選んだかどうかにかかわらず消す。アプリの一部であるSteamVRのマニフェスト`astarot.vrmanifest`も同じく消す。消す前に、アンインストーラーは実行ファイルにSteamVRのアプリの一覧から外させる（[SteamVRのアプリの一覧](external-interfaces.md#steamvrのアプリの一覧)）。登録と自動起動の印は、SteamVRがインストール先の外に自分で持ち、アプリは写しを持たない。表にファイルやフォルダーを足すときは、`Section Uninstall`も直す（`tests/devtools/test_nsis_staged_update.py`が表と照らし合わせる）。
 
 ### 文字起こしの診断ログ
 

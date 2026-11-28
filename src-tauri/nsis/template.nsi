@@ -74,6 +74,12 @@ ${StrLoc}
 ; ($main_binary), and the binary under the other name is removed once the shortcuts lead to it.
 ; native/app-identity's tests keep it in step with EXECUTABLE there.
 !define OTHERBINARYNAME "vrct-vox"
+; The SteamVR application manifest a package ships beside the binary from 0.7.0 (#1384). SteamVR
+; lists the install among its applications by it and may start the binary with itself. The binary
+; takes the install out of SteamVR's list when it is started with --steamvr-unregister (Section
+; Uninstall). native/app-identity's steamvr::MANIFEST is the same name; src-tauri's tests keep
+; them in step.
+!define STEAMVRMANIFEST "astarot.vrmanifest"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 ; One run of this installer at a time in the user's session (.onInit): the in-app update and a
@@ -1047,6 +1053,8 @@ Var upd_dir
 Var upd_entry
 ; 1 when the staged package has no Python sidecar (0.5.0 and later) and an old one is left.
 Var stale_sidecar
+; 1 when the staged package has no SteamVR manifest (a version before it, /VERSION).
+Var stale_steamvr_manifest
 Var upd_find
 Var upd_failed
 ; "1" when this install moves to $MoveTo once its files are in (Section Install).
@@ -1701,6 +1709,10 @@ Section Install
   ${IfNot} ${FileExists} "$INSTDIR\.upd\new\${SIDECARBINARYNAME}.exe"
     StrCpy $stale_sidecar "1"
   ${EndIf}
+  StrCpy $stale_steamvr_manifest "0"
+  ${IfNot} ${FileExists} "$INSTDIR\.upd\new\${STEAMVRMANIFEST}"
+    StrCpy $stale_steamvr_manifest "1"
+  ${EndIf}
 
   ClearErrors
   CreateDirectory "$INSTDIR\.upd\old"
@@ -1760,6 +1772,11 @@ Section Install
   ; leaves the old one in place through the commit above; it is no longer used.
   ${If} $stale_sidecar == "1"
     Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
+  ${EndIf}
+  ; A package without the SteamVR manifest leaves the one of the version it replaced. Its binary
+  ; does not know --steamvr-unregister, and the uninstaller runs the binary only beside a manifest.
+  ${If} $stale_steamvr_manifest == "1"
+    Delete "$INSTDIR\${STEAMVRMANIFEST}"
   ${EndIf}
   ; ADR-014, 2.5, 7 and 8: the commit above replaced only what the package has, so the main
   ; binary under the other name (vrct-vox.exe of an install up to 0.6.x) is still there. It goes
@@ -2279,6 +2296,27 @@ FunctionEnd
 
 Section Uninstall
   !insertmacro CheckIfAppIsRunning
+
+  ; #1384: SteamVR may list this install among its applications and start it with itself. While
+  ; SteamVR runs, the binary takes the install out of its list and turns the auto-launch off; it
+  ; changes nothing otherwise, and never starts SteamVR. Either way the manifest and the binary go
+  ; below, so SteamVR has nothing left to start. An update (/P) puts the manifest back and keeps
+  ; the registration. Only a binary with the manifest beside it knows the argument: an older one
+  ; would start the app instead. The time limit keeps a SteamVR that does not answer from holding
+  ; the uninstall.
+  ClearErrors
+  ${GetOptions} $CMDLINE "/P" $R0
+  ${If} ${Errors}
+  ${AndIf} ${FileExists} "$INSTDIR\${STEAMVRMANIFEST}"
+  ${AndIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+    nsExec::ExecToLog /TIMEOUT=20000 '"$INSTDIR\${MAINBINARYNAME}.exe" --steamvr-unregister'
+    Pop $0
+    ; 0 done, 1 SteamVR not running, 2 SteamVR refused, 3 no manifest (Unregistered in
+    ; native/core/src/controller/steamvr.rs), or "timeout" / "error".
+    DetailPrint "SteamVR application list: $0"
+  ${EndIf}
+  ClearErrors
+  Delete "$INSTDIR\${STEAMVRMANIFEST}"
 
   ; Delete the app directory and its content from disk
   ; Copy main executable, under either name (ADR-014, 2.5): an install of another version's

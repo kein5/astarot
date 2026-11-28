@@ -257,6 +257,27 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
         # The stale sidecar goes with the uninstall too.
         self.assertIn('Delete "$INSTDIR\\${SIDECARBINARYNAME}.exe"', uninstall)
 
+    def test_the_uninstaller_takes_the_install_out_of_steamvr_before_the_binary_goes(self):
+        # #1384: the binary beside the manifest takes the install out of SteamVR's list of
+        # applications (src-tauri/src/lib.rs, STEAMVR_UNREGISTER), then both files go.
+        self.assertIn('!define STEAMVRMANIFEST "astarot.vrmanifest"', SOURCE)
+        uninstall = block("Section", "Uninstall")
+        call = uninstall.index("nsExec::ExecToLog /TIMEOUT=")
+        guard = uninstall[:call][uninstall[:call].rindex('${GetOptions} $CMDLINE "/P" $R0'):]
+        # Not on an update (/P puts the manifest back), and only a binary with the manifest beside
+        # it, which knows the argument: an older one would start the app.
+        self.assertIn("${If} ${Errors}", guard)
+        self.assertIn('${AndIf} ${FileExists} "$INSTDIR\\${STEAMVRMANIFEST}"', guard)
+        self.assertIn('"$INSTDIR\\${MAINBINARYNAME}.exe" --steamvr-unregister', uninstall)
+        # A SteamVR that does not answer cannot hold the uninstall.
+        self.assertLessEqual(int(re.search(r"/TIMEOUT=(\d+)", uninstall).group(1)), 30000)
+        self.assertLess(call, uninstall.index('Delete "$INSTDIR\\${MAINBINARYNAME}.exe"'))
+        self.assertLess(call, uninstall.index('Delete "$INSTDIR\\${STEAMVRMANIFEST}"'))
+        # A package without the manifest takes away the one of the version it replaces.
+        install = block("Section", "Install")
+        self.assertIn('${IfNot} ${FileExists} "$INSTDIR\\.upd\\new\\${STEAMVRMANIFEST}"', install)
+        self.assertIn('Delete "$INSTDIR\\${STEAMVRMANIFEST}"', install)
+
     def test_no_components_page(self):
         # Every section is required; the page let users skip the app or WebView2.
         code = [line for line in SOURCE.splitlines() if not line.lstrip().startswith(";")]

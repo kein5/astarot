@@ -121,8 +121,17 @@ pub(crate) fn startup_log(message: &str) {
     let _ = writeln!(log_file, "[{timestamp}] {message}");
 }
 
+/// The argument the Windows uninstaller starts the installed binary with, before it removes the
+/// files (`src-tauri/nsis/template.nsi`, #1384): the binary takes this install out of SteamVR's
+/// list of applications and ends, with [`astarot_core::controller::steamvr::Unregistered`] as its
+/// exit code. Nothing of the app starts: no window, no backend, no single-instance check.
+const STEAMVR_UNREGISTER: &str = "--steamvr-unregister";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::args_os().nth(1).is_some_and(|argument| argument == STEAMVR_UNREGISTER) {
+        std::process::exit(astarot_core::controller::steamvr::unregister_this_install() as i32);
+    }
     // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
     // variable when chat reading or translation first loads it; the RVC worker inherits it.
     unsafe { astarot_core::shipped_libraries::disable_onnx_runtime_telemetry() };
@@ -505,6 +514,14 @@ mod tests {
                 assert!(!unused.iter().any(|prefix| name.starts_with(prefix)), "{} grants {name}", capability["identifier"]);
             }
         }
+    }
+
+    #[test]
+    fn the_uninstaller_asks_for_the_steamvr_removal_by_the_argument_the_binary_knows() {
+        let template = include_str!("../nsis/template.nsi");
+        assert!(template.contains(&format!("\" {STEAMVR_UNREGISTER}'")), "the uninstaller does not pass {STEAMVR_UNREGISTER}");
+        // The manifest the uninstaller looks for is the one the package ships beside the binary.
+        assert!(template.contains(&format!("!define STEAMVRMANIFEST \"{}\"", astarot_app_identity::steamvr::MANIFEST)));
     }
 
     #[test]

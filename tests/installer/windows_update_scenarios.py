@@ -34,6 +34,11 @@ OLD_APP = "vrct-vox.exe"
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
 # installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
+# The SteamVR application manifest, beside the main binary in packages from 0.7.0 (#1384). It goes
+# with the app: a package without it (the "old" one) removes the one it replaces, and the
+# uninstaller removes it after asking the binary beside it to take the install out of SteamVR's
+# list. The stub binary cannot run, which the uninstaller must survive.
+STEAMVR_MANIFEST = "astarot.vrmanifest"
 # The package from 0.7.0, and its name in a release up to 0.6.x, which the installer asks for when
 # /VERSION names such a release (ADR-014, 2.10). "0.6.99" plays one.
 PACKAGE = "ASTAROT.zip"
@@ -70,6 +75,8 @@ def payload_files(version):
     }
     if version == "old":
         files[SIDECAR] = f"{version} sidecar stub".encode()
+    else:
+        files[STEAMVR_MANIFEST] = (ROOT / "src-tauri/steamvr" / STEAMVR_MANIFEST).read_bytes()
     return files
 
 
@@ -306,7 +313,8 @@ def expect_updated(directory, before, moved_from=None, version="new"):
     """`moved_from`: the folder the installer moved the install from, named in the file it leaves.
     The main binary under either name goes with the rest of the app: only `version`'s stays."""
     expected = {k: v for k, v in before.items()
-                if k not in (APP, OLD_APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
+                if k not in (APP, OLD_APP, SIDECAR, STEAMVR_MANIFEST, "update.exe", "_internal")
+                and not k.startswith("_internal/")}
     if moved_from is not None:
         expected[MOVED_FROM] = sha256(moved_from_bytes(moved_from)).hexdigest()
     for name, value in payload_files(version).items():
@@ -1043,6 +1051,7 @@ def move_scenarios(installer, work):
     assert not any(link.exists() for link in new_links + old_links)
     assert (new_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
     assert not (new_dir / MOVED_FROM).exists()
+    assert not (new_dir / STEAMVR_MANIFEST).exists(), "The SteamVR manifest goes with the app"
     print("PASS the uninstaller removes the keys of both names and keeps the settings", flush=True)
     reset_machine(new_dir)
 

@@ -1,5 +1,6 @@
 import io
 import importlib.util
+import json
 import shutil
 import subprocess
 import tarfile
@@ -331,12 +332,32 @@ def test_real_7zip_listing_does_not_mistake_zip_for_nsis(tmp_path, monkeypatch):
         guard.check_nsis([candidate])
 
 
-def _zip_builder():
+def _zip_module():
     path = Path(__file__).resolve().parents[2] / "utils/zip.py"
     spec = importlib.util.spec_from_file_location("fork_zip_builder", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.zip_files_and_directory
+    return module
+
+
+def _zip_builder():
+    return _zip_module().zip_files_and_directory
+
+
+def test_the_package_puts_the_steamvr_manifest_beside_the_app(tmp_path):
+    # SteamVR starts the binary the manifest names, relative to the manifest's folder (#1384).
+    root = Path(__file__).resolve().parents[2]
+    files = _zip_module().PACKAGE_FILES
+    manifest = root / "src-tauri/steamvr/astarot.vrmanifest"
+    assert "src-tauri/steamvr/astarot.vrmanifest" in files
+    app = tmp_path / "astarot.exe"
+    app.write_bytes(b"fake executable")
+    output = tmp_path / "fork.zip"
+    _zip_builder()(output, [app, manifest], [])
+    with zipfile.ZipFile(output) as archive:
+        assert set(archive.namelist()) == {"astarot.exe", "astarot.vrmanifest"}
+        named = json.loads(archive.read("astarot.vrmanifest"))["applications"][0]["binary_path_windows"]
+    assert named == "astarot.exe"
 
 
 def test_package_builder_refuses_missing_inputs_before_replacing_output(tmp_path):
