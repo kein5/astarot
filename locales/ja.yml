@@ -1416,6 +1416,8 @@ vr_panel:
     window_log: "ログ"
     window_language: "言語"
     window_settings: "VR設定"
+    # #1314 (V-4): the launcher's button that lists the language, inputs and outputs, and VR settings windows.
+    window_more: "ほかのウィンドウ"
     recall_log: "呼び戻す"
     anchor_playspace: "空間"
     anchor_left_hand: "左手"
@@ -1439,6 +1441,9 @@ vr_panel:
         asr_models: "PCのメイン画面でこのスイッチを押すと、モデルを準備できます。"
         ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
         ocr_language: "この言語は未対応です。PCの設定「チャット読み取り（OCR）」で変えてください。"
+        # #1314 (V-4): the launcher's text to speech switch.
+        tts_source: "読み上げる内容を、PCの設定「テキスト読み上げ（TTS）」で選んでください。"
+        tts_model: "読み上げのモデルを、PCの設定「テキスト読み上げ（TTS）」で取得してください。"
     # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
     # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).
     mic_wait:
@@ -1456,6 +1461,12 @@ vr_panel:
         microphone: "マイク入力"
         listen: "聞き取り"
         chat_detect: "チャット読み取り（OCR）"
+        # #1314 (V-4): the text to speech switch and the stop.
+        tts: "テキスト読み上げ（TTS）"
+        stop_group: "停止"
+        stop_idle: "止めるものなし"
+        stop_help: "押すと読み上げと待ち行列を止めます"
+        stop_idle_help: "読み上げている間に押せます"
         functions_group: "機能のオン／オフ"
         windows_group: "ウィンドウ"
         controls_group: "ログの操作"

@@ -5,7 +5,7 @@ import { useVoiceAudition } from "../../../../logics/voice/useVoiceAudition";
 import { useVirtualMic } from "../../../../logics/voice/useVirtualMic";
 import { useStopVoice } from "../../../../logics/voice/useStopVoice";
 import { somethingToStop } from "../../../../logics/voice/stopVoice.ts";
-import { voiceActions } from "../../../../logics/voice/voiceActions.ts";
+import { voiceActions, voiceStopState } from "../../../../logics/voice/voiceActions.ts";
 import { Tooltip } from "../../../common_components/tooltip/Tooltip";
 import { StableWords } from "../../../common_components/stable_words/StableWords";
 import { Button, Toggle } from "../../../kit/index.ts";
@@ -62,6 +62,8 @@ export const StopActions = ({ classes, size }: { classes: Readonly<Record<string
     const toggleMute = () => { if (!resumeBlocked) send(muted ? "/run/resume_voice" : "/run/mute_voice"); };
     // Hotkeys press these same buttons, with today's state (logics/voice/voiceActions.ts).
     useEffect(() => { voiceActions.stop = stopVoice; voiceActions.toggleMute = toggleMute; });
+    // The VR panel's launcher shows the same stop (#1314, V-4).
+    useEffect(() => { voiceStopState.publish({ offered, phase }); });
     const stopScope = offered ? t("voice.stop") : t("voice_ui.topbar_stop_idle");
     const muteScope = t(route.managed ? "voice.mute_scope_managed" : route.covers_direct ? "voice.mute_scope_device" : "voice.mute_scope_external");
     const stopScopeId = useId(), muteScopeId = useId();

@@ -93,17 +93,38 @@ test("a resizable window has handles on three corners, not on the close button's
     assert.deepEqual([handles(fixed), fixed.props["data-vr-hoverable"]], [[], undefined]);
 });
 
-test("one temporary window is open at a time: languages, settings, or inputs and outputs", async () => {
+test("one temporary window is open at a time: languages, settings, inputs and outputs, or their list", async () => {
+    const VrWindowsMenu = () => null;
     const { VrPopupWindow } = await loadModule<typeof import("./VrPopupWindow.tsx")>(new URL("./VrPopupWindow.tsx", import.meta.url), hooks(), {
         "./VrLanguageWindow": { VrLanguageWindow }, "./VrSettingsWindow": { VrSettingsWindow }, "./VrIoFlowWindow": { VrIoFlowWindow },
+        "./VrWindowsMenu": { VrWindowsMenu },
     });
-    const onClose = () => {};
-    for (const [popup, window] of [["language", VrLanguageWindow], ["settings", VrSettingsWindow], ["io_flow", VrIoFlowWindow]] as const) {
-        const tree = VrPopupWindow({ popup, onClose });
+    const onClose = () => {}, onOpen = () => {};
+    for (const [popup, window] of [["language", VrLanguageWindow], ["settings", VrSettingsWindow], ["io_flow", VrIoFlowWindow], ["windows", VrWindowsMenu]] as const) {
+        const tree = VrPopupWindow({ popup, onOpen, onClose });
         assert.equal(tree?.type, window, popup);
         assert.equal(tree?.props.onClose, onClose);
     }
-    assert.equal(VrPopupWindow({ popup: null, onClose }), null);
+    // The list opens a window in its own place (#1314).
+    assert.equal(VrPopupWindow({ popup: "windows", onOpen, onClose })?.props.onOpen, onOpen);
+    assert.equal(VrPopupWindow({ popup: null, onOpen, onClose }), null);
+});
+
+// #1314 (V-4): the windows the launcher's "More windows" button lists, each named on its row, as
+// nothing opens a tooltip inside a VR window.
+test("the windows' list names each window on its row and opens it in its place", async () => {
+    const { VrWindowsMenu } = await loadModule<typeof import("./VrWindowsMenu.tsx")>(new URL("./VrWindowsMenu.tsx", import.meta.url), hooks(), {
+        "@useI18n": { useI18n: () => ({ t }) },
+        "./VrWindow": { VrWindow: VrWindowStandIn },
+        "./VrLauncherIcons": { WindowsSvg: "windows-svg" },
+    });
+    const opened: unknown[] = [], onClose = () => {};
+    const tree = VrWindowsMenu({ onOpen: popup => { opened.push(popup); }, onClose });
+    assert.deepEqual([tree.type, tree.props.title, tree.props.onClose, tree.props.is_lockable], [VrWindowStandIn, "vr_panel.window_more", onClose, false]);
+    const rows = tree.props.children.props.children as { props: { onClick: () => void; children: { props: { children: string } }[] } }[];
+    assert.deepEqual(rows.map(row => row.props.children[1].props.children), ["vr_panel.window_language", "io_flow.vr_window", "vr_panel.window_settings"]);
+    for (const row of rows) row.props.onClick();
+    assert.deepEqual(opened, ["language", "io_flow", "settings"]);
 });
 
 test("the inputs and outputs window draws the main window's flow view, compact, and is never covered", async () => {
