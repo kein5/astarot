@@ -94,10 +94,7 @@ PENDING_SKILLS = (
 
 # Sections that exist only in the Japanese version. Each is left out of the comparison until its
 # English version is written; the check fails once the heading is gone, so that the entry goes too.
-JAPANESE_ONLY_SECTIONS = {
-    "docs/spec/ipc-protocol.md": ("設定ファイルと会話ログの保存先",),
-    "docs/voice-stack/licensing.md": ("おしゃべりAIの画面のJPEG変換（#388）",),
-}
+JAPANESE_ONLY_SECTIONS: dict[str, tuple[str, ...]] = {}
 
 # The Agent Skills format's limit for a skill's description, which the English and the Japanese
 # share once a skill carries both.
