@@ -39,6 +39,7 @@ Tools write the documents below. Do not edit them by hand. Regenerate them with 
 |---|---|---|
 | The three lists in `docs/spec/reference/` | `mise run spec` (the test that writes the core's JSON, then `python tools/spec_catalog.py --write`) | `native/core/tests/spec_catalog.rs`, `tests/devtools/test_spec_catalog.py` |
 | The index table in `docs/adr/README.md` | `python tools/adr_catalog.py --write` | `tooling` in `check` (`--check`) |
+| `docs/spec/reference/component-map.md` (edit `tools/component_map.toml`, not the page) | `mise run component-map` (`python tools/component_map.py --write`) | `tooling` in `check` (`tests/devtools/test_component_map.py`) |
 | `CHANGELOG.md` | `tools/changelog.py` (only when preparing a stable release; the release skill) | None |
 | `site/theme/tokens.css` | `node tools/site_tokens.mjs` | `--check` in the Pages workflow |
 
@@ -126,6 +127,7 @@ Tools write the documents below. Do not edit them by hand. Regenerate them with 
 |---|---|---|
 | `docs/spec/reference/`の3つの一覧 | `mise run spec`（中核のJSONを書き出す試験と`python tools/spec_catalog.py --write`） | `native/core/tests/spec_catalog.rs`、`tests/devtools/test_spec_catalog.py` |
 | `docs/adr/README.md`の索引の表 | `python tools/adr_catalog.py --write` | `check`の`tooling`（`--check`） |
+| `docs/spec/reference/component-map.md`（ページではなく`tools/component_map.toml`を直す） | `mise run component-map`（`python tools/component_map.py --write`） | `check`の`tooling`（`tests/devtools/test_component_map.py`） |
 | `CHANGELOG.md` | `tools/changelog.py`（正式版のリリースの準備のときだけ。releaseスキル） | なし |
 | `site/theme/tokens.css` | `node tools/site_tokens.mjs` | Pagesのワークフローの`--check` |
 

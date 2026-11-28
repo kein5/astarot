@@ -27,6 +27,7 @@ Each task runs an existing CLI such as `python tools/dev.py`. Before that, mise 
 | `setup:headless`, `setup:ui`, `setup:browser`, `setup:rust`, `setup:resources`, `setup:integration`, `setup:hooks` | `python tools/dev.py setup --scope <name>` |
 | `spec` | Rebuilds the lists in the functional specifications (rewrites the core's list, `tools/spec_core_catalog.json`, then runs `python tools/spec_catalog.py --write`) |
 | `adr` | Rebuilds the ADR index table (`python tools/adr_catalog.py --write`) |
+| `component-map` | Rebuilds the [component map](spec/reference/component-map.md) (`python tools/component_map.py --write`) |
 | `build:voice-gate`, `build:rvc-worker` | Builds the audio helper programs and the RVC worker into `build/` |
 | `build:windows`, `build:linux` | `npm run build`, `python tools/build_linux.py` |
 | `changelog:print` | Shows the changes for the next release without writing them |
@@ -37,6 +38,8 @@ Each task runs an existing CLI such as `python tools/dev.py`. Before that, mise 
 The lists in the functional specifications (the endpoints, error codes and setting keys in `docs/spec/reference/`) are generated from the code of the core and the UI. When you change an endpoint, an error code or a setting key, rebuild them with `mise run spec`. `check` also confirms that these lists are up to date. The specifications start at [docs/spec/README.md](spec/README.md).
 
 The index table of the architecture decision records (ADRs) in [docs/adr/README.md](adr/README.md) is generated from the front matter at the top of each ADR. When you add an ADR or change its front matter, rebuild the table with `mise run adr`. Through `tests/devtools/test_adr_catalog.py`, `check` looks for duplicate numbers and checks the fields and their values, the evidence paths, the links and whether the table is out of date.
+
+The [component map](spec/reference/component-map.md) shows the components inside ASTAROT and the repositories kept outside it, by code name, as a Mermaid diagram and tables. It sits in `docs/spec/reference/` with the other generated reference pages, and is generated from `tools/component_map.toml`, the only place where the map's names and roles are edited. After editing that file, rebuild the page with `mise run component-map`. Through `tests/devtools/test_component_map.py`, `check` checks the fields of the data file and whether the page is out of date. The tool also prints a warning, without failing, for each Cargo package in the repository that has no entry in the data file. A new crate then shows up instead of silently missing from the map.
 
 Shortcuts to the development CLI (`tools/dev.py`) live only in mise tasks (2026-11-21). The npm scripts keep only what needs npm to run: Vite, Tauri, starting the app (`npm run dev-fast` and others), building the Windows release package (`npm run build`, `npm run release`), the UI tests (`npm test`, Vitest), type checking (`npm run typecheck`) and similar. When you call them from a shell with mise turned on (`mise activate`), the npm scripts also run with the pinned versions.
 
@@ -603,6 +606,7 @@ mise run check               # 軽量チェック
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration`、`setup:hooks` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（中核の一覧`tools/spec_core_catalog.json`を書き直してから`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
+| `component-map` | [構成図](spec/reference/component-map.md#astarotの構成図日本語版)を作り直す（`python tools/component_map.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
@@ -613,6 +617,8 @@ mise run check               # 軽量チェック
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
+
+[構成図](spec/reference/component-map.md#astarotの構成図日本語版)は、ASTAROT の中のコンポーネントと ASTAROT の外に置くリポジトリを、コードネームで Mermaid の図と表に示します。構成図はほかの生成した参照のページと同じ `docs/spec/reference/` にあり、`tools/component_map.toml` から生成します。構成図の名前と役割を直すのは、このファイルだけです。このファイルを直したら `mise run component-map` でページを作り直します。`check` は `tests/devtools/test_component_map.py` で、データファイルの項目とページの古さを確かめます。リポジトリの中の Cargo のパッケージのうちデータファイルにないものは、失敗にせず警告として表示します。新しいクレートが構成図から黙って漏れないようにするためです。
 
 開発CLI（`tools/dev.py`）の近道は、miseのタスクだけに置きます（2026-11-21）。npmのスクリプトに残すのは、npmでないと動かないものです。Vite、Tauri、アプリの起動（`npm run dev-fast` など）、Windowsの配布物のビルド（`npm run build`、`npm run release`）、UIの試験（`npm test`、Vitest）、型チェック（`npm run typecheck`）などです。miseを有効にしたシェル（`mise activate`）から呼ぶと、npmのスクリプトも固定した版で動きます。
 
