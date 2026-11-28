@@ -49,7 +49,7 @@ The Windows NSIS template reads the previous install location from the registry 
 
 ## Internal code names
 
-Internal crates whose boundaries of responsibility are clear get code names taken from demons said to serve under Astaroth ([#689](https://github.com/kein5/astarot/issues/689)). A code name is a secondary name. The UI, documents and public APIs use names that describe the function. Setting keys, public APIs and file paths are not changed just for a code name. A name's rank comes from its affiliation in historical sources and has nothing to do with the dependencies between crates. The rank tree, the sources, the reasons for adoption and the other candidates are in #689. Tool repositories kept outside ASTAROT also get names from the same system (Sergulath in the table).
+Internal crates whose boundaries of responsibility are clear get code names taken from demons said to serve under Astaroth ([#689](https://github.com/kein5/astarot/issues/689)). A code name is a secondary name. The UI, documents and public APIs use names that describe the function. Setting keys, public APIs and file paths are not changed just for a code name. A name's rank comes from its affiliation in historical sources and has nothing to do with the dependencies between crates. The rank tree, the sources, the reasons for adoption and the other candidates are in #689. Repositories kept outside ASTAROT also get names from the same system (SERGULATH, AGLASIS, SEGAL and TRIMASEL in the table). The [component map](../spec/reference/component-map.md) shows all of these names in one diagram.
 
 | Code name | Target | What it handles now |
 |---|---|---|
@@ -61,17 +61,21 @@ Internal crates whose boundaries of responsibility are clear get code names take
 | Humots | `native/ocr-runtime` | Reading the chat box and capturing the VRChat screen |
 | Nebiros | `native/ops` | Supervising the running state. Watching the backend (watchdog) and usage reporting. Model downloads also live here |
 | Nuberus | `native/vr-overlay` | SteamVR overlays (the caption log, the VR panel and the launcher) |
-| Aglasis | `native/browser-core-bridge` | **Test host**. In integration tests (`tests/integration/`, ADR-017), it connects the UI shown in a browser with the core. It is a test tool and is not part of the app or the release files. It is separate from delivery inside the app (the Scirlin candidate) |
-| Sergulath | [kein5/sergulath](https://github.com/kein5/sergulath) | **External repository**, not an ASTAROT crate. A set of tools that runs and checks apps using SteamVR overlays on a real headset (Steam Frame first). It is not part of the app or the release files. Its recursive acronym is Sergulath's Emulation, Recording, Gauging & Unattended-Launch Automation Testing Harness |
+| Segal | `src-ui/views/kit` | The UI design system (kit): the shared components the screens are built from. It is a folder in the UI, not a crate. It is planned to move to the SEGAL repository |
+| SERGULATH | [kein5/sergulath](https://github.com/kein5/sergulath) | **External repository**, not an ASTAROT crate. A set of tools that runs and checks apps using SteamVR overlays on a real headset (Steam Frame first). It is not part of the app or the release files. Its recursive acronym is Sergulath's Emulation, Recording, Gauging & Unattended-Launch Automation Testing Harness |
+| AGLASIS | [kein5/aglasis](https://github.com/kein5/aglasis) | **External repository**, not an ASTAROT crate. A general-purpose skill that reads new posts in chosen channels of a Discord server, sorts the requests and problems, and drafts GitHub Issues, which are filed only after the maintainer approves them. What differs between projects (the server and channels, the repository and the filing rules) is in a configuration file, and the setup for the ASTAROT Discord server and this repository comes with it as the first example. It is not part of the app or the release files |
+| SEGAL | [kein5/segal](https://github.com/kein5/segal) | **External repository**, created on 2026-11-28 as the planned home of the Segal kit. The kit still lives in ASTAROT, and the repository holds nothing yet |
+| TRIMASEL | [kein5/trimasel](https://github.com/kein5/trimasel) | **External repository**, not an ASTAROT crate. A VR keyboard, built as a standalone SteamVR overlay app instead of inside ASTAROT. Japanese conversion is planned around a Mozc-family engine. It is in the design phase (2026-11-28) and is not part of the app or the release files |
 
 Code names are also written in the `description` of each crate's `Cargo.toml` and at the top of `lib.rs` (at the top of `main.rs` for crates that are only an executable). From the versions after 0.6.0, every crate's package name starts with `astarot-` (such as `astarot-core`; up to 0.6.0 they were names such as `vrct-core`, and there were also `ocr-runtime`, `rvc-runtime` and `app-identity` without a prefix; PR 12 of ADR-014). The app's crate and the npm package are `astarot`. Code names are not used as package names, only in documents and descriptions (the decision in [#797](https://github.com/kein5/astarot/pull/797)). Folder names (such as `native/core`) have not changed.
 
 The following names have not been assigned yet.
 
-- **Candidates waiting for a condition**: Scirlin (IPC and event delivery, once general delivery and the part specific to VRChat OSC can be separated) and Morail (masking sensitive data in logs, telemetry and diagnostic information, once masking becomes a separate responsibility). For now, general delivery (passing requests to and from the UI in `native/core`, the WebSocket server in `native/adapters`) and VRChat OSC (`native/adapters`) are not gathered within one boundary, and masking is inside `log.rs` in `native/core`. What Scirlin would handle is delivery inside the app, which does not overlap with Aglasis, the test host.
+- **Candidates waiting for a condition**: Scirlin (IPC and event delivery, once general delivery and the part specific to VRChat OSC can be separated) and Morail (masking sensitive data in logs, telemetry and diagnostic information, once masking becomes a separate responsibility). For now, general delivery (passing requests to and from the UI in `native/core`, the WebSocket server in `native/adapters`) and VRChat OSC (`native/adapters`) are not gathered within one boundary, and masking is inside `log.rs` in `native/core`. What Scirlin would handle is delivery inside the app, which does not overlap with the integration tests' host (`browser-core-bridge`).
 - **Reserved**: Surgat (brokering permissions) and Frucissiere (restoring state and recovering from failures).
 - **Spare**: Valefar and Glasyabolas. No role has been decided for them.
 - **Crates without a name**: `app-identity`, `audio-routing`, `adapters`, `openvr-client`, `onnx-runtime`, `translate-onnx`, `voice-conversion`, `rvc-runtime` and the C helper programs. Not every crate gets a name.
+- **Crates waiting for a naming decision**: `browser-core-bridge` (the integration tests' host, called Aglasis before #689 gave that name to the external repository AGLASIS on 2026-11-24), `talk-ai` and the app's crate in `src-tauri`. Whether they get a name is decided in #689.
 
 ## Publishing
 
@@ -128,7 +132,7 @@ WindowsのNSISテンプレートは上記のレジストリキーから前回の
 
 ## 内部のコードネーム
 
-内部のクレートのうち、責務の境界がはっきりしているものには、アスタロトの配下とされる悪魔の名前をコードネームとして付けています（[#689](https://github.com/kein5/astarot/issues/689)）。コードネームは補助の名前です。画面、文書、公開するAPIでは、機能を説明する名前を使います。設定のキー、公開するAPI、ファイルのパスは、コードネームのためだけには変えません。名前の階級は史料上の所属で、クレートの依存関係とは関係ありません。階級の木、出典、採用の理由、ほかの候補は#689にあります。ASTAROTの外に置く道具のリポジトリにも、同じ体系の名前を付けています（表のSergulath）。
+内部のクレートのうち、責務の境界がはっきりしているものには、アスタロトの配下とされる悪魔の名前をコードネームとして付けています（[#689](https://github.com/kein5/astarot/issues/689)）。コードネームは補助の名前です。画面、文書、公開するAPIでは、機能を説明する名前を使います。設定のキー、公開するAPI、ファイルのパスは、コードネームのためだけには変えません。名前の階級は史料上の所属で、クレートの依存関係とは関係ありません。階級の木、出典、採用の理由、ほかの候補は#689にあります。ASTAROTの外に置くリポジトリにも、同じ体系の名前を付けています（表のSERGULATH、AGLASIS、SEGAL、TRIMASEL）。これらの名前を1つの図にまとめたものが[構成図](../spec/reference/component-map.md#astarotの構成図日本語版)です。
 
 | コードネーム | 対象 | いま受け持っていること |
 |---|---|---|
@@ -140,17 +144,21 @@ WindowsのNSISテンプレートは上記のレジストリキーから前回の
 | Humots | `native/ocr-runtime` | チャット欄の読み取りと、VRChatの画面の取得 |
 | Nebiros | `native/ops` | 実行状態の監督。バックエンドの見張り（watchdog）と利用状況の通知。モデルの取得もここにある |
 | Nuberus | `native/vr-overlay` | SteamVRのオーバーレイ（字幕のログ、VRパネル、ランチャー） |
-| Aglasis | `native/browser-core-bridge` | **試験のホスト**。結合テスト（`tests/integration/`、ADR-017）で、ブラウザに出した画面と中核をつなぐ。試験の道具で、アプリと配布物には入らない。アプリの中の配送（Scirlinの候補）とは別のもの |
-| Sergulath | [kein5/sergulath](https://github.com/kein5/sergulath) | **外部リポジトリ**で、ASTAROTのクレートではない。SteamVRのオーバーレイを使うアプリを、実機のヘッドセット（まずSteam Frame）で動かして確かめる道具一式。アプリと配布物には入らない。再帰的頭字語はSergulath's Emulation, Recording, Gauging & Unattended-Launch Automation Testing Harness |
+| Segal | `src-ui/views/kit` | UIのデザインシステム（kit）。画面を組み立てる共通の部品。UIの中のフォルダーで、クレートではない。SEGALのリポジトリへ移す予定 |
+| SERGULATH | [kein5/sergulath](https://github.com/kein5/sergulath) | **外部リポジトリ**で、ASTAROTのクレートではない。SteamVRのオーバーレイを使うアプリを、実機のヘッドセット（まずSteam Frame）で動かして確かめる道具一式。アプリと配布物には入らない。再帰的頭字語はSergulath's Emulation, Recording, Gauging & Unattended-Launch Automation Testing Harness |
+| AGLASIS | [kein5/aglasis](https://github.com/kein5/aglasis) | **外部リポジトリ**で、ASTAROTのクレートではない。Discordのサーバーの決めたチャンネルの新しい投稿を読み、要望と不具合を仕分けて、GitHubのIssueの下書きを作る汎用のスキル。下書きは保守担当者が承認してから起票する。プロジェクトごとに違うもの（読むサーバーとチャンネル、対象のリポジトリ、起票の決まり）は設定ファイルに分けてあり、ASTAROTのDiscordのサーバーとこのリポジトリの設定を最初の見本として同梱する。アプリと配布物には入らない |
+| SEGAL | [kein5/segal](https://github.com/kein5/segal) | **外部リポジトリ**。Segalのkitを移す予定の先として、2026-11-28に作った。kitはまだASTAROTの中にあり、リポジトリにはまだ何も入っていない |
+| TRIMASEL | [kein5/trimasel](https://github.com/kein5/trimasel) | **外部リポジトリ**で、ASTAROTのクレートではない。VRのキーボード。ASTAROTの中ではなく、独立したSteamVRのオーバーレイのアプリとして作る。日本語の変換はMozc系のエンジンを使う予定。設計の段階（2026-11-28）で、アプリと配布物には入らない |
 
 コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭（実行ファイルだけのクレートは`main.rs`の冒頭）にも書いてあります。パッケージ名は0.6.0より後の版から、どのクレートも`astarot-`で始まる名前です（`astarot-core`など。0.6.0までは`vrct-core`などで、接頭辞のない`ocr-runtime`、`rvc-runtime`、`app-identity`もあった。ADR-014のPR 12）。アプリのクレートとnpmのパッケージは`astarot`です。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前（`native/core`など）は変えていません。
 
 次の名前は、まだ付けていません。
 
-- **条件を待つ候補**: Scirlin（IPCとイベントの配送。汎用の配送とVRChatのOSCに固有の部分を分けられたら）、Morail（ログ、テレメトリ、診断の情報の秘匿化。秘匿化が独立した責務になったら）。いまは、汎用の配送（UIとの要求の受け渡しは`native/core`、WebSocketのサーバーは`native/adapters`）とVRChatのOSC（`native/adapters`）が1つの境界にまとまっておらず、秘匿化は`native/core`の`log.rs`の中にある。Scirlinが受け持つのはアプリの中の配送で、試験のホストのAglasisとは重ならない。
+- **条件を待つ候補**: Scirlin（IPCとイベントの配送。汎用の配送とVRChatのOSCに固有の部分を分けられたら）、Morail（ログ、テレメトリ、診断の情報の秘匿化。秘匿化が独立した責務になったら）。いまは、汎用の配送（UIとの要求の受け渡しは`native/core`、WebSocketのサーバーは`native/adapters`）とVRChatのOSC（`native/adapters`）が1つの境界にまとまっておらず、秘匿化は`native/core`の`log.rs`の中にある。Scirlinが受け持つのはアプリの中の配送で、結合テストのホスト（`browser-core-bridge`）とは重ならない。
 - **予約**: Surgat（権限の仲介）、Frucissiere（状態の復元と障害からの回復）。
 - **予備**: Valefar、Glasyabolas。担当は決めていない。
 - **名前のないクレート**: `app-identity`、`audio-routing`、`adapters`、`openvr-client`、`onnx-runtime`、`translate-onnx`、`voice-conversion`、`rvc-runtime`と、Cの補助プログラム。すべてのクレートに名前を付けるわけではない。
+- **名前の判断を待つクレート**: `browser-core-bridge`（結合テストのホスト。#689が2026-11-24にその名前を外部リポジトリのAGLASISに充てる前は、Aglasisと呼んでいた）、`talk-ai`、`src-tauri`のアプリのクレート。名前を付けるかどうかは#689で決める。
 
 ## 公開
 
