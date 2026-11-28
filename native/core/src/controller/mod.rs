@@ -481,6 +481,7 @@ impl Core {
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();
+        self.close_local_translation();
         self.close_model_downloads();
         self.stop_audio_devices();
         self.stop_ocr();

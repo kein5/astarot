@@ -4,10 +4,11 @@ mod common;
 
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use astarot_core::config::Platform;
 use astarot_core::controller::Services;
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
 
 #[test]
 fn start_up_sends_its_notifications_in_order_and_then_opens_every_endpoint() {
@@ -459,5 +460,46 @@ fn a_failed_save_is_reported_once_and_its_recovery_too() {
     ui.wait_endpoint(before, "/run/config_save_recovered");
     ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 3);
+    ui.stop();
+}
+
+/// A local translation whose unload waits until the test lets it go, as a translation in flight
+/// keeps the model until its request ends.
+struct StuckUnload(Arc<(Mutex<bool>, Condvar)>);
+
+impl LocalTranslation for StuckUnload {
+    fn load(&self, _: &LocalSetup) -> Result<(), LocalError> {
+        Err(LocalError::Missing)
+    }
+    fn loaded(&self) -> Option<LocalSetup> {
+        None
+    }
+    fn translate(&self, _: &str, _: &str, _: &str) -> Result<String, LocalError> {
+        Err(LocalError::Failed)
+    }
+    fn unload(&self) {
+        let (released, changed) = &*self.0;
+        let _ = changed.wait_timeout_while(released.lock().unwrap(), Duration::from_secs(60), |released| !*released);
+    }
+}
+
+// #1341: the end of the run stops the local model, but a translation in flight may keep it for
+// two minutes. The end waits 5 s at most, says so in the log, and goes on.
+#[test]
+fn the_end_of_the_run_waits_five_seconds_at_most_for_the_local_model_to_stop() {
+    let dir = tempfile::tempdir().unwrap();
+    let release = Arc::new((Mutex::new(false), Condvar::new()));
+    let local = Arc::new(StuckUnload(Arc::clone(&release)));
+    let services = Services { local_translation: Arc::new(move |_| local.clone() as Arc<dyn LocalTranslation>), ..Setup::default().services };
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), services, ..Setup::default() });
+    ui.ready();
+    let began = Instant::now();
+    assert_eq!(ui.ok("/run/shutdown", None), true);
+    let took = began.elapsed();
+    assert!((Duration::from_millis(4900)..Duration::from_secs(9)).contains(&took), "the end took {took:?}");
+    let log = std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    assert!(log.contains("shutdown: the local translation did not stop in time"), "{log}");
+    *release.0.lock().unwrap() = true;
+    release.1.notify_all();
     ui.stop();
 }
