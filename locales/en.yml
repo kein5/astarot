@@ -391,7 +391,7 @@ main_page:
         translation_model: "The translation model is not downloaded yet. Download it in Settings → Translation, or pick another engine under Translator."
         translation_unavailable: "The selected translation model cannot be downloaded yet. Pick another engine under Translator."
         translation_downloading: "The translation model is downloading. You can turn translation on when it finishes."
-        asr_models: "Local speech recognition has no models yet. The button beside this switch shows the recommended recognition and VAD models and their size, and downloads them when you agree."
+        asr_models: "Local speech recognition has no models yet. The setup shows the recommended models and their size, and downloads them when you agree."
         ocr_models: "The chat reading models are not downloaded yet. Download them in Settings → Chat reading (OCR) → Recognition models."
         ocr_language: "Chat reading does not support the selected language. Choose another language in Settings → Chat reading (OCR)."
         tts_source: "Nothing is chosen to read aloud. In Settings → Text to speech (TTS), set Chat voice or Realtime microphone speech to something other than Off."
@@ -1713,7 +1713,7 @@ realtime_toggle:
 # the dialog that fixes it where the switch is (#1225).
 recognition_fix:
   title: "{{name}} cannot turn on yet"
-  models_body: "Speech recognition on your PC needs a recognition model and a VAD model. The setup shows which models it downloads and how large they are, and downloads them only when you agree."
+  models_body: "Speech recognition on your PC needs a recognition model. The setup shows which models it downloads and how large they are, and downloads them only when you agree."
   get_models: "Get the recommended models"
   language_auto_body: "The current speech recognition model cannot tell which language is spoken. Choose the language that is spoken, or get a model that can tell."
   language_body: "The current speech recognition model does not recognize the chosen language. Choose a language it recognizes."
