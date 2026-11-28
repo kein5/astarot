@@ -1,6 +1,7 @@
 //! Each realtime switch on the bundled speech.cpp server it uses (#1242): Mic input's, and
 //! Listening's own while Listening has a model of its own, each started by its switch alone; and
-//! Listening refused when its model does not fit beside Mic input's (decided on 2026-11-27).
+//! Listening refused when its model does not fit beside Mic input's (decided on 2026-11-27). A
+//! switch that still waits for its server does not hold up the end of the run (#1340).
 //!
 //! The servers are the stand-in executable (`tests/fixture/fake_speech.rs`), which leaves
 //! `MODEL.started` when a server runs that model. It does not speak the Realtime API, so a session
@@ -13,7 +14,7 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use astarot_core::config::Platform;
 use astarot_core::controller::Services;
 use astarot_transcription::capture::Source;
@@ -28,6 +29,11 @@ impl Run {
     /// Linux, where the main switches run realtime recognition, on the bundled server with Mic
     /// input's model `mic` and Listening's `listening` ("" for none of its own).
     fn start(mic: &str, listening: &str) -> Run {
+        Run::with_start_timeout(mic, listening, Duration::from_secs(10))
+    }
+
+    /// [`Run::start`] with the servers' own start timeout.
+    fn with_start_timeout(mic: &str, listening: &str, start_timeout: Duration) -> Run {
         let models = tempfile::tempdir().unwrap();
         let gguf = |name: &str| {
             if name.is_empty() {
@@ -61,7 +67,7 @@ impl Run {
             transcription_capture: capture.factory(),
             speech_server_launch: Arc::new(move |_| {
                 let mut launch = astarot_speech_server::server::Launch::fixed(fake);
-                launch.start_timeout = Duration::from_secs(10);
+                launch.start_timeout = start_timeout;
                 launch
             }),
             ..Setup::default().services
@@ -153,5 +159,26 @@ fn the_models_list_is_that_of_the_sources_server() {
     assert_eq!(listening["base_url"], state["asr_listening"]["base_url"], "{listening}");
     let refused = run.ui.request("/get/data/realtime_asr_models", Some(json!({ "source": "game" })));
     assert_eq!((refused["status"].clone(), error_code(&refused)), (json!(400), "realtime_source_invalid"));
+    run.ui.stop();
+}
+
+// #1340: Mic input's switch waits for its server holding the talk lock, which the end of the run
+// takes before it closes realtime recognition. The end stops the wait instead of waiting for it
+// until the server's own start timeout, and the switch is answered as a stale start.
+#[test]
+fn the_end_of_the_run_does_not_wait_for_a_switch_that_waits_for_its_server() {
+    // `gate` never says it is ready (no `.go` is written), and its start timeout is far beyond
+    // the stop's limit, so only the stop can end the switch's wait.
+    let run = Run::with_start_timeout("asr_gate", "", Duration::from_secs(120));
+    let mark = run.ui.send(MIC, None);
+    common::net::eventually("Mic input's server is launched", || run.ran("asr_gate"));
+    let stopping = Instant::now();
+    assert!(
+        run.ui.backend.kill_and_wait(Duration::from_secs(20)),
+        "the end of the run waited for the switch ({:?})",
+        stopping.elapsed()
+    );
+    let answer = run.ui.wait_from(mark, "the switch's answer", |line| line["endpoint"] == MIC);
+    assert_eq!(answer["result"]["details"]["reason"], "realtime_stale_start", "{answer}");
     run.ui.stop();
 }
