@@ -87,6 +87,81 @@ def test_a_restart_keeps_the_record_it_was_given(tmp_path):
     assert (host[f'{HOST_RECORD}GTK_THEME_SET'], host[f'{HOST_RECORD}GTK_THEME']) == ('x', 'Host:dark')
 
 
+PIPEWIRE = 'libpipewire-0.3.so.0'
+
+
+@pytest.mark.parametrize(('cache', 'library_path', 'bundled'), [
+    # The host's loader finds libpipewire: the image's copy stays out of the way.
+    (f'\t{PIPEWIRE} (libc6,x86-64) => /usr/lib/{PIPEWIRE}', None, False),
+    (f'\t{PIPEWIRE} (libc6,x86-64) => /usr/lib/{PIPEWIRE}', '/host/libs', False),
+    # No PipeWire on the host, or only a 32-bit one: the image's copy comes last.
+    ('\tlibc.so.6 (libc6,x86-64) => /usr/lib/libc.so.6', None, True),
+    (f'\t{PIPEWIRE} (libc6) => /usr/lib32/{PIPEWIRE}', '/host/libs', True),
+])
+def test_the_image_s_libpipewire_is_used_only_where_the_host_has_none(tmp_path, cache, library_path, bundled):
+    """libpipewire loads the host's PipeWire modules and must match them, so the host's copy is
+    used whenever there is one. Without one the image's copy lets the app start (#1205)."""
+    appdir = launchers(tmp_path, 'import os; print(os.environ["LD_LIBRARY_PATH"])')
+    fallback = appdir / 'usr/lib/fallback' / PIPEWIRE
+    fallback.mkdir(parents=True)
+    (fallback / PIPEWIRE).write_bytes(b'library')
+    # A stand-in ldconfig lists the host's loader cache.
+    tools = tmp_path / 'bin'
+    tools.mkdir()
+    (tools / 'ldconfig').write_text(f"#!/bin/sh\ntest \"$1\" = -p && printf '%s\\n' '{cache}'\n")
+    (tools / 'ldconfig').chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != 'LD_LIBRARY_PATH' and not k.startswith(HOST_RECORD)}
+    env['PATH'] = f'{tools}:{env["PATH"]}'
+    if library_path is not None:
+        env['LD_LIBRARY_PATH'] = library_path
+    seen = subprocess.run([str(appdir / 'AppRun')], env=env, check=True, text=True,
+                          capture_output=True).stdout.strip().split(':')
+    lib = str((appdir / 'usr/lib').resolve())
+    expected = [lib, *([library_path] if library_path else []),
+                *([str(fallback.resolve())] if bundled else [])]
+    assert seen == expected
+
+
+def test_a_fallback_library_is_the_one_the_gui_links_and_needs_only_the_base_system(tmp_path, monkeypatch):
+    from tools import build_appimage
+    library = tmp_path / 'host/libpipewire-0.3.so.0.1000.5'
+    library.parent.mkdir()
+    library.write_bytes(b'host library')
+    (tmp_path / 'host' / PIPEWIRE).symlink_to(library.name)
+    tools = tmp_path / 'bin'
+    tools.mkdir()
+    needed = tmp_path / 'needed'
+
+    def stand_ins(resolved, libraries):
+        (tools / 'ldd').write_text("#!/bin/sh\nprintf '\\tlinux-vdso.so.1 (0x1)\\n\\t%s => %s (0x2)\\n' "
+                                   f"'{PIPEWIRE}' '{resolved}'\n")
+        needed.write_text(''.join(f' 0x1 (NEEDED) Shared library: [{name}]\n' for name in libraries))
+        (tools / 'readelf').write_text(f"#!/bin/sh\ncat '{needed}'\n")
+        for tool in ('ldd', 'readelf'):
+            (tools / tool).chmod(0o755)
+
+    monkeypatch.setenv('PATH', f'{tools}:{os.environ["PATH"]}')
+    stand_ins(tmp_path / 'host' / PIPEWIRE, ['libgcc_s.so.1', 'libc.so.6'])
+    appdir = tmp_path / 'AppDir'
+    build_appimage.install_fallback_libraries(appdir, tmp_path / 'gui')
+    copied = appdir / 'usr/lib/fallback' / PIPEWIRE / PIPEWIRE
+    assert copied.read_bytes() == b'host library' and not copied.is_symlink()
+    build_appimage.check_fallback_libraries(appdir)
+    # On the GUI's own library path it would hide the host's copy.
+    (appdir / 'usr/lib' / PIPEWIRE).write_bytes(b'host library')
+    with pytest.raises(ValueError, match='hides the host copy'):
+        build_appimage.check_fallback_libraries(appdir)
+    # A library that needs more than the base system, or one the GUI does not find, stops the build.
+    stand_ins(tmp_path / 'host' / PIPEWIRE, ['libdbus-1.so.3', 'libc.so.6'])
+    with pytest.raises(ValueError, match='libdbus-1.so.3'):
+        build_appimage.install_fallback_libraries(tmp_path / 'other', tmp_path / 'gui')
+    stand_ins('not found', ['libc.so.6'])
+    with pytest.raises(ValueError, match='does not resolve'):
+        build_appimage.install_fallback_libraries(tmp_path / 'third', tmp_path / 'gui')
+    with pytest.raises(ValueError, match='missing fallback library'):
+        build_appimage.check_fallback_libraries(tmp_path / 'third')
+
+
 def host_xdg_open(tmp_path):
     """A stand-in for the host's xdg-open that reports what it was started with."""
     folder = tmp_path / 'host bin'

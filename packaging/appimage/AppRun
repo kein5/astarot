@@ -32,8 +32,30 @@ fi
 case "${GTK_IM_MODULE-}" in
     ''|fcitx|fcitx5|ibus|wayland) [ -z "${XMODIFIERS-}" ] || export GTK_IM_MODULE=xim ;;
 esac
+# Whether the host's loader finds this library: its cache, or without ldconfig the usual folders.
+host_has_library() {
+    local ldconfig folder
+    for ldconfig in "$(command -v ldconfig || true)" /sbin/ldconfig /usr/sbin/ldconfig; do
+        if [ -n "$ldconfig" ] && [ -x "$ldconfig" ]; then
+            "$ldconfig" -p 2>/dev/null | grep -qF "$1 (libc6,x86-64)"
+            return
+        fi
+    done
+    for folder in /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /lib64 /usr/lib64 /lib /usr/lib; do
+        [ -e "$folder/$1" ] && return 0
+    done
+    return 1
+}
 # The GUI's bundled libraries. The ASTAROT_APPIMAGE_HOST_* copies above keep the host values.
 export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# A library left to the host, such as libpipewire, which loads the host's PipeWire modules and
+# must match them. Only where the host has none, the image's copy comes last, so that the app
+# starts; there is then no PipeWire to play audio through (#1205).
+for fallback in "$APPDIR"/usr/lib/fallback/*/; do
+    [ -d "$fallback" ] || continue
+    fallback=${fallback%/}
+    host_has_library "${fallback##*/}" || LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$fallback"
+done
 export PATH="$APPDIR/usr/bin:$PATH"
 # The GTK plugin relocates WebKit's /usr paths to ././. Match AppImageKit's
 # working directory and let linuxdeploy's generated wrapper source hooks once.

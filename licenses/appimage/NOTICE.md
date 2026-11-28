@@ -17,6 +17,10 @@ the project's final native-library inventory and redistribution audit before pub
   https://github.com/tauri-apps/linuxdeploy-plugin-gtk/tree/dda522bce37387f1b853d9095713bfaa924c8423
 - AppImageKit: top-level MIT license and its file/subdirectory exceptions
   reproduced here. https://github.com/AppImage/AppImageKit
+- libpipewire (`libpipewire-0.3.so.0`, PipeWire): the file the GUI links on the build host, in
+  `usr/lib/fallback/libpipewire-0.3.so.0/`. The launcher uses it only on a host without its own
+  libpipewire (#1205). MIT license reproduced here (`PipeWire-pipewire-COPYING`, from the 1.6.10
+  tag that the Linux CI builds). https://gitlab.freedesktop.org/pipewire/pipewire
 - appimagetool 1.9.1 is a build tool, not shipped as a tool in this candidate.
   https://github.com/AppImage/appimagetool/tree/1.9.1
 

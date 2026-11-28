@@ -79,6 +79,17 @@ the writable model directory. The bundled PipeWire template is under
 `usr/lib/astarot/_internal/config/pipewire/`; managed routing still requires
 the explicit [host setup](local-setup-linux.md). No host audio service is restarted.
 
+linuxdeploy leaves `libpipewire-0.3.so.0` to the host: its exclusion list keeps audio libraries
+that must match the host's services out of an image. The GUI links it, so on a system without
+PipeWire the image did not start (#1205). The image keeps a copy in
+`usr/lib/fallback/libpipewire-0.3.so.0/`, the file the GUI links on the build host, checked to
+need nothing beyond the C library. The launcher adds that folder to the GUI's library path, last,
+only when the host's loader does not find libpipewire (in the `ldconfig` cache, or in the usual
+library folders when there is no `ldconfig`). Where the host has PipeWire, its own libpipewire is
+used as before, and it loads the host's PipeWire modules. Without PipeWire the app starts, but
+nothing plays through PipeWire. The programs the app starts get the host's library path back, so
+the audio helpers that link libpipewire do not start there either.
+
 The pinned GTK plugin uses X11, including XWayland on a Wayland desktop. On hosts
 with the NVIDIA kernel module loaded, the launcher defaults
 `WEBKIT_DISABLE_DMABUF_RENDERER=1` unless the user already set it. This resolves
@@ -148,8 +159,9 @@ for testing the single-instance guard itself and its D-Bus requirement.
 
 A local build on CachyOS/glibc 2.44 includes GLIBC_2.44 references and does not
 run on older distributions. Release images come from the hosted Ubuntu 24.04
-workflow; other target machines must be tested separately. Host kernel/glibc, GPU drivers, PipeWire and
-command-line audio tools remain requirements. Owned audio helpers currently need
+workflow; other target machines must be tested separately. Host kernel/glibc and GPU drivers remain
+requirements, and audio needs the host's PipeWire and command-line audio tools; without PipeWire the
+app starts but plays no audio through it. Owned audio helpers currently need
 Linux >=6.9. AppImage does not remove these requirements.
 
 OCR weights and Mia2026 are rejected by the package policy. No speech.cpp or RVC model
@@ -226,6 +238,8 @@ APPIMAGE_EXTRACT_AND_RUN=1 ./ASTAROT-<version>-linux-x64-release.AppImage
 
 展開して起動するには、イメージのほかに圧縮を解いた中身を置く一時的なディスクの空きが要ります。一時ファイルシステムがnoexecだと、展開したプログラムを実行できません。どちらの方式でも設定とデータは[XDGの保存先](linux-build-pipeline.md#run-and-inspect)に残ります。イメージはモデルを書き込むフォルダーにはなりません。同梱したPipeWireのテンプレートは`usr/lib/astarot/_internal/config/pipewire/`の下にあります。管理対象の音声経路には引き続き明示の[ホストでの準備](local-setup-linux.md)が要ります。ホストの音声のサービスは再起動しません。
 
+linuxdeployは`libpipewire-0.3.so.0`をホストに任せます。除外の一覧が、ホストのサービスと合わせる必要のある音声のライブラリをイメージに入れないためです。GUIはこれにリンクしているので、PipeWireのないシステムではイメージが起動しませんでした（#1205）。イメージは、ビルドのホストでGUIがリンクしているファイルの写しを`usr/lib/fallback/libpipewire-0.3.so.0/`に持ちます。Cライブラリより先に何も要らないことは、ビルドで確かめます。起動の処理は、ホストのローダーがlibpipewireを見つけられないとき（`ldconfig`のキャッシュにないとき。`ldconfig`がなければ、よく使うライブラリのフォルダーにないとき）だけ、このフォルダーをGUIのライブラリの検索先の最後に足します。PipeWireのあるホストでは今までどおりホストのlibpipewireを使い、それがホストのPipeWireのモジュールを読み込みます。PipeWireがなければアプリは起動しますが、PipeWireを通しては何も鳴りません。アプリが起動するプログラムはホストのライブラリの検索先に戻るので、libpipewireにリンクしている音声の補助も、その環境では起動しません。
+
 固定したGTKのプラグインはX11を使い、WaylandのデスクトップではXWaylandを通します。NVIDIAのカーネルモジュールが読み込まれているホストでは、利用者がまだ設定していなければ、起動スクリプトが`WEBKIT_DISABLE_DMABUF_RENDERER=1`を既定にします。これで手元で再現したGBMの割り当ての失敗は解消しますが、代わりにWebKitの速い描画の経路を使わなくなります。この設定の対象はGUIだけです（アプリが起動するプログラムについては下を見てください）。ほかのGPUは既定のままです。`WEBKIT_DISABLE_DMABUF_RENDERER=0`を明示すると、元の経路を選びます。これはDPMSで画面が消えたときに以前起きた失敗とは関係ありません。[Tauriのグラフィックスの案内](https://v2.tauri.app/develop/debug/linux-graphics/)を参照してください。
 
 イメージが読み込むのは同梱したGTKの入力メソッドのモジュールだけで、その中にfcitxとibusのモジュールはありません。`XMODIFIERS`が設定されておらず、fcitxかfcitx5かibus-daemonが動いているときは、起動スクリプトが`XMODIFIERS`をその入力メソッドに設定し、GTKのXIMのモジュールを選びます。これでMozcなどホストの入力メソッドからウィンドウに文字を入力できます。利用者が設定した`XMODIFIERS`はそのまま残します。
@@ -248,7 +262,7 @@ tauri-driver 2.1.0が別の場所にあるときは、`ASTAROT_TEST_DRIVER`で�
 
 WebDriverの試験も通常起動の試験も`VRCT_CONFIG_DIR`を渡すので、インストール済みのアプリとは関係なく動きます。`XDG_*`のフォルダーを分けて手でAppImageを試験するときは、`ASTAROT_CONFIG_DIR`も`$XDG_CONFIG_HOME/astarot`に設定し、状態の保存先を同じに保ちます。二重起動の防止そのものの試験とそれに要るD-Busについては、[Linuxの受け入れ試験の案内](linux-build-pipeline.md#acceptance-and-exclusions)を参照してください。
 
-手元のCachyOS（glibc 2.44）でビルドしたものはGLIBC_2.44への参照を含み、古いディストリビューションでは動きません。リリースのイメージは、GitHubがホストするUbuntu 24.04のワークフローで作ります。ほかの対象のPCでは別に試験する必要があります。ホストのカーネルとglibc、GPUのドライバー、PipeWire、音声のコマンドラインツールは、引き続き必要です。アプリが所有する音声のヘルパーには今のところLinux 6.9以降が必要です。AppImageにしても、これらの条件はなくなりません。
+手元のCachyOS（glibc 2.44）でビルドしたものはGLIBC_2.44への参照を含み、古いディストリビューションでは動きません。リリースのイメージは、GitHubがホストするUbuntu 24.04のワークフローで作ります。ほかの対象のPCでは別に試験する必要があります。ホストのカーネルとglibc、GPUのドライバーは、引き続き必要です。音声にはホストのPipeWireと音声のコマンドラインツールが要ります。PipeWireがなくてもアプリは起動しますが、PipeWireを通しては何も鳴りません。アプリが所有する音声のヘルパーには今のところLinux 6.9以降が必要です。AppImageにしても、これらの条件はなくなりません。
 
 OCRの重みとMia2026はパッケージの方針で拒否します。このビルダーはspeech.cppとRVCのモデルを取得も同梱もしません。利用者のモデルは外に置いたままです。元のライセンスは残します。GTKとWebKit、実行時に静的に入る依存のライセンスの確認と、ネイティブ、フロントエンド、Rustのライセンスと部品表（SBOM）全体の確認は、引き続き毎回のリリースの前の確認として残ります（[配布候補](release-candidates.md)）。ビルドツールのライセンスがイメージにコピーしたすべてのライブラリに及ぶわけではありません。patchelfはビルドにだけ使うツールで、実行時のツリーには入れません。
 
