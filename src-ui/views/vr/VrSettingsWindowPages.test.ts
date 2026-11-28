@@ -13,8 +13,9 @@ import { ui_configs } from "../../logics/ui_configs.ts";
 // The VR settings window, drawn with the real logic it shares with the desktop settings (language
 // names, compute devices, the cloud engines, the license rule for translation models) and with
 // its rows as stand-ins that keep their props (VrSettingsRows.test.ts draws the rows). The window
-// is a settings page: while it is open the main functions stop, and its rows wait until the
-// main window says the page is open.
+// opens the desktop's settings, and its rows wait until the main window says they are open: in the
+// app the settings window (#1236), which pauses nothing; in a browser the settings page, which
+// pauses the main functions (#1371).
 
 const t = (key: string, variables?: object) => variables ? `${key} ${JSON.stringify(variables)}` : key;
 type Setting = { state: string; data: unknown };
@@ -33,11 +34,16 @@ function fakeButton(name: string, { disabled = false, fold = null }: { disabled?
     return button;
 }
 
-async function settingsWindow(values: Record<string, unknown> = {}, { ready = true, osc = true } = {}) {
+// The window in a browser, where the settings are a page of the main window; with app, in the app,
+// where they are the settings window. ready: the main window says they are open.
+async function settingsWindow(values: Record<string, unknown> = {}, { ready = true, osc = true, app = false } = {}) {
     const runtime = hooks(), calls: unknown[][] = [], i18n = { language: "en" };
     // The words in the UI's language: as the keys in English, marked with the language otherwise.
     const translate = (key: string, variables?: object) => i18n.language === "en" ? t(key, variables) : `${t(key, variables)} [${i18n.language}]`;
-    let configOpen: unknown = ready;
+    // What the main window mirrors: its settings page is open, and the settings window is. In the app
+    // the main window never opens the page (useOpenSettings opens the window), so only the window can be.
+    let configOpen: unknown = !app && ready;
+    let settingsWindowOpen: unknown = app && ready;
     // Every setting the pages read: the given value, or nothing yet. Every action records its call.
     const hook = () => () => new Proxy({}, { get: (_, key) => {
         const name = String(key);
@@ -52,8 +58,10 @@ async function settingsWindow(values: Record<string, unknown> = {}, { ready = tr
             useIsOscAvailable: () => ({ currentIsOscAvailable: { data: osc }, oscUnavailableLabelKey: "config_page.others.osc_unavailable" }),
             useVolume: hook() },
         "@logics_configs": { useAppearance: hook(), useDevice: hook(), useOcr: hook(), useOthers: hook(), useTranscription: hook(), useTranslation: hook(), useVr: hook() },
-        "@store": { useStore_MicVolume: hook(), useStore_SelectableFontFamilyList: hook(), useStore_SpeakerVolume: hook(), useStore_VrCustomTranslationModelNames: () => ({ currentVrCustomTranslationModelNames: ok({}) }) },
+        "@store": { useStore_IsOpenedSettingsWindow: () => ({ currentIsOpenedSettingsWindow: { data: settingsWindowOpen } }),
+            useStore_MicVolume: hook(), useStore_SelectableFontFamilyList: hook(), useStore_SpeakerVolume: hook(), useStore_VrCustomTranslationModelNames: () => ({ currentVrCustomTranslationModelNames: ok({}) }) },
         "@ui_configs": { ui_configs },
+        "../../logics/common/settingsWindow.ts": { settingsHaveAWindow: () => app },
         "./VrWindow": { VrWindow: "window" },
         "./VrHandIcon": { VrHandIcon: "hand" },
         "./VrSettingsRows": { Disclosure: "disclosure", Picker: "picker", SectionLabel: "section-label", SegmentRow: "segment-row",
@@ -91,7 +99,11 @@ async function settingsWindow(values: Record<string, unknown> = {}, { ready = tr
     const categoryButtons = (tree: TreeNode = current()): TreeNode[] => findIn(tree, node => node.type === "fieldset").props.children[0].props.children;
     return { runtime, calls, i18n, list, picker, firstChoice, render, rowsOf, categoryButtons,
         get tree() { return current(); },
-        setReady: (value: unknown) => { configOpen = value; },
+        // What the main window says of the settings: in the app of its settings window, in a browser of its page.
+        setReady: (value: unknown) => {
+            if (app) settingsWindowOpen = value;
+            else configOpen = value;
+        },
         // Shows a category, as its button in the side bar does.
         show: (id: string) => {
             const button = categoryButtons().find(node => node.key === id);
@@ -126,28 +138,64 @@ function openList(w: Window, row: TreeNode) {
     return w.pickerOf(w.render());
 }
 
-test("the window is the settings page: it names itself so, cannot be covered, and says the functions are paused", async () => {
-    const w = await settingsWindow();
-    const frame = w.tree;
-    assert.equal(frame.type, "window");
-    assert.deepEqual([frame.props.title, frame.props.close_label, frame.props.is_lockable], ["vr_panel.window_settings", "vr_panel.settings.close", false]);
-    frame.props.onClose();
-    assert.deepEqual(w.calls, [["close"]]);
-    const banner = findIn(frame, node => node.type === "p", "the banner");
-    assert.equal(textOf(banner), "vr_panel.paused_while_settings");
-    assert.equal(findIn(banner, node => typeof node.type === "function").props["aria-hidden"], "true");
-    const body = findIn(frame, node => node.type === "fieldset");
-    assert.deepEqual([body.props.disabled, body.props["aria-busy"], body.props["aria-label"], classesOf(body).includes("is_waiting")],
-        [false, false, "vr_panel.window_settings", false]);
+// The rows as the window holds them: [disabled, aria-busy, drawn as waiting].
+const waiting = (tree: TreeNode) => {
+    const body = findIn(tree, node => node.type === "fieldset");
+    return [body.props.disabled, body.props["aria-busy"], classesOf(body).includes("is_waiting")];
+};
+// The strip at the top of the window, if it draws one.
+const bannerOf = (tree: TreeNode) => find(tree, node => node.type === "p" && node.props.className === "banner");
+
+test("the window is the settings: it names itself so and cannot be covered", async () => {
+    for (const app of [true, false]) {
+        const w = await settingsWindow({}, { app });
+        const frame = w.tree;
+        assert.equal(frame.type, "window");
+        assert.deepEqual([frame.props.title, frame.props.close_label, frame.props.is_lockable], ["vr_panel.window_settings", "vr_panel.settings.close", false]);
+        frame.props.onClose();
+        assert.deepEqual(w.calls, [["close"]]);
+        const body = findIn(frame, node => node.type === "fieldset");
+        assert.deepEqual([body.props.disabled, body.props["aria-busy"], body.props["aria-label"], classesOf(body).includes("is_waiting")],
+            [false, false, "vr_panel.window_settings", false], `app: ${app}`);
+    }
 });
 
-test("until the main window has opened the settings page, the rows wait", async () => {
+// #1371: in the app the main window opens the settings window, never the settings page, so rows
+// that waited for the page stayed disabled however long the window was open.
+test("in the app the rows wait for the settings window, then work, and no strip says the functions are paused", async () => {
+    const w = await settingsWindow({}, { app: true, ready: false });
+    assert.deepEqual(waiting(w.tree), [true, true, true]);
+    for (const state of [false, null, "true"]) {
+        w.setReady(state);
+        assert.deepEqual(waiting(w.render()), [true, true, true], String(state));
+    }
+    w.setReady(true);
+    const opened = w.render();
+    assert.deepEqual(waiting(opened), [false, false, false]);
+    // Nothing pauses while the settings window is open (#1236): the strip that said so is not drawn.
+    assert.equal(bannerOf(opened), null);
+    assert.ok(!textOf(opened).includes("vr_panel.paused_while_settings"));
+    // A category is pressed and shown.
+    w.show("vrchat");
+    assert.deepEqual(w.categoryButtons().filter(button => button.props["aria-pressed"]).map(button => button.key), ["vrchat"]);
+    // The desktop's settings window was open before VR opened its settings: the rows work at once.
+    assert.deepEqual(waiting((await settingsWindow({}, { app: true })).tree), [false, false, false]);
+});
+
+test("in a browser the rows wait for the settings page, which pauses the main functions, as the strip says", async () => {
     for (const state of [false, null, "true"]) {
         const w = await settingsWindow({}, { ready: false });
         w.setReady(state);
-        const body = findIn(w.render(), node => node.type === "fieldset");
-        assert.deepEqual([body.props.disabled, body.props["aria-busy"], classesOf(body).includes("is_waiting")], [true, true, true], String(state));
+        assert.deepEqual(waiting(w.render()), [true, true, true], String(state));
     }
+    const w = await settingsWindow({}, { ready: false });
+    w.setReady(true);
+    const opened = w.render();
+    assert.deepEqual(waiting(opened), [false, false, false]);
+    const banner = bannerOf(opened);
+    assert.ok(banner, "the banner");
+    assert.equal(textOf(banner), "vr_panel.paused_while_settings");
+    assert.equal(findIn(banner, node => typeof node.type === "function").props["aria-hidden"], "true");
 });
 
 test("the categories are the desktop's, in its order, with VR named as such; the one on show is pressed", async () => {

@@ -111,7 +111,7 @@ async function translationPage(options: PageOptions = {}) {
         "../_components/form_row/FormRow": { FormRow: "form-row" },
         "./TranslationCatalog": { TranslationCatalogGroup: "catalog-group" },
         "./TranslationGpuRuntimes": { TranslationGpuRuntimes: "gpu-runtimes" },
-        "../_templates/Templates": { DownloadModelsContainer: "download-models", RadioButtonContainer: "radio", AuthKeyContainer: "auth-key", EntryWithSaveButtonContainer: "entry",
+        "../_templates/Templates": { DownloadModelsContainer: "download-models", ComboboxContainer: "combobox", AuthKeyContainer: "auth-key", EntryWithSaveButtonContainer: "entry",
             DropdownMenuContainer: "dropdown", ConnectionCheckButtonContainer: "connection-check" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/compute_device/ComputeDevice": { ComputeDevice: "compute-device" },
@@ -161,40 +161,58 @@ const textOf = (value: unknown): string => {
 const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
 
 // #1266 ★4: the engine of the language preset in use is chosen at the page's head, as on the main
-// screen, under the two systems' names in the order of the parts below.
+// screen, under the two systems' names in the order of the parts below. #1369: in a dropdown found
+// by typing, not a list of radios, with the same choices, the same groups and the same values.
 test("the page starts with the translation engine of the preset in use, chosen as on the main screen", async () => {
     const engines = [{ id: "CTranslate2", label: "CTranslate2", is_available: true }, { id: "DeepL_API", label: "DeepL API", is_available: true },
         { id: "Groq_API", label: "Groq API", is_available: false }, { id: "Ollama", label: "Ollama", is_available: false }];
     const p = await translationPage({ engines, selected: { 1: "CTranslate2", 2: "Groq_API" }, tab: "2" });
     const container = p.draw(p.reach("TranslationEngine_Container"));
     assert.deepEqual(ofType(container, "section-label").map(node => node.props.label), ["config_page.translation.section_label_translation_engines"]);
-    const radio = findIn(container, node => node.type === "radio").props;
-    assert.deepEqual([radio.name, radio.label, radio.desc], ["select_translation_engine", "config_page.translation.select_translation_engine.label",
+    assert.deepEqual(ofType(container, "radio"), [], "no list of radios");
+    const choice = findIn(container, node => node.type === "combobox").props;
+    assert.deepEqual([choice.name, choice.label, choice.desc], ["select_translation_engine", "config_page.translation.select_translation_engine.label",
         "config_page.translation.select_translation_engine.desc"]);
+    assert.deepEqual([choice.search_label, choice.search_placeholder, choice.empty_text], ["config_page.translation.select_translation_engine.search_label",
+        "config_page.translation.select_translation_engine.search_placeholder", "config_page.translation.select_translation_engine.no_results"]);
     // The local engine by the name the main screen gives it; an engine the core cannot use now is
     // greyed, unless it is the one in use; an engine the core does not list is left out.
-    assert.deepEqual(radio.groups.map((group: { id: string; label: string; options: unknown[] }) => [group.id, group.label, group.options]), [
+    assert.deepEqual(choice.groups.map((group: { id: string; label: string; options: unknown[] }) => [group.id, group.label, group.options]), [
         ["local", "config_page.translation.local_section.label", [{ id: "CTranslate2", label: "config_page.translation.section_label_ai_translation", disabled: false }]],
         ["api", "config_page.translation.api_section.label", [{ id: "DeepL_API", label: "DeepL API", disabled: false },
             { id: "Groq_API", label: "Groq API", disabled: false }, { id: "Ollama", label: "Ollama", disabled: true }]],
     ]);
-    assert.deepEqual(radio.checked_variable, { state: "ok", data: "Groq_API" }, "the preset in use, the second");
-    const note = findIn(radio.note, node => node.props?.role === "status");
+    assert.deepEqual(choice.checked_variable, { state: "ok", data: "Groq_API" }, "the preset in use, the second");
+    const note = findIn(choice.note, node => node.props?.role === "status");
     assert.equal(note.props.children, `config_page.translation.select_translation_engine.selected {"tab":"2","engine":"Groq API"}`);
-    assert.equal(radio["aria-describedby"], radio.note_id);
-    radio.selectFunction("DeepL_API");
-    radio.selectFunction("Groq_API");
+    assert.equal(choice["aria-describedby"], choice.note_id);
+    assert.equal(choice.placeholder, "Groq API", "the button says what the note says");
+    choice.selectFunction("DeepL_API");
+    choice.selectFunction("Groq_API");
     assert.deepEqual(p.calls.filter(call => call[0] === "setSelectedTranslationEngines"), [["setSelectedTranslationEngines", "DeepL_API"]],
         "the engine in use is not sent again");
     // While the language settings are busy, a choice waits, as on the main screen.
     const busy = await translationPage({ engines, selected: { 1: "CTranslate2" }, canChange: false });
-    findIn(busy.draw(busy.reach("TranslationEngine_Container")), node => node.type === "radio").props.selectFunction("DeepL_API");
+    findIn(busy.draw(busy.reach("TranslationEngine_Container")), node => node.type === "combobox").props.selectFunction("DeepL_API");
     assert.deepEqual(busy.calls.filter(call => call[0] === "setSelectedTranslationEngines"), []);
-    // Nothing chosen yet.
+    // Nothing chosen yet: the button and the note say so.
     const none = await translationPage({ engines, selected: {} });
-    const unchosen = findIn(none.draw(none.reach("TranslationEngine_Container")), node => node.type === "radio").props;
+    const unchosen = findIn(none.draw(none.reach("TranslationEngine_Container")), node => node.type === "combobox").props;
     assert.equal(findIn(unchosen.note, node => node.props?.role === "status").props.children,
         `config_page.translation.select_translation_engine.selected {"tab":"1","engine":"config_page.translation.select_translation_engine.unselected"}`);
+    assert.equal(unchosen.placeholder, "config_page.translation.select_translation_engine.unselected");
+    // An engine the core does not list (yet): its id, on the button as in the note.
+    const unlisted = await translationPage({ engines: [], selected: { 1: "Groq_API" } });
+    assert.equal(findIn(unlisted.draw(unlisted.reach("TranslationEngine_Container")), node => node.type === "combobox").props.placeholder, "Groq_API");
+});
+
+// #1369: the page is the engine's choice, then straight away the two systems with the model and
+// its device first; nothing else moved.
+test("the engine's choice is one row, and the model and its device come right after it", async () => {
+    const p = await translationPage();
+    const page = p.tree();
+    const parts = nodesIn(findIn(page, node => node.props?.className === "container")).filter(node => typeof node.type === "function").map(componentName);
+    assert.deepEqual(parts.slice(0, 3), ["TranslationEngine_Container", "EngineGroup", "AITranslation_Container"]);
 });
 
 // #1266 ★17: 「詳細設定」 holds what every AI engine is asked besides the text, and its line says

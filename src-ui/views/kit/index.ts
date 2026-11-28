@@ -18,3 +18,4 @@ export { InlineConfirm, InlineConfirmAction, InlineConfirmCancel, InlineConfirmC
     type InlineConfirmContentProps, type InlineConfirmProps } from "./InlineConfirm.tsx";
 export { Textarea, type TextareaProps } from "./Textarea.tsx";
 export { ChoiceCard, type ChoiceCardProps } from "./ChoiceCard.tsx";
+export { Combobox, type ComboboxGroup, type ComboboxOption, type ComboboxProps } from "./Combobox.tsx";

@@ -746,6 +746,9 @@ config_page:
             desc: "The same as \"Translator\" on the main screen, chosen for each language preset. An API engine can be chosen once its API key is registered or its server is reached under \"API (cloud or your own server)\" below."
             selected: "In use for language preset {{tab}}: {{engine}}"
             unselected: "Not chosen"
+            search_label: "Search translation engines"
+            search_placeholder: "Filter by name"
+            no_results: "No matching engines"
         local_section:
             label: "On your PC"
             desc: "The text you translate stays on your PC. Download a model, or add a model of your own that is on your PC."
@@ -1486,6 +1489,8 @@ vr_panel:
     mic_threshold: "Mic sensitivity"
     speaker_threshold: "Speaker sensitivity"
     automatic: "Auto"
+    # #1371: shown in the VR settings window only where the settings are a page of the main window (a browser),
+    # which pauses these. The app's settings window pauses nothing (#1236), so the window does not show it there.
     paused_while_settings: "Translation and transcription are paused while settings are open. They resume when you close this."
     overlay_small_log: "Subtitles (single line)"
     overlay_large_log: "Subtitles (multiple lines)"

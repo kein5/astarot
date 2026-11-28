@@ -1,9 +1,103 @@
 ---
 name: release-notes
-description: ASTAROTのリリースノート（正式版のdocs/release-notes/<版>.mdと、ベータ版のプレリリースの本文）を書き、推敲し、検査する手順。範囲のPRの集め方、画面の文言と設定の場所の確かめ方、英語版と日本語版の組み方、利用者向けの言い回し（開発者の視点の言葉を避ける）、jp-writingでの推敲、文章の検査と下書きへの反映を扱う。リリースノートを書く、直す、ベータのノートを用意する、ノートの事実を確かめるときに使う。版上げや公開の手順そのものはreleaseスキル。Use when writing, revising or checking ASTAROT release notes for a stable release or a beta.
+description: Steps for writing, revising and checking ASTAROT's release notes (docs/release-notes/<version>.md for a stable release, the prerelease body for a beta). Covers the pull requests in range, checking UI text and settings locations, the English and Japanese versions, wording for users (avoiding the developer's point of view), revising with jp-writing, and the prose check and updating the draft. Use when writing or revising notes for a stable release or a beta, preparing a beta's notes or checking the facts in notes. The version bump and publishing themselves are in the release skill. ASTAROTのリリースノート（正式版のdocs/release-notes/<版>.mdと、ベータ版のプレリリースの本文）を書き、推敲し、検査する手順。範囲のPRの集め方、画面の文言と設定の場所の確かめ方、英語版と日本語版の組み方、利用者向けの言い回し（開発者の視点の言葉を避ける）、jp-writingでの推敲、文章の検査と下書きへの反映を扱う。リリースノートを書く、直す、ベータのノートを用意する、ノートの事実を確かめるときに使う。版上げや公開の手順そのものはreleaseスキル。
 ---
 
-# リリースノートを書く
+# Writing release notes
+
+[日本語版](#リリースノートを書く日本語版)
+
+Release notes are the text users read to decide whether to update. [The release notes format](../../docs/release-notes/README.md) is the authoritative source for the format, and this skill covers only the steps for writing them. The steps for the version bump, the draft and publishing are in the [release skill](../release/SKILL.md). Write the Japanese version with the [jp-writing skill](../jp-writing/SKILL.md) every time.
+
+## 1. Decide the range
+
+1. Decide which pull requests the notes cover.
+   - Stable release: the pull requests merged from the previous stable release's tag up to the commit being released
+   - Beta: the pull requests merged from the previous beta's tag (for the first beta of a version, the previous stable release's tag) up to the commit being released
+2. List the pull requests with `git log --first-parent --merges <previous tag>..<commit>`. For a stable release, also compare the list with `python tools/changelog.py print`.
+3. The draft is made after the version bump pull request is merged. So when you wrote the notes earlier, add the pull requests that went in before the version bump pull request was merged, then put the notes in the draft.
+4. Check where the notes go. For a stable release, write `docs/release-notes/<version>.md` on the release branch, and it becomes the body of the GitHub release. For a beta, write the notes neither in `docs/release-notes/` nor in `CHANGELOG.md`; they are only the body of the prerelease (the release skill).
+
+## 2. Gather the facts
+
+Do not write from the pull request descriptions alone. What a description plans can differ from the code that was merged. Check the following for each pull request.
+
+- Whether users can see the change. If they cannot, move it to "Internal changes".
+- What users can now do, or what was fixed. For a fix, also note what happened before.
+- UI text. For each key in `locales/en.yml` and `locales/ja.yml`, note the wording in both languages. For an item that was renamed, also note its previous name from `locales` at the previous version's tag.
+- Settings locations. Check in `src-ui` which item on which page it is. Also check whether it is inside the "More settings" fold (「詳細設定」 in the Japanese version).
+- Conditions and limits: the supported OS, only while another setting is on, and what has not been checked.
+- Data sent and consent: what is sent to outside services and when, and what users are asked to confirm.
+
+When there are many pull requests, you may hand the listing of facts to another agent. Even then, have it check UI text by the keys in `locales` and settings locations in `src-ui`.
+
+Do not write about a feature that is not implemented as if it were. When only the parts went in and there is no screen yet (such as Talk AI in 0.7.0-beta.1 and 0.7.0-beta.2), write what went in and what cannot be used yet.
+
+## 3. Put the notes together
+
+The structure follows the authoritative format. Only the main points are listed here.
+
+- Put the English version first, with a link to the Japanese version under the title. Put the Japanese version after the divider (`---`). Give the two versions the same headings in the same order, with the same emoji. Where they differ, the English version is right.
+- A beta's notes also carry both the English and the Japanese versions, as a stable release's notes do (decision of 2026-11-25).
+- Write the opening paragraph without a heading, in 2 to 4 sentences, about the biggest change in the version. If there is a privacy or security fix, mention it in the opening paragraph too.
+- For each change that matters to users, make a heading of "one emoji + a short title" and write the body in paragraphs. Use a list only when you list three or more things.
+- Put `## ⚠️ When you update` and `## 🐞 Known issues` after the other items and before the internal changes. If there is nothing to write, leave out the whole section. Put what could not be checked before publishing (on real machines, with headsets and so on) under known issues.
+- Under `## 🔧 Internal changes`, make each item one short line and end it with the pull request numbers. Write the numbers as `(#1, #2)` in the English version and `（#1, #2）` in the Japanese version, and combine consecutive numbers as in `#1121〜#1123`. Items in the Japanese version are short lines in the plain form (常体) (the 0.6.0 notes).
+- At the end of the section, a stable release puts a link to this version's section of `CHANGELOG.md`. A beta puts a note that it is not in `CHANGELOG.md` and a link to the page that compares it with the previous version's tag.
+
+In a beta's notes, write these three things in the paragraph after the opening paragraph.
+
+- That bugs may remain, because it is a beta
+- How to get it (that it arrives through the in-app update from the previous beta, that it does not arrive on the stable channel and how to switch "Update channel")
+- Where to report bugs (Issues)
+
+## 4. Write for users
+
+Readers have no knowledge of audio processing or programming. The English version follows "User-facing text" in `docs/writing/english-guideline.md`, and the Japanese version follows "User-facing text" in `docs/writing/japanese-guideline.md` and its "Words to replace" table. In particular, keep to the following.
+
+- Do not use words from the developer's point of view. Do not call the user's PC "this PC" or "the host"; write "your PC". Mention names such as crates, endpoints and sidecars only when they affect what users do.
+- Name who acts. When you can write "ASTAROT saves" instead of "the settings are saved", write that.
+- Quote UI text exactly as `locales` has it. Write a settings location in the form "Settings" → "page" → "item", and include "More settings" when it is inside the fold.
+- Be specific about what cannot be done, the data that is sent and consent.
+- Give measured values with their conditions. Do not write that every PC gets the same result.
+- Do not write people's names, who was in charge or the environment used for development. Do not write the maintainer's nickname either. Refer to a decision by its date, as in "by the decision of 2026-11-24".
+- Write "not verified" or "expected" for what has not been checked. Do not make a statement more certain than it is.
+
+## 5. Revise
+
+Write the Japanese version with the steps of the jp-writing skill.
+
+1. Record the requirements, the design and the intent of each sentence with tsuzuri, then write. tsuzuri's output breaks the line after each sentence, so join each paragraph into one line when you put it in the notes.
+2. Revise with yomiyasu. When it flags the emoji at the start of a heading (part of the format) or the word 版 ("version", a terminology rule), keep them, because the format and the Japanese writing guideline take precedence.
+3. Count the commas (読点) and the line breaks (step 5 of the jp-writing skill). In release notes, the prose check in section 6 also checks the form of commas and line breaks. Put a comma only to separate a condition, a reason or parallel items, and where it prevents a misreading. Delete a comma that only adds a pause after a short topic at the start of a sentence (「Windowsでは、」). Turn a sentence that lists many things with commas into a list, or split it ("Sentence structure" in the Japanese writing guideline). Keep each paragraph on one line, with one blank line between paragraphs.
+
+Revise the English version with the English writing guideline, and check it against the Japanese version for the same facts, conditions and UI names.
+
+## 6. Check
+
+1. Pass the prose check with `--user`. The check treats a file as release notes only when its path starts with `docs/release-notes/`: it then allows emoji in headings and also checks the form of commas and line breaks (`tools/writing_gate/release_notes.mjs`).
+
+   ```sh
+   node tools/writing_gate/check.mjs --file docs/release-notes/<version>.md --user
+   ```
+
+   A beta's notes are not kept in the repository, so copy them into `docs/release-notes/` in the worktree for the check and delete them right after. Do not commit them.
+2. Check that the text the notes quote in 「」 and "" is in `locales/ja.yml` and `locales/en.yml` exactly as written. Check names from before a change in `locales` at the previous version's tag.
+3. For a stable release, check the links with `python tools/dev.py check --scope links`. Some links to the comparison page and to the release cannot be opened until the release is published.
+
+## 7. Put the notes into the draft
+
+When the notes are ready, replace the body of the draft with the steps in section 4 of the release skill ("Before publishing").
+
+```sh
+gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F body=@<notes file>
+```
+
+After replacing it, read the body again and check that the title, the link to the Japanese version, the divider and the numbers in the internal changes are all in place. A maintainer checks the release before it is published.
+
+---
+
+# リリースノートを書く（日本語版）
 
 リリースノートは利用者が更新するかどうかを決めるための文章です。書式の正本は[リリースノートの書式](../../docs/release-notes/README.md)で、このスキルには書く手順だけを書きます。版上げ、下書き、公開の手順は[releaseスキル](../release/SKILL.md)にあります。日本語版は毎回[jp-writingスキル](../jp-writing/SKILL.md)で書きます。
 
