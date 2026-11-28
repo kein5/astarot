@@ -83,6 +83,32 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
         assert.match(choice, new RegExp(`data-slot="${slot}"`), slot);
     }
     assert.match(read("index.ts"), /export \{ ChoiceCard, type ChoiceCardProps \}/);
+    // The searchable choice (#1369): shadcn/ui's Combobox, a Popover around Command's parts.
+    const combobox = read("Combobox.tsx");
+    for (const slot of ["combobox-trigger", "combobox-value", "combobox-icon", "combobox-content", "command", "command-input-wrapper",
+        "command-input", "command-list", "command-group", "command-group-heading", "command-item", "command-empty"]) {
+        assert.match(combobox, new RegExp(`data-slot="${slot}"`), slot);
+    }
+    assert.match(read("index.ts"), /export \{ Combobox, type ComboboxGroup, type ComboboxOption, type ComboboxProps \}/);
+});
+
+test("the searchable choice is built from the kit's popover and field, with no package of its own", () => {
+    // D-36 kept the app's search fields hand-built: no cmdk, no Base UI, and no Radix Select, which
+    // writes a <style> element at run time. Its choices are rows the search field points to
+    // (aria-activedescendant), so the keys stay in the field.
+    const combobox = read("Combobox.tsx");
+    const imports = [...combobox.matchAll(/^import (?:type )?[^;]*? from "([^"]+)";$/gm)].map(match => match[1]);
+    assert.deepEqual(imports, ["react", "react", "clsx", "./Popover.tsx", "./Field.css.ts", "./Combobox.css.ts", "./comboboxModel.ts", "./comboboxModel.ts"]);
+    assert.match(combobox, /role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls=\{listId\}/);
+    assert.match(combobox, /role="listbox"/);
+    // The button is the select field, chevron and all.
+    assert.match(combobox, /className=\{clsx\(field\(\{ kind: "select" \}\), styles\.trigger, className\)\}/);
+    // A row that cannot be chosen, and the button while it waits, are half as strong.
+    const look = read("Combobox.css.ts");
+    assert.match(look, /"&:is\(:disabled, \[aria-disabled='true'\]\)": disabledLook,/);
+    assert.match(look, /"&\[aria-disabled='true'\]": disabledLook,/);
+    // The panel is no wider than the window leaves and no taller than the room under the button.
+    assert.match(look, /maxHeight: "min\(40rem, var\(--radix-popover-content-available-height\)\)"/);
 });
 
 test("a choice card keeps the native radio, and its frame, check and ring follow the radio", () => {
@@ -151,7 +177,7 @@ test("the confirmation inside a row stays in the row: no dialog, no popover, the
 
 test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
     // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
-    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "ChoiceCard.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
+    for (const file of ["Badge.tsx", "Button.tsx", "Card.tsx", "ChoiceCard.tsx", "Combobox.tsx", "Dialog.tsx", "InlineConfirm.tsx", "Item.tsx", "Popover.tsx", "Progress.tsx", "Select.tsx", "Setting.tsx",
         "Switch.tsx", "TextField.tsx", "Textarea.tsx", "Toggle.tsx"]) {
         assert.doesNotMatch(read(file), /forwardRef/, file);
     }

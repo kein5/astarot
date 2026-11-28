@@ -744,6 +744,9 @@ config_page:
             desc: "The same as \"Translator\" on the main screen, chosen for each language preset. An API engine can be chosen once its API key is registered or its server is reached under \"API (cloud or your own server)\" below."
             selected: "In use for language preset {{tab}}: {{engine}}"
             unselected: "Not chosen"
+            search_label: "Search translation engines"
+            search_placeholder: "Filter by name"
+            no_results: "No matching engines"
         local_section:
             label: "On your PC"
             desc: "The text you translate stays on your PC. Download a model, or add a model of your own that is on your PC."
