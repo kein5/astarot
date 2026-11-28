@@ -413,4 +413,24 @@ mod tests {
         assert!(!fake.with(|s| s.application_calls.iter().any(|call| call.starts_with("auto_launch"))));
     }
 
+    #[test]
+    fn the_stand_in_refuses_a_second_manifest_of_the_key_as_steamvr_does() {
+        // What the take-over is for: SteamVR keeps one manifest per key.
+        let dir = TempDir::new();
+        let first = install_in(&dir.path().join("first"));
+        let second = install_in(&dir.path().join("second"));
+        let fake = FakeVr::running();
+        let mut session = session(&fake);
+        session.add_application_manifest(&first.manifest).unwrap();
+        assert_eq!(session.add_application_manifest(&second.manifest), Err(ApplicationError::KEY_TAKEN));
+        // The same manifest again is read again.
+        session.add_application_manifest(&first.manifest).unwrap();
+        assert_eq!(fake.with(|s| s.manifests.clone()), [first.manifest.clone()]);
+        // A manifest that is not in the list is not there to remove; the plan goes on after it.
+        assert_eq!(session.remove_application_manifest(&second.manifest), Err(ApplicationError::UNKNOWN_APPLICATION));
+        session.remove_application_manifest(&first.manifest).unwrap();
+        assert!(fake.with(|s| s.manifests.is_empty() && s.applications.is_empty()));
+        // The flag is the key's: SteamVR refuses it for a key nobody holds.
+        assert_eq!(session.set_auto_launch(APP_KEY, true), Err(ApplicationError::UNKNOWN_APPLICATION));
+    }
 }

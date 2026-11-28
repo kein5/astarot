@@ -217,6 +217,37 @@ mod tests {
     }
 
     #[test]
+    fn the_list_of_applications_comes_through_the_shared_connection() {
+        // The core registers ASTAROT with SteamVR over the connection the overlays use (#1384).
+        let dir = std::env::temp_dir().join(format!("astarot-shared-applications-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let manifest = dir.join("astarot.vrmanifest");
+        let app = r#"{"applications": [{"app_key": "io.github.kein5.astarot", "binary_path_windows": "astarot.exe"}]}"#;
+        std::fs::write(&manifest, app).unwrap();
+        let fake = FakeVr::running();
+        let shared = SharedVr::new(Arc::new(fake.clone()));
+        let mut session = shared.connect().unwrap();
+        let key = "io.github.kein5.astarot";
+        assert_eq!(session.application_binary(key), Ok(None));
+        session.add_application_manifest(&manifest).unwrap();
+        let binary = dir.join("astarot.exe").to_string_lossy().into_owned();
+        assert_eq!(session.application_binary(key), Ok(Some(binary)));
+        assert_eq!(session.auto_launch(key), Ok(false));
+        session.set_auto_launch(key, true).unwrap();
+        assert_eq!(session.auto_launch(key), Ok(true));
+        session.remove_application_manifest(&manifest).unwrap();
+        assert_eq!(session.application_binary(key), Ok(None));
+        // A refusal of SteamVR reaches the holder as it came.
+        fake.with(|s| s.refuse_applications = Some(105));
+        assert_eq!(session.set_auto_launch(key, false), Err(ApplicationError(105)));
+        assert_eq!(session.add_application_manifest(&manifest), Err(ApplicationError(105)));
+        assert_eq!(session.remove_application_manifest(&manifest), Err(ApplicationError(105)));
+        assert_eq!(fake.with(|s| s.connects), 1, "one connection for every call");
+        drop(session);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn the_controllers_come_through_the_shared_connection() {
         let fake = FakeVr::running();
         let held = ControllerState { pressed: crate::runtime::TRIGGER_MASK, axis: (0.0, 0.5) };

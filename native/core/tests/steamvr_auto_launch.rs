@@ -150,8 +150,9 @@ fn a_refused_change_answers_what_steamvr_holds_after_it() {
     });
     assert_eq!(error_code(&run.ui.request("/set/disable/steamvr_auto_launch", None)), "STEAMVR_AUTO_LAUNCH_FAILED");
     assert_eq!(run.fake.with(|s| s.sessions_open), 0);
-    // The paths of the install never reach the log.
+    // The log says what could not be done, with SteamVR's error number and never the paths.
     let log = std::fs::read_to_string(run.ui.dir.join("logs").join("process.log")).unwrap_or_default();
+    assert!(log.contains("SteamVR auto-launch: could not change"), "{log}");
     let folder = run.install.as_ref().unwrap().manifest.parent().unwrap().to_string_lossy().into_owned();
     assert!(!log.contains(&folder), "{log}");
     run.ui.stop();
