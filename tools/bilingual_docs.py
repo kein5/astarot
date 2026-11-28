@@ -96,7 +96,6 @@ PENDING_SKILLS = (
 
     "skills/release-notes/SKILL.md",
 
-    "skills/testing/SKILL.md",
 )
 
 # Sections that exist only in the Japanese version. Each is left out of the comparison until its

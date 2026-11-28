@@ -1,9 +1,97 @@
 ---
 name: testing
-description: ASTAROTの試験を書き、流し、節目で変異テストを回す手順。変更に合う試験の層（UIのVitest、Rustのクレートと中核、Playwrightの結合テスト、契約、配布の道具のpytestとunittest、実機の受け入れ試験）の選び方、揺らがない試験の書き方（出来事を待つ、時刻を渡す、外のサービスやマイクやモデルを使わない、落ちたときに状態を出す）、checkのスコープの選び方、変更した部分の変異テストと正式版の前の全体の変異テスト（#550）の運用と結果の残し方を扱う。試験を書く、直す、どの検査を流すか決める、変異テストを回す、その結果を読むときに使う。Use when writing or fixing tests in ASTAROT, choosing which checks to run, or running and reporting mutation testing.
+description: Steps for writing and running ASTAROT's tests and for mutation testing at milestones. Covers the test layer for a change (UI Vitest, Rust crates and the core, Playwright integration tests, contracts, pytest and unittest for packaging and tools, acceptance tests on a real machine), tests that do not flake (wait for events, pass the time in, no external services, microphones or models, show the state on failure), check scopes, and mutation testing of changed code and of everything before a stable release (#550) and keeping its results. Use when writing or fixing tests, choosing checks to run, running mutation testing or reading and reporting its results. ASTAROTの試験を書き、流し、節目で変異テストを回す手順。変更に合う試験の層（UIのVitest、Rustのクレートと中核、Playwrightの結合テスト、契約、配布の道具のpytestとunittest、実機の受け入れ試験）の選び方、揺らがない試験の書き方（出来事を待つ、時刻を渡す、外のサービスやマイクやモデルを使わない、落ちたときに状態を出す）、checkのスコープの選び方、変更した部分の変異テストと正式版の前の全体の変異テスト（#550）の運用と結果の残し方を扱う。試験を書く、直す、どの検査を流すか決める、変異テストを回す、その結果を読むときに使う。
 ---
 
-# 試験を書いて回す
+# Writing and running tests
+
+[日本語版](#試験を書いて回す日本語版)
+
+The authority on the test tools, the commands and the details to watch in mutation testing is [the development guide](../../docs/development.md): "Choosing what to check", "UI tests (Vitest)", "Integration tests (Playwright)", "Mutation testing for the UI", "Rust coverage and mutation testing" and "When to run mutation testing". This skill covers only the order and the rules for writing and running tests. Narrowing down a failure in CI is in the [ci-triage skill](../ci-triage/SKILL.md), and tests on a real machine are in the [e2e skill](../e2e/SKILL.md).
+
+## 1. Choose the test layer
+
+Write the test in the smallest layer that fits what you want to check.
+
+| What you want to check | Layer and location | Scope to run |
+|---|---|---|
+| UI logic (computing values, state, choosing text) | Vitest. `*.test.ts` in `src-ui`. The environment is Node, with no DOM | `node`, `ui` |
+| Pure logic in a Rust crate | The crate's unit tests. Check boundaries with proptest too | `rust` |
+| Behavior of the core (settings, audio routes, stop and mute) | The integration tests in `native/core/tests`. Use the fake `Services` (`native/core/tests/common`) | `rust` |
+| From the UI through the core and out of the app | The Playwright integration tests (`tests/integration/`, [ADR-017](../../docs/adr/adr-017-integration-tests-through-the-core.md)). Both Chromium and WebKit | `integration` |
+| Promises that must not change | Write the test in one of the layers above, and name it in the promise's row in `docs/spec/contracts.md` | The layer the test is in |
+| The release package, model downloads, audio contracts | pytest (`tests/voice/`, `tests/voice/pytest.ini`) | `voice` |
+| Development tools (`tools/`) | unittest (`tests/devtools/`, the standard library only) | `tooling` |
+| Starting in the form of the release package, VR, VRChat | Acceptance tests on a real machine (`tests/platform/`, `tools/native_acceptance.py`). Most are skipped in CI | The e2e skill |
+
+- Do not check the core's behavior with UI tests alone. Write the core's promises in the core's tests, and let the UI tests check what the UI is responsible for.
+- Check VR handling with the fake SteamVR (`runtime::fake::FakeVr` in `native/vr-overlay`).
+- Even when the tests in `tests/platform/` are skipped in CI, `tests/devtools/test_platform_imports.py` finds broken imports in them. If you delete or rename a helper, fix the tests that call it in the same pull request.
+
+## 2. Write tests that do not flake
+
+The rules below come from the fixes for #861, which looked into flaky CI runs (#967, #989), and from how the tests have been built so far.
+
+- **Wait for events.** Do not sleep for a fixed number of seconds and then compare counts. Decide what to wait for (a window was created, a caption finished drawing, a session closed), and wait for it with a time limit. Make the limit long enough for a slow runner (a cold Windows runner).
+- **Show the state on failure.** When a wait times out, print what it was waiting for and what the state was at that moment (`common::net::eventually_or` in the core's tests). For a test that failed once in CI, the cause cannot be narrowed down without this output.
+- **Pass the time in.** Write code that depends on the time so that the time can be passed in from outside, and advance it from the test. In Vitest, use `vi.useFakeTimers({ toFake: [...] })` and `vi.advanceTimersByTime(ms)`.
+- **Use nothing external.** Do not use external services, a real microphone, inference models or the GPU in tests. Replace external services with fakes (`standIns.ts` in the integration tests, the core's fake `Services`), and check what reached them. `check` does not start the microphone, speech output or GPU inference.
+- **Inject failures.** Check failures partway through saving or starting with fakes that can fail on demand (`MemoryStore` for storing keys, a fake worker and so on).
+- **Give each test its own place.** Create the settings folder, temporary files and ports for each test, and do not share them between tests.
+- **Check so that a difference in values shows.** Check the resulting values, not that the code ran. Mutants that mutation testing leaves undetected mark places where values are not checked (see 4).
+
+The details of writing UI tests and Rust tests (stand-ins for `loadModule`, `onTestFinished`, adding answers to `tauriStandIns.ts`, how to write proptest properties) are in the sections of the development guide.
+
+## 3. Run
+
+1. Run the scopes that match what you changed. Which scope goes with which change is in the table in "Entry points for development and verification" in [AGENTS.md](../../AGENTS.md).
+
+   ```sh
+   python tools/dev.py check                  # light checks (tooling, node, lint)
+   python tools/dev.py check --scope ui       # UI tests, lint, types, build
+   python tools/dev.py check --scope rust     # Rust crates (NATIVE_CRATES)
+   python tools/dev.py check --scope voice    # release package and audio contracts
+   python tools/dev.py check --scope integration
+   ```
+
+2. When you write a new test, confirm once that it fails on the code before the fix. Running it with the fix taken out shows whether the test looks at what you fixed.
+3. Check a test you suspect of flaking by running it many times in a row with a workflow on a temporary branch (the record in #861). Do not merge the temporary branch.
+4. CI does not retry failed tests (#1028). Do not hide a flaky test by adding retries. Record it in issue #1073 by the steps of the ci-triage skill, and fix it.
+
+## 4. Run mutation testing (#550)
+
+Mutation testing puts small changes into the source and checks whether any test fails. It does not run in CI; you run it by hand.
+
+**In a pull request with changes**
+
+- For a pull request that changes UI logic (`src-ui/logics`, `src-ui/views`) or the `src/` of a Rust crate, running `mise run mutation:changed` is recommended. It is not required.
+
+  ```sh
+  mise run mutation:changed -- --base astarot/develop   # when you fetch develop from a remote with another name
+  mise run mutation:changed -- --dry-run                # only show what would run
+  ```
+
+- If you run it, write the numbers of Survived and NoCoverage mutants, and whether you read each one, in the "Verification" section of the pull request description. If you do not run it, write why (the pull-request skill).
+- For each mutant that is left, read the code and decide whether a test is missing or the mutant is equivalent, that is, no input changes the result. If it is equivalent on the UI side, record it with a reason using `npx mutator accept <key> --reason "<reason>"`, and commit `mutator.accepted.json`.
+
+**At milestones (before a stable release)**
+
+- Before a stable release, run the whole UI side and the whole list of main Rust crates (the release skill). Do not run it for betas. The commands and the list of crates are in the table in "When to run mutation testing" in the development guide. To change the list, edit that table.
+- It takes a long time (40 minutes to two and a half hours locally for the UI side), so run it detached from the terminal.
+- Comment the results on the record issue. For now this is #550; after #550 is closed, open a record issue for each milestone. Do not write the results in the repository's documents. The figures change with the measurement conditions (version, parallelism, hardware), and in a document they are easily read as a guarantee of quality.
+- Give the target range and the measurement conditions (version, parallelism, hardware) in the report, and do not present the score as a guarantee of quality.
+
+**Easy to get wrong**
+
+- On the UI side, add `--full-dry-run` when you do a full run after a run narrowed with `--include`, and when you narrow to a range that differs from the previous run. Without it, even mutations in files whose tests pass can become NoCoverage.
+- Run the UI side with `npm run test:mutation` (`vitest.mutator.config.js`). With another configuration, the cache makes the score drop to near 0%. Do not run two at the same time in one working tree.
+- When you run Rust in parallel with `-j`, do not set `CARGO_TARGET_DIR`. Run `native/core` one mutant at a time with `--in-place`, and do not edit that crate's files while it runs.
+- Run crates that use proptest with `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1`.
+- With `-- --lib`, only the unit tests run, so also state in the report which kinds of tests ran.
+
+---
+
+# 試験を書いて回す（日本語版）
 
 試験の道具、コマンド、変異テストの細かい注意の正本は[開発の手順](../../docs/development.md)の「Choosing what to check」「UI tests (Vitest)」「Integration tests (Playwright)」「Mutation testing for the UI」「Rust coverage and mutation testing」「When to run mutation testing」です。このスキルには試験を書いて回すときの順序と決まりだけを書きます。CIで落ちたときの切り分けは[ci-triageスキル](../ci-triage/SKILL.md)、実機の試験は[e2eスキル](../e2e/SKILL.md)にあります。
 
