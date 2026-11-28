@@ -1,6 +1,6 @@
 import { style } from "@vanilla-extract/css";
 import { vars } from "../../../../theme/vars.css.ts";
-import { MAIN_SECTION_CONTAINER, NARROW_COLUMN } from "../../layout.ts";
+import { MAIN_SECTION_CONTAINER, NARROW_COLUMN, TINY_STOP_COLUMN } from "../../layout.ts";
 
 // This bar has no room for the long words. A narrow conversation column draws the
 // shortest ones; the accessible name and the tooltip stay the full words. The
@@ -8,6 +8,10 @@ import { MAIN_SECTION_CONTAINER, NARROW_COLUMN } from "../../layout.ts";
 // leaves less room than an 800px one beside the icon rail. 64rem holds the English
 // short words with the quick settings and the inputs and outputs buttons.
 const NARROW = `${MAIN_SECTION_CONTAINER} (max-width: ${NARROW_COLUMN})`;
+// The stop and mute's own, narrower threshold (#1314, M-9): at the default window size the column is
+// 63rem, and "Stop" alone read as stopping everything, captions included. Mute's "Muted" badge goes
+// with them, so a muted bar still says so in words wherever the stop has room for its words.
+const TINY_STOP = `${MAIN_SECTION_CONTAINER} (max-width: ${TINY_STOP_COLUMN})`;
 
 export const container = style({
     minHeight: vars.main_page_topbar_height,
@@ -70,18 +74,19 @@ export const muted_badge = style({
     color: vars.dark_1000_color,
     background: vars.vox_state_warning,
     // The pressed colour and the word already say "muted".
-    "@container": { [NARROW]: { display: "none" } },
+    "@container": { [TINY_STOP]: { display: "none" } },
 });
-// The words of three lengths: this bar draws the short ones, and the tiny ones in a narrow column.
+// The words of three lengths: this bar draws the short ones, and the tiny ones in a column narrower than
+// TINY_STOP_COLUMN (#1314).
 // The long ones are for bars with more room.
 // Their digits are as wide as each other, so a queue count keeps the room its words keep (#912).
 export const long = style({ display: "none" });
 export const tiny = style({
     fontVariantNumeric: "tabular-nums",
     display: "none",
-    "@container": { [NARROW]: { display: "inline" } },
+    "@container": { [TINY_STOP]: { display: "inline" } },
 });
 export const short = style({
     fontVariantNumeric: "tabular-nums",
-    "@container": { [NARROW]: { display: "none" } },
+    "@container": { [TINY_STOP]: { display: "none" } },
 });
