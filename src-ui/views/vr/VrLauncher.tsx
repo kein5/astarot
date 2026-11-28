@@ -7,6 +7,7 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import { useMainFunction } from "@logics_main";
 import { useStore_MicCaptureWaiting, useStore_SwitchBlocks } from "@store";
 import { activeSwitchBlock } from "../../logics/main/switchBlocks";
+import { micWaitSystem } from "../../logics/transcription/micCaptureWait";
 import type { SwitchBlock, SwitchBlockId, SwitchStatus } from "../../logics/main/switchBlocks";
 import TranslationSvg from "@images/translation.svg?react";
 import MicSvg from "@images/mic.svg?react";
@@ -106,7 +107,9 @@ interface FunctionButtonProps {
 // and says in its tooltip what is missing and where on the PC to provide it. That tooltip shows
 // even when the tooltips are turned off: there is nowhere else in VR to read it. So does the hint
 // of a switch whose device waits to open, as Windows' microphone question on the desktop holds
-// it (#1300, decided on 2026-11-28); the switch stays as it is, and can be turned off.
+// it (#1300, decided on 2026-11-28); the switch stays as it is, and can be turned off. That hint is
+// the panel's own short text (#1314, V-1): a tooltip taller than 104 px is never shown, so every
+// help text here fits two lines (VrTooltipText.test.ts).
 const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked, waiting = false }: FunctionButtonProps) => {
     const { t } = useI18n();
     const is_pending = state.state === "pending";
@@ -122,7 +125,7 @@ const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked, wa
     })} aria-label={name} aria-pressed={state.data === true} aria-disabled={is_pending || is_locked || is_blocked || undefined}
         aria-busy={is_pending || undefined} tipTitle={label} tipState={status} tipForce={is_blocked || is_waiting}
         tipHelp={is_locked ? t("vr_panel.locked_by_config_page") : block && is_blocked ? t(`vr_panel.switch_blocked.${block.reason}`) :
-            is_waiting ? t("realtime.mic_permission_wait") :
+            is_waiting ? (micWaitSystem() === "windows" ? t("vr_panel.mic_wait.windows") : t("vr_panel.mic_wait.linux")) :
             is_pending ? t("vr_panel.tooltip.busy_help") : t(`vr_panel.tooltip.${state.data === true ? "disable" : "enable"}`)}
         onClick={() => { if (!is_pending && !is_locked && !is_blocked) onClick(); }}>
         <Svg className={styles.icon} aria-hidden="true" />

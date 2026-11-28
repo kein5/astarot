@@ -1438,6 +1438,11 @@ vr_panel:
         asr_models: "No speech recognition models. Download them in PC settings → ASR."
         ocr_models: "No chat reading models yet. Download them in PC settings → OCR."
         ocr_language: "Chat reading does not support this language. Change it in PC settings → OCR."
+    # #1314 (V-1): the microphone button's tooltip while its open waits (#1300). A tooltip taller than
+    # 104 px is never shown in VR, so each of these fits two lines (VrTooltipText.test.ts).
+    mic_wait:
+        windows: "Waiting for microphone permission. Allow it on the desktop."
+        linux: "Waiting for the microphone to open. Check its connection and other apps."
     log_opacity: "Log opacity"
     mic_threshold: "Mic sensitivity"
     speaker_threshold: "Speaker sensitivity"
@@ -1481,7 +1486,7 @@ vr_panel:
         font_limit: "Text size range: 14–28"
         font_current: "Current: {{size}} (original)"
         font_help: "Translation size changes with it"
-        opacity_help: "How much of the log's background shows. The text stays as it is. Each press: 100 → 80 → 60 → 40% → 100%"
+        opacity_help: "Only the background changes. Each press: 100 → 80 → 60 → 40 → 100%"
     settings:
         processing: "Processing settings"
         changing: "Applying changes…"
@@ -1578,7 +1583,10 @@ realtime:
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
   # #1300: Mic input's microphone has taken 3 s to open, as when Windows asks on the desktop.
-  mic_permission_wait: "The microphone has not opened yet. Windows may be asking on the desktop whether ASTAROT may use the microphone. Allow it there, and the captions start."
+  # #1314 (M-4): only Windows asks there. On Linux the device, or another app holding it, keeps it closed.
+  mic_wait:
+    windows: "The microphone has not opened yet. Windows may be asking on the desktop whether ASTAROT may use the microphone. Allow it there, and the captions start."
+    linux: "The microphone has not opened yet. Check that it is connected and that no other app is holding it. The captions start once it opens."
   save_help: "Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
   auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. If other players speak languages other than Japanese, use such a model for Listening. On the bundled ASR server, choose it under \"Listening's model\" in \"On your PC (speech.cpp)\"; Mic input keeps its own."
