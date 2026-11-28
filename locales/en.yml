@@ -1718,7 +1718,7 @@ source_models:
   mic: "Mic input's model"
   help: "Choose from the speech recognition models on your PC. Get more from the catalog under \"Models and servers\" below."
   none_on_pc: "No speech recognition model is on your PC yet."
-  running: "The models cannot change while the ASR server runs. Stop it under \"Models and servers\" first."
+  running: "The models cannot change while an ASR server runs. Turn Mic input and Listening off to stop it."
   unset: "Not set"
 
 realtime_toggle:
@@ -1746,7 +1746,7 @@ realtime_toggle:
   speech_server_out_of_memory: "Not enough memory to load the ASR model. Stop other GPU applications or select CPU in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, and turn this on again."
   realtime_asr_models_do_not_fit: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Turn Mic input off, or choose \"Same as Mic input\" under \"Listening's model\" in Settings → Speech recognition (ASR), then turn this on again."
   speech_server_start_timeout: "The ASR model took too long to load. Choose another inference device in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
-  speech_server_not_ready: "The bundled ASR server is not running. Start it in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then turn this on again."
+  speech_server_not_ready: "The bundled ASR server is not running. Turn this on again to start it."
   realtime_models_unavailable: "The ASR server did not answer. If you use an external server, make sure it is running and that \"ASR server URL\" in Settings → Speech recognition (ASR) is correct."
   realtime_model_required: "No ASR model is selected. In Settings → Speech recognition (ASR) → Realtime captions, select one."
   realtime_model_unavailable: "The selected ASR model is not loaded on the server. In Settings → Speech recognition (ASR) → Realtime captions, refresh the models and select an available one."
@@ -1781,7 +1781,7 @@ recognition_fix:
   share_body: "Listening's own speech recognition model does not fit in the GPU memory beside Mic input's. Listening can use Mic input's model too, or you can turn Mic input off and turn Listening on again."
   use_shared: "Use {{model}} for Listening too and turn on"
   mic_model: "the Mic input model"
-  server_running: "The new model is downloaded, but it cannot be set while the bundled ASR server is running. Stop the ASR server in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD, then apply the model there."
+  server_running: "The new model is downloaded, but it cannot be set while the bundled ASR server is running. Turn Mic input and Listening off, then choose it under Settings → Speech recognition (ASR) → \"Mic input's model\" or \"Listening's model\"."
 
 speech_servers:
     # The closed fold of a server group with the paths of a model of one's own (#1266).
@@ -1790,7 +1790,7 @@ speech_servers:
     model_set: "Model set"
     model_unset: "No model set"
     title: "Bundled speech.cpp servers"
-    help: "Choose existing GGUF files you have permission to use. Saving does not load models; start each server when needed. ASR needs a VAD model. An optional voice file is registered as custom. Stopping a TTS server clears the shared speech queue; stopping ASR ends its captions. Servers stay off after restarting the app."
+    help: "Choose existing GGUF files you have permission to use. Saving does not load models; a server starts when a feature needs it. ASR needs a VAD model. An optional voice file is registered as custom. Stopping a TTS server clears the shared speech queue. Servers stay off after restarting the app."
     japanese: "Japanese TTS"
     multilingual: "Multilingual TTS"
     asr: "ASR + VAD"

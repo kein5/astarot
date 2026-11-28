@@ -153,7 +153,7 @@ test("each server group offers the default models first and keeps the paths of o
     assert.equal(all(s.tree, node => node.type === "custom-model").length, 2);
 });
 
-test("start, stop and reload are the kit's primary, quiet and plain buttons and wait as before", async () => {
+test("a TTS server's start, stop and reload are the kit's primary, quiet and plain buttons and wait as before", async () => {
     const stopped = { japanese: { state: "stopped", generation: 7 }, asr: { state: "stopped", generation: 8 } };
     const s = await server({ state: stopped });
     const [start] = s.named("speech_servers.start"), [stop] = s.named("speech_servers.stop"), [reload] = s.named("speech_servers.reload");
@@ -175,10 +175,8 @@ test("start, stop and reload are the kit's primary, quiet and plain buttons and 
         const h = await server({ ...held, state: stopped });
         assert.deepEqual([h.named("speech_servers.start")[0].props.disabled, h.named("speech_servers.reload")[0].props.disabled], [true, true], JSON.stringify(held));
     }
-    // No model, or for speech recognition no VAD model, or a cleanup not confirmed: no start.
+    // No model, or a cleanup not confirmed: no start.
     assert.equal((await server({ state: stopped, model: " " })).named("speech_servers.start")[0].props.disabled, true);
-    const noVad = (await server({ state: stopped, vad: "" })).named("speech_servers.start");
-    assert.deepEqual(noVad.map(button => button.props.disabled), [false, true]);
     const cleanup = { ...stopped, japanese: { ...stopped.japanese, error_code: "speech_server_cleanup_unconfirmed" } };
     assert.equal((await server({ state: cleanup })).named("speech_servers.start")[0].props.disabled, true);
 });
@@ -216,7 +214,8 @@ test("the state of the ASR + VAD row shows each recognition server it runs", asy
     const asrGroup = all(failed.tree, node => node.type === "fieldset")[1];
     const parts = all(asrGroup, node => node.type === "readout" || node.props?.role === "alert")
         .map(node => node.type === "readout" ? "readout" : node.props.children);
-    assert.deepEqual(parts, ["readout", "readout", "speech_servers.errors.speech_server_out_of_memory"]);
+    // In its switch's words, which turn the switch on again, before the server's own (#1396).
+    assert.deepEqual(parts, ["readout", "readout", ["realtime_toggle.speech_server_out_of_memory", "speech_servers.errors.speech_server_out_of_memory"]]);
     assert.equal(findIn(failed.tree, node => node.type === "setup").props.attention, true);
 
     for (const shared of ["", "m.gguf"]) {
@@ -238,4 +237,27 @@ test("the state of the ASR + VAD row shows each recognition server it runs", asy
         ["speech_servers.state_ready", "speech_servers.low_latency_ready", "speech_servers.notices.speech_server_cpu_fallback"]);
     assert.deepEqual(all(japanese, node => node.props?.role === "alert").map(node => node.props.children), ["speech_servers.low_latency_failed"]);
     assert.equal(standby.attention, true);
+});
+
+// #1396 (decided on 2026-11-28): the main switches start and stop the speech recognition servers,
+// and nothing else does. The ASR + VAD row has no Start or Stop, whatever its servers do; the TTS
+// rows keep theirs, as before. Reload stays for the whole fold.
+test("the ASR + VAD row has no start or stop; the TTS row keeps them", async () => {
+    const states = [{ japanese: { state: "stopped", generation: 7 }, asr: { state: "stopped", generation: 8 } },
+        { japanese: { state: "stopped", generation: 7 }, asr: { state: "ready", generation: 9 }, asr_listening: { state: "failed", generation: 3 } }];
+    for (const state of states) {
+        for (const listening of ["", "l.gguf"]) {
+            const s = await server({ state, listening });
+            const groups = all(s.tree, node => node.type === "fieldset");
+            const named = (group: TreeNode) => all(group, node => node.type === kitStandIns.Button).map(node => node.props.children);
+            assert.deepEqual([named(groups[0]), named(groups[1])], [["speech_servers.start", "speech_servers.stop"], []], JSON.stringify({ state, listening }));
+            assert.deepEqual(s.named("speech_servers.reload").length, 1);
+        }
+    }
+    // A TTS server's failure keeps the server's own words; its stop waits while it stops.
+    const tts = await server({ state: { japanese: { state: "failed", generation: 7, error_code: "speech_server_exited" }, asr: { state: "stopped", generation: 8 } } });
+    const japanese = all(tts.tree, node => node.type === "fieldset")[0];
+    assert.deepEqual(all(japanese, node => node.props?.role === "alert").map(node => node.props.children), [["speech_servers.errors.speech_server_exited"]]);
+    const stopping = await server({ state: { japanese: { state: "stopping", generation: 7 }, asr: { state: "stopped", generation: 8 } } });
+    assert.equal(stopping.named("speech_servers.stop")[0].props.disabled, true);
 });

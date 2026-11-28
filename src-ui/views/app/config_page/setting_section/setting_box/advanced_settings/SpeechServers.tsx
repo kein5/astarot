@@ -120,7 +120,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
         {draft && <form {...form.groupProps} aria-busy={saving} onSubmit={event => { event.preventDefault(); form.commit(); }}>
             {profiles.map(name => {
                 const row = draft.profiles[name], owner = state[name], saved = savedSettings(settings).profiles;
-                const servers = shown(name);
+                const servers = shown(name), recognizes = name === "asr";
                 // A server that runs or prepares keeps its settings; Listening's own runs the asr row's
                 // too. A save that waits does not turn the fields off, so focus stays where it was; a
                 // download waits for it (busy).
@@ -179,13 +179,15 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                     {name === "japanese" && <HintCheck className={styles.checkLabel} label={t("speech_servers.low_latency")}
                         description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
                         checked={!!row.low_latency} disabled={locked} onChange={event => field(name, "low_latency", event.target.checked)} />}
-                    {/* The server's buttons sit in the control column, under its fields (#473). */}
-                    <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy || !row.model.trim() ||
-                        (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}
+                    {/* The server's buttons sit in the control column, under its fields (#473). The speech
+                        recognition servers have none: the main switches start and stop them (#1396, decided on
+                        2026-11-28), and a server that hangs is started again by turning its switch off and on. */}
+                    {!recognizes && <div className={`${styles.actions} ${styles.control_column}`}><Button tone="primary" disabled={dirty || saving || busy ||
+                        !row.model.trim() || owner?.error_code === "speech_server_cleanup_unconfirmed"}
                         onClick={() => send("/run/start_speech_server", { profile: name, generation: owner?.generation })}>{t("speech_servers.start")}</Button>
                     {/* Nothing to stop while the server is stopped (#473). A start still on its way can be stopped. */}
                     <Button tone="quiet" disabled={!pending[name] && (!owner || ["stopped", "stopping"].includes(owner.state))}
-                        onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>
+                        onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</Button></div>}
                     {/* One readout for each server of the row, each with its own state and, under it, its
                         own failure (#1396). */}
                     {servers.map(server => {
@@ -199,8 +201,11 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"], 
                             </EnvReadout>
                             {!!run?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
                             {/* The message says what to do; the code stays for reports. */}
-                            {/* In the screen's words, never the raw code (#1266); a code without words says itself. */}
-                            {run?.error_code && <p role="alert">{t(`speech_servers.errors.${run.error_code}`, { defaultValue: "" }) || run.error_code}</p>}
+                            {/* In the screen's words, never the raw code (#1266); a code without words says itself.
+                                A speech recognition server's failure is said in its switch's words, which turn the
+                                switch on again, since nothing here starts it (#1396). */}
+                            {run?.error_code && <p role="alert">{t([...(recognizes ? [`realtime_toggle.${run.error_code}`] : []),
+                                `speech_servers.errors.${run.error_code}`], { defaultValue: "" }) || run.error_code}</p>}
                         </Fragment>;
                     })}
                 </fieldset>;
