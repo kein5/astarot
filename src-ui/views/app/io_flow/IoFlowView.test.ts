@@ -117,6 +117,23 @@ test("outputs a lane does not use are listed by lane and reason, but not in VR o
     assert.equal(classed(h.render({ flow: { ...sample.flow, voice: used(sample.flow.voice), chat: used(sample.flow.chat) }, traces: [] }), "unused"), null);
 });
 
+// #1314 (M-6): which microphone and which output the running captions record, above the graph; not in VR.
+test("the devices the running captions record are named above the graph, but not in VR", async () => {
+    const h = await setup();
+    const list = classed(h.render({ flow: sample.flow, traces: [], devices: { mic: "USB Mic", speaker: "Speakers" } }), "devices");
+    assert.ok(list);
+    assert.equal(list.props["aria-label"], "io_flow.devices");
+    assert.deepEqual((list.props.children as TreeNode[]).map(item => item.props.children), [
+        'io_flow.device:{"name":"main_page.transcription_send","device":"USB Mic"}',
+        'io_flow.device:{"name":"main_page.transcription_receive","device":"Speakers"}',
+    ]);
+    const one = classed(h.render({ flow: sample.flow, traces: [], devices: { mic: null, speaker: "Speakers" } }), "devices");
+    assert.ok(one);
+    assert.equal((one.props.children as TreeNode[]).length, 1);
+    assert.equal(classed(h.render({ flow: sample.flow, traces: [], devices: { mic: null, speaker: null } }), "devices"), null);
+    assert.equal(classed(h.render({ flow: sample.flow, traces: [], devices: { mic: "USB Mic", speaker: null }, compact: true }), "devices"), null);
+});
+
 test("each lane's latest message is shown beside the other's; VR shows only the newest input", async () => {
     const h = await setup();
     const pair = classed(h.render({ flow: sample.flow, traces: sample.traces }), "latest_pair");

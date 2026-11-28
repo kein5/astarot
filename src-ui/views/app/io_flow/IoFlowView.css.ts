@@ -1,5 +1,6 @@
 import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../theme/vars.css.ts";
+import { FLOW_FRAME } from "./FlowGraph.css.ts";
 
 // The flow panel: the graph, the outputs not in use, and the latest times of each input.
 export const view = style({ display: "flex", flexDirection: "column", gap: "1.2rem", fontSize: "1.3rem", color: vars.dark_200_color });
@@ -13,7 +14,13 @@ export const origin = style(quiet);
 export const live = style({ ...quiet, fontVariantNumeric: "tabular-nums" });
 
 // A narrow window scrolls the graph sideways instead of squeezing its boxes.
-export const graph_scroll = style({ overflowX: "auto" });
+// The graph's frame: narrower than the graph's wide columns, the graph takes its narrow ones
+// instead of running past the frame (#1314, M-7; FlowGraph.css.ts).
+export const graph_scroll = style({ overflowX: "auto", containerType: "inline-size", containerName: FLOW_FRAME });
+
+// The devices the running captions record (#1314, M-6): one short line each, above the graph.
+export const devices = style({ display: "flex", flexWrap: "wrap", gap: ".2rem 1.6rem", margin: 0, padding: 0, listStyle: "none",
+    fontSize: "1.2rem", color: vars.vox_description_text, overflowWrap: "anywhere" });
 
 // Side by side when the panel is wide, so the list ends higher up and the panel opened at
 // 1200 x 850 shows it to its last row (#475); one column in a narrow panel.

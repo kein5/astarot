@@ -15,6 +15,12 @@ export const off = style({});
 export const direct = style({});
 export const lit = style({});
 
+// The container the graph is drawn in (IoFlowView.css.ts graph_scroll).
+export const FLOW_FRAME = "io_flow_frame";
+// The narrow columns, which the graph takes in a frame narrower than its wide ones (#1314, M-7: the
+// default window's panel is 56.4rem, the wide columns 65.8rem) and in VR, which cannot scroll.
+const NARROW_COLUMNS = "minmax(6rem, .8fr) minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(12.5rem, 1.3fr) minmax(12rem, 1.6fr)";
+
 export const graph = style({
     vars: {
         "--lane_voice": "#58b0ee", "--lane_chat": "#a58cf0", "--lane_speech": "#e0a656", "--conversion": "#f08cc2",
@@ -23,12 +29,13 @@ export const graph = style({
     position: "relative", display: "grid", minWidth: "60rem",
     gridTemplateColumns: "minmax(8rem, 1fr) minmax(9rem, 1.1fr) minmax(10rem, 1.2fr) minmax(10rem, 1.2fr) minmax(16rem, 1.8fr)",
     gridTemplateRows: "repeat(6, auto)", gap: ".6rem 3.2rem", padding: ".4rem 0",
+    "@container": { [`${FLOW_FRAME} (max-width: 65.8rem)`]: { minWidth: 0, gap: ".6rem 1.6rem", gridTemplateColumns: NARROW_COLUMNS } },
 });
 
 // VR cannot scroll: narrower columns, and the boxes keep their names and times only.
 export const compact = style({
     minWidth: 0, gap: ".4rem 1.6rem",
-    gridTemplateColumns: "minmax(6rem, .8fr) minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(12.5rem, 1.3fr) minmax(12rem, 1.6fr)",
+    gridTemplateColumns: NARROW_COLUMNS,
 });
 
 export const edges = style({ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", pointerEvents: "none", zIndex: 0 });
