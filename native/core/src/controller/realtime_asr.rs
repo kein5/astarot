@@ -731,7 +731,12 @@ impl Core {
     /// Listening's own server (#1242) that fails for memory while Mic input's runs is refused with
     /// `realtime_asr_models_do_not_fit` (decided on 2026-11-27): the two models do not fit
     /// together, and nothing changes without the user, who may use one model for both.
+    ///
+    /// A start is stale too once the run is shutting down (#1340): Mic input's switch waits here
+    /// holding the talk lock, which [`Core::shutdown`] takes before it closes realtime
+    /// recognition, so the wait must not outlast the shutdown's start.
     fn ensure_asr_server(&self, profile: Profile, start: bool, current: &dyn Fn() -> bool) -> Option<String> {
+        let current = || current() && !self.shutdown_requested();
         if !current() {
             return Some("realtime_stale_start".into());
         }
