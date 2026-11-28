@@ -85,7 +85,6 @@ PENDING_SKILLS = (
 
 
 
-    "skills/pull-request/SKILL.md",
 
 
     "skills/release/SKILL.md",
